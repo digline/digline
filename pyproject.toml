@@ -1,0 +1,97 @@
+[project]
+name = "digline"
+version = "0.1.0"
+description = "Python-native evaluation engine for LLM output. The verdict lives in your repo."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
+]
+keywords = ["llm", "evaluation", "eval", "assertions", "baseline", "regression", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    # The core's only runtime dependency. See docs/adr/0001: an incomplete
+    # in-house validator would be a vacuously green assertion.
+    "jsonschema>=4.21",
+]
+
+[project.urls]
+Homepage = "https://digline.dev"
+Documentation = "https://github.com/digline/digline/blob/main/docs/api.md"
+Repository = "https://github.com/digline/digline"
+Issues = "https://github.com/digline/digline/issues"
+Changelog = "https://github.com/digline/digline/blob/main/docs/frictions/frictions.md"
+
+[project.scripts]
+digline = "digline.cli.main:main"
+
+# A dependency group, not an extra: `uv sync` installs it by default, so a
+# fresh clone can run the gates without anyone having to know a flag.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/digline"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/digline/py.typed" = "digline/py.typed"
+
+# The sdist carries what makes the wheel reproducible and reviewable: the
+# sources, the tests that gate them, the ADRs the decisions live in.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/examples",
+    "/README.md",
+    "/CLAUDE.md",
+    "/LICENSE",
+]
+exclude = [
+    "/docs/screenshots/*.png",
+    "/docs/screenshots/**/*.png",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `.` so `tests` is importable as a package (`tests._helpers`) whatever the
+# working directory; `src` so the sources are importable without an install.
+pythonpath = [".", "src"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests", "examples/quickstart"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src", "tests", "examples"]
+extraPaths = ["examples/quickstart"]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"

@@ -1,0 +1,38 @@
+# Python bytecode and build output
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Environment. Recreated by `uv sync`; it pins absolute paths, so it must
+# never be committed.
+.venv/
+.env
+
+# Tool caches. Each already drops its own `.gitignore`; listed here so a
+# fresh clone is clean before the tools have run once.
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# IDE. Excluded because the project files carry machine-specific SDK paths
+# (`digline.iml` names the interpreter by absolute path). Drop these two lines
+# to version the shared part, and keep ignoring `.idea/workspace.xml`.
+.idea/
+*.iml
+
+# Local Claude Code settings. `.claude/settings.json`, if it appears, is shared
+# and stays versioned.
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Working material that stays local and is not part of the package.
+private/
+
+# NOT ignored: `.digline/`. Decision 2 — baselines are versioned, run
+# artifacts are not — and the split is enforced one level down, by the
+# `.gitignore` the store itself writes into `.digline/` (`*/runs/`).
+# Ignoring `.digline/` here would take the baselines out of git with it.
