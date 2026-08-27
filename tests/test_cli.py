@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -22,10 +23,13 @@ from digline.cli import (
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
+    build_parser,
     exit_code,
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.report import Headline
+
+ROOT = Path(__file__).resolve().parents[1]
 
 # --------------------------------------------------------------------------- #
 # exit codes
@@ -1007,3 +1011,39 @@ def test_the_baseline_is_migrated_too(repo: Path) -> None:
     assert cli(repo, "compare", "--suite", "suite_qa.py", "--run", key).returncode != 0
     assert cli(repo, "migrate", "--suite", "suite_qa.py").returncode == EXIT_OK
     assert cli(repo, "compare", "--suite", "suite_qa.py", "--run", key).returncode == 0
+
+
+def test_the_help_is_written_for_whoever_typed_it() -> None:
+    """`--help` used to print the module's docstring.
+
+    An architecture note — "the last layer, and the only one that touches the
+    world" — rewrapped by argparse into a paragraph, and announcing four
+    commands while listing seven. Whoever types `-h` wants to know what to type;
+    whoever opens the file wants to know why the layer exists. Two audiences,
+    two texts, and the reasons stay in the docstring and in `docs/adr/`.
+    """
+    # Through `sys.modules`: `digline.cli` re-exports the `main` *function*,
+    # which shadows the `main` submodule on the package.
+    import digline.cli.main  # noqa: F401  # pyright: ignore[reportUnusedImport]
+
+    module = sys.modules["digline.cli.main"]
+    helped = build_parser().format_help()
+
+    assert "the last layer" not in helped
+    assert "Four commands" not in helped
+    assert module.__doc__ is not None
+    # Not a paraphrase of the docstring either: nothing of it is reused.
+    assert module.__doc__.strip().splitlines()[0] not in helped
+
+    # What it does, and where to go next.
+    assert "not got worse" in helped
+    assert "digline <command> -h" in helped
+
+
+def test_the_help_and_the_package_summary_say_the_same_thing() -> None:
+    """A PyPI page and a terminal describing one tool two ways is one of them
+    being out of date, and no way to tell which."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    summary = pyproject["project"]["description"]
+    assert "baseline" in summary and "repo" in summary
+    assert "worse" in build_parser().format_help()

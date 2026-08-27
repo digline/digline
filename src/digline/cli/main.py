@@ -1,18 +1,16 @@
 """The command line: the last layer, and the only one that touches the world.
 
-Four commands, each doing one thing:
+Seven commands, each doing one thing, and nothing promoting as a side effect of
+anything else: `run` writes a run and prints its key, `compare` reads and
+judges, `promote` promotes, `report` renders, `migrate` brings stored documents
+up to the current schema, `list` and `view` show.
 
-    digline run     --suite S [--target T] [--meta k=v]…
-    digline list    --suite S
-    digline migrate --suite S [--dry-run]
-    digline compare --suite S --run KEY|latest [--locale L] [--json [full]]
-    digline promote --suite S --run KEY|latest
-    digline report  --suite S --run KEY|latest --locale L [--out F] [--redacted]
-    digline view    --suite S [--host H] [--port P]
-
-`run` writes a run and prints its key. `compare` reads and judges. `promote`
-promotes. `report` renders. `migrate` brings stored documents up to the current
-schema. Nothing promotes as a side effect of anything else.
+**None of this is `--help`.** What a reader of the source needs — why the layer
+exists, what it is allowed to touch — is not what someone typing `digline -h`
+needs, and this docstring used to be printed to them: argparse rewrapped an
+architecture note into a paragraph, and told them there were four commands while
+listing seven. The help text is written where the parser is built; the reasons
+live here and in `docs/adr/`.
 """
 
 from __future__ import annotations
@@ -510,7 +508,16 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="digline", description=__doc__)
+    parser = argparse.ArgumentParser(
+        prog="digline",
+        # Not `__doc__`. A module docstring is written for whoever opens the
+        # file; `--help` is read by somebody who wants to know what to type.
+        description=(
+            "Check that an LLM's answers have not got worse, against a baseline "
+            "committed in your own repository."
+        ),
+        epilog="Options for one command: digline <command> -h",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def common(sub: argparse.ArgumentParser) -> None:
