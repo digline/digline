@@ -16,7 +16,15 @@ from pathlib import Path
 import pytest
 from tests._helpers import SUITE_SOURCE, cli, run_key, write_suite
 
-from digline.cli import EXIT_OK, EXIT_UNJUDGED, EXIT_USAGE, EXIT_WORSE, exit_code
+from digline.cli import (
+    EXIT_OK,
+    EXIT_UNJUDGED,
+    EXIT_USAGE,
+    EXIT_WORSE,
+    OUTPUT_VERSION,
+    exit_code,
+)
+from digline.core.run import SCHEMA_VERSION
 from digline.report import Headline
 
 # --------------------------------------------------------------------------- #
@@ -120,16 +128,58 @@ def test_compare_json_emits_the_headline_not_the_document(repo: Path) -> None:
         "--json",
     )
     payload = json.loads(done.stdout)
-    assert set(payload) == {
-        "worse",
-        "unjudged",
-        "suspended",
-        "config_changed",
-        "counts",
-        "reasons_available",
-        "sentence",
-    }
+    assert set(payload) == COMPARE_KEYS
+    assert payload["output_version"] == OUTPUT_VERSION
     assert "<html" not in done.stdout
+
+
+#: The whole of what `digline compare --json` prints, at `OUTPUT_VERSION` 1.
+#:
+#: A golden set, and the point is that it is tedious to change: adding a key
+#: here without bumping `OUTPUT_VERSION` is the mistake this guards, because a
+#: pipeline that parses stdout has no other way to learn that the shape moved.
+#: `SCHEMA_VERSION` does not cover it — that one is about documents on disk.
+COMPARE_KEYS = {
+    "output_version",
+    "worse",
+    "unjudged",
+    "suspended",
+    "config_changed",
+    # Joined the contract with ADR 0003: same rules, different prompt is a thing
+    # a pipeline has to be able to ask about.
+    "artifacts_changed",
+    "counts",
+    "reasons_available",
+    "sentence",
+}
+
+
+def test_the_json_output_declares_its_own_contract_version(repo: Path) -> None:
+    """Storage and output are two contracts with two lifetimes, so they carry
+    two numbers. A run file must stay *readable* years later, which is why
+    `SCHEMA_VERSION` has migrations; a pipeline only needs to know what it is
+    being handed today."""
+    key = run_key(repo)
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+
+    compared = json.loads(
+        cli(repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json").stdout
+    )
+    ran = json.loads(cli(repo, "run", "--suite", "suite_qa.py", "--json").stdout)
+    assert compared["output_version"] == ran["output_version"] == OUTPUT_VERSION
+    # The two numbers are independent, and nothing may quietly tie them.
+    assert OUTPUT_VERSION != SCHEMA_VERSION
+
+
+def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
+    key = run_key(repo)
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    full = json.loads(
+        cli(
+            repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json", "full"
+        ).stdout
+    )
+    assert set(full) == COMPARE_KEYS | {"deltas"}
 
 
 def regressed_repo(repo: Path) -> str:
@@ -940,7 +990,10 @@ def test_one_refusal_does_not_block_the_others(repo: Path) -> None:
     assert done.returncode == EXIT_USAGE
     assert "1 refused" in done.stdout
     for path in (older_path, oldest_path):
-        assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 6
+        # The current version, not a literal: every additive bump would
+        # otherwise fail this test for a reason that has nothing to do with it.
+        version = json.loads(path.read_text(encoding="utf-8"))["schema_version"]
+        assert version == SCHEMA_VERSION
 
 
 def test_the_baseline_is_migrated_too(repo: Path) -> None:

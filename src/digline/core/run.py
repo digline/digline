@@ -28,8 +28,10 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "Artifact",
     "CaseResult",
     "Run",
+    "artifacts_sha",
     "config_hash",
     "redact",
     "run_from_json",
@@ -48,11 +50,72 @@ __all__ = [
 # 6: `Run.aggregate` joined the run — verdicts about the run rather than about a
 #    case. A file without them cannot be compared on the figure that gates a
 #    release.
-SCHEMA_VERSION = 6
+# 7: `Run.artifacts` joined the run — the files that *are* the thing under test,
+#    the prompt above all. Additive: a file written before them declared none,
+#    which is exactly what `{}` says. (ADR 0003)
+SCHEMA_VERSION = 7
 
 
 def _num(value: float) -> float:
     return round(value, FLOAT_PRECISION)
+
+
+@dataclass(frozen=True, slots=True)
+class Artifact:
+    """One file that is the thing under test, as it was when the run happened.
+
+    `sha` is the SHA-256 of the bytes and `text` is the content. **Redaction
+    removes both**, leaving only the path and `withheld=True`.
+
+    Dropping the digest is not caution for its own sake. A digest is a
+    *verifier*: prompts live in a small, guessable space — the software house
+    wrote the template and the customer tuned the numbers — so a few thousand
+    candidates hashed against a leaked digest recover the text in milliseconds,
+    and with it the end company's business rules. A digest that travelled would
+    defeat the withholding it travelled beside. (ADR 0003 §4)
+
+    The two absences are still different facts and a reader is owed both:
+    `withheld=True` is *this suite chose not to send it*, while a run with no
+    entry at all declared no artifacts (or predates them).
+
+    Keys are plain strings and never `Path`: the core imports no `pathlib`, and
+    the layering gate is what keeps that true.
+    """
+
+    sha: str = ""
+    text: str | None = None
+    withheld: bool = False
+
+    def __post_init__(self) -> None:
+        # Empty only where there is nothing to put in it: a complete artifact
+        # without a digest would be a record of a file nobody can identify.
+        if not self.sha and not self.withheld:
+            raise ValueError("Artifact.sha must not be empty")
+        if self.withheld and self.text is not None:
+            raise ValueError(
+                "Artifact declares itself withheld but carries its text: the "
+                "flag would announce a guarantee nothing provides"
+            )
+
+
+def artifacts_sha(artifacts: Mapping[str, Artifact]) -> str:
+    """One short digest for a whole artifact set.
+
+    What `runs_page` labels a run with, so two runs of one prompt sort together
+    at a glance.
+
+    Empty when anything in the set was withheld. A redacted run has no digests
+    to build from, and a label computed from their absence would be stable,
+    identical across every redacted run, and mean nothing — which is worse than
+    no label, because it looks like one.
+    """
+    if any(item.withheld or not item.sha for item in artifacts.values()):
+        return ""
+    payload = json.dumps(
+        sorted((path, item.sha) for path, item in artifacts.items()),
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +195,10 @@ class Run:
     #: gate, and `compare()` reports whether it regressed.
     aggregate: Sequence[Verdict] = ()
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+    #: The files that *are* the thing under test — the prompt above all — keyed
+    #: by the path the suite declared. Read by the CLI and handed to the driver,
+    #: never opened here: the core touches no filesystem. (ADR 0003)
+    artifacts: Mapping[str, Artifact] = field(default_factory=dict[str, "Artifact"])
     redacted: bool = False
 
     def __post_init__(self) -> None:
@@ -286,6 +353,19 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         metadata={
             k: v for k, v in run.metadata.items() if k in disclosure.run_metadata
         },
+        # A prompt is the software house's file and the end company's rules at
+        # the same time, so it leaves only where the suite said it may. Withheld
+        # rather than dropped: the reader learns that there *was* an artifact
+        # and that this suite kept it, which is not what an empty map says.
+        #
+        # The digest goes with the text. It is a verifier, and a prompt is
+        # guessable enough that keeping it would hand over what withholding the
+        # text was for. (ADR 0003 §4)
+        artifacts=(
+            dict(run.artifacts)
+            if disclosure.artifacts
+            else {path: Artifact(text=None, withheld=True) for path in run.artifacts}
+        ),
         redacted=True,
     )
 
@@ -355,7 +435,43 @@ def run_to_dict(run: Run) -> dict[str, object]:
         "aggregate": [
             _verdict_to_dict(v, redacted=run.redacted) for v in run.aggregate
         ],
+        "artifacts": {
+            path: _artifact_to_dict(item)
+            for path, item in sorted(run.artifacts.items())
+        },
     }
+
+
+def _artifact_to_dict(artifact: Artifact) -> dict[str, object]:
+    """Whatever is left after redaction, and nothing standing in for the rest.
+
+    Absent rather than emptied, like every other payload field in this document
+    (fixed decision 9): a withheld artifact carries neither `sha` nor `text`,
+    and `withheld` is what tells a reader that it was kept back rather than
+    never there. An empty string would be a value where there is none.
+    """
+    payload: dict[str, object] = {}
+    if artifact.sha:
+        payload["sha"] = artifact.sha
+    if artifact.withheld:
+        payload["withheld"] = True
+    if artifact.text is not None:
+        payload["text"] = artifact.text
+    return payload
+
+
+def _artifact_from_dict(raw: Mapping[str, Any], path: str) -> Artifact:
+    where = f"artifact {path!r}"
+    text = raw.get("text")
+    withheld = bool(raw.get("withheld", False))
+    sha = raw.get("sha")
+    if sha is None and not withheld:
+        raise ValueError(f"{where} is missing 'sha'")
+    return Artifact(
+        sha="" if sha is None else str(sha),
+        text=None if text is None else str(text),
+        withheld=withheld,
+    )
 
 
 def _case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
@@ -412,6 +528,12 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
             for v in cast(Sequence[Mapping[str, Any]], raw.get("aggregate") or ())
         ),
         metadata=dict(cast(Mapping[str, object], raw.get("metadata") or {})),
+        artifacts={
+            path: _artifact_from_dict(item, path)
+            for path, item in cast(
+                Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
+            ).items()
+        },
     )
 
 

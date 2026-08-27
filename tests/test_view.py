@@ -9,6 +9,7 @@ POST from another origin is refused.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import urllib.error
@@ -20,7 +21,15 @@ from pathlib import Path
 import pytest
 from tests._helpers import cli, run_key, write_suite
 
-from digline.core import CaseResult, Run, Score, Verdict, compare
+from digline.core import (
+    Artifact,
+    CaseResult,
+    Run,
+    Score,
+    Verdict,
+    artifacts_sha,
+    compare,
+)
 from digline.report import (
     VIEW_CSS,
     case_history,
@@ -100,6 +109,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
     html = runs_page(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
+        config_hash="cfg",
         locale="en",
         suite="brief",
     )
@@ -111,6 +121,7 @@ def test_the_baseline_is_marked() -> None:
     html = runs_page(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
+        config_hash="cfg",
         locale="en",
         suite="brief",
     )
@@ -121,6 +132,7 @@ def test_the_newest_run_is_first() -> None:
     html = runs_page(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key=None,
+        config_hash="cfg",
         locale="en",
         suite="brief",
     )
@@ -134,6 +146,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
     html = runs_page(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
+        config_hash="cfg",
         locale="en",
         suite="brief",
     )
@@ -145,6 +158,7 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
     html = runs_page(
         [("key-a", RUN_A)],
         baseline_key=None,
+        config_hash="cfg",
         locale="en",
         suite="brief",
         ignored="ignored: 3 run(s) at schema 5",
@@ -153,7 +167,9 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:
-    html = runs_page([], baseline_key=None, locale="en", suite="brief")
+    html = runs_page(
+        [], baseline_key=None, config_hash="cfg", locale="en", suite="brief"
+    )
     assert "No run has been recorded yet." in html
     assert "<table>" not in html
 
@@ -424,16 +440,25 @@ ERRORED = Run(
 )
 
 
-def runs_html(locale: str = "en", *, extra: Run | None = None) -> str:
+def runs_html(
+    locale: str = "en", *, extra: Run | None = None, config_hash: str = "cfg"
+) -> str:
     rows = [("key-a", RUN_A), ("key-b", RUN_B)]
     if extra is not None:
         rows.append(("key-e", extra))
     return runs_page(
         rows,
         baseline_key="key-a",
+        config_hash=config_hash,
         locale=locale,  # type: ignore[arg-type]
         suite="brief",
     )
+
+
+def act_cell(html: str, key: str) -> str:
+    """The actions cell of one row, by the key printed inside that row."""
+    row = html.split(f'<code class="key">{key}</code>')[1]
+    return row.split('<td class="act">')[1].split("</td>")[0]
 
 
 def test_the_moment_is_the_heading_and_the_key_is_underneath() -> None:
@@ -465,29 +490,83 @@ def test_a_timestamp_we_do_not_recognise_is_shown_as_it_is() -> None:
 
 def test_the_baseline_row_is_marked_and_offers_no_button() -> None:
     """Promoting the baseline to itself is not an action, so it is not offered
-    and then refused — it is simply not there."""
+    and then refused — it is simply not there. Neither is comparing it with
+    itself."""
+    cell = act_cell(runs_html(), "key-a")
+    assert ">baseline</span>" in cell
+    assert "<button" not in cell and "/compare?" not in cell
+
+
+def test_every_row_carries_its_own_actions() -> None:
+    """No selection first. The row that is compared and the row that is promoted
+    need not be the same row, and neither needs a tick before it can be either.
+    """
     html = runs_html()
-    baseline_row = html.split('<tr class="is-baseline">')[1].split("</tr>")[0]
-    assert "chip" in baseline_row
-    assert "<input" not in baseline_row
+    assert 'type="radio"' not in html
+    cell = act_cell(html, "key-b")
+    assert '<a class="action" href="/compare?run=key-b&amp;locale=en"' in cell
+    assert '<form method="post" action="/promote">' in cell
+    assert '<input type="hidden" name="run" value="key-b">' in cell
+    assert "Make baseline" in cell
 
 
-def test_one_action_for_the_whole_table_not_one_per_row() -> None:
-    html = runs_html()
-    assert html.count("<button") == 2  # the compare form, and the one promotion
-    assert html.count('type="radio"') == 1  # every row but the baseline's
+def test_the_promotion_button_is_absent_wherever_the_store_would_refuse() -> None:
+    """Three runs, three answers: the baseline, one that cannot be judged, one
+    produced under another configuration. Exactly one of them may be promoted.
+    """
+    html = runs_html(extra=ERRORED)
+    assert html.count('action="/promote"') == 1
+    assert '<input type="hidden" name="run" value="key-b">' in html
 
 
-def test_a_run_with_errors_cannot_be_selected_and_says_why() -> None:
+def test_a_run_with_errors_offers_no_promotion_and_says_why() -> None:
     """`promote_baseline` would refuse it anyway. Showing the refusal before it
     happens is the difference between explaining and arguing."""
-    html = runs_html(extra=ERRORED)
-    row = html.split("<tbody>")[1].split("</tr>")[0]
-    assert "disabled" in row
-    assert "cannot become a baseline" in row
-    # Not merely disabled: the reason is on the cell, so hovering answers
-    # "why can't I" with a fact about that run.
-    assert "1 case(s) could not be judged" in row
+    cell = act_cell(runs_html(extra=ERRORED), "key-e")
+    assert "<button" not in cell
+    # The marker is scannable, the title behind it is the fact about this run.
+    assert ">1 not judged</span>" in cell
+    assert "1 case(s) could not be judged" in cell
+    # Still comparable: nothing about an unjudged case makes the numbers it did
+    # produce unreadable.
+    assert "/compare?run=key-e" in cell
+
+
+def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> None:
+    """The refusal `promote_baseline` would give, given before the click. The
+    row stays — those numbers were measured — attenuated, because they were
+    measured under other rules.
+    """
+    html = runs_html(config_hash="cfg-2")
+    cell = act_cell(html, "key-b")
+    assert "<button" not in cell
+    assert ">older config</span>" in cell
+    assert "produced under an earlier configuration" in cell
+    assert "/compare?run=key-b" in cell
+    assert '<tr class="stale">' in html
+
+
+def test_the_baseline_keeps_its_own_marker_under_a_changed_configuration() -> None:
+    """One marker per row, and the baseline's says what it is. That the
+    configuration moved on since the reference is the report's sentence, not a
+    second chip here."""
+    html = runs_html(config_hash="cfg-2")
+    assert ">baseline</span>" in act_cell(html, "key-a")
+    assert "is-baseline stale" not in html
+
+
+def test_before_there_is_a_baseline_no_row_offers_to_compare_with_one() -> None:
+    """The link would answer 404. An action that cannot be carried out is not
+    an action."""
+    html = runs_page(
+        [("key-a", RUN_A), ("key-b", RUN_B)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
+    assert "/compare?run=" not in html
+    assert html.count('action="/promote"') == 2
 
 
 def test_the_delta_against_the_baseline_is_beside_the_number() -> None:
@@ -513,7 +592,13 @@ def test_a_missing_commit_says_which_kind_of_missing() -> None:
     object.__setattr__(
         dirty, "git_commit", "3feea0e576470b6e4b5ae9f0f06bcc9df7836627-dirty"
     )
-    html = runs_page([("key-d", dirty)], baseline_key=None, locale="en", suite="brief")
+    html = runs_page(
+        [("key-d", dirty)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
     assert "uncommitted changes" in html
     assert "<code>3feea0e</code>" in html  # short, not forty characters
 
@@ -540,7 +625,11 @@ def test_runs_in_the_same_minute_are_still_told_apart() -> None:
     a = make_run("2026-08-26T12:40:33.032281+00:00", scores={"a": 1.0}, precision=0.5)
     b = make_run("2026-08-26T12:40:33.472519+00:00", scores={"a": 0.0}, precision=0.6)
     html = runs_page(
-        [("key-a", a), ("key-b", b)], baseline_key=None, locale="en", suite="brief"
+        [("key-a", a), ("key-b", b)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
     )
     assert html.count("26 Aug 12:40</span>") == 0
     assert '<span class="when">26 Aug 12:40:33</span>' in html
@@ -555,6 +644,7 @@ def test_the_whole_column_moves_to_seconds_not_only_the_pair() -> None:
     html = runs_page(
         [("key-a", a), ("key-b", b), ("key-f", far)],
         baseline_key=None,
+        config_hash="cfg",
         locale="en",
         suite="brief",
     )
@@ -568,9 +658,36 @@ def test_minutes_are_enough_when_nothing_collides() -> None:
 
 def test_a_run_that_cannot_be_promoted_says_so_without_being_hovered() -> None:
     """A disabled radio alone was invisible in the screenshot."""
-    row = runs_html(extra=ERRORED).split("<tbody>")[1].split("</tr>")[0]
-    assert "1 not judged" in row
-    assert "chip warn" in row
+    assert "chip warn" in act_cell(runs_html(extra=ERRORED), "key-e")
+
+
+def test_the_free_comparison_is_below_the_table_and_drops_the_baseline() -> None:
+    """Comparing with the baseline is a button on the row now, so the picker no
+    longer offers it: two ways to ask one question, and the shorter one is
+    already there. What is left is the pair no row can ask for."""
+    html = runs_html()
+    assert html.index("</table>") < html.index('class="picker"')
+    against = html.split('<select name="against">')[1].split("</select>")[0]
+    assert '<option value="">' not in against
+    assert against.count("<option") == 2
+
+
+def test_with_a_single_run_there_is_nothing_to_compare_it_with() -> None:
+    html = runs_page(
+        [("key-a", RUN_A)],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
+    assert 'class="picker"' not in html
+
+
+def test_nothing_on_the_page_asks_to_be_selected_first() -> None:
+    """The hint under a control that no longer exists, and the control itself."""
+    html = runs_html()
+    assert "click the key to select it" not in html
+    assert "Make the selected run the baseline" not in html
 
 
 def test_only_the_moment_is_a_link_not_the_key() -> None:
@@ -588,3 +705,63 @@ def test_the_two_hints_are_about_two_different_things() -> None:
     page = suspend_page("a", reason="down", locale="en", suite="brief")
     assert "click the line to select it" in page
     assert "click the key to select it" not in page
+
+
+# --------------------------------------------------------------------------- #
+# Which prompt produced this run (ADR 0003)
+# --------------------------------------------------------------------------- #
+
+
+def with_prompt(sha: str) -> Run:
+    """RUN_B, plus the file that was under test when it happened."""
+    run = make_run("2026-08-21T10:00:00+00:00", scores={"a": 1.0}, precision=0.7)
+    object.__setattr__(run, "artifacts", {"prompt.md": Artifact(sha=sha, text="v")})
+    return run
+
+
+def test_the_run_carries_the_digest_of_what_was_under_test() -> None:
+    """A label beside the moment, not a column: it is read to group runs, and
+    the table is already wide."""
+    html = runs_page(
+        [("key-p", with_prompt("a" * 64))],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
+    stamp = artifacts_sha({"prompt.md": Artifact(sha="a" * 64, text="v")})
+    assert '<span class="stamp"' in html
+    assert f"prompt {stamp}" in html
+    assert "<th>prompt</th>" not in html  # no new column
+
+
+def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
+    """The whole point of the label: telling at a glance which runs share a
+    prompt, which is the question a calibration table is read for."""
+    same_a = ("key-a", with_prompt("a" * 64))
+    same_b = ("key-b", with_prompt("a" * 64))
+    other = ("key-c", with_prompt("b" * 64))
+    html = runs_page(
+        [same_a, same_b, other],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
+    stamps = re.findall(r'<span class="stamp"[^>]*>([^<]+)</span>', html)
+    assert len(stamps) == 3
+    assert len(set(stamps)) == 2
+
+
+def test_a_suite_with_no_artifacts_shows_no_label() -> None:
+    """Most suites declare none, and a label that is always there is a label
+    nobody reads."""
+    html = runs_page(
+        [("key-a", RUN_A)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+    )
+    # The element, not the stylesheet: `.stamp` is in the CSS on every page.
+    assert '<span class="stamp"' not in html

@@ -19,17 +19,32 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
 
 from digline.cli.environment import git_commit, utc_now_iso
 from digline.cli.loader import UsageError, load_suite, load_target
 from digline.cli.view import serve
-from digline.core import AssertionDelta, Run, compare, redact
-from digline.report import Headline, headline, render_html, summary_lines
+from digline.core import (
+    Artifact,
+    AssertionDelta,
+    Run,
+    compare,
+    redact,
+    withhold_artifacts,
+)
+from digline.report import (
+    Headline,
+    artifact_lines,
+    headline,
+    render_html,
+    summary_lines,
+)
 from digline.run import Suite, execute
 from digline.store import (
     ConfigMismatchError,
@@ -40,7 +55,29 @@ from digline.store import (
     migrate_paths,
 )
 
-__all__ = ["EXIT_OK", "EXIT_UNJUDGED", "EXIT_USAGE", "EXIT_WORSE", "exit_code", "main"]
+__all__ = [
+    "EXIT_OK",
+    "EXIT_UNJUDGED",
+    "EXIT_USAGE",
+    "EXIT_WORSE",
+    "OUTPUT_VERSION",
+    "exit_code",
+    "main",
+]
+
+#: The shape of what `--json` prints, and nothing to do with `SCHEMA_VERSION`.
+#:
+#: Two contracts, two lifetimes. `SCHEMA_VERSION` is about documents already on
+#: disk, which is why it comes with migrations: a file written last month must
+#: still be readable. This one is about what a pipeline parses on stdout today,
+#: where nothing needs migrating and the only question is whether the consumer
+#: knows the shape moved. Tying them together would mean a reworded sentence
+#: bumping the storage schema, and a new field inside a `Run` bumping the output
+#: contract for consumers who saw no change.
+#:
+#: 1: `worse`, `unjudged`, `suspended`, `config_changed`, `artifacts_changed`,
+#:    `counts`, `reasons_available`, `sentence`; `deltas` under `--json full`.
+OUTPUT_VERSION = 1
 
 EXIT_OK = 0
 EXIT_WORSE = 1
@@ -69,6 +106,36 @@ def exit_code(head: Headline) -> int:
     if head.unjudged:
         return EXIT_UNJUDGED
     return EXIT_OK
+
+
+def read_artifacts(suite: Suite, base: Path) -> dict[str, Artifact]:
+    """The declared files, as they are right now.
+
+    Here rather than in the driver for the same reason the clock and git are
+    here: this is the layer allowed to touch the world, and a driver that opened
+    files would need one to be tested. Relative paths resolve against the
+    suite's own directory, which is where a prompt sits next to the suite that
+    names it.
+
+    A declared file that is missing raises. It is the thing under examination —
+    a run that quietly recorded no prompt would be a run whose evidence is
+    absent exactly when it matters.
+    """
+    found: dict[str, Artifact] = {}
+    for declared in suite.artifacts:
+        path = declared if declared.is_absolute() else base / declared
+        if not path.is_file():
+            raise UsageError(
+                f"suite {suite.name!r} declares the artifact {declared}, which "
+                f"is not a file at {path}: the thing under test cannot be "
+                "recorded, so the run would not say what produced it"
+            )
+        data = path.read_bytes()
+        found[str(declared)] = Artifact(
+            sha=hashlib.sha256(data).hexdigest(),
+            text=data.decode("utf-8"),
+        )
+    return found
 
 
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
@@ -192,11 +259,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         created_at=created_at,
         git_commit=commit,
         run_metadata=_meta(args.meta),
+        artifacts=read_artifacts(suite, Path(args.suite).resolve().parent),
     )
     ref = store.write_run(run)
 
     if args.json:
-        print(json.dumps({"key": ref.key, "tenant": ref.tenant, "suite": ref.suite}))
+        print(
+            json.dumps(
+                {
+                    "output_version": OUTPUT_VERSION,
+                    "key": ref.key,
+                    "tenant": ref.tenant,
+                    "suite": ref.suite,
+                }
+            )
+        )
     else:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
@@ -245,13 +322,22 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if args.json:
         # The headline, not the document: a pipeline wants the facts, and the
         # sentence it carries is the same one a customer will read.
-        payload = dataclasses.asdict(head)
+        payload: dict[str, object] = {"output_version": OUTPUT_VERSION}
+        payload.update(dataclasses.asdict(head))
         if args.json == "full":
             payload["deltas"] = [_delta_json(d) for d in comparison.deltas]
         print(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
     print(head.sentence)
+    # What was under test, before what it did: a prompt that moved changes how
+    # every line below it reads, and learning that afterwards is learning it too
+    # late. The tally only — the diff is in the report, one command away.
+    moved = artifact_lines(comparison, locale=args.locale)
+    if moved:
+        print()
+        for line in moved:
+            print(f"  {line}")
     # Then *which* ones. "1 check got worse" without naming it sends the reader
     # to open an HTML file to learn a fact that fits on one line.
     lines = summary_lines(
@@ -376,13 +462,30 @@ def cmd_report(args: argparse.Namespace) -> int:
     suite, _module, store = _load(args)
     run = _read_run(store, suite, _resolve_key(store, suite, args.run))
     baseline = _need_baseline(store, suite)
+    comparison = compare(run, baseline)
 
     if args.redacted:
         # Applied to the input, so the document can never claim to be complete:
         # `render_html` reads `Run.redacted`, it is not told what to print.
+        #
+        # The artifact outcomes are the exception, and deliberately: they are
+        # computed *here*, where both runs are in hand, then stripped of their
+        # payload. A redacted run compared on its own reports `unknown` because
+        # it has no digest and must not guess; this caller does not have to
+        # guess, so the document can say that a file moved without saying what
+        # it was. Decision 9 on a file instead of on a reason. (ADR 0003 §5)
+        complete_artifacts = comparison.artifact_deltas
         run = redact(run, suite.disclosure)
+        comparison = compare(run, baseline)
+        if not suite.disclosure.artifacts:
+            comparison = replace(
+                comparison,
+                artifact_deltas=withhold_artifacts(
+                    replace(comparison, artifact_deltas=complete_artifacts)
+                ).artifact_deltas,
+            )
 
-    document = render_html(compare(run, baseline), run, baseline, locale=args.locale)
+    document = render_html(comparison, run, baseline, locale=args.locale)
     if args.out:
         Path(args.out).write_text(document, encoding="utf-8")
     else:

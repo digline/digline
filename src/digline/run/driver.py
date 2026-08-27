@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from digline.core import (
+    Artifact,
     Assertion,
     CaseOutcome,
     CaseResult,
@@ -197,6 +198,7 @@ def execute(
     mapper: Mapper = default_mapper,
     git_commit: str | None = None,
     run_metadata: Mapping[str, object] | None = None,
+    artifacts: Mapping[str, Artifact] | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -233,4 +235,8 @@ def execute(
         results=results,
         aggregate=aggregate,
         metadata=dict(run_metadata or {}),
+        # Already read, like `created_at` and `git_commit`: the driver produces
+        # a `Run` and opens no files. What the suite *declares* is a list of
+        # paths; turning those into bytes is the CLI's job. (ADR 0003)
+        artifacts=dict(artifacts or {}),
     )

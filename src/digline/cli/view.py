@@ -145,6 +145,7 @@ class ViewHandler(BaseHTTPRequestHandler):
             pages.runs_page(
                 runs,  # pyright: ignore[reportArgumentType]
                 baseline_key=self._baseline_key(),
+                config_hash=self.suite.config_hash(),
                 locale=locale,
                 suite=self.suite.name,
                 ignored=ignored,

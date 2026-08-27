@@ -47,6 +47,7 @@ from digline.run import Case, Response, Suite
 | `samples` | `int` | `1` |
 | `min_agreement` | `Ratio \| None` | `None`, mandatory if `samples > 1` |
 | `run_assertions` | `Sequence[RunAssertion]` | `()` |
+| `artifacts` | `Sequence[Path]` | `()` |
 
 `tenant` is the **perimeter**: one end customer, one project. It separates the
 data on disk (`.digline/<tenant>/`) and `compare()` raises if two runs do not
@@ -63,6 +64,60 @@ vacuously), empty `cases`, two `Case`s with the same `id`.
 `config_hash()` is the fingerprint of the configuration — assertions,
 thresholds, tolerances — and not of the test data. It is what `promote`
 compares.
+
+### `Suite.artifacts`: the files that are the thing under test
+
+The prompt is what is being evaluated, and until it is recorded a run cannot say
+what produced it: while a prompt is being tuned the tree is dirty, every run
+reads `-dirty`, and two runs of two different prompts are the same document.
+
+```python
+Suite(..., artifacts=[Path("prompts/system.md"), Path("prompts/rubric.md")])
+```
+
+Declared, never discovered — a file that counts as evidence is a file someone
+named. Relative paths resolve against the suite's own directory. The **CLI**
+reads them and hands the contents to `execute()`, exactly as it does for the
+clock and for git, so the driver opens no files and stays testable without one.
+A declared file that is missing is a usage error, not a run with no evidence.
+
+They do **not** enter `config_hash`: changing a prompt has to leave the two runs
+comparable, because that comparison — old prompt against new, score deltas
+beside the text — is the experiment. A prompt change is a change to the
+*system*, not to the rules that judge it.
+
+Each one lands in `Run.artifacts` as an `Artifact`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `sha` | `str` | SHA-256 of the bytes; `""` once withheld |
+| `text` | `str \| None` | the content; `None` once withheld |
+| `withheld` | `bool` | this suite chose not to send it |
+
+`artifacts_sha(mapping)` digests the whole set into twelve characters — what
+`digline view` labels a run with (`prompt a1b2c3`) so runs of one prompt group
+at a glance.
+
+**They do not travel by default.** `Disclosure(artifacts=True)` is the opt-in,
+and it is one line in the suite, which goes through a review. A prompt is your
+file and it is also where an end company's rules end up, and no default can tell
+those apart by looking — so the rule from ADR 0002 §3 holds without an
+exception: redacting without knowing the policy discloses *less*, never more.
+Where both texts are present, `render_html` shows the **unified diff** of each
+changed file above the score deltas, and `digline compare` prints the tally
+(`prompt.md · +3 −1 lines`) between the headline and the regressions.
+
+Redaction removes the text **and the digest**: a digest verifies a guessed
+prompt, and prompts are guessable. What remains is the path and `withheld=true`,
+so a redacted run compared on its own reports the artifact as `unknown` — it
+cannot say whether the prompt moved, and does not pretend to.
+
+`digline report --redacted` is the exception, and not by relaxing anything:
+`withhold_artifacts(comparison)` is applied by the side holding both runs, so the
+outcome is a fact that side established. The document then says *"1 file under
+test changed"* and stops — no diff, no digest, no path.
+`Disclosure(artifacts=True)` is what puts the diff back. Reasoning in
+[ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
 ### `Case`
 
@@ -512,6 +567,23 @@ the system.
 A judge that raises, that returns a score out of range or that gives no reason
 produces a verdict in **`error`**, not a failure: not having been able to judge
 is a different thing from having judged badly.
+
+## What `--json` promises
+
+`digline compare --json` and `digline run --json` print an object whose first
+key is `output_version`, currently `1`. It is bumped when the shape changes and
+is **not** `SCHEMA_VERSION`: that one versions documents already on disk and
+comes with migrations, because a run file written last month must still be
+readable. This one versions what a pipeline parses on stdout today, where
+nothing is migrated and the only question is whether the consumer knows the
+shape moved. A reworded sentence must not bump the storage schema, and a new
+field inside a `Run` must not bump the output contract for consumers who saw no
+change.
+
+At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
+`config_changed`, `artifacts_changed`, `counts`, `reasons_available` and
+`sentence`; `--json full` adds `deltas`. A golden key set in the tests fails the
+build if a key is added without the bump.
 
 ## Verdicts and comparison
 

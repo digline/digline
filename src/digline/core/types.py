@@ -77,10 +77,18 @@ class Disclosure:
 
     The default is the empty one, so code that redacts without knowing the
     suite's policy discloses *less*, never more.
+
+    `artifacts` follows that rule rather than making an exception of itself.
+    The prompt is the software house's own file, which argues for letting it
+    travel — but it is written *for* an end company and is where that company's
+    rules end up, so no default can tell the two apart by looking. Opting in is
+    one line in the suite, and the suite goes through a review. (ADR 0003)
     """
 
     score_metadata: frozenset[str] = frozenset()
     run_metadata: frozenset[str] = frozenset()
+    #: Whether the declared artifacts — content and digest — cross a boundary.
+    artifacts: bool = False
 
 
 NOTHING_EXTRA = Disclosure()

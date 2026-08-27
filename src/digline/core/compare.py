@@ -9,13 +9,21 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from digline.core.run import Run
 from digline.core.types import Verdict
 
-__all__ = ["AssertionDelta", "Comparison", "Outcome", "Scope", "compare"]
+__all__ = [
+    "ArtifactDelta",
+    "AssertionDelta",
+    "Comparison",
+    "Outcome",
+    "Scope",
+    "compare",
+    "withhold_artifacts",
+]
 
 type Outcome = Literal[
     "regressed", "improved", "unchanged", "new", "missing", "errored"
@@ -23,7 +31,32 @@ type Outcome = Literal[
 
 type Scope = Literal["case", "run"]
 
+type ArtifactOutcome = Literal["same", "changed", "new", "missing", "unknown"]
+
 type _Key = tuple[Scope, str, str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactDelta:
+    """What happened to one file under examination between two runs.
+
+    `before` and `after` are the texts, and either may be `None` — because the
+    file was not there, or because redaction withheld it. `withheld` says which,
+    so a reader is never left to guess whether a prompt was absent or kept back.
+
+    A withheld artifact carries no digest either, so the outcome is `unknown`:
+    the comparison cannot say whether it moved, and saying `same` would be a
+    guess dressed as a finding. That is the price of ADR 0003 §4 and it is
+    stated rather than hidden.
+    """
+
+    path: str
+    outcome: ArtifactOutcome
+    before: str | None = None
+    after: str | None = None
+    before_sha: str = ""
+    after_sha: str = ""
+    withheld: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +90,18 @@ class Comparison:
     environment: str = ""
     baseline_environment: str = ""
     deltas: Sequence[AssertionDelta] = ()
+    #: What changed in the files that *are* the thing under test, before what it
+    #: did to the scores. Rendered above the deltas for that reason. (ADR 0003)
+    artifact_deltas: Sequence[ArtifactDelta] = ()
+
+    @property
+    def artifacts_changed(self) -> bool:
+        """Whether a file under test is known to have moved.
+
+        `unknown` is not a change: a redacted comparison has no digest to
+        compare, and answering "changed" would report a fact nobody has.
+        """
+        return any(d.outcome not in ("same", "unknown") for d in self.artifact_deltas)
 
     def of(self, *outcomes: Outcome) -> Sequence[AssertionDelta]:
         wanted = frozenset(outcomes)
@@ -285,4 +330,80 @@ def compare(run: Run, baseline: Run) -> Comparison:
         suite=run.suite,
         config_changed=run.config_hash != baseline.config_hash,
         deltas=tuple(deltas),
+        artifact_deltas=_artifact_deltas(run, baseline),
     )
+
+
+def withhold_artifacts(comparison: Comparison) -> Comparison:
+    """Keep *that* each file moved, drop *what* it was.
+
+    For the party that holds both runs and is producing a document for someone
+    who will not. `redact()` cannot do this job and must not try: it works on
+    one run, and one run has nothing to compare itself with — which is why a
+    redacted run file reports `unknown` and stays honest about it (ADR 0003 §5).
+
+    Here both sides are in hand, so the outcome is a fact this caller
+    established rather than a guess. The outcome travels and the payload does
+    not, which is decision 9 applied to a file instead of to a reason: the same
+    shape as the count of suspended cases, or the PII counts that travel while
+    the matched text never does.
+
+    Not a serializer option. A document rendered from the result of this
+    function cannot print a line it was never given.
+    """
+    return replace(
+        comparison,
+        artifact_deltas=tuple(
+            ArtifactDelta(
+                path=delta.path,
+                outcome=delta.outcome,
+                before=None,
+                after=None,
+                before_sha="",
+                after_sha="",
+                withheld=True,
+            )
+            for delta in comparison.artifact_deltas
+        ),
+    )
+
+
+def _artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
+    """One delta per declared file, on either side, ordered by path.
+
+    Compared on the **digest**, never on the text — a file may be large and two
+    identical texts are two identical digests.
+
+    Where either side was withheld there is no digest to compare, and the
+    outcome is `unknown`. Redaction takes the digest with the text (ADR 0003
+    §4), so this is the one question a redacted comparison cannot answer; the
+    alternative was a travelling digest, and a digest verifies a guessed prompt
+    in milliseconds.
+    """
+    deltas: list[ArtifactDelta] = []
+    for path in sorted(run.artifacts.keys() | baseline.artifacts.keys()):
+        now, before = run.artifacts.get(path), baseline.artifacts.get(path)
+        withheld = (now is not None and now.withheld) or (
+            before is not None and before.withheld
+        )
+        if withheld:
+            outcome: ArtifactOutcome = "unknown"
+        elif before is None:
+            assert now is not None
+            outcome = "new"
+        elif now is None:
+            outcome = "missing"
+        else:
+            outcome = "same" if now.sha == before.sha else "changed"
+        deltas.append(
+            ArtifactDelta(
+                path=path,
+                outcome=outcome,
+                before=None if before is None else before.text,
+                after=None if now is None else now.text,
+                before_sha="" if before is None else before.sha,
+                after_sha="" if now is None else now.sha,
+                withheld=withheld,
+            )
+        )
+    return tuple(deltas)

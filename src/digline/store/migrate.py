@@ -57,11 +57,24 @@ def _add_aggregate(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_artifacts(raw: dict[str, Any]) -> dict[str, Any]:
+    """6 -> 7. A run written before artifacts existed declared none.
+
+    `{}` is not a guess: a suite that never named a file under examination had
+    none, which is exactly what an empty map says. Nothing is reconstructed —
+    the prompt of a run from last month is not recoverable and must not be
+    invented.
+    """
+    raw.setdefault("artifacts", {})
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     4: _add_suspended,
     5: _add_aggregate,
+    6: _add_artifacts,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

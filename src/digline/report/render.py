@@ -8,12 +8,20 @@ shows are the ones the runs recorded.
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from html import escape
 from typing import Literal
 
-from digline.core import AssertionDelta, CaseResult, Comparison, Outcome, Run
+from digline.core import (
+    ArtifactDelta,
+    AssertionDelta,
+    CaseResult,
+    Comparison,
+    Outcome,
+    Run,
+)
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -72,7 +80,7 @@ OUTCOME_ORDER: Sequence[Outcome] = (
 class Headline:
     """The first screen, and what a CLI exits on.
 
-    It carries **four** facts, and they are deliberately not merged into one.
+    It carries **five** facts, and they are deliberately not merged into one.
 
     A regression, a case the suite could not judge, and a case someone chose to
     set aside are three different events needing three different actions: an
@@ -80,6 +88,12 @@ class Headline:
     decision rather than an outcome. `config_changed` then changes the meaning
     of all three — if the rules moved, the numbers compare different rules, and
     a reader who does not know that draws the wrong conclusion from every one.
+
+    `artifacts_changed` is the fifth and joined them with ADR 0003. It answers
+    the question `config_changed` cannot: the rules are the same and the
+    *system* is not, because the prompt moved. Absent from the sentence when the
+    suite declares no artifact — a clause about files nobody named would be an
+    answer to a question nobody asked.
 
     `sentence` is the same wording the report prints, so a CLI gate and the
     document a customer opens can never say two different things about one run.
@@ -92,6 +106,7 @@ class Headline:
     counts: Mapping[Outcome, int]
     reasons_available: bool
     sentence: str
+    artifacts_changed: bool = False
 
 
 def fmt_score(value: float) -> str:
@@ -150,6 +165,32 @@ def headline(
         "fact.config.changed" if comparison.config_changed else "fact.config.unchanged",
     )
 
+    # Nothing at all when no artifact was declared: most suites declare none,
+    # and a sentence that reassures about files nobody named is a sentence the
+    # reader learns to skip — which is how the clause that matters gets skipped
+    # with it.
+    # `unknown` is not a change. A redacted comparison cannot tell whether the
+    # prompt moved, and a sentence that counted "cannot tell" as "changed" would
+    # put in front of a customer a fact nobody established.
+    changed_artifacts = [
+        d for d in comparison.artifact_deltas if d.outcome not in ("same", "unknown")
+    ]
+    unknown_artifacts = [
+        d for d in comparison.artifact_deltas if d.outcome == "unknown"
+    ]
+    artifact_text = ""
+    if comparison.artifact_deltas:
+        if unknown_artifacts and not changed_artifacts:
+            artifact_text = phrase(locale, "fact.artifacts.unknown")
+        elif not changed_artifacts:
+            artifact_text = phrase(locale, "fact.artifacts.unchanged")
+        elif len(changed_artifacts) == 1:
+            artifact_text = phrase(locale, "fact.artifacts.one")
+        else:
+            artifact_text = phrase(
+                locale, "fact.artifacts.many", count=len(changed_artifacts)
+            )
+
     return Headline(
         worse=regressed > 0,
         unjudged=unjudged,
@@ -157,8 +198,20 @@ def headline(
         config_changed=comparison.config_changed,
         counts=counts,
         reasons_available=not (run.redacted or baseline.redacted),
-        # Config last, because it modifies the meaning of everything before it.
-        sentence=" ".join((worse_text, unjudged_text, suspended_text, config_text)),
+        artifacts_changed=bool(changed_artifacts),
+        # Config and artifacts last, because they modify the meaning of
+        # everything before them: same rules, different prompt, different run.
+        sentence=" ".join(
+            part
+            for part in (
+                worse_text,
+                unjudged_text,
+                suspended_text,
+                config_text,
+                artifact_text,
+            )
+            if part
+        ),
     )
 
 
@@ -239,6 +292,32 @@ def _summarized(comparison: Comparison) -> Sequence[AssertionDelta]:
         and d.current.status == "error"
     ]
     return (*regressed, *unjudged)
+
+
+def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
+    """One compact line per changed file, for the terminal.
+
+    `prompt.md · +3 −1 lines`. The tally, not the diff: a terminal summary that
+    unrolled a prompt would bury the regressions it exists to point at, and the
+    document is one command away.
+
+    Nothing at all when an artifact was withheld — the count is in the headline
+    sentence, and a path is payload.
+    """
+    if any(delta.withheld for delta in comparison.artifact_deltas):
+        return ()
+    lines: list[str] = []
+    for delta in comparison.artifact_deltas:
+        if delta.outcome in ("same", "unknown"):
+            continue
+        tally = diff_tally(diff_lines(delta))
+        detail = (
+            phrase(locale, "artifacts.tally", added=tally[0], removed=tally[1])
+            if any(tally)
+            else phrase(locale, f"artifacts.outcome.{delta.outcome}")
+        )
+        lines.append(f"{delta.path} · {detail}")
+    return tuple(lines)
 
 
 def summary_lines(
@@ -327,6 +406,20 @@ th { color: #5b6270; font-weight: 600; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
        font-size: .875em; }
 .empty { color: #5b6270; font-style: italic; margin: .5rem 0 0; }
+
+/* The diff of a file under test. Fixed width because alignment is the content,
+   and coloured rather than only signed so the eye finds the change before it
+   reads it. */
+pre.diff { background: #f5f6f8; border: 1px solid #d8dce3; border-radius: .375rem;
+           padding: .75rem 1rem; overflow-x: auto; font-size: .8125rem;
+           line-height: 1.45; margin: .5rem 0 1rem; white-space: pre; }
+pre.diff span { display: block; }
+.d-add { background: #e6f4ea; color: #14532d; }
+.d-del { background: #fceceb; color: #7f1d1d; }
+.d-meta { color: #7a828f; }
+.d-ctx { color: #3c4350; }
+section.artifacts details { border-top: none; padding: .25rem 0; }
+section.artifacts summary { font-weight: 400; }
 
 /* Printing is the declared route to PDF, and a printed report that hides the
    regressions is a wrong report. Collapsed sections open on paper. */
@@ -491,6 +584,148 @@ def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> st
     )
 
 
+def _artifacts(comparison: Comparison, locale: Locale) -> str:
+    """What changed in the files under test, before what it did to the scores.
+
+    Above the deltas because it is the cause and they are the effect: a reader
+    who sees the prompt changed reads the regressions differently, and finding
+    that out afterwards is finding it out too late. A suite that declares no
+    artifact renders nothing at all — an empty section would be a question the
+    reader did not ask.
+
+    The diff is not rendered here, only what moved and the texts themselves. A
+    line-level diff belongs where there is room for it; the document's job is to
+    say that the thing under test is not the thing that was approved.
+    """
+    if not comparison.artifact_deltas:
+        return ""
+    changed = [
+        d for d in comparison.artifact_deltas if d.outcome not in ("same", "unknown")
+    ]
+    unknown = [d for d in comparison.artifact_deltas if d.outcome == "unknown"]
+    if unknown and not changed:
+        note = phrase(locale, "artifacts.withheld")
+    elif not changed:
+        note = phrase(locale, "artifacts.unchanged")
+    elif len(changed) == 1:
+        note = phrase(locale, "artifacts.changed.one")
+    else:
+        note = phrase(locale, "artifacts.changed.many", count=len(changed))
+
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{escape(delta.path)}</code></td>"
+        f"<td>{escape(_artifact_detail(delta, locale))}</td>"
+        "</tr>"
+        for delta in (*changed, *unknown)
+    )
+    table = (
+        "<table><thead><tr>"
+        f"<th>{escape(phrase(locale, 'artifacts.column.file'))}</th>"
+        f"<th>{escape(phrase(locale, 'artifacts.column.what'))}</th>"
+        "</tr></thead>"
+        f"<tbody>{rows}</tbody></table>\n"
+        if rows
+        else ""
+    )
+    # Withheld: the count and nothing else. Not the diff, not the digest, and
+    # not the table either — a path is `prompts/acme-underwriting-rules.md`
+    # often enough that a list of them is a description of the customer. The
+    # sentence above is a measurement; everything below it is payload.
+    if any(delta.withheld for delta in comparison.artifact_deltas):
+        return (
+            '<section class="artifacts">\n'
+            f"<h2>{escape(phrase(locale, 'artifacts.title'))}</h2>\n"
+            f"<p>{escape(note)}</p>\n"
+            "</section>"
+        )
+
+    # The diffs come after the table and before the score deltas: what changed,
+    # then how, then what it did.
+    diffs = "".join(_diff_html(delta, locale) for delta in changed)
+    return (
+        '<section class="artifacts">\n'
+        f"<h2>{escape(phrase(locale, 'artifacts.title'))}</h2>\n"
+        f"<p>{escape(note)}</p>\n"
+        f"{table}"
+        f"{diffs}"
+        "</section>"
+    )
+
+
+#: Above this many changed lines the diff opens closed. A prompt rewritten from
+#: scratch is not read line by line in a report; a prompt with one clause moved
+#: is exactly what the reader came for, and making them click for it is making
+#: them miss it.
+DIFF_OPEN_LIMIT = 30
+
+#: Lines of context either side, `diff -U3` and every review tool since.
+DIFF_CONTEXT = 3
+
+
+def diff_lines(delta: ArtifactDelta) -> list[str]:
+    """The unified diff of one artifact, or nothing to show.
+
+    Empty whenever a side is missing — withheld, added or removed — because a
+    diff against nothing is the whole file, and printing a whole withheld file
+    is the one thing this must never do.
+    """
+    if delta.withheld or delta.before is None or delta.after is None:
+        return []
+    return list(
+        difflib.unified_diff(
+            delta.before.splitlines(),
+            delta.after.splitlines(),
+            fromfile=f"a/{delta.path}",
+            tofile=f"b/{delta.path}",
+            lineterm="",
+            n=DIFF_CONTEXT,
+        )
+    )
+
+
+def diff_tally(lines: Sequence[str]) -> tuple[int, int]:
+    """Added and removed, not counting the `+++`/`---` file headers."""
+    added = sum(1 for x in lines if x.startswith("+") and not x.startswith("+++"))
+    removed = sum(1 for x in lines if x.startswith("-") and not x.startswith("---"))
+    return added, removed
+
+
+def _diff_html(delta: ArtifactDelta, locale: Locale) -> str:
+    lines = diff_lines(delta)
+    if not lines:
+        return ""
+    added, removed = diff_tally(lines)
+    body = "".join(
+        f'<span class="{_diff_class(line)}">{escape(line)}</span>\n' for line in lines
+    )
+    tally = phrase(locale, "artifacts.tally", added=added, removed=removed)
+    opened = " open" if added + removed < DIFF_OPEN_LIMIT else ""
+    return (
+        f"<details{opened}><summary><code>{escape(delta.path)}</code> "
+        f"{escape(tally)}</summary>\n"
+        f'<pre class="diff">{body}</pre>\n'
+        "</details>\n"
+    )
+
+
+def _diff_class(line: str) -> str:
+    if line.startswith(("+++", "---", "@@")):
+        return "d-meta"
+    if line.startswith("+"):
+        return "d-add"
+    if line.startswith("-"):
+        return "d-del"
+    return "d-ctx"
+
+
+def _artifact_detail(delta: ArtifactDelta, locale: Locale) -> str:
+    detail = phrase(locale, f"artifacts.outcome.{delta.outcome}")
+    if delta.withheld:
+        return f"{detail} — {phrase(locale, 'artifacts.withheld')}"
+    return detail
+
+
 def render_html(
     comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
 ) -> str:
@@ -538,6 +773,7 @@ def render_html(
         f'<ul class="tally">{tally}</ul>\n'
         "</section>\n"
         f"{_aggregates(run, locale, reasons=head.reasons_available)}\n"
+        f"{_artifacts(comparison, locale)}\n"
         f"{sections}\n"
         "</body>\n"
         "</html>\n"

@@ -78,6 +78,29 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "compare different rules."
         ),
         "fact.config.unchanged": "The configuration is the same as the reference.",
+        "fact.artifacts.unchanged": (
+            "The files under test are the same as the reference."
+        ),
+        "fact.artifacts.one": "1 file under test changed since the reference.",
+        "fact.artifacts.unknown": (
+            "The files under test are not included, so whether they changed "
+            "is not known."
+        ),
+        "fact.artifacts.many": (
+            "{count} files under test changed since the reference."
+        ),
+        "artifacts.title": "What was under test",
+        "artifacts.unchanged": "The files under test are the same as the reference.",
+        "artifacts.changed.one": "1 file under test changed.",
+        "artifacts.changed.many": "{count} files under test changed.",
+        "artifacts.outcome.changed": "changed",
+        "artifacts.outcome.new": "added since the reference",
+        "artifacts.outcome.missing": "no longer declared",
+        "artifacts.outcome.unknown": "not included, so whether it changed is not known",
+        "artifacts.withheld": "The contents are not included in this report.",
+        "artifacts.tally": "+{added} −{removed} lines",
+        "artifacts.column.file": "File",
+        "artifacts.column.what": "What happened",
         "aggregates.title": "Overall",
         "aggregate.counted": (
             "{considered} counted · {suspended} suspended · {errored} not judged"
@@ -123,19 +146,27 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.aggregate_note": "change against the baseline",
         "view.commit.dirty": "uncommitted changes",
         "view.commit.none": "no git repository",
-        "view.promote.selected": "Make the selected run the baseline",
-        "view.promote.is_baseline": "already the baseline",
         "view.promote.errored": (
             "{count} case(s) could not be judged, so this run cannot become a "
             "baseline: an error is not a reference."
         ),
-        "view.copy_hint": "click the key to select it",
+        "view.promote.older": (
+            "This run was produced under an earlier configuration, so it cannot "
+            "become a baseline: its scores were obtained under rules other "
+            "than the ones in force. It can still be compared."
+        ),
         "view.chip.errored": "{count} not judged",
+        "view.chip.older_config": "older config",
+        "view.action.compare": "Compare",
+        "view.action.compare.title": "compare this run with the baseline",
         "view.copy_snippet": "click the line to select it",
         "view.column.created": "Recorded",
         "view.column.env": "Environment",
         "view.column.commit": "Code version",
         "view.column.cases": "Cases",
+        "view.column.actions": "Actions",
+        "view.artifacts.stamp": "prompt {sha}",
+        "view.artifacts.title": "digest of the {count} file(s) under test in this run",
         "view.column.run": "Run",
         "view.column.votes": "Votes",
         "view.no_runs": "No run has been recorded yet.",
@@ -152,7 +183,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "For a sampled check the raw votes are shown beneath the combined "
             "score: that is where judge noise is visible."
         ),
-        "view.promote.button": "Make this the baseline",
+        "view.promote.button": "Make baseline",
         "view.promote.done": "Baseline set to {run_key}.",
         "view.promote.refused": "Refused: {why}",
         "view.suspend.title": "Set {case_id} aside",
@@ -198,6 +229,28 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "numeri confrontano regole diverse."
         ),
         "fact.config.unchanged": "La configurazione è la stessa del riferimento.",
+        "fact.artifacts.unchanged": (
+            "I file in prova sono gli stessi del riferimento."
+        ),
+        "fact.artifacts.one": "1 file in prova è cambiato rispetto al riferimento.",
+        "fact.artifacts.unknown": (
+            "I file in prova non sono inclusi, quindi non si sa se siano cambiati."
+        ),
+        "fact.artifacts.many": (
+            "{count} file in prova sono cambiati rispetto al riferimento."
+        ),
+        "artifacts.title": "Che cosa era in prova",
+        "artifacts.unchanged": "I file in prova sono gli stessi del riferimento.",
+        "artifacts.changed.one": "1 file in prova è cambiato.",
+        "artifacts.changed.many": "{count} file in prova sono cambiati.",
+        "artifacts.outcome.changed": "cambiato",
+        "artifacts.outcome.new": "aggiunto rispetto al riferimento",
+        "artifacts.outcome.missing": "non più dichiarato",
+        "artifacts.outcome.unknown": ("non incluso, quindi non si sa se sia cambiato"),
+        "artifacts.withheld": "Il contenuto non è incluso in questo rapporto.",
+        "artifacts.tally": "+{added} −{removed} righe",
+        "artifacts.column.file": "File",
+        "artifacts.column.what": "Che cosa è successo",
         "aggregates.title": "Nel complesso",
         "aggregate.counted": (
             "{considered} contati · {suspended} sospesi · {errored} non giudicabili"
@@ -245,20 +298,31 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.aggregate_note": "variazione rispetto al riferimento",
         "view.commit.dirty": "modifiche non committate",
         "view.commit.none": "nessun repository git",
-        "view.promote.selected": "Rendi riferimento l'esecuzione selezionata",
-        "view.promote.is_baseline": "è già il riferimento",
         "view.promote.errored": (
             "{count} caso/i non è stato possibile giudicarli, quindi questa "
             "esecuzione non può diventare un riferimento: un errore non è un "
             "riferimento."
         ),
-        "view.copy_hint": "clicca la chiave per selezionarla",
+        "view.promote.older": (
+            "Questa esecuzione è stata prodotta con una configurazione "
+            "precedente, quindi non può diventare un riferimento: i suoi "
+            "punteggi sono stati ottenuti con regole diverse da quelle in "
+            "vigore. Resta confrontabile."
+        ),
         "view.chip.errored": "{count} non giudicati",
+        "view.chip.older_config": "config. precedente",
+        "view.action.compare": "Confronta",
+        "view.action.compare.title": ("confronta questa esecuzione con il riferimento"),
         "view.copy_snippet": "clicca la riga per selezionarla",
         "view.column.created": "Registrata",
         "view.column.env": "Ambiente",
         "view.column.commit": "Versione del codice",
         "view.column.cases": "Casi",
+        "view.column.actions": "Azioni",
+        "view.artifacts.stamp": "prompt {sha}",
+        "view.artifacts.title": (
+            "impronta dei {count} file in prova in questa esecuzione"
+        ),
         "view.column.run": "Esecuzione",
         "view.column.votes": "Voti",
         "view.no_runs": "Nessuna esecuzione registrata.",
@@ -275,7 +339,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Per un controllo campionato i voti grezzi stanno sotto al punteggio "
             "combinato: è lì che il rumore del giudice si vede."
         ),
-        "view.promote.button": "Rendi questa il riferimento",
+        "view.promote.button": "Rendi riferimento",
         "view.promote.done": "Riferimento impostato su {run_key}.",
         "view.promote.refused": "Rifiutato: {why}",
         "view.suspend.title": "Metti da parte {case_id}",

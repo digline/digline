@@ -40,6 +40,10 @@ correct its structural mistakes and are not negotiable.
    function on the value (`redact`), not a serializer option; in the document
    the payload fields are absent, not emptied, and `"redacted": true` declares
    it. (ADR 0002)
+   The **artifacts** a suite declares — the prompt is the thing under test — are
+   recorded in every run and cross a boundary only under
+   `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
+   the prudent default holds here too. (ADR 0003)
 
 ## Structure
 

@@ -86,6 +86,11 @@ production is one nobody should act on.
 
 ### 2. The payload stays where it is born, the verdict travels
 
+> **Extended by [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md)
+> (2026-08-26):** a run also records the files that *are* the thing under test.
+> They are neither verdict nor measurement, and they do not cross a boundary
+> unless the suite declares `Disclosure(artifacts=True)`.
+
 This is the rule that makes the three worlds compatible.
 
 **The verdict** — name, `assertion_id`, status, score, threshold, tolerance, and the

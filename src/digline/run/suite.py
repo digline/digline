@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from digline.core import (
     NOTHING_EXTRA,
@@ -107,6 +108,13 @@ class Suite:
     #: Verdicts about the run rather than about a case — precision, recall.
     #: Each one names, in `over`, the per-case check whose verdict it counts.
     run_assertions: Sequence[RunAssertion] = ()
+    #: The files that *are* the thing under test — the prompt above all.
+    #: Declared, never discovered: a file that counts as evidence is a file
+    #: someone named. Nothing here opens them; the CLI reads them and hands the
+    #: contents to `execute()`, as it already does for the clock and for git.
+    #: They do not enter `config_hash`: changing a prompt must stay comparable,
+    #: because that comparison is the experiment. (ADR 0003)
+    artifacts: Sequence[Path] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -122,6 +130,11 @@ class Suite:
             )
         if not self.cases:
             raise ValueError(f"suite {self.name!r} declares no cases")
+        if len({str(p) for p in self.artifacts}) != len(self.artifacts):
+            raise ValueError(
+                f"suite {self.name!r} declares the same artifact twice: the "
+                "path is the key a run files it under"
+            )
         if self.samples < 1:
             raise ValueError(
                 f"suite {self.name!r} asks for {self.samples} samples: at least "

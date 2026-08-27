@@ -27,7 +27,7 @@ from collections.abc import Mapping, Sequence
 from html import escape
 from typing import cast
 
-from digline.core import Run, Verdict, compare
+from digline.core import Run, Verdict, artifacts_sha, compare
 from digline.report.history import CaseEntry, CaseHistory
 from digline.report.render import CSS, render_html
 from digline.report.text import LOCALES, MONTHS, Locale, phrase
@@ -67,12 +67,37 @@ nav.bar .here { color: #16181d; font-weight: 700; }
        user-select: all; -webkit-user-select: all; }
 .key:hover { color: #16181d; }
 
+/* Which prompt produced this run. A label beside the moment rather than a
+   column of its own: it is read to group runs, not to be compared down a
+   column, and the table is already wide. */
+.stamp { display: inline-block; font-size: .7rem; color: #5b6270; margin-left: .5rem;
+         font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 tbody tr:nth-child(even) { background: #fafbfc; }
 tbody tr.is-baseline { background: #eef4ef; }
 tbody tr.is-baseline:hover, tbody tr:hover { background: #f0f3f7; }
 td, th { white-space: nowrap; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.pick { width: 1.5rem; }
+
+/* The row's own actions, and — where a row can do less — the marker that says
+   why, in the same place the missing button would have been. One column, one
+   answer per run. */
+td.act, th.act { text-align: right; }
+td.act form { display: inline; margin: 0; }
+td.act .chip { margin-left: 0; }
+td.act a.action { margin-right: .6rem; }
+td.act button { font-size: .8rem; padding: .2rem .55rem; }
+a.action { color: #2f4f7a; text-decoration: none; }
+a.action:hover { text-decoration: underline; }
+
+/* Produced under another configuration: comparable still, promotable no
+   longer. Attenuated rather than hidden — those numbers were measured, only
+   under other rules. */
+tbody tr.stale td { color: #868e9b; }
+tbody tr.stale td.commit code { color: inherit; }
+/* The delta too: a bright red change against a baseline measured under other
+   rules is the one number on that row that should not shout. */
+tbody tr.stale td .delta { color: #868e9b; }
 
 .chip { display: inline-block; font-size: .7rem; font-weight: 600;
         text-transform: uppercase; letter-spacing: .04em; padding: .1rem .4rem;
@@ -87,16 +112,13 @@ td.pick { width: 1.5rem; }
 .delta.down { color: #8a1c1c; }
 .delta.same { color: #98a0ad; }
 
-.toolbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: baseline;
-           margin: 1.5rem 0 .5rem; }
 .picker { display: flex; flex-wrap: wrap; gap: .75rem; align-items: baseline;
           background: #f7f8fa; border: 1px solid #e6e9ee; border-radius: .375rem;
-          padding: .75rem 1rem; margin: 0 0 .5rem; font-size: .9rem; }
+          padding: .75rem 1rem; margin: 1.75rem 0 .5rem; font-size: .9rem; }
 button { font: inherit; font-size: .9rem; padding: .35rem .8rem; cursor: pointer;
          border: 1px solid #c3c9d3; border-radius: .25rem; background: #fff; }
 button:hover { border-color: #16181d; }
 select, input[type=text] { font: inherit; font-size: .9rem; padding: .25rem; }
-input[type=radio]:disabled { cursor: not-allowed; }
 
 .votes { color: #7a828f; font-size: .75rem; font-variant-numeric: tabular-nums;
          margin-top: .15rem; }
@@ -212,20 +234,38 @@ def _votes(verdict: Verdict) -> str:
     return " · ".join(fmt3(v) for v in values)
 
 
-def _run_cell(key: str, when: str, *, chip: str = "", href: str = "") -> str:
+def _stamp(run: Run, locale: Locale) -> str:
+    """`prompt a1b2c3` — the digest of the files that were under test.
+
+    Short on purpose: it is read to tell two prompts apart at a glance, and
+    twelve hex characters do that as well as sixty-four while fitting beside a
+    date. The full digests are in the run file. Nothing at all when the suite
+    declared no artifacts. (ADR 0003)
+    """
+    if not run.artifacts:
+        return ""
+    told = phrase(locale, "view.artifacts.stamp", sha=artifacts_sha(run.artifacts))
+    title = phrase(locale, "view.artifacts.title", count=len(run.artifacts))
+    return f'<span class="stamp" title="{escape(title)}">{escape(told)}</span>'
+
+
+def _run_cell(key: str, when: str, *, stamp: str = "", href: str = "") -> str:
     """A moment a person can read, and the address underneath it.
 
     The key used to be the heading, wrapped over four lines, and was also a
     link — three jobs for one string, none of them done. Now the moment names
     the run and the key identifies it; `user-select: all` makes one click
     select the whole thing, which is what it is for.
+
+    It carries no marker any more: what a run can and cannot do is answered in
+    the column where the doing happens, not beside its name.
     """
     # Only the moment is a link. Wrapping the key too made it blue and
     # underlined, and put a click that navigates on top of a click that selects.
     moment = f'<span class="when">{escape(when)}</span>'
     if href:
         moment = f'<a href="{escape(href)}">{moment}</a>'
-    return f'<td>{moment}{chip}<code class="key">{escape(key)}</code></td>'
+    return f'<td>{moment}{stamp}<code class="key">{escape(key)}</code></td>'
 
 
 def _commit_cell(run: Run, locale: Locale) -> str:
@@ -254,9 +294,9 @@ def _errored_cases(run: Run) -> int:
     """How many cases this run could not judge.
 
     Read here rather than asked of the store, because it decides whether the
-    row may be selected at all — and `promote_baseline` refuses an errored run
-    anyway. Showing the refusal before it happens is the difference between a
-    screen that explains and one that argues.
+    row offers a promotion at all — and `promote_baseline` refuses an errored
+    run anyway. Showing the refusal before it happens is the difference between
+    a screen that explains and one that argues.
     """
     return len(
         {
@@ -316,6 +356,7 @@ def runs_page(
     runs: Sequence[tuple[str, Run]],
     *,
     baseline_key: str | None,
+    config_hash: str,
     locale: Locale,
     suite: str,
     ignored: str = "",
@@ -328,10 +369,17 @@ def runs_page(
     and commit alone the choice cannot be made, and the first green run gets
     promoted instead, which is how an unlucky baseline gets frozen.
 
-    Selection is a radio and the action is one button above the table. A button
-    on every row was one loud control repeated as many times as there was
-    history, and it was loudest on the row where it made no sense: the
-    baseline's, where promoting would promote it to itself.
+    **Every action belongs to a row.** There is no selection to make first and
+    no control above the table acting on whatever is ticked: a row compares
+    itself with the baseline, and a row that may become the baseline says so
+    with a button. Where the button is absent the marker in its place names the
+    refusal that would have come — `BASELINE`, `OLDER CONFIG`, `NOT JUDGED` —
+    so the rule is met before the click and not through one.
+
+    `config_hash` is the configuration currently in force, and it is mandatory
+    for the reason `environment` is: a screen that had to guess it would tell
+    every run it is current, or none of them, and either answer is confidently
+    wrong.
     """
     ordered = sorted(runs, key=lambda pair: (pair[1].created_at, pair[0]), reverse=True)
     measures: list[str] = []
@@ -359,26 +407,26 @@ def runs_page(
         body.append(f'<p class="empty">{escape(phrase(locale, "view.no_runs"))}</p>\n')
     else:
         labels = _when_labels([(k, r.created_at) for k, r in ordered], locale)
-        body.append(_compare_form(ordered, labels, locale))
-        body.append(
-            '<form method="post" action="/promote">\n'
-            f'<input type="hidden" name="locale" value="{locale}">\n'
-            '<div class="toolbar">'
-            f'<button type="submit">{escape(phrase(locale, "view.promote.selected"))}'
-            "</button>"
-            f'<span class="note">{escape(phrase(locale, "view.copy_hint"))}</span>'
-            "</div>\n"
-        )
         body.append(
             _runs_table(
-                ordered, measures, baseline_scores, baseline_key, labels, locale
+                ordered,
+                measures,
+                baseline_scores,
+                baseline_key,
+                config_hash,
+                labels,
+                locale,
             )
         )
-        body.append("</form>\n")
         if not measures:
             body.append(
                 f'<p class="note">{escape(phrase(locale, "view.no_aggregates"))}</p>\n'
             )
+        # Below the table, because it answers a question the table raises. Only
+        # when there are two runs to put on either side of it: with one, the
+        # bar could ask nothing a comparison would answer.
+        if len(ordered) > 1:
+            body.append(_compare_form(ordered, labels, locale))
 
     if ignored:
         told = phrase(locale, "view.ignored", note=ignored)
@@ -391,12 +439,12 @@ def _runs_table(
     measures: Sequence[str],
     baseline_scores: Mapping[str, float],
     baseline_key: str | None,
+    config_hash: str,
     labels: Mapping[str, str],
     locale: Locale,
 ) -> str:
     head = (
-        "<th></th>"
-        + "".join(
+        "".join(
             f"<th>{escape(phrase(locale, key))}</th>"
             for key in (
                 "view.column.key",
@@ -406,29 +454,25 @@ def _runs_table(
         )
         + f'<th class="num">{escape(phrase(locale, "view.column.cases"))}</th>'
         + "".join(f'<th class="num">{escape(name)}</th>' for name in measures)
+        + f'<th class="act">{escape(phrase(locale, "view.column.actions"))}</th>'
     )
 
     rows: list[str] = []
     for key, run in ordered:
         is_baseline = key == baseline_key
-        errored = _errored_cases(run)
-        rows.append('<tr class="is-baseline">' if is_baseline else "<tr>")
-        rows.append(
-            _pick_cell(key, is_baseline=is_baseline, errored=errored, locale=locale)
+        # Only a run that is *not* the baseline is attenuated for an old
+        # configuration: the dimming is the row-wide half of the `OLDER CONFIG`
+        # marker, and the baseline does not carry that marker — it already
+        # carries its own, and the report is where a reference under changed
+        # rules is called out.
+        stale = not is_baseline and run.config_hash != config_hash
+        classes = " ".join(
+            name for name, on in (("is-baseline", is_baseline), ("stale", stale)) if on
         )
-        # The row says what it is without being hovered: the baseline is
-        # marked, and so is a run that cannot become one. A disabled radio alone
-        # was invisible in the screenshot, which is where it was caught.
-        if is_baseline:
-            chip = (
-                f'<span class="chip">{escape(phrase(locale, "view.baseline"))}</span>'
-            )
-        elif errored:
-            told = phrase(locale, "view.chip.errored", count=errored)
-            chip = f'<span class="chip warn">{escape(told)}</span>'
-        else:
-            chip = ""
-        rows.append(_run_cell(key, labels.get(key, run.created_at), chip=chip))
+        rows.append(f'<tr class="{classes}">' if classes else "<tr>")
+        rows.append(
+            _run_cell(key, labels.get(key, run.created_at), stamp=_stamp(run, locale))
+        )
         rows.append(f"<td>{escape(run.environment)}</td>")
         rows.append(_commit_cell(run, locale))
         rows.append(f'<td class="num">{len(run.results)}</td>')
@@ -445,47 +489,112 @@ def _runs_table(
                 else _delta(verdict.score.score, baseline_scores.get(measure), locale)
             )
             rows.append(f'<td class="num">{_score(verdict)}{delta}</td>')
+        rows.append(
+            _actions_cell(
+                key,
+                run,
+                is_baseline=is_baseline,
+                stale=stale,
+                has_baseline=baseline_key is not None,
+                locale=locale,
+            )
+        )
         rows.append("</tr>")
     return (
         f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>\n"
     )
 
 
-def _pick_cell(key: str, *, is_baseline: bool, errored: int, locale: Locale) -> str:
-    """The one control per row, and the two reasons it may be absent or dead.
+def _actions_cell(
+    key: str,
+    run: Run,
+    *,
+    is_baseline: bool,
+    stale: bool,
+    has_baseline: bool,
+    locale: Locale,
+) -> str:
+    """What this row can do — and, where it can do less, why.
 
-    The baseline has no radio at all: promoting it to itself is not an action,
-    so offering it and refusing it would be theatre. An errored run has a
-    disabled one carrying the reason, because there the answer to "why can't I"
-    is a fact about that run and the reader is entitled to it before clicking.
+    Two actions, both belonging to the run they sit beside. Comparing is a
+    `GET`, so it is a link; promoting writes, so it is a form of its own with
+    the key already in it. Nothing here reads a selection, which is what lets
+    the promotion of one run and the comparison of another be one click each
+    rather than two clicks and a tick.
 
-    `required` is markup, not script: the browser refuses an empty submit on
-    its own, so the page needs no JavaScript to avoid a pointless round trip.
+    The button appears only where `promote_baseline` would accept, and where it
+    does not the marker names the refusal that would have come. The order is
+    `promote_baseline`'s own — configuration before errors — so the page can
+    never announce a different reason from the one the call would give. The
+    refusal in the store stays: it is the second line, not the first way the
+    rule is met.
     """
-    if is_baseline:
-        title = phrase(locale, "view.promote.is_baseline")
-        return f'<td class="pick" title="{escape(title)}"></td>'
-    if errored:
-        title = phrase(locale, "view.promote.errored", count=errored)
-        return (
-            f'<td class="pick" title="{escape(title)}">'
-            '<input type="radio" name="run" disabled></td>'
+    parts: list[str] = []
+    # No link on the baseline's own row — a run compared with itself has
+    # nothing to report — and none at all before there is a baseline, rather
+    # than a link whose only possible answer is a 404.
+    if has_baseline and not is_baseline:
+        parts.append(
+            f'<a class="action" href="/compare?run={escape(key)}&amp;locale={locale}"'
+            f' title="{escape(phrase(locale, "view.action.compare.title"))}">'
+            f"{escape(phrase(locale, 'view.action.compare'))}</a>"
         )
-    return (
-        f'<td class="pick"><input type="radio" name="run" '
-        f'value="{escape(key)}" required></td>'
-    )
+
+    if is_baseline:
+        parts.append(_chip("view.baseline", locale))
+    elif stale:
+        parts.append(
+            _chip("view.chip.older_config", locale, warn=True, why="view.promote.older")
+        )
+    elif errored := _errored_cases(run):
+        parts.append(
+            _chip(
+                "view.chip.errored",
+                locale,
+                warn=True,
+                why="view.promote.errored",
+                count=errored,
+            )
+        )
+    else:
+        parts.append(
+            '<form method="post" action="/promote">'
+            f'<input type="hidden" name="locale" value="{locale}">'
+            f'<input type="hidden" name="run" value="{escape(key)}">'
+            f'<button type="submit">'
+            f"{escape(phrase(locale, 'view.promote.button'))}</button>"
+            "</form>"
+        )
+    return f'<td class="act">{"".join(parts)}</td>'
+
+
+def _chip(
+    key: str, locale: Locale, *, warn: bool = False, why: str = "", **params: object
+) -> str:
+    """A marker, and the sentence behind it.
+
+    The chip is three words because a column of them has to be scannable; the
+    `title` is the paragraph, because "why can't I" deserves a fact about this
+    run and not a shorter version of the same three words.
+    """
+    tooltip = f' title="{escape(phrase(locale, why, **params))}"' if why else ""
+    label = escape(phrase(locale, key, **params))
+    return f'<span class="chip{" warn" if warn else ""}"{tooltip}>{label}</span>'
 
 
 def _compare_form(
     runs: Sequence[tuple[str, Run]], labels: Mapping[str, str], locale: Locale
 ) -> str:
-    """Two pickers, not one.
+    """Free comparison of any two runs, under the table it draws from.
 
-    Comparing against the baseline is the release question; comparing run 1
-    with run 3 of a calibration is the noise question, and it is the one that
-    tells you what tolerance to set. A form with a single picker can only ask
-    the first.
+    Comparing against the baseline is the release question, and it is now a
+    button on every row — so it is gone from here: an `against` list that
+    offered "baseline" alongside the runs would be two ways to ask one
+    question, and the shorter one is already on the row.
+
+    What is left is the question no row can ask: run 1 against run 3 of a
+    calibration, which is the noise reading, and the one that says what
+    tolerance to set.
 
     The options read as moments, not as keys: a select whose entries are
     forty-nine characters of slug is a select nobody chooses from.
@@ -502,9 +611,7 @@ def _compare_form(
         f"<label>{escape(phrase(locale, 'view.compare.pick'))} "
         f'<select name="run">{options}</select></label>\n'
         f"<label>{escape(phrase(locale, 'view.compare.against'))} "
-        f'<select name="against"><option value="">'
-        f"{escape(phrase(locale, 'view.baseline'))}</option>"
-        f"{options}</select></label>\n"
+        f'<select name="against">{options}</select></label>\n'
         f'<button type="submit">{escape(phrase(locale, "view.compare.go"))}</button>\n'
         "</form>\n"
     )

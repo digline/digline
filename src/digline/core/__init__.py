@@ -36,7 +36,14 @@ from digline.core.assertions import (
     error_verdict,
     levenshtein_distance,
 )
-from digline.core.compare import AssertionDelta, Comparison, Outcome, compare
+from digline.core.compare import (
+    ArtifactDelta,
+    AssertionDelta,
+    Comparison,
+    Outcome,
+    compare,
+    withhold_artifacts,
+)
 from digline.core.pii import (
     ITALIAN_PII,
     PiiPattern,
@@ -47,8 +54,10 @@ from digline.core.pii import (
 from digline.core.protocols import Assertion, AsyncJudge, ClaimJudge, Judge
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
 from digline.core.run import (
+    Artifact,
     CaseResult,
     Run,
+    artifacts_sha,
     config_hash,
     redact,
     run_from_json,
@@ -91,9 +100,12 @@ __all__ = [
     "Affix",
     "Assertion",
     "AssertionBase",
+    "ArtifactDelta",
+    "ArtifactDelta",
     "AssertionDelta",
     "AsyncJudge",
     "CaseOutcome",
+    "Artifact",
     "CaseResult",
     "Comparison",
     "Contains",
@@ -139,6 +151,8 @@ __all__ = [
     "budget_score",
     "combine_samples",
     "compare",
+    "withhold_artifacts",
+    "artifacts_sha",
     "config_hash",
     "error_verdict",
     "levenshtein_distance",
