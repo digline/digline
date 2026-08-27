@@ -38,3 +38,4 @@ private/
 # artifacts are not — and the split is enforced one level down, by the
 # `.gitignore` the store itself writes into `.digline/` (`*/runs/`).
 # Ignoring `.digline/` here would take the baselines out of git with it.
+to-publish/

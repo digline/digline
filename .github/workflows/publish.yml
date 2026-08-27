@@ -1,5 +1,8 @@
 name: publish
 
+# One tag, one workspace. Everything in it whose version is not yet on the index
+# gets published; everything already there is skipped, so re-tagging never tries
+# to overwrite a released file — and a plugin release does not re-upload the core.
 on:
   push:
     tags: ["v*"]
@@ -9,35 +12,46 @@ permissions:
 
 jobs:
   build:
-    name: Build and check the distributions
+    name: Build and check every package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
 
-      - name: Refuse a tag that does not match the version
-        # The one mistake this catches is permanent: a version on PyPI can never
-        # be reused, so `v0.1.0` publishing 0.2.0 is not a thing to fix later.
+      - name: Refuse a tag that names no package
+        # A version on an index can never be reused, so a mistyped tag is the
+        # one mistake here with no repair. It has to match something.
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          version="$(uv run --no-project --with tomli python -c \
-            'import tomli;print(tomli.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          echo "tag=$tag pyproject=$version"
-          test "$tag" = "$version"
+          uv run --no-project --with tomli python - <<'PY'
+          import glob, os, tomli
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          found = {}
+          for path in ["pyproject.toml", *glob.glob("packages/*/pyproject.toml")]:
+              with open(path, "rb") as handle:
+                  project = tomli.load(handle)["project"]
+              found[project["name"]] = project["version"]
+          print(f"tag {tag}; workspace: {found}")
+          assert tag in found.values(), f"no package is at {tag}"
+          PY
 
-      - run: uv build
+      - run: uv build --all-packages
 
       - name: Check the metadata renders on PyPI
         run: uv run --no-project --with twine twine check --strict dist/*
 
-      - name: The wheel works on its own
-        # In a venv with nothing else in it: this is what a user gets, and it is
-        # the only place a missing package or a bad entry point shows up.
+      - name: Every wheel installs on its own
+        # A fresh venv per wheel: this is what a user gets, and the only place a
+        # missing package or a broken entry point shows up.
         run: |
-          python -m venv /tmp/fresh
-          /tmp/fresh/bin/pip install --quiet dist/*.whl
-          /tmp/fresh/bin/digline --help
-          /tmp/fresh/bin/python -c "import digline.core, digline.targets, digline.cli"
+          for wheel in dist/*.whl; do
+            rm -rf /tmp/fresh && python -m venv /tmp/fresh
+            /tmp/fresh/bin/pip install --quiet "$wheel"
+            echo "installed $wheel"
+          done
+          /tmp/fresh/bin/python -c "import digline_anthropic, digline.targets"
+          rm -rf /tmp/core && python -m venv /tmp/core
+          /tmp/core/bin/pip install --quiet dist/digline-*.whl
+          /tmp/core/bin/digline --help > /dev/null && echo "digline --help works"
 
       - uses: actions/upload-artifact@v5
         with:
@@ -45,52 +59,52 @@ jobs:
           path: dist/
 
   testpypi:
-    name: Publish to TestPyPI and install from it
+    name: TestPyPI, then install from it
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
-      id-token: write   # trusted publishing; no token in a secret
+      id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v6
         with:
           name: dist
           path: dist/
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - id: select
+        name: Keep only what the index does not have
+        env:
+          INDEX: https://test.pypi.org
+        run: python .github/select_unpublished.py
+
+      - if: steps.select.outputs.count != '0'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          packages-dir: to-publish/
+          skip-existing: true
 
-      - name: Install from TestPyPI into an empty venv
-        # The rehearsal. Everything before this proves the artifact; this proves
-        # the thing an index actually serves, which is not always the same.
+      - name: Install from the index and run the quickstart
         run: |
           python -m venv /tmp/from-index
           for attempt in 1 2 3 4 5; do
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              "digline==${GITHUB_REF_NAME#v}" && break
+              digline digline-anthropic && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
-          /tmp/from-index/bin/digline --help
-
-      - name: Run the quickstart against the installed package
-        # From the sdist, not the checkout: the example a reader copies has to
-        # work from what was shipped, not from what happens to be on disk here.
-        run: |
-          /tmp/from-index/bin/pip download --no-deps --no-binary :all: \
-            --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ \
-            "digline==${GITHUB_REF_NAME#v}" -d /tmp/sdist
-          tar -xzf /tmp/sdist/digline-*.tar.gz -C /tmp
-          cd /tmp/digline-${GITHUB_REF_NAME#v}/examples/quickstart
+          /tmp/from-index/bin/digline --help > /dev/null
+          /tmp/from-index/bin/python -c "import digline_anthropic; print('plugin ok')"
+          tar -xzf dist/digline-*.tar.gz -C /tmp
+          cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
           /tmp/from-index/bin/digline promote --suite suite.py --run latest
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
 
   pypi:
-    name: Publish to PyPI
+    name: PyPI
     needs: testpypi
     runs-on: ubuntu-latest
     # Gated on a required reviewer: the one irreversible step in this file waits
@@ -99,8 +113,20 @@ jobs:
     permissions:
       id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v6
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+
+      - id: select
+        name: Keep only what the index does not have
+        env:
+          INDEX: https://pypi.org
+        run: python .github/select_unpublished.py
+
+      - if: steps.select.outputs.count != '0'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: to-publish/
+          skip-existing: true

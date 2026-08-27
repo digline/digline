@@ -2,7 +2,7 @@
 
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
-[![PyPI 0.1.0](https://img.shields.io/badge/pypi-0.1.0-blue)](https://pypi.org/project/digline/)
+[![PyPI 0.1.1](https://img.shields.io/badge/pypi-0.1.1-blue)](https://pypi.org/project/digline/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
@@ -40,7 +40,7 @@ tested, when, under which commit, and who approved it.
 ## Quickstart
 
 ```bash
-uv add digline        # or: pip install digline
+pip install digline digline-anthropic   # or: uv add digline digline-anthropic
 ```
 
 `suite.py` — complete and runnable, no API key:

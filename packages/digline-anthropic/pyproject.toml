@@ -2,6 +2,7 @@
 name = "digline-anthropic"
 version = "0.1.0"
 description = "Anthropic target for digline: prompt file in, priced Response out."
+readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 authors = [
@@ -16,7 +17,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "digline",
+    # Pinned to a version that exists. `digline` unpinned was fine while the
+    # two were built together in one workspace; published, it would let a
+    # resolver pick something older than the API this plugin is written
+    # against — `ProviderTarget.parse` and `Suite.artifacts` are both 0.1.0.
+    "digline>=0.1.0",
     "anthropic>=0.40",
 ]
 
