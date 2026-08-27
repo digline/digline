@@ -89,13 +89,7 @@ suite = Suite(
             inner=LlmRubric(
                 rubric="One sentence, warm, and invents no price or date.",
                 judge=judge,
-                # 0.65, not 0.70, and the reason is worth knowing: this judge
-                # can return exactly 0.70, and a score that lands *on* its own
-                # threshold is where digline 0.1.1 folds a passing check into an
-                # `error` (friction 31, fixed after 0.1.1). Putting a bar on a
-                # value the system produces exactly is a bad idea anyway — half
-                # the runs land on either side of it.
-                threshold=0.65,
+                threshold=0.7,
                 tolerance=0.1,
             ),
             samples=3,

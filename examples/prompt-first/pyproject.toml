@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Writing a prompt with no application yet, with digline."
 requires-python = ">=3.12"
 dependencies = [
-    "digline>=0.1,<0.2",
+    # 0.1.2: a score landing exactly on its threshold inside `Repeated`
+    # used to produce `error` instead of `pass`, and this judge returns
+    # exactly 0.7.
+    "digline>=0.1.2,<0.2",
     "digline-anthropic>=0.1,<0.2",
 ]
 

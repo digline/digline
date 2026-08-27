@@ -10,10 +10,10 @@
       "text": "Customer asks: {question}\n"
     }
   },
-  "config_hash": "ddfa756ee8f1ee17",
-  "created_at": "2026-08-27T09:49:40.583801+00:00",
+  "config_hash": "0a303dce063a7ea5",
+  "created_at": "2026-08-27T10:38:04.854034+00:00",
   "environment": "dev",
-  "git_commit": "b5870a655c776d75f8be518796bad8acf02fb08a-dirty",
+  "git_commit": "c13fa540ae60828eabe000ed5c53b616d5606a4d-dirty",
   "metadata": {},
   "redacted": false,
   "results": [
@@ -36,7 +36,7 @@
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "35825b5b257418bd",
+          "assertion_id": "d0891fbb13f6509e",
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
@@ -51,7 +51,7 @@
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
           "score": 1.0,
           "status": "pass",
-          "threshold": 0.65,
+          "threshold": 0.7,
           "tolerance": 0.1
         }
       ]
@@ -75,7 +75,7 @@
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "35825b5b257418bd",
+          "assertion_id": "d0891fbb13f6509e",
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
@@ -90,7 +90,7 @@
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
           "score": 1.0,
           "status": "pass",
-          "threshold": 0.65,
+          "threshold": 0.7,
           "tolerance": 0.1
         }
       ]
@@ -114,7 +114,7 @@
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "35825b5b257418bd",
+          "assertion_id": "d0891fbb13f6509e",
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
@@ -129,7 +129,7 @@
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
           "score": 1.0,
           "status": "pass",
-          "threshold": 0.65,
+          "threshold": 0.7,
           "tolerance": 0.1
         }
       ]
@@ -153,7 +153,7 @@
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "35825b5b257418bd",
+          "assertion_id": "d0891fbb13f6509e",
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
@@ -168,7 +168,7 @@
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
           "score": 1.0,
           "status": "pass",
-          "threshold": 0.65,
+          "threshold": 0.7,
           "tolerance": 0.1
         }
       ]
@@ -192,7 +192,7 @@
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "35825b5b257418bd",
+          "assertion_id": "d0891fbb13f6509e",
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
@@ -207,7 +207,7 @@
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
           "score": 1.0,
           "status": "pass",
-          "threshold": 0.65,
+          "threshold": 0.7,
           "tolerance": 0.1
         }
       ]
