@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-    { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
+    { name = "Alessandro Prandini", email = "hello@digline.dev" },
 ]
 keywords = ["llm", "evaluation", "eval", "assertions", "baseline", "regression", "testing"]
 classifiers = [
