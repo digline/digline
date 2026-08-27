@@ -100,7 +100,11 @@ src = ["src", "tests", "examples/quickstart", "packages/digline-anthropic/src"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
-include = ["src", "tests", "examples", "packages"]
+# Not `examples/*`: each example under there is a standalone project with
+# its own pyproject, its own venv and its own strict pyright run. Checking
+# them from here would collide four modules called `app` and resolve none
+# of them. The quickstart is not standalone and stays.
+include = ["src", "tests", "examples/quickstart", "packages"]
 extraPaths = ["examples/quickstart", "packages/digline-anthropic/src"]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

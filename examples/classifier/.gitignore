@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+.ruff_cache/
+# The fake classifier's run counter. It exists so two runs of an unchanged
+# system differ, the way a real one does; it is state, not source.
+.wobble

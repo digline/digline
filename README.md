@@ -188,6 +188,18 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
 
+## Examples
+
+Four projects in [`examples/`](examples/), each answering a question somebody
+actually arrives with. Every one runs with no API key, carries its committed
+`report.html`, and is a standalone project: copy the directory anywhere and
+`uv sync` works.
+
+- [**I have a classifier: how do I keep it under control?**](examples/classifier/) — labelled cases, an agreement check, `Precision` and `Accuracy` as the gate
+- [**I'm writing a prompt and have no application yet**](examples/prompt-first/) — a prompt in a file, and the report showing its diff next to what it moved
+- [**I have a RAG: how do I check it doesn't make things up?**](examples/rag/) — frozen retrieval, `Faithfulness`, `PiiAbsent`
+- [**My application is Java: can I use this?**](examples/external-app/) — `HttpTarget` against a service digline cannot import
+
 ## What digline is not
 
 - **Not an observability platform.** Dashboards over production traces are a

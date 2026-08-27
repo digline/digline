@@ -1,0 +1,28 @@
+[project]
+name = "expense-triage-eval"
+version = "0.1.0"
+description = "Keeping an expense-report classifier under control, with digline."
+requires-python = ">=3.12"
+dependencies = [
+    # The published package, nothing local. This directory is meant to become
+    # its own repository: `cp -r` it anywhere and `uv sync` has to work.
+    "digline>=0.1,<0.2",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+# An application, not a library: there is nothing here to build a wheel from.
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"

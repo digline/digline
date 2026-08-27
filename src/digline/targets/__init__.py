@@ -6,6 +6,7 @@ provider is a separate package under `packages/`, so installing digline does
 not install someone's HTTP client.
 """
 
+from digline.targets.http import HttpTarget
 from digline.targets.pricing import (
     ModelPrice,
     Pricing,
@@ -16,6 +17,7 @@ from digline.targets.provider import ProviderTarget
 from digline.targets.template import PromptTemplate, render_value
 
 __all__ = [
+    "HttpTarget",
     "ModelPrice",
     "PromptTemplate",
     "ProviderTarget",

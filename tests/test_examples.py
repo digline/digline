@@ -145,3 +145,97 @@ def test_the_api_doc_covers_every_public_assertion() -> None:
     assert len(exported) >= 12, exported
     for name in (*exported, "Repeated", "combine_samples"):
         assert name in doc, f"{name} is exported but undocumented"
+
+
+# --------------------------------------------------------------------------- #
+# The standalone examples: whole cycle, every build, against the source
+# --------------------------------------------------------------------------- #
+
+#: Each is a project that is meant to leave: its own `pyproject.toml`, its own
+#: dependency on the *published* package, no reference to this workspace. Run
+#: here against the source so a change that breaks one is caught the day it is
+#: made, rather than the day somebody copies the directory out.
+STANDALONE = ("classifier", "prompt-first", "rag", "external-app")
+
+
+@pytest.fixture(params=STANDALONE)
+def standalone(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
+    """A copy, without its baseline: the cycle has to work from nothing."""
+    name = str(request.param)
+    workdir = tmp_path / name
+    shutil.copytree(ROOT / "examples" / name, workdir)
+    shutil.rmtree(workdir / ".digline", ignore_errors=True)
+    return workdir
+
+
+def test_each_example_completes_the_cycle(standalone: Path) -> None:
+    """run -> promote -> compare, exactly what its README tells a reader."""
+    ran = cli(standalone, "run", "--suite", "suite.py")
+    assert ran.returncode == EXIT_OK, ran.stderr
+    key = ran.stdout.strip()
+    assert key
+
+    promoted = cli(standalone, "promote", "--suite", "suite.py", "--run", key)
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+
+    compared = cli(standalone, "compare", "--suite", "suite.py", "--run", key)
+    assert compared.returncode == EXIT_OK, compared.stderr
+    assert "Nothing got worse" in compared.stdout
+
+
+def test_each_example_renders_its_report(standalone: Path) -> None:
+    cli(standalone, "run", "--suite", "suite.py")
+    cli(standalone, "promote", "--suite", "suite.py", "--run", "latest")
+    out = standalone / "fresh.html"
+    rendered = cli(
+        standalone,
+        "report",
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+        "--locale",
+        "en",
+        "--out",
+        str(out),
+    )
+    assert rendered.returncode == EXIT_OK, rendered.stderr
+    assert out.read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
+
+
+@pytest.mark.parametrize("name", STANDALONE)
+def test_each_example_is_a_project_that_can_leave(name: str) -> None:
+    """No workspace, no path dependency, no import from this source tree.
+
+    The promise is `cp -r examples/rag ~/elsewhere && uv sync`. What breaks it
+    is a convenience someone adds here, so it is checked here.
+    """
+    directory = ROOT / "examples" / name
+    pyproject = (directory / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert "digline" in pyproject
+    assert "workspace" not in pyproject, "a workspace reference does not travel"
+    assert "path =" not in pyproject, "a path dependency does not travel"
+    assert (directory / "README.md").exists()
+    assert (directory / "report.html").exists()
+    assert (directory / ".github" / "workflows" / "check.yml").exists()
+
+
+@pytest.mark.parametrize("name", STANDALONE)
+def test_each_readme_opens_with_the_question_it_answers(name: str) -> None:
+    """The reader is looking for their own situation, not for a product name.
+
+    First person, because that is what makes it findable: somebody arrives with
+    "I have a RAG and I don't trust it", not with "expense triage evaluation".
+    Not every one ends in a question mark — "I'm writing a prompt and have no
+    application yet" is a predicament, and predicaments are why people open
+    an examples directory.
+    """
+    first = (
+        (ROOT / "examples" / name / "README.md")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
+    assert first.startswith("# ")
+    assert first.split()[1] in ("I", "I'm", "My"), first
+    assert len(first.split()) >= 6, first

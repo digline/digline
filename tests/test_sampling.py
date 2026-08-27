@@ -550,3 +550,47 @@ def test_the_exact_decimal_is_accepted_because_it_is_the_value() -> None:
         min_agreement=0.4,
     )
     assert suite.min_agreement == pytest.approx(2 / 5)
+
+
+def test_a_check_that_passes_alone_still_passes_folded() -> None:
+    """Found writing the `prompt-first` example, not writing the engine.
+
+    Three samples of exactly `0.7` against a threshold of `0.7` average to
+    `0.6999999999999998`. The fold judged the unrounded mean and said `fail`;
+    `Verdict` rounds the score to `0.7` and refuses a `fail` that its own score
+    contradicts — so a rubric that passes on its own turned into `error` the
+    moment it was wrapped in `Repeated`. Thresholds are round numbers and rubric
+    scores land on them, so this is the ordinary case, not the exotic one.
+    """
+    on_the_nose = LlmRubric(
+        rubric="r",
+        judge=lambda prompt: JudgeReply(score=0.4 + 0.3 * 0 + 0.3 * 1, reason="x"),
+        threshold=0.7,
+        tolerance=0.1,
+    )
+    alone = on_the_nose(EvaluatorInputs(output="hello"))
+    assert alone.status == "pass"
+
+    folded = Repeated(inner=on_the_nose, samples=3, min_agreement="2/3")(
+        EvaluatorInputs(output="hello")
+    )
+    assert folded.status == "pass", "wrapping a passing check must not fail it"
+    assert folded.score.score == 0.7
+
+
+def test_the_folded_score_is_the_one_the_verdict_carries() -> None:
+    """The general rule behind it: whatever decides the status has to be the
+    number the reader sees, or the two can disagree."""
+    scores = iter([0.1, 0.2, 0.30000000000000004])
+    drifting = LlmRubric(
+        rubric="r",
+        judge=lambda prompt: JudgeReply(score=next(scores), reason="x"),
+        threshold=0.2,
+        tolerance=0.5,
+    )
+    folded = Repeated(inner=drifting, samples=3, min_agreement="1/3")(
+        EvaluatorInputs(output="hello")
+    )
+    assert folded.score.score is not None
+    expected = "pass" if folded.score.score >= folded.threshold else "fail"
+    assert folded.status == expected

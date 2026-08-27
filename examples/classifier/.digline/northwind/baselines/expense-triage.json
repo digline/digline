@@ -1,0 +1,614 @@
+{
+  "aggregate": [
+    {
+      "assertion": "precision",
+      "assertion_id": "31e12a0068b3f1db",
+      "metadata": {
+        "considered": 20,
+        "errored_excluded": 0,
+        "false_negative": 0,
+        "false_positive": 3,
+        "suspended_excluded": 0,
+        "true_negative": 9,
+        "true_positive": 8,
+        "unlabelled_excluded": 0
+      },
+      "reason": "precision 0.727273 = 8/11 (20 counted, 0 suspended, 0 could not be judged)",
+      "score": 0.727273,
+      "status": "pass",
+      "threshold": 0.6,
+      "tolerance": 0.15
+    },
+    {
+      "assertion": "accuracy",
+      "assertion_id": "b00de39e2f9bb72b",
+      "metadata": {
+        "considered": 20,
+        "errored_excluded": 0,
+        "false_negative": 0,
+        "false_positive": 3,
+        "suspended_excluded": 0,
+        "true_negative": 9,
+        "true_positive": 8,
+        "unlabelled_excluded": 0
+      },
+      "reason": "accuracy 0.850000 = 17/20 (20 counted, 0 suspended, 0 could not be judged)",
+      "score": 0.85,
+      "status": "pass",
+      "threshold": 0.7,
+      "tolerance": 0.15
+    }
+  ],
+  "artifacts": {},
+  "config_hash": "758fbcef8cb4789a",
+  "created_at": "2026-08-27T09:45:38.769454+00:00",
+  "environment": "staging",
+  "git_commit": "b5870a655c776d75f8be518796bad8acf02fb08a-dirty",
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "amount_over_cap",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "no_receipt",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "duplicate_claim",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "weekend_bar",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "taxi_short",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "coffee_two",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "train_standard",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "hotel_capped",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "dinner_client",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "score": 0.0,
+          "status": "fail",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "late_taxi",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "software_seat",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "score": 0.0,
+          "status": "fail",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "lunch_team",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 0.8,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              0.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 1.0
+          },
+          "reason": "mean of 5 samples (0.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 0.8,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "parking_airport",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "score": 0.0,
+          "status": "fail",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "book_technical",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "hotel_over",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 0.8,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              0.0,
+              1.0,
+              1.0
+            ],
+            "spread": 1.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 0.000000, 1.000000, 1.000000)",
+          "score": 0.8,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "meal_no_note",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "taxi_long",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "courier_urgent",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "dinner_solo",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "monitor_home",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "agrees_with_mark",
+          "assertion_id": "6fa222b4a9cbe69d",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 5,
+            "scores": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.4
+        }
+      ]
+    }
+  ],
+  "schema_version": 7,
+  "suite": "expense-triage",
+  "tenant": "northwind"
+}

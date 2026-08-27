@@ -1,0 +1,7 @@
+[
+  {"id": "fraud", "text": "card blocked", "queue": "fraud", "confidence": 0.94},
+  {"id": "billing", "text": "invoice wrong amount", "queue": "billing", "confidence": 0.88},
+  {"id": "access", "text": "cannot log in", "queue": "access", "confidence": 0.91},
+  {"id": "logistics", "text": "delivery late", "queue": "logistics", "confidence": 0.86},
+  {"id": "retention", "text": "want to close account", "queue": "retention", "confidence": 0.79}
+]

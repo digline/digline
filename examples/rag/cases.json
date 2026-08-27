@@ -1,0 +1,8 @@
+[
+  {"id": "opening-hours", "question": "When are you open on Saturday?"},
+  {"id": "joining", "question": "How much does a reader's card cost?"},
+  {"id": "borrowing", "question": "How many items can I borrow?"},
+  {"id": "late-return", "question": "What is the fine if I am late?"},
+  {"id": "study-room", "question": "Can I book a study room?"},
+  {"id": "wifi", "question": "Do I need a password for the wifi?"}
+]

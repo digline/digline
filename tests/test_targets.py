@@ -9,6 +9,9 @@ the first paid call.
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -16,6 +19,7 @@ import pytest
 from digline.core import Contains, Output
 from digline.run import Case, HasArtifacts, Preflight, Suite, execute
 from digline.targets import (
+    HttpTarget,
     ModelPrice,
     Pricing,
     PromptTemplate,
@@ -311,3 +315,90 @@ def test_by_default_the_reply_is_the_output(prompt: Path) -> None:
     assert target(Case(id="c1", vars={"question": "q", "customer": "A"})).output == (
         "plain text"
     )
+
+
+# --------------------------------------------------------------------------- #
+# HttpTarget: an application digline cannot import (friction 14)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def service() -> Iterator[str]:
+    """A two-route service on an ephemeral port. No mocking of urllib."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            asked = json.loads(self.rfile.read(length).decode("utf-8"))
+            body = json.dumps(
+                {
+                    "data": {"answer": f"heard {asked['text']}"},
+                    "usage": {"cost_usd": 0.002, "elapsed_ms": 12.5},
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None: ...
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{httpd.server_address[1]}/x"
+    finally:
+        httpd.shutdown()
+
+
+def an_http_target(url: str, **kwargs: object) -> HttpTarget:
+    return HttpTarget(
+        url,
+        request=lambda case: {"text": case.vars["text"]},
+        output_path="data.answer",
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_it_posts_the_body_and_reads_the_answer_out(service: str) -> None:
+    response = an_http_target(service)(Case(id="c", vars={"text": "hello"}))
+    assert response.output == "heard hello"
+    assert response.input == '{"text": "hello"}'
+
+
+def test_cost_and_latency_come_from_the_paths_that_name_them(service: str) -> None:
+    target = an_http_target(
+        service, cost_path="usage.cost_usd", latency_from_response="usage.elapsed_ms"
+    )
+    response = target(Case(id="c", vars={"text": "hello"}))
+    assert response.cost_usd == 0.002
+    # The service's own number, not the round trip: a path was given.
+    assert response.latency_ms == 12.5
+
+
+def test_without_a_path_the_round_trip_is_measured(service: str) -> None:
+    """Which includes the network, and is a different number measuring a
+    different thing — so it is what you get only when you did not say."""
+    response = an_http_target(service)(Case(id="c", vars={"text": "hello"}))
+    assert response.latency_ms is not None and response.latency_ms != 12.5
+
+
+def test_a_path_that_is_not_there_says_what_was(service: str) -> None:
+    target = an_http_target(service)
+    target.output_path = "data.missing"
+    with pytest.raises(ValueError, match="no 'missing' in answer"):
+        target(Case(id="c", vars={"text": "hello"}))
+
+
+def test_preflight_refuses_before_the_first_case_when_nothing_answers() -> None:
+    """The alternative is finding out one case at a time, with a run half
+    written and a stack trace per case."""
+    target = an_http_target("http://127.0.0.1:9/none")
+    with pytest.raises(ValueError, match="nothing answered"):
+        target.preflight([Case(id="c", vars={"text": "x"})])
+
+
+def test_preflight_accepts_a_service_that_answers_at_all(service: str) -> None:
+    """A 405 to a HEAD is an answer: something is there and the request was
+    wrong, which is a different problem from nothing being there."""
+    an_http_target(service).preflight([Case(id="c", vars={"text": "x"})])

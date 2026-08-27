@@ -1,0 +1,26 @@
+[project]
+name = "bookshop-replies-eval"
+version = "0.1.0"
+description = "Writing a prompt with no application yet, with digline."
+requires-python = ">=3.12"
+dependencies = [
+    "digline>=0.1,<0.2",
+    "digline-anthropic>=0.1,<0.2",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"

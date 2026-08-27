@@ -1,0 +1,4 @@
+.venv/
+__pycache__/
+.ruff_cache/
+# system differ, the way a real one does; it is state, not source.

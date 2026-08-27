@@ -21,6 +21,7 @@ from digline.core.assertions import AssertionBase
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.types import (
+    FLOAT_PRECISION,
     EvaluatorInputs,
     OutputKind,
     Score,
@@ -165,7 +166,13 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
             f"(scores: {_rendered(verdicts)})"
         )
 
-    mean = fmean(scores)
+    # Rounded *before* the status is decided, because `Verdict` rounds the
+    # score and then checks the status against it. Deciding from the unrounded
+    # mean lets the two disagree at the boundary: three samples of exactly 0.7
+    # average to 0.6999999999999998, which is `fail` before rounding and `pass`
+    # after — and the Verdict refuses to exist, so a check that passes on its
+    # own becomes an `error` the moment it is wrapped. (friction 31)
+    mean = round(fmean(scores), FLOAT_PRECISION)
     metadata: dict[str, object] = dict(_folded_metadata(verdicts))
     metadata.update(
         {

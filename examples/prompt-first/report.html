@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluation report — replies</title>
+<style>
+:root { color-scheme: light; }
+body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+       margin: 0 auto; max-width: 52rem; padding: 2rem 1rem; color: #16181d; }
+h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.1rem; margin: 0 0 .25rem; }
+.aggregates { margin: 0 0 2rem; }
+dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem;
+          margin: 1rem 0 2rem; font-size: .9rem; }
+dt { color: #5b6270; }
+dd { margin: 0; }
+.answer { border: 2px solid currentColor; border-radius: .5rem; padding: 1rem 1.25rem;
+          margin: 0 0 2rem; }
+.answer.worse { color: #8a1c1c; }
+.answer.fine { color: #17552e; }
+.answer .verdict { font-size: 2rem; font-weight: 700; line-height: 1; }
+.answer p { color: #16181d; margin: .75rem 0 0; }
+.tally { list-style: none; display: flex; flex-wrap: wrap; gap: 1rem;
+         padding: 0; margin: 1rem 0 0; font-size: .85rem; color: #5b6270; }
+.tally b { color: #16181d; }
+details { border-top: 1px solid #d8dce3; padding: .75rem 0; }
+summary { cursor: pointer; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; margin-top: .75rem;
+        font-size: .9rem; }
+th, td { border-bottom: 1px solid #e6e9ee; padding: .5rem .5rem .5rem 0;
+         text-align: left; vertical-align: top; }
+th { color: #5b6270; font-weight: 600; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+       font-size: .875em; }
+.empty { color: #5b6270; font-style: italic; margin: .5rem 0 0; }
+
+/* The diff of a file under test. Fixed width because alignment is the content,
+   and coloured rather than only signed so the eye finds the change before it
+   reads it. */
+pre.diff { background: #f5f6f8; border: 1px solid #d8dce3; border-radius: .375rem;
+           padding: .75rem 1rem; overflow-x: auto; font-size: .8125rem;
+           line-height: 1.45; margin: .5rem 0 1rem; white-space: pre; }
+pre.diff span { display: block; }
+.d-add { background: #e6f4ea; color: #14532d; }
+.d-del { background: #fceceb; color: #7f1d1d; }
+.d-meta { color: #7a828f; }
+.d-ctx { color: #3c4350; }
+section.artifacts details { border-top: none; padding: .25rem 0; }
+section.artifacts summary { font-weight: 400; }
+
+/* Printing is the declared route to PDF, and a printed report that hides the
+   regressions is a wrong report. Collapsed sections open on paper. */
+@media print {
+  body { max-width: none; padding: 0; color: #000; }
+  details { display: block; }
+  details > summary { list-style: none; }
+  details > *:not(summary) { display: block !important; }
+  details[open] > *, details:not([open]) > * { display: block !important; }
+  .answer { border-color: #000; }
+  a[href]::after { content: ""; }
+}
+</style>
+</head>
+<body>
+<h1>Evaluation report — replies</h1>
+<dl class="meta"><dt>Customer</dt><dd>bookshop</dd><dt>Suite</dt><dd>replies</dd><dt>This run</dt><dd>dev — 2026-08-27T09:49:40.764247+00:00</dd><dt>Reference</dt><dd>dev — 2026-08-27T09:49:40.583801+00:00</dd><dt>Code version</dt><dd>b5870a655c776d75f8be518796bad8acf02fb08a-dirty — uncommitted changes were present, so this run cannot be reproduced from the repository</dd></dl>
+<section class="answer worse">
+<p class="verdict">Did it get worse? Yes</p>
+<p>10 checks got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference. 1 file under test changed since the reference.</p>
+<ul class="tally"><li>regressed <b>10</b></li><li>errored <b>0</b></li><li>new <b>0</b></li><li>missing <b>0</b></li><li>improved <b>0</b></li><li>unchanged <b>0</b></li></ul>
+</section>
+
+<section class="artifacts">
+<h2>What was under test</h2>
+<p>1 file under test changed.</p>
+<table><thead><tr><th>File</th><th>What happened</th></tr></thead><tbody><tr><td><code>prompts/system.txt</code></td><td>changed</td></tr></tbody></table>
+<details open><summary><code>prompts/system.txt</code> +1 −0 lines</summary>
+<pre class="diff"><span class="d-meta">--- a/prompts/system.txt</span>
+<span class="d-meta">+++ b/prompts/system.txt</span>
+<span class="d-meta">@@ -1,3 +1,4 @@</span>
+<span class="d-ctx"> You are the assistant of a small bookshop.</span>
+<span class="d-ctx"> Answer the customer in one sentence, warm and specific.</span>
+<span class="d-ctx"> Never invent a price, a date or a stock level you were not given.</span>
+<span class="d-add">+Always remind the customer of the returns policy.</span>
+</pre>
+</details>
+</section>
+<details open><summary>What got worse (10)</summary><table><thead><tr><th>Case</th><th>Check</th><th>What happened</th><th>Why</th></tr></thead><tbody><tr><td><code>gift-wrap</code></td><td><code>llm_rubric</code></td><td>Score fell from 1.000000 to 0.700000.</td><td>mean of 3 samples (0.700000, 0.700000, 0.700000)</td></tr><tr><td><code>gift-wrap</code></td><td><code>levenshtein</code></td><td>Went from passing to failing (1.000000 → 0.560440).</td><td>40 edit(s) over 91 characters (similarity 0.560440)</td></tr><tr><td><code>opening-hours</code></td><td><code>llm_rubric</code></td><td>Score fell from 1.000000 to 0.700000.</td><td>mean of 3 samples (0.700000, 0.700000, 0.700000)</td></tr><tr><td><code>opening-hours</code></td><td><code>levenshtein</code></td><td>Went from passing to failing (1.000000 → 0.636364).</td><td>40 edit(s) over 110 characters (similarity 0.636364)</td></tr><tr><td><code>order-a-book</code></td><td><code>llm_rubric</code></td><td>Score fell from 1.000000 to 0.700000.</td><td>mean of 3 samples (0.700000, 0.700000, 0.700000)</td></tr><tr><td><code>order-a-book</code></td><td><code>levenshtein</code></td><td>Went from passing to failing (1.000000 → 0.666667).</td><td>40 edit(s) over 120 characters (similarity 0.666667)</td></tr><tr><td><code>price-check</code></td><td><code>llm_rubric</code></td><td>Score fell from 1.000000 to 0.700000.</td><td>mean of 3 samples (0.700000, 0.700000, 0.700000)</td></tr><tr><td><code>price-check</code></td><td><code>levenshtein</code></td><td>Went from passing to failing (1.000000 → 0.626168).</td><td>40 edit(s) over 107 characters (similarity 0.626168)</td></tr><tr><td><code>signed-copies</code></td><td><code>llm_rubric</code></td><td>Score fell from 1.000000 to 0.700000.</td><td>mean of 3 samples (0.700000, 0.700000, 0.700000)</td></tr><tr><td><code>signed-copies</code></td><td><code>levenshtein</code></td><td>Went from passing to failing (1.000000 → 0.655172).</td><td>40 edit(s) over 116 characters (similarity 0.655172)</td></tr></tbody></table></details><details open><summary>What could not be judged (0)</summary><p class="empty">Nothing in this section.</p></details><details open><summary>What is set aside (0)</summary><p class="empty">Nothing in this section.</p></details><details><summary>What was added or removed (0)</summary><p class="empty">Nothing in this section.</p></details><details><summary>What got better (0)</summary><p class="empty">Nothing in this section.</p></details><details><summary>What stayed the same (0)</summary><p class="empty">Nothing in this section.</p></details>
+</body>
+</html>

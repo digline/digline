@@ -1,0 +1,342 @@
+[
+  {
+    "id": "amount_over_cap",
+    "vars": {
+      "amount_eur": 940.0,
+      "category": "hotel",
+      "merchant": "Grand Hotel",
+      "note": "conference, 3 nights",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "no_receipt",
+    "vars": {
+      "amount_eur": 210.0,
+      "category": "meal",
+      "merchant": "unknown",
+      "note": "receipt lost",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "duplicate_claim",
+    "vars": {
+      "amount_eur": 64.5,
+      "category": "taxi",
+      "merchant": "CityCab",
+      "note": "same ride as CT-1180",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "weekend_bar",
+    "vars": {
+      "amount_eur": 188.0,
+      "category": "meal",
+      "merchant": "The Anchor",
+      "note": "saturday, 6 people",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "taxi_short",
+    "vars": {
+      "amount_eur": 14.2,
+      "category": "taxi",
+      "merchant": "CityCab",
+      "note": "station to office",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "coffee_two",
+    "vars": {
+      "amount_eur": 6.8,
+      "category": "meal",
+      "merchant": "Bar Rossi",
+      "note": "two coffees",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "train_standard",
+    "vars": {
+      "amount_eur": 39.0,
+      "category": "travel",
+      "merchant": "Trenitalia",
+      "note": "MI-BO return",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "hotel_capped",
+    "vars": {
+      "amount_eur": 118.0,
+      "category": "hotel",
+      "merchant": "Ibis",
+      "note": "one night, within cap",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "dinner_client",
+    "vars": {
+      "amount_eur": 132.0,
+      "category": "meal",
+      "merchant": "Trattoria Sole",
+      "note": "client dinner, 2",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "late_taxi",
+    "vars": {
+      "amount_eur": 48.0,
+      "category": "taxi",
+      "merchant": "NightCab",
+      "note": "23:40, no transport",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "software_seat",
+    "vars": {
+      "amount_eur": 149.0,
+      "category": "tools",
+      "merchant": "Figma",
+      "note": "one seat, monthly",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "lunch_team",
+    "vars": {
+      "amount_eur": 96.0,
+      "category": "meal",
+      "merchant": "Poke Bar",
+      "note": "team of 6",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "parking_airport",
+    "vars": {
+      "amount_eur": 126.0,
+      "category": "travel",
+      "merchant": "AirPark",
+      "note": "4 days",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "book_technical",
+    "vars": {
+      "amount_eur": 58.0,
+      "category": "tools",
+      "merchant": "Amazon",
+      "note": "reference book",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "hotel_over",
+    "vars": {
+      "amount_eur": 134.0,
+      "category": "hotel",
+      "merchant": "NH",
+      "note": "one night, city event",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "meal_no_note",
+    "vars": {
+      "amount_eur": 74.0,
+      "category": "meal",
+      "merchant": "unknown",
+      "note": "",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "taxi_long",
+    "vars": {
+      "amount_eur": 119.0,
+      "category": "taxi",
+      "merchant": "CityCab",
+      "note": "airport, peak",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "courier_urgent",
+    "vars": {
+      "amount_eur": 88.0,
+      "category": "travel",
+      "merchant": "DHL",
+      "note": "contract to client",
+      "receipt": true
+    },
+    "expected": {
+      "needs_review": false
+    },
+    "label": "negative",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "dinner_solo",
+    "vars": {
+      "amount_eur": 92.0,
+      "category": "meal",
+      "merchant": "Sushi Ko",
+      "note": "alone, late",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  },
+  {
+    "id": "monitor_home",
+    "vars": {
+      "amount_eur": 165.0,
+      "category": "tools",
+      "merchant": "Amazon",
+      "note": "home office screen",
+      "receipt": false
+    },
+    "expected": {
+      "needs_review": true
+    },
+    "label": "positive",
+    "metadata": {
+      "quarter": "2026-Q3"
+    }
+  }
+]

@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Weekly, so the examples are checked against whatever PyPI serves today —
+    # including a dependency that moved under them.
+    - cron: "0 7 * * 1"
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
 
 # A second push to the same branch cancels the first: CI that reports on a
 # commit nobody is looking at any more is CI that costs and says nothing.
@@ -46,3 +53,36 @@ jobs:
 
       - name: Types
         run: uv run --python ${{ matrix.python }} pyright
+
+  examples-from-pypi:
+    name: The examples, against the published package
+    runs-on: ubuntu-latest
+    # After a release, not on every push. The monorepo tests already run every
+    # example against the source on every build; this asks the other question —
+    # whether a reader who has only what is on PyPI can run them. It is the
+    # question the source tree cannot answer about itself.
+    if: github.event_name == 'workflow_run' || github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [classifier, prompt-first, rag, external-app]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Resolve from the index only
+        working-directory: examples/${{ matrix.example }}
+        run: uv sync
+
+      - name: The cycle a reader would run
+        working-directory: examples/${{ matrix.example }}
+        run: |
+          uv run digline run --suite suite.py
+          uv run digline promote --suite suite.py --run latest
+          uv run digline compare --suite suite.py --run latest
+
+      - name: Its own gates
+        working-directory: examples/${{ matrix.example }}
+        run: |
+          uv run ruff check .
+          uv run pyright

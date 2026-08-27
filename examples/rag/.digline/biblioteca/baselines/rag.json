@@ -1,0 +1,315 @@
+{
+  "aggregate": [],
+  "artifacts": {},
+  "config_hash": "772460469ef76182",
+  "created_at": "2026-08-27T09:52:41.183791+00:00",
+  "environment": "staging",
+  "git_commit": "b5870a655c776d75f8be518796bad8acf02fb08a-dirty",
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "opening-hours",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00065,
+            "max_usd": 0.002,
+            "ratio": 0.325
+          },
+          "reason": "0.000650 USD against a 0.002000 cap (within budget)",
+          "score": 0.754717,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    },
+    {
+      "case_id": "joining",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.000648,
+            "max_usd": 0.002,
+            "ratio": 0.324
+          },
+          "reason": "0.000648 USD against a 0.002000 cap (within budget)",
+          "score": 0.755287,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    },
+    {
+      "case_id": "borrowing",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.000652,
+            "max_usd": 0.002,
+            "ratio": 0.326
+          },
+          "reason": "0.000652 USD against a 0.002000 cap (within budget)",
+          "score": 0.754148,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    },
+    {
+      "case_id": "late-return",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.000639,
+            "max_usd": 0.002,
+            "ratio": 0.3195
+          },
+          "reason": "0.000639 USD against a 0.002000 cap (within budget)",
+          "score": 0.757863,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    },
+    {
+      "case_id": "study-room",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.000642,
+            "max_usd": 0.002,
+            "ratio": 0.321
+          },
+          "reason": "0.000642 USD against a 0.002000 cap (within budget)",
+          "score": 0.757002,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    },
+    {
+      "case_id": "wifi",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 1,
+            "claims_total": 1
+          },
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.9,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "pii_absent",
+          "assertion_id": "26aa28fe0511db05",
+          "metadata": {
+            "pii_codice_fiscale": 0,
+            "pii_email": 0,
+            "pii_iban": 0,
+            "pii_partita_iva": 0,
+            "pii_phone_it": 0,
+            "pii_total": 0
+          },
+          "reason": "no identifier found (checked: codice_fiscale, email, iban, partita_iva, phone_it)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00064,
+            "max_usd": 0.002,
+            "ratio": 0.32
+          },
+          "reason": "0.000640 USD against a 0.002000 cap (within budget)",
+          "score": 0.757576,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        }
+      ]
+    }
+  ],
+  "schema_version": 7,
+  "suite": "rag",
+  "tenant": "biblioteca"
+}

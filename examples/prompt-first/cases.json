@@ -1,0 +1,27 @@
+[
+  {
+    "id": "opening-hours",
+    "vars": {"question": "Are you open on Sunday?"},
+    "expected": "We are closed on Sundays, but you are very welcome Monday to Saturday."
+  },
+  {
+    "id": "order-a-book",
+    "vars": {"question": "Can you order a book you do not have?"},
+    "expected": "Yes, we can order almost any title for you and it usually arrives within a week."
+  },
+  {
+    "id": "gift-wrap",
+    "vars": {"question": "Do you gift wrap?"},
+    "expected": "We do, and it is free at the till whenever you ask."
+  },
+  {
+    "id": "signed-copies",
+    "vars": {"question": "Do you have signed copies?"},
+    "expected": "Sometimes we do after an author event, so it is worth asking at the counter."
+  },
+  {
+    "id": "price-check",
+    "vars": {"question": "How much is the new Rooney?"},
+    "expected": "I would rather check that at the till than guess the price for you."
+  }
+]

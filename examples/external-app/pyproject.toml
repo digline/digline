@@ -1,0 +1,30 @@
+[project]
+name = "ticket-api-eval"
+version = "0.1.0"
+description = "Evaluating an application digline cannot import, over HTTP."
+requires-python = ">=3.12"
+dependencies = [
+    # The published package, nothing local. This directory is meant to become
+    # its own repository: `cp -r` it anywhere and `uv sync` has to work.
+    # 0.1.2 is where `HttpTarget` arrives (friction 14). Until it is
+    # published this example runs against the source, not the index.
+    "digline>=0.1.2,<0.2",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+# An application, not a library: there is nothing here to build a wheel from.
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"

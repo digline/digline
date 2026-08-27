@@ -1,0 +1,32 @@
+name: check
+
+# Inert while this lives inside the digline monorepo — the workflow that runs is
+# the one at the repository root. It is here so that the day this directory
+# becomes its own repository, the cycle is already wired.
+on:
+  push:
+  schedule:
+    # Monday, 06:00 UTC. A prompt does not change on its own; the model behind it
+    # does. The run nobody triggered is the one that notices.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+
+      # From PyPI, like any user: this checks the published package, not a
+      # checkout of it.
+      - run: uv sync
+
+      - run: uv run digline run --suite suite.py
+      - run: uv run digline promote --suite suite.py --run latest
+      - run: uv run digline compare --suite suite.py --run latest
+
+      - run: uv run ruff check .
+      - run: uv run pyright

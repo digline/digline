@@ -1,0 +1,219 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "prompts/system.txt": {
+      "sha": "9bb2bd77519e101f7ab7ed65506f468896426d4c8c76f7c32a8932260cee17cb",
+      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\n"
+    },
+    "prompts/user.txt": {
+      "sha": "96f7331433314f30ce6385279654a8c663906ca591561dd98283cd83ec63566a",
+      "text": "Customer asks: {question}\n"
+    }
+  },
+  "config_hash": "ddfa756ee8f1ee17",
+  "created_at": "2026-08-27T09:49:40.583801+00:00",
+  "environment": "dev",
+  "git_commit": "b5870a655c776d75f8be518796bad8acf02fb08a-dirty",
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "opening-hours",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "levenshtein",
+          "assertion_id": "9831ae8fdaf2e736",
+          "metadata": {
+            "distance": 0,
+            "length": 70
+          },
+          "reason": "0 edit(s) over 70 characters (similarity 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.75,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "35825b5b257418bd",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.65,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "order-a-book",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "levenshtein",
+          "assertion_id": "9831ae8fdaf2e736",
+          "metadata": {
+            "distance": 0,
+            "length": 80
+          },
+          "reason": "0 edit(s) over 80 characters (similarity 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.75,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "35825b5b257418bd",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.65,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "gift-wrap",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "levenshtein",
+          "assertion_id": "9831ae8fdaf2e736",
+          "metadata": {
+            "distance": 0,
+            "length": 51
+          },
+          "reason": "0 edit(s) over 51 characters (similarity 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.75,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "35825b5b257418bd",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.65,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "signed-copies",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "levenshtein",
+          "assertion_id": "9831ae8fdaf2e736",
+          "metadata": {
+            "distance": 0,
+            "length": 76
+          },
+          "reason": "0 edit(s) over 76 characters (similarity 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.75,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "35825b5b257418bd",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.65,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "price-check",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "levenshtein",
+          "assertion_id": "9831ae8fdaf2e736",
+          "metadata": {
+            "distance": 0,
+            "length": 67
+          },
+          "reason": "0 edit(s) over 67 characters (similarity 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.75,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "35825b5b257418bd",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "spread": 0.0
+          },
+          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.65,
+          "tolerance": 0.1
+        }
+      ]
+    }
+  ],
+  "schema_version": 7,
+  "suite": "replies",
+  "tenant": "bookshop"
+}
