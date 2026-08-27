@@ -118,10 +118,9 @@ The tenant (decision 8) separates customers from each other; the
 payload/verdict boundary (decision 9) separates what the end company may send
 from what it must not.
 
-## How to work with me
+## Where the working material lives
 
-- Before writing code in a new area: an API proposal in 20 lines, then implement.
-- If a request contradicts a fixed decision, stop and tell me, do not work
-  around it.
-- I am new to Python (not to programming): when you pick a non-obvious idiom,
-  one line of rationale.
+The frictions log — what tripped a real user, in order of discovery — lives
+in `private/`, which is a **separate repository** and is gitignored here.
+Commits to it are made there, not in this repo. It is the record of use, so
+it is written in whatever language the using happened in.

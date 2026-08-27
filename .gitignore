@@ -23,8 +23,10 @@ dist/
 *.iml
 
 # Local Claude Code settings. `.claude/settings.json`, if it appears, is shared
-# and stays versioned.
+# and stays versioned. `CLAUDE.local.md` is the personal working agreement —
+# how I want to be worked with — as against `CLAUDE.md`, which is the project.
 .claude/settings.local.json
+CLAUDE.local.md
 
 # macOS
 .DS_Store
