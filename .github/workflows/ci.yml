@@ -11,6 +11,10 @@ on:
   workflow_run:
     workflows: [publish]
     types: [completed]
+  # On demand, because `workflow_run` checks out the tag's commit — which is by
+  # construction *before* any example updated to depend on what that tag just
+  # published. Run it by hand against `main` after such a change.
+  workflow_dispatch:
 
 # A second push to the same branch cancels the first: CI that reports on a
 # commit nobody is looking at any more is CI that costs and says nothing.
@@ -61,7 +65,7 @@ jobs:
     # example against the source on every build; this asks the other question —
     # whether a reader who has only what is on PyPI can run them. It is the
     # question the source tree cannot answer about itself.
-    if: github.event_name == 'workflow_run' || github.event_name == 'schedule'
+    if: github.event_name != 'push' && github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -72,7 +76,15 @@ jobs:
 
       - name: Resolve from the index only
         working-directory: examples/${{ matrix.example }}
-        run: uv sync
+        # Retried: this job fires the moment `publish` finishes, and PyPI's
+        # index takes a minute to serve what was just uploaded. A version that
+        # is not there *yet* is not the same as one that is not there.
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            uv sync && exit 0
+            echo "index not ready yet, retrying in 20s"; sleep 20
+          done
+          echo "still unresolvable after two minutes"; exit 1
 
       - name: The cycle a reader would run
         working-directory: examples/${{ matrix.example }}
