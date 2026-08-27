@@ -242,6 +242,42 @@ read. digline does not cut a release because a price moved.
 model priced at zero passes every `CostBudget` there is, quietly and in the
 direction of good news, which is fixed decision 3.
 
+### `HttpTarget`
+
+For an application digline cannot import — a JVM service, a Go binary, anything
+behind a gateway. It posts a body built from the case and reads the answer out
+of the response by dotted path.
+
+```python
+from digline.targets import HttpTarget
+
+target = HttpTarget(
+    "http://localhost:8080/classify",
+    request=lambda case: {"text": case.vars["text"]},
+    output_path="data",
+    cost_path="usage.cost_usd",
+    latency_from_response="usage.elapsed_ms",
+)
+```
+
+| Argument | |
+|---|---|
+| `url` | where to post |
+| `request` | `(Case) -> Mapping`, the JSON body. A callable, not a template: a real payload has shapes a template cannot |
+| `output_path` | dotted path to what the assertions judge |
+| `cost_path` | dotted path to the cost, or `None` |
+| `latency_from_response` | dotted path to the time the service reports. Left out, digline measures the round trip instead — which includes the network, and is a different number measuring a different thing |
+| `headers`, `timeout` | as you would expect |
+
+`preflight` asks whether **anything is listening** before the first case, so a
+service that is down fails once with a sentence instead of once per case with a
+stack trace. A `404` or a `405` counts as an answer: something is there and the
+request was wrong, which is a different problem from nothing being there.
+
+`urllib` only — digline has one runtime dependency and this is not where it
+acquires a second. If you need retries, pooling or an auth flow, pass your own
+callable: a target is any `(Case) -> Response`.
+
 ### What a target may also answer
 
 Two optional protocols. A target that has the method is asked; a plain function
@@ -647,6 +683,53 @@ the system.
 A judge that raises, that returns a score out of range or that gives no reason
 produces a verdict in **`error`**, not a failure: not having been able to judge
 is a different thing from having judged badly.
+
+### The prompt a judge receives
+
+**One shape, for every assertion that asks a judge anything.** This is interface,
+not an implementation detail: anybody writing a judge — and everybody writing a
+*fake* judge, which is every test — has to parse it, and reading digline's source
+to find out was friction 32.
+
+```text
+<instruction, when the assertion has one>
+
+Rubric:
+<the rubric>
+
+Context:
+<the context lines, one per line>
+
+Input:
+<the input>
+
+Output to judge:
+<the output>
+```
+
+Three rules, and they hold for `LlmRubric`, for `Faithfulness` and for whatever
+comes next:
+
+1. The **instruction comes first, never after the output.** A trailing line is
+   what made `Faithfulness` unusable with a fake: the fake split on the output
+   label and counted the trailing instruction as a claim nothing supported, so
+   every score halved with the suite green.
+2. The output is **last**, behind `Output to judge:`, which appears **once**.
+   `digline.core.JUDGE_OUTPUT_LABEL` is that string — import it rather than
+   typing it, and `prompt.split(JUDGE_OUTPUT_LABEL, 1)[1].strip()` is the whole
+   of what a fake needs.
+3. Sections appear in the order above and are **omitted when empty** — no blank
+   `Context:` heading when there is no context.
+
+`ClaimJudge` receives the same shape. Its instruction asks for two counts:
+
+```text
+Decide which claims in the output are supported by the context, and report how
+many claims the output makes and how many of them the context supports.
+
+A claim is supported only if the context states it or entails it. Knowing it to
+be true from elsewhere does not make it supported.
+```
 
 ## What `--json` promises
 

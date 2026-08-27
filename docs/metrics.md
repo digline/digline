@@ -533,6 +533,30 @@ composed prompt in `input`, the cost in `cost_usd`, the measured duration in
 prompt that produced it — which is the point, and which means a redacted run
 withholds them unless the suite says `Disclosure(artifacts=True)`.
 
+### `HttpTarget`
+
+**Use it when** the application is not Python, or is not importable — a JVM
+service, a Go binary, something behind a gateway.
+
+```python
+HttpTarget(
+    "http://localhost:8080/classify",
+    request=lambda case: {"text": case.vars["text"]},
+    output_path="data",
+    cost_path="usage.cost_usd",
+    latency_from_response="usage.elapsed_ms",
+)
+```
+
+**Takes** a URL, a callable that builds the body from the case, and dotted paths
+to the answer, the cost and the time the service reports. **Produces** a
+`Response` like any other target: what made it is not digline's business.
+**Watch out** `preflight` asks whether anything is listening before the first
+case, so a service that is down fails once with a sentence rather than once per
+case with a stack trace. Without `latency_from_response` the round trip is
+measured here, network included — a different number measuring a different
+thing. `urllib` only: for retries, pooling or auth, pass your own callable.
+
 ### `PromptTemplate`
 
 **Use it when** you want the prompt in a file rather than in a Python string —

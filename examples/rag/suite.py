@@ -14,7 +14,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from digline.core import ClaimReply, CostBudget, Faithfulness, PiiAbsent
+from digline.core import (
+    JUDGE_OUTPUT_LABEL,
+    ClaimReply,
+    CostBudget,
+    Faithfulness,
+    PiiAbsent,
+)
 from digline.run import Case, Response, Suite
 
 import app
@@ -31,14 +37,9 @@ def claim_judge(prompt: str) -> ClaimReply:
     contradict. Faked here, and deliberately not generous — a stand-in that
     always answers "all supported" would measure nothing at all.
     """
-    # `Output to check:` — `Faithfulness` says that, while `LlmRubric` says
-    # `Output to judge:`. Neither marker is in the docs, so a fake judge has to
-    # read digline's source to find out. (digline friction 32)
-    context_part, _, tail = prompt.partition("Output to check:")
-    # And the output is not the end of the prompt: an instruction to the judge
-    # follows it, after a blank line. Counted as a claim it is never supported,
-    # which quietly halves every score.
-    answer_part = tail.rsplit("\n\n", 1)[0]
+    # Every judged assertion sends one shape, and the output is last, behind
+    # this label. Imported rather than typed: it is the interface.
+    context_part, _, answer_part = prompt.partition(JUDGE_OUTPUT_LABEL)
     context = context_part.lower()
     claims = [s.strip() for s in answer_part.split(".") if s.strip()]
     supported = sum(1 for claim in claims if _covered(claim, context))

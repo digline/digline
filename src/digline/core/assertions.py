@@ -716,6 +716,40 @@ class JsonSchema(AssertionBase):
         )
 
 
+#: The label the judged output always sits behind, in every assertion that asks
+#: a judge anything. A fake judge — which is to say every test — splits on this,
+#: and it used to be two different strings.
+JUDGE_OUTPUT_LABEL = "Output to judge:"
+
+#: The order the labelled sections appear in. Fixed in one place so two
+#: assertions cannot drift into two shapes. (friction 32)
+_SECTION_ORDER = ("Rubric", "Context", "Input")
+
+
+def judge_prompt(instruction: str, sections: Mapping[str, str], output: str) -> str:
+    """The one shape a judge is ever sent.
+
+    Instruction first, then the labelled sections in a fixed order, then the
+    output — **last, always, and with nothing after it.** A trailing line is why
+    this function exists: `Faithfulness` used to close with "report how many
+    claims…", and every fake judge that split on the output label swallowed that
+    instruction as a claim the context did not support. Scores halved, silently,
+    with the suite green.
+
+    The exact text is in `docs/api.md` under `Judge`, because it is interface:
+    anybody writing a judge has to parse it, and reading digline's source to
+    find out is the friction this closes.
+    """
+    parts = [instruction] if instruction else []
+    parts.extend(
+        f"{label}:\n{sections[label]}"
+        for label in _SECTION_ORDER
+        if sections.get(label)
+    )
+    parts.append(f"{JUDGE_OUTPUT_LABEL}\n{output}")
+    return "\n\n".join(parts)
+
+
 @dataclass(frozen=True, slots=True)
 class LlmRubric(AssertionBase):
     """An LLM judgement against a textual rubric.
@@ -746,13 +780,15 @@ class LlmRubric(AssertionBase):
         else:
             turns = [m for m in inputs.output if isinstance(m, Message)]
             body = "\n".join(f"{m.role}: {m.content}" for m in turns)
-        parts = [f"Rubric:\n{self.rubric}"]
-        if inputs.input is not None:
-            parts.append(f"Input:\n{inputs.input}")
-        if inputs.context:
-            parts.append("Context:\n" + "\n".join(inputs.context))
-        parts.append(f"Output to judge:\n{body}")
-        return "\n\n".join(parts)
+        return judge_prompt(
+            instruction="",
+            sections={
+                "Rubric": self.rubric,
+                "Context": "\n".join(inputs.context),
+                "Input": "" if inputs.input is None else inputs.input,
+            },
+            output=body,
+        )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         if (err := self._accept(inputs.output)) is not None:
@@ -884,20 +920,21 @@ class Faithfulness(AssertionBase):
             )
 
     def _render(self, inputs: EvaluatorInputs) -> str:
-        parts = [
-            "Decide which claims in the output are supported by the context.",
-            "A claim is supported only if the context states it or entails it. "
-            "Knowing it to be true from elsewhere does not make it supported.",
-            "Context:\n" + "\n".join(inputs.context),
-        ]
-        if inputs.input is not None:
-            parts.append(f"Input:\n{inputs.input}")
-        parts.append(f"Output to check:\n{_as_text(inputs.output)}")
-        parts.append(
-            "Report how many claims the output makes and how many of them the "
-            "context supports."
+        return judge_prompt(
+            instruction=(
+                "Decide which claims in the output are supported by the "
+                "context, and report how many claims the output makes and how "
+                "many of them the context supports.\n\n"
+                "A claim is supported only if the context states it or entails "
+                "it. Knowing it to be true from elsewhere does not make it "
+                "supported."
+            ),
+            sections={
+                "Context": "\n".join(inputs.context),
+                "Input": "" if inputs.input is None else inputs.input,
+            },
+            output=_as_text(inputs.output),
         )
-        return "\n\n".join(parts)
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         if (err := self._accept(inputs.output)) is not None:

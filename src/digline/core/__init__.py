@@ -17,6 +17,7 @@ from digline.core.aggregate import (
     RunAssertionBase,
 )
 from digline.core.assertions import (
+    JUDGE_OUTPUT_LABEL,
     Affix,
     AssertionBase,
     Contains,
@@ -108,6 +109,7 @@ __all__ = [
     "Artifact",
     "CaseResult",
     "Comparison",
+    "JUDGE_OUTPUT_LABEL",
     "Contains",
     "CostBudget",
     "Disclosure",

@@ -10,6 +10,7 @@ import pytest
 
 from digline.core import (
     ITALIAN_PII,
+    JUDGE_OUTPUT_LABEL,
     TEXT_ONLY,
     Affix,
     AssertionBase,
@@ -919,3 +920,74 @@ def test_faithfulness_errors_on_a_conversation() -> None:
 def test_faithfulness_needs_a_threshold_and_a_tolerance() -> None:
     with pytest.raises(TypeError):
         Faithfulness(judge=claim_judge(1, 1))  # type: ignore[call-arg]
+
+
+# --------------------------------------------------------------------------- #
+# One shape for every judged assertion (friction 32)
+# --------------------------------------------------------------------------- #
+
+
+def captured_prompts() -> dict[str, str]:
+    """What each judged assertion actually sends, on identical inputs."""
+    seen: dict[str, str] = {}
+
+    def rubric_judge(prompt: str) -> JudgeReply:
+        seen["llm_rubric"] = prompt
+        return JudgeReply(score=1.0, reason="r")
+
+    def claim_judge(prompt: str) -> ClaimReply:
+        seen["faithfulness"] = prompt
+        return ClaimReply(supported=1, total=1, reason="r")
+
+    inputs = EvaluatorInputs(
+        output="The answer.", input="The question?", context=("A passage.",)
+    )
+    LlmRubric(rubric="Is it civil?", judge=rubric_judge, threshold=0.7, tolerance=0.05)(
+        inputs
+    )
+    Faithfulness(judge=claim_judge, threshold=0.7, tolerance=0.05)(inputs)
+    return seen
+
+
+def test_every_judged_assertion_uses_the_same_layout() -> None:
+    """Two assertions, one shape.
+
+    `Faithfulness` used to say `Output to check:` where `LlmRubric` said
+    `Output to judge:`, and to put an instruction *after* the output. A fake
+    judge — which is to say every test — split on the label and swallowed that
+    instruction as an unsupported claim: every score halved, in silence, with
+    the suite green.
+    """
+    prompts = captured_prompts()
+    assert set(prompts) == {"llm_rubric", "faithfulness"}
+
+    for name, prompt in prompts.items():
+        assert JUDGE_OUTPUT_LABEL in prompt, name
+        # Exactly once, so splitting on it is unambiguous.
+        assert prompt.count(JUDGE_OUTPUT_LABEL) == 1, name
+        # And last: nothing follows the output but the output.
+        assert prompt.split(JUDGE_OUTPUT_LABEL, 1)[1].strip() == "The answer.", name
+
+    # The labelled sections appear in one order, whichever assertion asks.
+    for name, prompt in prompts.items():
+        labels = [
+            line[:-1]
+            for line in prompt.splitlines()
+            if line.endswith(":") and line[:-1] in {"Rubric", "Context", "Input"}
+        ]
+        assert labels == sorted(labels, key=["Rubric", "Context", "Input"].index), name
+
+
+def test_the_instruction_comes_before_the_output_never_after() -> None:
+    """The rule the trailing line broke, stated as a test."""
+    faith = captured_prompts()["faithfulness"]
+    instruction = "report how many claims"
+    assert instruction in faith
+    assert faith.index(instruction) < faith.index(JUDGE_OUTPUT_LABEL)
+
+
+def test_a_fake_judge_can_read_the_output_without_reading_the_source() -> None:
+    """The friction, from the outside: this is the whole of what a fake needs,
+    and `JUDGE_OUTPUT_LABEL` is exported so it does not have to be guessed."""
+    for prompt in captured_prompts().values():
+        assert prompt.split(JUDGE_OUTPUT_LABEL, 1)[1].strip() == "The answer."

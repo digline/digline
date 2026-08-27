@@ -6,7 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.1,<0.2",
+    # 0.1.2 is where every judged assertion sends one prompt shape and
+    # exports the label to split on (friction 32).
+    "digline>=0.1.2,<0.2",
 ]
 
 [dependency-groups]
