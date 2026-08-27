@@ -31,12 +31,13 @@ dependencies = [
     "jsonschema>=4.21",
 ]
 
+# Every one of these has to resolve for somebody who is not us: a PyPI page of
+# 404s is worse than a PyPI page with three links. `digline.dev` is not live and
+# the frictions log lives in a separate private repository, so neither is here.
 [project.urls]
-Homepage = "https://digline.dev"
 Documentation = "https://github.com/digline/digline/blob/main/docs/api.md"
 Repository = "https://github.com/digline/digline"
 Issues = "https://github.com/digline/digline/issues"
-Changelog = "https://github.com/digline/digline/blob/main/docs/frictions/frictions.md"
 
 [project.scripts]
 digline = "digline.cli.main:main"

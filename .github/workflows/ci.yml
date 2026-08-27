@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first: CI that reports on a
+# commit nobody is looking at any more is CI that costs and says nothing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install the workspace
+        # --all-packages: the plugin under packages/ is part of the build, and
+        # the layering gate reads what is in packages/ to know what to forbid.
+        run: uv sync --all-packages --python ${{ matrix.python }}
+
+      - name: Tests
+        # Never `live`. It needs a key and it spends money, and CI has neither
+        # a reason nor a budget to talk to a provider.
+        run: uv run --python ${{ matrix.python }} pytest -q -m "not live"
+
+      - name: Format
+        run: uv run --python ${{ matrix.python }} ruff format --check .
+
+      - name: Lint
+        run: uv run --python ${{ matrix.python }} ruff check .
+
+      - name: Types
+        run: uv run --python ${{ matrix.python }} pyright
