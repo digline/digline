@@ -83,10 +83,22 @@ show(IsJson(), output='{"city": "Rome"}')
 show(JsonSchema(schema={"type": "object"}), output='{"city": "Rome"}')
 show(Length(minimum=1, maximum=50))
 show(Levenshtein(), expected="Hello Rome 43")
-show(LlmRubric(rubric="Is it civil?", judge=lambda p: JudgeReply(0.8, "civil"),
-               threshold=0.7, tolerance=0.05))
-show(Faithfulness(judge=lambda p: ClaimReply(supported=3, total=4, reason="one unsupported"),
-                  threshold=0.7, tolerance=0.05), context=("Rome is in Italy",))
+show(
+    LlmRubric(
+        rubric="Is it civil?",
+        judge=lambda p: JudgeReply(0.8, "civil"),
+        threshold=0.7,
+        tolerance=0.05,
+    )
+)
+show(
+    Faithfulness(
+        judge=lambda p: ClaimReply(supported=3, total=4, reason="one unsupported"),
+        threshold=0.7,
+        tolerance=0.05,
+    ),
+    context=("Rome is in Italy",),
+)
 show(PiiAbsent(), output="write to a@b.com")
 show(CostBudget(max_usd=0.10, tolerance=0.02), cost_usd=0.05)
 show(LatencyBudget(max_ms=800.0, tolerance=0.10), latency_ms=200.0)
@@ -97,8 +109,14 @@ kept = Contains(needle="MATCH")
 outcomes = [
     CaseOutcome(case_id=f"c{i}", label=label, verdict=kept(EvaluatorInputs(output=out)))
     for i, (label, out) in enumerate(
-        [("positive", "MATCH"), ("positive", "MATCH"), ("positive", "MISS"),
-         ("negative", "MATCH"), ("negative", "MISS"), ("negative", "MISS")]
+        [
+            ("positive", "MATCH"),
+            ("positive", "MATCH"),
+            ("positive", "MISS"),
+            ("negative", "MATCH"),
+            ("negative", "MISS"),
+            ("negative", "MISS"),
+        ]
     )
 ]
 print(f"{'aggregate':<16} {'score':>7}  {'status':<5}  metadata keys")
@@ -242,11 +260,13 @@ so on, which is what tells you *how* it was wrong.
 **Use it when** the structure has rules: required keys, types, enumerations.
 
 ```python
-JsonSchema(schema={
-    "type": "object",
-    "required": ["intent", "confidence"],
-    "properties": {"confidence": {"type": "number"}},
-})
+JsonSchema(
+    schema={
+        "type": "object",
+        "required": ["intent", "confidence"],
+        "properties": {"confidence": {"type": "number"}},
+    }
+)
 ```
 
 **Takes** `schema` (a JSON Schema document). Text and structured.
@@ -397,8 +417,9 @@ into a measurement instead of a surprise.
 
 ```python
 Repeated(
-    inner=LlmRubric(rubric="Stays on policy", judge=judge,
-                    threshold=0.8, tolerance=0.10),
+    inner=LlmRubric(
+        rubric="Stays on policy", judge=judge, threshold=0.8, tolerance=0.10
+    ),
     samples=5,
     min_agreement="3/5",
 )

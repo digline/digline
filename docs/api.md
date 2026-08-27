@@ -227,9 +227,12 @@ USD per million tokens, declared in code by the plugin and replaced by you in
 one argument:
 
 ```python
-AnthropicTarget(..., pricing=ANTHROPIC_PRICING.override(
-    "claude-sonnet-5", ModelPrice(input_per_mtok=2.5, output_per_mtok=12.0)
-))
+AnthropicTarget(
+    ...,
+    pricing=ANTHROPIC_PRICING.override(
+        "claude-sonnet-5", ModelPrice(input_per_mtok=2.5, output_per_mtok=12.0)
+    ),
+)
 ```
 
 A price list is a fact about a day, and the plugin's carries the date it was
@@ -606,9 +609,7 @@ class MaxWords(AssertionBase):
             return err
         assert isinstance(inputs.output, str)
         words = len(inputs.output.split())
-        return self._binary(
-            words <= self.limit, f"{words} words (limit {self.limit})"
-        )
+        return self._binary(words <= self.limit, f"{words} words (limit {self.limit})")
 ```
 
 `AssertionBase` gives three exits: `_error(reason)`, `_binary(ok, reason)`,
