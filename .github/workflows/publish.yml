@@ -12,8 +12,8 @@ jobs:
     name: Build and check the distributions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
 
       - name: Refuse a tag that does not match the version
         # The one mistake this catches is permanent: a version on PyPI can never
@@ -39,7 +39,7 @@ jobs:
           /tmp/fresh/bin/digline --help
           /tmp/fresh/bin/python -c "import digline.core, digline.targets, digline.cli"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dist
           path: dist/
@@ -52,7 +52,7 @@ jobs:
     permissions:
       id-token: write   # trusted publishing; no token in a secret
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: dist
           path: dist/
@@ -99,7 +99,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: dist
           path: dist/
