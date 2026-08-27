@@ -178,6 +178,39 @@ the day it is right nobody looks.
 
 Everything in the next three chapters exists to turn that into a number.
 
+### A word about the judge on this page
+
+The judge above is a fake, and every fake carries the same trap: **one written
+by reading the code confirms the code.** It returns what the code expects
+because that is where it came from, so the tests it satisfies are a mirror, and
+a field the code never reads is a field the fake never has.
+
+That is not a hypothetical. digline's own Anthropic target was tested against a
+fake whose `usage` carried `input_tokens`, `output_tokens` and
+`cache_read_input_tokens` — the three the code read. The real API also returns
+`cache_creation_input_tokens`, and the tokens written into a cache are **not**
+part of `input_tokens`: a call that cached a 9202-token prompt reports
+`input_tokens=10`. The target priced that call at `$0.00003` instead of
+`$0.011532`, a factor of **384**, in the direction of "it costs almost nothing".
+Every test was green, because the fake had exactly the same hole.
+
+So a fake is built **from a real response, once per SDK**, not from the code it
+will be used to test. Print the whole object — every field, including the ones
+you have no use for — and shape the fake from that. What you do not print is
+what the fake will not have, and therefore what your tests will never see.
+
+`DIGLINE_LIVE=1` is how you go and look:
+
+```text
+# The default run never reaches a provider. Both gates, deliberately:
+#   ANTHROPIC_API_KEY  — you have one
+#   DIGLINE_LIVE=1     — you meant it today
+$ DIGLINE_LIVE=1 pytest -m live
+```
+
+Do it when you adopt an SDK, and again when the provider ships a version. One
+call, once, is cheaper than a cost report that has been wrong since March.
+
 ## 3. Sampling, and fractions
 
 One judgement is a sample of size one. Ask three times and keep what the
@@ -580,7 +613,9 @@ ranked = sorted(
 if "--key" in sys.argv:
     print(ranked[0][1])
 else:
-    print("typical run: " + "  ".join(f"{c} {v:.3f}" for c, v in sorted(typical.items())))
+    print(
+        "typical run: " + "  ".join(f"{c} {v:.3f}" for c, v in sorted(typical.items()))
+    )
     print()
     for distance, key in ranked[:5]:
         mark = "  <- promote this one" if key == ranked[0][1] else ""
@@ -646,7 +681,9 @@ suite = Suite(
     environment="staging",
     name="triage",
     assertions=[Contains(needle="MATCH", name="agrees_with_mark")],
-    run_assertions=[Precision(over="agrees_with_mark", threshold="1/2", tolerance="1/6")],
+    run_assertions=[
+        Precision(over="agrees_with_mark", threshold="1/2", tolerance="1/6")
+    ],
     cases=[
         *(Case(id=case_id, label="positive") for case_id in POSITIVE),
         *(Case(id=case_id, label="negative") for case_id in NEGATIVE),
@@ -709,8 +746,9 @@ for delta in result.deltas:
 
 for delta in by_scope["run"]:
     print(f"gate: {delta.assertion} {delta.before:.3f} -> {delta.after:.3f}")
-print(f"{len(by_scope['run'])} run-level regressions, "
-      f"{len(by_scope['case'])} case-level")
+print(
+    f"{len(by_scope['run'])} run-level regressions, {len(by_scope['case'])} case-level"
+)
 sys.exit(1 if by_scope["run"] else 0)
 ```
 
@@ -825,7 +863,10 @@ suite = Suite(
     cases=[
         Case(id="where-is-my-order"),
         Case(id="how-do-i-return"),
-        Case(id="is-it-waterproof", suspended="the IPX rating is under review, ticket 412"),
+        Case(
+            id="is-it-waterproof",
+            suspended="the IPX rating is under review, ticket 412",
+        ),
     ],
 )
 ```
@@ -1080,8 +1121,12 @@ for case in latest.results:
         if verdict.status != "pass":
             short += 1
             score = "—" if verdict.score.score is None else f"{verdict.score.score:.3f}"
-            print(f"{case.case_id:<18} {verdict.score.name:<12} {verdict.status:<5} {score}")
-print(f"{short} check{'' if short == 1 else 's'} not passing, over {len(latest.results)} cases")
+            print(
+                f"{case.case_id:<18} {verdict.score.name:<12} {verdict.status:<5} {score}"
+            )
+print(
+    f"{short} check{'' if short == 1 else 's'} not passing, over {len(latest.results)} cases"
+)
 ```
 
 ```console
