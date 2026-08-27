@@ -45,7 +45,7 @@ from digline.report import (
     render_html,
     summary_lines,
 )
-from digline.run import Suite, execute
+from digline.run import HasArtifacts, Suite, execute
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -108,7 +108,7 @@ def exit_code(head: Headline) -> int:
     return EXIT_OK
 
 
-def read_artifacts(suite: Suite, base: Path) -> dict[str, Artifact]:
+def read_artifacts(suite: Suite, target: object, base: Path) -> dict[str, Artifact]:
     """The declared files, as they are right now.
 
     Here rather than in the driver for the same reason the clock and git are
@@ -117,21 +117,35 @@ def read_artifacts(suite: Suite, base: Path) -> dict[str, Artifact]:
     suite's own directory, which is where a prompt sits next to the suite that
     names it.
 
+    The **target** is asked too, when it can answer. A `ProviderTarget` builds
+    its prompt from a file and already knows which one, so `artifacts=[…]` does
+    not have to repeat a path that would then have two places to be wrong.
+
     A declared file that is missing raises. It is the thing under examination —
     a run that quietly recorded no prompt would be a run whose evidence is
     absent exactly when it matters.
     """
+    declared: list[Path] = list(suite.artifacts)
+    if isinstance(target, HasArtifacts):
+        declared.extend(target.artifacts())
+
     found: dict[str, Artifact] = {}
-    for declared in suite.artifacts:
-        path = declared if declared.is_absolute() else base / declared
+    for entry in declared:
+        path = entry if entry.is_absolute() else base / entry
         if not path.is_file():
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {declared}, which "
+                f"suite {suite.name!r} declares the artifact {entry}, which "
                 f"is not a file at {path}: the thing under test cannot be "
                 "recorded, so the run would not say what produced it"
             )
         data = path.read_bytes()
-        found[str(declared)] = Artifact(
+        # Keyed by where it sits relative to the suite, so a run file stays
+        # readable on another machine: an absolute path is this laptop's fact.
+        try:
+            key = str(path.resolve().relative_to(base.resolve()))
+        except ValueError:
+            key = path.name
+        found[key] = Artifact(
             sha=hashlib.sha256(data).hexdigest(),
             text=data.decode("utf-8"),
         )
@@ -259,7 +273,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         created_at=created_at,
         git_commit=commit,
         run_metadata=_meta(args.meta),
-        artifacts=read_artifacts(suite, Path(args.suite).resolve().parent),
+        artifacts=read_artifacts(suite, target, Path(args.suite).resolve().parent),
     )
     ref = store.write_run(run)
 

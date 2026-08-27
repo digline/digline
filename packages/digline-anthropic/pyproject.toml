@@ -1,0 +1,31 @@
+[project]
+name = "digline-anthropic"
+version = "0.1.0"
+description = "Anthropic target for digline: prompt file in, priced Response out."
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [
+    { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "digline",
+    "anthropic>=0.40",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/digline_anthropic"]
+
+[tool.uv.sources]
+digline = { workspace = true }

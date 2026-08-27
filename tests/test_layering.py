@@ -110,3 +110,44 @@ def test_the_core_imports_on_its_own() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "False"
+
+
+SRC = Path(__file__).resolve().parents[1] / "src" / "digline"
+PACKAGES = Path(__file__).resolve().parents[1] / "packages"
+
+
+def test_nothing_shipped_with_digline_imports_a_plugin() -> None:
+    """The direction that makes plugins worth having.
+
+    `pip install digline` must not pull somebody's HTTP client along with it, so
+    no module under `src/` may import one — not the core, not the targets, not
+    the CLI. A plugin depends on digline; digline depends on no plugin, ever.
+    """
+    plugins = {p.name.replace("-", "_") for p in PACKAGES.glob("*") if p.is_dir()}
+    assert plugins, "no plugin to check against; this test would prove nothing"
+    for source in sorted(SRC.rglob("*.py")):
+        for module in imported_modules(source):
+            root = module.split(".")[0]
+            assert root not in plugins, (
+                f"{source.relative_to(SRC)} imports {module}: digline must not "
+                "depend on a package that depends on it"
+            )
+
+
+def test_the_targets_do_not_import_an_sdk() -> None:
+    """`digline.targets` is the half of a provider target that has no provider
+    in it. The moment it imports one, every user of digline installs it."""
+    sdks = {"anthropic", "openai", "google", "cohere", "mistralai", "httpx", "requests"}
+    for source in sorted((SRC / "targets").glob("*.py")):
+        offenders = imported_modules(source) & sdks
+        assert not offenders, f"{source.name} imports {offenders}"
+
+
+def test_the_core_does_not_import_the_targets() -> None:
+    """Targets sit above `digline.run`, which sits above the core. A `Response`
+    is produced for a `Case`, so the dependency can only run one way."""
+    for source in sorted(CORE.glob("*.py")):
+        for module in imported_modules(source):
+            assert not module.startswith("digline.targets"), (
+                f"{source.name} imports {module}: the core is below the targets"
+            )

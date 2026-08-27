@@ -62,16 +62,32 @@ def test_the_decision_tree_names_every_metric() -> None:
         assert name in tree, f"{name} is on no branch of the tree"
 
 
-def test_every_example_constructs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_every_example_constructs(tmp_path: Path) -> None:
     """Each card's snippet is evaluated, not merely displayed.
 
     The namespace is the one the page promises the reader: the public API, plus
     the three things a card cannot supply — your judge, your claim judge, your
     autoevals scorer.
+
+    The Targets cards read prompt files, so the snippets run against a directory
+    that has them and a `__file__` that points into it. That is not a courtesy:
+    it is what makes a renamed parameter fail here rather than in a suite.
     """
     import digline.core as core
+    import digline.targets as targets
+    from digline_anthropic import ANTHROPIC_PRICING, AnthropicTarget
+
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    (prompts / "answer.md").write_text("Answer {question}.", encoding="utf-8")
+    (prompts / "system.md").write_text("Be terse.", encoding="utf-8")
 
     namespace: dict[str, object] = {name: getattr(core, name) for name in core.__all__}
+    namespace.update({name: getattr(targets, name) for name in targets.__all__})
+    namespace["Path"] = Path
+    namespace["__file__"] = str(tmp_path / "suite.py")
+    namespace["AnthropicTarget"] = AnthropicTarget
+    namespace["ANTHROPIC_PRICING"] = ANTHROPIC_PRICING
 
     def judge(prompt: str) -> core.JudgeReply:
         return core.JudgeReply(score=1.0, reason="stub")

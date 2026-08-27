@@ -50,6 +50,9 @@ dev = [
     "pyright>=1.1.380",
 ]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
@@ -78,20 +81,25 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "packages/digline-anthropic/tests"]
+markers = [
+    # Costs money and needs a key. Skipped unless ANTHROPIC_API_KEY is set, so
+    # the default run is offline and free.
+    "live: calls a real provider",
+]
 # `.` so `tests` is importable as a package (`tests._helpers`) whatever the
 # working directory; `src` so the sources are importable without an install.
-pythonpath = [".", "src"]
+pythonpath = [".", "src", "packages/digline-anthropic/src"]
 
 [tool.ruff]
 line-length = 88
-src = ["src", "tests", "examples/quickstart"]
+src = ["src", "tests", "examples/quickstart", "packages/digline-anthropic/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
-include = ["src", "tests", "examples"]
-extraPaths = ["examples/quickstart"]
+include = ["src", "tests", "examples", "packages"]
+extraPaths = ["examples/quickstart", "packages/digline-anthropic/src"]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

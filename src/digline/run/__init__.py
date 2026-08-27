@@ -5,7 +5,9 @@ promotion are composition on top, not responsibilities of the driver.
 """
 
 from digline.run.driver import (
+    HasArtifacts,
     Mapper,
+    Preflight,
     Response,
     Target,
     default_mapper,
@@ -15,7 +17,9 @@ from digline.run.suite import Case, Suite
 
 __all__ = [
     "Case",
+    "HasArtifacts",
     "Mapper",
+    "Preflight",
     "Response",
     "Suite",
     "Target",

@@ -177,6 +177,85 @@ boundary**: everything entering the core enters as `EvaluatorInputs`.
 `default_mapper` does the obvious thing; if you write your own, it stays the
 only road in.
 
+## Targets
+
+### `Target`
+
+Any callable `(Case) -> Response`. Most are functions, and nothing below is
+required to write one.
+
+### `ProviderTarget`
+
+`digline.targets` carries the half of a provider target that has nothing to do
+with the provider: composing the prompt, timing the call, pricing the tokens,
+building the `Response`. A plugin writes one method.
+
+```python
+from digline_anthropic import AnthropicTarget
+
+target = AnthropicTarget(
+    prompt_file=Path(__file__).parent / "prompts/answer.md",
+    system_file=Path(__file__).parent / "prompts/system.md",
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    temperature=0.0,
+)
+```
+
+Real providers live in separate packages — `pip install digline` must not pull
+somebody's HTTP client along with it — and the layering gate enforces it in both
+directions: nothing under `src/` may import a plugin, and `digline.targets` may
+not import an SDK.
+
+### `PromptTemplate`
+
+A prompt file, its digest, and the variables it asks for. Read at construction,
+so a path that does not exist fails when the suite is imported.
+
+Substitution is a regex over `{identifier}` — **not** `str.format`. A real
+prompt contains JSON, and `format` raises on `{"role": "user"}`; here every
+other brace is left exactly as written.
+
+Values render deterministically, because the same `vars` must give the same
+prompt on the next machine: strings as they are, numbers and booleans through
+`str()`, mappings and sequences as JSON with sorted keys and no spaces. Anything
+else is refused by name — an object's `str()` may carry a memory address.
+
+### `Pricing`
+
+USD per million tokens, declared in code by the plugin and replaced by you in
+one argument:
+
+```python
+AnthropicTarget(..., pricing=ANTHROPIC_PRICING.override(
+    "claude-sonnet-5", ModelPrice(input_per_mtok=2.5, output_per_mtok=12.0)
+))
+```
+
+A price list is a fact about a day, and the plugin's carries the date it was
+read. digline does not cut a release because a price moved.
+
+**An unknown model raises**; so does a cached read the list cannot price. A
+model priced at zero passes every `CostBudget` there is, quietly and in the
+direction of good news, which is fixed decision 3.
+
+### What a target may also answer
+
+Two optional protocols. A target that has the method is asked; a plain function
+is left alone.
+
+| Protocol | Asked by | For |
+|---|---|---|
+| `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003) |
+| `preflight(cases) -> None` | `execute()`, once, before the first call | raises naming **every** gap at once |
+
+`ProviderTarget` implements both. `preflight` checks that each case provides
+every variable its templates ask for, and that the model has a price — both are
+cheaper to discover before the run than on case thirty-seven with thirty-six
+paid calls behind it. It happens in the driver rather than in `Suite`, so a
+script calling `execute()` directly is covered too, and so that a `Suite` stays
+a declaration that knows nothing about how its outputs are produced.
+
 ## The assertions
 
 Every assertion is an immutable dataclass and a pure function

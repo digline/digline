@@ -481,6 +481,65 @@ about what `F1` means once precision has already gone to `error`.
 
 ---
 
+---
+
+## Targets
+
+Not a metric, but the other half of what a suite declares: the thing the
+assertions are pointed at. A target is any callable `(Case) -> Response`, and
+most are ten lines of your own. `digline.targets` exists for the case that is
+always the same shape — a prompt file, a model, a bill.
+
+### `ProviderTarget`
+
+**Use it when** the system under test is a prompt sent to a provider, which is
+the ordinary case.
+
+```python
+AnthropicTarget(
+    prompt_file=Path(__file__).parent / "prompts/answer.md",
+    system_file=Path(__file__).parent / "prompts/system.md",
+    model="claude-sonnet-5",
+    max_tokens=1024,
+)
+```
+
+**Takes** `prompt_file`, `model`, and whatever the plugin needs;
+`system` or `system_file`, never both. **Produces** a `Response` with the
+composed prompt in `input`, the cost in `cost_usd`, the measured duration in
+`latency_ms`, and the model and token counts in `metadata`.
+**Watch out** both files are recorded in every run, so the baseline carries the
+prompt that produced it — which is the point, and which means a redacted run
+withholds them unless the suite says `Disclosure(artifacts=True)`.
+
+### `PromptTemplate`
+
+**Use it when** you want the prompt in a file rather than in a Python string —
+which you do, because a file is diffable and a run records it.
+
+```python
+PromptTemplate(Path(__file__).parent / "prompts/answer.md")
+```
+
+**Takes** a path, read at construction. **Produces** `text`, `sha`, `variables`,
+and `render(vars)`.
+**Watch out** substitution is `{identifier}` by regex, never `str.format`, so
+JSON in a prompt survives. Values render deterministically or are refused: an
+object whose `str()` carries a memory address would give two runs two prompts
+and no record of why.
+
+### `Pricing`
+
+**Use it when** the plugin's list is stale, which it will be.
+
+```python
+ANTHROPIC_PRICING.override("claude-sonnet-5", ModelPrice(2.5, 12.0, 0.25))
+```
+
+**Takes** USD per million tokens. **Produces** `cost(model, usage) -> float`.
+**Watch out** an unknown model **raises**. A model priced at zero passes every
+`CostBudget` there is, and does it quietly.
+
 ## See also
 
 - [`guide.md`](guide.md) — how these get calibrated, in the order the problems arrive

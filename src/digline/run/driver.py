@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 from digline.core import (
     Artifact,
@@ -28,7 +29,15 @@ from digline.core import (
 )
 from digline.run.suite import Case, Suite
 
-__all__ = ["Mapper", "Response", "Target", "default_mapper", "execute"]
+__all__ = [
+    "HasArtifacts",
+    "Mapper",
+    "Preflight",
+    "Response",
+    "Target",
+    "default_mapper",
+    "execute",
+]
 
 #: A failure message is quoted into a `reason`, which is payload and gets
 #: redacted at a boundary — but it still lands in a committed run artifact, and
@@ -64,6 +73,33 @@ class Target(Protocol):
     """
 
     def __call__(self, case: Case) -> Response: ...
+
+
+@runtime_checkable
+class Preflight(Protocol):
+    """A target that can refuse a suite before the first call.
+
+    Optional, and asked for rather than required: a target is a function, and
+    most are. A target that composes a prompt from `case.vars` knows things the
+    suite cannot check on its own — which variables the template asks for,
+    whether the model has a price — and every one of those is cheaper to
+    discover before the run than on case thirty-seven.
+    """
+
+    def preflight(self, cases: Sequence[Case]) -> None: ...
+
+
+@runtime_checkable
+class HasArtifacts(Protocol):
+    """A target that names the files it is made of.
+
+    The prompt is the thing under test (ADR 0003) and a target that builds one
+    from a file knows which file. The CLI asks, and merges the answer into what
+    the suite declared, so `artifacts=[…]` does not have to repeat a path the
+    target already carries.
+    """
+
+    def artifacts(self) -> Sequence[Path]: ...
 
 
 class Mapper(Protocol):
@@ -215,6 +251,12 @@ def execute(
     reproducible and the driver's tests stay deterministic; `store.utc_now_iso()`
     exists for callers who want now.
     """
+    # Asked before anything is called. A target that can check itself against
+    # the suite says so by having the method; the ones that cannot are plain
+    # functions and are left alone.
+    if isinstance(target, Preflight):
+        target.preflight(suite.cases)
+
     results: Sequence[CaseResult] = tuple(
         _run_case(suite, target, mapper, case) for case in suite.cases
     )

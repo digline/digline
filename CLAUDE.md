@@ -49,17 +49,23 @@ correct its structural mistakes and are not negotiable.
 
     src/digline/core/       pure domain: Score, Verdict, assertions, protocols. No imports from other packages.
     src/digline/store/      ResultStore and its implementations (file-based, inside the repo)
-    src/digline/providers/  the protocol and the registry only; real providers are separate packages
+    src/digline/targets/    prompt template, pricing, the ProviderTarget base. No SDK, ever;
+                            real providers are separate packages under packages/
     src/digline/run/        offline driver
     src/digline/report/     the document for world 3: pure functions, self-contained HTML, mandatory locale
     src/digline/production/ [planned] production store, Postgres first, mandatory retention
     src/digline/bridge/     [planned] production → repo: mandatory anonymization, generated case_id
     src/digline/online/     production driver
     src/digline/cli/        last layer: the **only** one allowed to read the clock and git
+                            (the *clock*, meaning wall time: `created_at` is passed in so a
+                            run is reproducible. A **duration** is not a clock — it cannot
+                            say what time it is — so `perf_counter` for `latency_ms` in a
+                            target is allowed and is what fills `Response.latency_ms`.)
     docs/                   public documentation: API reference, decisions (numbered ADRs)
 
-Allowed dependencies: cli → run/report/bridge/online → store/production/providers
-→ core. Never the other way round.
+Allowed dependencies: cli → targets → run/report/bridge/online →
+store/production → core. Never the other way round, and nothing under `src/`
+ever imports a plugin from `packages/`.
 
 Build order: offline driver → report → store and CLI. **Nothing online before
 the report**: it is what world 3 sees, and it is the only one of the three
