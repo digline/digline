@@ -1,8 +1,22 @@
 # Releasing
 
 One workflow, `.github/workflows/publish.yml`, fires on a tag. What follows is
-the part that is not in the file, plus the three things that have already gone
+the part that is not in the file, plus the four things that have already gone
 wrong once.
+
+## Before the tag: the changelog
+
+`CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
+One entry per occasion, headed by the date and by what the tag releases — a
+workspace tag lists the versions it carries (`digline 0.1.3, digline-anthropic
+0.1.1, digline-openai 0.1.0`), a named tag heads its own package.
+
+This is the step to do first, because it is the only one the workflow cannot
+catch up on. A tag is a commit, and a changelog written afterwards describes a
+release from a commit that is not in it: the file on PyPI and on `digline.dev`
+stays the one that says nothing about the version somebody just installed.
+Fixing that costs a re-tag, which is repeatable but only until the `pypi` job
+has run.
 
 ## The two tag shapes
 
