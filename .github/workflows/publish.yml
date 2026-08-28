@@ -48,7 +48,17 @@ jobs:
             /tmp/fresh/bin/pip install --quiet "$wheel"
             echo "installed $wheel"
           done
-          /tmp/fresh/bin/python -c "import digline_anthropic, digline.targets"
+          # Each plugin in its own fresh venv: the loop above leaves only the
+          # last wheel installed, and "the last one imports" is not the check.
+          for plugin in digline_anthropic digline_openai; do
+            rm -rf /tmp/plugin && python -m venv /tmp/plugin
+            # Wheel filenames normalise the dash to an underscore, and the
+            # core wheel goes in with it: `digline>=0.1.3` is not on the index
+            # yet at this point in the tag, and must not be fetched from one.
+            /tmp/plugin/bin/pip install --quiet \
+              dist/"$plugin"-*.whl dist/digline-[0-9]*.whl
+            /tmp/plugin/bin/python -c "import $plugin, digline.targets"
+          done
           rm -rf /tmp/core && python -m venv /tmp/core
           /tmp/core/bin/pip install --quiet dist/digline-*.whl
           /tmp/core/bin/digline --help > /dev/null && echo "digline --help works"
@@ -92,11 +102,12 @@ jobs:
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              digline digline-anthropic && break
+              digline digline-anthropic digline-openai && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
-          /tmp/from-index/bin/python -c "import digline_anthropic; print('plugin ok')"
+          /tmp/from-index/bin/python -c \
+            "import digline_anthropic, digline_openai; print('plugins ok')"
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
@@ -130,3 +141,23 @@ jobs:
         with:
           packages-dir: to-publish/
           skip-existing: true
+
+  site:
+    name: Rebuild digline.dev
+    needs: pypi
+    runs-on: ubuntu-latest
+    steps:
+      # The documentation on the site is this repository's docs/, copied in at
+      # build time. Once the version is on PyPI, the site has to be rebuilt from
+      # the tag that produced it, or it describes something you cannot install.
+      #
+      # SITE_DISPATCH_TOKEN is a token with write access to digline/digline.dev
+      # and nothing else — a fine-grained PAT scoped to that one repository,
+      # Contents: read and write, which is what repository_dispatch asks for.
+      - name: Tell the site a version is out
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/digline/digline.dev/dispatches --method POST \
+            -f event_type=digline-release \
+            -f 'client_payload[ref]'="$GITHUB_REF_NAME"

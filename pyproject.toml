@@ -1,6 +1,6 @@
 [project]
 name = "digline"
-version = "0.1.2"
+version = "0.1.3"
 description = "Regression testing for LLM output, against a baseline committed in your own repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -82,19 +82,34 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "packages/digline-anthropic/tests"]
+testpaths = [
+    "tests",
+    "packages/digline-anthropic/tests",
+    "packages/digline-openai/tests",
+]
 markers = [
-    # Costs money and needs a key. Skipped unless ANTHROPIC_API_KEY is set, so
-    # the default run is offline and free.
+    # Costs money and needs a key. Skipped unless the provider's key is set and
+    # DIGLINE_LIVE=1, so the default run is offline and free.
     "live: calls a real provider",
 ]
 # `.` so `tests` is importable as a package (`tests._helpers`) whatever the
 # working directory; `src` so the sources are importable without an install.
-pythonpath = [".", "src", "packages/digline-anthropic/src"]
+pythonpath = [
+    ".",
+    "src",
+    "packages/digline-anthropic/src",
+    "packages/digline-openai/src",
+]
 
 [tool.ruff]
 line-length = 88
-src = ["src", "tests", "examples/quickstart", "packages/digline-anthropic/src"]
+src = [
+    "src",
+    "tests",
+    "examples/quickstart",
+    "packages/digline-anthropic/src",
+    "packages/digline-openai/src",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -105,6 +120,13 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # them from here would collide four modules called `app` and resolve none
 # of them. The quickstart is not standalone and stays.
 include = ["src", "tests", "examples/quickstart", "packages"]
-extraPaths = ["examples/quickstart", "packages/digline-anthropic/src"]
+extraPaths = [
+    "examples/quickstart",
+    "packages/digline-anthropic/src",
+    "packages/digline-openai/src",
+    # The plugin's tests share their fakes through a `_fakes` module imported
+    # by name, which pytest makes importable and pyright has to be told about.
+    "packages/digline-openai/tests",
+]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

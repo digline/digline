@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from digline.targets import Pricing, ProviderTarget, Usage
+from digline_anthropic.client import build_client, text_of, usage_of
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
 __all__ = ["AnthropicTarget"]
@@ -68,16 +69,9 @@ class AnthropicTarget(ProviderTarget):
         self._injected = client
 
     def _client(self) -> Any:
-        """Built on first use, and imported here rather than at module scope.
-
-        A suite that only wants to be *loaded* — `digline list`, a preflight, a
-        test — should not need the SDK present, and importing it lazily is what
-        makes that true.
-        """
+        """Built on first use. See `digline_anthropic.client.build_client`."""
         if self._injected is None:
-            import anthropic
-
-            self._injected = anthropic.Anthropic()
+            self._injected = build_client()
         return self._injected
 
     def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
@@ -95,23 +89,7 @@ class AnthropicTarget(ProviderTarget):
             request["temperature"] = self.temperature
 
         reply = self._client().messages.create(**request)
-        text = "".join(
-            block.text
-            for block in reply.content
-            if getattr(block, "type", "") == "text"
-        )
+        text = text_of(reply)
         if self.prefill is not None:
             text = self.prefill + text
-        usage = reply.usage
-        # `cache_creation_input_tokens` is **not** part of `input_tokens`.
-        # Measured against the API on 2026-08-27: a call that wrote a 9202-token
-        # cache reported `input_tokens=10`. Reading only `input_tokens` there
-        # prices the call at a thousandth of what it cost. (friction 25)
-        return text, Usage(
-            input_tokens=int(getattr(usage, "input_tokens", 0)),
-            output_tokens=int(getattr(usage, "output_tokens", 0)),
-            cache_read_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
-            cache_write_tokens=int(
-                getattr(usage, "cache_creation_input_tokens", 0) or 0
-            ),
-        )
+        return text, usage_of(reply)

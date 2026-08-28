@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 members = [
     "digline",
     "digline-anthropic",
+    "digline-openai",
 ]
 
 [[package]]
@@ -68,7 +69,7 @@ wheels = [
 
 [[package]]
 name = "digline"
-version = "0.1.0"
+version = "0.1.3"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -93,7 +94,7 @@ dev = [
 
 [[package]]
 name = "digline-anthropic"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/digline-anthropic" }
 dependencies = [
     { name = "anthropic" },
@@ -104,6 +105,21 @@ dependencies = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40" },
     { name = "digline", editable = "." },
+]
+
+[[package]]
+name = "digline-openai"
+version = "0.1.0"
+source = { editable = "packages/digline-openai" }
+dependencies = [
+    { name = "digline" },
+    { name = "openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "digline", editable = "." },
+    { name = "openai", specifier = ">=1.40" },
 ]
 
 [[package]]
@@ -283,6 +299,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/24/bf/d1bda4f6168e0b2e9e5958945e01910052158313224ada5ce1fb2e1113b8/nodeenv-1.10.0.tar.gz", hash = "sha256:996c191ad80897d076bdfba80a41994c2b47c68e224c542b48feba42ba00f8bb", size = 55611, upload-time = "2025-12-20T14:08:54.006Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/b2/d0896bdcdc8d28a7fc5717c305f1a861c26e18c05047949fb371034d98bd/nodeenv-1.10.0-py2.py3-none-any.whl", hash = "sha256:5bb13e3eed2923615535339b3c620e76779af4cb4c6a90deccc9e36b274d3827", size = 23438, upload-time = "2025-12-20T14:08:52.782Z" },
+]
+
+[[package]]
+name = "openai"
+version = "3.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3e/d3/50ffb9a7bce5097ffeb476905c0661f4468a3ca7bb489b152542f14fdd8e/openai-3.5.0.tar.gz", hash = "sha256:743738bb458a586d0d02d173bf398d29d7d7a80d182d167aa74f1c08814ecc78", size = 1355486, upload-time = "2026-08-27T01:00:49.113Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/9f/03bba05ade050f306c9b9e8b99e3681791dbb30148cd76a793c277fed494/openai-3.5.0-py3-none-any.whl", hash = "sha256:7c0873d379655f65fa515c5692c8620e73bf6a6dce3e63f37589bc99bda3fdfd", size = 1697968, upload-time = "2026-08-27T01:00:47.131Z" },
 ]
 
 [[package]]

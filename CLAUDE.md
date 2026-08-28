@@ -49,8 +49,9 @@ correct its structural mistakes and are not negotiable.
 
     src/digline/core/       pure domain: Score, Verdict, assertions, protocols. No imports from other packages.
     src/digline/store/      ResultStore and its implementations (file-based, inside the repo)
-    src/digline/targets/    prompt template, pricing, the ProviderTarget base. No SDK, ever;
-                            real providers are separate packages under packages/
+    src/digline/targets/    prompt template, pricing, the ProviderTarget and JudgeBase bases.
+                            No SDK, ever; real providers are separate packages under
+                            packages/, and each one ships a Target *and* a Judge (ADR 0004)
     src/digline/run/        offline driver
     src/digline/report/     the document for world 3: pure functions, self-contained HTML, mandatory locale
     src/digline/production/ [planned] production store, Postgres first, mandatory retention

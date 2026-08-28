@@ -207,6 +207,60 @@ somebody's HTTP client along with it — and the layering gate enforces it in bo
 directions: nothing under `src/` may import a plugin, and `digline.targets` may
 not import an SDK.
 
+### `JudgeBase`, and why a plugin ships two of them
+
+A plugin is a target **and** a judge (ADR 0004). `digline.core` declares `Judge`
+and `ClaimJudge` and implements neither — the judge is injected, which is what
+keeps an assertion a pure function — and `digline.targets` is where the box it
+arrives in lives:
+
+| | |
+|---|---|
+| `JudgeBase` | model, price list, and the counters below. A plugin writes `_complete` |
+| `ScoreJudge` | `(prompt) -> JudgeReply`, satisfies `Judge` |
+| `ClaimCountJudge` | `(prompt) -> ClaimReply`, satisfies `ClaimJudge` |
+| `loads_lenient` | the JSON object in a reply, however the model wrapped it |
+| `SCORE_SYSTEM` `CLAIM_SYSTEM` | what each judge is told, written against the shape `judge_prompt()` produces |
+
+```python
+from digline.core import Faithfulness, LlmRubric
+from digline_openai import OpenAIClaimJudge, OpenAIJudge
+
+judge = OpenAIJudge(model="gpt-5-mini")
+LlmRubric(
+    rubric="One sentence, and it cites the passage.",
+    judge=judge,
+    threshold=0.8,
+    tolerance=0.05,
+)
+Faithfulness(judge=OpenAIClaimJudge(model="gpt-5-mini"), threshold=0.9, tolerance=0.05)
+```
+
+Both protocols, always, because they answer different questions and a plugin
+shipping only the first would leave `Faithfulness` with nothing to run on.
+
+**Why it is not optional.** What a judge is sent is the model's *output* — the
+thing decision 9 keeps inside the perimeter. A judge that cannot live where the
+output lives forces the payload out of it, and no `Disclosure` in the suite
+would say so: disclosure governs what leaves the run *document*, not what an
+assertion did while producing it. `digline-openai` takes a `base_url`, so a
+customer's own Azure deployment or vLLM judges its own runs.
+
+**What judging cost.** `judge.calls`, `judge.spent_usd` and `judge.latency_ms`
+accumulate for the life of the object and are **never reset**: a per-run figure
+is a delta the caller takes. A call that raises is not counted — its cost is
+unknown, and counting it at zero is the undercount that reads as good news.
+`Response.cost_usd` is the *target's* call and does not include any of this;
+today the judging spend stays in the process and does not enter the run, the
+comparison or the report (ADR 0004 §3).
+
+**Reading a reply.** Lenient about the wrapping — a bare object, a ```` ```json ````
+fence, or an object with prose around it all read correctly, because
+`response_format` is an optimisation and half the compatible providers refuse
+it. Strict about the content: a missing `score`, a score outside `[0, 1]`, a
+missing `reason` or a fractional claim count all raise, and `LlmRubric` turns
+the exception into **`error`** — neither green nor a regression.
+
 ### `PromptTemplate`
 
 A prompt file, its digest, and the variables it asks for. Read at construction,
