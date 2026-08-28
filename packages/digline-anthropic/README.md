@@ -4,6 +4,12 @@ An [Anthropic](https://www.anthropic.com) target **and judges** for
 [digline](https://pypi.org/project/digline/): a prompt file goes in, a priced
 `Response` comes out.
 
+```sh
+pip install digline-anthropic
+```
+
+**Requires Python 3.12+**, like digline itself.
+
 ```python
 from pathlib import Path
 from digline_anthropic import AnthropicTarget

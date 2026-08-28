@@ -3,7 +3,7 @@
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
 [![PyPI 0.1.3](https://img.shields.io/badge/pypi-0.1.3-blue)](https://pypi.org/project/digline/)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
 Your prompt worked on Tuesday. On Thursday it works a little less — not enough
@@ -42,6 +42,10 @@ tested, when, under which commit, and who approved it.
 ```bash
 pip install digline digline-anthropic   # or: uv add digline digline-anthropic
 ```
+
+**Requires Python 3.12+.** On an older interpreter pip says
+`ERROR: No matching distribution found` with `from versions: none`, which does
+not say why — that is what it means.
 
 `suite.py` — complete and runnable, no API key:
 

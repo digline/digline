@@ -8,6 +8,8 @@ An [OpenAI](https://openai.com) target **and judges** for
 pip install digline-openai
 ```
 
+**Requires Python 3.12+**, like digline itself.
+
 ## One argument, three providers
 
 The wire protocol is the same everywhere, so `base_url` is the only thing that
