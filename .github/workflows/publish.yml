@@ -45,7 +45,12 @@ jobs:
         run: |
           for wheel in dist/*.whl; do
             rm -rf /tmp/fresh && python -m venv /tmp/fresh
-            /tmp/fresh/bin/pip install --quiet "$wheel"
+            # `--find-links dist/` so a plugin's `digline>=0.1.3` resolves to
+            # the core wheel built beside it: on the tag that releases them
+            # together, that version is not on the index yet. The index stays
+            # reachable for everything else, which is where `anthropic` and
+            # `openai` come from.
+            /tmp/fresh/bin/pip install --quiet --find-links dist/ "$wheel"
             echo "installed $wheel"
           done
           # Each plugin in its own fresh venv: the loop above leaves only the
