@@ -86,6 +86,7 @@ testpaths = [
     "tests",
     "packages/digline-anthropic/tests",
     "packages/digline-openai/tests",
+    "packages/digline-bedrock/tests",
 ]
 markers = [
     # Costs money and needs a key. Skipped unless the provider's key is set and
@@ -99,6 +100,7 @@ pythonpath = [
     "src",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
+    "packages/digline-bedrock/src",
 ]
 
 [tool.ruff]
@@ -109,6 +111,7 @@ src = [
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
+    "packages/digline-bedrock/src",
 ]
 
 [tool.ruff.lint]
@@ -124,9 +127,11 @@ extraPaths = [
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
-    # The plugin's tests share their fakes through a `_fakes` module imported
+    "packages/digline-bedrock/src",
+    # The plugins' tests share their fakes through a `_fakes` module imported
     # by name, which pytest makes importable and pyright has to be told about.
     "packages/digline-openai/tests",
+    "packages/digline-bedrock/tests",
 ]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

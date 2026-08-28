@@ -1,10 +1,11 @@
 """A chat completion, faked at the lowest level there is.
 
-Not in `conftest.py`: two `conftest` modules with the same name live in this
-repository, and `from conftest import ...` resolves to whichever of them got
-onto `sys.path` first — which depends on the order pytest was given its
-arguments. A name of its own is the fix, and the fixtures below it stay in
-`conftest.py` where pytest finds them without an import.
+Not in `conftest.py`: several `conftest` modules with the same name live in
+this repository, and `from conftest import ...` resolves to whichever of them
+got onto `sys.path` first. A name of its own is the fix — and it has to be
+unique across the whole workspace, not just within this package: pyright
+resolves it through `extraPaths` and would otherwise pick another plugin's.
+The fixtures stay in `conftest.py`, where pytest finds them without an import.
 
 The fake stands where the SDK's `client.chat.completions.create` stands, so
 everything above it — the request this package builds, the tokens it reads back,

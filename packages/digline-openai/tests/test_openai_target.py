@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _fakes import (
+from _openai_fakes import (
     FakeChoice,
     FakeClient,
     FakeDetails,

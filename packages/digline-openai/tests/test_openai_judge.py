@@ -16,7 +16,7 @@ import os
 from typing import Any
 
 import pytest
-from _fakes import FakeChoice, FakeClient, FakeMessage, FakeReply, FakeUsage
+from _openai_fakes import FakeChoice, FakeClient, FakeMessage, FakeReply, FakeUsage
 
 from digline.core import (
     ClaimJudge,

@@ -1,11 +1,11 @@
-"""Fixtures for this package's tests. The fakes themselves are in `_openai_fakes`."""
+"""Fixtures for this package's tests. The fakes are in `_bedrock_fakes`."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from _openai_fakes import FakeClient
+from _bedrock_fakes import FakeClient
 
 
 @pytest.fixture

@@ -76,6 +76,15 @@ class OpenAITarget(ProviderTarget):
         #: reply is parsed leniently either way (ADR 0004 §4).
         self.response_format = response_format
         self.token_param: TokenParam = token_param
+        #: Arguments the SDK never heard of — a routing preference on
+        #: OpenRouter, `num_ctx` on Ollama.
+        #:
+        #: **Not part of `config_hash`**, exactly like `temperature`, `model`
+        #: and `max_tokens`: the fingerprint covers the rules that judge a run,
+        #: not the system being judged (ADR 0003 §3). Two runs that differ only
+        #: here will read as "same configuration as the reference". Keep the
+        #: values in a file declared in `Suite.artifacts` if you need the
+        #: difference to show; ADR 0005 is the open question.
         self.extra_body = extra_body
         self.chat = OpenAIChat(base_url=base_url, api_key=api_key, client=client)
 
