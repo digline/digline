@@ -99,6 +99,26 @@ OPENAI_PRICING = Pricing(
             output_per_mtok=4.40,
             cache_read_per_mtok=0.275,
         ),
+        # GPT-5.6 — short-context prices; the long-context meter (input roughly
+        # doubles) is not modeled here, see the note at the top.
+        "gpt-5.6-sol": ModelPrice(          # promotional until at least 2026-11-21
+            input_per_mtok=4.0,
+            output_per_mtok=20.0,
+            cache_read_per_mtok=0.40,
+            cache_write_per_mtok=5.0,
+        ),
+        "gpt-5.6-terra": ModelPrice(
+            input_per_mtok=2.0,
+            output_per_mtok=12.0,
+            cache_read_per_mtok=0.20,
+            cache_write_per_mtok=2.5,
+        ),
+        "gpt-5.6-luna": ModelPrice(
+            input_per_mtok=0.20,
+            output_per_mtok=1.20,
+            cache_read_per_mtok=0.02,
+            cache_write_per_mtok=0.25,
+        ),
     }
 )
 
