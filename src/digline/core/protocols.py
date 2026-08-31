@@ -4,17 +4,44 @@ touches the outside world, it receives it injected.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
 
 from digline.core.types import (
     ClaimReply,
+    ConfigValue,
     EvaluatorInputs,
     JudgeReply,
     OutputKind,
     Verdict,
 )
 
-__all__ = ["Assertion", "AsyncJudge", "ClaimJudge", "Judge"]
+__all__ = ["Assertion", "AsyncJudge", "ClaimJudge", "HasConfig", "Judge"]
+
+
+@runtime_checkable
+class HasConfig(Protocol):
+    """Something that can say what it was configured to do.
+
+    Asked for, never required — the same family as `Preflight` and
+    `HasArtifacts` on the driver side. A `Target` is any callable and a `Judge`
+    may be a two-line function in a test; making this a member of either
+    protocol would stop both from being what they are. What declares nothing
+    records nothing, and absent is not a change (ADR 0005 §6).
+
+    `provider` and `model` are present whenever anything is: a configuration
+    that cannot say who answered is not one.
+    """
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """Flat, scalar, and only what was actually sent.
+
+        A parameter left unset is **absent** rather than `None`: "we did not
+        send it, the provider's default applied" and "we sent nothing for it"
+        are different facts, and only absence states the first one honestly.
+        """
+        ...
 
 
 @runtime_checkable

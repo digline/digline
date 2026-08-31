@@ -74,10 +74,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.suspended.one": "1 case is suspended.",
         "fact.suspended.many": "{count} cases are suspended.",
         "fact.config.changed": (
-            "The configuration changed since the reference, so these numbers "
-            "compare different rules."
+            "The suite changed since the reference, so these numbers compare "
+            "different rules."
         ),
-        "fact.config.unchanged": "The configuration is the same as the reference.",
+        "fact.config.unchanged": "The suite is unchanged from the reference.",
         "fact.artifacts.unchanged": (
             "The files under test are the same as the reference."
         ),
@@ -89,6 +89,47 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} files under test changed since the reference."
         ),
+        "fact.target_config.changed": (
+            "The system under test answered under a different configuration: {changes}."
+        ),
+        "fact.target_config.unchanged": (
+            "The system under test answered under the same configuration as "
+            "the reference."
+        ),
+        "fact.target_config.unknown": (
+            "The configuration of the system under test is not recorded on "
+            "both sides, so whether it changed is not known."
+        ),
+        "fact.judge_config.changed": (
+            "The judging changed ({changes}), so these scores are less "
+            "comparable with the reference: what moved is the measuring "
+            "instrument, not only what it measured."
+        ),
+        "config.title": "What answered",
+        "config.judge.title": "What judged",
+        "config.column.parameter": "Parameter",
+        "config.column.value": "This run",
+        "config.column.reference": "Reference",
+        "config.value.withheld": "not included",
+        "config.unchanged": "Configured as in the reference.",
+        "config.changed.one": "1 parameter changed since the reference.",
+        "config.changed.many": "{count} parameters changed since the reference.",
+        "config.unknown": (
+            "The reference does not record its configuration, so whether it "
+            "changed is not known."
+        ),
+        "config.judge.reduced": (
+            "The judge is not the one that produced the reference, so these "
+            "scores are less comparable than their difference suggests."
+        ),
+        "config.change.changed": "{field} {before} → {after}",
+        "config.change.new": "{field} {after}, not sent for the reference",
+        "config.change.missing": "{field} {before}, no longer sent",
+        "config.judge.added": "{judge} was added as a judge",
+        "config.judge.removed": "{judge} no longer judges",
+        "config.coincides": " This drop coincides with {changes}.",
+        "config.terminal.target": "system",
+        "config.terminal.judge": "judge",
         "artifacts.title": "What was under test",
         "artifacts.unchanged": "The files under test are the same as the reference.",
         "artifacts.changed.one": "1 file under test changed.",
@@ -151,12 +192,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "baseline: an error is not a reference."
         ),
         "view.promote.older": (
-            "This run was produced under an earlier configuration, so it cannot "
-            "become a baseline: its scores were obtained under rules other "
-            "than the ones in force. It can still be compared."
+            "This run was produced under an earlier version of the suite, so it "
+            "cannot become a baseline: its scores were obtained under rules "
+            "other than the ones in force. It can still be compared."
         ),
         "view.chip.errored": "{count} not judged",
-        "view.chip.older_config": "older config",
+        "view.chip.older_config": "older suite",
         "view.action.compare": "Compare",
         "view.action.compare.title": "compare this run with the baseline",
         "view.copy_snippet": "click the line to select it",
@@ -225,10 +266,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.suspended.one": "1 caso è sospeso.",
         "fact.suspended.many": "{count} casi sono sospesi.",
         "fact.config.changed": (
-            "La configurazione è cambiata rispetto al riferimento, quindi questi "
-            "numeri confrontano regole diverse."
+            "La suite è cambiata rispetto al riferimento, quindi questi numeri "
+            "confrontano regole diverse."
         ),
-        "fact.config.unchanged": "La configurazione è la stessa del riferimento.",
+        "fact.config.unchanged": "La suite è invariata rispetto al riferimento.",
         "fact.artifacts.unchanged": (
             "I file in prova sono gli stessi del riferimento."
         ),
@@ -239,6 +280,50 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} file in prova sono cambiati rispetto al riferimento."
         ),
+        "fact.target_config.changed": (
+            "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
+        ),
+        "fact.target_config.unchanged": (
+            "Il sistema in prova ha risposto con la stessa configurazione del "
+            "riferimento."
+        ),
+        "fact.target_config.unknown": (
+            "La configurazione del sistema in prova non è registrata da "
+            "entrambe le parti, quindi non si sa se sia cambiata."
+        ),
+        "fact.judge_config.changed": (
+            "Il modo di giudicare è cambiato ({changes}), quindi questi "
+            "punteggi sono meno confrontabili con il riferimento: a spostarsi "
+            "è lo strumento di misura, non solo ciò che misura."
+        ),
+        "config.title": "Che cosa ha risposto",
+        "config.judge.title": "Che cosa ha giudicato",
+        "config.column.parameter": "Parametro",
+        "config.column.value": "Questa esecuzione",
+        "config.column.reference": "Riferimento",
+        "config.value.withheld": "non incluso",
+        "config.unchanged": "Configurato come nel riferimento.",
+        "config.changed.one": "1 parametro è cambiato rispetto al riferimento.",
+        "config.changed.many": (
+            "{count} parametri sono cambiati rispetto al riferimento."
+        ),
+        "config.unknown": (
+            "Il riferimento non registra la propria configurazione, quindi "
+            "non si sa se sia cambiata."
+        ),
+        "config.judge.reduced": (
+            "Il giudice non è quello che ha prodotto il riferimento, quindi "
+            "questi punteggi sono meno confrontabili di quanto la loro "
+            "differenza suggerisca."
+        ),
+        "config.change.changed": "{field} {before} → {after}",
+        "config.change.new": "{field} {after}, non inviato per il riferimento",
+        "config.change.missing": "{field} {before}, non più inviato",
+        "config.judge.added": "{judge} è stato aggiunto come giudice",
+        "config.judge.removed": "{judge} non giudica più",
+        "config.coincides": " Questo calo coincide con {changes}.",
+        "config.terminal.target": "sistema",
+        "config.terminal.judge": "giudice",
         "artifacts.title": "Che cosa era in prova",
         "artifacts.unchanged": "I file in prova sono gli stessi del riferimento.",
         "artifacts.changed.one": "1 file in prova è cambiato.",
@@ -304,13 +389,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "riferimento."
         ),
         "view.promote.older": (
-            "Questa esecuzione è stata prodotta con una configurazione "
-            "precedente, quindi non può diventare un riferimento: i suoi "
+            "Questa esecuzione è stata prodotta con una versione precedente "
+            "della suite, quindi non può diventare un riferimento: i suoi "
             "punteggi sono stati ottenuti con regole diverse da quelle in "
             "vigore. Resta confrontabile."
         ),
         "view.chip.errored": "{count} non giudicati",
-        "view.chip.older_config": "config. precedente",
+        "view.chip.older_config": "suite precedente",
         "view.action.compare": "Confronta",
         "view.action.compare.title": ("confronta questa esecuzione con il riferimento"),
         "view.copy_snippet": "clicca la riga per selezionarla",

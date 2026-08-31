@@ -30,10 +30,10 @@ not, a marker takes its place and its tooltip carries the sentence:
 | Marker | Why there is no button |
 |---|---|
 | `BASELINE` | it already is the baseline; promoting it to itself is not an action |
-| `OLDER CONFIG` | produced under an earlier configuration — the row stays, attenuated: comparable still, since those numbers were measured, only under other rules |
+| `OLDER SUITE` | produced under an earlier version of the suite — the row stays, attenuated: comparable still, since those numbers were measured, only under other rules |
 | `N NOT JUDGED` | `N` cases errored, and an error is not a reference |
 
-The order is `promote_baseline`'s own — configuration before errors — so the
+The order is `promote_baseline`'s own — the suite before errors — so the
 page can never announce a different reason from the one the call would give. The
 store's refusal stays underneath as the second line of defence.
 

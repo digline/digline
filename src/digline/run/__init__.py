@@ -6,18 +6,22 @@ promotion are composition on top, not responsibilities of the driver.
 
 from digline.run.driver import (
     HasArtifacts,
+    HasConfig,
     Mapper,
     Preflight,
     Response,
     Target,
     default_mapper,
     execute,
+    judge_config,
+    target_config,
 )
 from digline.run.suite import Case, Suite
 
 __all__ = [
     "Case",
     "HasArtifacts",
+    "HasConfig",
     "Mapper",
     "Preflight",
     "Response",
@@ -25,4 +29,6 @@ __all__ = [
     "Target",
     "default_mapper",
     "execute",
+    "judge_config",
+    "target_config",
 ]

@@ -10,7 +10,7 @@ about the baseline would have two reasons to change.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -19,24 +19,31 @@ from digline.core import (
     Assertion,
     CaseOutcome,
     CaseResult,
+    ConfigValue,
     EvaluatorInputs,
+    HasConfig,
     Label,
     Output,
     Run,
+    SystemConfig,
     Verdict,
     combine_samples,
     error_verdict,
+    identity_of,
 )
 from digline.run.suite import Case, Suite
 
 __all__ = [
     "HasArtifacts",
+    "HasConfig",
     "Mapper",
     "Preflight",
     "Response",
     "Target",
     "default_mapper",
     "execute",
+    "judge_config",
+    "target_config",
 ]
 
 #: A failure message is quoted into a `reason`, which is payload and gets
@@ -100,6 +107,103 @@ class HasArtifacts(Protocol):
     """
 
     def artifacts(self) -> Sequence[Path]: ...
+
+
+def target_config(target: object) -> SystemConfig:
+    """What the target says it was configured to do, or nothing.
+
+    Asked rather than required, like `preflight()` and `artifacts()`: a `Target`
+    is any callable and most are plain functions. One that declares nothing
+    records nothing, and nothing is not a change (ADR 0005 §6).
+
+    Bound once per run — `execute()` takes one target — so one configuration per
+    run, at the same level `Run.artifacts` sits at. The `prompt x provider`
+    matrix is a loop *above* the driver, and each cell is its own run with its
+    own configuration.
+    """
+    if not isinstance(target, HasConfig):
+        return SystemConfig()
+    return SystemConfig(values=dict(target.config))
+
+
+def judge_config(suite: Suite) -> SystemConfig:
+    """The configuration of the instrument that graded, collected from the
+    assertions that hold one.
+
+    A judge is bound *per assertion* — `LlmRubric(judge=...)`,
+    `Faithfulness(judge=...)`, either of them inside a `Repeated` — so unlike a
+    target it has to be found rather than received. The walk follows a wrapper
+    through to what it wraps, which is the one place a judge hides.
+
+    **Which** instruments graded is always recorded, one identity per distinct
+    `provider/model`, however many there are. That is the half a suite with two
+    judges cannot afford to lose: replacing one of two graders is precisely the
+    change ADR 0005 §4 exists to catch, and a record that fell silent as soon as
+    a suite grew a second judge would go blind exactly there.
+
+    **How** it was set up is recorded only when there is one of them. Judges
+    sharing an identity but disagreeing on a scalar record no value for that
+    scalar — a `ScoreJudge` capped at 400 tokens beside a `ClaimCountJudge`
+    capped at 800 is two set-ups, and writing one down would be a fact nobody
+    established. With two identities there is no single set-up at all, and the
+    identity list carries the whole answer.
+
+    A judge that declares nothing — no `provider`, no `model` — is passed over
+    the way a plain-function target is: what names no instrument records none.
+    """
+    found = [dict(judge.config) for judge in _judges(suite.assertions)]
+    declared = [c for c in found if c.get("provider") and c.get("model")]
+    if not declared:
+        return SystemConfig()
+
+    identities = tuple(
+        sorted({identity_of(str(c["provider"]), str(c["model"])) for c in declared})
+    )
+    if len(identities) > 1:
+        return SystemConfig(identities=identities)
+
+    first, rest = declared[0], declared[1:]
+    agreed: dict[str, ConfigValue] = {
+        key: value
+        for key, value in first.items()
+        if all(other.get(key, _MISSING) == value for other in rest)
+    }
+    # `provider` and `model` survive the merge by construction: a single
+    # identity is what makes them equal across every judge here.
+    return SystemConfig(values=agreed, identities=identities)
+
+
+#: Distinct from `None`, which is a value a config may legitimately hold.
+_MISSING = object()
+
+
+def _judges(assertions: Sequence[object]) -> list[HasConfig]:
+    """Every configured judge an assertion holds, wrappers followed through.
+
+    Read off the dataclass fields rather than from a fixed attribute name:
+    `LlmRubric` calls it `judge` today and the next assertion that asks a model
+    something may not, and a collector that knew one name would silently record
+    nothing for the others — the failure that looks like a passing test.
+    """
+    found: list[HasConfig] = []
+    seen: set[int] = set()
+    stack = list(assertions)
+    while stack:
+        current = stack.pop()
+        if (
+            id(current) in seen
+            or not is_dataclass(current)
+            or isinstance(current, type)
+        ):
+            continue
+        seen.add(id(current))
+        for declared in fields(current):
+            value = getattr(current, declared.name, None)
+            if isinstance(value, HasConfig):
+                found.append(value)
+            elif is_dataclass(value) and not isinstance(value, type):
+                stack.append(value)
+    return found
 
 
 class Mapper(Protocol):
@@ -256,6 +360,10 @@ def execute(
     # functions and are left alone.
     if isinstance(target, Preflight):
         target.preflight(suite.cases)
+    # Asked here and not at the end for the same reason as `preflight`: a
+    # target whose declared configuration is malformed must say so before the
+    # suite is paid for, not after.
+    declared, grading = target_config(target), judge_config(suite)
 
     results: Sequence[CaseResult] = tuple(
         _run_case(suite, target, mapper, case) for case in suite.cases
@@ -277,6 +385,11 @@ def execute(
         results=results,
         aggregate=aggregate,
         metadata=dict(run_metadata or {}),
+        # Asked of the target and of the judges, not passed in: unlike an
+        # artifact this needs no filesystem, so the driver can ask directly and
+        # a library caller gets it without going through the CLI. (ADR 0005 §6)
+        target_config=declared,
+        judge_config=grading,
         # Already read, like `created_at` and `git_commit`: the driver produces
         # a `Run` and opens no files. What the suite *declares* is a list of
         # paths; turning those into bytes is the CLI's job. (ADR 0003)

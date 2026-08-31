@@ -40,6 +40,29 @@ def a_judge(client: FakeClient, **kwargs: Any) -> OpenAIJudge:
     return OpenAIJudge(model="gpt-5-mini", client=client, **kwargs)
 
 
+def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
+    """Recorded as `judge_config`, host and all — and never the key, which is
+    the one thing no `Disclosure` releases (ADR 0004 §5, ADR 0005 §4)."""
+    judge = a_judge(client, base_url="https://someone:hunter2@gw.internal:8443/v1")
+    assert dict(judge.config) == {
+        "provider": "openai",
+        "model": "gpt-5-mini",
+        "max_tokens": 400,
+        # What it was set up to ask for. A provider that refuses the parameter
+        # is retried once without it (ADR 0004 §4); that is a runtime fallback,
+        # and this is the configuration, read before the first call.
+        "json_mode": True,
+        "base_url": "gw.internal:8443",
+    }
+    assert "hunter2" not in str(dict(judge.config))
+
+
+def test_a_judge_asked_for_plain_text_records_that(client: FakeClient) -> None:
+    """`json_mode` decides the shape the instrument asks for, so it is part of
+    how it graded — recorded either way, since it is always one or the other."""
+    assert a_judge(client, json_mode=False).config["json_mode"] is False
+
+
 # -- the protocols ---------------------------------------------------------------- #
 
 

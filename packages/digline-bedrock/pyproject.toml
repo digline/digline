@@ -1,6 +1,6 @@
 [project]
 name = "digline-bedrock"
-version = "0.1.0"
+version = "0.2.0"
 description = "Amazon Bedrock target and judges for digline, on the Converse API."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -20,8 +20,9 @@ dependencies = [
     # Pinned to a version that exists, like the other two plugins: published,
     # an unpinned `digline` would let a resolver pick something older than the
     # API this plugin is written against — `JudgeBase` and its two subclasses
-    # are 0.1.3.
-    "digline>=0.1.3",
+    # are 0.1.3, and `config`, the property that lets a run record what this
+    # plugin was set up to do, is 0.2.0.
+    "digline>=0.2.0",
     # boto3 and nothing else. No wrapper, no gateway: the Converse API is one
     # call, and a layer on top would only add a second thing to be wrong.
     "boto3>=1.35",

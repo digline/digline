@@ -24,7 +24,8 @@ from collections.abc import Mapping
 from time import perf_counter
 from typing import Any, ClassVar, cast
 
-from digline.core import ClaimReply, JudgeReply
+from digline.core import ClaimReply, ConfigValue, JudgeReply
+from digline.targets.config import sent
 from digline.targets.pricing import Pricing, Usage
 
 __all__ = [
@@ -156,6 +157,10 @@ class JudgeBase(ABC):
     `_complete`.
     """
 
+    #: What the run records as `provider`, exactly as on `ProviderTarget`. A
+    #: judge that does not name one declares no configuration.
+    provider: ClassVar[str] = ""
+
     #: The instruction that fixes the reply shape. Declared per subclass rather
     #: than passed in: a judge whose system prompt is a constructor argument is
     #: a judge whose replies the parser cannot promise to read.
@@ -196,6 +201,24 @@ class JudgeBase(ABC):
         self.latency_ms += elapsed_ms
         self.spent_usd += self.pricing.cost(self.model, usage)
         return loads_lenient(text)
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """The measuring instrument, as it was set up (ADR 0005 §4).
+
+        Recorded because a judge that moved makes the scores less comparable
+        with the baseline whatever the target did — a change of instrument, not
+        of the thing measured. `max_tokens` is here rather than on the plugins
+        because every judge has one: it is `JudgeBase`'s own argument.
+        """
+        if not self.provider:
+            return {}
+        return sent(
+            provider=self.provider,
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+        )
 
     def preflight(self) -> None:
         """Is this model priced? Ask before spending, not after.

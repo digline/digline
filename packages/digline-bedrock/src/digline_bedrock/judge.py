@@ -18,7 +18,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from digline.targets import ClaimCountJudge, JudgeBase, Pricing, ScoreJudge, Usage
+from digline.core import ConfigValue
+from digline.targets import (
+    ClaimCountJudge,
+    JudgeBase,
+    Pricing,
+    ScoreJudge,
+    Usage,
+    sent,
+)
 from digline_bedrock.client import BedrockChat
 from digline_bedrock.pricing import bedrock_pricing
 
@@ -42,6 +50,8 @@ class _BedrockJudge(JudgeBase):
     idiom that lets one `__init__` serve two hierarchies without either one
     knowing about the other.
     """
+
+    provider = "bedrock"
 
     def __init__(
         self,
@@ -75,6 +85,11 @@ class _BedrockJudge(JudgeBase):
     def region(self) -> str:
         """Resolved at construction. What was priced is what was called."""
         return self.chat.region
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """The instrument, and the region it was called in."""
+        return {**super().config, **sent(region=self.region)}
 
     def __repr__(self) -> str:
         """Model, region and what it has spent. Never a session or a credential."""

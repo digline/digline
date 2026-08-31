@@ -14,12 +14,14 @@ to fill.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
+from typing import ClassVar
 
-from digline.core import Output
+from digline.core import ConfigValue, Output
 from digline.run import Case, Response
+from digline.targets.config import sent
 from digline.targets.pricing import Pricing, Usage
 from digline.targets.template import PromptTemplate
 
@@ -33,6 +35,13 @@ class ProviderTarget(ABC):
     practice — the system prompt is the part that moves most — and a file is
     recorded as an artifact, so a run says which one produced it.
     """
+
+    #: What the run records as `provider`. Declared by the plugin, because only
+    #: the plugin knows whose API it is calling. A subclass that leaves it empty
+    #: declares no configuration at all rather than half of one: `{"model": ...}`
+    #: with no provider beside it would be a record nobody can act on, and
+    #: absent is a fact while half a record is a puzzle. (ADR 0005 §1)
+    provider: ClassVar[str] = ""
 
     def __init__(
         self,
@@ -70,6 +79,29 @@ class ProviderTarget(ABC):
             for template in (self.template, self.system_template)
             if template is not None and template.path is not None
         )
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """The parameters that decided how the model answered (ADR 0005).
+
+        The base knows two of them. A plugin adds what it actually sends and
+        nothing else — `max_tokens` and `temperature` live on the subclass
+        because not every provider names them the same way, and a provider
+        without a `seed` records no `seed`:
+
+            @property
+            def config(self) -> Mapping[str, ConfigValue]:
+                return {**super().config, **sent(max_tokens=self.max_tokens,
+                                                 temperature=self.temperature)}
+
+        Deliberately not `additional_request_fields` or `extra_body`. They are
+        outside the plugin's own signature, they are where an account-specific
+        identifier ends up, and what is outside the contract is outside the
+        record (ADR 0005 §1).
+        """
+        if not self.provider:
+            return {}
+        return sent(provider=self.provider, model=self.model)
 
     def preflight(self, cases: Sequence[Case]) -> None:
         """Refuse before the first call, not on case thirty-seven.

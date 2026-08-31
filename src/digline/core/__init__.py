@@ -38,9 +38,11 @@ from digline.core.assertions import (
     levenshtein_distance,
 )
 from digline.core.compare import (
+    IDENTITY_FIELD,
     ArtifactDelta,
     AssertionDelta,
     Comparison,
+    ConfigDelta,
     Outcome,
     compare,
     withhold_artifacts,
@@ -52,14 +54,23 @@ from digline.core.pii import (
     verify_iban,
     verify_partita_iva,
 )
-from digline.core.protocols import Assertion, AsyncJudge, ClaimJudge, Judge
+from digline.core.protocols import (
+    Assertion,
+    AsyncJudge,
+    ClaimJudge,
+    HasConfig,
+    Judge,
+)
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
 from digline.core.run import (
+    PERIMETER_FIELDS,
     Artifact,
     CaseResult,
     Run,
+    SystemConfig,
     artifacts_sha,
     config_hash,
+    identity_of,
     redact,
     run_from_json,
     run_to_json,
@@ -75,6 +86,7 @@ from digline.core.types import (
     TEXT_OR_CONVERSATION,
     TEXT_OR_STRUCTURED,
     ClaimReply,
+    ConfigValue,
     Disclosure,
     EvaluatorInputs,
     JudgeReply,
@@ -90,7 +102,9 @@ from digline.core.types import (
 
 __all__ = [
     "ALL_KINDS",
+    "IDENTITY_FIELD",
     "ITALIAN_PII",
+    "PERIMETER_FIELDS",
     "CONVERSATION_ONLY",
     "STRUCTURED_ONLY",
     "TEXT_ONLY",
@@ -109,6 +123,8 @@ __all__ = [
     "Artifact",
     "CaseResult",
     "Comparison",
+    "ConfigDelta",
+    "ConfigValue",
     "JUDGE_OUTPUT_LABEL",
     "Contains",
     "CostBudget",
@@ -119,6 +135,7 @@ __all__ = [
     "EvaluatorInputs",
     "Faithfulness",
     "FromAutoevals",
+    "HasConfig",
     "IsJson",
     "JsonSchema",
     "Judge",
@@ -147,6 +164,7 @@ __all__ = [
     "RunAssertionBase",
     "Run",
     "Score",
+    "SystemConfig",
     "Status",
     "Verdict",
     "as_ratio",
@@ -157,6 +175,7 @@ __all__ = [
     "artifacts_sha",
     "config_hash",
     "error_verdict",
+    "identity_of",
     "levenshtein_distance",
     "output_kind",
     "reachable_agreements",

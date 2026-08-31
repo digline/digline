@@ -125,6 +125,73 @@ def test_extra_body_reaches_the_request(prompt: Path, client: FakeClient) -> Non
     assert client.completions.requests[0]["top_p"] == 0.1
 
 
+# -- what the run records ------------------------------------------------------ #
+
+
+def test_the_config_is_what_was_sent_and_nothing_else(
+    prompt: Path, client: FakeClient
+) -> None:
+    """Named, closed and diffable by value (ADR 0005 §1).
+
+    `extra_body` is out for the same reason it is out of `config_hash`: it is
+    the escape hatch, outside this signature, and what is outside the contract
+    is outside the record. So are `response_format` and `token_param`, which
+    ADR 0005 leaves undecided rather than half-recorded.
+    """
+    target = a_target(prompt, client, temperature=0.2, extra_body={"top_p": 0.1})
+    assert dict(target.config) == {
+        "provider": "openai",
+        "model": "gpt-5",
+        "max_tokens": 1024,
+        "temperature": 0.2,
+    }
+
+
+def test_a_custom_endpoint_records_its_host_and_never_a_key(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The host, not the URL: no path, no scheme, and above all no userinfo.
+
+    A key written into a `base_url` is a mistake somebody makes once, and ADR
+    0004 §5 makes a credential the one category no `Disclosure` releases — so
+    the parse reaches for the host rather than trusting the string.
+    """
+    target = a_target(
+        prompt,
+        client,
+        base_url="https://someone:hunter2@llm-gw.internal.acme:8443/v1",
+        pricing=free("gpt-5"),
+    )
+    assert target.config["base_url"] == "llm-gw.internal.acme:8443"
+    assert "hunter2" not in str(dict(target.config))
+
+
+def test_a_json_object_request_is_recorded_as_its_type(
+    prompt: Path, client: FakeClient
+) -> None:
+    """Asking for a JSON object changes the shape of the answer, so a
+    regression can coincide with it. The `type` is the diffable scalar the
+    whole request reduces to; a `json_schema` carries structure, and structure
+    is what stays out of the record."""
+    target = a_target(prompt, client, response_format={"type": "json_object"})
+    assert target.config["response_format"] == "json_object"
+
+
+def test_a_response_format_with_no_readable_type_records_nothing(
+    prompt: Path, client: FakeClient
+) -> None:
+    assert "response_format" not in a_target(prompt, client, response_format={}).config
+    assert "response_format" not in a_target(prompt, client).config
+
+
+def test_the_official_endpoint_records_no_host(
+    prompt: Path, client: FakeClient
+) -> None:
+    """Absent, not `api.openai.com`: a default nobody chose written out as a
+    value would compare as a change the day the SDK's default moves."""
+    assert "base_url" not in a_target(prompt, client).config
+
+
 # -- the reply ----------------------------------------------------------------- #
 
 

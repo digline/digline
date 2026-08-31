@@ -12,13 +12,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from digline.core.run import Run
-from digline.core.types import Verdict
+from digline.core.run import Run, SystemConfig
+from digline.core.types import ConfigValue, Verdict
 
 __all__ = [
+    "IDENTITY_FIELD",
     "ArtifactDelta",
     "AssertionDelta",
     "Comparison",
+    "ConfigDelta",
     "Outcome",
     "Scope",
     "compare",
@@ -32,6 +34,16 @@ type Outcome = Literal[
 type Scope = Literal["case", "run"]
 
 type ArtifactOutcome = Literal["same", "changed", "new", "missing", "unknown"]
+
+#: The `field` an identity row carries, in place of a parameter name. One row
+#: per instrument rather than one row per parameter, because "which graded this"
+#: is not a setting of anything — it is the thing the settings belong to.
+IDENTITY_FIELD = "judge"
+
+#: Deliberately the same five words as an artifact's. A parameter and a file are
+#: two things under test, and a reader who has learnt what `unknown` means in
+#: one place has learnt it in both.
+type ConfigOutcome = ArtifactOutcome
 
 type _Key = tuple[Scope, str, str, int]
 
@@ -56,6 +68,33 @@ class ArtifactDelta:
     after: str | None = None
     before_sha: str = ""
     after_sha: str = ""
+    withheld: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigDelta:
+    """What happened to one configuration parameter between two runs.
+
+    Named, by value, and that is the whole point of ADR 0005: "the configuration
+    differs" sends a reader off to reconstruct what differed, while
+    `temperature 0.3 -> 0.7` is a sentence they can act on.
+
+    `unknown` covers the two absences that are not changes — the value was
+    withheld at a boundary, or the other side recorded no configuration at all
+    because it predates ADR 0005. Neither may be reported as a change: a
+    baseline promoted last month must not need re-promoting.
+
+    A row whose `field` is `IDENTITY_FIELD` names an **instrument** rather than
+    a parameter: `before` and `after` hold the `provider/model` label, and the
+    outcome is `new` for one that started judging and `missing` for one that
+    stopped. A judge cannot be `changed` — a different model is a different
+    instrument, added and removed, not a value that moved.
+    """
+
+    field: str
+    outcome: ConfigOutcome
+    before: ConfigValue = None
+    after: ConfigValue = None
     withheld: bool = False
 
 
@@ -93,6 +132,14 @@ class Comparison:
     #: What changed in the files that *are* the thing under test, before what it
     #: did to the scores. Rendered above the deltas for that reason. (ADR 0003)
     artifact_deltas: Sequence[ArtifactDelta] = ()
+    #: What changed in the system that answered — model, temperature, token cap,
+    #: region, endpoint host. Reported, never a refusal: two temperatures must
+    #: stay comparable, which is the experiment. (ADR 0005 §5)
+    target_config_deltas: Sequence[ConfigDelta] = ()
+    #: What changed in the instrument that graded. Reported more strongly: a
+    #: judge that moved makes the scores less comparable with the baseline
+    #: whatever the target did. (ADR 0005 §4)
+    judge_config_deltas: Sequence[ConfigDelta] = ()
 
     @property
     def artifacts_changed(self) -> bool:
@@ -102,6 +149,37 @@ class Comparison:
         compare, and answering "changed" would report a fact nobody has.
         """
         return any(d.outcome not in ("same", "unknown") for d in self.artifact_deltas)
+
+    @property
+    def target_config_changed(self) -> bool:
+        """Whether the system under test is known to have been configured
+        differently. `unknown` is not a change, for the same reason as above."""
+        return _changed(self.target_config_deltas)
+
+    @property
+    def judge_config_changed(self) -> bool:
+        return _changed(self.judge_config_deltas)
+
+    @property
+    def comparability_reduced(self) -> bool:
+        """Whether the scores are less comparable than the numbers suggest.
+
+        A judge change and nothing else. When the *target* moves, the thing
+        being measured moved and the deltas are the finding; when the *judge*
+        moves, the scale moved, and a delta measured on two scales is not a
+        delta. The report says so instead of leaving a reader to notice.
+        """
+        return self.judge_config_changed
+
+    @property
+    def config_changes(self) -> Sequence[ConfigDelta]:
+        """The target parameters that are known to have moved, by name.
+
+        What the "this drop coincides with …" sentence is built from — only
+        `changed`, never `new` or `unknown`: a parameter that appeared, or one
+        nobody recorded, has no before-and-after to coincide with.
+        """
+        return tuple(d for d in self.target_config_deltas if d.outcome == "changed")
 
     def of(self, *outcomes: Outcome) -> Sequence[AssertionDelta]:
         wanted = frozenset(outcomes)
@@ -123,6 +201,10 @@ class Comparison:
     def counts(self) -> dict[Outcome, int]:
         tally: Counter[Outcome] = Counter(d.outcome for d in self.deltas)
         return dict(tally)
+
+
+def _changed(deltas: Sequence[ConfigDelta]) -> bool:
+    return any(d.outcome not in ("same", "unknown") for d in deltas)
 
 
 def _index(run: Run) -> dict[_Key, Verdict]:
@@ -331,6 +413,93 @@ def compare(run: Run, baseline: Run) -> Comparison:
         config_changed=run.config_hash != baseline.config_hash,
         deltas=tuple(deltas),
         artifact_deltas=_artifact_deltas(run, baseline),
+        target_config_deltas=_config_deltas(run.target_config, baseline.target_config),
+        judge_config_deltas=_config_deltas(run.judge_config, baseline.judge_config),
+    )
+
+
+def _config_deltas(now: SystemConfig, before: SystemConfig) -> tuple[ConfigDelta, ...]:
+    """One delta per declared parameter, on either side, ordered by name.
+
+    Three rules, and each of them exists to avoid reporting a change nobody
+    established (ADR 0005 §5, §7):
+
+    1. **Neither side recorded anything** — a plain-function target, or two runs
+       that both predate ADR 0005 — and there is nothing to say. Absent stays
+       absent, and absent is not a change.
+    2. **One side recorded nothing at all**: every field is `unknown`. This is
+       the legacy baseline, and it is the case that decides whether a year of
+       promoted baselines has to be promoted again. It does not.
+    3. **A field withheld on either side** is `unknown` too: redaction took the
+       value, so whether it moved is not knowable from here — `same` would be a
+       guess wearing the clothes of a finding (ADR 0003 §5).
+    """
+    if not now.recorded and not before.recorded:
+        return ()
+
+    deltas: list[ConfigDelta] = [
+        _identity_delta(label, now, before)
+        for label in sorted(set(now.identities) | set(before.identities))
+    ]
+
+    # With more than one instrument in play, neither side has a single set-up to
+    # compare and the identity rows above are the whole change. Emitting scalar
+    # rows here would report a `max_tokens` as `missing` when what happened is
+    # that a second judge joined — a fabricated fact about a real event.
+    if len(now.identities) > 1 or len(before.identities) > 1:
+        return tuple(deltas)
+
+    fields = sorted(
+        set(now.values) | set(before.values) | now.withheld | before.withheld
+    )
+    for name in fields:
+        withheld = name in now.withheld or name in before.withheld
+        after = now.values.get(name)
+        prior = before.values.get(name)
+        if withheld:
+            outcome: ConfigOutcome = "unknown"
+        elif not now.recorded or not before.recorded:
+            outcome = "unknown"
+        elif name not in before.values:
+            outcome = "new"
+        elif name not in now.values:
+            outcome = "missing"
+        else:
+            outcome = "same" if after == prior else "changed"
+        deltas.append(
+            ConfigDelta(
+                field=name,
+                outcome=outcome,
+                before=prior,
+                after=after,
+                withheld=withheld,
+            )
+        )
+    return tuple(deltas)
+
+
+def _identity_delta(label: str, now: SystemConfig, before: SystemConfig) -> ConfigDelta:
+    """One instrument, and whether it graded both sides.
+
+    `unknown` where the other side recorded nothing at all: a baseline that
+    predates ADR 0005 has no instrument list, and reading its absence as "this
+    judge was added" would report a change to a suite that never touched its
+    judge.
+    """
+    here, there = label in now.identities, label in before.identities
+    if not now.recorded or not before.recorded:
+        outcome: ConfigOutcome = "unknown"
+    elif here and there:
+        outcome = "same"
+    elif here:
+        outcome = "new"
+    else:
+        outcome = "missing"
+    return ConfigDelta(
+        field=IDENTITY_FIELD,
+        outcome=outcome,
+        before=label if there else None,
+        after=label if here else None,
     )
 
 

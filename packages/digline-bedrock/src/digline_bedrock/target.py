@@ -18,7 +18,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from digline.targets import Pricing, ProviderTarget, Usage
+from digline.core import ConfigValue
+from digline.targets import Pricing, ProviderTarget, Usage, sent
 from digline_bedrock.client import BedrockChat
 from digline_bedrock.pricing import bedrock_pricing
 
@@ -40,8 +41,11 @@ class BedrockTarget(ProviderTarget):
     another should not have to rename its arguments.
 
     Both files are recorded in every run, so a baseline carries the prompt that
-    produced it (ADR 0003).
+    produced it (ADR 0003), and so does the configuration that produced it —
+    model, token cap, temperature and the region (ADR 0005).
     """
+
+    provider = "bedrock"
 
     def __init__(
         self,
@@ -93,6 +97,29 @@ class BedrockTarget(ProviderTarget):
         what was priced is what was called, and a region that could be
         reassigned after the price list was chosen would break that quietly."""
         return self.chat.region
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """What this target sends, and the region it sent it to.
+
+        The region is part of the configuration because it is part of the
+        answer: a model behind an inference profile in `eu-west-1` and the same
+        id in `us-east-1` are two systems with two price lists, and what was
+        priced is what was called.
+
+        `additional_request_fields` is **not** here, and that is the sibling of
+        the promise already made on the argument: it does not reach
+        `config_hash` and it does not reach `target_config` either. What is
+        outside the contract is outside the record (ADR 0005 §1).
+        """
+        return {
+            **super().config,
+            **sent(
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                region=self.region,
+            ),
+        }
 
     def __repr__(self) -> str:
         """Model and region. Never a session, never a credential — a `repr`

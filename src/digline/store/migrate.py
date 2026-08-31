@@ -69,12 +69,30 @@ def _add_artifacts(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_configs(raw: dict[str, Any]) -> dict[str, Any]:
+    """7 -> 8. A run written before ADR 0005 recorded no configuration.
+
+    `{}` is not a guess: nobody asked the target what it was configured to do,
+    so nothing is known — and `compare()` reads that as `unknown` for every
+    field rather than as a change. Which is what keeps a baseline promoted last
+    month from needing to be promoted again.
+
+    The model that answered is **not** reconstructed from anywhere. It is not in
+    the document, and putting a plausible one there would be the invention this
+    module exists to refuse.
+    """
+    raw.setdefault("target_config", {})
+    raw.setdefault("judge_config", {})
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     4: _add_suspended,
     5: _add_aggregate,
     6: _add_artifacts,
+    7: _add_configs,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

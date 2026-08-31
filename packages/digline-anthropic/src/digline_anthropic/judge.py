@@ -43,6 +43,8 @@ class _AnthropicJudge(JudgeBase):
     knowing about the other.
     """
 
+    provider = "anthropic"
+
     def __init__(
         self,
         model: str,

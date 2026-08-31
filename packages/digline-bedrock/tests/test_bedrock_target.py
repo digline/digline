@@ -84,11 +84,10 @@ def test_a_system_file_is_rendered_sent_and_recorded(
 def test_additional_request_fields_reach_the_request(
     prompt: Path, client: FakeClient
 ) -> None:
-    """They change what the model does — and, today, they do **not** change the
-    `config_hash`, exactly like `temperature` and `model`. The docstring on the
-    argument says so out loud, because the report will read "same configuration
-    as the reference" for two runs that differ only here (ADR 0005 is the open
-    question)."""
+    """They change what the model does, and they reach neither `config_hash`
+    nor `target_config`: the fingerprint covers the rules that judge (ADR 0003
+    §3), and the record covers what the plugin's own signature names (ADR 0005
+    §1). The two tests below pin both halves."""
     a_target(prompt, client, additional_request_fields={"top_k": 20})(a_case())
     assert client.requests[0]["additionalModelRequestFields"] == {"top_k": 20}
 
@@ -123,6 +122,54 @@ def test_the_fields_do_not_reach_the_recorded_config_hash(prompt: Path) -> None:
         created_at="2026-08-28T00:00:00Z",
     )
     assert plain.config_hash == with_fields.config_hash
+
+
+def test_the_fields_do_not_reach_the_recorded_target_config(prompt: Path) -> None:
+    """The sibling ADR 0005 §1 promised, and the other half of the contract.
+
+    Recording the configuration of the system under test does **not** mean
+    recording everything sent to it. `additional_request_fields` is the escape
+    hatch — whatever Converse takes and this signature does not name — so it is
+    outside the contract, and what is outside the contract is outside the
+    record. What *is* recorded is named, closed and diffable by value.
+    """
+    from digline.core import Contains
+    from digline.run import Suite, execute
+
+    suite = Suite(
+        tenant="t",
+        environment="test",
+        name="s",
+        assertions=[Contains("Rome")],
+        cases=[a_case()],
+    )
+    with_fields = execute(
+        suite,
+        a_target(prompt, FakeClient(), additional_request_fields={"top_k": 20}),
+        created_at="2026-08-31T00:00:00Z",
+    )
+    assert "top_k" not in with_fields.target_config.values
+    assert with_fields.target_config.values == {
+        "provider": "bedrock",
+        "model": EU_SONNET,
+        "max_tokens": 1024,
+        "region": "eu-west-1",
+    }
+
+
+def test_the_config_declares_the_region_it_was_priced_in(prompt: Path) -> None:
+    """The region is part of the answer, not decoration: the same model id in
+    two regions is two price lists and, behind an inference profile, two
+    systems."""
+    target = a_target(prompt, FakeClient(region="us-east-1"), temperature=0.2)
+    assert target.config["region"] == "us-east-1"
+    assert target.config["temperature"] == 0.2
+
+
+def test_an_unset_parameter_is_absent_rather_than_none(prompt: Path) -> None:
+    """ "We did not send it, so the provider's default applied" and "we sent
+    nothing for it" are different facts, and only absence states the first."""
+    assert "temperature" not in a_target(prompt, FakeClient()).config
 
 
 # -- the reply --------------------------------------------------------- #

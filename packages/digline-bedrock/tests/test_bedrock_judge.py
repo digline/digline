@@ -34,6 +34,17 @@ def a_judge(client: FakeClient, **kwargs: Any) -> BedrockJudge:
     return BedrockJudge(model=HAIKU, client=client, **kwargs)
 
 
+def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
+    """Including the region: what was priced is what was called, for a judge
+    exactly as for a target (ADR 0005 §4)."""
+    assert dict(a_judge(client).config) == {
+        "provider": "bedrock",
+        "model": HAIKU,
+        "max_tokens": 400,
+        "region": "eu-west-1",
+    }
+
+
 # -- the protocols ------------------------------------------------------ #
 
 

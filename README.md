@@ -2,7 +2,7 @@
 
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
-[![PyPI 0.1.3](https://img.shields.io/badge/pypi-0.1.3-blue)](https://pypi.org/project/digline/)
+[![PyPI 0.2.0](https://img.shields.io/badge/pypi-0.2.0-blue)](https://pypi.org/project/digline/)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
@@ -19,7 +19,7 @@ configured yourself.
 
 ```console
 $ digline compare --suite suite.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
 how-do-i-return · llm_rubric · Score fell from 1.000000 to 0.700000.
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
@@ -111,7 +111,7 @@ $ digline run --suite suite.py
 2026-08-26T15-44-09-492722-00-00-e7421ec503ccefe8
 
 $ digline compare --suite suite.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
 how-do-i-return · llm_rubric · Score fell from 1.000000 to 0.700000.
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).

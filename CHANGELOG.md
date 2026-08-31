@@ -3,6 +3,48 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## 0.2.0 — 2026-08-31
+
+digline 0.2.0, digline-anthropic 0.2.0, digline-openai 0.2.0,
+digline-bedrock 0.2.0. **Run files move to schema 8**, so stored runs and
+baselines must be migrated once: `digline migrate --suite <your suite>` rewrites
+them in place, and until it is run, `compare`, `report` and `promote` refuse a
+schema-7 document rather than half-reading it. Migration is not a re-promotion —
+the baseline keeps its key, its date and its scores, gains an empty
+configuration, and compares as `unknown` against it.
+
+- **Added:** a run records the configuration of the system under test —
+  provider, model, token cap, temperature, region, endpoint host, and the shape
+  the answer was asked for — as `target_config`, and the judge's as
+  `judge_config` (ADR 0005). Not folded into `config_hash`: two runs at two
+  temperatures stay comparable, which is the experiment.
+- **Added:** `compare` names what moved instead of hashing it. The report, the
+  terminal and `--json` say `temperature 0.3 → 0.7`, and where a regression
+  lands in the same comparison the report says *"this drop coincides with
+  temperature 0.3 → 0.7"* beside it.
+- **Added:** a suite that grades with several judges records **which**
+  instruments graded, one identity per distinct `provider/model`. Replacing one
+  of two judges is reported as one removed and one added — and reported more
+  strongly than a target change, because the scale moved rather than the thing
+  measured.
+- **Changed:** the headline no longer uses "configuration" for two different
+  things. The first sentence is now **"The suite is unchanged from the
+  reference."** — the rules — and "configuration" is left to mean how the
+  system under test was set up. Both locales, the terminal, and `view`'s
+  `OLDER SUITE` marker. A pipeline matching on the sentence rather than on
+  `--json` needs updating.
+- **Changed:** a plugin's `Target` and `Judge` now answer a `config` property.
+  It is **optional**, like `preflight` and `artifacts`: a plain-function target
+  and a hand-written fake judge keep working and simply record nothing.
+- **Compatibility:** `SCHEMA_VERSION` 7 → 8, additive. A baseline with no
+  recorded configuration compares as `unknown` rather than as a change.
+  `OUTPUT_VERSION` is unchanged: `--json` only gained keys.
+- **Privacy:** a model id and a decoding parameter travel in clear; `base_url`
+  is recorded as a host and is withheld under redaction, exactly as an artifact
+  is (ADR 0003 §4). No `Disclosure` releases it. `prefill` is not recorded —
+  it is prompt, so it belongs to `Suite.artifacts` — and neither are
+  `additional_request_fields`, `extra_body` or `token_param`.
+
 ## digline-bedrock 0.1.0 — 2026-08-28
 
 Tag `digline-bedrock-v0.1.0`; nothing in the core changed.

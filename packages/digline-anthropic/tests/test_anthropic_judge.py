@@ -71,6 +71,17 @@ def a_judge(client: FakeClient, **kwargs: Any) -> AnthropicJudge:
     return AnthropicJudge(model="claude-haiku-4-5", client=client, **kwargs)
 
 
+def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
+    """A judge change is a change of measuring instrument, so the run records it
+    the way it records the target (ADR 0005 §4)."""
+    assert dict(a_judge(client, temperature=0.0).config) == {
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "max_tokens": 400,
+        "temperature": 0.0,
+    }
+
+
 def test_each_judge_is_the_protocol_the_core_declares(client: FakeClient) -> None:
     assert isinstance(a_judge(client), Judge)
     assert isinstance(

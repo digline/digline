@@ -99,7 +99,7 @@ $ digline promote --suite support.py --run latest
 support baseline set to 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 ```
 
 `promote` wrote `.digline/northwind/baselines/support.json`. Commit it. From now
@@ -157,7 +157,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-38-571702-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+1 check got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
 
@@ -165,7 +165,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-38-761306-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
 where-is-my-order · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
@@ -313,7 +313,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The configuration changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
 
 $ digline promote --suite support.py --run latest
 support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
@@ -707,7 +707,7 @@ $ digline run --suite triage.py
 2026-08-26T16-09-08-076855-00-00-9e780e13e9fa4f58
 
 $ digline compare --suite triage.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The configuration is the same as the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
 duplicate-ticket · agrees_with_mark · Went from passing to failing (1.000000 → 0.000000).
 service-outage · agrees_with_mark · Went from passing to failing (1.000000 → 0.000000).
@@ -803,7 +803,7 @@ digline: ConfigMismatchError: run 2026-08-26T16-08-16-221095-00-00-2ba590fc617bb
 ```
 
 The old runs stay readable and stay comparable — `digline view` lists them
-attenuated, marked `OLDER CONFIG` — they simply cannot be frozen as the
+attenuated, marked `OLDER SUITE` — they simply cannot be frozen as the
 reference. The response is chapter 4 and chapter 6 again: measure under the new
 rules, promote the median. It costs one calibration and it is the only thing
 that keeps the reference meaning what it says.
@@ -876,7 +876,7 @@ $ digline run --suite support.py
 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The configuration changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 ```
 
 The suspension is in the headline, with its reason, and it travels into the
@@ -950,7 +950,7 @@ $ digline run --suite support.py
 2026-08-26T16-24-18-887777-00-00-ec1c0061f461d5e3
 
 $ digline compare --suite support.py --run latest
-4 checks got worse compared with the reference. Every case could be judged. 1 case is suspended. The configuration is the same as the reference.
+4 checks got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (0.920000 → 0.400000).
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
@@ -958,7 +958,7 @@ where-is-my-order · llm_rubric · Went from passing to failing (0.840000 → 0.
 where-is-my-order · contains · Went from passing to failing (1.000000 → 0.000000).
 ```
 
-Read the last sentence of the headline: **the configuration is the same as the
+Read the last sentence of the headline: **the suite is unchanged from the
 reference.** Nothing in the repository moved, and four checks are red. That
 sentence, on a run nobody launched by hand, is the provider's signature — and it
 is the only way you find out on the Monday rather than from a customer on the
@@ -1087,7 +1087,7 @@ $ digline run --suite support.py
 2026-08-26T16-24-36-803385-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The configuration changed since the reference, so these numbers compare different rules.
+1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 
 how-do-i-return · llm_rubric · Score fell from 0.920000 to 0.760000.
 ```
@@ -1326,7 +1326,7 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-184744-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The configuration is the same as the reference. 1 file under test changed since the reference.
+1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
 
   app.py · +2 −2 lines
 
@@ -1334,7 +1334,7 @@ where-is-my-order · llm_rubric · Score fell from 0.920000 to 0.760000.
 ```
 
 The headline now carries the sentence that was missing from trigger four:
-**the configuration is the same, and one file under test changed.** Same rules,
+**the suite is unchanged, and one file under test changed.** Same rules,
 different system. That is a different fact from either half alone, and it is the
 one that tells you where to look — and the line under it says where, before the
 score line says what it cost.

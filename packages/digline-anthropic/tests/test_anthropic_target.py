@@ -98,6 +98,30 @@ def test_an_unset_temperature_is_not_sent(prompt: Path) -> None:
     assert "temperature" not in client.messages.requests[0]
 
 
+def test_the_config_is_what_was_sent_and_nothing_else(prompt: Path) -> None:
+    """What the run records about the system that answered (ADR 0005 §1).
+
+    No `top_p`, no `top_k`, no `seed`, no `base_url`: this target sends none of
+    them, and a configuration naming a parameter nobody passed would be a record
+    of a run that did not happen.
+    """
+    target, _client = a_target(prompt, temperature=0.2)
+    assert dict(target.config) == {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "max_tokens": 1024,
+        "temperature": 0.2,
+    }
+
+
+def test_an_unset_temperature_is_absent_from_the_config_too(prompt: Path) -> None:
+    """Absent rather than `None`, exactly as in the request above: the record
+    says what was sent, so the day a suite starts pinning a temperature the
+    comparison reports it as `new` instead of as a value that was always there."""
+    target, _client = a_target(prompt)
+    assert "temperature" not in target.config
+
+
 def test_a_system_file_is_rendered_sent_and_recorded(
     tmp_path: Path, prompt: Path
 ) -> None:

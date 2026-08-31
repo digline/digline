@@ -15,10 +15,13 @@ from html import escape
 from typing import Literal
 
 from digline.core import (
+    IDENTITY_FIELD,
     ArtifactDelta,
     AssertionDelta,
     CaseResult,
     Comparison,
+    ConfigDelta,
+    ConfigValue,
     Outcome,
     Run,
 )
@@ -26,15 +29,23 @@ from digline.report.text import Locale, phrase, strings
 
 __all__ = [
     "fmt_score",
+    "ABSENT",
     "DIRTY_SUFFIX",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
     "Headline",
     "Section",
+    "config_changes",
+    "config_lines",
+    "fmt_value",
     "headline",
     "render_html",
     "summary_lines",
 ]
+
+#: What stands where a parameter has no value on one side. Not localized, for
+#: the reason ISO dates are not: two reports of one run must diff line by line.
+ABSENT = "—"
 
 #: How the CLI marks a commit taken from a tree with uncommitted changes. The
 #: report only reads it: reaching for git is the CLI's job alone.
@@ -80,7 +91,7 @@ OUTCOME_ORDER: Sequence[Outcome] = (
 class Headline:
     """The first screen, and what a CLI exits on.
 
-    It carries **five** facts, and they are deliberately not merged into one.
+    It carries **seven** facts, and they are deliberately not merged into one.
 
     A regression, a case the suite could not judge, and a case someone chose to
     set aside are three different events needing three different actions: an
@@ -88,6 +99,13 @@ class Headline:
     decision rather than an outcome. `config_changed` then changes the meaning
     of all three — if the rules moved, the numbers compare different rules, and
     a reader who does not know that draws the wrong conclusion from every one.
+
+    `target_config_changed` and `judge_config_changed` joined them with ADR
+    0005, and they are the answer to the same complaint from the other side:
+    `config_changed` says the *rules* moved, `artifacts_changed` says the prompt
+    moved, and these two say the system that answered — or the judge that graded
+    — was set up differently. Both are absent from the sentence when nothing was
+    recorded, for the reason the artifact clause is.
 
     `artifacts_changed` is the fifth and joined them with ADR 0003. It answers
     the question `config_changed` cannot: the rules are the same and the
@@ -107,6 +125,85 @@ class Headline:
     reasons_available: bool
     sentence: str
     artifacts_changed: bool = False
+    #: The system that answered was configured differently — model, temperature,
+    #: token cap, region, endpoint. The sixth fact, and the one that separates
+    #: "the rules moved" from "the thing being judged moved". (ADR 0005)
+    target_config_changed: bool = False
+    #: The instrument that graded is not the one that graded the reference, so
+    #: the scores are less comparable than their difference suggests. Reported
+    #: more strongly than a target change for exactly that reason.
+    judge_config_changed: bool = False
+
+
+def fmt_value(value: ConfigValue) -> str:
+    """One configuration value, as a reader sees it.
+
+    `str()` and not `fmt_score()`: `0.7` is a temperature somebody typed, and
+    `0.700000` reads as a measurement it is not. Python's float repr is the
+    shortest one that round-trips, so `0.3` stays `0.3` — and it keeps the dot
+    in every locale, like every other number in this document.
+    """
+    if value is None:
+        return ABSENT
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def config_changes(deltas: Sequence[ConfigDelta], locale: Locale) -> str:
+    """`temperature 0.3 → 0.7, max_tokens 1024 → 512`.
+
+    The sentence the whole ADR is for: "the configuration differs" sends a
+    reader to reconstruct what differed; this is what they would have
+    reconstructed. `same` and `unknown` are left out — neither is a change, and
+    `unknown` in particular must never be reported as one.
+    """
+    parts = [
+        _change(delta, locale)
+        for delta in deltas
+        if delta.outcome in ("changed", "new", "missing")
+    ]
+    return ", ".join(parts)
+
+
+def _change(delta: ConfigDelta, locale: Locale) -> str:
+    """One line of it: a parameter that moved, or an instrument that joined or
+    left.
+
+    An instrument is not a value, so it does not read as one. `model a → b` is
+    what a *single* judge replaced looks like; two judges where one was swapped
+    is one gone and one arrived, and saying it that way is the only phrasing
+    that stays true when there are three.
+    """
+    if delta.field == IDENTITY_FIELD:
+        key = "added" if delta.outcome == "new" else "removed"
+        label = delta.after if delta.outcome == "new" else delta.before
+        return phrase(locale, f"config.judge.{key}", judge=fmt_value(label))
+    return phrase(
+        locale,
+        f"config.change.{delta.outcome}",
+        field=delta.field,
+        before=fmt_value(delta.before),
+        after=fmt_value(delta.after),
+    )
+
+
+def config_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
+    """One compact line per side that moved, for the terminal.
+
+    `system · temperature 0.3 → 0.7`. Short enough to print beside the
+    regressions rather than in place of them — unlike a prompt diff, a
+    configuration delta *is* the tally.
+    """
+    lines: list[str] = []
+    for key, deltas in (
+        ("target", comparison.target_config_deltas),
+        ("judge", comparison.judge_config_deltas),
+    ):
+        changes = config_changes(deltas, locale)
+        if changes:
+            lines.append(f"{phrase(locale, f'config.terminal.{key}')} · {changes}")
+    return tuple(lines)
 
 
 def fmt_score(value: float) -> str:
@@ -191,6 +288,23 @@ def headline(
                 locale, "fact.artifacts.many", count=len(changed_artifacts)
             )
 
+    # Same shape as the artifact clause, and silent for the same reason: most
+    # runs before ADR 0005 recorded nothing, and a sentence that reassures about
+    # a configuration nobody recorded is one the reader learns to skip.
+    target_text = _config_fact(
+        comparison.target_config_deltas, locale, key="target_config"
+    )
+    # The judge speaks only when it moved. A judge that did not is not news, and
+    # `unknown` about an instrument nobody recorded is not either — while a
+    # judge that *did* move is the loudest thing on the page, because it makes
+    # every number above it less comparable than it looks.
+    judge_changes = config_changes(comparison.judge_config_deltas, locale)
+    judge_text = (
+        phrase(locale, "fact.judge_config.changed", changes=judge_changes)
+        if judge_changes
+        else ""
+    )
+
     return Headline(
         worse=regressed > 0,
         unjudged=unjudged,
@@ -199,8 +313,12 @@ def headline(
         counts=counts,
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
+        target_config_changed=comparison.target_config_changed,
+        judge_config_changed=comparison.judge_config_changed,
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
+        # The judge is last of all: it is the only one that makes the numbers
+        # themselves less comparable rather than explaining them.
         sentence=" ".join(
             part
             for part in (
@@ -209,14 +327,42 @@ def headline(
                 suspended_text,
                 config_text,
                 artifact_text,
+                target_text,
+                judge_text,
             )
             if part
         ),
     )
 
 
-def _detail(delta: AssertionDelta, locale: Locale) -> str:
+def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> str:
+    """The headline clause about one configuration, or nothing to say.
+
+    Nothing at all when neither side recorded one — a plain-function target, or
+    two runs that predate ADR 0005. `unknown` is not a change and never renders
+    as one: a run compared against a baseline that predates the record says so,
+    which is a different sentence from "it moved" and from "it did not".
+    """
+    if not deltas:
+        return ""
+    changes = config_changes(deltas, locale)
+    if changes:
+        return phrase(locale, f"fact.{key}.changed", changes=changes)
+    if all(delta.outcome == "unknown" for delta in deltas):
+        return phrase(locale, f"fact.{key}.unknown")
+    return phrase(locale, f"fact.{key}.unchanged")
+
+
+def _detail(delta: AssertionDelta, locale: Locale, *, coincides: str = "") -> str:
     """Compose the explanation from the structured facts.
+
+    `coincides` is the sentence ADR 0005 exists for: where a drop and a
+    configuration change land in the same comparison, the report says so beside
+    the drop — *"this drop coincides with temperature 0.3 → 0.7"* — instead of
+    leaving a reviewer to blame the prompt for something the temperature did.
+    "Coincides" is the strongest word the data supports: two facts in one
+    comparison are not a cause, and claiming one would be a finding nobody
+    established.
 
     `AssertionDelta.reason` is deliberately not echoed: it is English text
     generated by `compare()` for a developer, and reprinting it inside an
@@ -224,6 +370,13 @@ def _detail(delta: AssertionDelta, locale: Locale) -> str:
     judge's own `reason` is quoted verbatim, because that is content rather than
     interface.
     """
+    text = _detail_text(delta, locale)
+    if coincides and delta.outcome == "regressed":
+        text += phrase(locale, "config.coincides", changes=coincides)
+    return text
+
+
+def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     now, before = delta.current, delta.baseline
     errored_now = now is not None and now.status == "error"
     if delta.outcome == "new":
@@ -349,6 +502,10 @@ def summary_lines(
     strings(locale)  # fail here rather than halfway down a list
     chosen = _summarized(comparison)
     shown = chosen if limit is None else chosen[:limit]
+    # The same coincidence the document prints, from the same function: a
+    # terminal that omitted it would send the developer looking at the prompt
+    # while the report told the customer about the temperature.
+    coincides = config_changes(comparison.config_changes, locale)
     lines = [
         SUMMARY_SEPARATOR.join(
             (
@@ -356,7 +513,7 @@ def summary_lines(
                 # than opening the line with an empty field.
                 d.case_id if d.scope == "case" else phrase(locale, "scope.run"),
                 d.assertion,
-                _detail(d, locale),
+                _detail(d, locale, coincides=coincides),
             )
         )
         for d in shown
@@ -418,6 +575,7 @@ pre.diff span { display: block; }
 .d-del { background: #fceceb; color: #7f1d1d; }
 .d-meta { color: #7a828f; }
 .d-ctx { color: #3c4350; }
+section.config { margin: 0 0 2rem; }
 section.artifacts details { border-top: none; padding: .25rem 0; }
 section.artifacts summary { font-weight: 400; }
 
@@ -435,13 +593,15 @@ section.artifacts summary { font-weight: 400; }
 """
 
 
-def _row(delta: AssertionDelta, locale: Locale, *, reasons: bool) -> str:
+def _row(
+    delta: AssertionDelta, locale: Locale, *, reasons: bool, coincides: str = ""
+) -> str:
     reason = _reason(delta, locale, available=reasons)
     return (
         "<tr>"
         f"<td><code>{escape(delta.case_id)}</code></td>"
         f"<td><code>{escape(delta.assertion)}</code></td>"
-        f"<td>{escape(_detail(delta, locale))}</td>"
+        f"<td>{escape(_detail(delta, locale, coincides=coincides))}</td>"
         f"<td>{escape(reason)}</td>"
         "</tr>"
     )
@@ -471,6 +631,7 @@ def _section(
     locale: Locale,
     *,
     reasons: bool,
+    coincides: str = "",
 ) -> str:
     title = escape(phrase(locale, f"section.{section.key}"))
     empty = f'<p class="empty">{escape(phrase(locale, "section.empty"))}</p>'
@@ -500,7 +661,7 @@ def _section(
             if not rows
             else _table(
                 ("column.case", "column.check", "column.detail", "column.reason"),
-                [_row(d, locale, reasons=reasons) for d in rows],
+                [_row(d, locale, reasons=reasons, coincides=coincides) for d in rows],
                 locale,
             )
         )
@@ -653,6 +814,93 @@ def _artifacts(comparison: Comparison, locale: Locale) -> str:
     )
 
 
+def _config_table(
+    deltas: Sequence[ConfigDelta], locale: Locale, *, key: str, note: str
+) -> str:
+    """One side's configuration, this run beside the reference.
+
+    Every recorded parameter, not only the ones that moved: a reader in world 3
+    wants to know what answered, and a table that showed only the differences
+    would answer a question they did not ask while leaving the one they did.
+
+    A withheld value says so in both columns. The parameter *names* are not
+    payload — `temperature` describes nobody — so unlike a withheld artifact,
+    whose very path can name a customer, the row survives with its value gone.
+    """
+    if not deltas:
+        return ""
+    rows = "".join(_config_row(delta, locale) for delta in deltas)
+    heads = "".join(
+        f"<th>{escape(phrase(locale, column))}</th>"
+        for column in (
+            "config.column.parameter",
+            "config.column.value",
+            "config.column.reference",
+        )
+    )
+    return (
+        f'<section class="config">\n'
+        f"<h2>{escape(phrase(locale, key))}</h2>\n"
+        f"<p>{escape(note)}</p>\n"
+        f"<table><thead><tr>{heads}</tr></thead><tbody>{rows}</tbody></table>\n"
+        "</section>"
+    )
+
+
+def _config_row(delta: ConfigDelta, locale: Locale) -> str:
+    now = _config_cell(delta.after, locale, withheld=delta.withheld)
+    before = _config_cell(delta.before, locale, withheld=delta.withheld)
+    return (
+        "<tr>"
+        f"<td><code>{escape(delta.field)}</code></td>"
+        f"<td>{escape(now)}</td>"
+        f"<td>{escape(before)}</td>"
+        "</tr>"
+    )
+
+
+def _config_cell(value: ConfigValue, locale: Locale, *, withheld: bool) -> str:
+    return phrase(locale, "config.value.withheld") if withheld else fmt_value(value)
+
+
+def _config_note(deltas: Sequence[ConfigDelta], locale: Locale) -> str:
+    changed = [d for d in deltas if d.outcome in ("changed", "new", "missing")]
+    if changed:
+        key = "config.changed.one" if len(changed) == 1 else "config.changed.many"
+        return phrase(locale, key, count=len(changed))
+    if all(delta.outcome == "unknown" for delta in deltas):
+        return phrase(locale, "config.unknown")
+    return phrase(locale, "config.unchanged")
+
+
+def _configs(comparison: Comparison, locale: Locale) -> str:
+    """What answered and what judged, above the scores that came out of them.
+
+    Beside the artifact diff and for its reason (ADR 0003 §5): what changed
+    comes before what it did. The judge's table carries the stronger note, since
+    a moved instrument makes every number below it less comparable rather than
+    explaining it.
+    """
+    target = _config_table(
+        comparison.target_config_deltas,
+        locale,
+        key="config.title",
+        note=_config_note(comparison.target_config_deltas, locale),
+    )
+    judge_note = (
+        phrase(locale, "config.judge.reduced")
+        if comparison.comparability_reduced
+        else _config_note(comparison.judge_config_deltas, locale)
+    )
+    judge = _config_table(
+        comparison.judge_config_deltas,
+        locale,
+        key="config.judge.title",
+        note=judge_note,
+    )
+    return "\n".join(part for part in (target, judge) if part)
+
+
 #: Above this many changed lines the diff opens closed. A prompt rewritten from
 #: scratch is not read line by line in a report; a prompt with one clause moved
 #: is exactly what the reader came for, and making them click for it is making
@@ -748,8 +996,16 @@ def render_html(
         f"<li>{escape(outcome)} <b>{head.counts[outcome]}</b></li>"
         for outcome in OUTCOME_ORDER
     )
+    coincides = config_changes(comparison.config_changes, locale)
     sections = "".join(
-        _section(s, comparison, run, locale, reasons=head.reasons_available)
+        _section(
+            s,
+            comparison,
+            run,
+            locale,
+            reasons=head.reasons_available,
+            coincides=coincides,
+        )
         for s in SECTIONS
     )
     title = phrase(locale, "document.title", suite=comparison.suite)
@@ -774,6 +1030,7 @@ def render_html(
         "</section>\n"
         f"{_aggregates(run, locale, reasons=head.reasons_available)}\n"
         f"{_artifacts(comparison, locale)}\n"
+        f"{_configs(comparison, locale)}\n"
         f"{sections}\n"
         "</body>\n"
         "</html>\n"

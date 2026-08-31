@@ -17,7 +17,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from digline.targets import ClaimCountJudge, JudgeBase, Pricing, ScoreJudge, Usage
+from digline.core import ConfigValue
+from digline.targets import (
+    ClaimCountJudge,
+    JudgeBase,
+    Pricing,
+    ScoreJudge,
+    Usage,
+    endpoint_host,
+    sent,
+)
 from digline_openai.client import OpenAIChat, TokenParam
 from digline_openai.pricing import OPENAI_PRICING
 
@@ -49,6 +58,8 @@ class _OpenAIJudge(JudgeBase):
     knowing about the other.
     """
 
+    provider = "openai"
+
     def __init__(
         self,
         model: str,
@@ -73,6 +84,24 @@ class _OpenAIJudge(JudgeBase):
         self.token_param: TokenParam = token_param
         self.extra_body = extra_body
         self.chat = OpenAIChat(base_url=base_url, api_key=api_key, client=client)
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """The instrument, the host it is reached at, and whether it is asked
+        for JSON. Never the key.
+
+        `json_mode` is what this judge was **set up** to ask for. A provider
+        that refuses the parameter is retried once without it and the choice is
+        remembered (ADR 0004 §4); that is a runtime fallback, and the record is
+        of the configuration, which is read before the first call.
+        """
+        return {
+            **super().config,
+            **sent(
+                json_mode=self.json_mode,
+                base_url=endpoint_host(self.chat.base_url),
+            ),
+        }
 
     def __repr__(self) -> str:
         """Model, endpoint and what it has spent. Never the key."""

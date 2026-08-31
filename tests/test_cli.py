@@ -152,6 +152,11 @@ COMPARE_KEYS = {
     # Joined the contract with ADR 0003: same rules, different prompt is a thing
     # a pipeline has to be able to ask about.
     "artifacts_changed",
+    # Joined with ADR 0005, and deliberately without a bump: the rule is that
+    # *added* keys leave a consumer working, and these two answer a question
+    # nothing else on this list can — same rules, same prompt, different model.
+    "target_config_changed",
+    "judge_config_changed",
     "counts",
     "reasons_available",
     "sentence",
@@ -183,7 +188,11 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
             repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json", "full"
         ).stdout
     )
-    assert set(full) == COMPARE_KEYS | {"deltas"}
+    assert set(full) == COMPARE_KEYS | {
+        "deltas",
+        "target_config_deltas",
+        "judge_config_deltas",
+    }
 
 
 def regressed_repo(repo: Path) -> str:

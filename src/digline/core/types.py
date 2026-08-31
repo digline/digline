@@ -21,6 +21,7 @@ __all__ = [
     "NOTHING_EXTRA",
     "REDACTED",
     "ClaimReply",
+    "ConfigValue",
     "Disclosure",
     "EvaluatorInputs",
     "JudgeReply",
@@ -97,6 +98,14 @@ NOTHING_EXTRA = Disclosure()
 # needed, and the right-hand side is not evaluated until something inspects it.
 type Status = Literal["pass", "fail", "error"]
 type OutputKind = Literal["text", "structured", "conversation"]
+
+#: What a target or a judge may declare about itself. Scalars only, and
+#: deliberately: the configuration of the system under test is diffed field by
+#: field and rendered as `temperature 0.3 -> 0.7`, and a nested structure has no
+#: such sentence. Anything a plugin cannot say in one scalar is outside the
+#: contract, and ADR 0005 §1 leaves what is outside the contract out of the
+#: record.
+type ConfigValue = str | int | float | bool | None
 
 # The baseline is a committed file whose purpose is to be read in a code review.
 # A diff that churns on the seventeenth digit of a float gets read by nobody.

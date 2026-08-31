@@ -31,6 +31,7 @@ from digline.cli.view import serve
 from digline.core import (
     Artifact,
     AssertionDelta,
+    ConfigDelta,
     Run,
     compare,
     redact,
@@ -39,6 +40,7 @@ from digline.core import (
 from digline.report import (
     Headline,
     artifact_lines,
+    config_lines,
     headline,
     render_html,
     summary_lines,
@@ -75,6 +77,10 @@ __all__ = [
 #:
 #: 1: `worse`, `unjudged`, `suspended`, `config_changed`, `artifacts_changed`,
 #:    `counts`, `reasons_available`, `sentence`; `deltas` under `--json full`.
+#:    Since then, and without a bump because the rule above is that added keys
+#:    do not break a consumer: `target_config_changed` and
+#:    `judge_config_changed` on the headline, and `target_config_deltas` /
+#:    `judge_config_deltas` under `full` (ADR 0005 §7).
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0
@@ -323,6 +329,23 @@ def _delta_json(delta: AssertionDelta) -> dict[str, object]:
     }
 
 
+def _config_json(delta: ConfigDelta) -> dict[str, object]:
+    """A configuration delta as a pipeline reads it.
+
+    The values travel, unlike a verdict's `reason`: a model id and a temperature
+    are measurements of the system, and a withheld field carries no value to
+    print in the first place — redaction removed it before this was built
+    (ADR 0005 §2).
+    """
+    return {
+        "field": delta.field,
+        "outcome": delta.outcome,
+        "before": delta.before,
+        "after": delta.after,
+        "withheld": delta.withheld,
+    }
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     suite, _module, store = _load(args)
     run = _read_run(store, suite, _resolve_key(store, suite, args.run))
@@ -338,6 +361,12 @@ def cmd_compare(args: argparse.Namespace) -> int:
         payload.update(dataclasses.asdict(head))
         if args.json == "full":
             payload["deltas"] = [_delta_json(d) for d in comparison.deltas]
+            payload["target_config_deltas"] = [
+                _config_json(d) for d in comparison.target_config_deltas
+            ]
+            payload["judge_config_deltas"] = [
+                _config_json(d) for d in comparison.judge_config_deltas
+            ]
         print(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
@@ -346,6 +375,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
     # every line below it reads, and learning that afterwards is learning it too
     # late. The tally only — the diff is in the report, one command away.
     moved = artifact_lines(comparison, locale=args.locale)
+    # The named deltas beside the file tally, and unlike the file tally they are
+    # the whole fact rather than a pointer to the document: `temperature
+    # 0.3 → 0.7` fits on one line and is what the reader would have gone to the
+    # report for. (ADR 0005 §5)
+    moved = (*moved, *config_lines(comparison, locale=args.locale))
     if moved:
         print()
         for line in moved:

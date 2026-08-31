@@ -19,6 +19,7 @@ from digline.core.types import (
     FLOAT_PRECISION,
     NOTHING_EXTRA,
     REDACTED,
+    ConfigValue,
     Disclosure,
     Score,
     Status,
@@ -28,9 +29,12 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "PERIMETER_FIELDS",
+    "identity_of",
     "Artifact",
     "CaseResult",
     "Run",
+    "SystemConfig",
     "artifacts_sha",
     "config_hash",
     "redact",
@@ -53,11 +57,157 @@ __all__ = [
 # 7: `Run.artifacts` joined the run — the files that *are* the thing under test,
 #    the prompt above all. Additive: a file written before them declared none,
 #    which is exactly what `{}` says. (ADR 0003)
-SCHEMA_VERSION = 7
+# 8: `Run.target_config` and `Run.judge_config` joined the run — the parameters
+#    that decided how the system answered, and the instrument that graded it.
+#    Additive: a document written before them recorded no configuration, which
+#    is what an empty one says, and a baseline promoted before them still
+#    compares — every field reports `unknown` rather than a change. (ADR 0005)
+SCHEMA_VERSION = 8
 
 
 def _num(value: float) -> float:
     return round(value, FLOAT_PRECISION)
+
+
+#: The one recorded field that describes the client's own perimeter rather than
+#: the model. `https://llm-gw.internal.acme-bank.it/v1` names an internal
+#: gateway and often the customer with it, so under redaction it gets the ADR
+#: 0003 artifact treatment: the value goes, the key stays as withheld, and a
+#: comparison across it answers `unknown`. Everything else here — a model id, a
+#: temperature, a token cap, a region — is a measurement of the system and
+#: travels in clear. (ADR 0005 §2)
+PERIMETER_FIELDS = frozenset({"base_url"})
+
+
+def identity_of(provider: str, model: str) -> str:
+    """The label for one instrument: `anthropic/claude-haiku-4-5`.
+
+    A **label**, not a key. A model id may itself contain a slash — OpenRouter
+    names them `anthropic/claude-3.5-sonnet` — so `openai/anthropic/claude-3.5-
+    sonnet` reads correctly and cannot be split back, which is fine because
+    nothing splits it: it is compared for equality and shown to a reader.
+    """
+    return f"{provider}/{model}"
+
+
+@dataclass(frozen=True, slots=True)
+class SystemConfig:
+    """The parameters that decided how the system answered, as it declared them.
+
+    Flat and scalar, because the whole feature is the **named delta**:
+    `temperature 0.3 -> 0.7` is a sentence a reviewer acts on, and a nested
+    structure has no such sentence. What a plugin cannot say in one scalar is
+    outside the contract, and ADR 0005 §1 keeps what is outside the contract out
+    of the record — `additional_request_fields` and `extra_body` above all.
+
+    `withheld` names the keys whose values were removed at a boundary, rather
+    than dropping the key. Same distinction as `Artifact.withheld`: *this run
+    kept it back* and *this run never had it* are different facts, and only the
+    first one may be reported as `unknown` instead of as a change.
+
+    `identities` names **which** instruments were in play, and is the judge
+    side's answer to a question the target side cannot ask: a target is bound
+    once per run, while a suite may hold several judges. It is recorded even
+    when there is one, because "which graded" has to be comparable whatever the
+    count — replacing one of two judges is exactly the change ADR 0005 §4
+    exists to catch, and a record that fell silent as soon as there were two
+    would go blind precisely there.
+
+    `values` then elaborates: **only when there is a single identity** is there
+    a single set-up to record. With two instruments in play there is no one
+    `max_tokens`, and inventing a merged one would describe a judge nobody
+    built.
+
+    An empty one means the target declared nothing — a plain function, an
+    `HttpTarget`, a run written before ADR 0005. Absent stays absent, and absent
+    is never a change.
+    """
+
+    values: Mapping[str, ConfigValue] = field(default_factory=dict[str, "ConfigValue"])
+    withheld: frozenset[str] = frozenset()
+    #: `provider/model` per distinct instrument, sorted and distinct. Empty on
+    #: the target side, where the set could only ever hold one element and would
+    #: repeat what `values` already says.
+    identities: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        # Sorted and de-duplicated here rather than by every caller: it is a
+        # *set* that happens to be written as a tuple, and two runs listing the
+        # same judges in two orders must produce the same document.
+        object.__setattr__(self, "identities", tuple(sorted(set(self.identities))))
+        if any(not label for label in self.identities):
+            raise ValueError("SystemConfig.identities must not hold an empty label")
+        both = sorted(set(self.values) & self.withheld)
+        if both:
+            raise ValueError(
+                f"SystemConfig declares {', '.join(both)} both withheld and "
+                "present: the flag would announce a guarantee the value "
+                "contradicts"
+            )
+        # Read as `object`, because the annotation is a promise and this is the
+        # check: a document is written by whoever holds it, and `_config_from_dict`
+        # comes through here rather than trusting what it parsed.
+        declared = cast(Mapping[str, object], self.values)
+        for key, value in declared.items():
+            # Refused where it is written rather than where it is read: a
+            # nested value would reach the report as a delta nobody can read.
+            if value is not None and not isinstance(value, str | int | float | bool):
+                raise ValueError(
+                    f"SystemConfig records {key!r} as a "
+                    f"{type(value).__name__}, which is not a scalar: a "
+                    "configuration is diffed field by field and rendered by "
+                    "value"
+                )
+        if not self.values:
+            return
+        missing = sorted({"provider", "model"} - set(self.values))
+        if missing:
+            raise ValueError(
+                f"SystemConfig is missing {', '.join(missing)}: a "
+                "configuration that cannot say who answered, and as what, "
+                "names no system"
+            )
+        if len(self.identities) > 1:
+            raise ValueError(
+                f"SystemConfig lists {len(self.identities)} instruments and a "
+                "single set-up: with more than one in play there is no one "
+                "set-up to record, and a merged one would describe something "
+                "nobody built"
+            )
+        # Verified rather than believed, like every other claim in this module:
+        # a single identity that contradicted `values` would be two answers to
+        # "what graded this" in one object.
+        declared_identity = identity_of(
+            str(self.values["provider"]), str(self.values["model"])
+        )
+        if self.identities and self.identities[0] != declared_identity:
+            raise ValueError(
+                f"SystemConfig names {self.identities[0]!r} and describes "
+                f"{declared_identity!r}: one object cannot answer 'what "
+                "graded this' twice"
+            )
+
+    @property
+    def recorded(self) -> bool:
+        """Whether this side has a configuration at all.
+
+        The question `compare()` asks first: a side that recorded nothing yields
+        `unknown` for every field, never a column of fabricated `new`s.
+        """
+        return bool(self.values or self.withheld or self.identities)
+
+    def redacted(self) -> SystemConfig:
+        """The same configuration with the perimeter fields kept back."""
+        gone = {key for key in self.values if key in PERIMETER_FIELDS}
+        if not gone:
+            return self
+        return SystemConfig(
+            values={k: v for k, v in self.values.items() if k not in gone},
+            withheld=self.withheld | gone,
+            # A provider and a model are measurements and travel in clear, so
+            # the instruments a run used are named in a redacted document too.
+            identities=self.identities,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +349,16 @@ class Run:
     #: by the path the suite declared. Read by the CLI and handed to the driver,
     #: never opened here: the core touches no filesystem. (ADR 0003)
     artifacts: Mapping[str, Artifact] = field(default_factory=dict[str, "Artifact"])
+    #: What decided how the system answered — provider, model, temperature, the
+    #: token cap, the region or the endpoint host. Beside `config_hash` and
+    #: never inside it: `config_hash` is the identity of the suite, this is the
+    #: identity of the system, and a change here must leave two runs comparable
+    #: for the same reason a changed prompt does. (ADR 0005 §3)
+    target_config: SystemConfig = field(default_factory=SystemConfig)
+    #: The measuring instrument. A judge that moved makes the scores less
+    #: comparable with the baseline whatever the target did, which is a stronger
+    #: statement than a target change and is reported as one. (ADR 0005 §4)
+    judge_config: SystemConfig = field(default_factory=SystemConfig)
     redacted: bool = False
 
     def __post_init__(self) -> None:
@@ -222,6 +382,19 @@ class Run:
         # have survived depends on the `Disclosure` that produced this run, and
         # a `Run` does not carry one: use `redact()` and the flag is correct by
         # construction.
+        # Checkable here, unlike the metadata: no `Disclosure` releases a
+        # perimeter field, so a redacted run that still carries one is wrong
+        # whatever policy produced it.
+        for what, config in (
+            ("target_config", self.target_config),
+            ("judge_config", self.judge_config),
+        ):
+            leaked = sorted(set(config.values) & PERIMETER_FIELDS)
+            if leaked:
+                raise ValueError(
+                    f"Run.redacted is set but {what} still carries "
+                    f"{', '.join(leaked)}; build it with redact()"
+                )
         for verdict in self.aggregate:
             if verdict.reason != REDACTED:
                 raise ValueError(
@@ -366,6 +539,13 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
             if disclosure.artifacts
             else {path: Artifact(text=None, withheld=True) for path in run.artifacts}
         ),
+        # A model id and a temperature are measurements of the system and cross
+        # on their own merit. `base_url` is the client's topology, so it — and
+        # only it — is kept back, by the same rule and with the same `unknown`
+        # outcome as a withheld artifact. No `Disclosure` releases it: one
+        # special field, one existing rule, no new mechanism. (ADR 0005 §2)
+        target_config=run.target_config.redacted(),
+        judge_config=run.judge_config.redacted(),
         redacted=True,
     )
 
@@ -439,7 +619,46 @@ def run_to_dict(run: Run) -> dict[str, object]:
             path: _artifact_to_dict(item)
             for path, item in sorted(run.artifacts.items())
         },
+        "target_config": _config_to_dict(run.target_config),
+        "judge_config": _config_to_dict(run.judge_config),
     }
+
+
+def _config_to_dict(config: SystemConfig) -> dict[str, object]:
+    """Absent rather than emptied, like every other payload field.
+
+    A configuration nobody declared is `{}` — which is what a run written before
+    ADR 0005 gains on migration, and what a plain-function target records today.
+    """
+    payload: dict[str, object] = {}
+    if config.identities:
+        payload["identities"] = list(config.identities)
+    if config.values:
+        payload["values"] = {key: config.values[key] for key in sorted(config.values)}
+    if config.withheld:
+        payload["withheld"] = sorted(config.withheld)
+    return payload
+
+
+def _config_from_dict(raw: Mapping[str, Any], where: str) -> SystemConfig:
+    """Straight into the value, which does the checking.
+
+    A document is written by whoever holds it, not only by this code, so what
+    `SystemConfig` refuses on construction it refuses on the way in too.
+    """
+    values = cast(Mapping[str, ConfigValue], raw.get("values") or {})
+    try:
+        return SystemConfig(
+            values=dict(values),
+            withheld=frozenset(
+                str(key) for key in cast(Sequence[Any], raw.get("withheld") or ())
+            ),
+            identities=tuple(
+                str(label) for label in cast(Sequence[Any], raw.get("identities") or ())
+            ),
+        )
+    except ValueError as exc:
+        raise ValueError(f"{where}: {exc}") from exc
 
 
 def _artifact_to_dict(artifact: Artifact) -> dict[str, object]:
@@ -534,6 +753,14 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
                 Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
             ).items()
         },
+        target_config=_config_from_dict(
+            cast(Mapping[str, Any], _required(raw, "target_config", "run")),
+            "target_config",
+        ),
+        judge_config=_config_from_dict(
+            cast(Mapping[str, Any], _required(raw, "judge_config", "run")),
+            "judge_config",
+        ),
     )
 
 

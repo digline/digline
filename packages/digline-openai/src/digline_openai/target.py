@@ -20,11 +20,27 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from digline.targets import Pricing, ProviderTarget, Usage
+from digline.core import ConfigValue
+from digline.targets import Pricing, ProviderTarget, Usage, endpoint_host, sent
 from digline_openai.client import OpenAIChat, TokenParam
 from digline_openai.pricing import OPENAI_PRICING
 
 __all__ = ["OpenAITarget"]
+
+
+def _format_type(response_format: Mapping[str, Any] | None) -> str | None:
+    """`{"type": "json_object"}` recorded as `"json_object"`.
+
+    The `type` and not the whole request: a `json_schema` carries the schema
+    itself, which is structure rather than a scalar, and structure is what ADR
+    0005 §1 keeps out of the record. A `response_format` with no readable
+    `type` records nothing — an escape hatch is an escape hatch wherever it is
+    written.
+    """
+    if response_format is None:
+        return None
+    kind = response_format.get("type")
+    return kind if isinstance(kind, str) else None
 
 
 class OpenAITarget(ProviderTarget):
@@ -38,8 +54,11 @@ class OpenAITarget(ProviderTarget):
         )
 
     Both files are recorded in every run, so a baseline carries the prompt that
-    produced it (ADR 0003).
+    produced it (ADR 0003), and so does the configuration that produced it —
+    model, token cap, temperature and the host of a custom endpoint (ADR 0005).
     """
+
+    provider = "openai"
 
     def __init__(
         self,
@@ -87,6 +106,35 @@ class OpenAITarget(ProviderTarget):
         #: difference to show; ADR 0005 is the open question.
         self.extra_body = extra_body
         self.chat = OpenAIChat(base_url=base_url, api_key=api_key, client=client)
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """What this target sends, plus the *host* of a custom endpoint.
+
+        The host and not the URL: no path, no scheme, and above all no
+        userinfo, which is one of the places a key gets written by accident.
+        It is also the one recorded field that describes the client's own
+        perimeter, so it is the one redaction keeps back (ADR 0005 §2).
+
+        Absent for the official endpoint — there is no custom host to record,
+        and `api.openai.com` written out would be a value standing in for a
+        default nobody chose.
+
+        `response_format` is recorded as its `type`: asking for a JSON object
+        changes the shape of the answer, so a regression can coincide with it,
+        and the type is the diffable scalar the whole request reduces to.
+        `token_param` is out — it decides which argument carries the cap, not
+        what the model does with it — and so is `extra_body` (ADR 0005 §1).
+        """
+        return {
+            **super().config,
+            **sent(
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                response_format=_format_type(self.response_format),
+                base_url=endpoint_host(self.chat.base_url),
+            ),
+        }
 
     def __repr__(self) -> str:
         """Model and endpoint. Never the key — a `repr` ends up in tracebacks."""

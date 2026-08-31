@@ -341,13 +341,64 @@ is left alone.
 |---|---|---|
 | `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003) |
 | `preflight(cases) -> None` | `execute()`, once, before the first call | raises naming **every** gap at once |
+| `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call | recorded as `Run.target_config` (ADR 0005) |
 
-`ProviderTarget` implements both. `preflight` checks that each case provides
+`ProviderTarget` implements all three. `preflight` checks that each case provides
 every variable its templates ask for, and that the model has a price — both are
 cheaper to discover before the run than on case thirty-seven with thirty-six
 paid calls behind it. It happens in the driver rather than in `Suite`, so a
 script calling `execute()` directly is covered too, and so that a `Suite` stays
 a declaration that knows nothing about how its outputs are produced.
+
+### `config`: what decided how the model answered
+
+A run records the verdicts, the rules that judged them, the prompt that produced
+them — and, since ADR 0005, the system that answered:
+
+```python
+@property
+def config(self) -> Mapping[str, ConfigValue]:
+    return {**super().config, **sent(max_tokens=self.max_tokens,
+                                     temperature=self.temperature)}
+```
+
+Flat, scalar, and only what was actually sent — `sent()` drops an unset
+parameter rather than writing `None`, because "the provider's default applied"
+and "we sent nothing for it" are different facts. `provider` and `model` are
+always present; a target that declares neither declares nothing, which is what
+a plain function does and is not a change.
+
+It does **not** enter `config_hash`, for the reason `Suite.artifacts` does not:
+two runs at two temperatures have to stay comparable, and that comparison is the
+experiment. What it gives instead is the **named delta** — `temperature 0.3 →
+0.7` in the report, in the terminal and in `--json` — and, where a regression
+lands in the same comparison, the sentence *"this drop coincides with
+temperature 0.3 → 0.7"* beside it.
+
+`JudgeBase` answers the same property, and a judge's is recorded separately as
+`Run.judge_config`: a judge that moved is a change of measuring *instrument*, so
+the scores stop being comparable with the baseline whatever the target did, and
+the report says so rather than leaving it to be noticed.
+
+A suite may hold several judges, so `judge_config` records **which** instruments
+graded as well as how: `identities` is the set of distinct `provider/model`
+labels bound in the run, always recorded, and `values` carries the merged set-up
+only when that set has one element. Replacing one of two judges arrives as one
+identity removed and one added — never as `model a → b`, which stops being true
+the moment a suite grades with three.
+
+What is out, and why. `additional_request_fields` and `extra_body` are the
+escape hatch, outside the plugin's own signature, and what is outside the
+contract is outside the record. `prefill` is *prompt* — put in the model's mouth
+— so it belongs to `Suite.artifacts`, where it gets a diff rather than a scalar.
+`token_param` only decides which argument carries the cap that is already
+recorded. `response_format` **is** in, reduced to its `type`, and so is the
+judge's `json_mode`: they change the shape of the answer, so a regression can
+coincide with them.
+
+`base_url` records the **host** — never the path, never the userinfo — because
+it is the one recorded field that describes the client's own topology, and it is
+the one redaction keeps back.
 
 ## The assertions
 
@@ -810,7 +861,12 @@ to build one that contradicts itself: a `status` disagreeing with
 `score >= threshold` is refused.
 
 `compare(run, baseline) -> Comparison` returns one `AssertionDelta` per verdict,
-with outcome `regressed`, `improved`, `unchanged`, `new`, `missing`, `errored`.
+with outcome `regressed`, `improved`, `unchanged`, `new`, `missing`, `errored`,
+plus one `ConfigDelta` per configuration parameter on either side — `field`,
+`outcome`, `before`, `after` — under `target_config_deltas` and
+`judge_config_deltas`. A parameter withheld at a boundary, and every parameter
+on a baseline that predates ADR 0005, reports `unknown`: neither is a change, so
+a baseline promoted last month keeps comparing without being promoted again.
 The rules apply in this order: presence on one side only, then error, then a
 change of outcome (**regardless of the tolerance**), then numeric comparison
 against the tolerance.
@@ -829,6 +885,13 @@ passes**, numbers included. `0.01` written by `CostBudget` is a measurement;
 `redact(run, disclosure)` returns the run without its payload — `reason` and
 suspension reasons disappear, the verdicts remain. It is a function on the value
 and not a serializer option, so no future transport can forget about it.
+
+`Disclosure(artifacts=True)` lets the declared files travel; the default keeps
+them, digest and all. There is deliberately **no** member for `base_url`: a
+model id and a temperature are measurements and always travel, while an endpoint
+host is topology and is always withheld, appearing in the document as
+`"withheld": ["base_url"]` and in a comparison as `unknown` — one special field,
+one existing rule, no switch to forget (ADR 0005 §2).
 
 ## A complete example
 

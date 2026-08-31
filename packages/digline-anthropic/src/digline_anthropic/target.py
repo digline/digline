@@ -12,10 +12,12 @@ what lets the tests run with no SDK installed and no network at all.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from digline.targets import Pricing, ProviderTarget, Usage
+from digline.core import ConfigValue
+from digline.targets import Pricing, ProviderTarget, Usage, sent
 from digline_anthropic.client import build_client, text_of, usage_of
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
@@ -33,8 +35,11 @@ class AnthropicTarget(ProviderTarget):
         )
 
     Both files are recorded in every run, so a baseline carries the prompt that
-    produced it (ADR 0003).
+    produced it (ADR 0003), and so does the configuration that produced it —
+    model, token cap and temperature (ADR 0005).
     """
+
+    provider = "anthropic"
 
     def __init__(
         self,
@@ -67,6 +72,20 @@ class AnthropicTarget(ProviderTarget):
         #: invalid JSON. (friction 27)
         self.prefill = prefill
         self._injected = client
+
+    @property
+    def config(self) -> Mapping[str, ConfigValue]:
+        """What this target sends, and only that.
+
+        No `top_p`, no `top_k`, no `seed`: this target does not send them, and a
+        configuration that named a parameter nobody passed would be a record of
+        a run that did not happen. `prefill` is left out for the reason in ADR
+        0005 §Not decided here.
+        """
+        return {
+            **super().config,
+            **sent(max_tokens=self.max_tokens, temperature=self.temperature),
+        }
 
     def _client(self) -> Any:
         """Built on first use. See `digline_anthropic.client.build_client`."""

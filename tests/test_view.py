@@ -540,8 +540,8 @@ def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> No
     html = runs_html(config_hash="cfg-2")
     cell = act_cell(html, "key-b")
     assert "<button" not in cell
-    assert ">older config</span>" in cell
-    assert "produced under an earlier configuration" in cell
+    assert ">older suite</span>" in cell
+    assert "produced under an earlier version of the suite" in cell
     assert "/compare?run=key-b" in cell
     assert '<tr class="stale">' in html
 
