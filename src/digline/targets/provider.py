@@ -91,8 +91,12 @@ class ProviderTarget(ABC):
 
             @property
             def config(self) -> Mapping[str, ConfigValue]:
-                return {**super().config, **sent(max_tokens=self.max_tokens,
-                                                 temperature=self.temperature)}
+                return {
+                    **super().config,
+                    **sent(
+                        max_tokens=self.max_tokens, temperature=self.temperature
+                    ),
+                }
 
         Deliberately not `additional_request_fields` or `extra_body`. They are
         outside the plugin's own signature, they are where an account-specific

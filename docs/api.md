@@ -358,8 +358,10 @@ them — and, since ADR 0005, the system that answered:
 ```python
 @property
 def config(self) -> Mapping[str, ConfigValue]:
-    return {**super().config, **sent(max_tokens=self.max_tokens,
-                                     temperature=self.temperature)}
+    return {
+        **super().config,
+        **sent(max_tokens=self.max_tokens, temperature=self.temperature),
+    }
 ```
 
 Flat, scalar, and only what was actually sent — `sent()` drops an unset
