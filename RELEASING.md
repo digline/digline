@@ -88,6 +88,32 @@ checks, after TestPyPI — with a version number spent on one index and not the
 other. This is not something the workflow can check for you: it is a setting in
 an account.
 
+## The one secret
+
+`DIGLINE_DEV_DISPATCH_TOKEN`, a repository secret on `digline/digline`.
+
+| | |
+|---|---|
+| What | fine-grained PAT, **Contents: read and write on `digline/digline.dev` only** — nothing else, no other repository |
+| Why | the `site` job posts a `repository_dispatch` to the site's repository, and a workflow's own `github.token` is scoped to *this* one |
+| Where | Settings → Secrets and variables → Actions, and it is read on the step, not the job |
+| Created | 2026-08-31 |
+| Expires | **fine-grained PATs always expire.** Record the date here when you create or rotate one — a year from now this page is the only thing standing between an expired token and an afternoon |
+
+It fails at the **end** of a release, after PyPI, and a failure there needs no
+re-tag: the packages are published, and only the site is behind. Add or renew
+the secret and re-run the failed job.
+
+**A re-run replays the workflow file from the tag's commit, not from `main`.**
+So a fix pushed to `main` does not reach a re-run of an older release — for that
+one, either the secret has to match the name *that* commit expects, or the
+dispatch is sent by hand:
+
+```sh
+gh api repos/digline/digline.dev/dispatches --method POST \
+  -f event_type=digline-release -f 'client_payload[ref]'=v0.2.0
+```
+
 ## Two failures already paid for
 
 **A plugin wheel cannot resolve the core from the index on the tag that releases

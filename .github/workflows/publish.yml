@@ -180,13 +180,27 @@ jobs:
       # build time. Once the version is on PyPI, the site has to be rebuilt from
       # the tag that produced it, or it describes something you cannot install.
       #
-      # SITE_DISPATCH_TOKEN is a token with write access to digline/digline.dev
-      # and nothing else — a fine-grained PAT scoped to that one repository,
-      # Contents: read and write, which is what repository_dispatch asks for.
+      # DIGLINE_DEV_DISPATCH_TOKEN is a token with write access to
+      # digline/digline.dev and nothing else — a fine-grained PAT scoped to that
+      # one repository, Contents: read and write, which is what
+      # repository_dispatch asks for. The workflow's own `github.token` cannot
+      # do this: it is scoped to this repository, and the site is another one.
+      #
+      # The secret is read on the **step**, not the job, so nothing else in this
+      # workflow is in reach of a token that can write to another repository.
       - name: Tell the site a version is out
         env:
-          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.DIGLINE_DEV_DISPATCH_TOKEN }}
         run: |
+          # An unset secret expands to the empty string, and `gh` then fails
+          # with `exit 4` and a generic sentence about GH_TOKEN — at the very
+          # end of a release, after everything irreversible has happened. This
+          # is the last step of the last job, so the diagnosis has to be in the
+          # failure itself: nobody reads a workflow file at that point.
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=DIGLINE_DEV_DISPATCH_TOKEN is not set::The site was not rebuilt. The packages are on PyPI and this does NOT need a re-tag. Add the repository secret DIGLINE_DEV_DISPATCH_TOKEN — a fine-grained PAT on digline/digline.dev only, Contents: read and write — at Settings > Secrets and variables > Actions, then re-run this job. See RELEASING.md, 'The one secret'."
+            exit 1
+          fi
           gh api repos/digline/digline.dev/dispatches --method POST \
             -f event_type=digline-release \
             -f 'client_payload[ref]'="$GITHUB_REF_NAME"
