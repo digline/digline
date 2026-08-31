@@ -18,6 +18,39 @@ stays the one that says nothing about the version somebody just installed.
 Fixing that costs a re-tag, which is repeatable but only until the `pypi` job
 has run.
 
+## Before the tag: the gates
+
+Run **exactly what CI runs**, from the repository root:
+
+```sh
+uv sync --all-packages
+uv run pytest -q -m "not live"
+uv run ruff format --check .
+uv run ruff check .
+uv run pyright
+```
+
+Copied from `.github/workflows/ci.yml` and held to it by
+`tests/test_releasing.py`, which reads the `gates` job and fails if this block
+falls behind it. That test exists because the block went stale the first time it
+mattered: v0.2.0 was tagged after a check that ran `ruff` over
+`src packages tests` instead of `.`, and CI failed on the tag with a code sample
+in `docs/api.md` — **`ruff format` formats the Python blocks inside a Markdown
+file**, and no narrower path list ever sees them.
+
+Two of these are easy to think you can skip, and both were the same mistake:
+
+- **`.` and not a list of directories.** `docs/` and `examples/` are checked
+  too, and they are where a sample rots.
+- **`uv`, not the ambient interpreter.** `uv sync` is what updates `uv.lock`
+  after a version bump; a lock still naming the previous version is a lock that
+  describes a release that does not exist. Running `ruff` and `pytest` straight
+  from a system Python never touches it.
+
+CI also runs the gates on **3.12 and 3.13**. One locally is enough before a
+tag — the second is what CI is for — but a failure on 3.13 alone is a real
+failure, not a runner quirk.
+
 ## The two tag shapes
 
 | Tag | Means |
