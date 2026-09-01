@@ -35,6 +35,19 @@
   </dependencies>
 
   <build>
+    <resources>
+      <!-- The prompt is shared with app-quarkus and lives one level up: it is
+           the thing under test, and it must not belong to either framework.
+           `suite.py` names ../prompts/system.txt as the run's artifact, and
+           there is exactly one copy for both services to package. -->
+      <resource>
+        <directory>${project.basedir}/../prompts</directory>
+        <targetPath>prompts</targetPath>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

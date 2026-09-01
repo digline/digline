@@ -15,8 +15,12 @@ permissions:
 
 jobs:
   app:
-    name: The Java service still builds
+    name: ${{ matrix.app }} still builds
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [app-spring, app-quarkus]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v4
@@ -24,10 +28,13 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      # `verify`, not `run`: compiling costs nothing and calls no model. The
+      # Both, every time: the pair only means anything if the two stay in step,
+      # and the suite below cannot tell you when one of them stops compiling.
+      #
+      # `verify`, not `run`: compiling costs nothing and calls no model. A
       # service is only *started* where there is a key to start it with, which
       # is the deployed instance the eval below points at — never here.
-      - run: mvn -B -f app/pom.xml verify
+      - run: mvn -B -f ${{ matrix.app }}/pom.xml verify
 
   eval:
     name: The suite, against the committed baseline

@@ -1,5 +1,7 @@
 .venv/
 __pycache__/
 .ruff_cache/
-# Maven's build output. The Java sources are the example; the jar is not.
-app/target/
+# Maven's build output, one per service. The Java sources are the example;
+# the jars are not.
+app-spring/target/
+app-quarkus/target/

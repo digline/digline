@@ -261,8 +261,10 @@ def test_the_java_example_records_the_model_that_answered() -> None:
     )
     assert baseline["target_config"]["values"]["provider"] == "openai"
     assert baseline["target_config"]["values"]["model"]
-    # And the prompt, which lives in the Java resources (ADR 0003).
-    assert "app/src/main/resources/prompts/system.txt" in baseline["artifacts"]
+    # And the prompt (ADR 0003). It sits beside the two services rather than
+    # inside either, so the suite names the thing under test without naming a
+    # framework — and there is one copy for both of them to package.
+    assert "prompts/system.txt" in baseline["artifacts"]
 
 
 def test_the_java_readme_lists_the_configuration_contract() -> None:
@@ -276,23 +278,63 @@ def test_the_java_readme_lists_the_configuration_contract() -> None:
         assert f"`{field}`" in readme, f"{field} is accepted but undocumented"
 
 
-def test_the_java_service_reports_every_field_the_stub_does() -> None:
-    """`stub.py` is what the example actually runs, so it is what a reader
-    believes the contract to be. If the Java controller and the stub disagree,
-    one of them is lying about the shape."""
-    controller = (
-        LANGCHAIN4J
-        / "app"
-        / "src"
-        / "main"
-        / "java"
-        / "dev"
-        / "digline"
-        / "example"
-        / "EvaluationController.java"
+#: The two services, and the class that exposes the endpoint in each. The pair
+#: is the example's whole argument — the framework is not the contract, the
+#: endpoint is — so it is only true while both answer the same shape.
+JAVA_ENDPOINTS = {
+    "app-spring": "EvaluationController.java",
+    "app-quarkus": "EvaluationResource.java",
+}
+
+#: Every key `stub.py` puts in an answer, which is what a reader takes the
+#: contract to be.
+CONTRACT_KEYS = ("data", "usage", "cost_usd", "elapsed_ms", "config", "provider")
+
+
+def endpoint_source(app: str) -> str:
+    return (
+        LANGCHAIN4J / app / "src/main/java/dev/digline/example" / JAVA_ENDPOINTS[app]
     ).read_text(encoding="utf-8")
-    for key in ("data", "usage", "cost_usd", "elapsed_ms", "config", "provider"):
-        assert f'"{key}"' in controller, key
+
+
+@pytest.mark.parametrize("app", sorted(JAVA_ENDPOINTS))
+def test_each_java_service_reports_every_field_the_stub_does(app: str) -> None:
+    """`stub.py` is what the example actually runs, so it is what a reader
+    believes the contract to be. If a service and the stub disagree, one of them
+    is lying about the shape — and the suite would not notice, because it only
+    ever talks to one of them at a time."""
+    source = endpoint_source(app)
+    for key in CONTRACT_KEYS:
+        assert f'"{key}"' in source, f"{app} does not report {key}"
+
+
+def test_the_two_java_services_answer_the_same_shape() -> None:
+    """Neither service is the reference: they are peers, and the example's claim
+    is false the moment they diverge. Nothing else checks this — `mvn verify`
+    compiles each in isolation, and the suite runs against the stub."""
+    spring, quarkus = endpoint_source("app-spring"), endpoint_source("app-quarkus")
+    import re as _re
+
+    def reported(source: str) -> set[str]:
+        return set(_re.findall(r'\.put\("([a-z_]+)"', source))
+
+    assert reported(spring) == reported(quarkus), (
+        "app-spring and app-quarkus put different keys in their answers: "
+        f"{sorted(reported(spring) ^ reported(quarkus))}. One prompt, one "
+        "model, one contract — that is what the pair is for"
+    )
+
+
+def test_the_prompt_is_shared_by_both_services_and_owned_by_neither() -> None:
+    """One file, packaged by both builds. Two copies would drift, and the suite
+    can only name one of them as the thing under test."""
+    assert (LANGCHAIN4J / "prompts" / "system.txt").is_file()
+    for app in JAVA_ENDPOINTS:
+        pom = (LANGCHAIN4J / app / "pom.xml").read_text(encoding="utf-8")
+        assert "../prompts" in pom, f"{app} does not package the shared prompt"
+        assert not list((LANGCHAIN4J / app).rglob("system.txt")), (
+            f"{app} carries its own copy of the prompt"
+        )
 
 
 @pytest.mark.parametrize("name", STANDALONE)

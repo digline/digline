@@ -4,9 +4,15 @@ One HTTP endpoint on your side, and three files in an `eval/` directory. digline
 never imports your application — it posts a question and reads the answer — so
 nothing about your build, your framework or your deployment has to change.
 
-`app/` is a Spring Boot + LangChain4j service standing in for yours: one
-endpoint, one prompt file, one model. `stub.py` answers the same shape without a
-JVM, so everything below runs with no Java and no API key.
+There are **two** services here standing in for yours — `app-spring/` on Spring
+Boot, `app-quarkus/` on Quarkus — and they share one prompt file, one model and
+one endpoint contract. The suite, the cases, the stub and the baseline do not
+know which of them answered, and do not change when you swap one for the other.
+That is the claim this example is making: **the framework is not the contract;
+the endpoint is.**
+
+`stub.py` answers the same shape without a JVM, so everything below runs with no
+Java and no API key.
 
 ```console
 $ uv sync && uv run digline run --suite suite.py
@@ -32,7 +38,7 @@ itself once the model call happens on your side of HTTP.
   an object if that is what your endpoint returns.
 - **`usage`** — what the call cost and how long it took. digline cannot price a
   call it did not make, so you report it. The price list lives in your code
-  (`app/src/main/java/dev/digline/example/SupportService.java`),
+  (`SupportService.java`, in either service),
   dated, because a price is a fact about a day.
 - **`config`** — which model answered and how it was set up. Without this a run
   records nothing about the system under test, and the day somebody bumps the
@@ -45,9 +51,10 @@ The keys under `config` are a **closed set**: `provider`, `model`, `max_tokens`,
 `null` means "we did not send it". An unknown key is refused by name rather than
 recorded — an open bag of fields is where a customer identifier ends up.
 
-The whole integration is `EvaluationController.java`, under
-`app/src/main/java/dev/digline/example/`: about forty lines, and it calls a
-service that already existed.
+The whole integration is about forty lines that call a service you already
+have. In `app-spring/` it is `EvaluationController.java`; in `app-quarkus/` it
+is `EvaluationResource.java`. Spring MVC and JAX-RS, same three fields, same
+JSON, and neither one imports anything from digline.
 
 ## 2. Three files in `eval/`
 
@@ -82,12 +89,14 @@ A budget is a ceiling, not a metric: exceeding it fails the run.
 The suite also names your prompt as an artifact:
 
 ```python
-artifacts = [Path("app/src/main/resources/prompts/system.txt")]
+artifacts = [Path("prompts/system.txt")]
 ```
 
 The prompt is the thing under test, so every run records it and the report shows
-the diff above the scores it moved. It stays in your Java resources where a Java
-developer would look for it.
+the diff above the scores it moved. It sits at the top level here rather than
+inside either service, because both package it from there — one file, so the two
+cannot drift, and the suite names it without naming a framework. In your own
+repository it goes wherever your service reads it from.
 
 **The baseline** — `.digline/northwind/baselines/support.json`, written by
 `promote` and committed. This is the file that makes the whole thing work: the
@@ -174,15 +183,34 @@ And what it does not require:
   own service. Baselines, runs and reports stay in your repository.
 - **No rewrite.** The endpoint calls a service you already have.
 
-## Running the Java service for real
+## Running a real service
+
+Either one. They answer the same thing, and the suite does not change between
+them — which is the easiest way to see what this example is claiming.
+
+**Spring Boot:**
 
 ```console
-$ cd app && OPENAI_API_KEY=sk-... mvn spring-boot:run
+$ cd app-spring && OPENAI_API_KEY=sk-... mvn spring-boot:run
 $ cd .. && SUPPORT_URL=http://localhost:8080/evaluate uv run digline run --suite suite.py
 ```
 
-Needs a JDK 21 and an OpenAI key; the answers then stop being deterministic,
-which is what `tolerance` on the budgets and `Repeated` on a judge are for. See
-the guide (`docs/guide.md`) — the chapter on judge noise.
+**Quarkus:**
+
+```console
+$ cd app-quarkus && OPENAI_API_KEY=sk-... mvn quarkus:dev
+$ cd .. && SUPPORT_URL=http://localhost:8080/evaluate uv run digline run --suite suite.py
+```
+
+Both need a JDK 21 and an OpenAI key. The answers then stop being deterministic,
+which is what `tolerance` on the budgets and `Repeated` on a judge are for — see
+the guide (`docs/guide.md`), the chapter on judge noise.
+
+The two differ inside, and none of it reaches the endpoint: Spring builds the
+model in a constructor, Quarkus has the `quarkus-langchain4j` extension build it
+from `application.properties`; and the extension currently brings langchain4j
+`1.0.0-beta2`, where the interface is still `ChatLanguageModel`, against
+`1.0.1`'s `ChatModel` on the Spring side. Run the suite against either and the
+run file is the same document.
 
 Needs digline `0.3.0` (`config_path` on `HttpTarget`).

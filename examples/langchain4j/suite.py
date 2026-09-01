@@ -68,7 +68,8 @@ suite = Suite(
         for item in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
     ],
     # The prompt is the thing under test, so the run records it and a report
-    # shows when it moved (ADR 0003). It lives in the Java resources, which is
-    # where a Java developer would look for it.
-    artifacts=[Path("app/src/main/resources/prompts/system.txt")],
+    # shows when it moved (ADR 0003). It sits beside the two services rather
+    # than inside either: both package it, and the suite names it without
+    # naming a framework.
+    artifacts=[Path("prompts/system.txt")],
 )

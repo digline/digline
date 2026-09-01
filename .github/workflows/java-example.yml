@@ -1,15 +1,28 @@
 name: java-example
 
-# Only when the Java under examples/langchain4j/app changes. A JDK and a Maven
+# Only when the Java under examples/langchain4j changes. A JDK and a Maven
 # resolve are cheap once in a while and wasteful on every push, and this is the
-# one directory in the repository that the Python gates cannot say anything
-# about — so it gets its own job rather than a place in `ci.yml`.
+# one part of the repository that the Python gates cannot say anything about —
+# so it gets its own workflow rather than a place in `ci.yml`.
+#
+# Two services, one contract: app-spring and app-quarkus answer the same
+# endpoint with the same JSON, from the same prompt in ../prompts. Each is gated
+# on its own path plus that shared prompt, so a change to one does not pay for
+# the other and a change to the prompt builds both.
 on:
   push:
     branches: [main]
-    paths: ["examples/langchain4j/app/**", ".github/workflows/java-example.yml"]
+    paths:
+      - "examples/langchain4j/app-spring/**"
+      - "examples/langchain4j/app-quarkus/**"
+      - "examples/langchain4j/prompts/**"
+      - ".github/workflows/java-example.yml"
   pull_request:
-    paths: ["examples/langchain4j/app/**", ".github/workflows/java-example.yml"]
+    paths:
+      - "examples/langchain4j/app-spring/**"
+      - "examples/langchain4j/app-quarkus/**"
+      - "examples/langchain4j/prompts/**"
+      - ".github/workflows/java-example.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +30,12 @@ permissions:
 
 jobs:
   build:
+    name: ${{ matrix.app }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [app-spring, app-quarkus]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v4
@@ -25,7 +43,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      # Compiles and runs whatever tests the example ships. It never starts the
-      # service and never calls a model: there is no key here, and there is no
-      # reason for one.
-      - run: mvn -B -f examples/langchain4j/app/pom.xml verify
+      # Compiles, packages, and runs whatever tests the service ships. It never
+      # starts the service and never calls a model: there is no key here, and
+      # there is no reason for one.
+      - run: mvn -B -f examples/langchain4j/${{ matrix.app }}/pom.xml verify

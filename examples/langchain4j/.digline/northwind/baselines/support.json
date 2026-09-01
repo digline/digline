@@ -1,15 +1,15 @@
 {
   "aggregate": [],
   "artifacts": {
-    "app/src/main/resources/prompts/system.txt": {
+    "prompts/system.txt": {
       "sha": "1bb146be3825adaf834d32b6ef4c4cfb98e708f7b10f9c704679c3344e759e7b",
       "text": "You are the support assistant for Northwind, an online retailer.\n\nAnswer the customer's question in at most three sentences, in plain language,\nusing only what the question tells you. If you do not know something, say so\nrather than inventing it.\n\nAlways sign off with exactly: — Northwind Support\n"
     }
   },
   "config_hash": "bc060bda8aefb7f4",
-  "created_at": "2026-09-01T13:16:01.817666+00:00",
+  "created_at": "2026-09-01T13:59:15.058158+00:00",
   "environment": "staging",
-  "git_commit": "2ecc34306f5d7939020a80f43c574893246269e5-dirty",
+  "git_commit": "5aef241705bb5b7c48cdeb8c3e742671a576fa7a-dirty",
   "judge_config": {},
   "metadata": {},
   "redacted": false,
