@@ -25,8 +25,8 @@ $ uv sync && uv run digline run --suite suite.py
 
 If your service is a LangChain4j app and you would rather follow the whole
 path — the endpoint, the three files, the report, the CI gate — go to
-[`examples/langchain4j/`](../langchain4j/) instead. This one is the short
-answer; that one is the walkthrough, and it also shows how the service reports
+`examples/langchain4j/` instead. This one is the short answer; that one is the
+walkthrough, and it also shows how the service reports
 **which model answered**, which is what makes a model change visible in a
 comparison.
 

@@ -32,7 +32,7 @@ itself once the model call happens on your side of HTTP.
   an object if that is what your endpoint returns.
 - **`usage`** — what the call cost and how long it took. digline cannot price a
   call it did not make, so you report it. The price list lives in your code
-  ([`SupportService`](app/src/main/java/dev/digline/example/SupportService.java)),
+  (`app/src/main/java/dev/digline/example/SupportService.java`),
   dated, because a price is a fact about a day.
 - **`config`** — which model answered and how it was set up. Without this a run
   records nothing about the system under test, and the day somebody bumps the
@@ -45,9 +45,9 @@ The keys under `config` are a **closed set**: `provider`, `model`, `max_tokens`,
 `null` means "we did not send it". An unknown key is refused by name rather than
 recorded — an open bag of fields is where a customer identifier ends up.
 
-The whole integration is
-[`EvaluationController`](app/src/main/java/dev/digline/example/EvaluationController.java):
-about forty lines, and it calls a service that already existed.
+The whole integration is `EvaluationController.java`, under
+`app/src/main/java/dev/digline/example/`: about forty lines, and it calls a
+service that already existed.
 
 ## 2. Three files in `eval/`
 
@@ -108,7 +108,7 @@ Read the report before you promote. `promote` means *these answers are the ones
 we stand behind* — it is a decision, not a build step, which is why nothing
 does it for you and why the result is a file you commit.
 
-[`report.html`](report.html) in this directory is the one this example produced.
+`report.html` in this directory is the one this example produced.
 `--locale it` renders the same run in Italian; the dates and the numbers do not
 move, so two reports of one run stay comparable line by line.
 
@@ -134,8 +134,8 @@ run is a score that got worse.
 
 ## 5. The gate
 
-[`.github/workflows/check.yml`](.github/workflows/check.yml). Two jobs: your
-Maven build, and the comparison.
+`.github/workflows/check.yml`. Two jobs: your Maven build, and the
+comparison.
 
 ```yaml
 - name: Compare with the committed baseline
@@ -164,7 +164,7 @@ Honestly:
   It is Python because a judge is an object and a check is a function; there is
   no configuration file today.
 - **Reporting three fields from one endpoint,** and keeping the price list in
-  `SupportService` current.
+  `SupportService.java` current.
 
 And what it does not require:
 
@@ -183,6 +183,6 @@ $ cd .. && SUPPORT_URL=http://localhost:8080/evaluate uv run digline run --suite
 
 Needs a JDK 21 and an OpenAI key; the answers then stop being deterministic,
 which is what `tolerance` on the budgets and `Repeated` on a judge are for. See
-[`docs/guide.md`](../../docs/guide.md) — the chapter on judge noise.
+the guide (`docs/guide.md`) — the chapter on judge noise.
 
 Needs digline `0.3.0` (`config_path` on `HttpTarget`).

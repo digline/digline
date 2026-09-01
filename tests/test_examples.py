@@ -9,6 +9,7 @@ same file that runs — the document cannot drift from the code it shows.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -305,4 +306,30 @@ def test_no_example_workflow_promotes_before_it_compares(name: str) -> None:
     assert "digline promote" not in workflow, (
         "promoting in CI makes the comparison vacuous: the baseline is a human "
         "decision, committed by whoever read the report"
+    )
+
+
+@pytest.mark.parametrize("name", STANDALONE)
+def test_no_example_readme_carries_a_markdown_link(name: str) -> None:
+    """These files are the site's example pages, built by mkdocs in **strict
+    mode**, so a link that resolves on GitHub aborts the build.
+
+    Every relative form fails there and passes here: a path into the example's
+    own directory (`report.html`, a `.java` file) is not copied into the docs
+    tree, `../../docs/guide.md` escapes it, and `../langchain4j/` is not a page
+    name. The whole release goes out, PyPI takes the version, and then the last
+    job fails and the site keeps describing the version before it.
+
+    That happened on v0.3.0. The four examples that predate it carry no links at
+    all, which is why nobody had met the rule — so it is written down here
+    rather than learned again. Backtick the path: a reader is already in the
+    directory.
+    """
+    text = (ROOT / "examples" / name / "README.md").read_text(encoding="utf-8")
+    links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", text)
+    relative = [t for t in links if not t.startswith(("http://", "https://", "#"))]
+    assert not relative, (
+        f"examples/{name}/README.md links to {relative}, which mkdocs --strict "
+        "refuses when it renders this file as a site page. Use a backticked "
+        "path, or an absolute https:// URL"
     )
