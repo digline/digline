@@ -39,10 +39,11 @@ Complete and stabilize the provider plugins under the plugin contract
 A regression tool that mistakes noise for regression is worse than no tool.
 This track makes the verdict itself trustworthy.
 
-- [ ] Record the configuration of the system under test (model, temperature,
+- [x] Record the configuration of the system under test (model, temperature,
       sampling parameters where the provider exposes them) in runs and
       baselines; `compare` highlights which parameters changed between the
-      two (ADR 0005)
+      two (ADR 0005) — shipped in 0.2.0, extended in 0.3.0 to targets Digline
+      cannot import, which report theirs in the answer (ADR 0005 §8)
 - [ ] Repeated runs per case: score as a distribution (mean and spread), not
       a single sample
 - [ ] Regression thresholds expressed relative to measured variance, not as
@@ -61,9 +62,25 @@ difference is signal or sampling noise.
       by design
 - [ ] The run/baseline JSON format documented as a **versioned public
       contract**. The engine is Python; the contract is language-neutral
-- [ ] A thin JVM emitter with a LangChain4j example, proving the contract
-      claim: any language can produce runs Digline can compare and promote
+- [x] A LangChain4j example over `HttpTarget`: one endpoint reporting the
+      answer, what the call cost, and which model answered under what settings
+      — so a run from a service Digline cannot import is as complete a document
+      as one from a plugin (`examples/langchain4j/`, ADR 0005 §8)
+- [ ] A declarative suite format, `digline run suite.yaml`, as a future ADR
+      (0007). It depends on shipping **providers as entry points** — fixed
+      decision 6, which is stated in `CLAUDE.md` and not yet real: a judge named
+      in data has to be resolvable without anything under `src/` importing a
+      plugin. Scope is the assertions whose parameters are already data; a
+      custom assertion, a custom target and a `Disclosure` stay Python
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
+
+This replaces *"a thin JVM emitter"*, which was on this list and was wrong. An
+emitter means the JVM side runs its own assertions and posts the verdicts, which
+is a **second engine**: two implementations of what `contains` means, drifting
+apart, with the run format as the only thing holding them together. The one
+place that is allowed to happen is nowhere. `HttpTarget` keeps one engine and
+one set of assertion semantics, and asks the application only for what it alone
+can know — its answer, its cost, its configuration.
 
 **Exit gate:** someone who is not the author sets up a suite without asking
 the author anything.

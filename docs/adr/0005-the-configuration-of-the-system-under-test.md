@@ -2,6 +2,9 @@
 
 - Status: accepted
 - Date: 2026-08-31
+- Amended: 2026-09-01 — §8, HTTP targets. Added rather than a new ADR: it
+  changes no decision above it, and reads as a correction to §6's aside about
+  `HttpTarget` having no model
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -262,6 +265,121 @@ pair of runs that both have one.
 `OUTPUT_VERSION` follows its existing rule and does **not** move: `--json`
 gains keys, and a consumer that does not read them is unaffected.
 
+### 8. HTTP targets: the configuration arrives in the answer
+
+*Addendum, 2026-09-01. §6 settled that a target which declares nothing records
+nothing, and named `HttpTarget` as the case — "an application that has no model
+at all". That was wrong about the ordinary case. The application behind the
+endpoint usually does have a model; what it has is no way to say so.*
+
+The Java path (`examples/langchain4j/`) is `HttpTarget` against a service
+digline cannot import, and it loses precisely what §1 was written to record.
+The prompt is covered — ADR 0003 carries it as an artifact, because the file
+sits in the repository the suite sits in — but the model, the temperature and
+the token cap are chosen on the other side of HTTP and are invisible. A team
+that switches their LangChain4j app from one model to another gets a run that
+compares clean on the configuration and says nothing, which is the sentence §5
+exists to make impossible.
+
+**So `HttpTarget` gains `config_path`, symmetric with `cost_path`.** It names a
+JSON object in the response, and the target implements `HasConfig` from it:
+
+```python
+HttpTarget(
+    url,
+    request=...,
+    output_path="data",
+    cost_path="usage.cost_usd",
+    config_path="config",
+)
+```
+
+```json
+{"data": "...",
+ "usage": {"cost_usd": 0.0009, "elapsed_ms": 41.0},
+ "config": {"provider": "openai", "model": "gpt-4o-mini",
+            "temperature": 0.0, "max_tokens": 512}}
+```
+
+Cost is the precedent and the argument: when the model call happens elsewhere,
+the only party who can price it is the one who made it, so digline reads a
+number the application computed rather than pretending to know. The
+configuration is the same fact one field over. Nothing about the mechanism is
+new — a dotted path, a value read out of the answer.
+
+**Absent `config_path`, absent configuration.** The parameter is optional, the
+recorded object is empty, and §6 holds unchanged: absent is not a change. No
+existing suite behaves differently.
+
+#### The contract is enforced here, not followed
+
+Every other `config` in this repository is written by a plugin, in Python, and
+reviewed as code. This one is written by an application nobody here reviews, so
+the rules of §1 and §2 stop being conventions the author follows and become
+checks the reader performs. Five, and each refuses rather than repairs:
+
+- **The closed key table of §1 and nothing else.** An unknown key is refused by
+  name, with the allowed set in the message. Not dropped: silently discarding a
+  field is how a team believes they recorded something they did not. This is
+  §1's `additional_request_fields` argument arriving from the other direction —
+  an open mapping of unknown keys is exactly where an account identifier or a
+  customer's own tuning would sit, and here it would arrive over the wire.
+- **Scalars only**, the same check `SystemConfig` already makes, made earlier so
+  the message names the path in the answer rather than the field in the record.
+- **`null` means not sent**, exactly as `sent()` reads an unset parameter: the
+  key is absent, and the provider's own default applied.
+- **`base_url` is reduced to host and port here**, not trusted. A plugin passes
+  a URL it constructed; an application reporting its own endpoint is far more
+  likely to send the whole thing, userinfo included, and ADR 0004 §5 makes a
+  credential the one category no `Disclosure` can release. Under redaction it
+  then gets the treatment of §2 unchanged — withheld, not dropped, `unknown`
+  rather than `same` — because by then it is an ordinary `base_url` and
+  `PERIMETER_FIELDS` does not care where it came from.
+- **A configuration that cannot say who answered is refused**, per §1: no
+  `provider`, no `model`, no record. Report the object completely or leave it
+  out.
+
+#### One run measures one system
+
+A plugin is constructed once and answers the same way all run. An endpoint can
+answer case 1 on one model and case 7 on another, and §6 has no reading under
+which that is one configuration. Merging would describe a set-up nobody built;
+recording the first silently would report a system that was not the one
+measured throughout.
+
+So **the first configuration reported is the run's, and a later answer that
+disagrees errors its own case**, naming the field and both values. The run is
+still written, the deltas are still there, and the case that broke the premise
+is visible as an error rather than absorbed. A team that wants to compare two
+set-ups runs two runs, which is what §6 already says a matrix is.
+
+#### `target_config` is asked twice
+
+The driver read the target's configuration before the first case, so that a
+malformed one failed before the suite was paid for. An `HttpTarget` has nothing
+to declare at that point — it learns by answering. `execute()` therefore asks
+before the first case **and** after the last, and records the second answer. A
+target that declares statically gives the same answer both times, so nothing
+about a plugin's behaviour moves; what the early call still buys is the early
+failure it was added for.
+
+#### What this does not do
+
+It does not make the reported configuration *true*. An application can report a
+model it did not call, and digline has no way to know — it has no way to know
+what a plugin sends either, and the recorded value is a declaration in both
+cases. What changes is that there is now something to declare, and that a
+change in it becomes the named delta of §3 and the coinciding sentence of §5
+for a team whose application is not Python.
+
+It does not touch `config_hash`: §3 holds, and two runs of one suite against two
+models stay comparable and promotable.
+
+It does not extend to the judge. A suite whose target is an `HttpTarget` grades
+with whatever `Judge` it holds, on this side, and `judge_config` collects it
+unchanged. An application that judges its own output is not a judge digline can
+record, and nothing here pretends otherwise.
+
 ## Consequences
 
 - A baseline is now self-contained evidence of the whole experiment: the
@@ -280,6 +398,12 @@ gains keys, and a consumer that does not read them is unaffected.
   member, so nothing anyone has written stops satisfying `Target` or `Judge`.
 - A run file grows by two small objects. A suite whose target declares nothing
   grows by `"target_config": {}`.
+- An application digline cannot import can now be recorded as completely as a
+  plugin, by reporting one object in its answer. The Java path stops being the
+  one where a model change is invisible (§8).
+- The configuration contract acquires an enforced form as well as a followed
+  one. A field added to a plugin is a code review; the same field arriving over
+  HTTP is refused until it is added to the table here (§8).
 - Existing report text changed in both locales. A pipeline matching on the
   English sentence rather than on `--json` has to be updated; the JSON keys did
   not move.

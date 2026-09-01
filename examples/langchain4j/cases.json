@@ -1,0 +1,22 @@
+[
+  {
+    "id": "where-is-my-order",
+    "question": "I ordered a kettle on Monday, order 4821. Where is it?"
+  },
+  {
+    "id": "how-do-i-return",
+    "question": "The jacket does not fit. How do I send it back?"
+  },
+  {
+    "id": "is-it-waterproof",
+    "question": "Is the trail backpack waterproof or only water resistant?"
+  },
+  {
+    "id": "do-you-ship-to-sicily",
+    "question": "Do you deliver to Palermo, and does it cost extra?"
+  },
+  {
+    "id": "cancel-subscription",
+    "question": "I want to cancel my Northwind Plus subscription today."
+  }
+]

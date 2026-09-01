@@ -24,9 +24,16 @@ jobs:
       # checkout of it.
       - run: uv sync
 
-      - run: uv run digline run --suite suite.py
-      - run: uv run digline promote --suite suite.py --run latest
-      - run: uv run digline compare --suite suite.py --run latest
+      # The gate. `run` writes a run and prints its key; `compare` holds it
+      # against the baseline committed in this repository and exits non-zero if
+      # anything got worse. There is deliberately no `promote` here: promoting
+      # is the human decision that *this* is the new normal, made by someone
+      # reading the report and committing the result. A job that promotes before
+      # it compares compares a run with itself and passes by construction.
+      - name: Compare with the committed baseline
+        run: |
+          KEY=$(uv run digline run --suite suite.py)
+          uv run digline compare --suite suite.py --run "$KEY"
 
       - run: uv run ruff check .
       - run: uv run pyright

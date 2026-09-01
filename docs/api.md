@@ -311,6 +311,7 @@ target = HttpTarget(
     output_path="data",
     cost_path="usage.cost_usd",
     latency_from_response="usage.elapsed_ms",
+    config_path="config",
 )
 ```
 
@@ -321,7 +322,35 @@ target = HttpTarget(
 | `output_path` | dotted path to what the assertions judge |
 | `cost_path` | dotted path to the cost, or `None` |
 | `latency_from_response` | dotted path to the time the service reports. Left out, digline measures the round trip instead — which includes the network, and is a different number measuring a different thing |
+| `config_path` | dotted path to an object saying which model answered and how it was set up, or `None`. See below |
 | `headers`, `timeout` | as you would expect |
+
+#### `config_path`: the configuration, when the model call is on the other side
+
+The call happened in your application, so your application is the only one that
+can say what made it. `config_path` names a JSON object in the answer:
+
+```json
+{"provider": "openai", "model": "gpt-4o-mini",
+ "temperature": 0.0, "max_tokens": 512}
+```
+
+It becomes `Run.target_config`, so `compare` names what moved —
+`model gpt-4o-mini → gpt-4o` — instead of reporting the configuration as
+unchanged (ADR 0005 §8). Left out, the target declares nothing, which is what it
+has always done: absent is not a change.
+
+The keys are a **closed set**, and one that is not in it is refused by name
+rather than recorded: `provider`, `model`, `max_tokens`, `temperature`,
+`top_p`, `top_k`, `seed`, `region`, `base_url`, `response_format`, `json_mode`.
+`provider` and `model` are required. A `null` reads as *not sent*, so the key is
+absent. A `base_url` is reduced to host and port before it is recorded — never
+the scheme, the path or the userinfo — and withheld under redaction like any
+other.
+
+The first answer is the run's configuration, and a later one that disagrees
+**errors its own case**: one run measures one system, so two set-ups are two
+runs.
 
 `preflight` asks whether **anything is listening** before the first case, so a
 service that is down fails once with a sentence instead of once per case with a
@@ -341,7 +370,7 @@ is left alone.
 |---|---|---|
 | `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003) |
 | `preflight(cases) -> None` | `execute()`, once, before the first call | raises naming **every** gap at once |
-| `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call | recorded as `Run.target_config` (ADR 0005) |
+| `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call **and after the last** | recorded as `Run.target_config` (ADR 0005). Asked twice so a malformed one fails before the suite is paid for, and a target that can only learn it by answering — `HttpTarget` — still records one |
 
 `ProviderTarget` implements all three. `preflight` checks that each case provides
 every variable its templates ask for, and that the model has a price — both are

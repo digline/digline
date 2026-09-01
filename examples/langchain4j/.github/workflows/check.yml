@@ -6,15 +6,31 @@ name: check
 on:
   push:
   schedule:
-    # Monday, 06:00 UTC. A classifier drifts because the world does, not because
-    # anybody pushed: the run nobody triggered is the one that finds it.
+    # Monday, 06:00 UTC. The model on the other end is updated by a provider on
+    # a schedule you do not control. The run nobody triggered notices.
     - cron: "0 6 * * 1"
 
 permissions:
   contents: read
 
 jobs:
-  cycle:
+  app:
+    name: The Java service still builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      # `verify`, not `run`: compiling costs nothing and calls no model. The
+      # service is only *started* where there is a key to start it with, which
+      # is the deployed instance the eval below points at — never here.
+      - run: mvn -B -f app/pom.xml verify
+
+  eval:
+    name: The suite, against the committed baseline
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -24,6 +40,11 @@ jobs:
       # checkout of it.
       - run: uv sync
 
+      # In your repository, set SUPPORT_URL to a deployed instance of your
+      # service and put the provider key on *that* side. Unset, the suite runs
+      # against `stub.py`, which is deterministic and free — which is what makes
+      # this example runnable by somebody who has neither.
+      #
       # The gate. `run` writes a run and prints its key; `compare` holds it
       # against the baseline committed in this repository and exits non-zero if
       # anything got worse. There is deliberately no `promote` here: promoting

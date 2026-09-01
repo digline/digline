@@ -155,7 +155,7 @@ def test_the_api_doc_covers_every_public_assertion() -> None:
 #: dependency on the *published* package, no reference to this workspace. Run
 #: here against the source so a change that breaks one is caught the day it is
 #: made, rather than the day somebody copies the directory out.
-STANDALONE = ("classifier", "prompt-first", "rag", "external-app")
+STANDALONE = ("classifier", "prompt-first", "rag", "external-app", "langchain4j")
 
 
 @pytest.fixture(params=STANDALONE)
@@ -239,3 +239,70 @@ def test_each_readme_opens_with_the_question_it_answers(name: str) -> None:
     assert first.startswith("# ")
     assert first.split()[1] in ("I", "I'm", "My"), first
     assert len(first.split()) >= 6, first
+
+
+# --------------------------------------------------------------------------- #
+# The Java path (ADR 0005 §8)
+# --------------------------------------------------------------------------- #
+
+LANGCHAIN4J = ROOT / "examples" / "langchain4j"
+
+
+def test_the_java_example_records_the_model_that_answered() -> None:
+    """The point of the example, and of ADR 0005 §8: a service digline cannot
+    import still says which model answered, so a run is as complete a document
+    as one produced by a plugin."""
+    baseline = json.loads(
+        (
+            LANGCHAIN4J / ".digline" / "northwind" / "baselines" / "support.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert baseline["target_config"]["values"]["provider"] == "openai"
+    assert baseline["target_config"]["values"]["model"]
+    # And the prompt, which lives in the Java resources (ADR 0003).
+    assert "app/src/main/resources/prompts/system.txt" in baseline["artifacts"]
+
+
+def test_the_java_readme_lists_the_configuration_contract() -> None:
+    """A reader implements their endpoint from this list, so it cannot drift
+    from the set the code enforces — and the failure mode of a hand-kept list
+    is a reader whose field is silently refused."""
+    from digline.targets import CONTRACT_FIELDS
+
+    readme = (LANGCHAIN4J / "README.md").read_text(encoding="utf-8")
+    for field in CONTRACT_FIELDS:
+        assert f"`{field}`" in readme, f"{field} is accepted but undocumented"
+
+
+def test_the_java_service_reports_every_field_the_stub_does() -> None:
+    """`stub.py` is what the example actually runs, so it is what a reader
+    believes the contract to be. If the Java controller and the stub disagree,
+    one of them is lying about the shape."""
+    controller = (
+        LANGCHAIN4J
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "dev"
+        / "digline"
+        / "example"
+        / "EvaluationController.java"
+    ).read_text(encoding="utf-8")
+    for key in ("data", "usage", "cost_usd", "elapsed_ms", "config", "provider"):
+        assert f'"{key}"' in controller, key
+
+
+@pytest.mark.parametrize("name", STANDALONE)
+def test_no_example_workflow_promotes_before_it_compares(name: str) -> None:
+    """A job that promotes and then compares is comparing a run with itself and
+    passes whatever happened. Every example shipped that shape once, and it hid
+    four baselines that had stopped being readable at all."""
+    workflow = (
+        ROOT / "examples" / name / ".github" / "workflows" / "check.yml"
+    ).read_text(encoding="utf-8")
+    assert "digline compare" in workflow
+    assert "digline promote" not in workflow, (
+        "promoting in CI makes the comparison vacuous: the baseline is a human "
+        "decision, committed by whoever read the report"
+    )

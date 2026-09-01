@@ -120,6 +120,10 @@ def target_config(target: object) -> SystemConfig:
     run, at the same level `Run.artifacts` sits at. The `prompt x provider`
     matrix is a loop *above* the driver, and each cell is its own run with its
     own configuration.
+
+    Asked twice by `execute()`: before the first case, so a malformed one fails
+    before the suite is paid for, and after the last, so a target that could
+    only learn its configuration by answering still records one (ADR 0005 §8).
     """
     if not isinstance(target, HasConfig):
         return SystemConfig()
@@ -360,14 +364,21 @@ def execute(
     # functions and are left alone.
     if isinstance(target, Preflight):
         target.preflight(suite.cases)
-    # Asked here and not at the end for the same reason as `preflight`: a
-    # target whose declared configuration is malformed must say so before the
-    # suite is paid for, not after.
-    declared, grading = target_config(target), judge_config(suite)
+    # Asked here for the same reason as `preflight`: a target whose declared
+    # configuration is malformed must say so before the suite is paid for, not
+    # after. The answer is discarded — it is asked for again below.
+    target_config(target)
+    grading = judge_config(suite)
 
     results: Sequence[CaseResult] = tuple(
         _run_case(suite, target, mapper, case) for case in suite.cases
     )
+    # And asked again, because a target may only be able to *learn* its
+    # configuration by answering: the model call an `HttpTarget` evaluates
+    # happens on the other side of HTTP, so the application reports it in the
+    # response and there is nothing to read until a case has run (ADR 0005 §8).
+    # A target that declares statically gives the same answer both times.
+    declared = target_config(target)
     # Aggregates are computed here because they are *recorded data*: they belong
     # in the run, so they are born where the verdicts are. The core stays pure
     # and `compare()` and the report only read them.

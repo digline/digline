@@ -24,9 +24,24 @@ jobs:
       # checkout of it.
       - run: uv sync
 
-      - run: uv run digline run --suite suite.py
-      - run: uv run digline promote --suite suite.py --run latest
-      - run: uv run digline compare --suite suite.py --run latest
+      # This example is shipped **red on purpose** — the comparison against the
+      # committed baseline is the thing its README asks you to look at. So the
+      # gate is inverted: exit 1 means the example still demonstrates what it
+      # claims, and a green run means it has quietly stopped.
+      #
+      # Exactly 1, not merely non-zero: 2 is "a case could not be judged", which
+      # is a broken example rather than a teaching one.
+      - name: The regression this example exists to show
+        run: |
+          KEY=$(uv run digline run --suite suite.py)
+          set +e
+          uv run digline compare --suite suite.py --run "$KEY"
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ]; then
+            echo "expected exit 1 (something got worse), got $status"
+            exit 1
+          fi
 
       - run: uv run ruff check .
       - run: uv run pyright

@@ -15,7 +15,9 @@ keep comparing — `unknown`, never a wall of fabricated changes.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+import threading
+from collections.abc import Iterator, Mapping
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -40,6 +42,7 @@ from digline.report import config_lines, headline, render_html
 from digline.run import Case, Response, Suite, execute, judge_config, target_config
 from digline.store import FileResultStore, RunRef
 from digline.store.migrate import upgrade_document
+from digline.targets import HttpTarget
 
 ANTHROPIC: dict[str, ConfigValue] = {
     "provider": "anthropic",
@@ -812,3 +815,99 @@ def test_the_json_output_carries_the_named_deltas(project: Path) -> None:
         "after": 0.7,
         "withheld": False,
     } in payload["target_config_deltas"]
+
+
+# --------------------------------------------------------------------------- #
+# An application digline cannot import (ADR 0005 §8)
+# --------------------------------------------------------------------------- #
+
+
+class HttpStub:
+    """Stands in for the Java service: an answer, and how it was set up."""
+
+    url: str = ""
+    answer: str = "The capital is Rome."
+    temperature: float = 0.3
+
+
+@pytest.fixture
+def java_service() -> Iterator[HttpStub]:
+    stub = HttpStub()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            body = json.dumps(
+                {
+                    "data": stub.answer,
+                    "usage": {"cost_usd": 0.0009, "elapsed_ms": 41.0},
+                    "config": {
+                        "provider": "openai",
+                        "model": "gpt-4o-mini",
+                        "temperature": stub.temperature,
+                        "max_tokens": 512,
+                    },
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None: ...
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    stub.url = f"http://127.0.0.1:{httpd.server_address[1]}/evaluate"
+    try:
+        yield stub
+    finally:
+        httpd.shutdown()
+
+
+def http_run(stub: HttpStub, *, created_at: str) -> Run:
+    return execute(
+        a_suite(),
+        HttpTarget(
+            stub.url,
+            request=lambda case: {"question": case.id},
+            output_path="data",
+            cost_path="usage.cost_usd",
+            config_path="config",
+        ),
+        created_at=created_at,
+    )
+
+
+def test_an_http_target_records_the_configuration_and_survives_the_round_trip(
+    java_service: HttpStub,
+) -> None:
+    """A run from a service digline cannot import is now as complete a document
+    as one from a plugin."""
+    run = http_run(java_service, created_at="2026-09-01T00:00:00Z")
+    restored = run_from_json(run_to_json(run))
+    assert restored.target_config.values == {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3,
+        "max_tokens": 512,
+    }
+
+
+def test_the_report_says_a_java_drop_coincided_with_the_model_change(
+    java_service: HttpStub,
+) -> None:
+    """The sentence ADR 0005 §5 exists for, reaching the path where it was
+    previously impossible: before §8 both runs recorded nothing, compared clean
+    on the configuration, and left a reader to blame the prompt."""
+    before = http_run(java_service, created_at="2026-08-31T00:00:00Z")
+
+    java_service.answer = "I am not sure what you mean."
+    java_service.temperature = 0.7
+    now = http_run(java_service, created_at="2026-09-01T00:00:00Z")
+
+    comparison = compare(now, before)
+    assert comparison.has_regressions
+    assert config_lines(comparison, locale="en") == ("system · temperature 0.3 → 0.7",)
+    document = render_html(comparison, now, before, locale="en")
+    assert "coincides with temperature 0.3 → 0.7" in document

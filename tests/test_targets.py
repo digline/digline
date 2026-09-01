@@ -402,3 +402,192 @@ def test_preflight_accepts_a_service_that_answers_at_all(service: str) -> None:
     """A 405 to a HEAD is an answer: something is there and the request was
     wrong, which is a different problem from nothing being there."""
     an_http_target(service).preflight([Case(id="c", vars={"text": "x"})])
+
+
+# --------------------------------------------------------------------------- #
+# What the application says it was set up as (ADR 0005 §8)
+# --------------------------------------------------------------------------- #
+
+
+class Stub:
+    """A service whose reported configuration a test can move under it."""
+
+    url: str = ""
+    config: object = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.0,
+        "max_tokens": 512,
+    }
+
+
+@pytest.fixture
+def declaring_service() -> Iterator[Stub]:
+    """The Java example's shape: data, usage, and how the model was set up."""
+    stub = Stub()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            asked = json.loads(self.rfile.read(length).decode("utf-8"))
+            body = json.dumps(
+                {
+                    "data": {"answer": f"heard {asked['text']}"},
+                    "usage": {"cost_usd": 0.002, "elapsed_ms": 12.5},
+                    "config": stub.config,
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None: ...
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    stub.url = f"http://127.0.0.1:{httpd.server_address[1]}/x"
+    try:
+        yield stub
+    finally:
+        httpd.shutdown()
+
+
+def a_declaring_target(stub: Stub) -> HttpTarget:
+    return an_http_target(stub.url, config_path="config")
+
+
+def test_the_configuration_the_application_reports_is_recorded(
+    declaring_service: Stub,
+) -> None:
+    """The point of §8: the model call happened on the other side of HTTP, so
+    the only party who can say which model answered is the application."""
+    target = a_declaring_target(declaring_service)
+    assert target.config == {}, "nothing is known before a case is answered"
+
+    target(Case(id="c", vars={"text": "hello"}))
+    assert target.config == {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.0,
+        "max_tokens": 512,
+    }
+
+
+def test_without_a_config_path_the_target_declares_nothing(
+    declaring_service: Stub,
+) -> None:
+    """Absent stays absent: every suite written before §8 is unaffected."""
+    target = an_http_target(declaring_service.url)
+    target(Case(id="c", vars={"text": "hello"}))
+    assert target.config == {}
+
+
+def test_a_null_is_not_sent_rather_than_sent_as_null(
+    declaring_service: Stub,
+) -> None:
+    """`sent()`'s rule, arriving over the wire: "we left it alone, and the
+    provider's default applied" is a different fact from "we sent nothing"."""
+    declaring_service.config = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": None,
+    }
+    target = a_declaring_target(declaring_service)
+    target(Case(id="c", vars={"text": "hello"}))
+    assert target.config == {"provider": "openai", "model": "gpt-4o-mini"}
+
+
+def test_a_reported_endpoint_is_reduced_to_its_host(declaring_service: Stub) -> None:
+    """The credential guard, and the reason it is applied here rather than
+    trusted: an application reporting its own endpoint sends the whole URL."""
+    declaring_service.config = {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "base_url": "https://user:secret@llm-gw.internal.acme-bank.it:8443/v1",
+    }
+    target = a_declaring_target(declaring_service)
+    target(Case(id="c", vars={"text": "hello"}))
+    assert target.config["base_url"] == "llm-gw.internal.acme-bank.it:8443"
+    assert "secret" not in json.dumps(target.config)
+
+
+@pytest.mark.parametrize(
+    ("reported", "message"),
+    [
+        (
+            ["openai", "gpt-4o-mini"],
+            "holds a list, not an object",
+        ),
+        (
+            {"provider": "openai", "model": "m", "customer_id": "acme-4821"},
+            "customer_id, which is not part of the configuration contract",
+        ),
+        (
+            {"provider": "openai", "model": "m", "temperature": {"value": 0.7}},
+            "records 'temperature' as a dict, which is not a scalar",
+        ),
+        (
+            {"provider": "openai", "temperature": 0.0},
+            "gives no model",
+        ),
+        (
+            {"provider": "", "model": "m"},
+            "gives no provider",
+        ),
+    ],
+)
+def test_a_malformed_configuration_is_refused_by_name(
+    declaring_service: Stub, reported: object, message: str
+) -> None:
+    """Refused rather than repaired, and refused where the reader can act:
+    every message names `config`, the path it was read from."""
+    declaring_service.config = reported
+    target = a_declaring_target(declaring_service)
+    with pytest.raises(ValueError, match=message):
+        target(Case(id="c", vars={"text": "hello"}))
+
+
+def test_an_unknown_key_is_refused_with_the_allowed_set(
+    declaring_service: Stub,
+) -> None:
+    """Dropping it silently is how a team believes they recorded something they
+    did not — and it is where an account identifier would arrive."""
+    declaring_service.config = {"provider": "o", "model": "m", "tenant_id": "acme"}
+    target = a_declaring_target(declaring_service)
+    with pytest.raises(ValueError, match="Allowed: base_url, json_mode, max_tokens"):
+        target(Case(id="c", vars={"text": "hello"}))
+
+
+def test_a_service_that_changes_model_part_way_errors_that_case(
+    declaring_service: Stub,
+) -> None:
+    """One run measures one system (ADR 0005 §6). Recording either answer would
+    be a fact nobody established; merging them would describe a set-up nobody
+    built."""
+    target = a_declaring_target(declaring_service)
+    target(Case(id="first", vars={"text": "hello"}))
+
+    declaring_service.config = {"provider": "openai", "model": "gpt-4o"}
+    with pytest.raises(ValueError, match="a different configuration part way"):
+        target(Case(id="seventh", vars={"text": "hello"}))
+    # The first answer stands: the run still says what it measured.
+    assert target.config["model"] == "gpt-4o-mini"
+
+
+def test_the_run_records_what_the_endpoint_declared(declaring_service: Stub) -> None:
+    """End to end through `execute()`, which is what made the second
+    `target_config` read necessary: there is nothing to declare until a case has
+    been answered."""
+    suite = Suite(
+        tenant="helpdesk",
+        environment="staging",
+        name="routing",
+        assertions=[Contains(needle="heard")],
+        cases=[Case(id="c", vars={"text": "hello"})],
+    )
+    run = execute(
+        suite, a_declaring_target(declaring_service), created_at="2026-09-01T00:00:00Z"
+    )
+    assert run.target_config.values["model"] == "gpt-4o-mini"
+    assert run.target_config.recorded

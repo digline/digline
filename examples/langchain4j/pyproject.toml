@@ -1,0 +1,16 @@
+[project]
+name = "northwind-support-eval"
+version = "0.1.0"
+description = "Evaluating a LangChain4j service with digline, over HTTP."
+requires-python = ">=3.12"
+dependencies = [
+    # `config_path` on HttpTarget — the model that answered, recorded in the
+    # run — is 0.3.0. Everything else here works from 0.1.2.
+    "digline>=0.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+]

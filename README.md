@@ -2,7 +2,7 @@
 
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
-[![PyPI 0.2.0](https://img.shields.io/badge/pypi-0.2.0-blue)](https://pypi.org/project/digline/)
+[![PyPI 0.3.0](https://img.shields.io/badge/pypi-0.3.0-blue)](https://pypi.org/project/digline/)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
@@ -203,6 +203,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**I'm writing a prompt and have no application yet**](examples/prompt-first/) — a prompt in a file, and the report showing its diff next to what it moved
 - [**I have a RAG: how do I check it doesn't make things up?**](examples/rag/) — frozen retrieval, `Faithfulness`, `PiiAbsent`
 - [**My application is Java: can I use this?**](examples/external-app/) — `HttpTarget` against a service digline cannot import
+- [**My app is LangChain4j: what do I put in my repo?**](examples/langchain4j/) — the walkthrough: one endpoint, three files, the CI gate
 
 ## What digline is not
 

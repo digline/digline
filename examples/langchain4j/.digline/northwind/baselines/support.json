@@ -1,0 +1,374 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "app/src/main/resources/prompts/system.txt": {
+      "sha": "1bb146be3825adaf834d32b6ef4c4cfb98e708f7b10f9c704679c3344e759e7b",
+      "text": "You are the support assistant for Northwind, an online retailer.\n\nAnswer the customer's question in at most three sentences, in plain language,\nusing only what the question tells you. If you do not know something, say so\nrather than inventing it.\n\nAlways sign off with exactly: — Northwind Support\n"
+    }
+  },
+  "config_hash": "bc060bda8aefb7f4",
+  "created_at": "2026-09-01T13:16:01.817666+00:00",
+  "environment": "staging",
+  "git_commit": "2ecc34306f5d7939020a80f43c574893246269e5-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "where-is-my-order",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "8fd66c98bb4bd0d0",
+          "metadata": {},
+          "reason": "'As an AI' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "85b0428710eed144",
+          "metadata": {
+            "length": 28,
+            "maximum": 60,
+            "minimum": 12,
+            "unit": "words"
+          },
+          "reason": "28 words, within bounds (between 12 and 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00021,
+            "max_usd": 0.002,
+            "ratio": 0.105
+          },
+          "reason": "0.000210 USD against a 0.002000 cap (within budget)",
+          "score": 0.904977,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "c6e3fe04a67efd8a",
+          "metadata": {
+            "latency_ms": 380.0,
+            "max_ms": 2000.0,
+            "ratio": 0.19
+          },
+          "reason": "380.000 ms against a 2000.000 cap (within budget)",
+          "score": 0.840336,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "how-do-i-return",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "8fd66c98bb4bd0d0",
+          "metadata": {},
+          "reason": "'As an AI' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "85b0428710eed144",
+          "metadata": {
+            "length": 27,
+            "maximum": 60,
+            "minimum": 12,
+            "unit": "words"
+          },
+          "reason": "27 words, within bounds (between 12 and 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00021,
+            "max_usd": 0.002,
+            "ratio": 0.105
+          },
+          "reason": "0.000210 USD against a 0.002000 cap (within budget)",
+          "score": 0.904977,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "c6e3fe04a67efd8a",
+          "metadata": {
+            "latency_ms": 380.0,
+            "max_ms": 2000.0,
+            "ratio": 0.19
+          },
+          "reason": "380.000 ms against a 2000.000 cap (within budget)",
+          "score": 0.840336,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "is-it-waterproof",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "8fd66c98bb4bd0d0",
+          "metadata": {},
+          "reason": "'As an AI' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "85b0428710eed144",
+          "metadata": {
+            "length": 19,
+            "maximum": 60,
+            "minimum": 12,
+            "unit": "words"
+          },
+          "reason": "19 words, within bounds (between 12 and 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00021,
+            "max_usd": 0.002,
+            "ratio": 0.105
+          },
+          "reason": "0.000210 USD against a 0.002000 cap (within budget)",
+          "score": 0.904977,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "c6e3fe04a67efd8a",
+          "metadata": {
+            "latency_ms": 380.0,
+            "max_ms": 2000.0,
+            "ratio": 0.19
+          },
+          "reason": "380.000 ms against a 2000.000 cap (within budget)",
+          "score": 0.840336,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "do-you-ship-to-sicily",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "8fd66c98bb4bd0d0",
+          "metadata": {},
+          "reason": "'As an AI' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "85b0428710eed144",
+          "metadata": {
+            "length": 23,
+            "maximum": 60,
+            "minimum": 12,
+            "unit": "words"
+          },
+          "reason": "23 words, within bounds (between 12 and 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00021,
+            "max_usd": 0.002,
+            "ratio": 0.105
+          },
+          "reason": "0.000210 USD against a 0.002000 cap (within budget)",
+          "score": 0.904977,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "c6e3fe04a67efd8a",
+          "metadata": {
+            "latency_ms": 380.0,
+            "max_ms": 2000.0,
+            "ratio": 0.19
+          },
+          "reason": "380.000 ms against a 2000.000 cap (within budget)",
+          "score": 0.840336,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "cancel-subscription",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "8fd66c98bb4bd0d0",
+          "metadata": {},
+          "reason": "'As an AI' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "85b0428710eed144",
+          "metadata": {
+            "length": 22,
+            "maximum": 60,
+            "minimum": 12,
+            "unit": "words"
+          },
+          "reason": "22 words, within bounds (between 12 and 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "6ee791b5aea8bfb2",
+          "metadata": {
+            "cost_usd": 0.00021,
+            "max_usd": 0.002,
+            "ratio": 0.105
+          },
+          "reason": "0.000210 USD against a 0.002000 cap (within budget)",
+          "score": 0.904977,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "c6e3fe04a67efd8a",
+          "metadata": {
+            "latency_ms": 380.0,
+            "max_ms": 2000.0,
+            "ratio": 0.19
+          },
+          "reason": "380.000 ms against a 2000.000 cap (within budget)",
+          "score": 0.840336,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    }
+  ],
+  "schema_version": 8,
+  "suite": "support",
+  "target_config": {
+    "values": {
+      "max_tokens": 512,
+      "model": "gpt-4o-mini",
+      "provider": "openai",
+      "temperature": 0.0
+    }
+  },
+  "tenant": "northwind"
+}

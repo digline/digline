@@ -1,0 +1,31 @@
+name: java-example
+
+# Only when the Java under examples/langchain4j/app changes. A JDK and a Maven
+# resolve are cheap once in a while and wasteful on every push, and this is the
+# one directory in the repository that the Python gates cannot say anything
+# about — so it gets its own job rather than a place in `ci.yml`.
+on:
+  push:
+    branches: [main]
+    paths: ["examples/langchain4j/app/**", ".github/workflows/java-example.yml"]
+  pull_request:
+    paths: ["examples/langchain4j/app/**", ".github/workflows/java-example.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      # Compiles and runs whatever tests the example ships. It never starts the
+      # service and never calls a model: there is no key here, and there is no
+      # reason for one.
+      - run: mvn -B -f examples/langchain4j/app/pom.xml verify

@@ -3,6 +3,34 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## 0.3.0 — 2026-09-01
+
+digline 0.3.0. The plugins stay at 0.2.0: nothing in this release changes a
+protocol they implement, and `config` is still the optional property it was.
+
+- **Added:** `HttpTarget(config_path=…)`. An application digline cannot import
+  can now say which model answered and how it was set up, in the same answer
+  that already carries the cost — so a run from a Java or Go service is as
+  complete a document as one from a plugin, and `compare` names a model change
+  instead of reporting the configuration as unchanged (ADR 0005 §8). Left out,
+  the target declares nothing, exactly as before.
+- **Added:** `examples/langchain4j/` — a Spring Boot + LangChain4j service with
+  one endpoint, the suite that evaluates it, and the CI gate. The walkthrough
+  for a team whose application is not Python.
+- **Fixed:** every example's CI workflow promoted the fresh run and *then*
+  compared it, which compares a run with itself and passes whatever happened.
+  They now compare against the baseline committed in the repository and key on
+  the exit code. `prompt-first` and `rag` are shipped red on purpose, so theirs
+  assert exit 1 — a green run there means the example stopped demonstrating
+  what its README claims.
+- **Fixed:** the four shipped example baselines were still schema 7 and could
+  not be read by 0.2.0 at all — `compare` against them raised. Migrated in
+  place. The workflow bug above is why nobody noticed.
+- **Changed:** `execute()` asks a target for its `config` twice, before the
+  first case and after the last, and records the second answer. A target that
+  declares statically gives the same answer both times; nothing a plugin does
+  changes.
+
 ## 0.2.0 — 2026-08-31
 
 digline 0.2.0, digline-anthropic 0.2.0, digline-openai 0.2.0,
