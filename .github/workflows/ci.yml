@@ -58,6 +58,52 @@ jobs:
       - name: Types
         run: uv run --python ${{ matrix.python }} pyright
 
+  docs:
+    name: The site still builds from these docs
+    # The gap this closes cost three pushes after v0.3.0 was already on PyPI.
+    #
+    # digline.dev builds the site from two repositories: its own pages, and the
+    # documentation here — docs/, CHANGELOG.md, ROADMAP.md, and one page per
+    # examples/*/README.md. It builds with `mkdocs --strict`, so a relative link
+    # that resolves on GitHub and not on the site, or an example with no entry
+    # in the site's nav, is a failed build. That build runs in publish.yml
+    # *after* PyPI, which is the one step that cannot be taken back — so the
+    # first time anyone learns of a docs defect, the version is already spent.
+    #
+    # This is the same build, on every push, before any tag. It uses the site's
+    # own config and its own sync script rather than a copy of either: a copy
+    # would drift, and a gate that drifts is worse than none.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out digline/digline.dev
+        uses: actions/checkout@v5
+        with:
+          repository: digline/digline.dev
+          path: _site
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Shallow on purpose, unlike the real build. `sync-docs.sh` reads this
+      # repository's history to date each page for the sitemap, detects a
+      # shallow clone and falls back to mtimes rather than writing a date it
+      # cannot stand behind. The dates are not what is under test here; the
+      # links and the nav are.
+      - name: Copy the product documentation in
+        working-directory: _site
+        run: tools/sync-docs.sh ..
+
+      - name: Build the site, strict
+        working-directory: _site
+        run: uv run mkdocs build --strict
+
+      - name: Check the sitemap
+        working-directory: _site
+        run: tools/check-sitemap.py site
+
   examples-from-pypi:
     name: The examples, against the published package
     runs-on: ubuntu-latest

@@ -75,3 +75,43 @@ def test_the_gates_are_run_over_the_whole_repository() -> None:
     commands = gate_commands()
     assert "uv run ruff format --check ." in commands
     assert "uv run ruff check ." in commands
+
+
+def docs_job_commands() -> list[str]:
+    """Every `run:` in the `docs` job, read the same way as `gates`."""
+    text = CI.read_text(encoding="utf-8")
+    body = text.split("\n  docs:", 1)[1]
+    body = re.split(r"\n  \w[\w-]*:\n", body)[0]
+    return [
+        line.split("run:", 1)[1].strip()
+        for line in body.splitlines()
+        if line.strip().startswith("run: ")
+    ]
+
+
+def test_ci_still_builds_the_site_before_any_tag() -> None:
+    """The `docs` job is a gate, not a convenience, so it is pinned like one.
+
+    Without it the first time anyone learns that an example README broke the
+    site is the `site` job of `publish.yml` — which runs *after* PyPI, the one
+    step that cannot be taken back. That is what v0.3.0 cost.
+    """
+    commands = docs_job_commands()
+    assert any("sync-docs.sh" in c for c in commands), commands
+    assert any("mkdocs build --strict" in c for c in commands), commands
+
+
+def test_releasing_tells_a_human_to_build_the_site_too() -> None:
+    """The same rule the gates block already lives under: the checklist may say
+    more than CI does, never less.
+
+    Not derived command-for-command like `gate_commands`, because the paths
+    genuinely differ — CI checks the site out beside the workspace, a person has
+    it as a sibling clone — so what is pinned is the two steps that are the
+    gate, and the reason a reader needs for running them.
+    """
+    page = RELEASING.read_text(encoding="utf-8")
+    assert "tools/sync-docs.sh" in page
+    assert "uv run mkdocs build --strict" in page
+    # The consequence, without which nobody runs an optional-looking step.
+    assert "after* PyPI" in page or "after PyPI" in page

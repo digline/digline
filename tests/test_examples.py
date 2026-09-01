@@ -9,6 +9,7 @@ same file that runs — the document cannot drift from the code it shows.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -332,4 +333,92 @@ def test_no_example_readme_carries_a_markdown_link(name: str) -> None:
         f"examples/{name}/README.md links to {relative}, which mkdocs --strict "
         "refuses when it renders this file as a site page. Use a backticked "
         "path, or an absolute https:// URL"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The other repository: digline.dev renders these examples as pages
+# --------------------------------------------------------------------------- #
+
+#: Where the site's config is looked for, in order. `DIGLINE_SITE_CONFIG` is
+#: what CI sets; the sibling checkout is what a developer has when they work on
+#: both, and mirrors `sync-docs.sh`'s own default of `../digline`.
+SITE_CONFIG_CANDIDATES = ("../digline.dev/mkdocs.yml", "_site/mkdocs.yml")
+
+
+def site_config() -> Path | None:
+    """The site's `mkdocs.yml`, if this machine has it.
+
+    Never fetched. This repository makes no network call the user did not ask
+    for, and a test is not where that rule gets an exception — so the check runs
+    where the file is already on disk, which is the `docs` job in `ci.yml`, and
+    skips politely everywhere else.
+    """
+    if (given := os.environ.get("DIGLINE_SITE_CONFIG")) is not None:
+        return Path(given)
+    for candidate in SITE_CONFIG_CANDIDATES:
+        if (path := ROOT / candidate).is_file():
+            return path
+    return None
+
+
+def examples_with_a_readme() -> list[str]:
+    """The directories `sync-docs.sh` turns into pages: one per README.
+
+    `quickstart` has none — it is the guide's first chapter rather than a case
+    of its own — so the glob excludes it exactly as the script's does.
+    """
+    return sorted(p.parent.name for p in (ROOT / "examples").glob("*/README.md"))
+
+
+def test_the_readme_glob_still_finds_the_examples() -> None:
+    """A guard on the guard: an empty list would make the check below pass
+    over nothing and prove nothing."""
+    found = examples_with_a_readme()
+    assert len(found) >= 5, found
+    assert "quickstart" not in found, "quickstart has no README and is not a page"
+
+
+def test_every_example_has_a_page_in_the_site_nav() -> None:
+    """An example added here needs one line in another repository.
+
+    `sync-docs.sh` copies `examples/<name>/README.md` to
+    `docs/product/examples/<name>.md`, and mkdocs builds `--strict`: a page that
+    is in the docs tree and not in `nav` is a warning, and a warning is a failed
+    build. That build runs after PyPI, so the first time anyone sees the mistake
+    the version is already spent — which is exactly what happened to
+    `langchain4j` on v0.3.0.
+
+    The `docs` job in `ci.yml` catches it too, by running the real build. This
+    exists beside it because it names the example and the line to add, in a
+    second, instead of leaving a reader to read mkdocs' warning about a path
+    they did not write.
+
+    Read with a regex rather than a YAML parser, like `test_releasing.py` reads
+    the workflow: this repository has one runtime dependency and a test is not
+    where a second one arrives.
+    """
+    config = site_config()
+    if config is None:
+        pytest.skip(
+            "the site config is not on this machine. Set DIGLINE_SITE_CONFIG, "
+            "or clone digline/digline.dev beside this repository; ci.yml's "
+            "`docs` job does the second"
+        )
+    nav = config.read_text(encoding="utf-8")
+    missing = [
+        name
+        for name in examples_with_a_readme()
+        if not re.search(rf"product/examples/{re.escape(name)}\.md\s*$", nav, re.M)
+    ]
+    assert not missing, (
+        f"examples/{missing[0]}/README.md becomes the page "
+        f"product/examples/{missing[0]}.md, which {config} does not list in "
+        f"its nav — so `mkdocs build --strict` fails and the site is not "
+        f"rebuilt. Add, under `- Examples:`:\n"
+        f"          - <a label for the reader's situation>: "
+        f"product/examples/{missing[0]}.md\n"
+        f"Missing: {', '.join(missing)}. "
+        "If that path is a checkout of your own, it may simply be behind "
+        "origin — the entry is added in digline/digline.dev, not here."
     )

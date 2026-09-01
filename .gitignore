@@ -39,3 +39,7 @@ private/
 # `.gitignore` the store itself writes into `.digline/` (`*/runs/`).
 # Ignoring `.digline/` here would take the baselines out of git with it.
 to-publish/
+
+# The site checkout that ci.yml's `docs` job makes, and that RELEASING
+# tells you to make to reproduce it. Never committed here.
+_site/

@@ -3,6 +3,22 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## 0.4.0 — unreleased
+
+- **Added:** `ci.yml` builds the digline.dev site on every push — the site's own
+  config and its own sync script, `mkdocs build --strict` — so a relative link
+  in an example README, or an example with no entry in the site's nav, fails on
+  the pull request instead of in `publish.yml`, where the build runs *after*
+  PyPI. `tests/test_examples.py` checks the nav entry too, and names the example
+  and the line to add. Both are on the pre-tag checklist in `RELEASING.md`.
+- **Note on 0.3.0:** the tag `v0.3.0` is the release that is on PyPI and needs
+  nothing done to it, but the examples at that commit do not resolve — they
+  still pinned `digline<0.2` while their baselines had moved to schema 8, and
+  `examples/langchain4j/` was missing the `[tool.pyright]` block that keeps
+  pyright out of the virtualenv. Three commits on `main` after the tag fixed
+  both, along with the README links that failed the site build. If you are
+  reading the examples, read them from `main`, not from the tag.
+
 ## 0.3.0 — 2026-09-01
 
 digline 0.3.0. The plugins stay at 0.2.0: nothing in this release changes a

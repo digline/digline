@@ -47,6 +47,42 @@ Two of these are easy to think you can skip, and both were the same mistake:
   describes a release that does not exist. Running `ruff` and `pytest` straight
   from a system Python never touches it.
 
+## Before the tag: the site
+
+The gates above check this repository. This one checks the **other** one, and it
+is here because skipping it is what v0.3.0 cost.
+
+```sh
+git clone https://github.com/digline/digline.dev ../digline.dev   # once
+cd ../digline.dev && uv sync
+tools/sync-docs.sh ../digline
+uv run mkdocs build --strict
+```
+
+digline.dev builds the site from two repositories: its own pages, and the
+documentation here — `docs/`, `CHANGELOG.md`, `ROADMAP.md`, and one page per
+`examples/*/README.md`. It builds `--strict`, so **two things that are correct
+on GitHub fail there**:
+
+- **a relative link in an example README.** `](report.html)` resolves in the
+  directory and not on the site, where the target was never copied. The four
+  oldest examples carry no links at all, which is why the rule went years
+  without being written down.
+- **an example with no entry in the site's `nav`.** Adding `examples/<name>/`
+  here needs one line in `digline.dev`'s `mkdocs.yml`, under `- Examples:`:
+  `- <label>: product/examples/<name>.md`.
+
+Both are gated now — by the `docs` job in `ci.yml`, which runs this same build
+on every push, and by `tests/test_examples.py` for the nav entry specifically.
+So this block should already be green by the time you reach it. Run it anyway:
+the job checks `digline.dev`'s **default branch**, and what the release will
+actually build against is whatever that branch holds at dispatch time.
+
+**A failure here is not a re-tag.** The site job is the last step of
+`publish.yml` and runs *after* PyPI, so a docs defect discovered at that point
+leaves the packages correct and the site describing the version before them.
+Fix it on `main`, then re-run the failed `site` job. v0.3.0 went out that way.
+
 CI also runs the gates on **3.12 and 3.13**. One locally is enough before a
 tag — the second is what CI is for — but a failure on 3.13 alone is a real
 failure, not a runner quirk.
