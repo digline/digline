@@ -8,7 +8,7 @@ dependencies = [
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
     # 0.1.2 is where every judged assertion sends one prompt shape and
     # exports the label to split on (friction 32).
-    "digline>=0.1.2,<0.2",
+    "digline>=0.3,<0.4",
 ]
 
 [dependency-groups]

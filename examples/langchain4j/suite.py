@@ -14,11 +14,11 @@ import json
 import os
 from pathlib import Path
 
-import stub
-
 from digline.core import Contains, CostBudget, LatencyBudget, Length, NotContains
 from digline.run import Case, Suite
 from digline.targets import HttpTarget
+
+import stub
 
 HERE = Path(__file__).parent
 

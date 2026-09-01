@@ -6,9 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    # 0.1.2 is where `HttpTarget` arrives (friction 14). Until it is
-    # published this example runs against the source, not the index.
-    "digline>=0.1.2,<0.2",
+    # 0.1.2 is where `HttpTarget` arrives (friction 14); the floor is 0.3
+    # because the committed baseline is schema 8, which older digline refuses.
+    "digline>=0.3,<0.4",
 ]
 
 [dependency-groups]

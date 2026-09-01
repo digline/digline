@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.1,<0.2",
+    "digline>=0.3,<0.4",
 ]
 
 [dependency-groups]
