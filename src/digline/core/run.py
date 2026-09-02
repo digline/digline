@@ -62,7 +62,13 @@ __all__ = [
 #    Additive: a document written before them recorded no configuration, which
 #    is what an empty one says, and a baseline promoted before them still
 #    compares — every field reports `unknown` rather than a change. (ADR 0005)
-SCHEMA_VERSION = 8
+# 9: `samples`, `sample_min` and `sample_max` joined every sampled verdict — the
+#    raw per-sample scores and the interval they span, which `compare()` reads
+#    as a noise floor. Additive twice over: a run at `samples=1` records none of
+#    them and is byte for byte the file it was, and a run that already sampled
+#    carries `metadata["scores"]`, from which the migration *derives* them
+#    rather than inventing them. So no baseline needs re-promoting. (ADR 0006)
+SCHEMA_VERSION = 9
 
 
 def _num(value: float) -> float:
@@ -476,6 +482,17 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
                 for k, v in verdict.score.metadata.items()
                 if travels(v) or k in disclosure.score_metadata
             },
+            # Copied explicitly, and stated rather than inherited. These are
+            # fields on the value, so they bypass `travels()` entirely — the
+            # rule that lets `spread` cross a boundary would never have been
+            # asked about them. They travel for the same reason `spread` does:
+            # they measure the system's own variability, not what it judged, and
+            # the software house seeing how unstable a check is without seeing
+            # what it looked at is exactly the arrangement ADR 0002 produces.
+            # (ADR 0006 §4)
+            samples=verdict.score.samples,
+            sample_min=verdict.score.sample_min,
+            sample_max=verdict.score.sample_max,
         ),
         threshold=verdict.threshold,
         status=verdict.status,
@@ -560,6 +577,15 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
         "tolerance": _num(verdict.tolerance),
         "metadata": canonical(verdict.score.metadata),
     }
+    # Absent when there is one sample, never `null`: an unsampled check records
+    # nothing, so a run file from a suite left at `samples=1` is byte for byte
+    # the file that suite produced before ADR 0006. (ADR 0006 §4)
+    if verdict.score.sampled:
+        payload["samples"] = [_num(value) for value in verdict.score.samples]
+        assert verdict.score.sample_min is not None
+        assert verdict.score.sample_max is not None
+        payload["sample_min"] = _num(verdict.score.sample_min)
+        payload["sample_max"] = _num(verdict.score.sample_max)
     # Omitted, not emptied: a redacted document must carry nothing from which
     # the reason could be guessed, not even its length.
     if not redacted:
@@ -584,11 +610,28 @@ def _required(raw: Mapping[str, Any], key: str, where: str) -> Any:
 def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
     where = "verdict"
     raw_score = _required(raw, "score", where)
+    # Read together, and left absent together. A half-present interval is
+    # refused by `Score` rather than repaired here: the missing half is not
+    # derivable, and a noise floor quietly built from one end would admit
+    # movement in a direction nobody measured.
+    raw_samples = raw.get("samples")
+    samples = (
+        ()
+        if raw_samples is None
+        else tuple(float(value) for value in cast(Sequence[Any], raw_samples))
+    )
     return Verdict(
         score=Score(
             name=str(_required(raw, "assertion", where)),
             score=None if raw_score is None else float(raw_score),
             metadata=dict(cast(Mapping[str, object], raw.get("metadata") or {})),
+            samples=samples,
+            sample_min=(
+                None if raw.get("sample_min") is None else float(raw["sample_min"])
+            ),
+            sample_max=(
+                None if raw.get("sample_max") is None else float(raw["sample_max"])
+            ),
         ),
         threshold=float(_required(raw, "threshold", where)),
         tolerance=float(_required(raw, "tolerance", where)),

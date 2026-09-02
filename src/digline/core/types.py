@@ -222,15 +222,37 @@ class Score:
 
     `score is None` means "no score". It does not mean "passed": that case
     always translates to a `Verdict` with `status="error"`.
+
+    `samples`, `sample_min` and `sample_max` say how far the score moves. They
+    are **absent when there is one sample** — an unsampled check records
+    nothing, so a run file from a suite left at `samples=1` is byte for byte the
+    file it produced before ADR 0006 existed.
+
+    Fields on the value rather than three more keys in `metadata`, because
+    `compare()` reads them to decide an outcome, and a rule that reads a
+    stringly-keyed bag is a rule one typo disables silently. `agreement`,
+    `spread` and `errored_samples` stay in `metadata`, where they are reported
+    and not acted on. (ADR 0006 §4)
+
+    The interval is stored rather than recomputed on demand, because it is what
+    a document carries and what a reader checks; `__post_init__` verifies it
+    against `samples`, so the two cannot drift apart.
     """
 
     name: str
     score: float | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+    #: The raw per-sample scores, in the order they were produced. A sample that
+    #: could not be judged contributes nothing — the count of those is
+    #: `metadata["errored_samples"]` — so this is the same list the fold averaged.
+    samples: tuple[float, ...] = ()
+    sample_min: float | None = None
+    sample_max: float | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("Score.name must not be empty")
+        self._check_interval()
         if self.score is None:
             return
         # Checked explicitly rather than relying on `0.0 <= nan <= 1.0` being
@@ -240,6 +262,58 @@ class Score:
             raise ValueError("Score.score must not be NaN")
         if not (0.0 <= self.score <= 1.0):
             raise ValueError(f"Score.score must be within [0, 1], got {self.score}")
+
+    def _check_interval(self) -> None:
+        """Round the samples and the interval, then verify one against the other.
+
+        Rounded here for the reason `Verdict` rounds its score: these values are
+        written to a committed baseline at `FLOAT_PRECISION` and read back, so a
+        value that has been through the disk and one that has not must not
+        compare unequal — otherwise the noise floor of ADR 0006 §5 would judge a
+        current score against an interval that shifted by 1e-17 on the way in.
+
+        The interval is refused unless it is the one the samples span. It is
+        recorded rather than derived because a document carries it and a reader
+        checks it, and a recorded value that nothing verifies is a value that
+        drifts.
+        """
+        rounded = tuple(round(float(s), FLOAT_PRECISION) for s in self.samples)
+        if rounded != self.samples:
+            object.__setattr__(self, "samples", rounded)
+        for value in rounded:
+            if math.isnan(value) or not (0.0 <= value <= 1.0):
+                raise ValueError(
+                    f"Score.samples must all be within [0, 1], got {value}"
+                )
+        if not rounded:
+            if self.sample_min is not None or self.sample_max is not None:
+                raise ValueError(
+                    "Score declares an interval without the samples it spans: "
+                    "the interval is a summary, and a summary of nothing "
+                    "states a fact nobody measured"
+                )
+            return
+        if self.sample_min is None or self.sample_max is None:
+            raise ValueError(
+                "Score carries samples without sample_min and sample_max: "
+                "the interval is what compare() reads, so a half-recorded one "
+                "is a noise floor that silently is not there"
+            )
+        low = round(self.sample_min, FLOAT_PRECISION)
+        high = round(self.sample_max, FLOAT_PRECISION)
+        if (low, high) != (min(rounded), max(rounded)):
+            raise ValueError(
+                f"Score records the interval [{low}, {high}], which is not the "
+                f"one its samples span ([{min(rounded)}, {max(rounded)}])"
+            )
+        object.__setattr__(self, "sample_min", low)
+        object.__setattr__(self, "sample_max", high)
+
+    @property
+    def sampled(self) -> bool:
+        """Whether this score was measured more than once, and so carries an
+        interval. Derived, so nothing can claim one it does not have."""
+        return bool(self.samples)
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,6 +371,13 @@ class Verdict:
                         name=self.score.name,
                         score=rounded,
                         metadata=self.score.metadata,
+                        # Carried through explicitly. A rebuild that dropped
+                        # them would delete the noise floor of a check whose
+                        # mean happened to need rounding — which is most of
+                        # them — and the loss would be silent.
+                        samples=self.score.samples,
+                        sample_min=self.score.sample_min,
+                        sample_max=self.score.sample_max,
                     ),
                 )
 

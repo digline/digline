@@ -86,6 +86,44 @@ def _add_configs(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_sample_interval(raw: dict[str, Any]) -> dict[str, Any]:
+    """8 -> 9. A sampled verdict already carries its raw scores; read them.
+
+    This is the step that decides whether the noise floor works on the day of
+    the release or only after everybody re-promotes. `metadata["scores"]` has
+    been written by `combine_samples` since sampling existed, so `samples`,
+    `sample_min` and `sample_max` are **derived from a list that is already in
+    the document** — reading what is there is not the guessing this module
+    refuses.
+
+    A verdict with no `scores` is an unsampled one and gains nothing: at one
+    sample there is no interval, and inventing `[score, score]` would hand a
+    check a noise floor of zero width dressed as a measurement.
+
+    The aggregates gain nothing either, and that absence is honest. A
+    `RunAssertion` has no samples of its own in an old document — ADR 0006 §7
+    computes its interval from the per-case samples, which needs the labels and
+    the suite, neither of which is in a run file. So a migrated baseline sizes
+    the noise of its cases and reports the noise of its aggregates as not known,
+    which is the third branch of §5 and is what it says.
+    """
+    verdicts: list[dict[str, Any]] = []
+    for case in cast(list[dict[str, Any]], raw.get("results") or []):
+        verdicts.extend(cast(list[dict[str, Any]], case.get("verdicts") or []))
+    verdicts.extend(cast(list[dict[str, Any]], raw.get("aggregate") or []))
+
+    for verdict in verdicts:
+        metadata = cast(dict[str, Any], verdict.get("metadata") or {})
+        scores = metadata.get("scores")
+        if not isinstance(scores, list) or not scores:
+            continue
+        values = [float(value) for value in cast(list[Any], scores)]
+        verdict["samples"] = values
+        verdict["sample_min"] = min(values)
+        verdict["sample_max"] = max(values)
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -93,6 +131,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     5: _add_aggregate,
     6: _add_artifacts,
     7: _add_configs,
+    8: _add_sample_interval,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

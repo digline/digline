@@ -137,6 +137,17 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     house sees how unstable a check is without seeing what it judged. What the
     samples themselves measured is folded in alongside — see
     `_folded_metadata` — so sampling does not cost the reader the raw values.
+
+    The raw scores and the interval they span are also written **on the
+    `Score`**, where `compare()` reads them as the noise floor of ADR 0006 §5.
+    The same numbers as `metadata["scores"]`, deliberately: the metadata half is
+    reported and the fields are acted on, and a rule that acted on a
+    stringly-keyed bag is a rule one typo disables silently.
+
+    The scalar is unchanged by all of this. ADR 0006 §2 kept the mean where it
+    was — the defect was never that the centre sat in the wrong place, it was
+    that one number cannot say how far it moves — so every baseline recorded
+    before that ADR records the number this function still computes.
     """
     if not verdicts:
         raise ValueError("combine_samples needs at least one verdict")
@@ -188,7 +199,17 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         metadata[TOTAL_COST_KEY] = sum(costs)
 
     return Verdict(
-        score=Score(name=first.score.name, score=mean, metadata=metadata),
+        score=Score(
+            name=first.score.name,
+            score=mean,
+            metadata=metadata,
+            # The samples that *were judged*, in the order they were produced.
+            # An errored sample contributes nothing to an interval it has no
+            # value in; `errored_samples` above is where its absence is counted.
+            samples=tuple(scores),
+            sample_min=min(scores),
+            sample_max=max(scores),
+        ),
         threshold=first.threshold,
         tolerance=first.tolerance,
         status="pass" if mean >= first.threshold else "fail",
@@ -259,6 +280,12 @@ class Repeated(AssertionBase):
                 name=self.name,
                 score=combined.score.score,
                 metadata=combined.score.metadata,
+                # Re-stamped, not recomputed: this is the same fold under this
+                # assertion's name, and an interval dropped here would be a
+                # `Repeated` check that silently has no noise floor.
+                samples=combined.score.samples,
+                sample_min=combined.score.sample_min,
+                sample_max=combined.score.sample_max,
             ),
             threshold=combined.threshold,
             tolerance=combined.tolerance,
