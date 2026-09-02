@@ -32,9 +32,13 @@ def site_config() -> Path | None:
     """The site's `mkdocs.yml`, if this machine has it.
 
     Never fetched. This repository makes no network call the user did not ask
-    for, and a test is not where that rule gets an exception — so the check runs
-    where the file is already on disk, which is the `docs` job in `ci.yml`, and
-    skips politely everywhere else.
+    for, and a test is not where that rule gets an exception — so the checks
+    built on this run only where the file is already on disk: a developer with
+    both repositories side by side, or anywhere `DIGLINE_SITE_CONFIG` points at
+    one. Everywhere else they skip, **CI included** — the `gates` job clones no
+    site, and what catches the same defect there is the real `--strict` build in
+    the `docs` job, which clones it itself. These are the fast local warning,
+    not the authority.
     """
     if (given := os.environ.get("DIGLINE_SITE_CONFIG")) is not None:
         return Path(given)
