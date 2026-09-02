@@ -134,7 +134,7 @@ an account.
 | Why | the `site` job posts a `repository_dispatch` to the site's repository, and a workflow's own `github.token` is scoped to *this* one |
 | Where | Settings → Secrets and variables → Actions, and it is read on the step, not the job |
 | Created | 2026-08-31 |
-| Expires | **fine-grained PATs always expire.** Record the date here when you create or rotate one — a year from now this page is the only thing standing between an expired token and an afternoon |
+| Expires | **2027-09-01** — 366 days, the maximum a fine-grained PAT can be given. They always expire: record the date here when you create or rotate one, because a year from now this page is the only thing standing between an expired token and an afternoon |
 
 It fails at the **end** of a release, after PyPI, and a failure there needs no
 re-tag: the packages are published, and only the site is behind. Add or renew
