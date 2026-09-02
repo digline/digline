@@ -42,13 +42,17 @@ platforms? See [How digline compares](https://digline.dev/comparison/).
 
 ## Quickstart
 
+With uv (recommended):
+
 ```bash
-pip install digline   # or: uv add digline
+uv init && uv add digline
 ```
 
-**Requires Python 3.12+.** On an older interpreter pip says
-`ERROR: No matching distribution found` with `from versions: none`, which does
-not say why — that is what it means.
+or with pip in an existing environment: `pip install digline`.
+
+**Requires Python 3.12+**, which uv fetches for you if you do not have it. On
+the pip path an older interpreter says `ERROR: No matching distribution found`
+with `from versions: none`, which does not say why — that is what it means.
 
 `suite.py` — complete and runnable, no API key:
 
@@ -100,7 +104,8 @@ suite = Suite(
 ```
 
 When your judge is a real model, add a provider plugin:
-`pip install digline-anthropic` (or `digline-openai`, `digline-bedrock`).
+`uv add digline-anthropic` (or `pip install digline-anthropic`), likewise
+`digline-openai` and `digline-bedrock`.
 
 ```console
 $ digline run --suite suite.py
