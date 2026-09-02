@@ -3,7 +3,11 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
-## 0.4.0 — unreleased
+## 0.4.0 — 2026-09-02
+
+digline 0.4.0. The plugins stay at 0.2.0: a sample is taken by the driver,
+which calls a target the same way it always did, so nothing in this release
+changes a protocol they implement.
 
 - **Added:** a **noise floor**. A sampled check now records the raw per-sample
   scores and the interval they span, and `compare` reads the *baseline's*
