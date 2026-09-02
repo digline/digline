@@ -34,7 +34,7 @@ Complete and stabilize the provider plugins under the plugin contract
 
 ## Track B — Verdict credibility
 
-*Status: next — highest priority*
+*Status: completed*
 
 A regression tool that mistakes noise for regression is worse than no tool.
 This track makes the verdict itself trustworthy.
@@ -70,17 +70,30 @@ reads them fails if it stops being met.
       by design
 - [ ] The run/baseline JSON format documented as a **versioned public
       contract**. The engine is Python; the contract is language-neutral
+- [x] A LangChain example evaluated in process: the target is a function
+      that invokes the chain, so there is no server and no HTTP, and the
+      default path runs on a fake chat model — no key, no network, and CI runs
+      it (`examples/langchain/`)
 - [x] A LangChain4j example over `HttpTarget`: one endpoint reporting the
       answer, what the call cost, and which model answered under what settings
       — so a run from a service Digline cannot import is as complete a document
       as one from a plugin (`examples/langchain4j/`, ADR 0005 §8)
-- [ ] A declarative suite format, `digline run suite.yaml`, as a future ADR
-      (0007). It depends on shipping **providers as entry points** — fixed
-      decision 6, which is stated in `CLAUDE.md` and not yet real: a judge named
-      in data has to be resolvable without anything under `src/` importing a
-      plugin. Scope is the assertions whose parameters are already data; a
-      custom assertion, a custom target and a `Disclosure` stay Python
+- [ ] A declarative suite format, `digline run suite.toml`, as a future ADR
+      (0007). TOML rather than YAML: `tomllib` is in the standard library from
+      3.11, and a suite format that costs a runtime dependency to read would
+      double the one this project has. It depends on shipping **providers as
+      entry points** — fixed decision 6, which is stated in `CLAUDE.md` and not
+      yet real: a judge named in data has to be resolvable without anything
+      under `src/` importing a plugin. Scope is the assertions whose parameters
+      are already data; a custom assertion, a custom target and a `Disclosure`
+      stay Python
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
+- [ ] An official container image, `ghcr.io/digline/digline`: the CLI and the
+      three provider plugins, published by the release workflow on a `v*` tag.
+      For the reader who wants the cycle in CI without a Python toolchain of
+      their own. Not started — no `Dockerfile` exists yet, and the shape of the
+      thing is the open question: the image mounts the repository, because
+      `.digline/` lives there and never in the container
 
 This replaces *"a thin JVM emitter"*, which was on this list and was wrong. An
 emitter means the JVM side runs its own assertions and posts the verdicts, which

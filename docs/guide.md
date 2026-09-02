@@ -1133,13 +1133,14 @@ Two things are missing from that page, and only one of them is missing on
 purpose.
 
 The second sentence is the one that moved. The rubric on `how-do-i-return` did
-drop — `0.920000` to `0.760000`, chapter 2 all over again — and it is not in the
-list of regressions, because `0.76` is inside the interval the baseline's own
-five votes spanned. The headline says so out loud rather than staying quiet: a
-run that is clean because nothing moved and a run that is clean because what
-moved was noise are two different states of the world, and a reader is owed
-both. `digline report` carries the line itself, with the interval and which
-control spoke.
+drop — `0.920000` to `0.760000`,
+[chapter 2 all over again](#2-the-judges-noise-one-run-two-runs) — and it is
+not in the list of regressions, because `0.76` is inside the interval the
+baseline's own five votes spanned. The headline says so out loud rather than
+staying quiet: a run that is clean because nothing moved and a run that is
+clean because what moved was noise are two different states of the world, and
+a reader is owed both. `digline report` carries the line itself, with the
+interval and which control spoke.
 
 And there is the trap, in the other silence. The case you just added, the one
 that reproduces the customer's complaint, **is not mentioned at all.** It is

@@ -240,7 +240,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.3.0`, alpha. The offline cycle — write the suite, run, promote, compare,
+`0.4.0`, alpha. The offline cycle — write the suite, run, promote, compare,
 report — is complete, covered by tests, and used daily on a real project. The
 production store, the bridge from production failures back to committed cases,
 and the reactive side are designed in
