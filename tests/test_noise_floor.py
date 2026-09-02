@@ -14,8 +14,11 @@ a document written before this ADR gains on migration, and where the floor of
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+import json
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -25,6 +28,7 @@ from digline.core import (
     CaseOutcome,
     CaseResult,
     Label,
+    Precision,
     Run,
     Score,
     Verdict,
@@ -36,7 +40,7 @@ from digline.core import (
     run_to_json,
     with_noise_interval,
 )
-from digline.core.run import SCHEMA_VERSION
+from digline.core.run import SCHEMA_VERSION, run_from_dict
 from digline.store.migrate import upgrade_document
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -521,3 +525,155 @@ def test_the_aggregates_interval_reaches_compare() -> None:
     assert delta.scope == "run"
     assert delta.outcome == "unchanged"
     assert delta.within_noise
+
+
+# -- The run this ADR was written about ------------------------------------ #
+
+FIXTURES = Path(__file__).parent / "fixtures" / "brief"
+BASELINE = "2026-09-01T12-44-02-518586-00-00-98fc65b1e49e930e.json"
+CRIED_WOLF = "2026-09-01T12-29-17-700450-00-00-98fc65b1e49e930e.json"
+WOBBLED = "2026-08-24-evals-skills-for-coding-agents"
+
+#: What the suite declared, copied from `brief`'s own `suite.py`. Not imported —
+#: that is another repository — and not guessed either: the thresholds are in
+#: the fixtures themselves, on every aggregate verdict.
+AGREES = "agrees_with_mark"
+
+
+def brief_labels() -> dict[str, Label]:
+    raw = cast(
+        dict[str, str],
+        json.loads((FIXTURES / "labels.json").read_text(encoding="utf-8")),
+    )
+    return {case_id: cast(Label, label) for case_id, label in raw.items()}
+
+
+def brief_run(name: str) -> Run:
+    """One fixture, brought up to the current schema the way `digline migrate`
+    brings up a stored run — which is where the per-case intervals come from."""
+    raw = cast(
+        Mapping[str, Any],
+        json.loads((FIXTURES / name).read_text(encoding="utf-8")),
+    )
+    return run_from_dict(upgrade_document(raw))
+
+
+def brief_outcomes(run: Run) -> tuple[CaseOutcome, ...]:
+    labels = brief_labels()
+    return tuple(
+        CaseOutcome(
+            case_id=case.case_id,
+            label=labels[case.case_id],
+            verdict=next(v for v in case.verdicts if v.score.name == AGREES),
+        )
+        for case in run.results
+    )
+
+
+def with_aggregates(run: Run) -> Run:
+    """The same run with its aggregates recomputed through §7.
+
+    The fixtures were written under schema 8, before an aggregate had an
+    interval, and the migration deliberately does not invent one: the per-sample
+    aggregates need the marks and the declared assertion, and a run file carries
+    neither. So the test supplies what a run of this suite would supply today,
+    and the arithmetic is the driver's own.
+    """
+    outcomes = brief_outcomes(run)
+    rebuilt: list[Verdict] = []
+    for recorded in run.aggregate:
+        assertion = (
+            Precision(
+                over=AGREES, threshold=recorded.threshold, tolerance=recorded.tolerance
+            )
+            if recorded.score.name == "precision"
+            else Accuracy(
+                over=AGREES, threshold=recorded.threshold, tolerance=recorded.tolerance
+            )
+        )
+        verdict = with_noise_interval(assertion, outcomes)
+        # The reconstruction has to reproduce what was recorded, or it is
+        # measuring something else and the assertions below mean nothing.
+        assert verdict.score.score == recorded.score.score
+        rebuilt.append(verdict)
+    return replace(run, aggregate=tuple(rebuilt))
+
+
+def test_the_fixtures_are_the_same_suite_fifteen_minutes_apart() -> None:
+    """The premise, asserted rather than assumed: same configuration, same
+    prompts. If these ever diverge the rest of this section is about two
+    different things."""
+    baseline, cried_wolf = brief_run(BASELINE), brief_run(CRIED_WOLF)
+    assert baseline.config_hash == cried_wolf.config_hash == "98fc65b1e49e930e"
+    assert {p: a.sha for p, a in baseline.artifacts.items()} == {
+        p: a.sha for p, a in cried_wolf.artifacts.items()
+    }
+
+
+def test_migration_gives_the_wobbling_case_its_interval() -> None:
+    verdict = next(
+        v
+        for case in brief_run(CRIED_WOLF).results
+        if case.case_id == WOBBLED
+        for v in case.verdicts
+        if v.score.name == AGREES
+    )
+    assert verdict.score.samples == (1.0, 1.0, 0.0, 0.0, 0.0)
+    assert verdict.score.score == 0.4
+
+
+def test_the_run_that_cried_wolf_is_within_noise_at_the_aggregate() -> None:
+    """The finding this ADR was written for. Accuracy moved by one case in
+    twenty-one, and the baseline's own five samples had already covered that
+    much ground: 0.666667 to 0.809524, with 0.714286 inside it."""
+    comparison = compare(
+        with_aggregates(brief_run(CRIED_WOLF)),
+        with_aggregates(brief_run(BASELINE)),
+    )
+    accuracy = next(
+        d for d in comparison.deltas if d.scope == "run" and d.assertion == "accuracy"
+    )
+    assert accuracy.outcome == "unchanged"
+    # `within_noise` is the load-bearing half. The declared tolerance is one
+    # case in twenty-one and the drop is one case in twenty-one, so it lands a
+    # hair outside — which is exactly why the wolf was cried. The measured floor
+    # is what quiets it, and this assertion fails if that floor is ever removed.
+    assert accuracy.within_noise
+    assert "within the noise" in accuracy.reason
+    assert (accuracy.noise_min, accuracy.noise_max) == (0.666667, 0.809524)
+    assert accuracy.current is not None
+    assert accuracy.current.score.score == 0.714286
+
+
+def test_no_aggregate_of_that_run_is_reported_as_a_regression() -> None:
+    """Precision was inside its declared tolerance and accuracy is inside the
+    measured floor, so the gate is quiet. Both controls, one run."""
+    comparison = compare(
+        with_aggregates(brief_run(CRIED_WOLF)),
+        with_aggregates(brief_run(BASELINE)),
+    )
+    assert [d.assertion for d in comparison.regressed if d.scope == "run"] == []
+
+
+def test_the_per_case_flip_is_still_reported() -> None:
+    """§6, and not a failure of the test. One case decided 5/5 and now decided
+    2/5 has moved, and one case is a diagnosis — the aggregate is the gate."""
+    comparison = compare(
+        with_aggregates(brief_run(CRIED_WOLF)),
+        with_aggregates(brief_run(BASELINE)),
+    )
+    flipped = [d for d in comparison.regressed if d.case_id == WOBBLED]
+    assert [d.assertion for d in flipped] == [AGREES]
+    assert not flipped[0].within_noise
+
+
+def test_the_run_it_came_back_to_needs_no_promotion() -> None:
+    """The third run of the ADR's story is the baseline itself — `12-44-02`
+    reproduces the first run's numbers to six decimal places, which is why
+    `brief` promoted it. Nothing was re-promoted in between, and nothing is
+    reported."""
+    comparison = compare(
+        with_aggregates(brief_run(BASELINE)), with_aggregates(brief_run(BASELINE))
+    )
+    assert not comparison.has_regressions
+    assert not comparison.errored
