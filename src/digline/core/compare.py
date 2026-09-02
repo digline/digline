@@ -416,6 +416,14 @@ def compare(run: Run, baseline: Run) -> Comparison:
         was, is_now = f"{before.score.score:.6f}", f"{now.score.score:.6f}"
 
         if now.status != before.status:
+            # No interval rides along here, and its absence is the point. A
+            # flipped outcome is never within noise (ADR 0006 §6), so it was
+            # not judged against an interval — and attaching one would invite
+            # a reader to check the score against it and find, quite often,
+            # that the score is *inside* it. `0.8 -> 0.4` across a threshold of
+            # 0.5, on a check whose baseline votes ran 0.0 to 1.0, is exactly
+            # that shape: reported, and inside. The delta carries what decided
+            # it, and nothing that did not.
             outcome: Outcome = "regressed" if before.status == "pass" else "improved"
             # A flip caused by a moved threshold reads exactly like a flip
             # caused by a worse model. Saying so is the difference between a

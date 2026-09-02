@@ -32,6 +32,11 @@ CASES = json.loads((Path(__file__).parent / "cases.json").read_text(encoding="ut
 #: The widest the aggregates moved across eight runs of an unchanged
 #: classifier: three cases. Measured, not chosen — the README shows the runs.
 #:
+#: Still measured by hand, and still worth keeping. ADR 0006 §7 gives an
+#: aggregate an interval of its own, computed once per sample index *within* one
+#: run — which sizes a different thing from eight runs a week apart, and sizes
+#: nothing at all against a baseline promoted before that release.
+#:
 #: A fraction and not `0.15`, so it still says "three cases" when somebody adds
 #: the twenty-first. And three rather than one: one case is what *accuracy*
 #: moves by when a single report changes its mind, but precision divides by the
@@ -48,6 +53,12 @@ class AgreesWithMark(AssertionBase):
     0, 0.2, … 1.0, so `threshold=0.5` is "the majority agreed" and
     `tolerance=0.4` is "up to two samples changing their mind is noise, three
     is a change". Both measured, not chosen — see the README.
+
+    The tolerance stays where it is under ADR 0006, and deliberately. It is the
+    **declared** control — what a reviewer decided is acceptable — and it now
+    sits on top of a **measured** one: the fold records the five raw votes and
+    the interval they spanned, and `compare` reads that as the noise floor. Two
+    controls, checked in that order, and the reason says which one spoke.
     """
 
     name: str = "agrees_with_mark"
