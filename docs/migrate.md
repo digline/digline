@@ -61,6 +61,21 @@ never leaves half a run behind.
 A refused file is left exactly as it was. `0 refused` in the tally is the
 ordinary case; anything else is a decision for a person, not for the tool.
 
+**Additive does not mean empty.** Schema 9 added the raw per-sample scores and
+the interval they span, and the step *derives* them from `metadata["scores"]` —
+a list every sampled run has carried since sampling existed. Reading what is
+already in the document is not inventing, and it is the difference between a
+promoted baseline being a noise floor on the day you upgrade and being one after
+you re-promote everything. A run at `samples=1` gains nothing but the version
+number, because at one sample there is no interval: `[score, score]` would be a
+noise floor of zero width dressed as a measurement.
+
+One thing the step deliberately leaves alone: an **aggregate** — precision,
+accuracy — records no interval on migration. Sizing one needs the marks and the
+declared assertion, and a run file carries neither, so a migrated baseline sizes
+the noise of its cases and reports the noise of its aggregates as not known. The
+aggregate floors arrive when you promote a run produced under this release.
+
 ## See also
 
 - [`api.md`](api.md) — the public API

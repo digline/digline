@@ -183,6 +183,12 @@ One card each — parameters, typical values, what to watch out for — in
   once — the same input answered differently. `Repeated` grades the same output
   more than once — the judge changing its mind. `min_agreement` becomes
   mandatory as soon as you sample.
+- **A tolerance is declared; a noise floor is measured.** A sampled run records
+  the interval its own samples spanned, and a drop that stays inside the
+  baseline's interval is reported as unchanged rather than as a regression — a
+  tool that cries wolf on its own measurement error teaches people to promote
+  past it. It never rescues a flip, and it never invents an interval it does not
+  have.
 - **Set the threshold where the system measurably is**, not where you want it:
   the gate protects against getting worse, and raising the bar is a visible
   change in a pull request.

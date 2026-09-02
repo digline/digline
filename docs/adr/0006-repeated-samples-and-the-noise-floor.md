@@ -1,6 +1,6 @@
 # ADR 0006 — Repeated samples and the noise floor
 
-- Status: accepted — shipping next: implementation starts after 2026-09-08
+- Status: accepted — implemented on `adr-0006`, released in core 0.4.0
 - Date: 2026-09-02
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)

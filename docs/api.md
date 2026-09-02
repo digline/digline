@@ -644,6 +644,54 @@ In `Score.metadata`: `samples`, `agreement`, `spread`, `errored_samples`,
 `scores` (the raw scores). All numbers, so they cross the boundary: the software
 house sees how unstable a check is without seeing what it was judging.
 
+### The interval, and the noise floor
+
+On the `Score` itself, not in `metadata`: `samples` (the raw per-sample scores,
+in order), `sample_min` and `sample_max`. **Absent when there is one sample** —
+a suite left at `samples=1` writes the file it always wrote. They are fields
+rather than three more keys in the bag because `compare()` reads them to decide
+an outcome, and a rule that reads a stringly-keyed bag is a rule one typo
+disables silently.
+
+They travel, for the same reason `spread` does: they measure the system's own
+variability, not what it judged.
+
+`compare()` then reads them as a **noise floor**. After the declared tolerance,
+a movement that lands inside the interval the *baseline* observed across its own
+samples is `unchanged`, and the delta says so:
+
+```python
+delta.within_noise  # True when the interval is what called it unchanged
+delta.noise_min, delta.noise_max, delta.noise_samples
+```
+
+`Outcome` gains no member — a movement within noise **is** `unchanged`, and the
+fact rides beside it, in `--json` as in the report.
+
+Four things it does not do:
+
+- **it never rescues a flip.** `pass` → `fail` is rule 3 of `compare()` and
+  sits above the numeric branch, so a drop through the threshold is reported
+  whatever the samples did. It follows that the floor can never wave a failure
+  through;
+- **it reads the baseline's interval, never this run's.** The baseline is the
+  promoted, reviewed measurement; letting a noisy new run widen its own excuse
+  is how a regression hides inside a model that got less stable;
+- **an interval of zero width is not a floor.** Five samples out of five — the
+  ordinary case away from the boundary — leaves nothing to be inside, so every
+  later change of mind is reported;
+- **it invents nothing where there is no interval.** A baseline promoted before
+  this release, or a suite at `samples=1`, keeps the absolute rule, and the
+  report says the noise of that check is not known rather than implying there is
+  none.
+
+An **aggregate** has no samples of its own, so it gets an interval a different
+way: the driver evaluates it once more per sample index — the sample-0 verdict
+of every case, then the sample-1 verdict, and so on — and records those N values.
+It costs no call to anything. The recorded score does not change: it is still
+computed from the folded per-case verdicts, and the per-sample values answer a
+different question whose only job is to size the noise.
+
 ## Aggregates: the verdict on the run
 
 With ground truth, the question that decides a release is not "did case 14 pass" but
@@ -747,6 +795,14 @@ If at step 3 the maximum is as large as the differences you want to catch, the
 tolerance is not the remedy: that check is too noisy to be a gate, and it has to
 be made stable — `Repeated` with `min_agreement`, a tighter rubric, a judge at a
 lower temperature.
+
+The tolerance is the **declared** control and stays a judgement someone makes.
+Beside it, a sampled check now carries a **measured** one — the interval its own
+samples spanned in the baseline, see [the noise floor](#the-interval-and-the-noise-floor).
+They are checked in that order, both produce `unchanged`, and the reason says
+which one spoke. A tolerance that was set generously as a hand-rolled noise
+floor can be tightened back to what a reviewer actually means to allow; nothing
+forces it, and nothing breaks if nobody does.
 
 A command doing the five steps (`digline calibrate`) is planned and not written
 yet: first we need to see how the procedure behaves by hand.
@@ -880,9 +936,13 @@ field inside a `Run` must not bump the output contract for consumers who saw no
 change.
 
 At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
-`config_changed`, `artifacts_changed`, `counts`, `reasons_available` and
-`sentence`; `--json full` adds `deltas`. A golden key set in the tests fails the
-build if a key is added without the bump.
+`config_changed`, `artifacts_changed`, `target_config_changed`,
+`judge_config_changed`, `within_noise`, `counts`, `reasons_available` and
+`sentence`; `--json full` adds `deltas`, `target_config_deltas` and
+`judge_config_deltas`. A golden key set in the tests fails the build if a key is
+added without the bump — *added* keys leave a consumer working, which is why
+these arrived without one. Each delta carries `within_noise`, `noise_min`,
+`noise_max` and `noise_samples` beside its outcome.
 
 ## Verdicts and comparison
 
@@ -899,8 +959,10 @@ plus one `ConfigDelta` per configuration parameter on either side — `field`,
 on a baseline that predates ADR 0005, reports `unknown`: neither is a change, so
 a baseline promoted last month keeps comparing without being promoted again.
 The rules apply in this order: presence on one side only, then error, then a
-change of outcome (**regardless of the tolerance**), then numeric comparison
-against the tolerance.
+change of outcome (**regardless of the tolerance**), then the declared
+tolerance, then the measured noise floor — see
+[the interval](#the-interval-and-the-noise-floor). The last two both produce
+`unchanged`, and `within_noise` on the delta says which one spoke.
 
 ## Redaction
 

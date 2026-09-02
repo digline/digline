@@ -5,6 +5,33 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## 0.4.0 — unreleased
 
+- **Added:** a **noise floor**. A sampled check now records the raw per-sample
+  scores and the interval they span, and `compare` reads the *baseline's*
+  interval: a movement that lands inside it is `unchanged`, with
+  `within_noise` on the delta and a sentence saying so in the report and in
+  `--json`. Nothing rescues a flip, an interval of zero width is not a floor,
+  and a baseline with no interval keeps the absolute rule. Two controls now
+  exist and the reason says which one spoke: `tolerance` is *declared* — what a
+  reviewer allows — and this one is *measured*. (ADR 0006)
+- **Added:** aggregates get an interval of their own. Precision and accuracy are
+  computed once per run and so have no samples, but the noise they need sizing
+  against is real — one case in twenty-one moving and coming back was what
+  prompted the ADR. The driver evaluates each aggregate once more per sample
+  index and records those N values. No call to a target, no call to a judge, and
+  the recorded score is unchanged. (ADR 0006 §7)
+- **Added:** `digline run` announces the multiplied call count on stderr before
+  the first call — `20 cases × 5 samples = 100 calls to the target`. Arithmetic
+  over the declared suite; a suspended case is not counted, and a `Repeated` is
+  named with its own factor. A money estimate is deferred to an ADR of its own:
+  it would need a new optional method on every target. (ADR 0006 §8)
+- **Changed:** `SCHEMA_VERSION` 8 → 9, additively. **No baseline needs
+  re-promoting and no example was re-recorded**: the score is still the mean, so
+  every stored number is the one this release computes, and the migration
+  *derives* the new fields from the `metadata["scores"]` a sampled run already
+  carried. A run at `samples=1` gains only the version number. Run
+  `digline migrate` after upgrading — a stored run at schema 8 is skipped by a
+  scan and refused by name until you do. Aggregate intervals are the one thing
+  migration cannot supply; they arrive with your next promotion.
 - **Added:** `examples/langchain/` — a LangChain pipeline evaluated in process:
   the target is a function that invokes the chain, so there is no server and no
   HTTP. The default path runs on LangChain's own `FakeListChatModel`, which is

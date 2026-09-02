@@ -44,14 +44,22 @@ This track makes the verdict itself trustworthy.
       baselines; `compare` highlights which parameters changed between the
       two (ADR 0005) — shipped in 0.2.0, extended in 0.3.0 to targets Digline
       cannot import, which report theirs in the answer (ADR 0005 §8)
-- [ ] Repeated runs per case: score as a distribution (mean and spread), not
-      a single sample
-- [ ] Regression thresholds expressed relative to measured variance, not as
-      absolute deltas — a drop is a regression only when it exceeds the noise
-      floor of the case
+- [x] Repeated runs per case: score as a distribution, not a single sample —
+      `Suite.samples` folds N calls per case, and since ADR 0006 the raw
+      per-sample scores and the interval they span are recorded on the verdict
+      and travel with it
+- [x] Regression thresholds expressed relative to measured variance, not as
+      absolute deltas — a drop is a regression only when it leaves the interval
+      the *baseline* observed across its own samples (ADR 0006 §5), and an
+      aggregate gets an interval of its own from one evaluation per sample
+      index (§7). The observed min and max rather than a variance: five samples
+      do not earn a distributional assumption, and a reader can check a min
+      against the raw values printed beside it
 
 **Exit gate:** a baseline comparison can state, honestly, whether an observed
-difference is signal or sampling noise.
+difference is signal or sampling noise. **Met** — the two runs in
+`tests/fixtures/brief/` are the case it was written against, and the test that
+reads them fails if it stops being met.
 
 ## Track C — Adoption and developer experience
 
