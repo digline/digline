@@ -19,7 +19,6 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -99,7 +98,7 @@ def replay(workdir: Path) -> tuple[set[str], int]:
     """The quickstart, exactly as the page tells it, and what it printed.
 
     Between the promotion and the second run the sign-off is dropped from the
-    *second* answer — that is the "change an answer" the README asks for, and it
+    *second* answer — that is the "make it worse" the README asks for, and it
     is what produces the two regressed checks the page shows, on the case the
     page names.
     """
@@ -221,25 +220,18 @@ def test_every_relative_link_resolves() -> None:
 def test_the_pypi_badge_and_the_install_line_stand_or_fall_together() -> None:
     """Published or not, the page must not be caught half-way.
 
-    The day digline goes to PyPI the badge and `pip install digline` come back
-    together, and the badge carries the version literally so it can be checked
-    against `pyproject.toml` — which is why a static badge is worth more here
-    than the dynamic shield that renders whatever PyPI currently says.
+    What this refuses is the state in between: a badge above an install line the
+    reader cannot follow, or the reverse.
 
-    Today neither is there, and what this refuses is the state in between: a
-    badge above an install line the reader cannot follow, or the reverse.
+    The badge is the dynamic shield, which renders whatever PyPI currently says.
+    That is why there is no version to compare with `pyproject.toml` here: a
+    static badge carries a version a release can leave behind — and did, since
+    the page said `0.1.0` in its Status section while `0.3.0` was on PyPI — and
+    the shield cannot fall behind because it holds no copy of the number.
     """
-    badge = re.search(r"img\.shields\.io/badge/pypi-([\w.]+)-", TEXT)
+    badge = "img.shields.io/pypi/v/digline" in TEXT
     installable = "pip install digline" in TEXT or "uv add digline" in TEXT
-    assert bool(badge) == installable, (
+    assert badge == installable, (
         "the PyPI badge and the install line must appear together: "
-        f"badge={bool(badge)}, install line={installable}"
-    )
-    if badge is None:
-        return
-
-    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    declared = pyproject["project"]["version"]
-    assert badge.group(1).replace("--", "-") == declared, (
-        f"the badge says {badge.group(1)}, pyproject says {declared}"
+        f"badge={badge}, install line={installable}"
     )

@@ -2,7 +2,7 @@
 
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
-[![PyPI 0.3.0](https://img.shields.io/badge/pypi-0.3.0-blue)](https://pypi.org/project/digline/)
+[![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
@@ -43,7 +43,7 @@ platforms? See [How digline compares](https://digline.dev/comparison/).
 ## Quickstart
 
 ```bash
-pip install digline digline-anthropic   # or: uv add digline digline-anthropic
+pip install digline   # or: uv add digline
 ```
 
 **Requires Python 3.12+.** On an older interpreter pip says
@@ -99,6 +99,9 @@ suite = Suite(
 )
 ```
 
+When your judge is a real model, add a provider plugin:
+`pip install digline-anthropic` (or `digline-openai`, `digline-bedrock`).
+
 ```console
 $ digline run --suite suite.py
 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
@@ -107,7 +110,8 @@ $ digline promote --suite suite.py --run latest
 support baseline set to 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 ```
 
-Now change the prompt, the model, an answer — anything — and ask again:
+Now make it worse — delete `— Northwind Support` from the second answer —
+and ask again:
 
 ```console
 $ digline run --suite suite.py
@@ -197,7 +201,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 
 ## Examples
 
-Four projects in [`examples/`](examples/), each answering a question somebody
+Five projects in [`examples/`](examples/), each answering a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
@@ -220,7 +224,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.1.0`, alpha. The offline cycle — write the suite, run, promote, compare,
+`0.3.0`, alpha. The offline cycle — write the suite, run, promote, compare,
 report — is complete, covered by tests, and used daily on a real project. The
 production store, the bridge from production failures back to committed cases,
 and the reactive side are designed in
