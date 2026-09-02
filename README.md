@@ -226,6 +226,10 @@ actually arrives with. Every one runs with no API key, carries its committed
 - **Not a red-teaming tool.** digline generates no attacks. Once one is found,
   it becomes a `Case`, and the suite makes sure it never works again.
 - **Not YAML.** Cases are data and may come from files; the suite is Python.
+- **Not a funnel.** Two commitments, by design and for good: no hosted service
+  that receives your payloads, and no data collection. The baseline lives in
+  your repo; the runs happen on your machines. If digline ever grows paid
+  features, they will run inside your perimeter too.
 
 ## Status
 
