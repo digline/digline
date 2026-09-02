@@ -206,7 +206,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 
 ## Examples
 
-Five projects in [`examples/`](examples/), each answering a question somebody
+Six projects in [`examples/`](examples/), each answering a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
@@ -216,6 +216,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**I have a RAG: how do I check it doesn't make things up?**](examples/rag/) — frozen retrieval, `Faithfulness`, `PiiAbsent`
 - [**My application is Java: can I use this?**](examples/external-app/) — `HttpTarget` against a service digline cannot import
 - [**My app is LangChain4j: what do I put in my repo?**](examples/langchain4j/) — the walkthrough: one endpoint, three files, the CI gate
+- [**My pipeline is LangChain: what changed when I upgraded it?**](examples/langchain/) — the chain called in process, `FakeListChatModel` in CI, one line to a real model
 
 ## What digline is not
 

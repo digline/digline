@@ -25,13 +25,16 @@ QUICKSTART = ROOT / "examples" / "quickstart"
 API_DOC = ROOT / "docs" / "api.md"
 
 
-def cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def cli(
+    root: Path, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "digline.cli", *args],
         cwd=root,
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 
@@ -157,7 +160,14 @@ def test_the_api_doc_covers_every_public_assertion() -> None:
 #: dependency on the *published* package, no reference to this workspace. Run
 #: here against the source so a change that breaks one is caught the day it is
 #: made, rather than the day somebody copies the directory out.
-STANDALONE = ("classifier", "prompt-first", "rag", "external-app", "langchain4j")
+STANDALONE = (
+    "classifier",
+    "prompt-first",
+    "rag",
+    "external-app",
+    "langchain4j",
+    "langchain",
+)
 
 
 @pytest.fixture(params=STANDALONE)
@@ -241,6 +251,66 @@ def test_each_readme_opens_with_the_question_it_answers(name: str) -> None:
     assert first.startswith("# ")
     assert first.split()[1] in ("I", "I'm", "My"), first
     assert len(first.split()) >= 6, first
+
+
+# --------------------------------------------------------------------------- #
+# The LangChain path: in process, and free
+# --------------------------------------------------------------------------- #
+
+LANGCHAIN = ROOT / "examples" / "langchain"
+
+
+def test_the_langchain_example_runs_with_no_key_anywhere(tmp_path: Path) -> None:
+    """The claim its README opens with, checked rather than asserted.
+
+    An example about a framework is only an example if somebody without an
+    account can run it, and the way that promise rots is quiet: a provider key
+    happens to be exported on the machine where it was last tried, the default
+    path silently reaches a real model, and the failure surfaces on a stranger's
+    laptop. So the environment is stripped of every key here, and of the switch
+    that would ask for one.
+    """
+    workdir = tmp_path / "langchain"
+    shutil.copytree(LANGCHAIN, workdir)
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.endswith("_API_KEY") and k != "DIGLINE_LIVE"
+    }
+    ran = cli(workdir, "run", "--suite", "suite.py", env=env)
+    assert ran.returncode == EXIT_OK, ran.stderr
+    assert ran.stdout.strip()
+
+
+def test_the_langchain_example_states_the_version_it_was_tested_against() -> None:
+    """A reader reproduces a run from the version in the README, so it has to be
+    the version the project actually resolves. The failure mode of a hand-typed
+    one is a reader debugging a difference that is only in the prose."""
+    floor = re.search(
+        r'"langchain>=([\d.]+),<2"',
+        (LANGCHAIN / "pyproject.toml").read_text(encoding="utf-8"),
+    )
+    assert floor is not None, "examples/langchain no longer pins a langchain floor"
+    readme = (LANGCHAIN / "README.md").read_text(encoding="utf-8")
+    assert f"langchain {floor.group(1)}" in readme, (
+        f"the README does not say it was tested against langchain "
+        f"{floor.group(1)}, which is what pyproject.toml resolves"
+    )
+
+
+def test_the_langchain_suite_declares_both_prompt_files() -> None:
+    """The prompt is the thing under test (ADR 0003), and this chain builds its
+    messages from two files. One of them declared and the other not would leave
+    a run that records half of what produced it."""
+    baseline = json.loads(
+        (
+            LANGCHAIN / ".digline" / "riverbend" / "baselines" / "handbook.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert set(baseline["artifacts"]) == {
+        "prompts/extract.txt",
+        "prompts/request.txt",
+    }
 
 
 # --------------------------------------------------------------------------- #

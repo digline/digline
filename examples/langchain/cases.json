@@ -1,0 +1,30 @@
+[
+  {
+    "id": "return-worn-boots",
+    "request": "I wore the boots outside once. Can I still return them?"
+  },
+  {
+    "id": "delivery-to-an-island",
+    "request": "How long does delivery take to an island address, and does it cost more?"
+  },
+  {
+    "id": "warranty-on-a-zip",
+    "request": "The zip on my jacket failed after a year. Is that covered?"
+  },
+  {
+    "id": "between-two-sizes",
+    "request": "I am between two sizes for a jacket. Which one should I order?"
+  },
+  {
+    "id": "locked-out-of-my-account",
+    "request": "I am locked out of my account after too many tries."
+  },
+  {
+    "id": "two-cards-one-order",
+    "request": "Can I pay for one order with two cards?"
+  },
+  {
+    "id": "a-guided-weekend",
+    "request": "Do you run guided weekend treks I could book?"
+  }
+]

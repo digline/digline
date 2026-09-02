@@ -1,0 +1,40 @@
+[project]
+name = "riverbend-handbook-eval"
+version = "0.1.0"
+description = "Evaluating a LangChain pipeline in process, with digline."
+requires-python = ">=3.12"
+dependencies = [
+    # The published package, nothing local. This directory is meant to become
+    # its own repository: `cp -r` it anywhere and `uv sync` has to work.
+    "digline>=0.3,<0.4",
+    # The judge behind the rubric on the live path. A plugin is a target *and*
+    # a judge (ADR 0004), so the SDK-and-JSON never enters `suite.py`.
+    "digline-anthropic>=0.2,<0.3",
+    # A floor, not a pin: 1.3.18 is the version this was written and tested
+    # against, and the ceiling is the major. The weekly run in `check.yml` is
+    # what tells you a minor moved under the chain — which is the whole
+    # question this example exists to answer, so pinning it exactly would be
+    # pinning the thing under test.
+    "langchain>=1.3.18,<2",
+    # Only reached with DIGLINE_LIVE=1, and installed anyway so that switching
+    # paths is one environment variable rather than one variable and an install.
+    "langchain-anthropic>=1,<2",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+# An application, not a library: there is nothing here to build a wheel from.
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"

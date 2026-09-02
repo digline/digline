@@ -1,0 +1,43 @@
+name: check
+
+# Inert while this lives inside the digline monorepo — the workflow that runs is
+# the one at the repository root. It is here so that the day this directory
+# becomes its own repository, the cycle is already wired.
+on:
+  push:
+  schedule:
+    # Monday, 06:00 UTC. `langchain>=1.3.18,<2` means a minor release lands under
+    # this chain without anybody merging anything, and the model behind the live
+    # path moves on a schedule you do not control either. The run nobody
+    # triggered is the one that notices.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+
+      # From PyPI, like any user: this checks the published package, not a
+      # checkout of it. No key is set anywhere in this job — the default path
+      # runs on LangChain's own fake chat model, which is what makes an example
+      # about a framework runnable by somebody who has no account.
+      - run: uv sync
+
+      # The gate. `run` writes a run and prints its key; `compare` holds it
+      # against the baseline committed in this repository and exits non-zero if
+      # anything got worse. There is deliberately no `promote` here: promoting
+      # is the human decision that *this* is the new normal, made by someone
+      # reading the report and committing the result. A job that promotes before
+      # it compares compares a run with itself and passes by construction.
+      - name: Compare with the committed baseline
+        run: |
+          KEY=$(uv run digline run --suite suite.py)
+          uv run digline compare --suite suite.py --run "$KEY"
+
+      - run: uv run ruff check .
+      - run: uv run pyright

@@ -5,6 +5,12 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## 0.4.0 — unreleased
 
+- **Added:** `examples/langchain/` — a LangChain pipeline evaluated in process:
+  the target is a function that invokes the chain, so there is no server and no
+  HTTP. The default path runs on LangChain's own `FakeListChatModel`, which is
+  what CI runs — no key, no network — and `DIGLINE_LIVE=1` puts a real model
+  under the chain and `AnthropicJudge` behind the rubric. Tested against
+  langchain 1.3.18.
 - **Added:** `ci.yml` builds the digline.dev site on every push — the site's own
   config and its own sync script, `mkdocs build --strict` — so a relative link
   in an example README, or an example with no entry in the site's nav, fails on

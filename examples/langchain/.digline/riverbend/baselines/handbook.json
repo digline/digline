@@ -1,0 +1,348 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "prompts/extract.txt": {
+      "sha": "4bde0820d873626e1987b766979994df1c1eafec97b7f7cfe5724e1a1c892fc7",
+      "text": "You are the support desk assistant for Riverbend Outfitters.\n\nAnswer only from the handbook passage you are given. If the passage does not\ncover the request, say so and set \"needs_human\" to true. Never invent a price,\na date or a rule the passage does not state.\n\nReply with one JSON object and nothing else. No prose around it, no code fence:\n\n{\"category\": \"one of accounts, contact, payments, returns, shipping, sizing, warranty\",\n \"answer\": \"at most two sentences, quoting the passage\",\n \"source\": \"the id of the passage you were given\",\n \"needs_human\": true or false}\n"
+    },
+    "prompts/request.txt": {
+      "sha": "acec921ef93384c40f1f3c27a3dc2325a179a3d65eba6b236a4fb8cf8b2460cd",
+      "text": "Passage {source}:\n{passage}\n\nCustomer request:\n{request}\n"
+    }
+  },
+  "config_hash": "d33c133e4379cf89",
+  "created_at": "2026-09-02T13:02:16.957645+00:00",
+  "environment": "staging",
+  "git_commit": "920f358fb0ddaddd38c43834c1b7f28e8b076128-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "return-worn-boots",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "75% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 0.875,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "delivery-to-an-island",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "100% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "warranty-on-a-zip",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "100% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "between-two-sizes",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "100% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "locked-out-of-my-account",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "100% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "two-cards-one-order",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "88% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 0.938,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "a-guided-weekend",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "json_schema",
+          "assertion_id": "759a31b2c2c0af37",
+          "metadata": {},
+          "reason": "conforms to the schema",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "dd78927b7c151e2f",
+          "metadata": {},
+          "reason": "'handbook/' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "not_contains",
+          "assertion_id": "de031ed5f3fa71e7",
+          "metadata": {},
+          "reason": "'```' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "b408e18b27c35495",
+          "metadata": {},
+          "reason": "100% of the answer's content words are in the passage, at most two sentences=True",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    }
+  ],
+  "schema_version": 8,
+  "suite": "handbook",
+  "target_config": {},
+  "tenant": "riverbend"
+}

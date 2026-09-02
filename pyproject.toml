@@ -49,6 +49,11 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "pyright>=1.1.380",
+    # Not a dependency of digline and never will be: it is here so that
+    # `tests/test_examples.py` can run `examples/langchain` against this source
+    # on every build, the same way it runs every other example. The example
+    # declares its own floor; this one only has to be able to import it.
+    "langchain>=1.3.18,<2",
 ]
 
 [tool.uv.workspace]

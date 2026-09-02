@@ -115,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [classifier, prompt-first, rag, external-app, langchain4j]
+        example: [classifier, prompt-first, rag, external-app, langchain4j, langchain]
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
