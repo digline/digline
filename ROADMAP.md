@@ -81,13 +81,6 @@ reads them fails if it stops being met.
       plugin. Scope is the assertions whose parameters are already data; a
       custom assertion, a custom target and a `Disclosure` stay Python
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
-- [ ] A gate pairing `docs/adr/*.md` with the site's nav, the same shape as
-      `test_every_example_has_a_page_in_the_site_nav` in `tests/test_examples.py`.
-      digline.dev enumerates each ADR in `mkdocs.yml` and builds with
-      `omitted_files: warn`, so a new ADR with no nav line fails `mkdocs build
-      --strict` — and only in the cross-repo build, never in anything a
-      contributor runs locally. It is the trap the examples already have a test
-      for, one directory over
 
 This replaces *"a thin JVM emitter"*, which was on this list and was wrong. An
 emitter means the JVM side runs its own assertions and posts the verdicts, which

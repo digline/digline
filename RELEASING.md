@@ -68,12 +68,14 @@ on GitHub fail there**:
   directory and not on the site, where the target was never copied. The four
   oldest examples carry no links at all, which is why the rule went years
   without being written down.
-- **an example with no entry in the site's `nav`.** Adding `examples/<name>/`
-  here needs one line in `digline.dev`'s `mkdocs.yml`, under `- Examples:`:
-  `- <label>: product/examples/<name>.md`.
+- **a page with no entry in the site's `nav`.** Adding `examples/<name>/` here
+  needs one line in `digline.dev`'s `mkdocs.yml`, under `- Examples:`:
+  `- <label>: product/examples/<name>.md`. Adding `docs/adr/<name>.md` needs
+  the same line under `- Decisions:`, as `product/adr/<name>.md`.
 
 Both are gated now — by the `docs` job in `ci.yml`, which runs this same build
-on every push, and by `tests/test_examples.py` for the nav entry specifically.
+on every push, and, for the nav entry specifically, by `tests/test_examples.py`
+and `tests/test_adr.py`, which name the page and the line to add.
 So this block should already be green by the time you reach it. Run it anyway:
 the job checks `digline.dev`'s **default branch**, and what the release will
 actually build against is whatever that branch holds at dispatch time.
