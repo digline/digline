@@ -1126,16 +1126,20 @@ $ digline run --suite support.py
 2026-08-26T16-24-36-803385-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 1 check moved within noise. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 ```
 
-Two silences there, and only one of them is good news.
+Two things are missing from that page, and only one of them is missing on
+purpose.
 
-The rubric on `how-do-i-return` did move — `0.920000` to `0.760000`, chapter 2
-all over again — and it was not reported, because `0.76` is inside the interval
-the baseline's own five votes spanned. That is the measured floor of chapter 4
-doing its job: a movement a check makes on its own is not a finding about the
-system. `digline report` still shows the line, and says which control spoke.
+The second sentence is the one that moved. The rubric on `how-do-i-return` did
+drop — `0.920000` to `0.760000`, chapter 2 all over again — and it is not in the
+list of regressions, because `0.76` is inside the interval the baseline's own
+five votes spanned. The headline says so out loud rather than staying quiet: a
+run that is clean because nothing moved and a run that is clean because what
+moved was noise are two different states of the world, and a reader is owed
+both. `digline report` carries the line itself, with the interval and which
+control spoke.
 
 And there is the trap, in the other silence. The case you just added, the one
 that reproduces the customer's complaint, **is not mentioned at all.** It is
@@ -1370,7 +1374,7 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-184744-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
+Nothing got worse compared with the reference. 2 checks moved within noise. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
 
   app.py · +2 −2 lines
 ```
@@ -1380,9 +1384,9 @@ The headline now carries the sentence that was missing from trigger four:
 different system. That is a different fact from either half alone, and it is the
 one that tells you where to look — and the line under it says where.
 
-Nothing got worse, and that is the finding rather than a shrug. The rubric
-wobbled again, inside the floor its baseline measured, and the floor kept it out
-of the way — so the one thing on the page is the file that actually moved.
+Nothing got worse, and that is the finding rather than a shrug. Two checks
+wobbled, inside the floor their baselines measured, and the headline says as
+much — so the one unexplained thing on the page is the file that actually moved.
 
 The terminal stops at the tally. `digline report` carries the diff itself, line
 by line with context, and so does the comparison screen in `digline view`: a

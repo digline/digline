@@ -27,6 +27,7 @@ from digline.core import (
     AssertionDelta,
     CaseOutcome,
     CaseResult,
+    Comparison,
     Label,
     Precision,
     Run,
@@ -41,6 +42,8 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.run import SCHEMA_VERSION, run_from_dict
+from digline.report import headline, render_html
+from digline.report.text import LOCALES, Locale, phrase
 from digline.store.migrate import upgrade_document
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -677,3 +680,102 @@ def test_the_run_it_came_back_to_needs_no_promotion() -> None:
     )
     assert not comparison.has_regressions
     assert not comparison.errored
+
+
+# -- §10: the copy, in both locales ---------------------------------------- #
+
+
+def noise_comparison() -> Comparison:
+    """One check within the noise, one beyond it, against the same baseline."""
+    steady = folded(0.9, 0.9, 0.9, 0.9, 0.9, threshold=0.5)
+    wobbly = folded(1.0, 0.6, 1.0, 1.0, 1.0, threshold=0.5)
+    now_within = folded(0.75, 0.75, 0.75, 0.75, 0.75, threshold=0.5)
+    now_beyond = folded(0.6, 0.6, 0.6, 0.6, 0.6, threshold=0.5)
+    return compare(
+        make_run(
+            [replace_name(now_within, "wobbly"), replace_name(now_beyond, "steady")]
+        ),
+        make_run([replace_name(wobbly, "wobbly"), replace_name(steady, "steady")]),
+    )
+
+
+def replace_name(verdict: Verdict, name: str) -> Verdict:
+    return replace(
+        verdict,
+        score=Score(
+            name=name,
+            score=verdict.score.score,
+            metadata=verdict.score.metadata,
+            samples=verdict.score.samples,
+            sample_min=verdict.score.sample_min,
+            sample_max=verdict.score.sample_max,
+        ),
+        assertion_id=f"id-{name}",
+    )
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_the_within_noise_sentence_names_the_interval(locale: Locale) -> None:
+    comparison = noise_comparison()
+    run = make_run([])
+    document = render_html(comparison, run, run, locale=locale)
+    # Rendered at FLOAT_PRECISION like every other score, and with the dot, so
+    # two renderings of one run still diff line by line.
+    assert "0.600000–1.000000" in document
+    assert "5" in document
+
+
+def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
+    comparison = noise_comparison()
+    run = make_run([])
+    document = render_html(comparison, run, run, locale="en")
+    assert (
+        "Score moved from 0.920000 to 0.750000 — within the noise of this "
+        "check (0.600000–1.000000 across 5 samples); not counted as a "
+        "regression." in document
+    )
+    assert (
+        "Score fell from 0.900000 to 0.600000 — beyond the noise of this "
+        "check (0.900000–0.900000 across 5 samples)." in document
+    )
+
+
+def test_the_italian_sentences_say_the_same_thing() -> None:
+    comparison = noise_comparison()
+    run = make_run([])
+    document = render_html(comparison, run, run, locale="it")
+    assert "entro il rumore di questo controllo" in document
+    assert "oltre il rumore di questo controllo" in document
+    assert "non conta come peggioramento" in document
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_the_headline_counts_what_moved_within_noise(locale: Locale) -> None:
+    run = make_run([])
+    head = headline(noise_comparison(), run, run, locale=locale)
+    assert head.within_noise == 1
+    assert head.worse
+    assert phrase(locale, "fact.noise.one") in head.sentence
+
+
+def test_a_run_that_never_sampled_gets_no_noise_sentence() -> None:
+    """Silent at zero, like the artifact clause: a sentence about noise nobody
+    measured is one the reader learns to skip, and the clause that matters gets
+    skipped with it."""
+    before = Verdict(
+        score=Score(name="check", score=0.9),
+        threshold=0.5,
+        status="pass",
+        reason="scored 0.9",
+        assertion_id="id-check",
+    )
+    run = make_run([])
+    head = headline(
+        compare(make_run([before]), make_run([before])), run, run, locale="en"
+    )
+    assert head.within_noise == 0
+    assert "noise" not in head.sentence
+    document = render_html(
+        compare(make_run([before]), make_run([before])), run, run, locale="en"
+    )
+    assert "noise of this check" not in document

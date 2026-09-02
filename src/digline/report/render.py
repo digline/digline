@@ -91,7 +91,7 @@ OUTCOME_ORDER: Sequence[Outcome] = (
 class Headline:
     """The first screen, and what a CLI exits on.
 
-    It carries **seven** facts, and they are deliberately not merged into one.
+    It carries **eight** facts, and they are deliberately not merged into one.
 
     A regression, a case the suite could not judge, and a case someone chose to
     set aside are three different events needing three different actions: an
@@ -133,6 +133,11 @@ class Headline:
     #: the scores are less comparable than their difference suggests. Reported
     #: more strongly than a target change for exactly that reason.
     judge_config_changed: bool = False
+    #: How many checks moved and were covered by the interval their baseline
+    #: measured. The eighth fact, and the one that keeps the first honest: a run
+    #: reported as clean because nothing moved and one reported as clean because
+    #: what moved was noise are two different states of the world. (ADR 0006 §9)
+    within_noise: int = 0
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -243,6 +248,17 @@ def headline(
 
     suspended = sum(1 for case in run.results if case.suspended is not None)
 
+    # Silent at zero, like the artifact clause and for the same reason: a
+    # sentence about noise nobody measured is one the reader learns to skip, and
+    # the clause that matters gets skipped with it.
+    within_noise = sum(1 for d in comparison.deltas if d.within_noise)
+    if within_noise == 0:
+        noise_text = ""
+    elif within_noise == 1:
+        noise_text = phrase(locale, "fact.noise.one")
+    else:
+        noise_text = phrase(locale, "fact.noise.many", count=within_noise)
+
     if unjudged == 0:
         unjudged_text = phrase(locale, "fact.unjudged.none")
     elif unjudged == 1:
@@ -307,6 +323,7 @@ def headline(
 
     return Headline(
         worse=regressed > 0,
+        within_noise=within_noise,
         unjudged=unjudged,
         suspended=suspended,
         config_changed=comparison.config_changed,
@@ -323,6 +340,10 @@ def headline(
             part
             for part in (
                 worse_text,
+                # Straight after "nothing got worse", because it is what
+                # qualifies it: something did move, and it moved no further than
+                # the check moves by itself.
+                noise_text,
                 unjudged_text,
                 suspended_text,
                 config_text,
@@ -410,11 +431,43 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
             )
         return text
 
+    # The measured floor, where there is one. Three sentences rather than a
+    # clause appended to the existing three: "beyond the noise" changes what the
+    # sentence claims, and a reader has to see it inside the statement rather
+    # than trailing it. (ADR 0006 §10)
+    noise = _noise_interval(delta, locale)
+
+    if delta.within_noise:
+        return phrase(
+            locale, "detail.within_noise", before=was, now=is_now, noise=noise
+        )
     if delta.outcome == "regressed":
-        return phrase(locale, "detail.dropped", before=was, now=is_now)
+        key = "detail.dropped.beyond_noise" if noise else "detail.dropped"
+        return phrase(locale, key, before=was, now=is_now, noise=noise)
     if delta.outcome == "improved":
-        return phrase(locale, "detail.rose", before=was, now=is_now)
+        key = "detail.rose.beyond_noise" if noise else "detail.rose"
+        return phrase(locale, key, before=was, now=is_now, noise=noise)
     return phrase(locale, "detail.unchanged", now=is_now)
+
+
+def _noise_interval(delta: AssertionDelta, locale: Locale) -> str:
+    """`0.850000–0.950000 across 5 samples`, or nothing at all.
+
+    Nothing where the baseline recorded no interval — a run at `samples=1`, or a
+    baseline promoted before ADR 0006. The report then says what it always said,
+    rather than a sentence about a measurement nobody has: "the noise of this
+    check is not known" is what silence means here, and inventing a phrase for
+    it would put an absent fact on the page. (ADR 0006 §5)
+    """
+    if delta.noise_min is None or delta.noise_max is None:
+        return ""
+    return phrase(
+        locale,
+        "noise.interval",
+        low=fmt_score(delta.noise_min),
+        high=fmt_score(delta.noise_max),
+        count=delta.noise_samples,
+    )
 
 
 #: What separates the three fields of a summary line. Not a tab: the columns

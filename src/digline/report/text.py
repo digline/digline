@@ -9,7 +9,8 @@ both: a report is a committed artifact, and two reports of the same run in two
 languages must remain comparable line by line.
 
 - **Dates** stay ISO 8601, exactly as they were recorded.
-- **Numbers** keep the dot as decimal separator.
+- **Numbers** keep the dot as decimal separator, and a measured interval is
+  rendered at `FLOAT_PRECISION` like every other score (ADR 0006 §10).
 
 Localizing either would produce documents that say the same thing and cannot be
 diffed against each other.
@@ -67,6 +68,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nothing got worse compared with the reference.",
         "fact.worse.one": "1 check got worse compared with the reference.",
         "fact.worse.many": "{count} checks got worse compared with the reference.",
+        "fact.noise.one": "1 check moved within noise.",
+        "fact.noise.many": "{count} checks moved within noise.",
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         "fact.unjudged.many": "{count} cases could not be judged.",
@@ -166,6 +169,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.dropped": "Score fell from {before} to {now}.",
         "detail.rose": "Score rose from {before} to {now}.",
         "detail.unchanged": "Score unchanged at {now}.",
+        "noise.interval": "{low}–{high} across {count} samples",
+        "detail.within_noise": (
+            "Score moved from {before} to {now} — within the noise of this "
+            "check ({noise}); not counted as a regression."
+        ),
+        "detail.dropped.beyond_noise": (
+            "Score fell from {before} to {now} — beyond the noise of this "
+            "check ({noise})."
+        ),
+        "detail.rose.beyond_noise": (
+            "Score rose from {before} to {now} — beyond the noise of this "
+            "check ({noise})."
+        ),
         "detail.flipped.worse": "Went from passing to failing ({before} → {now}).",
         "detail.flipped.better": "Went from failing to passing ({before} → {now}).",
         "detail.threshold_moved": (
@@ -259,6 +275,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nulla è peggiorato rispetto al riferimento.",
         "fact.worse.one": "1 controllo è peggiorato rispetto al riferimento.",
         "fact.worse.many": "{count} controlli sono peggiorati rispetto al riferimento.",
+        "fact.noise.one": "1 controllo si è mosso entro il rumore.",
+        "fact.noise.many": "{count} controlli si sono mossi entro il rumore.",
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
         "fact.unjudged.many": "{count} casi non è stato possibile giudicarli.",
@@ -360,6 +378,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",
         "detail.rose": "Il punteggio è salito da {before} a {now}.",
         "detail.unchanged": "Punteggio invariato a {now}.",
+        "noise.interval": "{low}–{high} su {count} campioni",
+        "detail.within_noise": (
+            "Il punteggio si è spostato da {before} a {now} — entro il rumore "
+            "di questo controllo ({noise}); non conta come peggioramento."
+        ),
+        "detail.dropped.beyond_noise": (
+            "Il punteggio è sceso da {before} a {now} — oltre il rumore di "
+            "questo controllo ({noise})."
+        ),
+        "detail.rose.beyond_noise": (
+            "Il punteggio è salito da {before} a {now} — oltre il rumore di "
+            "questo controllo ({noise})."
+        ),
         "detail.flipped.worse": "Da superato a non superato ({before} → {now}).",
         "detail.flipped.better": "Da non superato a superato ({before} → {now}).",
         "detail.threshold_moved": (

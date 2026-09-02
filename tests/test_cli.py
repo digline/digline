@@ -157,6 +157,10 @@ COMPARE_KEYS = {
     # nothing else on this list can — same rules, same prompt, different model.
     "target_config_changed",
     "judge_config_changed",
+    # Joined with ADR 0006, same rule: a consumer that never looks at it is
+    # unaffected, and one that wants to tell "nothing moved" from "what moved
+    # was noise" has the count without parsing a sentence.
+    "within_noise",
     "counts",
     "reasons_available",
     "sentence",

@@ -315,6 +315,13 @@ def _delta_json(delta: AssertionDelta) -> dict[str, object]:
     `case_id == ""`: deriving the kind of a delta from an empty string asks the
     consumer to know a convention instead of reading a field, and an empty
     `case_id` is equally what a malformed one would look like.
+
+    `within_noise` and the interval ride beside the outcome rather than inside
+    it, in `--json` for the same reason as in the document: `Outcome` gains no
+    sixth member, so a pipeline that already knows the five keeps working, and
+    one that wants to tell "nothing moved" from "what moved was noise" reads a
+    field. The interval is emitted on a regression too — that is the sentence
+    "beyond the noise of this check" in machine form. (ADR 0006 §9)
     """
     before = None if delta.baseline is None else delta.baseline.score.score
     after = None if delta.current is None else delta.current.score.score
@@ -326,6 +333,10 @@ def _delta_json(delta: AssertionDelta) -> dict[str, object]:
         "before": before,
         "after": after,
         "delta": delta.delta,
+        "within_noise": delta.within_noise,
+        "noise_min": delta.noise_min,
+        "noise_max": delta.noise_max,
+        "noise_samples": delta.noise_samples,
     }
 
 
