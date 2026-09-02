@@ -50,6 +50,13 @@
             "spread": 0.0
           },
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.7,
@@ -89,6 +96,13 @@
             "spread": 0.0
           },
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.7,
@@ -128,6 +142,13 @@
             "spread": 0.0
           },
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.7,
@@ -167,6 +188,13 @@
             "spread": 0.0
           },
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.7,
@@ -206,6 +234,13 @@
             "spread": 0.0
           },
           "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.7,
@@ -214,7 +249,7 @@
       ]
     }
   ],
-  "schema_version": 8,
+  "schema_version": 9,
   "suite": "replies",
   "target_config": {},
   "tenant": "bookshop"

@@ -69,6 +69,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -97,6 +106,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -125,6 +143,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -153,6 +180,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -181,6 +217,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -209,6 +254,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -237,6 +291,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -265,6 +328,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -293,6 +365,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "sample_max": 0.0,
+          "sample_min": 0.0,
+          "samples": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
           "score": 0.0,
           "status": "fail",
           "threshold": 0.5,
@@ -321,6 +402,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -349,6 +439,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "sample_max": 0.0,
+          "sample_min": 0.0,
+          "samples": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
           "score": 0.0,
           "status": "fail",
           "threshold": 0.5,
@@ -377,6 +476,15 @@
             "spread": 1.0
           },
           "reason": "mean of 5 samples (0.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 0.0,
+          "samples": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 0.8,
           "status": "pass",
           "threshold": 0.5,
@@ -405,6 +513,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (0.000000, 0.000000, 0.000000, 0.000000, 0.000000)",
+          "sample_max": 0.0,
+          "sample_min": 0.0,
+          "samples": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
           "score": 0.0,
           "status": "fail",
           "threshold": 0.5,
@@ -433,6 +550,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -461,6 +587,15 @@
             "spread": 1.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 0.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 0.0,
+          "samples": [
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0
+          ],
           "score": 0.8,
           "status": "pass",
           "threshold": 0.5,
@@ -489,6 +624,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -517,6 +661,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -545,6 +698,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -573,6 +735,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -601,6 +772,15 @@
             "spread": 0.0
           },
           "reason": "mean of 5 samples (1.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "sample_max": 1.0,
+          "sample_min": 1.0,
+          "samples": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
           "score": 1.0,
           "status": "pass",
           "threshold": 0.5,
@@ -609,7 +789,7 @@
       ]
     }
   ],
-  "schema_version": 8,
+  "schema_version": 9,
   "suite": "expense-triage",
   "target_config": {},
   "tenant": "northwind"

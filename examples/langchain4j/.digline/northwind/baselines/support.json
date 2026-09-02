@@ -360,7 +360,7 @@
       ]
     }
   ],
-  "schema_version": 8,
+  "schema_version": 9,
   "suite": "support",
   "target_config": {
     "values": {
