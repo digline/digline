@@ -14,6 +14,7 @@ a document written before this ADR gains on migration, and where the floor of
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
@@ -605,6 +606,36 @@ def with_aggregates(run: Run) -> Run:
         assert verdict.score.score == recorded.score.score
         rebuilt.append(verdict)
     return replace(run, aggregate=tuple(rebuilt))
+
+
+#: SHA-256 of each file as it was copied out of `digline/brief` at `2ff19d6`.
+#: Recorded rather than recomputed, and the README beside them says where they
+#: came from and when.
+COPIED_BYTES = {
+    "2026-09-01T12-29-17-700450-00-00-98fc65b1e49e930e.json": (
+        "85762415c0867e40f1e96181f31b316070412d834583c2e9e187c8b7b4dcc141"
+    ),
+    "2026-09-01T12-44-02-518586-00-00-98fc65b1e49e930e.json": (
+        "3ca44fce5594705880bfdc030bb913f7067989336de2c4222cb693fe1c099c44"
+    ),
+    "labels.json": ("8b6600404186129ec8d1823ce5f99a12fb5ed5a2b1f0545b383935643fa6eaf4"),
+}
+
+
+def test_the_fixtures_are_the_bytes_that_were_copied() -> None:
+    """The fixtures are evidence, and evidence that can be edited is not.
+
+    Everything below asserts that a real run reads a particular way. That claim
+    is worth exactly as much as the guarantee that the run is the one that
+    happened — so the bytes are pinned, and a fixture quietly adjusted until a
+    test agreed with it fails here instead of passing there.
+
+    Re-copying from `brief` is legitimate and means updating these digests in
+    the same commit, where a reviewer sees both halves at once.
+    """
+    for name, expected in sorted(COPIED_BYTES.items()):
+        actual = hashlib.sha256((FIXTURES / name).read_bytes()).hexdigest()
+        assert actual == expected, f"{name} is not the file that was copied in"
 
 
 def test_the_fixtures_are_the_same_suite_fifteen_minutes_apart() -> None:

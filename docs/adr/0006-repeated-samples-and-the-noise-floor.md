@@ -1,7 +1,11 @@
 # ADR 0006 — Repeated samples and the noise floor
 
-- Status: accepted — implemented on `adr-0006`, released in core 0.4.0
+- Status: accepted — implemented on `adr-0006`; ships in core 0.4.0
 - Date: 2026-09-02
+- Amended: 2026-09-02 — §6 records what the implementation does with the
+  interval on a flip, and §10's example copy is replaced by the wording that
+  shipped. Both are corrections made *by* writing the code: nothing above
+  them changes, and neither was a decision taken twice
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -184,6 +188,16 @@ reported as a regression whatever the samples did. This is not a limitation to
 work around, it is what makes §5's guardrail true without extra code — a drop
 through the threshold *is* a flip.
 
+**So a flip carries no interval either, and the delta does not print one.** The
+interval is the floor's evidence, and the floor does not reach a flip — rule 3
+decided it before §5 was consulted, so there is nothing the movement was judged
+against. Printing one anyway would invite the reader to check the score against
+it and find, quite often, that the score is *inside*: `0.800000 → 0.400000`
+across a threshold of 0.5, on a check whose baseline votes ran 0.0 to 1.0, is
+exactly that shape — reported, and inside. `within_noise` is `false` on a flip
+because it is false, and `noise_min` and `noise_max` are absent because nobody
+measured this one against them.
+
 **An interval of zero width is not a noise floor.** A check whose baseline
 samples were unanimous — five out of five, which is the ordinary case for a case
 that is not near the boundary — has `sample_min == sample_max`, so there is no
@@ -252,11 +266,20 @@ vocabulary should not have to learn it again.
 The word is **noise** / **rumore**. New keys in `report/text.py`, present in
 `en` and `it`, and `headline()` keeps its mandatory `locale`:
 
-- headline: `2 checks moved within noise, 1 got worse.`
-- per case, beyond the noise: `Score fell from 0.90 to 0.60 — beyond the noise
-  of this case (0.85–0.95 across 5 samples).`
-- per case, within it: `Score moved from 0.90 to 0.75 — within the noise of
-  this case (0.60–1.00 across 5 samples); not counted as a regression.`
+- headline, as its own clause after the one about what got worse:
+  `1 check moved within noise.` / `{count} checks moved within noise.` — and
+  silent at zero, like the artifact clause, because a sentence about noise
+  nobody measured is one the reader learns to skip
+- per check, beyond the noise: `Score fell from 0.900000 to 0.600000 — beyond
+  the noise of this check (0.850000–0.950000 across 5 samples).`
+- per check, within it: `Score moved from 0.900000 to 0.750000 — within the
+  noise of this check (0.600000–1.000000 across 5 samples); not counted as a
+  regression.`
+
+**"This check" and not "this case"**, which is what the first draft of this
+section said. An aggregate is a check and is not a case, and §7 gives it an
+interval of its own — so the sentence had to name something true at both scopes.
+The row already carries the case in its own column.
 
 ISO dates and the decimal point stay unlocalized, and the interval is rendered
 at `FLOAT_PRECISION` like every other score, so two renderings of one run still
