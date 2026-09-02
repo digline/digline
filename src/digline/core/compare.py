@@ -100,7 +100,15 @@ class ConfigDelta:
 
 @dataclass(frozen=True, slots=True)
 class AssertionDelta:
-    """The comparison outcome for one assertion on one case."""
+    """The comparison outcome for one assertion on one case.
+
+    `within_noise` is a fact beside the verdict, not a sixth `Outcome`. A
+    movement within noise **is** `unchanged`, which is what it is; the fact
+    rides alongside so a reader who has learnt the vocabulary does not have to
+    learn it again. `noise_min` and `noise_max` are the interval it was judged
+    against — the baseline's, always, so a noisy new run cannot widen its own
+    excuse. (ADR 0006 §5, §9)
+    """
 
     case_id: str
     assertion: str
@@ -112,6 +120,12 @@ class AssertionDelta:
     baseline: Verdict | None
     delta: float | None
     reason: str
+    within_noise: bool = False
+    noise_min: float | None = None
+    noise_max: float | None = None
+    #: How many samples the interval was measured over, for the sentence the
+    #: report prints: "0.85–0.95 across 5 samples".
+    noise_samples: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +255,62 @@ def _index(run: Run) -> dict[_Key, Verdict]:
     return out
 
 
+@dataclass(frozen=True, slots=True)
+class _Noise:
+    """The interval a movement is judged against, or the absence of one.
+
+    A value rather than three loose variables because the absence is a case in
+    its own right and has to be handled everywhere the presence is: a baseline
+    that predates ADR 0006, or a suite running at `samples=1`, has no interval,
+    and there today's absolute rule holds unchanged. The report then says the
+    noise of this check is not known, rather than implying there is none.
+    """
+
+    low: float | None = None
+    high: float | None = None
+    count: int = 0
+
+    @property
+    def known(self) -> bool:
+        return self.low is not None and self.high is not None
+
+    def covers(self, score: float) -> bool:
+        """Whether `score` is inside the interval the baseline observed.
+
+        One test for both directions, and that is the asymmetry of §5 rather
+        than an omission of it: noise is not mirrored onto the side that did not
+        show any. A check whose baseline only ever dropped has `high` equal to
+        its own score, so a rise is outside the interval and reported. And an
+        interval of zero width — five samples out of five agreeing, the ordinary
+        case away from the boundary — covers nothing but the score itself, so
+        every later change of mind is still a finding. (ADR 0006 §6)
+        """
+        if self.low is None or self.high is None:
+            return False
+        return self.low <= score <= self.high
+
+    def rendered(self) -> str:
+        assert self.low is not None and self.high is not None
+        return f"{self.low:.6f}-{self.high:.6f} across {self.count} samples"
+
+    def beyond(self) -> str:
+        """The clause added to a movement that left the interval. Nothing at all
+        where there is no interval: silence is what "not known" sounds like, and
+        a sentence about an absent measurement would read as a measurement."""
+        return (
+            f", beyond the noise of this check ({self.rendered()})"
+            if self.known
+            else ""
+        )
+
+
+def _noise(verdict: Verdict) -> _Noise:
+    score = verdict.score
+    if not score.sampled:
+        return _Noise()
+    return _Noise(score.sample_min, score.sample_max, len(score.samples))
+
+
 def compare(run: Run, baseline: Run) -> Comparison:
     """Compare `run` against `baseline`.
 
@@ -365,45 +435,54 @@ def compare(run: Run, baseline: Run) -> Comparison:
             )
             continue
 
+        # The interval is the **baseline's**, never this run's. The baseline is
+        # the promoted, reviewed measurement; letting a noisy new run widen its
+        # own excuse is how a regression hides inside a model that got less
+        # stable. (ADR 0006 §5)
+        floor = _noise(before)
+        within_noise = False
+
         if abs(delta) <= now.tolerance:
-            deltas.append(
-                AssertionDelta(
-                    case_id,
-                    assertion,
-                    "unchanged",
-                    scope,
-                    now,
-                    before,
-                    delta,
-                    f"delta {delta:+.6f} within tolerance {now.tolerance:.6f}",
-                )
+            # Declared before measured, and the reason says which one spoke. A
+            # tolerance is what a reviewer decided is acceptable; the interval
+            # is what the system does. A reader is never left to guess which of
+            # the two called this unchanged.
+            moved_to: Outcome = "unchanged"
+            why = f"delta {delta:+.6f} within tolerance {now.tolerance:.6f}"
+        elif floor.covers(now.score.score):
+            moved_to = "unchanged"
+            within_noise = True
+            why = (
+                f"score moved from {was} to {is_now}, within the noise of this "
+                f"check ({floor.rendered()})"
             )
         elif delta < 0:
-            deltas.append(
-                AssertionDelta(
-                    case_id,
-                    assertion,
-                    "regressed",
-                    scope,
-                    now,
-                    before,
-                    delta,
-                    f"score dropped from {was} to {is_now}",
-                )
-            )
+            moved_to = "regressed"
+            why = f"score dropped from {was} to {is_now}{floor.beyond()}"
         else:
-            deltas.append(
-                AssertionDelta(
-                    case_id,
-                    assertion,
-                    "improved",
-                    scope,
-                    now,
-                    before,
-                    delta,
-                    f"score rose from {was} to {is_now}",
-                )
+            moved_to = "improved"
+            why = f"score rose from {was} to {is_now}{floor.beyond()}"
+
+        # The interval rides along whichever outcome won — a regression
+        # included, because "beyond the noise of this case (0.85-0.95 across 5
+        # samples)" is the sentence ADR 0006 §10 asks the report to print, and
+        # it needs the interval the movement left.
+        deltas.append(
+            AssertionDelta(
+                case_id,
+                assertion,
+                moved_to,
+                scope,
+                now,
+                before,
+                delta,
+                why,
+                within_noise=within_noise,
+                noise_min=floor.low,
+                noise_max=floor.high,
+                noise_samples=floor.count,
             )
+        )
 
     return Comparison(
         tenant=run.tenant,

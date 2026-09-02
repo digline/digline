@@ -20,14 +20,21 @@ from typing import Any
 import pytest
 
 from digline.core import (
+    Accuracy,
+    AssertionDelta,
+    CaseOutcome,
     CaseResult,
+    Label,
     Run,
     Score,
     Verdict,
     combine_samples,
+    compare,
+    per_sample_outcomes,
     redact,
     run_from_json,
     run_to_json,
+    with_noise_interval,
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.store.migrate import upgrade_document
@@ -258,3 +265,259 @@ def test_migration_invents_no_interval_for_an_unsampled_verdict() -> None:
     verdict = upgrade_document(old)["results"][0]["verdicts"][0]
     assert "samples" not in verdict
     assert "sample_min" not in verdict
+
+
+# -- §5 and §6: where the floor reaches, and where it does not ------------- #
+
+
+def compare_one(now: Verdict, before: Verdict) -> AssertionDelta:
+    """One check, one case, on both sides."""
+    comparison = compare(make_run([now]), make_run([before]))
+    assert len(comparison.deltas) == 1
+    return comparison.deltas[0]
+
+
+def folded(*scores: float, threshold: float = 0.5) -> Verdict:
+    return combine_samples(
+        [sample(value, threshold=threshold) for value in scores], min_agreement=0.0
+    )
+
+
+def test_a_drop_inside_the_baselines_interval_is_unchanged() -> None:
+    """The rule this ADR exists for. The baseline wobbled between 0.6 and 1.0
+    over its own five samples; a run landing at 0.7 has not said anything the
+    baseline did not already say."""
+    before = folded(1.0, 1.0, 0.6, 1.0, 0.8)
+    now = folded(0.7, 0.7, 0.7, 0.7, 0.7)
+    delta = compare_one(now, before)
+    assert delta.outcome == "unchanged"
+    assert delta.within_noise
+    assert (delta.noise_min, delta.noise_max, delta.noise_samples) == (0.6, 1.0, 5)
+
+
+def test_a_drop_outside_the_interval_is_still_a_regression() -> None:
+    before = folded(1.0, 1.0, 0.9, 1.0, 0.9)
+    now = folded(0.6, 0.6, 0.6, 0.6, 0.6)
+    delta = compare_one(now, before)
+    assert delta.outcome == "regressed"
+    assert not delta.within_noise
+    # The interval rides along anyway: the report says what the movement left.
+    assert (delta.noise_min, delta.noise_max) == (0.9, 1.0)
+    assert "beyond the noise" in delta.reason
+
+
+def test_the_floor_is_the_baselines_and_never_this_runs() -> None:
+    """A run that got less stable must not widen its own excuse. The baseline is
+    the promoted, reviewed measurement; this one is not."""
+    before = folded(0.9, 0.9, 0.9, 0.9, 0.9)
+    now = folded(1.0, 1.0, 0.6, 0.6, 0.6)  # spans 0.6-1.0, mean 0.76
+    delta = compare_one(now, before)
+    assert delta.outcome == "regressed"
+    assert not delta.within_noise
+
+
+def test_a_rise_inside_the_interval_is_not_an_improvement_either() -> None:
+    """One test for both directions. Noise explains a movement whichever way it
+    went, and calling this an improvement would be the same false finding with
+    a friendlier name."""
+    before = folded(0.6, 1.0, 0.6, 0.6, 0.6)
+    now = folded(0.9, 0.9, 0.9, 0.9, 0.9)
+    delta = compare_one(now, before)
+    assert delta.outcome == "unchanged"
+    assert delta.within_noise
+
+
+def test_an_unanimous_baseline_has_no_floor() -> None:
+    """§6. Five out of five is the ordinary case away from the boundary, and it
+    leaves an interval of zero width — so every later change of mind is still
+    reported. That is right rather than unfortunate."""
+    before = folded(1.0, 1.0, 1.0, 1.0, 1.0)
+    now = folded(1.0, 1.0, 1.0, 0.0, 1.0)
+    delta = compare_one(now, before)
+    assert delta.outcome == "regressed"
+    assert not delta.within_noise
+    assert (delta.noise_min, delta.noise_max) == (1.0, 1.0)
+
+
+def test_a_baseline_with_no_samples_keeps_the_absolute_rule() -> None:
+    """The third branch of §5: a baseline that predates this ADR, or a suite at
+    `samples=1`. Today's rule, unchanged, and nothing pretends to know the
+    noise."""
+    before = Verdict(
+        score=Score(name="check", score=0.9),
+        threshold=0.5,
+        status="pass",
+        reason="scored 0.9",
+        assertion_id="id-check",
+    )
+    now = Verdict(
+        score=Score(name="check", score=0.7),
+        threshold=0.5,
+        status="pass",
+        reason="scored 0.7",
+        assertion_id="id-check",
+    )
+    delta = compare_one(now, before)
+    assert delta.outcome == "regressed"
+    assert delta.noise_min is None and delta.noise_samples == 0
+    assert "beyond the noise" not in delta.reason
+
+
+def test_a_flip_is_never_within_noise() -> None:
+    """§6, and the guardrail that needs no extra code: rule 3 of `compare()`
+    sits above rule 4, so a drop through the threshold is reported whatever the
+    samples did."""
+    before = folded(1.0, 0.0, 1.0, 1.0, 1.0)  # mean 0.8, spans 0.0-1.0
+    now = folded(0.0, 0.0, 1.0, 0.0, 0.0)  # mean 0.2, inside that interval
+    delta = compare_one(now, before)
+    assert delta.outcome == "regressed"
+    assert not delta.within_noise
+
+
+def test_the_declared_tolerance_is_checked_before_the_measured_floor() -> None:
+    """Both produce `unchanged`, and the reason says which one spoke."""
+    before = combine_samples(
+        [sample(v, threshold=0.5) for v in (1.0, 0.6, 1.0, 1.0, 1.0)],
+        min_agreement=0.0,
+    )
+    now = combine_samples(
+        [
+            Verdict(
+                score=Score(name="check", score=0.9),
+                threshold=0.5,
+                tolerance=0.2,
+                status="pass",
+                reason="s",
+                assertion_id="id-check",
+            )
+            for _ in range(2)
+        ],
+        min_agreement=0.0,
+    )
+    delta = compare_one(now, before)
+    assert delta.outcome == "unchanged"
+    assert not delta.within_noise
+    assert "within tolerance" in delta.reason
+
+
+# -- §7: the aggregate gets an interval of its own ------------------------- #
+
+
+def outcome(case_id: str, label: Label, *scores: float) -> CaseOutcome:
+    return CaseOutcome(case_id=case_id, label=label, verdict=folded(*scores))
+
+
+def test_an_aggregate_records_what_a_single_sample_would_have_said() -> None:
+    """An aggregate is computed once per run from the folded verdicts, so it has
+    no samples and §5 would never reach it. Evaluating it once per sample index
+    is what gives it an interval — and it costs no call to anything."""
+    outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 1.0),
+        outcome("b", "positive", 1.0, 0.0, 1.0),
+        outcome("c", "negative", 1.0, 1.0, 0.0),
+    ]
+    verdict = with_noise_interval(
+        Accuracy(over="check", threshold="1/2", tolerance=0.0), outcomes
+    )
+    # Sample 0: all three agree with the mark. Sample 1: two of three.
+    # Sample 2: two of three.
+    assert verdict.score.samples == (1.0, 0.666667, 0.666667)
+    assert verdict.score.sample_min == 0.666667
+    assert verdict.score.sample_max == 1.0
+
+
+def test_the_recorded_aggregate_score_is_the_folded_one_and_does_not_move() -> None:
+    """The per-sample values answer a different question — "what would a single
+    run have said" — and their only job is to size the noise. Every threshold
+    measured against the current definition stays valid."""
+    outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 1.0),
+        outcome("b", "positive", 1.0, 0.0, 1.0),
+        outcome("c", "negative", 1.0, 1.0, 0.0),
+    ]
+    accuracy = Accuracy(over="check", threshold="1/2", tolerance=0.0)
+    assert (
+        with_noise_interval(accuracy, outcomes).score.score
+        == accuracy(outcomes).score.score
+    )
+
+
+def test_an_unsampled_run_gives_its_aggregate_no_interval() -> None:
+    plain = Verdict(
+        score=Score(name="check", score=1.0),
+        threshold=0.5,
+        status="pass",
+        reason="scored 1.0",
+        assertion_id="id-check",
+    )
+    outcomes = [CaseOutcome(case_id="a", label="positive", verdict=plain)]
+    verdict = with_noise_interval(
+        Accuracy(over="check", threshold="1/2", tolerance=0.0), outcomes
+    )
+    assert not verdict.score.sampled
+
+
+def test_cases_that_do_not_agree_on_how_many_samples_give_no_interval() -> None:
+    """Sample 2 of one case and sample 3 of another are not one run. An
+    aggregate is a statement about the whole run: it is either the same run N
+    times or it is nothing."""
+    outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 1.0),
+        outcome("b", "positive", 1.0, 0.0),
+    ]
+    assert per_sample_outcomes(outcomes) == ()
+    verdict = with_noise_interval(
+        Accuracy(over="check", threshold="1/2", tolerance=0.0), outcomes
+    )
+    assert not verdict.score.sampled
+
+
+def test_a_suspended_case_is_excluded_from_every_sample() -> None:
+    outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 0.0),
+        CaseOutcome(case_id="b", label="negative", verdict=None),
+    ]
+    slices = per_sample_outcomes(outcomes)
+    assert len(slices) == 3
+    assert all(one[1].verdict is None for one in slices)
+
+
+def test_the_aggregates_interval_reaches_compare() -> None:
+    """End to end: the aggregate of a run that wobbled by one case is `unchanged`
+    against a baseline whose own samples covered that much."""
+    baseline_outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 1.0),
+        outcome("b", "positive", 1.0, 0.0, 1.0),
+        outcome("c", "negative", 1.0, 1.0, 1.0),
+    ]
+    now_outcomes = [
+        outcome("a", "positive", 1.0, 1.0, 1.0),
+        outcome("b", "positive", 0.0, 0.0, 0.0),
+        outcome("c", "negative", 1.0, 1.0, 1.0),
+    ]
+    accuracy = Accuracy(over="check", threshold="1/2", tolerance=0.0)
+    before = with_noise_interval(accuracy, baseline_outcomes)
+    now = with_noise_interval(accuracy, now_outcomes)
+    assert before.score.score == 1.0 and now.score.score == 0.666667
+    comparison = compare(
+        Run(
+            tenant="acme",
+            environment="staging",
+            suite="s",
+            config_hash="h",
+            created_at=CREATED,
+            aggregate=(now,),
+        ),
+        Run(
+            tenant="acme",
+            environment="staging",
+            suite="s",
+            config_hash="h",
+            created_at=CREATED,
+            aggregate=(before,),
+        ),
+    )
+    delta = comparison.deltas[0]
+    assert delta.scope == "run"
+    assert delta.outcome == "unchanged"
+    assert delta.within_noise

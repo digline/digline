@@ -30,6 +30,7 @@ from digline.core import (
     combine_samples,
     error_verdict,
     identity_of,
+    with_noise_interval,
 )
 from digline.run.suite import Case, Suite
 
@@ -382,8 +383,15 @@ def execute(
     # Aggregates are computed here because they are *recorded data*: they belong
     # in the run, so they are born where the verdicts are. The core stays pure
     # and `compare()` and the report only read them.
+    #
+    # `with_noise_interval` evaluates each one once more per sample index, so an
+    # aggregate — which has no samples of its own — still records how far it
+    # moves. It costs no call to anything: the per-case samples already exist
+    # and a `RunAssertion` is a pure function. (ADR 0006 §7)
     aggregate = tuple(
-        run_assertion(_outcomes(suite, results, run_assertion.over))
+        with_noise_interval(
+            run_assertion, _outcomes(suite, results, run_assertion.over)
+        )
         for run_assertion in suite.run_assertions
     )
     return Run(

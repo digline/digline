@@ -472,6 +472,45 @@ So the rule, in order:
 
 Chapter 7 is what "something steadier" turns out to be.
 
+### The second control: what the check measured about itself
+
+`spread.py` above is you, measuring by hand, across eight runs. A sampled check
+measures the same thing about itself in one run — five votes, and the interval
+they spanned — and since ADR 0006 the baseline records it and `compare` reads
+it.
+
+So there are now two controls, and they are not the same kind of statement:
+
+- **`tolerance` is declared.** A reviewer decided this much movement is
+  acceptable. It is a judgement, it is in the suite, and it goes through a code
+  review.
+- **The noise floor is measured.** This is how far the check moved on its own,
+  in the baseline, across its own samples. Nobody chose it and nobody can widen
+  it by hand.
+
+They are checked in that order, both produce `unchanged`, and the reason says
+which one spoke — so you are never left guessing whether a check was quiet
+because someone allowed it or because it never moved.
+
+Three things the floor deliberately does **not** do, and each is a decision
+rather than an omission:
+
+- **It never rescues a flip.** Passing to failing is a regression whatever the
+  samples did. A drop through the threshold *is* a flip, so the floor cannot
+  wave a failure through.
+- **It reads the baseline's interval, never this run's.** The baseline is the
+  promoted, reviewed measurement. A run that got noisier is not allowed to widen
+  its own excuse.
+- **An interval of zero width is not a floor.** Five votes out of five, which is
+  the ordinary case away from the boundary, leaves nothing to be inside — so
+  every later change of mind is still reported. The floor earns its keep where
+  the wobble actually was, and on the aggregate of chapter 7.
+
+None of this replaces the tolerance you measured. It means a tolerance set
+generously as a hand-rolled noise floor can be tightened back to what a reviewer
+actually intends to allow, because the measured floor is now doing the other
+job.
+
 ## 5. The threshold goes where the system is
 
 The tolerance is about movement. The threshold is about level, and it is decided
@@ -1087,14 +1126,19 @@ $ digline run --suite support.py
 2026-08-26T16-24-36-803385-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
-
-how-do-i-return · llm_rubric · Score fell from 0.920000 to 0.760000.
+Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 ```
 
-And there is the trap. The one line `compare` printed is chapter 2 again — judge
-noise, inside nobody's tolerance but real — while the case you just added, the
-one that reproduces the customer's complaint, **is not mentioned at all.** It is
+Two silences there, and only one of them is good news.
+
+The rubric on `how-do-i-return` did move — `0.920000` to `0.760000`, chapter 2
+all over again — and it was not reported, because `0.76` is inside the interval
+the baseline's own five votes spanned. That is the measured floor of chapter 4
+doing its job: a movement a check makes on its own is not a finding about the
+system. `digline report` still shows the line, and says which control spoke.
+
+And there is the trap, in the other silence. The case you just added, the one
+that reproduces the customer's complaint, **is not mentioned at all.** It is
 `new`, not `regressed`: there is nothing in the baseline to compare it with, so
 `compare` has nothing to say about it. On the day a case is added, the run is
 what you read.
@@ -1326,18 +1370,19 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-184744-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
+Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
 
   app.py · +2 −2 lines
-
-where-is-my-order · llm_rubric · Score fell from 0.920000 to 0.760000.
 ```
 
 The headline now carries the sentence that was missing from trigger four:
 **the suite is unchanged, and one file under test changed.** Same rules,
 different system. That is a different fact from either half alone, and it is the
-one that tells you where to look — and the line under it says where, before the
-score line says what it cost.
+one that tells you where to look — and the line under it says where.
+
+Nothing got worse, and that is the finding rather than a shrug. The rubric
+wobbled again, inside the floor its baseline measured, and the floor kept it out
+of the way — so the one thing on the page is the file that actually moved.
 
 The terminal stops at the tally. `digline report` carries the diff itself, line
 by line with context, and so does the comparison screen in `digline view`: a

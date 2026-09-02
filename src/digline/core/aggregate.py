@@ -15,7 +15,7 @@ aggregate is the gate; the per-case is the diagnosis.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import ClassVar, Literal, Protocol
 
 from digline.core.assertions import dataclass_identity
@@ -32,6 +32,8 @@ __all__ = [
     "Recall",
     "RunAssertion",
     "RunAssertionBase",
+    "per_sample_outcomes",
+    "with_noise_interval",
 ]
 
 type Label = Literal["positive", "negative"]
@@ -352,3 +354,108 @@ class F1(RunAssertionBase):
         return self._ratio(
             2 * tp, 2 * tp + m.false_positive + m.false_negative, "f1", m
         )
+
+
+def _at(verdict: Verdict, index: int) -> Verdict:
+    """The verdict one sample would have produced on its own.
+
+    `score >= threshold` on a verdict that already carries both, which is why
+    §7 costs nothing: no call to a target, no call to a judge, arithmetic over
+    numbers the run already recorded.
+    """
+    score = verdict.score.samples[index]
+    return Verdict(
+        score=Score(name=verdict.score.name, score=score),
+        threshold=verdict.threshold,
+        tolerance=verdict.tolerance,
+        status="pass" if score >= verdict.threshold else "fail",
+        reason=f"sample {index + 1} scored {score:.6f}",
+        assertion_id=verdict.assertion_id,
+    )
+
+
+def per_sample_outcomes(
+    outcomes: Sequence[CaseOutcome],
+) -> tuple[tuple[CaseOutcome, ...], ...]:
+    """The same cases as each single sample saw them: one list per sample index.
+
+    Empty — meaning *there is no interval to compute* — unless every case that
+    was judged carries the same number of samples. Reading across lists of
+    different lengths would align sample 2 of one case with sample 3 of another
+    and call the result a measurement, and an aggregate is a statement about the
+    whole run: it is either the same run N times or it is nothing.
+
+    A case with no verdict was suspended, and a case whose verdict errored could
+    not be judged at all — neither has samples and both pass straight through,
+    to be excluded by `build_matrix` exactly as they are in the folded run.
+    """
+    counts = {
+        len(outcome.verdict.score.samples)
+        for outcome in outcomes
+        if outcome.verdict is not None and outcome.verdict.status != "error"
+    }
+    if len(counts) != 1:
+        return ()
+    total = counts.pop()
+    if total < 2:
+        return ()
+    return tuple(
+        tuple(
+            outcome
+            if outcome.verdict is None or not outcome.verdict.score.sampled
+            else CaseOutcome(
+                case_id=outcome.case_id,
+                label=outcome.label,
+                verdict=_at(outcome.verdict, index),
+            )
+            for outcome in outcomes
+        )
+        for index in range(total)
+    )
+
+
+def with_noise_interval(
+    assertion: RunAssertion, outcomes: Sequence[CaseOutcome]
+) -> Verdict:
+    """The aggregate's verdict, and how far it moves.
+
+    An aggregate is computed once per run from the folded per-case verdicts, so
+    it has no samples of its own and the per-case floor of ADR 0006 §5 would
+    never reach it. But the event this ADR was written for *is* an aggregate:
+    accuracy moved by one case in twenty-one and came back. So the assertion is
+    evaluated once more per sample index, and the N results supply the interval.
+
+    **The recorded score does not change.** It stays what it is today — computed
+    from the folded per-case verdicts, which are the suite's answers. The
+    per-sample values answer a different question, "what would a single run have
+    said", and that question's only job here is to size the noise. Keeping the
+    two apart is also what leaves every threshold measured against the current
+    definition still valid. (ADR 0006 §7)
+    """
+    verdict = assertion(outcomes)
+    if verdict.score.score is None:
+        return verdict
+    slices = per_sample_outcomes(outcomes)
+    if not slices:
+        return verdict
+    # A sample index whose aggregate could not be computed at all — precision
+    # over a sample where the system kept nothing — contributes no value, for
+    # the same reason an errored sample contributes none to a per-case interval.
+    scores = [
+        sampled.score.score
+        for sampled in (assertion(one) for one in slices)
+        if sampled.score.score is not None
+    ]
+    if not scores:
+        return verdict
+    return replace(
+        verdict,
+        score=Score(
+            name=verdict.score.name,
+            score=verdict.score.score,
+            metadata=verdict.score.metadata,
+            samples=tuple(scores),
+            sample_min=min(scores),
+            sample_max=max(scores),
+        ),
+    )

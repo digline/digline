@@ -15,6 +15,8 @@ from digline.core.aggregate import (
     Recall,
     RunAssertion,
     RunAssertionBase,
+    per_sample_outcomes,
+    with_noise_interval,
 )
 from digline.core.assertions import (
     JUDGE_OUTPUT_LABEL,
@@ -171,6 +173,7 @@ __all__ = [
     "budget_score",
     "combine_samples",
     "compare",
+    "with_noise_interval",
     "withhold_artifacts",
     "artifacts_sha",
     "config_hash",
@@ -178,6 +181,7 @@ __all__ = [
     "identity_of",
     "levenshtein_distance",
     "output_kind",
+    "per_sample_outcomes",
     "reachable_agreements",
     "redact",
     "run_from_json",
