@@ -8,7 +8,7 @@ produce them, which is the `Target`'s business.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 
 from digline.core import (
@@ -17,12 +17,13 @@ from digline.core import (
     Disclosure,
     Label,
     Output,
+    Repeated,
     RunAssertion,
     config_hash,
 )
 from digline.core.ratio import Ratio, as_agreement
 
-__all__ = ["Case", "Suite"]
+__all__ = ["CallPlan", "Case", "Suite", "planned_calls"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,3 +224,97 @@ class Suite:
             ),
             run_assertions=self.run_assertions,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class CallPlan:
+    """What a run is about to cost in calls, before the first one is made.
+
+    Arithmetic over the declared suite — no provider, no price list, no protocol
+    change — and it is the figure that surprises people: twenty cases at
+    `samples=5` is a hundred calls, not twenty. (ADR 0006 §8)
+
+    A **money** estimate is deliberately not here. `Pricing.cost` needs a
+    `Usage`, which does not exist before the call, so an estimate would have to
+    come from the target — an optional `estimate_usd(...)` alongside
+    `preflight()` — and that is a change to the `digline.run` protocols and
+    therefore a release of every plugin. Deferred to an ADR of its own, not
+    refused. What was *actually* spent is already recorded and the report shows
+    it.
+    """
+
+    #: Cases that will actually be called: a suspended one is never asked.
+    cases: int
+    samples: int
+    #: `(assertion name, how many times it repeats)` for every `Repeated` in the
+    #: suite, sorted. Named rather than summed into one multiplier, because
+    #: "each answer is judged 3 times" is only true of the assertion that says
+    #: so — and nothing here claims to know which of the others call a model.
+    repeats: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def target_calls(self) -> int:
+        return self.cases * self.samples
+
+    def sentence(self) -> str:
+        """One line for a terminal, in English like every other runtime string.
+
+        The report is the declared exception to that rule because it is a
+        document with a recipient; this is a diagnostic on the way to a run.
+        """
+        text = (
+            f"{_count(self.cases, 'case')} × {_count(self.samples, 'sample')} = "
+            f"{_count(self.target_calls, 'call')} to the target"
+        )
+        for name, count in self.repeats:
+            text += f"; each answer is judged {count} times by {name}"
+        return text
+
+
+def _count(number: int, noun: str) -> str:
+    """`1 case`, `20 cases`. A line printed on every run is worth the three
+    lines it takes not to say "1 cases"."""
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+def _repeats(assertions: Sequence[Assertion]) -> tuple[tuple[str, int], ...]:
+    """Every `Repeated` in the suite, wrappers followed through.
+
+    The same walk `judge_config` performs, and for the same reason: a `Repeated`
+    may sit inside another wrapper, and a count that only looked at the top level
+    would announce a bill smaller than the one that arrives.
+    """
+    found: list[tuple[str, int]] = []
+    seen: set[int] = set()
+    stack: list[object] = list(assertions)
+    while stack:
+        current = stack.pop()
+        if (
+            id(current) in seen
+            or not is_dataclass(current)
+            or isinstance(current, type)
+        ):
+            continue
+        seen.add(id(current))
+        if isinstance(current, Repeated):
+            found.append((current.name, current.samples))
+        for declared in fields(current):
+            value = getattr(current, declared.name, None)
+            if is_dataclass(value) and not isinstance(value, type):
+                stack.append(value)
+    return tuple(sorted(found))
+
+
+def planned_calls(suite: Suite) -> CallPlan:
+    """How many calls `suite` is about to make. Pure, and declared-only.
+
+    A suspended case is not counted because it is not called — the driver
+    returns its `CaseResult` without touching the target — and announcing a
+    number that includes it would be an announcement nobody could reconcile with
+    the invoice.
+    """
+    return CallPlan(
+        cases=sum(1 for case in suite.cases if case.suspended is None),
+        samples=suite.samples,
+        repeats=_repeats(suite.assertions),
+    )

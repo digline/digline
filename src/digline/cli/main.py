@@ -45,7 +45,7 @@ from digline.report import (
     render_html,
     summary_lines,
 )
-from digline.run import HasArtifacts, Suite, execute
+from digline.run import HasArtifacts, Suite, execute, planned_calls
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -270,6 +270,12 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     suite, module, store = _load(args)
     target = load_target(args.target, module, args.suite)
+
+    # Announced before the first call, on stderr so a shell capturing the key
+    # still captures only the key. Arithmetic over the declared suite: no
+    # provider is asked, nothing is priced, and the figure that surprises people
+    # is the multiplication itself. (ADR 0006 §8)
+    print(f"digline: {planned_calls(suite).sentence()}", file=sys.stderr)
 
     run = execute(
         suite,

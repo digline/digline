@@ -16,9 +16,10 @@ from digline.run.driver import (
     judge_config,
     target_config,
 )
-from digline.run.suite import Case, Suite
+from digline.run.suite import CallPlan, Case, Suite, planned_calls
 
 __all__ = [
+    "CallPlan",
     "Case",
     "HasArtifacts",
     "HasConfig",
@@ -30,5 +31,6 @@ __all__ = [
     "default_mapper",
     "execute",
     "judge_config",
+    "planned_calls",
     "target_config",
 ]

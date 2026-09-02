@@ -28,8 +28,12 @@ from digline.core import (
     CaseOutcome,
     CaseResult,
     Comparison,
+    Contains,
+    JudgeReply,
     Label,
+    LlmRubric,
     Precision,
+    Repeated,
     Run,
     Score,
     Verdict,
@@ -44,6 +48,7 @@ from digline.core import (
 from digline.core.run import SCHEMA_VERSION, run_from_dict
 from digline.report import headline, render_html
 from digline.report.text import LOCALES, Locale, phrase
+from digline.run import Case, Suite, planned_calls
 from digline.store.migrate import upgrade_document
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -779,3 +784,59 @@ def test_a_run_that_never_sampled_gets_no_noise_sentence() -> None:
         compare(make_run([before]), make_run([before])), run, run, locale="en"
     )
     assert "noise of this check" not in document
+
+
+# -- §8: the multiplied bill, declared before it is spent ------------------ #
+
+
+def plan_suite(**kwargs: Any) -> Suite:
+    return Suite(
+        tenant="acme",
+        environment="staging",
+        name="s",
+        assertions=kwargs.pop("assertions", [Contains(needle="x")]),
+        cases=kwargs.pop("cases", [Case(id="a"), Case(id="b")]),
+        **kwargs,
+    )
+
+
+def test_the_plan_is_the_multiplication_nobody_expects() -> None:
+    """Twenty cases at `samples=5` is a hundred calls, not twenty."""
+    plan = planned_calls(
+        plan_suite(
+            cases=[Case(id=str(i)) for i in range(20)], samples=5, min_agreement="3/5"
+        )
+    )
+    assert plan.target_calls == 100
+    assert plan.sentence() == "20 cases × 5 samples = 100 calls to the target"
+
+
+def test_a_suspended_case_is_not_counted_because_it_is_not_called() -> None:
+    """A number that included it could not be reconciled with the invoice."""
+    plan = planned_calls(
+        plan_suite(cases=[Case(id="a"), Case(id="b", suspended="ticket 412")])
+    )
+    assert plan.cases == 1
+
+
+def test_a_repeated_judge_is_named_rather_than_folded_into_one_number() -> None:
+    """Nothing here claims to know which of the other assertions call a model,
+    so nothing multiplies them in."""
+    repeated = Repeated(
+        inner=LlmRubric(
+            rubric="does it answer?",
+            judge=lambda prompt: JudgeReply(score=1.0, reason="stub"),
+            threshold=0.7,
+            tolerance=0.05,
+        ),
+        samples=3,
+        min_agreement="2/3",
+    )
+    plan = planned_calls(plan_suite(assertions=[Contains(needle="x"), repeated]))
+    assert plan.repeats == (("llm_rubric", 3),)
+    assert "each answer is judged 3 times by llm_rubric" in plan.sentence()
+
+
+def test_the_plan_reads_correctly_at_one_of_everything() -> None:
+    plan = planned_calls(plan_suite(cases=[Case(id="a")]))
+    assert plan.sentence() == "1 case × 1 sample = 1 call to the target"
