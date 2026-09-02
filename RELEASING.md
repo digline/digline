@@ -136,7 +136,7 @@ an account.
 | Why | the `site` job posts a `repository_dispatch` to the site's repository, and a workflow's own `github.token` is scoped to *this* one |
 | Where | Settings → Secrets and variables → Actions, and it is read on the step, not the job |
 | Created | 2026-08-31 |
-| Expires | **2027-09-01** — 366 days, the maximum a fine-grained PAT can be given. They always expire: record the date here when you create or rotate one, because a year from now this page is the only thing standing between an expired token and an afternoon |
+| Expires | **2027-09-01**, the 366-day maximum. They always expire: record the date here on every rotation — a year from now this row is the only warning you get |
 
 It fails at the **end** of a release, after PyPI, and a failure there needs no
 re-tag: the packages are published, and only the site is behind. Add or renew
@@ -151,6 +151,23 @@ dispatch is sent by hand:
 gh api repos/digline/digline.dev/dispatches --method POST \
   -f event_type=digline-release -f 'client_payload[ref]'=v0.2.0
 ```
+
+**That shape is for a release, and only for one.** The site checks out
+`client_payload.ref`, so the dispatch above rebuilds *the tag* — which is the
+whole point when the tag is what went to PyPI and the site has to describe it.
+
+To rebuild outside a release — docs edited on `main` after the tag, which is
+the ordinary case — use `workflow_dispatch` instead:
+
+```sh
+gh workflow run docs.yml --repo digline/digline.dev
+```
+
+It carries no ref, and a checkout with no ref takes the default branch. Reach
+for the release shape here and the build renders the tree **as the tag left
+it**, then reports success: every edit made since is simply absent, and nothing
+in the run says so. A `v0.4.0` rebuild sent an hour after the release would have
+served the ROADMAP the tag carried, not the one on `main`.
 
 ## Two failures already paid for
 

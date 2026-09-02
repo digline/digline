@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -234,4 +235,36 @@ def test_the_pypi_badge_and_the_install_line_stand_or_fall_together() -> None:
     assert badge == installable, (
         "the PyPI badge and the install line must appear together: "
         f"badge={badge}, install line={installable}"
+    )
+
+
+def test_the_status_version_is_the_version_in_pyproject() -> None:
+    """The prose beside the badge is gated too, because it drifted twice.
+
+    The badge holds no copy of the number, so it cannot fall behind. The
+    sentence under **Status** does hold one, and that is the whole difference:
+    the test above explains why the *badge* is dynamic, citing the release that
+    left `0.1.0` on the page while `0.3.0` was on PyPI — and then 0.4.0 shipped
+    and the same line said `0.3.0` again, under a badge already rendering
+    `0.4.0`. Twice is not an accident, it is an ungated fact recorded in two
+    places.
+
+    So this reads the number the release actually bumps. `tomllib` is stdlib
+    from 3.11 and this repository is 3.12+, so the check costs no dependency —
+    the same reasoning that picked TOML for the suite format on the roadmap.
+    """
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        expected = tomllib.load(handle)["project"]["version"]
+
+    status = re.search(r"^## Status\s*\n+`([^`]+)`", TEXT, re.M)
+    assert status is not None, (
+        "the README has no `## Status` section opening with a version in "
+        "backticks. If the section moved, move this check with it rather than "
+        "deleting it: the version in that sentence is the one that drifts."
+    )
+    assert status.group(1) == expected, (
+        f"README's Status section says `{status.group(1)}` and "
+        f"pyproject.toml says {expected}. The release bumps pyproject; this "
+        "sentence is written by hand and has fallen behind twice. Update the "
+        "Status line."
     )
