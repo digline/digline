@@ -1,0 +1,194 @@
+name: docker-publish
+
+# The official image, `ghcr.io/digline/digline`, built and pushed by hand:
+#
+#     gh workflow run docker-publish.yml --ref <branch>
+#
+# By hand and not on a tag, for now. The image installs digline from PyPI, so
+# it can only be built *after* a release has finished publishing — and wiring
+# it into `publish.yml` for future `v*` tags is a change to the release path,
+# which is not a thing to do in the same pass that invents the image.
+#
+# What the image contains is decided by the `ARG` lines in `docker/Dockerfile`
+# and by nothing here: the version is read back out of that file, and the tags
+# are derived from it. A version number written twice is a version number that
+# will one day disagree with itself.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to build from. Empty means the ref this was dispatched on."
+        required: false
+        default: ""
+      latest:
+        # A rebuild of an older release must not become `latest`. It costs one
+        # checkbox to keep that from being a thing you find out afterwards.
+        description: "Also move :latest to this image"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/digline/digline
+
+jobs:
+  smoke:
+    name: The quickstart, inside the image
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      revision: ${{ steps.plan.outputs.revision }}
+      tags: ${{ steps.plan.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - id: plan
+        name: Read the version out of the Dockerfile, derive the tags
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^ARG DIGLINE_VERSION=//p' docker/Dockerfile)
+          # An empty version would tag `:` and `:latest` and push something
+          # nobody can name, so it stops here rather than there.
+          if [ -z "$version" ]; then
+            echo "docker/Dockerfile declares no ARG DIGLINE_VERSION"; exit 1
+          fi
+          revision=$(git rev-parse HEAD)
+          echo "building $IMAGE $version from $revision"
+          {
+            echo "version=$version"
+            echo "revision=$revision"
+            echo "tags<<TAGS"
+            echo "$IMAGE:$version"
+            # 1.2.3 -> 1.2, the tag that follows the newest patch
+            echo "$IMAGE:${version%.*}"
+            if [ "${{ inputs.latest }}" = "true" ]; then echo "$IMAGE:latest"; fi
+            echo "TAGS"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build for this runner's architecture
+        # One architecture, loaded into the local daemon, because that is what
+        # can be *run*: a multi-arch build produces a manifest list, which
+        # `--load` cannot take. The layers are cached, so the multi-arch build
+        # in the next job pays for `arm64` and not for this again.
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          load: true
+          tags: digline:smoke
+          build-args: VCS_REF=${{ steps.plan.outputs.revision }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The front page's quickstart, on a mounted volume
+        # The one test that has to happen before the push, because it is the
+        # only one that exercises what the image actually is: the entrypoint,
+        # the working directory, and a repository arriving as a bind mount.
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/quickstart"
+          rm -rf "$work" && mkdir -p "$work"
+
+          # Extracted from README.md rather than copied into this file: a
+          # second copy of the suite would drift, and `tests/test_readme.py`
+          # already holds the front page to exactly one runnable block.
+          python - <<'PY'
+          import os, pathlib, re
+          text = pathlib.Path("README.md").read_text(encoding="utf-8")
+          blocks = re.findall(r"```python\n(.*?)```", text, re.DOTALL)
+          assert len(blocks) == 1, f"expected one suite on the front page, found {len(blocks)}"
+          work = pathlib.Path(os.environ["RUNNER_TEMP"]) / "quickstart"
+          (work / "suite.py").write_text(blocks[0], encoding="utf-8")
+          PY
+
+          # `--user`, because the runner's checkout is not owned by the image's
+          # uid 1000 — the case README.md documents, run here rather than only
+          # described.
+          digline() {
+            docker run --rm --user "$(id -u):$(id -g)" -v "$work:/work" digline:smoke "$@"
+          }
+
+          digline --help > /dev/null
+          digline run --suite suite.py
+          digline promote --suite suite.py --run latest
+
+          # "Now make it worse": the sign-off leaves the second answer, which
+          # is the regression the front page shows.
+          python - <<'PY'
+          import os, pathlib
+          suite = pathlib.Path(os.environ["RUNNER_TEMP"]) / "quickstart" / "suite.py"
+          source = suite.read_text(encoding="utf-8")
+          sign_off = " — Northwind Support"
+          assert source.count(sign_off) == 2, source.count(sign_off)
+          head, _, tail = source.rpartition(sign_off)
+          suite.write_text(head + tail, encoding="utf-8")
+          PY
+
+          digline run --suite suite.py
+          set +e
+          digline compare --suite suite.py --run latest
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ]; then
+            echo "compare should have exited 1 on a worse run, exited $status"; exit 1
+          fi
+
+          # Decision 2 of CLAUDE.md, checked on the filesystem: everything the
+          # run wrote is in the mounted repository, and it belongs to the user
+          # who owns that repository rather than to root.
+          test -f "$work/.digline/northwind/baselines/support.json"
+          test -d "$work/.digline/northwind/runs/support"
+          test -f "$work/.digline/.gitignore"
+          if find "$work/.digline" ! -user "$(id -u)" -print -quit | grep -q .; then
+            echo "the run left files the caller does not own:"
+            find "$work/.digline" ! -user "$(id -u)" -ls
+            exit 1
+          fi
+          echo "quickstart ok: exit 0 before the break, exit 1 after it"
+
+  publish:
+    name: Build multi-arch and push to GHCR
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The repository's own token, with one permission added. No PAT: this
+      # pushes to the package that belongs to this repository and to nothing
+      # else, which is exactly what `packages: write` grants.
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      # arm64 is built under emulation. It is a CLI that shells out to nothing
+      # at build time beyond apt and pip, so this is slow and not fragile.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ needs.smoke.outputs.tags }}
+          build-args: VCS_REF=${{ needs.smoke.outputs.revision }}
+          cache-from: type=gha
+
+      - name: Say what is now on the registry
+        run: |
+          echo "### Pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ needs.smoke.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
