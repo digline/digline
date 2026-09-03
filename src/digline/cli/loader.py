@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib
 import os
 import sys
+from dataclasses import dataclass
 from importlib.machinery import (
     EXTENSION_SUFFIXES,
     SOURCE_SUFFIXES,
@@ -40,6 +41,8 @@ from pathlib import Path
 from types import CodeType, ModuleType
 from typing import TYPE_CHECKING
 
+from digline.cli.errors import UsageError
+from digline.cli.toml_suite import SUITE_SUFFIX, load_toml_suite
 from digline.run import Suite, Target
 
 if TYPE_CHECKING:
@@ -48,6 +51,7 @@ if TYPE_CHECKING:
 __all__ = [
     "SUITE_ATTR",
     "TARGET_ATTR",
+    "Loaded",
     "SourceOnlyLoader",
     "UsageError",
     "load_suite",
@@ -121,10 +125,6 @@ def _scope_to_source(directory: str) -> None:
     # The cache is consulted before the hooks, so the entry has to be replaced
     # too — otherwise a finder built earlier would keep serving this directory.
     sys.path_importer_cache[directory] = _finder(directory)
-
-
-class UsageError(Exception):
-    """Something the caller can fix by typing a different command."""
 
 
 def _split(spec: str) -> tuple[str, str | None]:
@@ -205,22 +205,70 @@ def _pick(module: ModuleType, attr: str, spec: str, kind: str) -> object:
     return value
 
 
-def load_suite(spec: str) -> tuple[Suite, ModuleType]:
-    """The `Suite`, and the module it came from — the target defaults to the
-    same module, so the caller usually needs only one path."""
+@dataclass(frozen=True, slots=True)
+class Loaded:
+    """A suite, and whatever the form it came in still owes the caller.
+
+    A Python suite carries its **module**, because that is where `--target`
+    looks. A TOML suite carries its **target**, because it declared one as data
+    and there is no module to look in. Exactly one of the two is set, and which
+    one is the whole difference between the forms at this layer.
+    """
+
+    suite: Suite
+    module: ModuleType | None = None
+    target: Target | None = None
+
+    @property
+    def is_data(self) -> bool:
+        return self.module is None
+
+
+def load_suite(spec: str) -> tuple[Suite, Loaded]:
+    """The `Suite`, and how it was loaded.
+
+    The extension chooses the format and nothing else does (ADR 0007 §6): a
+    `.toml` is read as data, everything else is imported as it always was. No
+    new flag — the CLI already dispatches on the shape of what it is given, and
+    one more suffix is the smallest addition to a surface people have learned.
+    """
+    if spec.endswith(SUITE_SUFFIX):
+        path = Path(spec)
+        if not path.is_file():
+            raise UsageError(f"no such file: {path.resolve()} (from {spec!r})")
+        suite, target = load_toml_suite(path)
+        return suite, Loaded(suite=suite, target=target)
+
     module_part, attr = _split(spec)
     module = _import(module_part, spec)
     value = _pick(module, attr or SUITE_ATTR, spec, "suite")
     if not isinstance(value, Suite):
         raise UsageError(f"{spec!r} gave a {type(value).__name__}, not a Suite")
-    return value, module
+    return value, Loaded(suite=value, module=module)
 
 
-def load_target(spec: str | None, suite_module: ModuleType, suite_spec: str) -> Target:
-    """`--target` uses the same syntax as `--suite`. Omitted, it is looked up as
-    `target` in the suite's own module and nowhere else."""
+def load_target(spec: str | None, loaded: Loaded, suite_spec: str) -> Target:
+    """The target: declared in the file when the suite is data, imported when
+    it is code.
+
+    `--target` has no meaning for a TOML suite and is refused rather than
+    ignored. A flag pointing at a Python attribute would be the escape hatch
+    ADR 0007 §5 refuses, entered through the command line — and a suite that is
+    data has to stay data all the way to what it calls.
+    """
+    if loaded.target is not None:
+        if spec is not None:
+            raise UsageError(
+                f"--target does not apply to {suite_spec}: a suite that is data "
+                "declares its target in [target], and pointing this flag at a "
+                "Python attribute would put code back into a suite that is "
+                "meant not to have any. Drop the flag, or write a suite.py."
+            )
+        return loaded.target
+
+    assert loaded.module is not None  # noqa: S101 — one of the two is always set
     if spec is None:
-        value = _pick(suite_module, TARGET_ATTR, suite_spec, "target")
+        value = _pick(loaded.module, TARGET_ATTR, suite_spec, "target")
     else:
         module_part, attr = _split(spec)
         module = _import(module_part, spec)

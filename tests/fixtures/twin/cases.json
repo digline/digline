@@ -1,0 +1,19 @@
+[
+  {
+    "id": "where-is-my-order",
+    "vars": {"question": "I ordered a kettle on Monday, order 4821. Where is it?"},
+    "label": "positive"
+  },
+  {
+    "id": "how-do-i-return",
+    "vars": {"question": "The jacket does not fit. How do I send it back?"},
+    "expected": "Any item, within 30 days, unused.",
+    "label": "positive"
+  },
+  {
+    "id": "refund-status",
+    "vars": {"question": "Where is my refund?"},
+    "label": "negative",
+    "suspended": "the refund API is down, ticket 412"
+  }
+]

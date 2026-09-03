@@ -1,0 +1,63 @@
+# The TOML half of the twin. `tests/test_toml_twin.py` builds the same suite in
+# Python and holds the two to ADR 0007 §9: same objects, same identities, same
+# config_hash — so a suite ported from one form to the other keeps its baseline.
+#
+# Every construct the format has is used here on purpose. A guardrail that
+# exercises three keys guards three keys.
+
+[suite]
+tenant = "northwind"
+environment = "staging"
+name = "support"
+cases = "cases.json"
+samples = 3
+min_agreement = "2/3"
+
+[target]
+type = "http"
+url = "http://localhost:8080/answer"
+output_path = "data.answer"
+cost_path = "usage.cost_usd"
+latency_from_response = "usage.elapsed_ms"
+config_path = "config"
+
+  [target.body]
+  question = "case.vars.question"
+  channel = "email"
+
+[[assertions]]
+type = "contains"
+needle = "Northwind Support"
+
+[[assertions]]
+type = "regex"
+pattern = "^[A-Z]"
+name = "starts_capitalised"
+
+[[assertions]]
+type = "length"
+maximum = 400
+unit = "characters"
+
+[[assertions]]
+type = "repeated"
+samples = 3
+min_agreement = "2/3"
+
+  [assertions.inner]
+  type = "llm_rubric"
+  rubric = "Does the reply answer the question in at most three sentences?"
+  judge = "fake/m"
+  threshold = 0.7
+  tolerance = 0.05
+
+[[assertions]]
+type = "cost_budget"
+max_usd = 0.02
+tolerance = 0.05
+
+[[assertions]]
+type = "precision"
+over = "contains"
+threshold = "9/10"
+tolerance = "1/10"
