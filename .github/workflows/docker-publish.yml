@@ -25,7 +25,10 @@ on:
   push:
     branches: [docker-image]
     paths:
-      - docker/**
+      # The Dockerfile and this file, not docker/README.md: a page edit that
+      # republished the tags would move them to a new digest and change
+      # nothing about the image.
+      - docker/Dockerfile
       - .github/workflows/docker-publish.yml
 
   workflow_dispatch:

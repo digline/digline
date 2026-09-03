@@ -122,3 +122,7 @@ and `arm64`, runs the front page's quickstart inside the built image and checks
 that the exit codes are the ones the README claims, and only then pushes to
 GHCR with the repository's own `GITHUB_TOKEN`. The tags come from the
 `Dockerfile`'s `DIGLINE_VERSION`; nothing repeats a version number.
+
+Until that file is on the default branch GitHub registers no dispatch for it —
+`gh workflow run` answers 404 — so while this is on a branch it is published by
+a `push` trigger scoped to that branch, which comes out when the branch lands.
