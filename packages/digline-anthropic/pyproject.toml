@@ -27,6 +27,12 @@ dependencies = [
     "anthropic>=0.40",
 ]
 
+# How digline finds this plugin by name, without importing it: fixed decision 6,
+# and ADR 0007 §3 is what finally needed it. The group name is part of the
+# plugin contract — see `digline.targets.registry`.
+[project.entry-points."digline.providers"]
+anthropic = "digline_anthropic:PROVIDER"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

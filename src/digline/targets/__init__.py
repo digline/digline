@@ -26,25 +26,39 @@ from digline.targets.pricing import (
     Usage,
 )
 from digline.targets.provider import ProviderTarget
+from digline.targets.registry import (
+    GROUP,
+    Provider,
+    ProviderNotFound,
+    installed,
+    resolve,
+    split_coordinate,
+)
 from digline.targets.template import PromptTemplate, render_value
 
 __all__ = [
     "CLAIM_SYSTEM",
     "CONTRACT_FIELDS",
+    "GROUP",
     "SCORE_SYSTEM",
     "ClaimCountJudge",
     "HttpTarget",
     "JudgeBase",
     "ModelPrice",
     "PromptTemplate",
+    "Provider",
+    "ProviderNotFound",
     "ProviderTarget",
     "Pricing",
     "ScoreJudge",
     "UnknownModelError",
-    "declared_config",
     "Usage",
+    "declared_config",
     "endpoint_host",
+    "installed",
     "loads_lenient",
     "render_value",
+    "resolve",
     "sent",
+    "split_coordinate",
 ]
