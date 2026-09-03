@@ -14,6 +14,20 @@ name: docker-publish
 # are derived from it. A version number written twice is a version number that
 # will one day disagree with itself.
 on:
+  # TEMPORARY, and it comes out before this branch reaches `main`.
+  #
+  # GitHub registers a `workflow_dispatch` only from the **default branch**:
+  # until this file is on `main`, `gh workflow run docker-publish.yml` answers
+  # 404 and there is no flag that changes it. A `push` trigger has no such
+  # rule — it runs the workflow from the branch that was pushed — so this is
+  # what lets the image publish from here, which is the whole point of building
+  # it before `main` reopens.
+  push:
+    branches: [docker-image]
+    paths:
+      - docker/**
+      - .github/workflows/docker-publish.yml
+
   workflow_dispatch:
     inputs:
       ref:
@@ -65,7 +79,9 @@ jobs:
             echo "$IMAGE:$version"
             # 1.2.3 -> 1.2, the tag that follows the newest patch
             echo "$IMAGE:${version%.*}"
-            if [ "${{ inputs.latest }}" = "true" ]; then echo "$IMAGE:latest"; fi
+            # Empty on a push, where there is no input to read: the tag a
+            # release moves by default, refused only when somebody says so.
+            if [ "${{ inputs.latest }}" != "false" ]; then echo "$IMAGE:latest"; fi
             echo "TAGS"
           } >> "$GITHUB_OUTPUT"
 
