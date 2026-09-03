@@ -34,6 +34,16 @@ from pathlib import Path
 from typing import Any, cast
 
 from digline.cli.errors import UsageError
+from digline.cli.toml_errors import (
+    code_only,
+    computed_body,
+    listing,
+    missing_parameters,
+    not_a_coordinate,
+    object_parameter,
+    unknown_key,
+    unknown_type,
+)
 from digline.core import (
     F1,
     Accuracy,
@@ -60,7 +70,13 @@ from digline.core import (
 from digline.run import Case, Suite, Target
 from digline.targets import HttpTarget, ProviderNotFound, resolve, split_coordinate
 
-__all__ = ["AGGREGATES", "ASSERTIONS", "SUITE_SUFFIX", "load_toml_suite"]
+__all__ = [
+    "AGGREGATES",
+    "ASSERTIONS",
+    "PYTHON_ONLY",
+    "SUITE_SUFFIX",
+    "load_toml_suite",
+]
 
 #: What makes the CLI read a suite as data rather than import it.
 SUITE_SUFFIX = ".toml"
@@ -96,6 +112,14 @@ AGGREGATES: Mapping[str, type] = {
     "recall": Recall,
     "accuracy": Accuracy,
     "f1": F1,
+}
+
+#: Tokens that name a real check which no data file can build, and the sentence
+#: each one gets. Recognised on purpose: "there is no check called
+#: `from_autoevals`" would be a lie, and it would send a reader hunting for a
+#: spelling when what they need to know is that the check is code.
+PYTHON_ONLY: Mapping[str, str] = {
+    "from_autoevals": "`from_autoevals` needs a scorer, which is a Python object",
 }
 
 #: A constructor field whose type no data file can supply, and the sentence
@@ -244,16 +268,20 @@ def _one(entry: Mapping[str, object], where: str) -> tuple[Any, bool]:
     token = entry.get("type")
     if token is None:
         raise UsageError(
-            f"{where}: no `type`, so nothing says which check this is. "
-            f"One of: {_tokens()}"
+            f"{where}: no `type`, so nothing says which check this is.\n"
+            f"  per case: {listing(ASSERTIONS)}\n"
+            f"  per run:  {listing(AGGREGATES)}"
         )
     if not isinstance(token, str):
         raise UsageError(f"{where}: `type` is a {type(token).__name__}, not a name")
 
+    if (cause := PYTHON_ONLY.get(token)) is not None:
+        raise code_only(cause, where=where)
+
     aggregate = token in AGGREGATES
     cls = AGGREGATES.get(token) or ASSERTIONS.get(token)
     if cls is None:
-        raise UsageError(_unknown_type(token, where))
+        raise unknown_type(token, where=where, per_case=ASSERTIONS, per_run=AGGREGATES)
 
     arguments = {key: value for key, value in entry.items() if key != "type"}
     return _construct(cls, arguments, where, token), aggregate
@@ -279,10 +307,7 @@ def _construct(
         and field.default_factory is MISSING
     ]
     if missing:
-        raise UsageError(
-            f"{where}: `{token}` needs {_list(missing)}, which this entry does "
-            "not give it"
-        )
+        raise missing_parameters(missing, where=where, token=token)
     try:
         return cls(**prepared)
     except (TypeError, ValueError) as exc:
@@ -296,10 +321,7 @@ def _value(
     annotation = _annotation(field)
 
     if (reason := CODE_ONLY.get(annotation)) is not None:
-        raise UsageError(
-            f"{where}: `{token}` takes {key} as {reason} — custom assertions "
-            f"are code, and this suite needs a suite.py. See docs/api.md."
-        )
+        raise code_only(f"`{token}` takes `{key}` as {reason}", where=where)
 
     if annotation.startswith("frozenset"):
         # An array in, a frozenset out. Not cosmetic: `config_hash` fingerprints
@@ -339,13 +361,26 @@ def _value(
 
 def _instrument(value: object, factory: str, where: str, key: str) -> object:
     """A judge, from its coordinates (ADR 0007 §3)."""
+    if isinstance(value, Mapping):
+        # A table is how somebody asks for a judge with settings — a
+        # max_tokens, a temperature. The coordinate carries the instrument's
+        # identity and nothing else (ADR 0007 §3), so this is a boundary rather
+        # than a typo, and it gets a boundary's sentence.
+        raise code_only(
+            f"`{key}` is a table, and a judge named in data is its coordinate "
+            "alone: it grades with the plugin's own defaults, and a judge set "
+            "up differently is an object",
+            where=where,
+            kind="judges",
+        )
     if not isinstance(value, str):
         raise UsageError(
             f"{where}: `{key}` is a {type(value).__name__}. A judge is named "
             'by coordinates — provider/model, as in "anthropic/'
-            'claude-haiku-4-5". A judge with rules of its own has no '
-            "coordinates and stays in a suite.py."
+            'claude-haiku-4-5".'
         )
+    if "/" not in value:
+        raise not_a_coordinate(value, where=where, key=key)
     try:
         provider_name, model = split_coordinate(value, field=f"{where}: `{key}`")
     except ValueError as exc:
@@ -430,13 +465,7 @@ def _target(document: Mapping[str, object], path: Path) -> Target:
 
 def _http(arguments: Mapping[str, object], where: str) -> Target:
     if "request" in arguments:
-        raise UsageError(
-            f"{where}: `request` is a function, and a function is a suite.py. "
-            "The data form is `[target.body]`, a table shaped like the payload "
-            "whose leaves name case fields — one level of reference and no "
-            "expressions. A body that has to be computed is what `request=` "
-            "remains for."
-        )
+        raise computed_body(where)
     try:
         return HttpTarget(**cast("Any", arguments))
     except (TypeError, ValueError) as exc:
@@ -461,6 +490,9 @@ def _provider(arguments: Mapping[str, object], where: str) -> Target:
         raise UsageError(f"{where}: {exc}") from exc
 
     rest = {key: value for key, value in arguments.items() if key != "provider"}
+    for injected in ("client", "pricing"):
+        if injected in rest:
+            raise object_parameter(injected, where=where, provider=provider_name)
     try:
         return provider.target(model, **cast("Any", rest))
     except (TypeError, ValueError) as exc:
@@ -512,23 +544,9 @@ def _refuse_unknown(
     A silently dropped `treshold` is a check running on its default — and for a
     threshold, the default a typo falls back to is the one that passes. That is
     fixed decision 3's vacuously green assertion in configuration form.
+
+    The message is built in `toml_errors`; what is decided here is only that
+    there is no third option beside "known" and "refused".
     """
-    unknown = [key for key in given if key not in allowed]
-    if not unknown:
-        return
-    subject = f"`{token}` has no" if token else "no such"
-    raise UsageError(
-        f"{where}: {subject} {noun} `{unknown[0]}`. Known: {_list(sorted(allowed))}"
-    )
-
-
-def _tokens() -> str:
-    return _list(sorted({*ASSERTIONS, *AGGREGATES}))
-
-
-def _unknown_type(token: str, where: str) -> str:
-    return f"{where}: there is no check called `{token}`. One of: {_tokens()}"
-
-
-def _list(names: Sequence[str]) -> str:
-    return ", ".join(f"`{name}`" for name in names)
+    if error := unknown_key(given, allowed, where=where, noun=noun, owner=token):
+        raise error

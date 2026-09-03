@@ -22,6 +22,7 @@ arrangement exists to avoid.
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
@@ -163,6 +164,15 @@ def _missing(name: str) -> str:
     something the reader can type."""
     have = installed()
     listing = ", ".join(have) if have else "none"
+    # A near miss before anything else: `anthropi` is a typo, and telling
+    # somebody to install a package they already have would be a worse answer
+    # than saying so.
+    close = difflib.get_close_matches(name, [*have, *FIRST_PARTY], n=1, cutoff=0.6)
+    if close and close[0] in have:
+        return (
+            f"no provider named {name!r} is installed. Did you mean "
+            f"{close[0]!r}? Installed providers: {listing}"
+        )
     if (package := FIRST_PARTY.get(name)) is not None:
         return (
             f"no provider named {name!r} is installed. It comes from "
