@@ -78,15 +78,15 @@ reads them fails if it stops being met.
       answer, what the call cost, and which model answered under what settings
       — so a run from a service Digline cannot import is as complete a document
       as one from a plugin (`examples/langchain4j/`, ADR 0005 §8)
-- [ ] A declarative suite format, `digline run suite.toml`, as a future ADR
-      (0007). TOML rather than YAML: `tomllib` is in the standard library from
-      3.11, and a suite format that costs a runtime dependency to read would
-      double the one this project has. It depends on shipping **providers as
-      entry points** — fixed decision 6, which is stated in `CLAUDE.md` and not
-      yet real: a judge named in data has to be resolvable without anything
-      under `src/` importing a plugin. Scope is the assertions whose parameters
-      are already data; a custom assertion, a custom target and a `Disclosure`
-      stay Python
+- [ ] A declarative suite format, `digline run suite.toml`, decided in ADR
+      0007 — accepted, implementation next. TOML rather than YAML: `tomllib`
+      is in the standard library from 3.11, and a suite format that costs a
+      runtime dependency to read would double the one this project has. It
+      depends on shipping **providers as entry points** — fixed decision 6,
+      which is stated in `CLAUDE.md` and not yet real: a judge named in data
+      has to be resolvable without anything under `src/` importing a plugin.
+      Scope is the assertions whose parameters are already data; a custom
+      assertion, a custom target and a `Disclosure` stay Python
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
 - [ ] An official container image, `ghcr.io/digline/digline`: the CLI and the
       three provider plugins, published by the release workflow on a `v*` tag.
