@@ -12,8 +12,12 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
+import time
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -168,43 +172,87 @@ STANDALONE = (
     "external-app",
     "langchain4j",
     "langchain",
+    "quickstart-toml",
 )
+
+#: The examples whose application has to be started from **outside** the suite,
+#: with the port it listens on. There is exactly one, and the reason is the
+#: point of it: a suite that is data cannot import a module, so it cannot start
+#: a server the way `external-app/suite.py` does. The application under test is
+#: somebody else's process — which is what is true in production anyway.
+NEEDS_A_SERVICE = {"quickstart-toml": 8730}
+
+
+def suite_file(workdir: Path) -> str:
+    """Which form this example is written in. The extension is what chooses the
+    format (ADR 0007 §6), here as on the command line."""
+    return "suite.toml" if (workdir / "suite.toml").is_file() else "suite.py"
+
+
+@contextmanager
+def application(workdir: Path, name: str) -> Generator[None]:
+    """Run `stub.py` for as long as the block lasts, if this example needs it."""
+    port = NEEDS_A_SERVICE.get(name)
+    if port is None:
+        yield
+        return
+    process = subprocess.Popen(  # noqa: S603 - our own stub, in our own tree
+        [sys.executable, "stub.py"],
+        cwd=workdir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        for _ in range(100):
+            with socket.socket() as probe:
+                if probe.connect_ex(("127.0.0.1", port)) == 0:
+                    break
+            time.sleep(0.05)
+        else:  # pragma: no cover - only on a machine that cannot bind
+            pytest.fail(f"{name}: stub.py never listened on {port}")
+        yield
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
 
 
 @pytest.fixture(params=STANDALONE)
-def standalone(request: pytest.FixtureRequest, tmp_path: Path) -> Path:
+def standalone(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[Path]:
     """A copy, without its baseline: the cycle has to work from nothing."""
     name = str(request.param)
     workdir = tmp_path / name
     shutil.copytree(ROOT / "examples" / name, workdir)
     shutil.rmtree(workdir / ".digline", ignore_errors=True)
-    return workdir
+    with application(workdir, name):
+        yield workdir
 
 
 def test_each_example_completes_the_cycle(standalone: Path) -> None:
     """run -> promote -> compare, exactly what its README tells a reader."""
-    ran = cli(standalone, "run", "--suite", "suite.py")
+    suite = suite_file(standalone)
+    ran = cli(standalone, "run", "--suite", suite)
     assert ran.returncode == EXIT_OK, ran.stderr
     key = ran.stdout.strip()
     assert key
 
-    promoted = cli(standalone, "promote", "--suite", "suite.py", "--run", key)
+    promoted = cli(standalone, "promote", "--suite", suite, "--run", key)
     assert promoted.returncode == EXIT_OK, promoted.stderr
 
-    compared = cli(standalone, "compare", "--suite", "suite.py", "--run", key)
+    compared = cli(standalone, "compare", "--suite", suite, "--run", key)
     assert compared.returncode == EXIT_OK, compared.stderr
     assert "Nothing got worse" in compared.stdout
 
 
 def test_each_example_renders_its_report(standalone: Path) -> None:
-    cli(standalone, "run", "--suite", "suite.py")
-    cli(standalone, "promote", "--suite", "suite.py", "--run", "latest")
+    suite = suite_file(standalone)
+    cli(standalone, "run", "--suite", suite)
+    cli(standalone, "promote", "--suite", suite, "--run", "latest")
     out = standalone / "fresh.html"
     rendered = cli(
         standalone,
         "report",
         "--suite",
-        "suite.py",
+        suite,
         "--run",
         "latest",
         "--locale",
