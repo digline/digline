@@ -33,9 +33,11 @@ that trips no threshold and is the first thing a user feels.
 
 The suite is **Python, not YAML**: a judge is an object, a target is a function,
 and what may leave a perimeter is declared in code — none of which a
-configuration file expresses without reinventing a language. Built for teams
-shipping LLM features for someone else, who have to show a customer what was
-tested, when, under which commit, and who approved it.
+configuration file expresses without reinventing a language. Where a suite *is*
+plain data it can be TOML instead, and the two forms build the same objects —
+what TOML cannot express, it refuses by name rather than half-supporting. Built
+for teams shipping LLM features for someone else, who have to show a customer
+what was tested, when, under which commit, and who approved it.
 
 Wondering how digline differs from promptfoo, DeepEval, or observability
 platforms? See [How digline compares](https://digline.dev/comparison/).
@@ -232,7 +234,10 @@ actually arrives with. Every one runs with no API key, carries its committed
   committed test case.
 - **Not a red-teaming tool.** digline generates no attacks. Once one is found,
   it becomes a `Case`, and the suite makes sure it never works again.
-- **Not YAML.** Cases are data and may come from files; the suite is Python.
+- **Not YAML.** The suite is Python — or, within declared limits, TOML: cases
+  were always data, and now the rules can be too. A judge with rules of its own,
+  a computed request body and a custom assertion stay Python, and the loader
+  names the wall you hit rather than half-supporting it.
 - **Not a funnel.** Two commitments, by design and for good: no hosted service
   that receives your payloads, and no data collection. The baseline lives in
   your repo; the runs happen on your machines. If digline ever grows paid
@@ -240,8 +245,9 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.4.0`, alpha. The offline cycle — write the suite, run, promote, compare,
-report — is complete, covered by tests, and used daily on a real project. The
+`0.5.0`, alpha. The offline cycle — write the suite, run, promote, compare,
+report — is complete, covered by tests, and used daily on a real project, and
+since 0.5.0 the suite may be written as data as well as in Python. The
 production store, the bridge from production failures back to committed cases,
 and the reactive side are designed in
 [ADR 0002](docs/adr/0002-three-worlds-and-where-the-data-lives.md) and not
@@ -259,6 +265,9 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/api.md`](docs/api.md) — what is imported from where, every assertion
   and its parameters, custom assertions, and the complete example in
   [`examples/quickstart/`](examples/quickstart/), which a test runs on every build
+- [`docs/declarative.md`](docs/declarative.md) — the suite as data: the TOML
+  format, key by key, what it deliberately cannot say, and how to move a suite
+  between the two forms without losing its baseline
 - [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — the two commands with a surface of their own
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
