@@ -97,6 +97,8 @@ def unknown_key(
         head = f"{where}: {subject} {noun} `{unknown[0]}`."
         if hint := did_you_mean(unknown[0], known):
             return UsageError(head + hint)
+        if not known:
+            return UsageError(f"{head} It names no {noun} at all.")
         return UsageError(f"{head} Known {noun}s: {listing(known)}")
 
     lines = [f"{where}: {subject} {noun} {listing(unknown)}."]
@@ -104,7 +106,11 @@ def unknown_key(
         if hint := did_you_mean(key, known):
             lines.append(f"  `{key}`:{hint.replace(' Did you mean', ' did you mean')}")
     if len(lines) == 1:
-        lines.append(f"Known {noun}s: {listing(known)}")
+        lines.append(
+            f"Known {noun}s: {listing(known)}"
+            if known
+            else f"It names no {noun} at all."
+        )
     return UsageError("\n".join(lines))
 
 

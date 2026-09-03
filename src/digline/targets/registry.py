@@ -79,6 +79,12 @@ class Provider:
     two judges — and this record exists so that the mapping from a name to them
     is data the plugin declares, rather than a lookup digline performs on a
     module it had to import first.
+
+    **They are called with keywords, and `model` is the one name the contract
+    fixes.** A plugin's positional order is its own business: every published
+    target happens to take `prompt_file` first, so a caller passing the model
+    positionally would fill the wrong parameter and fail somewhere else
+    entirely. Everything beyond `model` is whatever that plugin names.
     """
 
     #: The coordinate's first half, and what a run records as `provider`

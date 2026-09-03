@@ -24,9 +24,11 @@ from digline.run import Case, Response
 from digline.targets import Provider
 
 __all__ = [
+    "BUCKET",
     "MISNAMED",
     "NOT_A_PROVIDER",
     "REGISTERED",
+    "BucketTarget",
     "FakeClaimJudge",
     "FakeJudge",
     "FakeTarget",
@@ -34,35 +36,71 @@ __all__ = [
 
 
 class FakeTarget:
-    """Built with a model and whatever the suite declared, called once per
-    case — the shape of every plugin's target, with no provider behind it."""
+    """Built with a model and the settings the suite declared, called once per
+    case — the shape of every plugin's target, with no provider behind it.
 
-    def __init__(self, model: str, **settings: object) -> None:
+    The parameters are **named**, like every real plugin's: none of the three
+    published ones takes a `**kwargs` bucket, and a fake that did would make the
+    loader's refusals look different here from the way they look in use.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> None:
         self.model = model
-        self.settings = settings
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
     def __call__(self, case: Case) -> Response:
         return Response(output=f"{self.model} answered {case.id}")
 
 
 class FakeJudge:
-    def __init__(self, model: str, **settings: object) -> None:
+    def __init__(
+        self,
+        model: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> None:
         self.model = model
-        self.settings = settings
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
     def __call__(self, prompt: str) -> JudgeReply:
         return JudgeReply(score=1.0, reason=f"{self.model} read {len(prompt)}")
 
 
 class FakeClaimJudge:
-    def __init__(self, model: str, **settings: object) -> None:
+    def __init__(self, model: str) -> None:
         self.model = model
-        self.settings = settings
 
     def __call__(self, prompt: str) -> ClaimReply:
         return ClaimReply(
             supported=1, total=1, reason=f"{self.model} read {len(prompt)}"
         )
+
+
+class BucketTarget:
+    """A plugin that takes anything and names nothing.
+
+    Exists for one decision: a `**kwargs` bucket is not "anything goes". ADR
+    0007 §5 admits only the parameters a plugin *exposes* as declarative
+    configuration, and what a bucket would buy is a plugin quietly accepting
+    `temperture` — a setting written in the file, never reaching the model, in
+    a run that goes green.
+    """
+
+    def __init__(self, model: str, **anything: object) -> None:
+        self.model = model
+        self.anything = anything
+
+    def __call__(self, case: Case) -> Response:
+        return Response(output=f"{self.model} answered {case.id}")
 
 
 #: A well-formed plugin.
@@ -73,6 +111,11 @@ REGISTERED = Provider(
 #: Registered under one name, calling itself another.
 MISNAMED = Provider(
     name="other", target=FakeTarget, judge=FakeJudge, claim_judge=FakeClaimJudge
+)
+
+#: A plugin whose target swallows every keyword it is given.
+BUCKET = Provider(
+    name="bucket", target=BucketTarget, judge=FakeJudge, claim_judge=FakeClaimJudge
 )
 
 #: A plugin that registered something that is not a `Provider` at all.

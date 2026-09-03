@@ -26,6 +26,7 @@ something a TOML file cannot give — and the fourth case has a sentence ready.
 
 from __future__ import annotations
 
+import inspect
 import json
 import tomllib
 from collections.abc import Mapping, Sequence
@@ -128,6 +129,12 @@ CODE_ONLY: Mapping[str, str] = {
     "AutoevalsScorer": "a scorer, which is a Python object",
     "tuple[PiiPattern, ...]": "PII patterns, which carry a checksum function",
 }
+
+#: Parameters a plugin exposes that are credentials. A suite file is a file
+#: that gets committed, and ADR 0004 §5 resolves keys through the SDK's own
+#: environment lookup precisely so that no digline object holds one — so the
+#: format has no way to write this, and says so rather than passing it along.
+CREDENTIALS = frozenset({"api_key"})
 
 #: The two instrument protocols, and which factory on a `Provider` builds one.
 #: ADR 0004 §1 makes every plugin ship both, so one coordinate answers for
@@ -391,7 +398,10 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
         raise UsageError(f"{where}: {exc}") from exc
     build = getattr(provider, factory)
     try:
-        return build(model)
+        # By keyword, always: a plugin's factory is a class whose positional
+        # order is its own business — every published target takes
+        # `prompt_file` first — and `model` is the one name the contract fixes.
+        return build(model=model)
     except (TypeError, ValueError) as exc:
         raise UsageError(
             f"{where}: {provider_name} could not be set up as a judge for "
@@ -453,9 +463,9 @@ def _target(document: Mapping[str, object], path: Path) -> Target:
         )
     arguments = {key: value for key, value in table.items() if key != "type"}
     if kind == "http":
-        return _http(arguments, where)
+        return _http(arguments, where, path.parent)
     if kind == "provider":
-        return _provider(arguments, where)
+        return _provider(arguments, where, path.parent)
     raise UsageError(
         f'{where}: `type` is {kind!r}, and there are two forms — "http" and '
         '"provider". A target that is a function is a suite.py: there is no '
@@ -463,16 +473,23 @@ def _target(document: Mapping[str, object], path: Path) -> Target:
     )
 
 
-def _http(arguments: Mapping[str, object], where: str) -> Target:
+def _http(arguments: Mapping[str, object], where: str, base: Path) -> Target:
     if "request" in arguments:
         raise computed_body(where)
+    _refuse_credentials(arguments, where)
+    # Checked here rather than left to the constructor: a `TypeError` about an
+    # unexpected keyword argument is the bare Python error every other position
+    # in this format is careful not to show.
+    _refuse_unknown(
+        arguments, _accepted(HttpTarget) - {"request"}, where, "parameter", "http"
+    )
     try:
-        return HttpTarget(**cast("Any", arguments))
+        return HttpTarget(**cast("Any", _resolve_paths(arguments, HttpTarget, base)))
     except (TypeError, ValueError) as exc:
         raise UsageError(f"{where}: {exc}") from exc
 
 
-def _provider(arguments: Mapping[str, object], where: str) -> Target:
+def _provider(arguments: Mapping[str, object], where: str, base: Path) -> Target:
     coordinate = arguments.get("provider")
     if not isinstance(coordinate, str):
         raise UsageError(
@@ -490,11 +507,30 @@ def _provider(arguments: Mapping[str, object], where: str) -> Target:
         raise UsageError(f"{where}: {exc}") from exc
 
     rest = {key: value for key, value in arguments.items() if key != "provider"}
+    if "model" in rest:
+        raise UsageError(
+            f"{where}: `model` is the second half of `provider`, so writing it "
+            "again would be two sources for one fact. It is "
+            f'"{provider_name}/<model>" and nothing else.'
+        )
+    _refuse_credentials(rest, where)
     for injected in ("client", "pricing"):
         if injected in rest:
             raise object_parameter(injected, where=where, provider=provider_name)
+    # Against what the plugin *names*, so a plugin with a `**kwargs` bucket
+    # does not quietly swallow a misspelling. ADR 0007 §5 admits "only the
+    # parameters the plugin already exposes as declarative configuration", and
+    # a bucket exposes nothing.
+    _refuse_unknown(
+        rest,
+        _accepted(provider.target) - {"model", "client", "pricing", *CREDENTIALS},
+        where,
+        "parameter",
+        provider_name,
+    )
     try:
-        return provider.target(model, **cast("Any", rest))
+        settled = _resolve_paths(rest, provider.target, base)
+        return provider.target(model=model, **cast("Any", settled))
     except (TypeError, ValueError) as exc:
         raise UsageError(
             f"{where}: {provider_name} refused this set-up: {exc}"
@@ -504,6 +540,72 @@ def _provider(arguments: Mapping[str, object], where: str) -> Target:
 # --------------------------------------------------------------------------- #
 # Shared
 # --------------------------------------------------------------------------- #
+
+
+def _resolve_paths(
+    arguments: Mapping[str, object], factory: object, base: Path
+) -> dict[str, object]:
+    """A relative path in a suite file is relative to **the suite file**.
+
+    `cases` already works this way and so do `Suite.artifacts`: the CLI resolves
+    them against the suite's own directory, because that is where a prompt sits
+    next to the suite that names it. Resolving against the working directory
+    instead would make a suite runnable from one place only — and CI, the
+    container and a colleague's checkout are all somewhere else.
+
+    Driven by the parameter's declared type, like every other conversion here: a
+    `str | Path` is a path, and a plugin that adds one gets this for free.
+    """
+    try:
+        signature = inspect.signature(cast("Any", factory))
+    except (TypeError, ValueError):  # pragma: no cover - a C-level callable
+        return dict(arguments)
+    resolved = dict(arguments)
+    for name, parameter in signature.parameters.items():
+        annotation = parameter.annotation
+        declared = (
+            annotation
+            if isinstance(annotation, str)
+            else getattr(annotation, "__name__", "")
+        )
+        given = resolved.get(name)
+        if "Path" in declared and isinstance(given, str):
+            candidate = Path(given)
+            if not candidate.is_absolute():
+                resolved[name] = base / candidate
+    return resolved
+
+
+def _accepted(factory: object) -> set[str]:
+    """The parameter names a callable names, `self` and `**kwargs` aside.
+
+    A `**kwargs` bucket is deliberately not treated as "anything goes": what it
+    would buy is a plugin quietly accepting `temperture`, and what it would
+    cost is the guarantee that a key in a suite file reaches the model.
+    """
+    try:
+        signature = inspect.signature(cast("Any", factory))
+    except (TypeError, ValueError):  # pragma: no cover - a C-level callable
+        return set()
+    return {
+        name
+        for name, parameter in signature.parameters.items()
+        if name != "self" and parameter.kind is not parameter.VAR_KEYWORD
+    }
+
+
+def _refuse_credentials(arguments: Mapping[str, object], where: str) -> None:
+    """A key never appears in a suite file, and this is the one place that
+    could have let one in."""
+    for key in arguments:
+        if key in CREDENTIALS:
+            raise UsageError(
+                f"{where}: `{key}` is a credential, and a suite file is a file "
+                "that gets committed. Leave it out: the provider's own SDK "
+                "reads it from the environment, which is why no digline object "
+                "holds one (ADR 0004 §5). A key is the one payload no "
+                "Disclosure can release."
+            )
 
 
 def _init_fields(cls: type) -> dict[str, Field[Any]]:
