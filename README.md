@@ -269,6 +269,7 @@ Python 3.12+. One runtime dependency: `jsonschema`.
   format, key by key, what it deliberately cannot say, and how to move a suite
   between the two forms without losing its baseline
 - [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — the two commands with a surface of their own
+- [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
 ## License
