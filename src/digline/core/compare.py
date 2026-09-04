@@ -21,9 +21,13 @@ __all__ = [
     "AssertionDelta",
     "Comparison",
     "ConfigDelta",
+    "Noise",
     "Outcome",
     "Scope",
+    "artifact_deltas",
     "compare",
+    "config_deltas",
+    "index_verdicts",
     "withhold_artifacts",
 ]
 
@@ -221,8 +225,18 @@ def _changed(deltas: Sequence[ConfigDelta]) -> bool:
     return any(d.outcome not in ("same", "unknown") for d in deltas)
 
 
-def _index(run: Run) -> dict[_Key, Verdict]:
+def index_verdicts(run: Run) -> dict[_Key, Verdict]:
     """Index by (case, assertion identity, occurrence).
+
+    Public, and it now serves two consumers: `compare()`, which pairs a run
+    against an approved baseline, and `diff()`, which pairs two runs neither of
+    which was approved by anybody (ADR 0008 §5). The pairing rule is the same
+    for both and has to be, because **identity is identity whether or not one
+    side was approved**: what makes two verdicts the same check is the
+    assertion's fingerprint, and approval is a fact about a file rather than
+    about a check. A second, subtly different pairing would mean two answers to
+    "is this the same check", which is how a diff and a comparison of one pair
+    of runs come to disagree about how many checks there are.
 
     Keying on `Verdict.assertion_id` rather than on the name is what keeps the
     pairing honest. Position is not identity: with two `contains` on one case,
@@ -256,7 +270,7 @@ def _index(run: Run) -> dict[_Key, Verdict]:
 
 
 @dataclass(frozen=True, slots=True)
-class _Noise:
+class Noise:
     """The interval a movement is judged against, or the absence of one.
 
     A value rather than three loose variables because the absence is a case in
@@ -304,11 +318,11 @@ class _Noise:
         )
 
 
-def _noise(verdict: Verdict) -> _Noise:
+def _noise(verdict: Verdict) -> Noise:
     score = verdict.score
     if not score.sampled:
-        return _Noise()
-    return _Noise(score.sample_min, score.sample_max, len(score.samples))
+        return Noise()
+    return Noise(score.sample_min, score.sample_max, len(score.samples))
 
 
 def compare(run: Run, baseline: Run) -> Comparison:
@@ -351,7 +365,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
             f"cannot compare across tenants: run is {run.tenant!r}, "
             f"baseline is {baseline.tenant!r}"
         )
-    current, previous = _index(run), _index(baseline)
+    current, previous = index_verdicts(run), index_verdicts(baseline)
     deltas: list[AssertionDelta] = []
 
     for key in sorted(current.keys() | previous.keys()):
@@ -499,13 +513,13 @@ def compare(run: Run, baseline: Run) -> Comparison:
         suite=run.suite,
         config_changed=run.config_hash != baseline.config_hash,
         deltas=tuple(deltas),
-        artifact_deltas=_artifact_deltas(run, baseline),
-        target_config_deltas=_config_deltas(run.target_config, baseline.target_config),
-        judge_config_deltas=_config_deltas(run.judge_config, baseline.judge_config),
+        artifact_deltas=artifact_deltas(run, baseline),
+        target_config_deltas=config_deltas(run.target_config, baseline.target_config),
+        judge_config_deltas=config_deltas(run.judge_config, baseline.judge_config),
     )
 
 
-def _config_deltas(now: SystemConfig, before: SystemConfig) -> tuple[ConfigDelta, ...]:
+def config_deltas(now: SystemConfig, before: SystemConfig) -> tuple[ConfigDelta, ...]:
     """One delta per declared parameter, on either side, ordered by name.
 
     Three rules, and each of them exists to avoid reporting a change nobody
@@ -624,7 +638,7 @@ def withhold_artifacts(comparison: Comparison) -> Comparison:
     )
 
 
-def _artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
+def artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
     """One delta per declared file, on either side, ordered by path.
 
     Compared on the **digest**, never on the text — a file may be large and two
