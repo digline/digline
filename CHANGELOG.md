@@ -15,6 +15,46 @@ What changed for you, three lines a version. The reasoning lives in
   measurement. The same content ships as a Claude Code skill in
   `.claude/skills/operating-digline/`, and `tests/test_agents.py` fails if the
   two drift apart.
+- **Added:** `digline diff <run1> <run2>` — what differs between two runs,
+  neither of them a baseline. It answers *"should I switch?"* where `compare`
+  answers *"did it get worse?"*: prompt A against prompt B, one model against
+  another, temperature 0.3 against 0.7. It is a **report and never a verdict**,
+  so it **always exits 0** on a completed report — a verdict exists only
+  against an approved reference, and neither side of a diff was approved by
+  anybody. A separate command rather than a flag on `compare`, because the exit
+  code is the contract and nobody should have to remember which mode they are
+  in. (ADR 0008, and [`docs/diff.md`](docs/diff.md))
+- **Added:** the report is **symmetric**. Swapping the two arguments swaps the
+  columns and nothing else — the same checks, the same counts with the two
+  "favour" figures exchanged, the same intervals. It carries no "reference", no
+  "before" and "after", no "regressed" and "improved": none of those words is
+  true of two runs neither of which was approved. Both locales, and `--json
+  counts` / `--json full` with a symmetric structure and **no `worse` field** —
+  the absence is the point.
+- **Added:** where both sides were sampled, each row shows the two recorded
+  min–max intervals, and the headline will say *"2 of `<run>`'s advantages
+  exceed both runs' observed intervals"* — the strongest sentence two
+  unapproved runs support. Where the intervals overlap the row says the two are
+  not distinguishable by that check, as **evidence beside the count and never
+  an excuse**: a diff has no baseline, so no interval has the standing to
+  overrule a difference. Where nothing was measured on both sides the sentence
+  is not printed at all, rather than printed as "0 of …".
+- **Changed:** `digline view`'s compare screen now chooses. Against the
+  **baseline** — including the default — it is still the verdict document;
+  against **any other run** it is the diff report. Since 0.4.0 that screen
+  rendered the verdict for every pair, which put two candidates under a heading
+  asking "Did it get worse?" beside a column called "Reference". ADR 0008
+  closes it in the release that states the principle.
+- **Refused:** a diff needs both runs measured the same way. Different rules
+  (`config_hash`) and different judges (the ADR 0005 identity set) are refused
+  by name, with the remedy in the message — including the case where one side
+  recorded a judge and the other recorded none, which cannot be established as
+  a match. Crossing a tenant or a suite name raises, as it does in `compare`.
+  The **target is free**, and that freedom is the feature.
+- **Unchanged:** `SCHEMA_VERSION` stays at 9 and `OUTPUT_VERSION` stays at 1.
+  No run needs migrating, no baseline needs re-promoting: everything `diff`
+  reads has been in the document since 0.4.0. Two runs recorded before this
+  release diff against each other with no ceremony.
 
 ## 0.5.0 — 2026-09-08
 
