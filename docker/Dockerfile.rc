@@ -1,0 +1,92 @@
+# A release candidate, built from **this checkout** rather than from PyPI.
+#
+# Same shape as docker/Dockerfile in every way a user can observe — same base,
+# same git, same non-root user, same WORKDIR, same entrypoint, same labels —
+# and one difference: the wheels come from `uv build` over the working tree
+# instead of `pip install digline==<version>`. That is the whole reason it
+# exists: 0.5.0 is not on PyPI and the point of the candidate is to prove the
+# TOML path inside a container before it is.
+#
+# The context is the repository root, so `.dockerignore` beside it is what
+# keeps .venv/ and the caches out of the build.
+#
+#     docker build . -f docker/Dockerfile.rc -t digline:rc
+
+# --------------------------------------------------------------------------- #
+# The wheels. uv builds them and does not ship: nothing from this stage reaches
+# the image except four files.
+# --------------------------------------------------------------------------- #
+FROM python:3.12-slim AS wheels
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /usr/local/bin/uv
+
+WORKDIR /src
+COPY . .
+# --all-packages: the core and the three plugins, which is what the released
+# image carries. Wheels only — an sdist in the same directory would make the
+# install line below ambiguous about what it is installing.
+RUN uv build --all-packages --wheel --out-dir /wheels && ls -1 /wheels
+
+# --------------------------------------------------------------------------- #
+# The image itself, which from here down is docker/Dockerfile.
+# --------------------------------------------------------------------------- #
+FROM python:3.12-slim
+
+# What the label says, and not what pip will report: the wheels are the
+# workspace's own version (0.5.0, unreleased), and this image is the first
+# candidate cut of it. Two different questions, two different answers, and
+# conflating them would leave a tag nobody can trace to a commit.
+ARG IMAGE_VERSION=0.5.0rc1
+ARG VCS_REF=""
+
+LABEL org.opencontainers.image.title="digline"
+LABEL org.opencontainers.image.description="Release candidate: digline built from source, not from PyPI."
+LABEL org.opencontainers.image.source="https://github.com/digline/digline"
+LABEL org.opencontainers.image.version="${IMAGE_VERSION}"
+LABEL org.opencontainers.image.revision="${VCS_REF}"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+
+# A run records the commit it was produced from, and that field is half of what
+# a report shows a reader: "tested under which commit". Without git in the
+# image it is silently `null` on every run.
+#
+# `safe.directory '*'` because the repository arrives as a bind mount owned by
+# whoever owns it on the host, which is not the container's user.
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/* \
+ && git config --system --add safe.directory '*'
+
+# Into the system site-packages rather than a virtualenv: a suite with its own
+# dependencies derives this image and installs them with `pip install`, and
+# they have to land where digline already is.
+#
+# All four wheels in one command, so the plugins' `digline>=0.5.0` resolves to
+# the core built beside them rather than to an index that does not have it yet
+# — the same reason publish.yml passes `--find-links dist/`.
+# `COPY` rather than a BuildKit `--mount`: the four wheels are a couple of
+# hundred kilobytes of pure Python, and a build that works on whatever builder
+# is in front of it is worth more than the layer it saves.
+COPY --from=wheels /wheels /tmp/wheels
+RUN pip install --no-cache-dir /tmp/wheels/*.whl \
+ && rm -rf /tmp/wheels \
+ && digline --help > /dev/null
+
+# The suite is imported from the mounted repository, so the bytecode Python
+# would write for it lands in the *user's* tree, under whatever uid the
+# container runs as.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Non-root. `--user "$(id -u)"` overrides this where the mounted repository is
+# owned by another uid.
+RUN groupadd --gid 1000 digline \
+ && useradd --uid 1000 --gid 1000 --create-home digline \
+ && mkdir -p /work \
+ && chown digline:digline /work
+USER digline
+
+# `.digline/` belongs to the repository, never to the image.
+WORKDIR /work
+
+ENTRYPOINT ["digline"]
+CMD ["--help"]

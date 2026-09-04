@@ -1,0 +1,184 @@
+name: docker-rc
+
+# A release candidate of the image, built from **this branch's source** rather
+# than from PyPI, for a named tester to try before 0.5.0 exists.
+#
+# It is a separate file from docker-publish.yml on `docker-image`, and stays
+# one: that workflow publishes releases and moves `:latest`, this one does
+# neither and has no business growing the ability to. When 0.5.0 is out, the
+# real image is a rebuild of the real Dockerfile at the real version, and this
+# file and its branch can go.
+#
+# `push` and not `workflow_dispatch`, for the same reason as the other one:
+# GitHub registers a dispatch only from the default branch, and this file will
+# never be on it.
+on:
+  push:
+    branches: [rc-0.5.0]
+    paths:
+      - docker/Dockerfile.rc
+      - .github/workflows/docker-rc.yml
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/digline/digline
+  # One tag, written once. Not `latest`, not `0.5.0`, not `0.5`: a candidate
+  # that could be picked up by somebody who asked for the release is not a
+  # candidate, it is a release nobody agreed to.
+  TAG: 0.5.0-rc1
+
+jobs:
+  smoke:
+    name: The TOML quickstart, inside the image
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.plan.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: plan
+        run: echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build for this runner's architecture
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.rc
+          load: true
+          tags: digline:rc
+          build-args: |
+            IMAGE_VERSION=0.5.0rc1
+            VCS_REF=${{ steps.plan.outputs.revision }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The example's own cycle, in the container
+        # This is what the candidate exists to prove, so it is what the smoke
+        # test runs: a suite that is data, in the image, against the baseline
+        # committed beside it. Not the Python quickstart — that path already
+        # shipped in 0.4.0 and is not the question.
+        run: |
+          set -euo pipefail
+          cd examples/quickstart-toml
+
+          # The application, on the runner rather than in the image: a TOML
+          # suite cannot start it, which is the honest shape of the thing. The
+          # container joins the host's network so `127.0.0.1:8730` in
+          # suite.toml means what it says, and the file is used exactly as a
+          # reader would find it.
+          # Started and stopped by pid, not by `%1`: job control in a
+          # non-interactive shell is a way to find out at 3am that `kill %1`
+          # failed because the job had already gone.
+          start_stub() {
+            python stub.py &
+            STUB=$!
+            for attempt in $(seq 1 40); do
+              curl -sf -o /dev/null --head http://127.0.0.1:8730/answer && return 0
+              sleep 0.5
+            done
+            echo "the stub never came up"; return 1
+          }
+          stop_stub() {
+            kill "$STUB" 2>/dev/null || true
+            wait "$STUB" 2>/dev/null || true
+            # The port has to be free before the next one binds it, and a
+            # socket in TIME_WAIT is the reason this is a loop and not a sleep.
+            for attempt in $(seq 1 40); do
+              curl -sf -o /dev/null --head http://127.0.0.1:8730/answer || return 0
+              sleep 0.5
+            done
+            echo "the stub never let go of the port"; return 1
+          }
+
+          start_stub
+
+          digline() {
+            docker run --rm --network host --user "$(id -u):$(id -g)" \
+              -v "$PWD:/work" digline:rc "$@"
+          }
+
+          digline --help > /dev/null
+          digline run --suite suite.toml
+
+          # Against the baseline this example commits, never a fresh one:
+          # promoting first would compare a run with itself and pass whatever
+          # happened.
+          digline compare --suite suite.toml --run latest
+          echo "clean run: exit 0 against the committed baseline"
+
+          # Now the regression the README documents.
+          python - <<'PY'
+          import pathlib
+          stub = pathlib.Path("stub.py")
+          source = stub.read_text(encoding="utf-8")
+          old = (
+              '        "your order page and drop the parcel at any pickup point. "\n'
+              '        "— Northwind Support"'
+          )
+          assert source.count(old) == 1, "the stub's second answer moved"
+          stub.write_text(
+              source.replace(
+                  old,
+                  '        "your order page and drop the parcel at any pickup point."',
+              ),
+              encoding="utf-8",
+          )
+          PY
+          stop_stub
+          start_stub
+
+          digline run --suite suite.toml
+          set +e
+          digline compare --suite suite.toml --run latest
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ]; then
+            echo "compare should have exited 1 on a worse run, exited $status"
+            exit 1
+          fi
+          echo "quickstart-toml ok in the image: exit 0, then exit 1 after the break"
+
+  publish:
+    name: Push the candidate to GHCR
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.rc
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          build-args: |
+            IMAGE_VERSION=0.5.0rc1
+            VCS_REF=${{ needs.smoke.outputs.revision }}
+          cache-from: type=gha
+
+      - name: Say what is on the registry
+        run: |
+          {
+            echo "### Candidate pushed"
+            echo '```'
+            echo "${{ env.IMAGE }}:${{ env.TAG }}"
+            echo "digline 0.5.0 + plugins 0.3.0, built from ${{ needs.smoke.outputs.revision }}"
+            echo '```'
+            echo "Nothing else moved: not :latest, not :0.4.0, not PyPI."
+          } >> "$GITHUB_STEP_SUMMARY"

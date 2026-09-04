@@ -1,0 +1,13 @@
+# The RC image builds from this tree (docker/Dockerfile.rc), so the context is
+# the repository root. Everything below is either enormous, machine-local, or
+# both — and none of it changes a wheel.
+#
+# The released image needs no such file: its context is docker/, which holds
+# one Dockerfile and nothing to ignore.
+.venv/
+**/.venv/
+**/__pycache__/
+.git/
+**/.ruff_cache/
+**/.pytest_cache/
+private/
