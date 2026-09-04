@@ -20,7 +20,7 @@ import.
   Python form builds — the same assertion identities and the same
   `config_hash` — so a suite can be ported between the two forms **without
   re-promoting its baseline**. (ADR 0007, and
-  [`docs/declarative.md`](docs/declarative.md))
+  [`docs/declarative.md`](https://digline.dev/product/declarative/))
 - **Added:** providers are found through **entry points**. Each plugin
   registers its name under `digline.providers`, and a suite names a judge or a
   target by coordinate — `judge = "anthropic/claude-haiku-4-5"`, which is the
