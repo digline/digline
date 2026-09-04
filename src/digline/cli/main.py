@@ -1,9 +1,14 @@
 """The command line: the last layer, and the only one that touches the world.
 
-Seven commands, each doing one thing, and nothing promoting as a side effect of
+Eight commands, each doing one thing, and nothing promoting as a side effect of
 anything else: `run` writes a run and prints its key, `compare` reads and
-judges, `promote` promotes, `report` renders, `migrate` brings stored documents
-up to the current schema, `list` and `view` show.
+judges, `diff` reads two runs and judges neither, `promote` promotes, `report`
+renders, `migrate` brings stored documents up to the current schema, `list` and
+`view` show.
+
+`compare` and `diff` are two commands and not one with a flag, because **the
+exit code is the contract**: `compare` gates and `diff` never does, and a user
+must never have to remember which mode they selected (ADR 0008 §2).
 
 **None of this is `--help`.** What a reader of the source needs — why the layer
 exists, what it is allowed to touch — is not what someone typing `digline -h`
@@ -30,9 +35,13 @@ from digline.cli.view import serve
 from digline.core import (
     Artifact,
     AssertionDelta,
+    CheckDifference,
     ConfigDelta,
+    Difference,
+    Noise,
     Run,
     compare,
+    diff,
     redact,
     withhold_artifacts,
 )
@@ -44,6 +53,7 @@ from digline.report import (
     render_html,
     summary_lines,
 )
+from digline.report import diff as diff_report
 from digline.run import HasArtifacts, Suite, execute, planned_calls
 from digline.store import (
     ConfigMismatchError,
@@ -80,6 +90,12 @@ __all__ = [
 #:    do not break a consumer: `target_config_changed` and
 #:    `judge_config_changed` on the headline, and `target_config_deltas` /
 #:    `judge_config_deltas` under `full` (ADR 0005 §7).
+#:
+#:    `digline diff --json` is under this same contract from the start, and its
+#:    arrival is not a bump either: a *new command's* output breaks no existing
+#:    consumer, because nothing that parses `compare --json` today sees a byte
+#:    change. Its structure is symmetric and carries **no `worse` field** — the
+#:    absence is the point, not an omission (ADR 0008 §1).
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0
@@ -416,6 +432,182 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return exit_code(head)
 
 
+def _interval_json(noise: Noise) -> dict[str, object] | None:
+    """One measured interval, or `null` where nothing measured it.
+
+    `null` rather than zeros: a check at `samples=1` has no interval, and
+    `{"min": 0, "max": 0}` would be a measurement nobody took.
+    """
+    if not noise.known:
+        return None
+    return {"min": noise.low, "max": noise.high, "samples": noise.count}
+
+
+def _check_json(check: CheckDifference) -> dict[str, object]:
+    """One check as a pipeline reads it: symmetric, and without a `reason`.
+
+    `left` and `right` rather than `before` and `after`, and `favours` rather
+    than a sign somebody has to interpret. A consumer that swaps the two
+    arguments gets the same rows with the two sides exchanged and `delta`
+    negated, which is the columns moving and not the facts.
+
+    The judge's `reason` is absent for `_delta_json`'s reason: a reason is
+    payload, and stdout of a CI job is where logs go and stay.
+    """
+    return {
+        "case_id": check.case_id,
+        "scope": check.scope,
+        "assertion": check.assertion,
+        "outcome": check.outcome,
+        "favours": check.favours,
+        "left": None if check.left is None else check.left.score.score,
+        "right": None if check.right is None else check.right.score.score,
+        "delta": check.delta,
+        "tolerance": check.tolerance,
+        "flipped": check.flipped,
+        "left_interval": _interval_json(check.left_interval),
+        "right_interval": _interval_json(check.right_interval),
+        "intervals_overlap": check.intervals_overlap,
+        "intervals_disjoint": check.intervals_disjoint,
+    }
+
+
+def _diff_json(
+    difference: Difference,
+    left: Run,
+    right: Run,
+    *,
+    keys: tuple[str, str],
+    labels: tuple[str, str],
+    sentence: str,
+    full: bool,
+) -> dict[str, object]:
+    """What `digline diff --json` prints.
+
+    **There is no `worse` field, and its absence is the point** (ADR 0008 §1).
+    `Headline` is not reused and no diff-shaped equivalent of it exists, so
+    there is nothing here for a pipeline to gate on — which is the whole reason
+    this command was not built as a flag on `compare`.
+
+    The structure is symmetric: `runs.left` and `runs.right`, `favours_left` and
+    `favours_right`, `left_exceeds` and `right_exceeds`. Swapping the two
+    arguments exchanges every pair and changes nothing else.
+    """
+    payload: dict[str, object] = {
+        "output_version": OUTPUT_VERSION,
+        "tenant": difference.tenant,
+        "suite": difference.suite,
+        "runs": {
+            side: {
+                "key": key,
+                "label": label,
+                "created_at": run.created_at,
+                "environment": run.environment,
+            }
+            for side, key, label, run in (
+                ("left", keys[0], labels[0], left),
+                ("right", keys[1], labels[1], right),
+            )
+        },
+        "counts": {
+            "total": difference.total,
+            "differing": difference.differing,
+            "favours_left": difference.favours_left,
+            "favours_right": difference.favours_right,
+            "within_tolerance": difference.within_tolerance,
+            "only_left": difference.only_left,
+            "only_right": difference.only_right,
+            "errored": difference.errored,
+            "interval_pairs": difference.interval_pairs,
+            "left_exceeds": difference.left_exceeds,
+            "right_exceeds": difference.right_exceeds,
+        },
+        "systems_differ": difference.systems_differ,
+        "artifacts_differ": difference.artifacts_differ,
+        "judges": list(difference.judges),
+        "sentence": sentence,
+    }
+    if full:
+        payload["checks"] = [_check_json(c) for c in difference.checks]
+        payload["target_config_deltas"] = [
+            _config_json(d) for d in difference.target_config_deltas
+        ]
+    return payload
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    """Two runs, neither of them a reference. Always exits 0 on a report.
+
+    `exit_code()` is deliberately not called and must never be: a verdict exists
+    only against an approved reference, and neither side of a diff was approved
+    by anybody (ADR 0008 §1). The refusals below are usage errors — the report
+    could not be produced — which is a different thing from a report whose
+    contents somebody dislikes, and only the first is a non-zero exit.
+    """
+    suite, _loaded, store = _load(args)
+    left_key, right_key = (_resolve_key(store, suite, k) for k in args.runs)
+    if left_key == right_key:
+        raise UsageError(
+            f"both arguments resolve to the run {left_key}: a run diffed with "
+            "itself has nothing to report, because every line of the answer "
+            "would be a tautology"
+        )
+    left = _read_run(store, suite, left_key)
+    right = _read_run(store, suite, right_key)
+
+    difference = diff(left, right)
+    keys = (left_key, right_key)
+    labels = diff_report.run_labels(
+        left.created_at, right.created_at, left_key=left_key, right_key=right_key
+    )
+    sentence = diff_report.sentence(difference, locale=args.locale, labels=labels)
+
+    if args.json:
+        print(
+            json.dumps(
+                _diff_json(
+                    difference,
+                    left,
+                    right,
+                    keys=keys,
+                    labels=labels,
+                    sentence=sentence,
+                    full=args.json == "full",
+                ),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+
+    # The two runs bound to the labels everything below uses. No word in front
+    # of either: "run 1" and "run 2" would be a rank, and the order of two
+    # columns is not one. The key is dropped where the label already is the key.
+    for key, label, run in ((left_key, labels[0], left), (right_key, labels[1], right)):
+        stamp = "" if label == key else f"  {key}"
+        print(f"{label}{stamp}  {run.environment}")
+
+    # What differs about the systems, before what it did to the scores.
+    opening = diff_report.header_lines(difference, locale=args.locale, labels=labels)
+    if opening:
+        print()
+        for line in opening:
+            print(f"  {line}")
+
+    print()
+    print(sentence)
+
+    lines = diff_report.summary_lines(
+        difference, locale=args.locale, labels=labels, limit=SUMMARY_LIMIT
+    )
+    if lines:
+        print()
+        for line in lines:
+            print(line)
+    return EXIT_OK
+
+
 def _short_commit(commit: str | None) -> str:
     if commit is None:
         return "-"
@@ -623,6 +815,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit JSON: the headline alone, or 'full' to add the deltas",
     )
     cmp_p.set_defaults(func=cmd_compare)
+
+    diff_p = subparsers.add_parser(
+        "diff", help="report what differs between two runs; judges neither"
+    )
+    common(diff_p)
+    # The terminal rule, not the document one: this writes to a terminal, and
+    # `CLAUDE.md` splits the locale grade on document-against-terminal rather
+    # than on the word "report". A future HTML diff document takes the mandatory
+    # flag like every other document. (ADR 0008 §2)
+    terminal_locale(diff_p)
+    diff_p.add_argument("runs", nargs=2, metavar="RUN", help=RUN_HELP)
+    # The value is **mandatory here and optional on `compare`**, and the
+    # difference is forced rather than chosen. `compare` takes its run through
+    # `--run`, so a bare `--json` has no positional to be confused with; `diff`
+    # takes two positionals, and an optional-valued flag in front of them makes
+    # argparse swallow the first run key as the flag's value — `digline diff
+    # --json A B` becomes "invalid choice: A". Found by running it. A required
+    # value is the one shape with no trap in it, at the cost of a shorthand.
+    diff_p.add_argument(
+        "--json",
+        choices=("counts", "full"),
+        help="emit JSON: 'counts' for the figures, 'full' to add every check",
+    )
+    diff_p.set_defaults(func=cmd_diff)
 
     list_p = subparsers.add_parser("list", help="list stored runs, newest first")
     common(list_p)
