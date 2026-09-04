@@ -471,8 +471,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "diff.column.case": "Caso",
         "diff.column.what": "Che cosa hanno detto le due esecuzioni",
         "diff.systems.same": (
-            "Le due esecuzioni hanno risposto con la stessa configurazione "
-            "registrata."
+            "Le due esecuzioni hanno risposto con la stessa configurazione registrata."
         ),
         "diff.systems.differ": "I sistemi sono diversi: {changes}.",
         "diff.systems.unknown": (
@@ -484,15 +483,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "diff.artifacts.same": (
             "I file in prova sono gli stessi nelle due esecuzioni."
         ),
-        "diff.artifacts.one": (
-            "1 file in prova è diverso fra le due esecuzioni."
-        ),
+        "diff.artifacts.one": ("1 file in prova è diverso fra le due esecuzioni."),
         "diff.artifacts.many": (
             "{count} file in prova sono diversi fra le due esecuzioni."
         ),
         "diff.artifacts.unknown": (
-            "I file in prova non sono inclusi, quindi non si sa se siano "
-            "diversi."
+            "I file in prova non sono inclusi, quindi non si sa se siano diversi."
         ),
         "diff.artifacts.outcome.differs": "diverso",
         "diff.artifacts.outcome.only": "dichiarato solo in {run}",
@@ -509,13 +505,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "diff.breakdown.tolerance.one": "1 entro la tolleranza",
         "diff.breakdown.tolerance.many": "{count} entro la tolleranza",
         "diff.breakdown.one_side.one": "1 presente in una sola esecuzione",
-        "diff.breakdown.one_side.many": (
-            "{count} presenti in una sola esecuzione"
-        ),
+        "diff.breakdown.one_side.many": ("{count} presenti in una sola esecuzione"),
         "diff.breakdown.errored.one": "1 non è stato possibile giudicarlo",
-        "diff.breakdown.errored.many": (
-            "{count} non è stato possibile giudicarli"
-        ),
+        "diff.breakdown.errored.many": ("{count} non è stato possibile giudicarli"),
         "diff.exceeds.one": (
             "1 dei vantaggi di {run} supera gli intervalli osservati di "
             "entrambe le esecuzioni."
@@ -525,9 +517,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "di entrambe le esecuzioni."
         ),
         "diff.detail.scores": "{left_run} {left_score}, {right_run} {right_score}.",
-        "diff.detail.flipped": (
-            " {pass_run} supera questo controllo e {fail_run} no."
-        ),
+        "diff.detail.flipped": (" {pass_run} supera questo controllo e {fail_run} no."),
         "diff.detail.tolerance": " Entro la tolleranza dichiarata {tolerance}.",
         "diff.detail.overlap": (
             " Gli intervalli osservati {left_noise} e {right_noise} si "
