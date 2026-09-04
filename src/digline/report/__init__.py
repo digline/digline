@@ -4,7 +4,7 @@ Pure functions — the caller writes the file. Depends on `digline.core` and on
 nothing else in digline.
 """
 
-from digline.report import pages
+from digline.report import diff, pages
 from digline.report.history import CaseEntry, CaseHistory, case_history
 from digline.report.pages import (
     VIEW_CSS,
@@ -44,6 +44,7 @@ __all__ = [
     "Locale",
     "Section",
     "case_history",
+    "diff",
     "case_page",
     "config_changes",
     "config_lines",

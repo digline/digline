@@ -193,6 +193,67 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.missing": "Present in the reference, not checked here.",
         "detail.errored": "The check could not run.",
         "reason.unavailable": "Not included in this report.",
+        "diff.title": "Two runs compared — {suite}",
+        "diff.column.run": "Run",
+        "diff.column.check": "Check",
+        "diff.column.case": "Case",
+        "diff.column.what": "What the two runs said",
+        "diff.systems.same": (
+            "The two runs answered under the same recorded configuration."
+        ),
+        "diff.systems.differ": "The systems differ: {changes}.",
+        "diff.systems.unknown": (
+            "The configuration is not recorded on both sides, so whether the "
+            "systems differ is not known."
+        ),
+        "diff.judge.same": "Both runs were graded by {judges}.",
+        "diff.change.pair": "{field} {left} vs {right}",
+        "diff.artifacts.same": "The files under test are the same in both runs.",
+        "diff.artifacts.one": "1 file under test differs between the two runs.",
+        "diff.artifacts.many": (
+            "{count} files under test differ between the two runs."
+        ),
+        "diff.artifacts.unknown": (
+            "The files under test are not included, so whether they differ is "
+            "not known."
+        ),
+        "diff.artifacts.outcome.differs": "differs",
+        "diff.artifacts.outcome.only": "declared in {run} only",
+        "diff.artifacts.outcome.unknown": (
+            "not included, so whether it differs is not known"
+        ),
+        "diff.count.none": "No check differs, out of {total}.",
+        "diff.count.one": "1 of {total} checks differs: {breakdown}.",
+        "diff.count.many": "{differing} of {total} checks differ: {breakdown}.",
+        "diff.breakdown.favours.one": "1 favours {run}",
+        "diff.breakdown.favours.many": "{count} favour {run}",
+        "diff.breakdown.tolerance.one": "1 within tolerance",
+        "diff.breakdown.tolerance.many": "{count} within tolerance",
+        "diff.breakdown.one_side.one": "1 present in only one run",
+        "diff.breakdown.one_side.many": "{count} present in only one run",
+        "diff.breakdown.errored.one": "1 could not be judged",
+        "diff.breakdown.errored.many": "{count} could not be judged",
+        "diff.exceeds.one": (
+            "1 of {run}'s advantages exceeds both runs' observed intervals."
+        ),
+        "diff.exceeds.many": (
+            "{count} of {run}'s advantages exceed both runs' observed intervals."
+        ),
+        "diff.detail.scores": "{left_run} {left_score}, {right_run} {right_score}.",
+        "diff.detail.flipped": " {pass_run} passes this check and {fail_run} does not.",
+        "diff.detail.tolerance": " Within the declared tolerance {tolerance}.",
+        "diff.detail.overlap": (
+            " Observed intervals {left_noise} and {right_noise} overlap, so "
+            "these two are not distinguishable by this check."
+        ),
+        "diff.detail.disjoint": (
+            " Observed intervals {left_noise} and {right_noise} do not overlap."
+        ),
+        "diff.detail.only": "Checked in {run} only.",
+        "diff.detail.errored": "The check could not run in {run}.",
+        "diff.detail.errored.both": "The check could not run in either run.",
+        "diff.section.differ": "What the two runs answered differently",
+        "diff.section.same": "What the two runs agree on",
         "view.title.runs": "Runs — {suite}",
         "view.title.case": "Case {case_id} — {suite}",
         "view.title.suspend": "Suspend {case_id} — {suite}",
@@ -404,6 +465,88 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.missing": "Presente nel riferimento, non controllato qui.",
         "detail.errored": "Il controllo non ha potuto essere eseguito.",
         "reason.unavailable": "Non inclusa in questo rapporto.",
+        "diff.title": "Due esecuzioni a confronto — {suite}",
+        "diff.column.run": "Esecuzione",
+        "diff.column.check": "Controllo",
+        "diff.column.case": "Caso",
+        "diff.column.what": "Che cosa hanno detto le due esecuzioni",
+        "diff.systems.same": (
+            "Le due esecuzioni hanno risposto con la stessa configurazione "
+            "registrata."
+        ),
+        "diff.systems.differ": "I sistemi sono diversi: {changes}.",
+        "diff.systems.unknown": (
+            "La configurazione non è registrata da entrambe le parti, quindi "
+            "non si sa se i sistemi siano diversi."
+        ),
+        "diff.judge.same": "Entrambe le esecuzioni sono state giudicate da {judges}.",
+        "diff.change.pair": "{field} {left} contro {right}",
+        "diff.artifacts.same": (
+            "I file in prova sono gli stessi nelle due esecuzioni."
+        ),
+        "diff.artifacts.one": (
+            "1 file in prova è diverso fra le due esecuzioni."
+        ),
+        "diff.artifacts.many": (
+            "{count} file in prova sono diversi fra le due esecuzioni."
+        ),
+        "diff.artifacts.unknown": (
+            "I file in prova non sono inclusi, quindi non si sa se siano "
+            "diversi."
+        ),
+        "diff.artifacts.outcome.differs": "diverso",
+        "diff.artifacts.outcome.only": "dichiarato solo in {run}",
+        "diff.artifacts.outcome.unknown": (
+            "non incluso, quindi non si sa se sia diverso"
+        ),
+        "diff.count.none": "Nessun controllo è diverso, su {total}.",
+        "diff.count.one": "1 controllo su {total} è diverso: {breakdown}.",
+        "diff.count.many": (
+            "{differing} controlli su {total} sono diversi: {breakdown}."
+        ),
+        "diff.breakdown.favours.one": "1 va a {run}",
+        "diff.breakdown.favours.many": "{count} vanno a {run}",
+        "diff.breakdown.tolerance.one": "1 entro la tolleranza",
+        "diff.breakdown.tolerance.many": "{count} entro la tolleranza",
+        "diff.breakdown.one_side.one": "1 presente in una sola esecuzione",
+        "diff.breakdown.one_side.many": (
+            "{count} presenti in una sola esecuzione"
+        ),
+        "diff.breakdown.errored.one": "1 non è stato possibile giudicarlo",
+        "diff.breakdown.errored.many": (
+            "{count} non è stato possibile giudicarli"
+        ),
+        "diff.exceeds.one": (
+            "1 dei vantaggi di {run} supera gli intervalli osservati di "
+            "entrambe le esecuzioni."
+        ),
+        "diff.exceeds.many": (
+            "{count} dei vantaggi di {run} superano gli intervalli osservati "
+            "di entrambe le esecuzioni."
+        ),
+        "diff.detail.scores": "{left_run} {left_score}, {right_run} {right_score}.",
+        "diff.detail.flipped": (
+            " {pass_run} supera questo controllo e {fail_run} no."
+        ),
+        "diff.detail.tolerance": " Entro la tolleranza dichiarata {tolerance}.",
+        "diff.detail.overlap": (
+            " Gli intervalli osservati {left_noise} e {right_noise} si "
+            "sovrappongono, quindi le due non sono distinguibili da questo "
+            "controllo."
+        ),
+        "diff.detail.disjoint": (
+            " Gli intervalli osservati {left_noise} e {right_noise} non si "
+            "sovrappongono."
+        ),
+        "diff.detail.only": "Controllato solo in {run}.",
+        "diff.detail.errored": "Il controllo non ha potuto essere eseguito in {run}.",
+        "diff.detail.errored.both": (
+            "Il controllo non ha potuto essere eseguito in nessuna delle due."
+        ),
+        "diff.section.differ": (
+            "Che cosa le due esecuzioni hanno risposto in modo diverso"
+        ),
+        "diff.section.same": "Su che cosa le due esecuzioni concordano",
         "view.title.runs": "Esecuzioni — {suite}",
         "view.title.case": "Caso {case_id} — {suite}",
         "view.title.suspend": "Sospendi {case_id} — {suite}",
