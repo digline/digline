@@ -7,7 +7,7 @@ dependencies = [
     # 0.1.2: a score landing exactly on its threshold inside `Repeated`
     # used to produce `error` instead of `pass`, and this judge returns
     # exactly 0.7.
-    "digline>=0.3,<0.4",
+    "digline>=0.4,<0.5",
     "digline-anthropic>=0.2,<0.3",
 ]
 

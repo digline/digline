@@ -8,7 +8,7 @@ dependencies = [
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
     # 0.1.2 is where `HttpTarget` arrives (friction 14); the floor is 0.3
     # because the committed baseline is schema 8, which older digline refuses.
-    "digline>=0.3,<0.4",
+    "digline>=0.4,<0.5",
 ]
 
 [dependency-groups]
