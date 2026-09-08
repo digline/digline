@@ -1,35 +1,31 @@
 name: docker-publish
 
-# The official image, `ghcr.io/digline/digline`, built and pushed by hand:
+# The official image, `ghcr.io/digline/digline`, built on a workspace tag and
+# pushed to GHCR — or by hand, for a rebuild:
 #
 #     gh workflow run docker-publish.yml --ref <branch>
 #
-# By hand and not on a tag, for now. The image installs digline from PyPI, so
-# it can only be built *after* a release has finished publishing — and wiring
-# it into `publish.yml` for future `v*` tags is a change to the release path,
-# which is not a thing to do in the same pass that invents the image.
+# The image installs digline from PyPI, so it can only be built *after* the
+# release has finished publishing. This workflow starts on the same tag push as
+# `publish.yml` and therefore *races* it: the `pypi` job there sits behind a
+# required reviewer, so the version can be minutes or hours away. Hence the wait
+# below, which is what makes a tag trigger honest rather than a job that fails
+# whenever a human is slow to approve.
 #
 # What the image contains is decided by the `ARG` lines in `docker/Dockerfile`
 # and by nothing here: the version is read back out of that file, and the tags
 # are derived from it. A version number written twice is a version number that
 # will one day disagree with itself.
 on:
-  # TEMPORARY, and it comes out before this branch reaches `main`.
+  # A workspace release, the same tag shape `publish.yml` builds PyPI from.
   #
-  # GitHub registers a `workflow_dispatch` only from the **default branch**:
-  # until this file is on `main`, `gh workflow run docker-publish.yml` answers
-  # 404 and there is no flag that changes it. A `push` trigger has no such
-  # rule — it runs the workflow from the branch that was pushed — so this is
-  # what lets the image publish from here, which is the whole point of building
-  # it before `main` reopens.
+  # `v*` only, and not the `digline-*-v*` shape beside it there: the tags this
+  # pushes are derived from `ARG DIGLINE_VERSION`, so a plugin-only release
+  # would republish the *core's* `:X.Y.Z` onto a new digest — the one thing
+  # docker/README.md promises that tag never does. A plugin that needs to reach
+  # the image rides the next workspace release, or a `workflow_dispatch`.
   push:
-    branches: [docker-image]
-    paths:
-      # The Dockerfile and this file, not docker/README.md: a page edit that
-      # republished the tags would move them to a new digest and change
-      # nothing about the image.
-      - docker/Dockerfile
-      - .github/workflows/docker-publish.yml
+    tags: ["v*"]
 
   workflow_dispatch:
     inputs:
@@ -87,6 +83,31 @@ jobs:
             if [ "${{ inputs.latest }}" != "false" ]; then echo "$IMAGE:latest"; fi
             echo "TAGS"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the version to be installable from PyPI
+        # `publish.yml` is triggered by the same tag push and its `pypi` job is
+        # gated on a reviewer, so at this moment the index very probably does
+        # not have the version the Dockerfile pins yet. Building before it does
+        # fails on `pip install digline==<version>` with nothing to retry.
+        #
+        # The core only: the plugins are uploaded in the same job, and an index
+        # that serves one serves the rest. Thirty minutes because the wait is
+        # for a person to press a button, not for a CDN to catch up.
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          deadline=$(( SECONDS + 1800 ))
+          until curl -sfo /dev/null "https://pypi.org/pypi/digline/$VERSION/json"; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "digline $VERSION is still not on PyPI after 30 minutes;" \
+                   "approve the pypi job in publish.yml, then re-run this one"
+              exit 1
+            fi
+            echo "digline $VERSION not on PyPI yet; checking again in 30s"
+            sleep 30
+          done
+          echo "digline $VERSION is on PyPI"
 
       - uses: docker/setup-buildx-action@v3
 

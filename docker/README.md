@@ -116,13 +116,20 @@ docker build docker/ -t digline:0.3.1 --build-arg DIGLINE_VERSION=0.3.1
 
 ## How it is published
 
-`.github/workflows/docker-publish.yml`, by hand
-(`gh workflow run docker-publish.yml --ref <branch>`). It builds for `amd64`
+`.github/workflows/docker-publish.yml`, on the `v*` tag that releases the
+workspace — the same tag `publish.yml` builds PyPI from. It builds for `amd64`
 and `arm64`, runs the front page's quickstart inside the built image and checks
 that the exit codes are the ones the README claims, and only then pushes to
 GHCR with the repository's own `GITHUB_TOKEN`. The tags come from the
 `Dockerfile`'s `DIGLINE_VERSION`; nothing repeats a version number.
 
-Until that file is on the default branch GitHub registers no dispatch for it —
-`gh workflow run` answers 404 — so while this is on a branch it is published by
-a `push` trigger scoped to that branch, which comes out when the branch lands.
+The image installs from PyPI, so it cannot be built until the release has
+finished publishing there — and the `pypi` job waits on a reviewer. The
+workflow therefore waits for the version to appear on the index before it
+builds, for up to thirty minutes.
+
+A release of a plugin alone does not rebuild the image: its tags are the
+*core's* version, and moving `0.5.0` to a new digest would break what the
+table above promises. Rebuilding one by hand
+(`gh workflow run docker-publish.yml --ref <ref>`) is still there, with a
+checkbox that keeps a rebuild of an older release from becoming `latest`.
