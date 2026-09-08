@@ -26,7 +26,6 @@ live here and in `docs/adr/`.
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
 import sys
 from collections.abc import Mapping, Sequence
@@ -36,11 +35,6 @@ from pathlib import Path
 from digline import __version__
 from digline.cli.view import serve
 from digline.core import (
-    AssertionDelta,
-    CheckDifference,
-    ConfigDelta,
-    Difference,
-    Noise,
     Run,
     compare,
     diff,
@@ -58,7 +52,6 @@ from digline.host import (
 from digline.host.artifacts import read_artifacts
 from digline.host.resolve import need_baseline, read_run, resolve_key
 from digline.report import (
-    Headline,
     artifact_lines,
     config_lines,
     headline,
@@ -77,6 +70,17 @@ from digline.store import (
     TenantMismatchError,
     migrate_paths,
 )
+from digline.wire import (
+    EXIT_OK,
+    EXIT_UNJUDGED,
+    EXIT_USAGE,
+    EXIT_WORSE,
+    OUTPUT_VERSION,
+    compare_json,
+    diff_json,
+    exit_code,
+    run_json,
+)
 
 __all__ = [
     "EXIT_OK",
@@ -88,57 +92,9 @@ __all__ = [
     "main",
 ]
 
-#: The shape of what `--json` prints, and nothing to do with `SCHEMA_VERSION`.
-#:
-#: Two contracts, two lifetimes. `SCHEMA_VERSION` is about documents already on
-#: disk, which is why it comes with migrations: a file written last month must
-#: still be readable. This one is about what a pipeline parses on stdout today,
-#: where nothing needs migrating and the only question is whether the consumer
-#: knows the shape moved. Tying them together would mean a reworded sentence
-#: bumping the storage schema, and a new field inside a `Run` bumping the output
-#: contract for consumers who saw no change.
-#:
-#: 1: `worse`, `unjudged`, `suspended`, `config_changed`, `artifacts_changed`,
-#:    `counts`, `reasons_available`, `sentence`; `deltas` under `--json full`.
-#:    Since then, and without a bump because the rule above is that added keys
-#:    do not break a consumer: `target_config_changed` and
-#:    `judge_config_changed` on the headline, and `target_config_deltas` /
-#:    `judge_config_deltas` under `full` (ADR 0005 §7).
-#:
-#:    `digline diff --json` is under this same contract from the start, and its
-#:    arrival is not a bump either: a *new command's* output breaks no existing
-#:    consumer, because nothing that parses `compare --json` today sees a byte
-#:    change. Its structure is symmetric and carries **no `worse` field** — the
-#:    absence is the point, not an omission (ADR 0008 §1).
-OUTPUT_VERSION = 1
-
-EXIT_OK = 0
-EXIT_WORSE = 1
-EXIT_UNJUDGED = 2
-EXIT_USAGE = 64
-
 LOCALES: tuple[str, ...] = ("en", "it")
 
 RUN_HELP = "a run key, or 'latest' for the most recent run of this suite"
-
-
-def exit_code(head: Headline) -> int:
-    """The one place a headline becomes a number.
-
-    Precedence is deliberate: **a regression outranks an unjudged case.** Both
-    need attention, but a regression is a statement about behaviour that got
-    worse, while an unjudged case is a statement about the harness. When both
-    are true the louder fact must be the one the pipeline reports, or a real
-    regression would hide behind a flaky provider.
-
-    A suspension never fails: it is a decision someone already made, not an
-    outcome.
-    """
-    if head.worse:
-        return EXIT_WORSE
-    if head.unjudged:
-        return EXIT_UNJUDGED
-    return EXIT_OK
 
 
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
@@ -217,7 +173,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     # still captures only the key. Arithmetic over the declared suite: no
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
-    print(f"digline: {planned_calls(suite).sentence()}", file=sys.stderr)
+    plan = planned_calls(suite)
+    print(f"digline: {plan.sentence()}", file=sys.stderr)
 
     run = execute(
         suite,
@@ -230,16 +187,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     ref = store.write_run(run)
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "output_version": OUTPUT_VERSION,
-                    "key": ref.key,
-                    "tenant": ref.tenant,
-                    "suite": ref.suite,
-                }
-            )
-        )
+        print(json.dumps(run_json(ref, plan)))
     else:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
@@ -252,59 +200,6 @@ def cmd_run(args: argparse.Namespace) -> int:
 SUMMARY_LIMIT = 20
 
 
-def _delta_json(delta: AssertionDelta) -> dict[str, object]:
-    """The structured facts, and deliberately **not** the verdict's `reason`.
-
-    A reason is payload, and stdout of a CI job is a place logs go and stay. A
-    pipeline that genuinely needs the judge's words can read the run file, from
-    inside the perimeter where it is allowed to.
-
-    `scope` is emitted even though a run-scoped delta always carries
-    `case_id == ""`: deriving the kind of a delta from an empty string asks the
-    consumer to know a convention instead of reading a field, and an empty
-    `case_id` is equally what a malformed one would look like.
-
-    `within_noise` and the interval ride beside the outcome rather than inside
-    it, in `--json` for the same reason as in the document: `Outcome` gains no
-    sixth member, so a pipeline that already knows the five keeps working, and
-    one that wants to tell "nothing moved" from "what moved was noise" reads a
-    field. The interval is emitted on a regression too — that is the sentence
-    "beyond the noise of this check" in machine form. (ADR 0006 §9)
-    """
-    before = None if delta.baseline is None else delta.baseline.score.score
-    after = None if delta.current is None else delta.current.score.score
-    return {
-        "case_id": delta.case_id,
-        "scope": delta.scope,
-        "assertion": delta.assertion,
-        "outcome": delta.outcome,
-        "before": before,
-        "after": after,
-        "delta": delta.delta,
-        "within_noise": delta.within_noise,
-        "noise_min": delta.noise_min,
-        "noise_max": delta.noise_max,
-        "noise_samples": delta.noise_samples,
-    }
-
-
-def _config_json(delta: ConfigDelta) -> dict[str, object]:
-    """A configuration delta as a pipeline reads it.
-
-    The values travel, unlike a verdict's `reason`: a model id and a temperature
-    are measurements of the system, and a withheld field carries no value to
-    print in the first place — redaction removed it before this was built
-    (ADR 0005 §2).
-    """
-    return {
-        "field": delta.field,
-        "outcome": delta.outcome,
-        "before": delta.before,
-        "after": delta.after,
-        "withheld": delta.withheld,
-    }
-
-
 def cmd_compare(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = read_run(store, suite, _resolve(store, suite, args.run))
@@ -314,18 +209,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     head = headline(comparison, run, baseline, locale=args.locale)
 
     if args.json:
-        # The headline, not the document: a pipeline wants the facts, and the
-        # sentence it carries is the same one a customer will read.
-        payload: dict[str, object] = {"output_version": OUTPUT_VERSION}
-        payload.update(dataclasses.asdict(head))
-        if args.json == "full":
-            payload["deltas"] = [_delta_json(d) for d in comparison.deltas]
-            payload["target_config_deltas"] = [
-                _config_json(d) for d in comparison.target_config_deltas
-            ]
-            payload["judge_config_deltas"] = [
-                _config_json(d) for d in comparison.judge_config_deltas
-            ]
+        payload = compare_json(comparison, head, full=args.json == "full")
         print(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
@@ -353,109 +237,6 @@ def cmd_compare(args: argparse.Namespace) -> int:
         for line in lines:
             print(line)
     return exit_code(head)
-
-
-def _interval_json(noise: Noise) -> dict[str, object] | None:
-    """One measured interval, or `null` where nothing measured it.
-
-    `null` rather than zeros: a check at `samples=1` has no interval, and
-    `{"min": 0, "max": 0}` would be a measurement nobody took.
-    """
-    if not noise.known:
-        return None
-    return {"min": noise.low, "max": noise.high, "samples": noise.count}
-
-
-def _check_json(check: CheckDifference) -> dict[str, object]:
-    """One check as a pipeline reads it: symmetric, and without a `reason`.
-
-    `left` and `right` rather than `before` and `after`, and `favours` rather
-    than a sign somebody has to interpret. A consumer that swaps the two
-    arguments gets the same rows with the two sides exchanged and `delta`
-    negated, which is the columns moving and not the facts.
-
-    The judge's `reason` is absent for `_delta_json`'s reason: a reason is
-    payload, and stdout of a CI job is where logs go and stay.
-    """
-    return {
-        "case_id": check.case_id,
-        "scope": check.scope,
-        "assertion": check.assertion,
-        "outcome": check.outcome,
-        "favours": check.favours,
-        "left": None if check.left is None else check.left.score.score,
-        "right": None if check.right is None else check.right.score.score,
-        "delta": check.delta,
-        "tolerance": check.tolerance,
-        "flipped": check.flipped,
-        "left_interval": _interval_json(check.left_interval),
-        "right_interval": _interval_json(check.right_interval),
-        "intervals_overlap": check.intervals_overlap,
-        "intervals_disjoint": check.intervals_disjoint,
-    }
-
-
-def _diff_json(
-    difference: Difference,
-    left: Run,
-    right: Run,
-    *,
-    keys: tuple[str, str],
-    labels: tuple[str, str],
-    sentence: str,
-    full: bool,
-) -> dict[str, object]:
-    """What `digline diff --json` prints.
-
-    **There is no `worse` field, and its absence is the point** (ADR 0008 §1).
-    `Headline` is not reused and no diff-shaped equivalent of it exists, so
-    there is nothing here for a pipeline to gate on — which is the whole reason
-    this command was not built as a flag on `compare`.
-
-    The structure is symmetric: `runs.left` and `runs.right`, `favours_left` and
-    `favours_right`, `left_exceeds` and `right_exceeds`. Swapping the two
-    arguments exchanges every pair and changes nothing else.
-    """
-    payload: dict[str, object] = {
-        "output_version": OUTPUT_VERSION,
-        "tenant": difference.tenant,
-        "suite": difference.suite,
-        "runs": {
-            side: {
-                "key": key,
-                "label": label,
-                "created_at": run.created_at,
-                "environment": run.environment,
-            }
-            for side, key, label, run in (
-                ("left", keys[0], labels[0], left),
-                ("right", keys[1], labels[1], right),
-            )
-        },
-        "counts": {
-            "total": difference.total,
-            "differing": difference.differing,
-            "favours_left": difference.favours_left,
-            "favours_right": difference.favours_right,
-            "within_tolerance": difference.within_tolerance,
-            "only_left": difference.only_left,
-            "only_right": difference.only_right,
-            "errored": difference.errored,
-            "interval_pairs": difference.interval_pairs,
-            "left_exceeds": difference.left_exceeds,
-            "right_exceeds": difference.right_exceeds,
-        },
-        "systems_differ": difference.systems_differ,
-        "artifacts_differ": difference.artifacts_differ,
-        "judges": list(difference.judges),
-        "sentence": sentence,
-    }
-    if full:
-        payload["checks"] = [_check_json(c) for c in difference.checks]
-        payload["target_config_deltas"] = [
-            _config_json(d) for d in difference.target_config_deltas
-        ]
-    return payload
 
 
 def cmd_diff(args: argparse.Namespace) -> int:
@@ -488,7 +269,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
     if args.json:
         print(
             json.dumps(
-                _diff_json(
+                diff_json(
                     difference,
                     left,
                     right,

@@ -7,15 +7,19 @@ the store. Nothing outside this package imports it: a front end is the top of
 the chain, and front ends do not import each other.
 """
 
-from digline.cli.main import (
+from digline.cli.main import build_parser, main
+
+# Re-exported, not defined here: the exit codes and the output version are
+# contracts with a program, so they live in `digline.wire` where the second front
+# end can reach them without importing a front end (ADR 0011 §6). This keeps
+# `from digline.cli import EXIT_OK` working for everything that already does.
+from digline.wire import (
     EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
-    build_parser,
     exit_code,
-    main,
 )
 
 __all__ = [

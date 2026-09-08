@@ -161,6 +161,40 @@ def test_the_host_is_the_only_layer_that_reads_the_clock_or_git() -> None:
             )
 
 
+def test_the_wire_is_pure() -> None:
+    """The machine surface renders facts; it does not go and get them.
+
+    Held to `report/`'s constraints and for the same reason: both are renderings
+    of a comparison somebody else produced, and a renderer that could read a
+    file or a clock would be a renderer whose output depends on when it ran.
+    Two runs of the same comparison must serialize identically. (ADR 0011 §6)
+    """
+    wire = SRC / "wire"
+    forbidden = {"datetime", "time", "pathlib", "os", "io", "tempfile", "subprocess"}
+    # `digline.run` and `digline.store` are allowed, and only for their value
+    # types: `CallPlan` is arithmetic over a declared suite and `RunRef` is an
+    # address. What is forbidden is the verb — a renderer that could run a suite
+    # would be a renderer with a reason to have side effects.
+    verbs = {"execute", "write_run", "promote_baseline", "migrate_paths"}
+    for source in sorted(wire.glob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        modules = imported_modules(source)
+        offenders = modules & forbidden
+        assert not offenders, f"{source.name} imports {offenders}: the wire is pure"
+        for module in modules:
+            assert not module.startswith("digline.host"), (
+                f"{source.name} imports {module}: the wire renders what it is "
+                "given, it does not go and get it"
+            )
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                called = {a.name for a in node.names} & verbs
+                assert not called, (
+                    f"{source.name} imports {sorted(called)}: the wire renders a "
+                    "result, it does not produce or persist one"
+                )
+
+
 def test_the_core_imports_on_its_own() -> None:
     """A clean process importing only `digline.core` must not drag in
     `digline.store`: that is the condition for Plumbline to use it as a
