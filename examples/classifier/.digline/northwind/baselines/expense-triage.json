@@ -2,7 +2,7 @@
   "aggregate": [
     {
       "assertion": "precision",
-      "assertion_id": "006a9bddae7defc1",
+      "assertion_id": "31e12a0068b3f1db",
       "metadata": {
         "considered": 20,
         "errored_excluded": 0,
@@ -17,8 +17,8 @@
       "sample_max": 0.727273,
       "sample_min": 0.666667,
       "samples": [
+        0.7,
         0.666667,
-        0.727273,
         0.7,
         0.727273,
         0.727273
@@ -30,7 +30,7 @@
     },
     {
       "assertion": "precision[group=hotel]",
-      "assertion_id": "8fb549ea9ae48c9c",
+      "assertion_id": "66a505dd4db9728e",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -58,7 +58,7 @@
     },
     {
       "assertion": "precision[group=meal]",
-      "assertion_id": "0025cd2a0ea93f51",
+      "assertion_id": "3c5f11bdbbe1b7aa",
       "metadata": {
         "considered": 7,
         "errored_excluded": 0,
@@ -73,8 +73,8 @@
       "sample_max": 0.8,
       "sample_min": 0.666667,
       "samples": [
-        0.666667,
         0.8,
+        0.666667,
         0.8,
         0.8,
         0.8
@@ -86,7 +86,7 @@
     },
     {
       "assertion": "precision[group=taxi]",
-      "assertion_id": "0375be456a8c5950",
+      "assertion_id": "948d4332013e1576",
       "metadata": {
         "considered": 4,
         "errored_excluded": 0,
@@ -114,7 +114,7 @@
     },
     {
       "assertion": "precision[group=tools]",
-      "assertion_id": "1e9ac6e1f03639e8",
+      "assertion_id": "28a4b4a9a89d1e15",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -142,7 +142,7 @@
     },
     {
       "assertion": "precision[group=travel]",
-      "assertion_id": "5096c49d271eec7b",
+      "assertion_id": "20ddcd117f8b974c",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -170,7 +170,7 @@
     },
     {
       "assertion": "accuracy",
-      "assertion_id": "df635d515198d9de",
+      "assertion_id": "b00de39e2f9bb72b",
       "metadata": {
         "considered": 20,
         "errored_excluded": 0,
@@ -186,7 +186,7 @@
       "sample_min": 0.8,
       "samples": [
         0.8,
-        0.85,
+        0.8,
         0.8,
         0.85,
         0.85
@@ -198,7 +198,7 @@
     },
     {
       "assertion": "accuracy[group=hotel]",
-      "assertion_id": "50c29c86913aa2b5",
+      "assertion_id": "2d41317de1359826",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -213,7 +213,7 @@
       "sample_max": 1.0,
       "sample_min": 0.666667,
       "samples": [
-        1.0,
+        0.666667,
         1.0,
         0.666667,
         1.0,
@@ -226,7 +226,7 @@
     },
     {
       "assertion": "accuracy[group=meal]",
-      "assertion_id": "a02a6091254e4f28",
+      "assertion_id": "4455451d2c86df3e",
       "metadata": {
         "considered": 7,
         "errored_excluded": 0,
@@ -241,8 +241,8 @@
       "sample_max": 0.857143,
       "sample_min": 0.714286,
       "samples": [
-        0.714286,
         0.857143,
+        0.714286,
         0.857143,
         0.857143,
         0.857143
@@ -254,7 +254,7 @@
     },
     {
       "assertion": "accuracy[group=taxi]",
-      "assertion_id": "4f143f50fcb4f4c8",
+      "assertion_id": "628b0e63789175f2",
       "metadata": {
         "considered": 4,
         "errored_excluded": 0,
@@ -282,7 +282,7 @@
     },
     {
       "assertion": "accuracy[group=tools]",
-      "assertion_id": "a66e794979fa78ff",
+      "assertion_id": "0108dbd5699bc103",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -310,7 +310,7 @@
     },
     {
       "assertion": "accuracy[group=travel]",
-      "assertion_id": "9e82f31d4e4f8a49",
+      "assertion_id": "a1ffbd89f4cc1f1c",
       "metadata": {
         "considered": 3,
         "errored_excluded": 0,
@@ -338,10 +338,10 @@
     }
   ],
   "artifacts": {},
-  "config_hash": "6af8023684155866",
-  "created_at": "2026-09-08T07:33:28.713070+00:00",
+  "config_hash": "5af8d8dd1e55f5c5",
+  "created_at": "2026-09-08T07:42:54.701842+00:00",
   "environment": "staging",
-  "git_commit": "8c261f1c06a1f77e076186b6b690b052bfac63d0-dirty",
+  "git_commit": "b44ad6ffbf22cc9dabdf54ec7e453c95e8259d93-dirty",
   "judge_config": {},
   "metadata": {},
   "redacted": false,
@@ -765,20 +765,20 @@
             "errored_samples": 0,
             "samples": 5,
             "scores": [
-              0.0,
               1.0,
+              0.0,
               1.0,
               1.0,
               1.0
             ],
             "spread": 1.0
           },
-          "reason": "mean of 5 samples (0.000000, 1.000000, 1.000000, 1.000000, 1.000000)",
+          "reason": "mean of 5 samples (1.000000, 0.000000, 1.000000, 1.000000, 1.000000)",
           "sample_max": 1.0,
           "sample_min": 0.0,
           "samples": [
-            0.0,
             1.0,
+            0.0,
             1.0,
             1.0,
             1.0
@@ -872,11 +872,11 @@
           "assertion": "agrees_with_mark",
           "assertion_id": "6fa222b4a9cbe69d",
           "metadata": {
-            "agreement": 0.8,
+            "agreement": 0.6,
             "errored_samples": 0,
             "samples": 5,
             "scores": [
-              1.0,
+              0.0,
               1.0,
               0.0,
               1.0,
@@ -884,17 +884,17 @@
             ],
             "spread": 1.0
           },
-          "reason": "mean of 5 samples (1.000000, 1.000000, 0.000000, 1.000000, 1.000000)",
+          "reason": "mean of 5 samples (0.000000, 1.000000, 0.000000, 1.000000, 1.000000)",
           "sample_max": 1.0,
           "sample_min": 0.0,
           "samples": [
-            1.0,
+            0.0,
             1.0,
             0.0,
             1.0,
             1.0
           ],
-          "score": 0.8,
+          "score": 0.6,
           "status": "pass",
           "threshold": 0.5,
           "tolerance": 0.4

@@ -29,7 +29,7 @@ the interval they spanned, and `compare` treats a movement inside that interval
 as noise rather than as a finding.
 
 Look in `.digline/northwind/baselines/expense-triage.json` — `lunch_team` has
-`"samples": [0.0, 1.0, 1.0, 1.0, 1.0]` beside its score of `0.8`. That case
+`"samples": [1.0, 0.0, 1.0, 1.0, 1.0]` beside its score of `0.8`. That case
 already disagreed with itself once out of five, and now the baseline says so in
 a form a rule can read.
 
@@ -83,6 +83,13 @@ expenses**, it is not much better on tools, and it has never been: those two
 rows are red in every run of this example, at the thresholds it always
 declared. Seventeen cases it gets right were enough to carry three it does not.
 
+**And the noise floor certifies it.** Every other figure in the baseline has an
+interval of some width — the whole-run precision spans `0.667–0.800`,
+`accuracy[group=hotel]` spans `0.667–1.000`. The four failing rows span nothing:
+`0.000–0.000` and `0.500–0.500` and `0.667–0.667`, at five samples each. The
+control whose whole job is to say "that could have been the wobble" has, here,
+nothing to say. These are not unlucky runs. This is what the classifier does.
+
 Nothing was tuned to produce that. Lowering the bars until the table went green
 was the alternative, and it is the vacuously green assertion shipped as the
 thing people copy first — a demo that cannot fail teaches the one habit this
@@ -104,7 +111,8 @@ Three things to read in the table, and then in `report.html`:
   one case is a third of the group. Look at `accuracy[group=hotel]` in the
   baseline: its interval is `0.667–1.000`, against `0.800–0.850` for the whole
   run. The control that sizes itself to the denominator is the one that was
-  sized by measuring.
+  sized by measuring — which is also why the zero-width rows above are a
+  finding and not an artefact of looking too closely.
 
 A class too small to answer gets `error`, not a flattering number: `Recall` over
 a class marked negative throughout has an empty denominator. That is the suite

@@ -187,15 +187,24 @@ class RunAssertionBase:
     #: a result is judged, not *what* is measured, so raising a bar leaves the
     #: verdicts paired and `compare()` reports the flip.
     #:
-    #: `by_group` is excluded for a related but distinct reason, and §2's
-    #: promise depends on it: it does not change what *this* aggregate measures,
-    #: it declares that others exist alongside. Were it counted, setting the
-    #: flag would move the whole-run identity and `compare()` would report the
-    #: figure that gates the suite as `missing` with a `new` one beside it — the
-    #: expansion replacing what it was meant to add. `config_hash` still moves,
-    #: because the expanded instances add entries of their own. (ADR 0010 §4)
+    #: `by_group` and `group` are excluded for a related but distinct reason,
+    #: and §2's promise depends on it: neither changes what *this* aggregate
+    #: measures. `by_group` declares that others exist alongside; `group` says
+    #: which subset this instance was handed, and the **name** already carries
+    #: that — `precision[group=travel]` differs from `precision` in a field the
+    #: identity does count, so the two are distinguished without either of
+    #: these joining it.
+    #:
+    #: Excluding them is what keeps the whole-run identity where it has always
+    #: been. Counted, they would move it: `by_group` the moment the flag was
+    #: set, and `group` — as `None` — for **every suite in existence**, the day
+    #: this release landed. Either way `compare()` would report the figure that
+    #: gates a suite as `missing` with a `new` one beside it, which is the
+    #: expansion replacing what it was meant to add. `config_hash` still moves
+    #: when the flag is set, because the expanded instances add entries of
+    #: their own. (ADR 0010 §4)
     IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
-        {"threshold", "tolerance", "by_group"}
+        {"threshold", "tolerance", "by_group", "group"}
     )
 
     @property

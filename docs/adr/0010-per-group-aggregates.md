@@ -177,23 +177,32 @@ label. `[group=…]` is unambiguous at a glance about *which* axis was split,
 which matters the day a second axis exists — and if that day comes, the form
 extends rather than needing to be replaced.
 
-### 4. `by_group` is excluded from the identity, and `config_hash` moves anyway
+### 4. Neither the flag nor the group enters the identity
 
-`by_group` joins `threshold` and `tolerance` in
-`RunAssertionBase.IDENTITY_EXCLUDED`.
+Both join `threshold` and `tolerance` in `RunAssertionBase.IDENTITY_EXCLUDED`.
 
-This is not tidiness; without it §2's promise is false. `dataclass_identity`
-hashes every declared field minus the exclusions, so if `by_group` counted, the
-*whole-run* `precision` would change identity the moment the flag was set — its
-id in the `classifier` baseline is `31e12a0068b3f1db` — and `compare()` would
-report the figure that gates that example as `missing` plus a `new` one beside
-it. The expansion would replace what it was supposed to add, in the one place it
-was promised not to.
+This is not tidiness; without it §2's promise is false, and the second exclusion
+is the one that matters most. `dataclass_identity` hashes every declared field
+minus the exclusions, so:
+
+- if **`by_group`** counted, the whole-run `precision` would change identity the
+  moment the flag was set;
+- if **`group`** counted, it would change identity — as `None` — for *every
+  suite in existence*, the day this release landed, whether or not anybody had
+  heard of groups.
+
+Either way `compare()` would report the figure that gates a suite as `missing`
+with a `new` one beside it: the expansion replacing what it was supposed to add,
+in the one place it was promised not to. The `classifier`'s whole-run precision
+is `31e12a0068b3f1db` and stays `31e12a0068b3f1db` under this release, flag set
+or not, and that literal is in a test.
 
 The justification is the same shape as the one for `threshold`. Identity answers
 *what is measured*. `by_group` does not change what the whole-run aggregate
-measures; it declares that further aggregates exist beside it. That is a
-statement about the suite, not about the check.
+measures; it declares that further aggregates exist beside it. `group` says
+which subset *this* instance was handed — and §3's name already carries that,
+in a field the identity does count, so the two are distinguished without it.
+Both are statements about the suite rather than about the check.
 
 **And `config_hash` still moves**, which is what makes this safe. The hash is
 built from `(identity, threshold, tolerance)` over `run_assertions` — and after
@@ -229,9 +238,10 @@ in an `[[assertions]]` entry is already an unknown-parameter error carrying the
 existing message and the list of parameters that do exist — the same refusal
 that catches `threshold` on a `repeated` entry, for the same reason.
 
-`dataclass_identity` iterates `fields()` and does not care about `init`, so the
-field still separates the identities of §3. The one thing that must be
-constructible is the one thing that cannot be constructed.
+What separates the identities is the **name** (§3), never this field — `group`
+is excluded from the fingerprint under §4 and is only the carrier the driver
+filters on. So the one thing that must be constructible is the one thing that
+cannot be constructed, and nothing depends on it being otherwise.
 
 ### 6. The expansion happens in `Suite.__post_init__`
 
@@ -427,8 +437,13 @@ is an ordinary verdict under an ordinary name. Nothing in `run_to_json` or
 the previous one parses, and shows aggregates whose names contain brackets.
 
 **A suite that does not set `by_group` is byte-for-byte unchanged.** Same
-`config_hash`, same identities, same run file, same document. `Case.group` on a
-case in a suite with no `by_group` anywhere changes nothing at all.
+`config_hash`, same identities, same run file, same document — and that is a
+statement about **baselines promoted before this release**, not only about two
+runs of the current one: an aggregate's identity is what `compare()` pairs on,
+so a fingerprint that shifted here would silently unpair every stored aggregate
+in the world. §4's second exclusion is what makes the sentence true, and the
+`classifier`'s literal id is the test that keeps it true. `Case.group` on a case
+in a suite with no `by_group` anywhere changes nothing at all.
 
 **A suite that does set it is comparable and not promotable** against a baseline
 promoted before it (§4). That is the intended friction, and the remedy is

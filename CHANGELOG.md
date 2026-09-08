@@ -55,6 +55,46 @@ What changed for you, three lines a version. The reasoning lives in
   No run needs migrating, no baseline needs re-promoting: everything `diff`
   reads has been in the document since 0.4.0. Two runs recorded before this
   release diff against each other with no ceremony.
+- **Added:** `by_group=True` on an aggregate — precision and accuracy **per
+  class**, beside the whole-run figure and never instead of it. A `Case` gains
+  an optional `group` (so `cases.json` and a TOML suite carry it with nothing
+  to learn), and every aggregate that asks expands into one instance per group
+  present in the cases, named `precision[group=refunds]`. Thresholds, tolerance
+  and the ADR 0006 §7 noise floor are inherited and computed over the group's
+  cases: the same machinery on a smaller set, no new semantics anywhere. An
+  aggregate over the whole run is an average, and an average carries a class
+  that is broken. (ADR 0010)
+- **Refused:** there is no `Precision(group="x")`. You get every class or none
+  — the class that degrades is the one you were not watching, so watching the
+  three you already suspect is watching your own assumptions. In a TOML suite
+  `group` on an aggregate is an unknown parameter, and the message points at
+  `by_group`. No weighting, no group hierarchies, no cross-group comparison:
+  each is a different question, and the last one is a real one, deferred rather
+  than declined.
+- **Changed:** `digline view`'s run grid sorts its measure columns — whole-run
+  figure first, then that family's groups alphabetically — instead of taking
+  them in the order they arrived. Arrival order was the newest run's order, so
+  a group only older runs carried landed last and the columns rearranged
+  themselves as runs came and went.
+- **Changed:** the report explains a combination it can now show often — a
+  measure **below its threshold beside an answer of "no"**. `compare` gates on
+  movement, so a class that failed in the reference too is `unchanged` and the
+  pipeline stays green. Both facts are true, and the sentence is printed under
+  the figures rather than left for a reader to mistake for a defect.
+- **Changed:** the `classifier` example ships its third act, and **four of its
+  twelve figures are red**: precision and accuracy for `travel` and for
+  `tools`, at the bars it always declared. Every run agrees and every one of
+  those intervals is zero-width, so the noise floor itself certifies the
+  failure is real. Nothing was tuned to make the demo green — that would be the
+  vacuously green assertion shipped as the thing people copy first.
+- **Unchanged:** a suite that sets `by_group` nowhere is byte for byte the
+  suite it was — same `config_hash`, same identities, same run file. That
+  covers baselines promoted **before** this release: an aggregate's identity is
+  what `compare()` pairs on, so neither `by_group` nor `group` enters it. Set
+  the flag and `config_hash` does move, because the suite now declares more
+  gates: comparable, and not promotable until you re-promote deliberately.
+  `SCHEMA_VERSION` stays at 9 — an expanded aggregate is an ordinary verdict
+  under an ordinary name — and no plugin needs a release.
 
 ## 0.5.0 — 2026-09-08
 
