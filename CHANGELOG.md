@@ -3,6 +3,19 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## 0.6.0 — unreleased
+
+- **Added:** `AGENTS.md`, the operating layer digline deliberately does not
+  encode. The tool refuses what is unsafe and reports what it measured;
+  everything between those two — whether a red run is a regression or a
+  wobble, which run deserves to become the reference, when to stop re-running
+  and start reading — is judgment, and it stays with a person. Eight numbered
+  rules, the first of them that an agent never runs `promote` on its own
+  initiative: a baseline is an approved reference, not the most recent
+  measurement. The same content ships as a Claude Code skill in
+  `.claude/skills/operating-digline/`, and `tests/test_agents.py` fails if the
+  two drift apart.
+
 ## 0.5.0 — 2026-09-08
 
 digline 0.5.0, with digline-anthropic, digline-openai and digline-bedrock at
