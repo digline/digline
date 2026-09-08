@@ -158,6 +158,35 @@ checks, after TestPyPI — with a version number spent on one index and not the
 other. This is not something the workflow can check for you: it is a setting in
 an account.
 
+**And wire it into `publish.yml` in the same pass.** A pending publisher with no
+job to claim it is the same failure one step later: the tag builds nothing, and
+nobody notices until somebody tries to install the package.
+
+### `digline-mcp` is the first package this section is actually about
+
+It was written after `digline-bedrock` and has never been exercised — every
+release since has been a version bump of packages that already existed on both
+indexes, so the section read as advice for a hypothetical. It is not
+hypothetical now. Before the **first** tag that carries `digline-mcp`:
+
+1. pending publisher on **TestPyPI**, for `digline-mcp`;
+2. pending publisher on **PyPI**, for `digline-mcp`;
+3. the **two hardcoded lists** in `publish.yml` updated. Discovery, `uv build
+   --all-packages`, `select_unpublished.py` and both upload steps are
+   glob-driven and pick a new package up on their own — the wiring that is
+   *not* automatic is the post-publish check that installs from the index:
+   `pip install … digline digline-anthropic digline-openai digline-bedrock`
+   and the `import digline_anthropic, digline_openai, digline_bedrock`
+   beside it. A package missing from those two lines is published and never
+   verified, which is the failure that looks like success;
+4. only then the tag.
+
+The order matters and the first three are not reversible by a re-run: a spent
+version number stays spent.
+
+`digline-mcp` merges **after** 0.6.0 and is tagged on its own day — nothing
+about it rides that release, so 0.6.0 does not need any of the above.
+
 ## The one secret
 
 `DIGLINE_DEV_DISPATCH_TOKEN`, a repository secret on `digline/digline`.
