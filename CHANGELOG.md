@@ -3,6 +3,47 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## Unreleased — after 0.6.0
+
+- **Added:** `digline-mcp`, the [MCP](https://modelcontextprotocol.io) server. A
+  coding agent can read a digline result and measure a new one, and **cannot
+  promote a baseline** — not because promotion is refused, but because there is
+  no such tool. A refusal is a conversation an agent can argue with, retry, or
+  decide is a bug; an absence is not. `migrate`, `view` and `report` are absent
+  too: upgrade maintenance somebody chose the moment for, and two documents
+  written for a person. Six tools, read and measurement only.
+  ([ADR 0011](docs/adr/0011-the-mcp-server.md), and
+  [`docs/mcp.md`](docs/mcp.md))
+- **Added:** `run` takes a mandatory `acknowledge_calls` that must equal the
+  suite's planned calls to the target. Called without it, the tool refuses **and
+  hands back the number** — so the first call is the probe, and an agent cannot
+  spend a hundred model calls without having stated the number. `AGENTS.md` §7
+  as a contract rather than as advice.
+- **Added:** the tool descriptions carry the playbook — the stopping rule on
+  `run`, "promote the median, never the first green" on `list_runs`, "within
+  noise explains, it does not excuse" on `compare`. A tool description reaches
+  the model deciding whether to call the tool, which makes it the one place
+  `AGENTS.md` reaches an agent that never read it. A test checks both
+  directions, so a rule reworded in the file cannot leave a tool quoting one the
+  project has stopped making.
+- **Added:** `exit_code` on `compare --json`. It is the number `AGENTS.md` §6
+  calls the contract, computed by the same function the process exits with — it
+  is a field because the MCP server returns this same object and has no process
+  to exit, and it is on both surfaces so the two cannot answer differently.
+  `output_version` stays at **1**: added keys leave a consumer working.
+  `digline diff` has no such field and must not.
+- **Added:** `digline.wire`, the machine surface. Every `--json` the CLI prints
+  and every response the server returns is built by one function, so two front
+  ends cannot drift into two answers. `digline.cli` re-exports `OUTPUT_VERSION`
+  and the exit codes, so `from digline.cli import EXIT_OK` is unchanged.
+- **Changed, and breaking for anyone who followed the guide:** the suite loader
+  moved out of the CLI. `from digline.cli.loader import load_suite` is now
+  `from digline.host import load_suite`. `digline.cli` was two layers wearing
+  one name — the host that reads the clock, asks git and imports your suite, and
+  the terminal that parses arguments and prints. A second front end needs the
+  first and not the second. `git_commit`, `utc_now_iso`, `load_target` and
+  `read_artifacts` moved with it. (ADR 0011 §7)
+
 ## 0.6.0 — unreleased
 
 - **Added:** `AGENTS.md`, the operating layer digline deliberately does not

@@ -25,6 +25,19 @@ motion.
 The report lives in `digline.report` (`headline`, `render_html`, `Locale`), the
 store in `digline.store` (`FileResultStore`, `RunRef`).
 
+Two more, for anything that drives digline rather than declares a suite.
+`digline.host` is the layer that touches the world — `load_suite`,
+`load_target`, `read_artifacts`, `git_commit`, `utc_now_iso`, `resolve_key`.
+`digline.wire` is the machine surface: `OUTPUT_VERSION`, the exit codes, and the
+functions that build every `--json` and every MCP response. A script that loads
+a suite imports the first; nothing but a front end needs the second.
+
+**These moved in the release after 0.6.0.** `load_suite` and its neighbours used
+to live in `digline.cli.loader`, which was two layers wearing one name — the
+host, and the terminal. If you followed an earlier version of
+[the guide](guide.md), change `from digline.cli.loader import load_suite` to
+`from digline.host import load_suite`. (ADR 0011 §7)
+
 A normal suite imports from both:
 
 ```python
