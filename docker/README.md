@@ -111,7 +111,7 @@ Every version is a build argument, so an image against another release needs no
 edit:
 
 ```sh
-docker build docker/ -t digline:0.3.1 --build-arg DIGLINE_VERSION=0.3.1
+docker build docker/ -t digline:0.4.0 --build-arg DIGLINE_VERSION=0.4.0
 ```
 
 ## How it is published
