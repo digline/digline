@@ -349,6 +349,18 @@ sentence `compare()` already prints for a renamed case or a renamed assertion,
 and it is the correct one — nothing knows that `travel` became `transport`, and
 guessing would be worse than reporting.
 
+**`diff()` is the exception, and it belongs to ADR 0008 rather than being a gap
+in this one.** A group set comes from the cases and §2 turns it into gates, so
+changing it changes `config_hash` (§4) — and ADR 0008 §3 refuses a diff across
+configurations before it reads a single verdict, because the two runs were
+measured against different rulers. So two runs whose group sets differ cannot be
+diffed at all; they can be *compared*, and `compare()` reports the `new` and the
+`missing` above. That division is the right one: `compare()` is built to hold a
+run against a reference under changed rules and to say the rules changed,
+`diff()` is built to weigh two candidates and needs them weighed on one scale.
+Both keep the behaviour they have, and neither learns what a group is. Two runs
+whose group sets agree diff normally, group keys and all.
+
 `Scope` gains no third member. A group aggregate is scoped to the run: it is
 computed once per run, belongs to no case, and carries an empty `case_id`. What
 distinguishes it from the whole-run figure is its identity, which is where
@@ -547,8 +559,10 @@ that the last case of a group has been removed, and assert `compare()` reports
 that group's aggregates `missing` and nothing else — no `regressed`, no
 `errored`, and the whole-run figures untouched. The mirror case for a group
 appearing, and the rename, which must produce exactly one `new` and one
-`missing`. Under `diff()` too, in both argument orders, because ADR 0008 §2's
-symmetry promise covers these keys like any other.
+`missing`. Beside them the refusal above: the same pair handed to `diff()`
+raises, and the test says why rather than merely that it does. Symmetry is
+tested on a pair whose group sets agree, in both argument orders, because ADR
+0008 §2's promise covers these keys like any other.
 
 **The noise floor is restricted to the group, and demonstrably.** A suite where
 one group's cases are unanimous across samples and another's disagree: the

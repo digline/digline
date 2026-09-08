@@ -24,6 +24,7 @@ from digline.core.types import Score, Verdict
 
 __all__ = [
     "F1",
+    "GROUP_MARKER",
     "Accuracy",
     "CaseOutcome",
     "Label",
@@ -34,6 +35,7 @@ __all__ = [
     "RunAssertionBase",
     "expand_by_group",
     "grouped_name",
+    "split_grouped_name",
     "per_sample_outcomes",
     "with_noise_interval",
 ]
@@ -400,6 +402,34 @@ def grouped_name(name: str, group: str) -> str:
     second axis be added one day rather than replacing this one.
     """
     return f"{name}[group={group}]"
+
+
+#: The marker `grouped_name` writes and `split_grouped_name` looks for. Named
+#: so the two cannot drift, and so `Suite` can refuse a declared name that
+#: forges it.
+GROUP_MARKER = "[group="
+
+
+def split_grouped_name(name: str) -> tuple[str, str | None]:
+    """`grouped_name` read backwards: `("precision", "travel")`, or
+    `("precision", None)` for a whole-run aggregate.
+
+    It exists because a **stored** run carries the group only inside the name:
+    `CaseResult` records no group and `Verdict` has no field for one, which is
+    ADR 0010 §1 keeping membership in the repository. So a report rendering a
+    run off disk has the name and nothing else, and parsing it is the only way
+    back. Here rather than in the renderer, for §3's reason: the grammar is a
+    public format and it is written once.
+
+    The tail is taken to the **last** bracket, so a group whose name itself
+    ends in one survives the round trip. This is used for ordering and never
+    for identity — that is `assertion_id`'s job — so a name nothing produced
+    simply reads as ungrouped.
+    """
+    prefix, marker, rest = name.partition(GROUP_MARKER)
+    if not marker or not rest.endswith("]"):
+        return name, None
+    return prefix, rest[:-1]
 
 
 def expand_by_group(

@@ -7,6 +7,7 @@ from Plumbline, which uses this core as a library.
 from digline.core.adapters import FromAutoevals, score_from_autoevals
 from digline.core.aggregate import (
     F1,
+    GROUP_MARKER,
     Accuracy,
     CaseOutcome,
     Label,
@@ -18,6 +19,7 @@ from digline.core.aggregate import (
     expand_by_group,
     grouped_name,
     per_sample_outcomes,
+    split_grouped_name,
     with_noise_interval,
 )
 from digline.core.assertions import (
@@ -120,6 +122,7 @@ from digline.core.types import (
 
 __all__ = [
     "ALL_KINDS",
+    "GROUP_MARKER",
     "IDENTITY_FIELD",
     "ITALIAN_PII",
     "PERIMETER_FIELDS",
@@ -208,6 +211,7 @@ __all__ = [
     "error_verdict",
     "expand_by_group",
     "grouped_name",
+    "split_grouped_name",
     "identity_of",
     "levenshtein_distance",
     "output_kind",

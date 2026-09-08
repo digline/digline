@@ -723,7 +723,7 @@ def _section(
     return f"<details{open_attr}><summary>{title} ({count})</summary>{body}</details>"
 
 
-def _aggregates(run: Run, locale: Locale, *, reasons: bool) -> str:
+def _aggregates(run: Run, locale: Locale, *, reasons: bool, worse: bool) -> str:
     """The run-level verdicts, above the cases.
 
     They come first because they are what gates a release: four runs of one
@@ -765,8 +765,18 @@ def _aggregates(run: Run, locale: Locale, *, reasons: bool) -> str:
         rows,
         locale,
     )
+    # A failing measure beside an answer of "no" is a combination this document
+    # can now show often — a group can be under its threshold in this run and
+    # have been under it in the reference, which is `unchanged` and gates
+    # nothing. Left unexplained it reads as a defect in the report, so it is
+    # said in words, here, under the figures that raise the question rather
+    # than in a note somebody has to go and find. (ADR 0010 §10)
+    note = ""
+    if not worse and any(verdict.status == "fail" for verdict in run.aggregate):
+        told = escape(phrase(locale, "aggregates.failing_not_worse"))
+        note = f'<p class="note">{told}</p>'
     title = escape(phrase(locale, "aggregates.title"))
-    return f'<section class="aggregates"><h2>{title}</h2>{table}</section>'
+    return f'<section class="aggregates"><h2>{title}</h2>{table}{note}</section>'
 
 
 def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> str:
@@ -1062,6 +1072,9 @@ def render_html(
         for s in SECTIONS
     )
     title = phrase(locale, "document.title", suite=comparison.suite)
+    aggregates = _aggregates(
+        run, locale, reasons=head.reasons_available, worse=head.worse
+    )
 
     return (
         "<!DOCTYPE html>\n"
@@ -1081,7 +1094,7 @@ def render_html(
         f"<p>{escape(head.sentence)}</p>\n"
         f'<ul class="tally">{tally}</ul>\n'
         "</section>\n"
-        f"{_aggregates(run, locale, reasons=head.reasons_available)}\n"
+        f"{aggregates}\n"
         f"{_artifacts(comparison, locale)}\n"
         f"{_configs(comparison, locale)}\n"
         f"{sections}\n"

@@ -34,6 +34,7 @@ from digline.core import (
     Verdict,
     artifacts_sha,
     compare,
+    split_grouped_name,
 )
 from digline.core import diff as core_diff
 from digline.report import diff as diff_report
@@ -392,11 +393,7 @@ def runs_page(
     wrong.
     """
     ordered = sorted(runs, key=lambda pair: (pair[1].created_at, pair[0]), reverse=True)
-    measures: list[str] = []
-    for _key, run in ordered:
-        for verdict in run.aggregate:
-            if verdict.score.name not in measures:
-                measures.append(verdict.score.name)
+    measures = _measure_columns(ordered)
 
     baseline_scores: dict[str, float] = {}
     for key, run in ordered:
@@ -442,6 +439,42 @@ def runs_page(
         told = phrase(locale, "view.ignored", note=ignored)
         body.append(f'<p class="note">{escape(told)}</p>\n')
     return _document(title, locale, "".join(body), wide=True)
+
+
+def _measure_columns(ordered: Sequence[tuple[str, Run]]) -> list[str]:
+    """One column per aggregate, in an order that does not move between runs.
+
+    **Whole-run figure first, then its groups alphabetically**, per declared
+    aggregate. The figure that gates the release stays leftmost, where it was
+    before groups existed, and a reader scanning down a class finds it in the
+    same place every time (ADR 0010 §9).
+
+    Sorted rather than taken in arrival order, which is what this was. Arrival
+    order is the newest run's order, so a group that only older runs carry
+    lands after everything — and the columns rearrange themselves as runs come
+    and go, which is the one thing a table read by eye must not do.
+
+    The family is recovered from the name because a stored run carries the
+    group nowhere else: `split_grouped_name` is the reader for the grammar
+    `grouped_name` writes. Families keep first-arrival order, so the author's
+    declaration order survives; only the groups within one are sorted.
+    """
+    families: list[str] = []
+    names: set[str] = set()
+    for _key, run in ordered:
+        for verdict in run.aggregate:
+            family, _group = split_grouped_name(verdict.score.name)
+            if family not in families:
+                families.append(family)
+            names.add(verdict.score.name)
+
+    def place(name: str) -> tuple[int, int, str]:
+        family, group = split_grouped_name(name)
+        # `group is not None` as the middle key is what puts the whole-run
+        # instance ahead of every group of its family, whatever they are called.
+        return (families.index(family), group is not None, group or "")
+
+    return sorted(names, key=place)
 
 
 def _runs_table(

@@ -146,6 +146,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.column.file": "File",
         "artifacts.column.what": "What happened",
         "aggregates.title": "Overall",
+        "aggregates.failing_not_worse": (
+            "Some measures are below their threshold and are still not reported "
+            "as having got worse: they were below it in the reference too. The "
+            "threshold says the system does not meet the bar; the comparison "
+            "says it has not moved. Both are true, and only movement decides "
+            "the answer above."
+        ),
         "aggregate.counted": (
             "{considered} counted · {suspended} suspended · {errored} not judged"
         ),
@@ -416,6 +423,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.column.file": "File",
         "artifacts.column.what": "Che cosa è successo",
         "aggregates.title": "Nel complesso",
+        "aggregates.failing_not_worse": (
+            "Alcune misure sono sotto la loro soglia e non sono comunque "
+            "segnalate come peggiorate: erano sotto anche nel riferimento. La "
+            "soglia dice che il sistema non raggiunge l'asticella; il confronto "
+            "dice che non si è spostato. Sono vere entrambe, e la risposta qui "
+            "sopra la decide solo lo spostamento."
+        ),
         "aggregate.counted": (
             "{considered} contati · {suspended} sospesi · {errored} non giudicabili"
         ),

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 
 from digline.core import (
+    GROUP_MARKER,
     NOTHING_EXTRA,
     Assertion,
     Disclosure,
@@ -226,6 +227,15 @@ class Suite:
         whichever came first. Both produce a number that looks like an answer.
         """
         for aggregate in self.run_assertions:
+            if GROUP_MARKER in aggregate.name:
+                raise ValueError(
+                    f"aggregate {aggregate.name!r} writes {GROUP_MARKER!r} in "
+                    "its own name, which is the form an expanded aggregate "
+                    "takes. Two checks could then arrive under one name, which "
+                    "is what identity exists to prevent and what the run grid "
+                    "would silently merge. Set by_group=True and let the "
+                    "expansion name them"
+                )
             matches = [a for a in self.assertions if a.name == aggregate.over]
             if not matches:
                 available = ", ".join(sorted({a.name for a in self.assertions}))
