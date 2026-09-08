@@ -359,7 +359,7 @@ what it would hide here is the change you are trying to measure.
 import sys
 from datetime import UTC, datetime
 
-from digline.cli.loader import load_suite, load_target
+from digline.host import load_suite, load_target
 from digline.run import execute
 from digline.store import FileResultStore
 
@@ -386,7 +386,7 @@ judged by other rules would measure the rules, not the system.
 
 import statistics
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.store import FileResultStore
 
 suite, _module = load_suite("support.py")
@@ -551,7 +551,7 @@ The score is a fact about the system; the threshold is a decision about it.
 Printing them side by side is the only honest way to choose the second.
 """
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.store import FileResultStore
 
 suite, _module = load_suite("support.py")
@@ -641,7 +641,7 @@ to `digline promote`.
 import statistics
 import sys
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.store import FileResultStore
 
 suite, _module = load_suite("support.py")
@@ -784,7 +784,7 @@ not. The cases are for the person who then goes looking.
 
 import sys
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.core import compare
 from digline.store import FileResultStore
 
@@ -1174,7 +1174,7 @@ The day a case is added there is nothing in the baseline to compare it with, so
 went. The run itself says.
 """
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.store import FileResultStore
 
 suite, _module = load_suite("support.py")
@@ -1423,7 +1423,7 @@ later needs to know *what* the difference was, and by then the working tree has
 moved on.
 """
 
-from digline.cli.loader import load_suite
+from digline.host import load_suite
 from digline.store import FileResultStore
 
 suite, _module = load_suite("support.py")

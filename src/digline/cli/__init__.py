@@ -1,6 +1,10 @@
-"""The command line. The last layer, and the only one that touches the world.
+"""The terminal front end: argparse, the printed output, the exit codes.
 
-It reads the clock and asks git; everything below receives those as values.
+**One host front end among others**, since ADR 0011 §7. What touches the world —
+the clock, git, importing the user's suite, reading the files it declares — is
+`digline.host`, which this layer composes with `digline.wire`, the report and
+the store. Nothing outside this package imports it: a front end is the top of
+the chain, and front ends do not import each other.
 """
 
 from digline.cli.main import (

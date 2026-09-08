@@ -828,8 +828,8 @@ def test_only_the_suite_directory_gets_the_source_only_loader(
 ) -> None:
     """Scoped on purpose: a loader for every module would slow every import to
     protect files that do not change during an evaluation."""
-    from digline.cli.loader import SourceOnlyLoader
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import SourceOnlyLoader
+    from digline.host.loader import load_suite as _load_suite
 
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -872,8 +872,8 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
     """Only a file path needs the treatment: `package.module:attr` is already
     importable, and widening the path for it would be reaching into the
     caller's environment for no reason."""
-    from digline.cli.loader import UsageError as _UsageError
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import UsageError as _UsageError
+    from digline.host.loader import load_suite as _load_suite
 
     before = list(sys.path)
     with pytest.raises(_UsageError):
@@ -884,7 +884,7 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
 def test_loading_twice_does_not_grow_sys_path(tmp_path: Path) -> None:
     """Several suites in one directory, or one loaded twice, must not make
     `sys.path` accumulate copies of the same entry."""
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import load_suite as _load_suite
 
     write_suite(tmp_path)
     path = str(tmp_path.resolve())

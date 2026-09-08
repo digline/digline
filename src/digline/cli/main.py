@@ -1,4 +1,9 @@
-"""The command line: the last layer, and the only one that touches the world.
+"""The command line: the last layer, and one of the front ends.
+
+It no longer *is* the layer that touches the world — `digline.host` is, and this
+composes it. The clock and git are still read once per command and passed down
+as values; they are now read through `digline.host` so that a second front end
+reads them the same way rather than growing its own. (ADR 0011 §7)
 
 Eight commands, each doing one thing, and nothing promoting as a side effect of
 anything else: `run` writes a run and prints its key, `compare` reads and
@@ -30,8 +35,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from digline import __version__
-from digline.cli.environment import git_commit, utc_now_iso
-from digline.cli.loader import Loaded, UsageError, load_suite, load_target
 from digline.cli.view import serve
 from digline.core import (
     Artifact,
@@ -45,6 +48,14 @@ from digline.core import (
     diff,
     redact,
     withhold_artifacts,
+)
+from digline.host import (
+    Loaded,
+    UsageError,
+    git_commit,
+    load_suite,
+    load_target,
+    utc_now_iso,
 )
 from digline.report import (
     Headline,

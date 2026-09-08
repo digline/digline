@@ -34,17 +34,6 @@ from dataclasses import MISSING, Field, fields
 from pathlib import Path
 from typing import Any, cast
 
-from digline.cli.errors import UsageError
-from digline.cli.toml_errors import (
-    code_only,
-    computed_body,
-    listing,
-    missing_parameters,
-    not_a_coordinate,
-    object_parameter,
-    unknown_key,
-    unknown_type,
-)
 from digline.core import (
     F1,
     Accuracy,
@@ -67,6 +56,17 @@ from digline.core import (
 )
 from digline.core import (
     LlmRubric as LlmRubricAssertion,
+)
+from digline.host.errors import UsageError
+from digline.host.toml_errors import (
+    code_only,
+    computed_body,
+    listing,
+    missing_parameters,
+    not_a_coordinate,
+    object_parameter,
+    unknown_key,
+    unknown_type,
 )
 from digline.run import Case, Suite, Target
 from digline.targets import HttpTarget, ProviderNotFound, resolve, split_coordinate

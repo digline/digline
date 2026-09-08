@@ -24,9 +24,9 @@ from pathlib import Path
 import pytest
 
 from digline import core
-from digline.cli.errors import UsageError
-from digline.cli.toml_errors import CUSTOM_DOCS, did_you_mean
-from digline.cli.toml_suite import ASSERTIONS, PYTHON_ONLY, load_toml_suite
+from digline.host.errors import UsageError
+from digline.host.toml_errors import CUSTOM_DOCS, did_you_mean
+from digline.host.toml_suite import ASSERTIONS, PYTHON_ONLY, load_toml_suite
 
 ROOT = Path(__file__).resolve().parents[1]
 

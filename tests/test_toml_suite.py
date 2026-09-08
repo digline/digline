@@ -23,14 +23,14 @@ import pytest
 from tests._providers import BUCKET, FakeJudge, FakeTarget
 
 from digline import core
-from digline.cli.errors import UsageError
-from digline.cli.toml_suite import (
+from digline.core import Faithfulness, LlmRubric
+from digline.host.errors import UsageError
+from digline.host.toml_suite import (
     AGGREGATES,
     ASSERTIONS,
     PYTHON_ONLY,
     load_toml_suite,
 )
-from digline.core import Faithfulness, LlmRubric
 from digline.run import Suite
 from digline.targets import HttpTarget
 

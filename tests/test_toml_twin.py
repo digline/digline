@@ -29,7 +29,6 @@ from pathlib import Path
 import pytest
 from tests._providers import FakeJudge
 
-from digline.cli.toml_suite import load_toml_suite
 from digline.core import (
     Contains,
     CostBudget,
@@ -40,6 +39,7 @@ from digline.core import (
     Repeated,
 )
 from digline.core.run import config_hash
+from digline.host.toml_suite import load_toml_suite
 from digline.run import Case, Suite
 
 TWIN = Path(__file__).resolve().parent / "fixtures" / "twin"

@@ -41,8 +41,8 @@ from pathlib import Path
 from types import CodeType, ModuleType
 from typing import TYPE_CHECKING
 
-from digline.cli.errors import UsageError
-from digline.cli.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.host.errors import UsageError
+from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 from digline.run import Suite, Target
 
 if TYPE_CHECKING:
