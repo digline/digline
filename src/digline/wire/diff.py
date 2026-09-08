@@ -13,6 +13,7 @@ from digline.wire.contract import OUTPUT_VERSION
 
 __all__ = ["check_json", "diff_json", "interval_json"]
 
+
 def interval_json(noise: Noise) -> dict[str, object] | None:
     """One measured interval, or `null` where nothing measured it.
 

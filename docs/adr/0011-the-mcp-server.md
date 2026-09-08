@@ -620,10 +620,13 @@ release — which is nearly all of them — is wrong. The API is:
 
 ```python
 from mcp.server.mcpserver import MCPServer
+
 server = MCPServer(name="digline-mcp", version=...)
+
 
 @server.tool(name=..., description=..., annotations=ToolAnnotations(...))
 def list_runs(suite: str) -> dict[str, Any]: ...
+
 
 server.run(transport="stdio")
 ```

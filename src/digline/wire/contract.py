@@ -59,6 +59,7 @@ EXIT_UNJUDGED = 2
 #: somewhere else.
 EXIT_USAGE = 64
 
+
 def exit_code(head: Headline) -> int:
     """The one place a headline becomes a number.
 

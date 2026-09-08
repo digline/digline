@@ -14,6 +14,7 @@ from digline.wire.contract import OUTPUT_VERSION, exit_code
 
 __all__ = ["compare_json", "config_json", "delta_json"]
 
+
 def delta_json(delta: AssertionDelta) -> dict[str, object]:
     """The structured facts, and deliberately **not** the verdict's `reason`.
 

@@ -92,6 +92,7 @@ testpaths = [
     "packages/digline-anthropic/tests",
     "packages/digline-openai/tests",
     "packages/digline-bedrock/tests",
+    "packages/digline-mcp/tests",
 ]
 markers = [
     # Costs money and needs a key. Skipped unless the provider's key is set and
@@ -106,6 +107,7 @@ pythonpath = [
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
+    "packages/digline-mcp/src",
 ]
 
 [tool.ruff]
@@ -117,6 +119,7 @@ src = [
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
+    "packages/digline-mcp/src",
 ]
 
 [tool.ruff.lint]
@@ -137,6 +140,7 @@ extraPaths = [
     # by name, which pytest makes importable and pyright has to be told about.
     "packages/digline-openai/tests",
     "packages/digline-bedrock/tests",
+    "packages/digline-mcp/src",
 ]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

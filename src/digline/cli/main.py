@@ -47,10 +47,12 @@ from digline.host import (
     git_commit,
     load_suite,
     load_target,
+    need_baseline,
+    read_artifacts,
+    read_run,
+    resolve_key,
     utc_now_iso,
 )
-from digline.host.artifacts import read_artifacts
-from digline.host.resolve import need_baseline, read_run, resolve_key
 from digline.report import (
     artifact_lines,
     config_lines,

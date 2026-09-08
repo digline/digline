@@ -22,6 +22,7 @@ clock — it cannot say what time it is — so `perf_counter` for `latency_ms` i
 target stays allowed.
 """
 
+from digline.host.artifacts import read_artifacts
 from digline.host.environment import DIRTY_SUFFIX, git_commit, utc_now_iso
 from digline.host.errors import UsageError
 from digline.host.loader import (
@@ -32,10 +33,19 @@ from digline.host.loader import (
     load_suite,
     load_target,
 )
+from digline.host.resolve import (
+    LATEST,
+    Resolved,
+    need_baseline,
+    read_run,
+    resolve_key,
+)
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 
 __all__ = [
     "DIRTY_SUFFIX",
+    "LATEST",
+    "Resolved",
     "SUITE_ATTR",
     "SUITE_SUFFIX",
     "TARGET_ATTR",
@@ -46,5 +56,9 @@ __all__ = [
     "load_suite",
     "load_target",
     "load_toml_suite",
+    "need_baseline",
+    "read_artifacts",
+    "read_run",
+    "resolve_key",
     "utc_now_iso",
 ]

@@ -17,6 +17,7 @@ from digline.run import HasArtifacts, Suite
 
 __all__ = ["read_artifacts"]
 
+
 def read_artifacts(suite: Suite, target: object, base: Path) -> dict[str, Artifact]:
     """The declared files, as they are right now.
 
