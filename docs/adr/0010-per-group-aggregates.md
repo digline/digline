@@ -86,6 +86,11 @@ after refusing unknown keys against `fields(Case)`. So a `"group": "travel"` in
 `cases.json` works the day the field exists, in the TOML form and the Python
 form alike, with no line written in `cli/toml_suite.py`.
 
+**An empty string is refused.** `None` already spells "no group", so `""`
+would be a second spelling of it that expands into `precision[group=]` — a
+public name with a hole in it, and a gate nobody can read. `Case` raises, for
+the reason `Contains(needle="")` and an empty suspension reason do.
+
 **A string and not a list.** A case belongs to one group or to none. Multiple
 membership is a different feature with a different arithmetic — a case counted
 in two denominators is a case counted twice — and nothing has asked for it. A
