@@ -3,7 +3,7 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
-## 0.5.0 — unreleased
+## 0.5.0 — 2026-09-08
 
 digline 0.5.0, with digline-anthropic, digline-openai and digline-bedrock at
 0.3.0. The plugins move because they now register themselves, and their
