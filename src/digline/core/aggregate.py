@@ -15,8 +15,8 @@ aggregate is the gate; the per-case is the diagnosis.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
-from typing import ClassVar, Literal, Protocol
+from dataclasses import dataclass, field, fields, is_dataclass, replace
+from typing import Any, ClassVar, Literal, Protocol, cast
 
 from digline.core.assertions import dataclass_identity
 from digline.core.ratio import Ratio, as_ratio
@@ -32,6 +32,8 @@ __all__ = [
     "Recall",
     "RunAssertion",
     "RunAssertionBase",
+    "expand_by_group",
+    "grouped_name",
     "per_sample_outcomes",
     "with_noise_interval",
 ]
@@ -170,11 +172,29 @@ class RunAssertionBase:
     #: expresses rather than checked against a reachable set.
     threshold: Ratio
     tolerance: Ratio
+    #: Declare one aggregate per group present in the cases, *beside* this one.
+    #: A directive to the suite, never read while judging. (ADR 0010 §2)
+    by_group: bool
+    #: Which group this instance was scoped to, or `None` for the whole run.
+    #: Set by `expand_by_group` and by nothing else — it is `init=False` on
+    #: every subclass, which is what makes `Precision(group="x")` unwritable in
+    #: Python and an unknown parameter in TOML. (ADR 0010 §5)
+    group: str | None
 
     #: Same rule as for per-case assertions: threshold and tolerance are *how*
     #: a result is judged, not *what* is measured, so raising a bar leaves the
     #: verdicts paired and `compare()` reports the flip.
-    IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset({"threshold", "tolerance"})
+    #:
+    #: `by_group` is excluded for a related but distinct reason, and §2's
+    #: promise depends on it: it does not change what *this* aggregate measures,
+    #: it declares that others exist alongside. Were it counted, setting the
+    #: flag would move the whole-run identity and `compare()` would report the
+    #: figure that gates the suite as `missing` with a `new` one beside it — the
+    #: expansion replacing what it was meant to add. `config_hash` still moves,
+    #: because the expanded instances add entries of their own. (ADR 0010 §4)
+    IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
+        {"threshold", "tolerance", "by_group"}
+    )
 
     @property
     def requires_label(self) -> bool:
@@ -263,6 +283,8 @@ class Precision(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "precision"
+    by_group: bool = False
+    group: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._normalize()
@@ -286,6 +308,8 @@ class Recall(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "recall"
+    by_group: bool = False
+    group: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._normalize()
@@ -309,6 +333,8 @@ class Accuracy(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "accuracy"
+    by_group: bool = False
+    group: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._normalize()
@@ -344,6 +370,8 @@ class F1(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "f1"
+    by_group: bool = False
+    group: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._normalize()
@@ -353,6 +381,91 @@ class F1(RunAssertionBase):
         tp = m.true_positive
         return self._ratio(
             2 * tp, 2 * tp + m.false_positive + m.false_negative, "f1", m
+        )
+
+
+def grouped_name(name: str, group: str) -> str:
+    """The name an aggregate takes once it is scoped to one group.
+
+    `precision` becomes `precision[group=travel]`. Written here, once, because
+    it is a **public string**: it lands in `Run.aggregate[].assertion` in every
+    run file and promoted baseline, in `compare --json` and `diff --json`, and
+    in both rendered documents. Changing the grammar later is a diff of every
+    artifact anyone kept. (ADR 0010 §3)
+
+    Brackets rather than `precision.travel` or `precision/travel` because a
+    group name is user data: it may contain a dot, and a slash already reads as
+    a path in a product that writes `anthropic/claude-haiku-4-5` for a model
+    label. `[group=…]` also says *which* axis was split, which is what lets a
+    second axis be added one day rather than replacing this one.
+    """
+    return f"{name}[group={group}]"
+
+
+def expand_by_group(
+    assertions: Sequence[RunAssertion], groups: Sequence[str]
+) -> tuple[RunAssertion, ...]:
+    """Every declared aggregate, plus one per group for those that asked.
+
+    **The expansion adds; it never replaces.** The whole-run instance comes
+    through untouched — same identity, same threshold, same baseline — and the
+    scoped ones follow it. A suite that sets the flag loses no figure it had.
+
+    Order is fixed and total: per declared aggregate, the whole-run instance
+    first, then its groups in the order given (the caller sorts). That is what
+    makes two identical suites produce identical `config_hash`es, and it is
+    also where the report's column order comes from — the grid inherits it
+    instead of sorting again. (ADR 0010 §6, §9)
+
+    `groups` is a sequence of names rather than the cases they came from: the
+    core imports nothing from `digline.run`, and a `Case` is that package's.
+    Whoever holds the cases derives the set and passes it.
+
+    The flag is read with `getattr` on purpose. `RunAssertion` is a structural
+    `Protocol`, so adding a member to it would unmatch every third-party
+    aggregate that satisfies it without subclassing `RunAssertionBase`. One
+    that never heard of groups answers `False`, never expands, and keeps
+    working — which is also the honest outcome, since nothing has told it how
+    to name itself per group.
+    """
+    out: list[RunAssertion] = []
+    for assertion in assertions:
+        out.append(assertion)
+        if not getattr(assertion, "by_group", False):
+            continue
+        _check_expandable(assertion)
+        for group in groups:
+            scoped = replace(
+                cast(Any, assertion), name=grouped_name(assertion.name, group)
+            )
+            # After `replace`, because `group` is `init=False`: the constructor
+            # will not take it, which is the whole of §5's refusal. Same
+            # `object.__setattr__` on a frozen dataclass that `_normalize` uses.
+            object.__setattr__(scoped, "group", group)
+            out.append(cast(RunAssertion, scoped))
+    return tuple(out)
+
+
+def _check_expandable(assertion: RunAssertion) -> None:
+    """Refuse a `by_group` the expansion could not honour, and say why.
+
+    Both failures are the same mistake — an aggregate that opted in without
+    inheriting what opting in needs — and both are worth a sentence rather than
+    the `TypeError` from `replace()` or the `AttributeError` from setting a
+    slot that does not exist.
+    """
+    if not is_dataclass(assertion) or isinstance(assertion, type):
+        raise TypeError(
+            f"{type(assertion).__name__} sets by_group but is not a dataclass, "
+            "so it cannot be copied per group. Subclass RunAssertionBase and "
+            "declare it with @dataclass(frozen=True)"
+        )
+    if not any(f.name == "group" for f in fields(assertion)):
+        raise TypeError(
+            f"{type(assertion).__name__} sets by_group but declares no `group` "
+            "field, so an expanded copy would have nowhere to record which "
+            "group it counts. Add "
+            "`group: str | None = field(init=False, default=None)`"
         )
 
 

@@ -20,6 +20,7 @@ from digline.core import (
     Repeated,
     RunAssertion,
     config_hash,
+    expand_by_group,
 )
 from digline.core.ratio import Ratio, as_agreement
 
@@ -60,6 +61,17 @@ class Case:
     #: The human mark, when the suite has ground truth. Required on every case
     #: as soon as a `RunAssertion` counts a confusion matrix.
     label: Label | None = None
+    #: Which class this case belongs to — an expense category, a language, a
+    #: customer segment. **Descriptive, never behavioural**: nothing about
+    #: execution changes, no target and no assertion is given it, and a suite
+    #: that sets `by_group` nowhere behaves as if the field did not exist. It is
+    #: read in one place, `Suite.__post_init__`, and read there as a label.
+    #:
+    #: `None` means the case belongs to no group, and is counted only in the
+    #: whole-run aggregate: there is no implicit "ungrouped" bucket, which would
+    #: be a gate nobody declared, appearing and vanishing as cases were
+    #: labelled. (ADR 0010 §1, §2)
+    group: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -68,6 +80,14 @@ class Case:
             raise ValueError(
                 f"case {self.id!r} is suspended without a stated reason: "
                 "a suspension nobody can justify is a case quietly dropped"
+            )
+        if self.group is not None and not self.group:
+            # `None` and `""` would otherwise be two spellings of "no group"
+            # with different consequences: the empty one names a group, so it
+            # would expand into `precision[group=]`, a gate nobody can read.
+            raise ValueError(
+                f"case {self.id!r} declares an empty group: leave it unset to "
+                "put the case in no group"
             )
 
 
@@ -172,7 +192,28 @@ class Suite:
                 )
             seen.add(case.id)
 
+        # Validated on the *declared* set, so a refusal names what the author
+        # wrote rather than a copy the expansion made.
         self._check_aggregates()
+        # And expanded after, into the field the rest of the product reads:
+        # `config_hash()` below, and the driver. So a data suite gets §2 with
+        # no line in the loader, and `run_assertions` is longer than what was
+        # written — deterministically, whole-run instance first. (ADR 0010 §6)
+        object.__setattr__(
+            self,
+            "run_assertions",
+            expand_by_group(self.run_assertions, self.groups()),
+        )
+
+    def groups(self) -> tuple[str, ...]:
+        """The groups the cases declare, sorted and without repetition.
+
+        Sorted here rather than in `expand_by_group`, which takes the order it
+        is given: the core is not the layer that decides a group set exists at
+        all. Sorted at all because it fixes the expansion's order, and with it
+        the identity set, the `config_hash` and the report's columns.
+        """
+        return tuple(sorted({c.group for c in self.cases if c.group is not None}))
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be

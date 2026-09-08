@@ -15,6 +15,8 @@ from digline.core.aggregate import (
     Recall,
     RunAssertion,
     RunAssertionBase,
+    expand_by_group,
+    grouped_name,
     per_sample_outcomes,
     with_noise_interval,
 )
@@ -204,6 +206,8 @@ __all__ = [
     "artifacts_sha",
     "config_hash",
     "error_verdict",
+    "expand_by_group",
+    "grouped_name",
     "identity_of",
     "levenshtein_distance",
     "output_kind",
