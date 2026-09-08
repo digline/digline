@@ -51,6 +51,26 @@ import.
   it widens is what leaves a perimeter, and a suite that is data cannot widen
   it — in world 3 that is a security property, not a missing feature. A suite
   that genuinely needs to disclose more is a `suite.py`.
+- **Added:** an **official container image**, `ghcr.io/digline/digline`, with
+  the three plugins already in it. `docker run -v $PWD:/work
+  ghcr.io/digline/digline:0.5.0 compare --suite eval/suite.py` runs the whole
+  cycle with no Python installation, which is what a CI job that is not a
+  Python job has to have. Tagged `:0.5.0`, `:0.5` and `:latest`, built on the
+  release tag for `amd64` and `arm64`. The versions it carries are read out of
+  `docker/Dockerfile` and gated against this workspace, so an image that lags a
+  release fails the build instead of quietly running the version before it. It
+  writes into the mounted repository, as the user who owns it and not as root —
+  decision 2, checked on the filesystem before anything is pushed.
+  ([`docker/README.md`](https://github.com/digline/digline/blob/main/docker/README.md))
+- **Added:** a published security posture. `SECURITY.md` says that the
+  supported version is the latest release and nothing else, points reports at
+  GitHub's private vulnerability reporting, and states the scope: jailbreak and
+  prompt injection **of the models under test** are what digline measures, not
+  a vulnerability in digline. There is no bounty; there is a fast reply.
+- **Note:** ADR 0008 records the **two-run report** — the decision, not the
+  command. `digline diff` is not in this release; the ADR is here because the
+  design was settled in this cycle and the format it fixes is the one the next
+  release will implement. ([ADR 0008](https://digline.dev/product/adr/0008-the-two-run-report/))
 - **Unchanged:** `SCHEMA_VERSION` stays at 9. No baseline needs re-promoting,
   no run needs migrating, and no example was re-recorded: nothing downstream
   can tell how a `Suite` was built, which is the point.
