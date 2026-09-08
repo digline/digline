@@ -988,9 +988,18 @@ change.
 
 At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
 `config_changed`, `artifacts_changed`, `target_config_changed`,
-`judge_config_changed`, `within_noise`, `counts`, `reasons_available` and
-`sentence`; `--json full` adds `deltas`, `target_config_deltas` and
-`judge_config_deltas`. A golden key set in the tests fails the build if a key is
+`judge_config_changed`, `within_noise`, `counts`, `reasons_available`,
+`sentence` and `exit_code`; `--json full` adds `deltas`, `target_config_deltas`
+and `judge_config_deltas`.
+
+`exit_code` is the number the process exits with, in the object — the same
+`0` / `1` / `2` a shell sees, computed by the one function that knows a
+regression outranks an unjudged case. It is there because the same object is
+returned by the MCP server's `compare` tool, which has no process to exit, and
+a caller made to re-derive it from `worse` and `unjudged` would have to know a
+precedence rule it should never have to think about. `digline diff --json` has
+no such field and must not: neither side of a diff was approved by anybody, so
+there is nothing to gate on. A golden key set in the tests fails the build if a key is
 added without the bump — *added* keys leave a consumer working, which is why
 these arrived without one. Each delta carries `within_noise`, `noise_min`,
 `noise_max` and `noise_samples` beside its outcome.

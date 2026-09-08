@@ -40,6 +40,12 @@ __all__ = [
 #:    consumer, because nothing that parses `compare --json` today sees a byte
 #:    change. Its structure is symmetric and carries **no `worse` field** — the
 #:    absence is the point, not an omission (ADR 0008 §1).
+#:
+#:    `exit_code` joins the headline under the same rule (ADR 0011 §4). It is
+#:    the number `AGENTS.md` §6 calls the contract, and it is a *field* because
+#:    an MCP tool has no process to exit; it is on `compare --json` as well so
+#:    that the two surfaces cannot answer differently. `diff` gains nothing of
+#:    the kind and must not: it has no verdict to carry.
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0

@@ -117,6 +117,66 @@ def test_compare_exits_unjudged_when_a_case_cannot_run(repo: Path) -> None:
     assert "1 case could not be judged" in compared.stdout
 
 
+def test_the_exit_code_field_is_the_process_exit_code(repo: Path) -> None:
+    """The field and the number a shell sees are the same number.
+
+    Two surfaces return this object — `compare --json` and the MCP `compare`
+    tool — and only one of them can exit a process. If the field were computed
+    anywhere but `exit_code()` the two could disagree, and the disagreement
+    would show up as a pipeline that gated correctly and an agent that did not.
+    So it is checked against the thing it claims to be, over all three outcomes.
+    (ADR 0011 §4)
+    """
+    baseline_key = run_key(repo)
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+
+    def field_and_status(*, expected: int) -> None:
+        key = run_key(repo)
+        done = cli(
+            repo,
+            "compare",
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+            "--locale",
+            "en",
+            "--json",
+        )
+        assert done.returncode == expected, done.stdout
+        assert json.loads(done.stdout)["exit_code"] == done.returncode
+
+    field_and_status(expected=EXIT_OK)
+    write_suite(repo, fr_score="0.2")  # the judge now scores one case badly
+    field_and_status(expected=EXIT_WORSE)
+    write_suite(repo, extra=', Case(id="flaky")')
+    field_and_status(expected=EXIT_UNJUDGED)
+
+
+def test_the_diff_json_has_no_exit_code(repo: Path) -> None:
+    """`diff` gains nothing of the kind, and the absence is the same point as
+    the absent `worse`: a verdict exists only against an approved reference, and
+    neither side of a diff was approved by anybody. (ADR 0008 §1, ADR 0011 §4)"""
+    first = run_key(repo)
+    second = run_key(repo)
+    done = cli(
+        repo,
+        "diff",
+        "--suite",
+        "suite_qa.py",
+        first,
+        second,
+        "--locale",
+        "en",
+        "--json",
+        "full",
+    )
+    assert done.returncode == EXIT_OK
+    payload = json.dumps(json.loads(done.stdout))
+    assert "exit_code" not in payload
+    assert "worse" not in payload
+
+
 def test_compare_json_emits_the_headline_not_the_document(repo: Path) -> None:
     key = run_key(repo)
     cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
@@ -161,6 +221,14 @@ COMPARE_KEYS = {
     # unaffected, and one that wants to tell "nothing moved" from "what moved
     # was noise" has the count without parsing a sentence.
     "within_noise",
+    # Joined with ADR 0011 §4, same rule. It is the number AGENTS.md §6 calls
+    # the contract, and it is here because the MCP server returns this same
+    # object and has no process to exit — a caller left to derive it from
+    # `worse` and `unjudged` would have to know that a regression outranks an
+    # unjudged case, which is precisely what `exit_code()` exists to hold in one
+    # place. `test_the_exit_code_field_is_the_process_exit_code` pins the two
+    # together.
+    "exit_code",
     "counts",
     "reasons_available",
     "sentence",

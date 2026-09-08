@@ -10,7 +10,7 @@ import dataclasses
 
 from digline.core import AssertionDelta, Comparison, ConfigDelta
 from digline.report import Headline
-from digline.wire.contract import OUTPUT_VERSION
+from digline.wire.contract import OUTPUT_VERSION, exit_code
 
 __all__ = ["compare_json", "config_json", "delta_json"]
 
@@ -80,6 +80,13 @@ def compare_json(
     """
     payload: dict[str, object] = {"output_version": OUTPUT_VERSION}
     payload.update(dataclasses.asdict(head))
+    # The number `AGENTS.md` §6 calls the contract, computed by the one function
+    # that knows the precedence — a regression outranks an unjudged case. A
+    # caller left to derive it from `worse` and `unjudged` has to know that
+    # rule, and `exit_code()` exists so that nobody has to. Over MCP there is no
+    # process to exit, which is why it has to be a field there; it is a field
+    # here too so the two surfaces cannot answer differently. (ADR 0011 §4)
+    payload["exit_code"] = exit_code(head)
     if full:
         payload["deltas"] = [delta_json(d) for d in comparison.deltas]
         payload["target_config_deltas"] = [
