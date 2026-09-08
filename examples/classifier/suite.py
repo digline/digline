@@ -112,9 +112,24 @@ suite = Suite(
     # Both thresholds sit where the system measurably is; see the README.
     # Thresholds below the lowest run seen, not where anyone wishes the
     # classifier were: measured 0.667 and 0.800 at worst over eight runs.
+    # `by_group=True` says: keep those two, and give me the same two per class
+    # of expense as well. The whole-run figure is still the gate; the per-class
+    # ones are what stop a class the average is carrying from staying invisible.
+    # No thresholds of their own — they inherit these, which is the point: the
+    # bar the classifier is held to does not change because you looked closer.
     run_assertions=[
-        Precision(over="agrees_with_mark", threshold="3/5", tolerance=THREE_CASES),
-        Accuracy(over="agrees_with_mark", threshold="7/10", tolerance=THREE_CASES),
+        Precision(
+            over="agrees_with_mark",
+            threshold="3/5",
+            tolerance=THREE_CASES,
+            by_group=True,
+        ),
+        Accuracy(
+            over="agrees_with_mark",
+            threshold="7/10",
+            tolerance=THREE_CASES,
+            by_group=True,
+        ),
     ],
     cases=[
         Case(
@@ -122,6 +137,10 @@ suite = Suite(
             vars=case["vars"],
             expected=case["expected"],
             label=case["label"],
+            # The expense category, declared in `cases.json` as a field of its
+            # own rather than read out of `vars`: a class is not always
+            # something the application was given.
+            group=case["group"],
             metadata=case["metadata"],
         )
         for case in CASES

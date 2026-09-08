@@ -399,8 +399,8 @@ warning is about a bar set where somebody *wishes* the system were, which makes
 a gate permanently red and therefore ignored. This bar is set where the system
 measurably is — 0.727 over the run, threshold at 0.600 below the worst of eight
 runs — and the group rows are the discovery that the same bar is not met by two
-of five classes. The measurement did not move. What moved is how much of it is
-visible.
+of five classes, on either measure. The measurement did not move. What moved is
+how much of it is visible.
 
 **And the gate does not change colour**, which is what makes shipping it
 honest rather than reckless. `compare` and `report` exit on *movement*:

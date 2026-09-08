@@ -12,6 +12,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "hotel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -29,6 +30,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -46,6 +48,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "taxi",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -63,6 +66,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -80,6 +84,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "taxi",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -97,6 +102,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -114,6 +120,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "travel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -131,6 +138,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "hotel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -148,6 +156,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -165,6 +174,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "taxi",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -182,6 +192,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "tools",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -199,6 +210,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -216,6 +228,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "travel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -233,6 +246,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "tools",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -250,6 +264,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "hotel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -267,6 +282,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -284,6 +300,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "taxi",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -301,6 +318,7 @@
       "needs_review": false
     },
     "label": "negative",
+    "group": "travel",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -318,6 +336,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "meal",
     "metadata": {
       "quarter": "2026-Q3"
     }
@@ -335,6 +354,7 @@
       "needs_review": true
     },
     "label": "positive",
+    "group": "tools",
     "metadata": {
       "quarter": "2026-Q3"
     }
