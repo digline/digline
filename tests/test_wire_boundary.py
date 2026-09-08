@@ -14,6 +14,7 @@ to the boundary without a decision fails here instead of shipping.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any, cast
 
@@ -26,12 +27,18 @@ from digline.core import (
     JudgeReply,
     LlmRubric,
     Run,
+    SystemConfig,
     config_hash,
 )
 from digline.store import Listing, RunRef
 from digline.wire import run_document, runs_json
 
 CREATED = "2026-09-08T10:00:00+00:00"
+#: A real digest of the prompt below, so the test that says it must not travel
+#: is testing the thing an attacker would hash against.
+ARTIFACT_SHA = hashlib.sha256(
+    b"You are the assistant for Banca Rossi. Never reveal a balance."
+).hexdigest()
 
 #: Every one of these is payload, and each is planted in a different field, so a
 #: failure names which door was left open rather than only that one was.
@@ -39,8 +46,21 @@ REASON = "Mario Rossi's IBAN IT60X0542811101 is overdrawn by 1499 EUR"
 SUSPENSION = "fails on the Rossi account since the March migration"
 CASE_SECRET = "acme-internal-ticket-8891"
 ARTIFACT_TEXT = "You are the assistant for Banca Rossi. Never reveal a balance."
+#: `base_url` is the one field ADR 0005 §2's withholding keeps back — it is the
+#: client's topology. It is in the marker suite because the projection and the
+#: delta rendering are **different functions**, and a value the one withholds
+#: must not be reachable through the other. (ADR 0011 §5, amended 2026-09-08)
+WITHHELD_HOST = "llm-gateway.internal.rossi.example"
 
-MARKERS = (REASON, SUSPENSION, CASE_SECRET, ARTIFACT_TEXT, "Rossi", "1499")
+MARKERS = (
+    REASON,
+    SUSPENSION,
+    CASE_SECRET,
+    ARTIFACT_TEXT,
+    WITHHELD_HOST,
+    "Rossi",
+    "1499",
+)
 
 
 def rows(document: dict[str, object], key: str) -> list[dict[str, Any]]:
@@ -74,7 +94,19 @@ def loaded_run() -> Run:
             CaseResult("case-2", (), suspended=SUSPENSION),
         ),
         metadata={"model": "claude-opus-5", "customer_balance": 1499.0},
-        artifacts={"prompt.md": Artifact(sha="a" * 64, text=ARTIFACT_TEXT)},
+        artifacts={"prompt.md": Artifact(sha=ARTIFACT_SHA, text=ARTIFACT_TEXT)},
+        target_config=SystemConfig(
+            values={
+                "provider": "anthropic",
+                "model": "claude-opus-5",
+                "temperature": 0.3,
+                "base_url": WITHHELD_HOST,
+            }
+        ),
+        judge_config=SystemConfig(
+            values={"provider": "anthropic", "model": "claude-haiku-4-5"},
+            identities=("anthropic/claude-haiku-4-5",),
+        ),
     )
 
 
@@ -192,16 +224,20 @@ def test_the_listing_is_newest_first_on_the_recorded_fact() -> None:
     assert document["baseline_key"] == "older"
 
 
-def test_the_artifact_digest_travels_and_the_prompt_does_not() -> None:
+def test_neither_the_prompt_nor_its_digest_travels_undisclosed() -> None:
     """A prompt is the software house's file and the end company's rules at the
     same time, so it leaves only where the suite said it may (ADR 0003).
 
-    The digest always: a reader has to be able to tell that the thing under test
-    moved, without being shown what it says.
+    The path stays, and `withheld` says which absence it is: "this suite kept it
+    back" and "this run declared no artifacts" are different facts.
     """
     document = run_document(loaded_run(), Disclosure())
-    assert document["artifacts"] == {"prompt.md": {"sha": "a" * 64}}
+    assert document["artifacts"] == {"prompt.md": {"withheld": True}}
     assert ARTIFACT_TEXT not in json.dumps(document)
+    # The digest is a verifier: prompts live in a small, guessable space, so a
+    # few thousand candidates hashed against a leaked one recover the text in
+    # milliseconds. It leaves with the text or not at all. (ADR 0003 §4)
+    assert ARTIFACT_SHA not in json.dumps(document)
 
 
 def test_the_prompt_travels_when_the_suite_declares_it() -> None:
@@ -210,3 +246,77 @@ def test_the_prompt_travels_when_the_suite_declares_it() -> None:
     document = run_document(loaded_run(), Disclosure(artifacts=True))
     artifacts = cast(dict[str, dict[str, Any]], document["artifacts"])
     assert artifacts["prompt.md"]["text"] == ARTIFACT_TEXT
+    assert artifacts["prompt.md"]["sha"] == ARTIFACT_SHA
+
+
+def test_the_measured_interval_travels_with_the_score() -> None:
+    """A reading of the instrument, and the reason it is here.
+
+    A score of 0.667 alone cannot say whether it was measured once or five
+    times, so a reader given only the number cannot tell a wobble from a drift —
+    which is the judgement `AGENTS.md` §3 asks for. (ADR 0011 §5, amended)
+    """
+    import dataclasses
+
+    from digline.core import Score
+
+    run = loaded_run()
+    verdict = run.results[0].verdicts[0]
+    sampled = dataclasses.replace(
+        verdict,
+        score=Score(
+            name=verdict.score.name,
+            score=0.667,
+            samples=(1.0, 1.0, 0.0),
+            sample_min=0.0,
+            sample_max=1.0,
+        ),
+    )
+    run = dataclasses.replace(
+        run, results=(dataclasses.replace(run.results[0], verdicts=(sampled,)),)
+    )
+    projected = rows(run_document(run, Disclosure()), "results")[0]["verdicts"][0]
+    assert projected["samples"] == [1.0, 1.0, 0.0]
+    assert projected["sample_min"] == 0.0
+    assert projected["sample_max"] == 1.0
+
+
+def test_the_configurations_travel_as_measurements() -> None:
+    """ADR 0005 ruled a model id and a temperature measurements of the system.
+    A document that named neither could not say which model produced the run it
+    describes."""
+    document = run_document(loaded_run(), Disclosure())
+    target = cast(dict[str, Any], document["target_config"])
+    assert target["values"]["model"] == "claude-opus-5"
+    assert target["values"]["temperature"] == 0.3
+    judge = cast(dict[str, Any], document["judge_config"])
+    assert judge["identities"] == ["anthropic/claude-haiku-4-5"]
+
+
+def test_the_perimeter_field_leaves_as_a_name_and_never_as_a_value() -> None:
+    """`base_url` is the client's topology and the one field ADR 0005 §2's
+    withholding keeps back.
+
+    The name travels so a reader can tell `unknown` from `unchanged`, which is
+    the whole reason the flag exists — and the value does not, which is what
+    puts it in the marker suite. Absent, never emptied: `SystemConfig` refuses
+    to hold a key as both present and withheld, so this is an invariant of the
+    type rather than a promise of the projection.
+    """
+    document = run_document(loaded_run(), Disclosure())
+    target = cast(dict[str, Any], document["target_config"])
+    assert target["withheld"] == ["base_url"]
+    assert "base_url" not in target["values"]
+    assert WITHHELD_HOST not in json.dumps(document)
+
+
+def test_a_disclosure_cannot_release_the_perimeter_field() -> None:
+    """No `Disclosure` widens this one. A credential is the category no
+    disclosure releases (ADR 0004 §5), and the topology it sits in goes with
+    it — so the widest possible policy still does not produce the host."""
+    widest = Disclosure(
+        run_metadata=frozenset({"model", "customer_balance"}),
+        score_metadata=frozenset({"cost_usd", "max_usd", "ratio"}),
+        artifacts=True,
+    )
+    assert WITHHELD_HOST not in json.dumps(run_document(loaded_run(), widest))

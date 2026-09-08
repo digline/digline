@@ -9,6 +9,21 @@
   count is `target_calls`, §4's `exit_code` lands on both surfaces through the
   one function, and §7's host extraction goes ahead as drafted
 - Date: 2026-09-08
+- Amended: 2026-09-08 — §5's projection gains three things, each of them the
+  section's own sentence deciding its own list. **The intervals**
+  (`samples`, `sample_min`, `sample_max`, as recorded): they are readings of the
+  instrument, and `AGENTS.md` §3 — tell a wobble from a drift — is unexecutable
+  without them, since a score of `0.667` alone cannot say whether it was
+  measured once or five times. **`target_config` and `judge_config`**: ADR 0005
+  already ruled a model id and a temperature measurements of the system, so a
+  document that named neither could not say which model produced the run it
+  described; 0005's own withholding applies unchanged, through
+  `SystemConfig.redacted()`, so `base_url` leaves as a withheld *name* and never
+  as a value. **The artifact digest is withheld with the text**, correcting
+  `{ sha }` in the list below: ADR 0003 §4 — an assumption this record
+  declares — holds that a digest is a *verifier*, prompts live in a small
+  guessable space, and a digest that travelled would defeat the withholding it
+  travelled beside
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §8 (a baseline is an approved reference) and the
   payload/verdict boundary that fixed decision 9 states;
@@ -318,12 +333,28 @@ config_hash,
 results: [ { case_id,
              suspended: true|false,
              verdicts: [ { name, assertion_id, status, score,
-                           threshold, tolerance, metadata } ] } ],
+                           threshold, tolerance, metadata,
+                           samples, sample_min, sample_max } ] } ],
 aggregate: [ …the same verdict shape… ],
-artifacts: { "<path>": { sha } },
+target_config: { values: {…}, withheld: […], identities: […] },
+judge_config:  { values: {…}, withheld: […], identities: […] },
+artifacts: { "<path>": { sha, text } | { withheld: true } },
 disclosure: { run_metadata: […], score_metadata: […], artifacts: true|false },
 metadata: { …only what Disclosure covers… }
 ```
+
+The three additions of 2026-09-08, each in one line. **The intervals** are
+readings of the instrument and the section's own criterion admits them: a score
+of `0.667` with no interval cannot tell a wobble from a drift, which is the
+judgement `AGENTS.md` §3 asks for. **The two configurations** are measurements
+by ADR 0005's ruling, and they arrive through `SystemConfig.redacted()` rather
+than through a rule written again here — `base_url` is the one field that
+withholding keeps back, it is already reduced to a host by `endpoint_host` so no
+credential was ever in it, and `SystemConfig` refuses to hold a key as both
+present and withheld, so absent-not-emptied is an invariant of the type rather
+than a promise of this function. **The artifact digest** now leaves with the
+text or not at all: `{ sha }` beside a withheld prompt was this record
+contradicting ADR 0003 §4, which it names in its own assumptions.
 
 What does not cross, and is **absent rather than emptied**:
 
@@ -331,8 +362,11 @@ What does not cross, and is **absent rather than emptied**:
 - `CaseResult.suspended`'s stated reason — a developer writes "fails on the
   Rossi account", which is a customer's name in a sentence about a test;
 - any `Score.metadata` key not covered by the suite's `Disclosure`;
-- `Artifact.text` unless the suite declares `Disclosure(artifacts=True)`, per
-  ADR 0003 — a prompt carries the end company's rules;
+- `Artifact.text` **and `Artifact.sha` together** unless the suite declares
+  `Disclosure(artifacts=True)`, per ADR 0003 §4 — a prompt carries the end
+  company's rules, and a digest is a verifier that recovers them;
+- `SystemConfig`'s perimeter fields — `base_url`, the client's topology — which
+  leave as a name in `withheld` and never as a value (ADR 0005 §2);
 - `Case.metadata` and `Case.vars` entirely: they are the inputs, which is to say
   the data.
 
@@ -366,9 +400,11 @@ was never part of the answer.
 ### The gate
 
 **The no-reason gate**, written as the sibling of the redaction tests: for every
-tool on this surface, over a suite whose cases, verdicts, suspensions and
-artifacts all carry distinctive payload strings, **no response may contain any
-of them.** Serialize the whole response, search it for each marker, fail on a
+tool on this surface, over a suite whose cases, verdicts, suspensions, artifacts
+**and withheld configuration values** all carry distinctive payload strings,
+**no response may contain any of them.** The withheld config value is in the
+marker suite deliberately: the projection must not leak what the delta rendering
+already withholds, and the two are built by different functions. Serialize the whole response, search it for each marker, fail on a
 hit. It runs over all six tools and not only the two that return runs, because
 the point is the boundary and not the function.
 

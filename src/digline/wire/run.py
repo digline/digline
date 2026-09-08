@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from digline.core import Disclosure, Run, Verdict
+from digline.core import Disclosure, Run, SystemConfig, Verdict
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.wire.contract import OUTPUT_VERSION
@@ -99,6 +99,13 @@ def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, obj
         "score": verdict.score.score,
         "threshold": verdict.threshold,
         "tolerance": verdict.tolerance,
+        # The instrument's own readings, as recorded. A score of 0.667 with no
+        # interval beside it cannot say whether it was measured once or five
+        # times, and telling a wobble from a drift — AGENTS.md §3 — is the
+        # judgement this surface exists to support. (ADR 0006 §9)
+        "samples": list(verdict.score.samples),
+        "sample_min": verdict.score.sample_min,
+        "sample_max": verdict.score.sample_max,
         "metadata": {
             k: v
             for k, v in verdict.score.metadata.items()
@@ -152,14 +159,26 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             for case in run.results
         ],
         "aggregate": [_verdict_document(v, disclosure) for v in run.aggregate],
-        # The digest always; the text only where the suite said so (ADR 0003).
-        # A prompt is the software house's file and the end company's rules at
-        # the same time.
+        # Measurements of the system, by ADR 0005's ruling: a model id and a
+        # temperature are what decided how it answered, and a document that
+        # named neither could not say which model produced the run it describes.
+        "target_config": _config_document(run.target_config),
+        "judge_config": _config_document(run.judge_config),
+        # The digest leaves **with** the text or not at all. A digest is a
+        # verifier: prompts live in a small, guessable space, so a few thousand
+        # candidates hashed against a leaked one recover the text in
+        # milliseconds, and with it the end company's business rules. A digest
+        # travelling beside a withheld prompt would defeat the withholding it
+        # travelled beside (ADR 0003 §4).
+        #
+        # The path stays either way, and `withheld` says which absence it is:
+        # "this suite kept it back" and "this run declared no artifacts" are
+        # different facts and a reader is owed both.
         "artifacts": {
             path: (
                 {"sha": artifact.sha, "text": artifact.text}
                 if disclosure.artifacts
-                else {"sha": artifact.sha}
+                else {"withheld": True}
             )
             for path, artifact in sorted(run.artifacts.items())
         },
@@ -171,6 +190,29 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             "score_metadata": sorted(disclosure.score_metadata),
             "artifacts": disclosure.artifacts,
         },
+    }
+
+
+def _config_document(config: SystemConfig) -> dict[str, object]:
+    """One system's declared configuration, with ADR 0005's withholding applied.
+
+    Through `SystemConfig.redacted()` and not through a rule written again here:
+    one implementation of a perimeter is one place to get it wrong. It keeps
+    back `base_url` — the client's topology — which was already reduced to a
+    host by `endpoint_host` when it was recorded, so no credential was ever in
+    the value to begin with.
+
+    **Withheld is absent, never emptied**, and that is an invariant of the type
+    rather than a promise of this function: `SystemConfig.__post_init__` refuses
+    to hold a key as both present and withheld. The names travel so a reader can
+    tell `unknown` from `unchanged` — ADR 0005 §2's distinction, which is the
+    whole reason the flag exists.
+    """
+    kept = config.redacted()
+    return {
+        "values": dict(sorted(kept.values.items())),
+        "withheld": sorted(kept.withheld),
+        "identities": list(kept.identities),
     }
 
 
