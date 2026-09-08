@@ -23,10 +23,9 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from types import ModuleType
 
 from digline.cli.environment import git_commit, utc_now_iso
-from digline.cli.loader import UsageError, load_suite, load_target
+from digline.cli.loader import Loaded, UsageError, load_suite, load_target
 from digline.cli.view import serve
 from digline.core import (
     Artifact,
@@ -189,12 +188,16 @@ def _check_perimeter(suite: Suite, tenant: str | None, environment: str | None) 
         )
 
 
-def _load(args: argparse.Namespace) -> tuple[Suite, ModuleType, FileResultStore]:
-    """Imported once per command: importing twice would execute the user's
-    module twice, and a module with a side effect would perform it twice."""
-    suite, module = load_suite(args.suite)
+def _load(args: argparse.Namespace) -> tuple[Suite, Loaded, FileResultStore]:
+    """Loaded once per command: a Python suite imported twice would execute the
+    user's module twice, and a module with a side effect would perform it twice.
+
+    `Loaded` carries whichever half the form still owes — the module for a
+    suite.py, the declared target for a suite.toml.
+    """
+    suite, loaded = load_suite(args.suite)
     _check_perimeter(suite, args.tenant, args.env)
-    return suite, module, FileResultStore(args.root)
+    return suite, loaded, FileResultStore(args.root)
 
 
 LATEST = "latest"
@@ -268,8 +271,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     commit = git_commit(Path(args.root))
     created_at = utc_now_iso()
 
-    suite, module, store = _load(args)
-    target = load_target(args.target, module, args.suite)
+    suite, loaded, store = _load(args)
+    target = load_target(args.target, loaded, args.suite)
 
     # Announced before the first call, on stderr so a shell capturing the key
     # still captures only the key. Arithmetic over the declared suite: no
@@ -364,7 +367,7 @@ def _config_json(delta: ConfigDelta) -> dict[str, object]:
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
     run = _read_run(store, suite, _resolve_key(store, suite, args.run))
     baseline = _need_baseline(store, suite)
 
@@ -428,7 +431,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     day had no way to name yesterday's run. That is the whole job; anything more
     would be inventing a surface before knowing what it is for.
     """
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
 
     baseline = store.read_baseline(suite.tenant, suite.name)
     baseline_key = None if baseline is None else store.key_for(baseline)
@@ -466,7 +469,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_promote(args: argparse.Namespace) -> int:
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
     key = _resolve_key(store, suite, args.run)
     ref = RunRef(tenant=suite.tenant, suite=suite.name, key=key)
     promoted = store.promote_baseline(ref, suite.config_hash())
@@ -483,7 +486,7 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     the moment anything compared against it, which is every command that
     matters.
     """
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
 
     paths = list(store.run_paths(suite.tenant, suite.name))
     baseline_path = store.baseline_path(suite.tenant, suite.name)
@@ -516,13 +519,13 @@ def cmd_view(args: argparse.Namespace) -> int:
     remembered between requests, so there is no state to lose and none to
     migrate — the store is the only thing that persists, as everywhere else.
     """
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
     serve(suite, store, host=args.host, port=args.port)
     return EXIT_OK
 
 
 def cmd_report(args: argparse.Namespace) -> int:
-    suite, _module, store = _load(args)
+    suite, _loaded, store = _load(args)
     run = _read_run(store, suite, _resolve_key(store, suite, args.run))
     baseline = _need_baseline(store, suite)
     comparison = compare(run, baseline)

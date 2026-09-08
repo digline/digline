@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 from tests._helpers import git, write_suite
+from tests._providers import REGISTERED
 
 
 @pytest.fixture
@@ -31,3 +32,28 @@ def repo(tmp_path: Path) -> Path:
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "initial")
     return tmp_path
+
+
+@pytest.fixture
+def fake_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Register `tests._providers.REGISTERED` as the provider `fake`.
+
+    A TOML suite names a judge by coordinate and the loader resolves it through
+    an installed plugin, so anything testing the format needs one — and a test
+    that reached for `anthropic` would need a key, a network and a bill to
+    check a parser.
+
+    The entry point points at `tests._providers` by import path, which is why
+    the fakes live in a module and not in a test file: see that file's
+    docstring.
+    """
+    from importlib.metadata import EntryPoint
+
+    from digline.targets.registry import GROUP
+
+    point = EntryPoint(
+        name=REGISTERED.name, value="tests._providers:REGISTERED", group=GROUP
+    )
+    monkeypatch.setattr(
+        "digline.targets.registry._entry_points", lambda: {REGISTERED.name: point}
+    )

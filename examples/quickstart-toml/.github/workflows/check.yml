@@ -1,0 +1,53 @@
+name: check
+
+# Inert while this lives inside the digline monorepo — the workflow that runs is
+# the one at the repository root. It is here so that the day this directory
+# becomes its own repository, the cycle is already wired.
+on:
+  push:
+  schedule:
+    # Monday, 06:00 UTC. The service on the other end is deployed by somebody
+    # else on a schedule you do not control. The run nobody triggered notices.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+
+      # From PyPI, like any user: this checks the published package, not a
+      # checkout of it.
+      - run: uv sync
+
+      # The application, started from outside the suite — which is not a
+      # workaround. A suite that is data cannot import anything, so whatever is
+      # under test is somebody else's process, here as in production. Replace
+      # these two lines with whatever starts yours, or delete them and point
+      # `url` at a service that is already running.
+      - name: Start the application under test
+        run: |
+          uv run python stub.py &
+          for attempt in $(seq 1 20); do
+            curl -sf -o /dev/null --head http://127.0.0.1:8730/answer && exit 0
+            sleep 0.5
+          done
+          echo "the stub never came up"; exit 1
+
+      # The gate. `run` writes a run and prints its key; `compare` holds it
+      # against the baseline committed in this repository and exits non-zero if
+      # anything got worse. There is deliberately no `promote` here: promoting
+      # is the human decision that *this* is the new normal, made by someone
+      # reading the report and committing the result. A job that promotes before
+      # it compares compares a run with itself and passes by construction.
+      - name: Compare with the committed baseline
+        run: |
+          KEY=$(uv run digline run --suite suite.toml)
+          uv run digline compare --suite suite.toml --run "$KEY"
+
+      - run: uv run ruff check .
+      - run: uv run pyright

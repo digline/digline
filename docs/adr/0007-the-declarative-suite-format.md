@@ -1,10 +1,20 @@
 # ADR 0007 — The declarative suite format
 
-- Status: accepted — shipping next. The document lands first and the code
-  starts after it, in core 0.5.0 with a release of the three plugins, the way
-  [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) was written before
-  the branch that implemented it
+- Status: accepted — implemented on `adr-0007`; ships in core 0.5.0 with
+  digline-anthropic, digline-openai and digline-bedrock 0.3.0. The document
+  landed first and the code was written against it, the way
+  [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) was
 - Date: 2026-09-03
+- Amended: 2026-09-03 — four corrections made *by* writing the code, none of
+  them a decision taken twice. **§3** records that the model half of a
+  coordinate is opaque and the split is on the first slash, because a Bedrock
+  inference profile is a model identifier with slashes of its own. **§5**
+  refuses `model` written inside `[target]`, since it is already the
+  coordinate's second half and two sources for one fact is how they come to
+  disagree. **§6** states that a relative path resolves against the suite
+  file's directory — which `cases` and `artifacts` already did and
+  `prompt_file` did not, so a suite was runnable from one directory only.
+  **§9** says what "equal objects" can mean once a judge is in the suite
 - Refines: fixed decision 6 (`CLAUDE.md`), "providers as plugins (entry
   points)" — stated since the first commit and not yet real anywhere in the
   tree. This is the decision that needs it, and therefore builds it
@@ -188,6 +198,15 @@ judge = "anthropic/claude-haiku-4-5"
 already a class attribute on both halves of every plugin (`provider =
 "anthropic"`). A reader who has opened a run file has already read this string.
 
+**Only the first slash separates, and the model half is opaque.** digline reads
+the provider name and hands the rest to the plugin without looking at it: a
+Bedrock inference profile is
+`arn:aws:bedrock:eu-west-1:…:inference-profile/eu.anthropic.…`, a model
+identifier with slashes of its own, and a rule that split on the last one — or
+refused more than one — would refuse the provider whose identifiers most need
+naming. What a model identifier looks like is the plugin's business, which is
+the same reason the coordinate carries no settings.
+
 Resolution goes through **entry points**, which is fixed decision 6 —
 *"providers as plugins (entry points), not vendored into the repo"* — becoming
 true for the first time. It has been stated since the first commit and
@@ -281,10 +300,20 @@ timeout = 30.0
 ```
 
 `type = "provider"` carries the coordinate of §3 plus **only the parameters the
-plugin already exposes as declarative configuration** — `prompt_file`, `model`
-(inside the coordinate), `system`, `system_file`, `temperature`, `max_tokens`,
-`prefill` and their peers per provider. Not `client`, not `pricing`: those are
-objects, and a plugin's injection points are not configuration.
+plugin already exposes as declarative configuration** — `prompt_file`,
+`system`, `system_file`, `temperature`, `max_tokens`, `prefill` and their peers
+per provider. Not `client`, not `pricing`: those are objects, and a plugin's
+injection points are not configuration. Not `model` either, and not because it
+is unsupported: it is the coordinate's second half, and a file that stated it
+twice would have two places to be wrong about one fact. Nor `api_key` — a
+credential does not appear in a file that gets committed, and ADR 0004 §5
+resolves keys through the SDK's own environment lookup precisely so that no
+digline object holds one.
+
+"Only the parameters the plugin exposes" is read strictly, including against a
+plugin that takes a `**kwargs` bucket: a bucket exposes nothing, and what it
+would buy is a plugin quietly accepting `temperture` — a setting written in the
+file, never reaching the model, in a run that goes green.
 
 `type = "http"` is `HttpTarget`'s constructor, and here the mapping is literal
 for every parameter but one — `url`, `output_path`, `cost_path`,
@@ -332,6 +361,13 @@ samples without `min_agreement`, or declares an impossible `"2/5"` over three
 samples, or repeats a case id, or declares no assertions at all, fails with the
 sentence the Python form already fails with. Nothing is validated twice, which
 means nothing can validate differently.
+
+**A relative path resolves against the suite file's directory**, never against
+the working directory. `cases = "cases.json"` sits beside the suite, and so does
+the prompt a `[target]` names; resolving against the process's own directory
+would make a suite runnable from one place only, and CI, the container and a
+colleague's checkout are all somewhere else. It is the rule `Suite.artifacts`
+already follows, applied to every path a data suite can write.
 
 `--target` has no meaning here and is refused with a TOML suite rather than
 ignored: the target is in `[target]`, and a flag pointing at a Python attribute
@@ -420,6 +456,15 @@ identities, and therefore the same `config_hash` — which means a suite ported
 from one form to the other keeps its baseline, and a run made from the TOML
 form is comparable with a run made before the port. If that ever stops being
 true, the format has forked the engine, and the fork is the defect.
+
+Two statements, and the second is the load-bearing one. **Object equality holds
+wherever the suite is data all the way down** — a frozen dataclass compares by
+field, so cases, thresholds, tolerances, names and order all do. It stops at a
+judge, because a judge is an object: `AnthropicJudge` defines no `__eq__` and
+should not, so two instances built from one coordinate are equal only in the
+sense `canonical()` uses, which is their type. **Identity and `config_hash` are
+equal always**, judge included — and that is the half a stored baseline depends
+on, which is why it is the one stated as a property and tested as one.
 
 This is what §1's coercion rule is for, and it is why the loader *dispatches*
 and never *interprets*: every decision about what a check means stays in the

@@ -115,7 +115,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [classifier, prompt-first, rag, external-app, langchain4j, langchain]
+        example:
+          [
+            classifier,
+            prompt-first,
+            rag,
+            external-app,
+            langchain4j,
+            langchain,
+            quickstart-toml,
+          ]
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
@@ -132,6 +141,21 @@ jobs:
           done
           echo "still unresolvable after two minutes"; exit 1
 
+      # The one example whose application is a separate process. A suite that
+      # is data cannot import a module, so it cannot start a server the way
+      # `external-app/suite.py` does — the thing under test is somebody else's
+      # process, which is what is true in production anyway.
+      - name: Start the application under test
+        if: matrix.example == 'quickstart-toml'
+        working-directory: examples/quickstart-toml
+        run: |
+          uv run python stub.py &
+          for attempt in $(seq 1 20); do
+            curl -sf -o /dev/null --head http://127.0.0.1:8730/answer && exit 0
+            sleep 0.5
+          done
+          echo "the stub never came up"; exit 1
+
       - name: The cycle a reader would run
         working-directory: examples/${{ matrix.example }}
         # Against the baseline committed in the example, never a fresh one:
@@ -140,9 +164,11 @@ jobs:
         # READMEs are about that comparison — so for those two the expected
         # answer is exit 1, and green is the failure.
         run: |
-          KEY=$(uv run digline run --suite suite.py)
+          SUITE=suite.py
+          [ -f suite.toml ] && SUITE=suite.toml
+          KEY=$(uv run digline run --suite "$SUITE")
           set +e
-          uv run digline compare --suite suite.py --run "$KEY"
+          uv run digline compare --suite "$SUITE" --run "$KEY"
           status=$?
           set -e
           case "${{ matrix.example }}" in

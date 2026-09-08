@@ -1,0 +1,68 @@
+# The suite: the rules. `cases.json` beside it is the data.
+#
+# Two files rather than one, and on purpose: a rule changes when somebody
+# decides the bar moved, a case is added every time production produces a new
+# one, and a diff has to say which of the two happened. It costs a toy suite a
+# second file; it saves every real one a review nobody can read.
+
+[suite]
+# Whose results these are, and where they were produced. The tenant is the
+# perimeter and it is a directory: everything lands in .digline/northwind/.
+tenant = "northwind"
+environment = "staging"
+name = "support"
+cases = "cases.json"
+
+# Your application. digline posts a body and reads the answer out of the
+# response; what produced it is not its business — Java, Go, a Lambda, a
+# colleague's laptop. Point `url` at yours and delete stub.py.
+[target]
+type = "http"
+url = "http://127.0.0.1:8730/answer"
+# Where the three things live in the answer, dotted.
+output_path = "data.answer"
+cost_path = "usage.cost_usd"
+latency_from_response = "usage.elapsed_ms"
+# The model that answered and how it was set up. Without this a run records
+# nothing about the system under test, and the day somebody bumps the model the
+# comparison reports the configuration as unchanged.
+config_path = "config"
+
+  # The body your endpoint expects, shaped like the payload itself. A leaf that
+  # starts with `case.` reads from the case; everything else is a literal, so
+  # `channel` below is sent as it stands. One level of reference and no
+  # expressions: a body that has to be *computed* is a suite.py.
+  [target.body]
+  question = "case.vars.question"
+  channel = "email"
+
+# The checks, in the order the report will show them. Every one has a threshold
+# that can fail: there is no default here that passes vacuously.
+
+[[assertions]]
+type = "contains"
+needle = "Northwind Support"
+
+[[assertions]]
+type = "regex"
+pattern = "^[A-Z]"
+# `name` because the report says it and a diff pairs on it. Without one this
+# check would be called `regex`, which says nothing about what it is for.
+name = "starts_capitalised"
+
+[[assertions]]
+type = "length"
+maximum = 400
+unit = "characters"
+
+# Always, both of them. Graded rather than binary, so a cost creeping up
+# *within* budget is visible before it is a problem.
+[[assertions]]
+type = "cost_budget"
+max_usd = 0.02
+tolerance = 0.05
+
+[[assertions]]
+type = "latency_budget"
+max_ms = 800.0
+tolerance = 0.10

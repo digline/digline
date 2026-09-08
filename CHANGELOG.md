@@ -3,6 +3,58 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
+## 0.5.0 — unreleased
+
+digline 0.5.0, with digline-anthropic, digline-openai and digline-bedrock at
+0.3.0. The plugins move because they now register themselves, and their
+`digline>=` floor moves with them: a plugin at 0.3.0 needs a core that has
+`Provider`, and claiming otherwise would resolve for somebody and then fail on
+import.
+
+- **Added:** a suite can be **TOML**. `digline run --suite eval/suite.toml`
+  reads `[suite]`, an ordered `[[assertions]]` list with the check named by
+  `type`, and a `[target]` that is either an HTTP endpoint or a provider. The
+  extension chooses the format; there is no new flag. Cases are always a
+  separate file, because a rule and a case change at different rhythms and a
+  diff has to say which one moved. The loader builds the same objects the
+  Python form builds — the same assertion identities and the same
+  `config_hash` — so a suite can be ported between the two forms **without
+  re-promoting its baseline**. (ADR 0007, and
+  [`docs/declarative.md`](docs/declarative.md))
+- **Added:** providers are found through **entry points**. Each plugin
+  registers its name under `digline.providers`, and a suite names a judge or a
+  target by coordinate — `judge = "anthropic/claude-haiku-4-5"`, which is the
+  same `provider/model` identity a run already records. Resolution is by name
+  and never by import: nothing shipped with digline imports a plugin, and
+  resolving one provider does not load the others. Fixed decision 6 in
+  `CLAUDE.md` has said this since the first commit; this is the release where
+  it is true. (ADR 0007 §3)
+- **Added:** `HttpTarget(body=…)`, a table shaped like the payload whose
+  leaves name case fields — `question = "case.vars.question"`. One level of
+  reference and no expressions, so the nesting, the arrays and the types of a
+  real body survive. Additive: `request=` is untouched and remains what a body
+  that has to be *computed* is written with. A reference that names no case
+  field is refused when the suite loads, not once per case half way through a
+  run.
+- **Added:** `examples/quickstart-toml/` — the two-file suite against a local
+  stub, with no Python in it and no key anywhere. The stub reports `config`
+  like a real service, so the example shows the sentence that says the answer
+  got worse while the model did not change.
+- **Changed:** what a TOML suite cannot express, it refuses **by name**. An
+  unknown key is a load error with the near miss when there is one — a
+  silently dropped `treshold` would be a check running on the default that
+  passes — and a custom judge, a computed body, a custom assertion or a
+  `disclosure` gets a sentence saying which wall it is and where to go. A
+  credential is refused outright: there is no `api_key` in this format, and
+  each provider's SDK reads the key from the environment.
+- **Note:** `disclosure` is not settable from a data file, deliberately. What
+  it widens is what leaves a perimeter, and a suite that is data cannot widen
+  it — in world 3 that is a security property, not a missing feature. A suite
+  that genuinely needs to disclose more is a `suite.py`.
+- **Unchanged:** `SCHEMA_VERSION` stays at 9. No baseline needs re-promoting,
+  no run needs migrating, and no example was re-recorded: nothing downstream
+  can tell how a `Suite` was built, which is the point.
+
 ## 0.4.0 — 2026-09-02
 
 digline 0.4.0. The plugins stay at 0.2.0: a sample is taken by the driver,

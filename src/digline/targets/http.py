@@ -48,6 +48,87 @@ def _dig(payload: object, path: str) -> object:
     return current
 
 
+#: What a leaf has to start with to be a reference into the case rather than a
+#: literal. One level, no expressions: ADR 0007 §5 draws the line here on
+#: purpose, and `request=` is what a computed body remains for.
+REFERENCE = "case."
+
+#: The case fields a body may read. `context` and `metadata` are here because a
+#: retrieval-augmented endpoint is posted its context, and `label` is not,
+#: because a body carrying the answer would be posting the mark to the thing
+#: being marked.
+READABLE = ("id", "vars", "expected", "context", "metadata")
+
+
+def check_references(body: Mapping[str, object], *, at: str = "body") -> None:
+    """Refuse a reference nothing can resolve, at construction.
+
+    A path that names no case field would otherwise fail once per case, during
+    the run, with the suite already half executed — and the mistake is in the
+    file, so it belongs to load time.
+    """
+    for key, value in body.items():
+        where = f"{at}.{key}"
+        if isinstance(value, Mapping):
+            check_references(cast("Mapping[str, object]", value), at=where)
+        elif isinstance(value, str) and value.startswith(REFERENCE):
+            _check_path(value, where)
+
+
+def _check_path(reference: str, where: str) -> None:
+    _, _, path = reference.partition(REFERENCE)
+    head, _, rest = path.partition(".")
+    if head not in READABLE:
+        raise ValueError(
+            f"{where} is {reference!r}, and a case has no {head!r}. "
+            f"Readable: {', '.join('case.' + name for name in READABLE)}"
+        )
+    if head in ("vars", "metadata") and not rest:
+        raise ValueError(
+            f"{where} is {reference!r}, which names the whole mapping rather "
+            f"than a value in it. Write case.{head}.<key>"
+        )
+    if head not in ("vars", "metadata") and rest:
+        raise ValueError(
+            f"{where} is {reference!r}: case.{head} is a value, so nothing follows it"
+        )
+
+
+def render_body(body: Mapping[str, object], case: Case) -> dict[str, object]:
+    """The declared table, with its references replaced by this case's values.
+
+    The table *is* the payload: nesting, arrays and non-string types survive
+    because nothing is being formatted into a string. Only a leaf that starts
+    with `case.` is read as a reference, so a literal is anything else — which
+    is why a literal string that genuinely starts with "case." cannot be
+    written here, and is the one shape this form gives up.
+    """
+    out: dict[str, object] = {}
+    for key, value in body.items():
+        if isinstance(value, Mapping):
+            out[key] = render_body(cast("Mapping[str, object]", value), case)
+        elif isinstance(value, str) and value.startswith(REFERENCE):
+            out[key] = _read(value, case)
+        else:
+            out[key] = value
+    return out
+
+
+def _read(reference: str, case: Case) -> object:
+    _, _, path = reference.partition(REFERENCE)
+    head, _, rest = path.partition(".")
+    if head == "vars" or head == "metadata":
+        holder = case.vars if head == "vars" else case.metadata
+        if rest not in holder:
+            available = ", ".join(sorted(holder)) or "nothing"
+            raise ValueError(
+                f"case {case.id!r} has no {head}[{rest!r}], which the body "
+                f"asks for as {reference!r}. It has: {available}"
+            )
+        return holder[rest]
+    return getattr(case, head)
+
+
 class HttpTarget:
     """Post a body built from the case, read the answer out of the response.
 
@@ -67,7 +148,8 @@ class HttpTarget:
         self,
         url: str,
         *,
-        request: Callable[[Case], Mapping[str, object]],
+        request: Callable[[Case], Mapping[str, object]] | None = None,
+        body: Mapping[str, object] | None = None,
         output_path: str,
         cost_path: str | None = None,
         latency_from_response: str | None = None,
@@ -75,8 +157,20 @@ class HttpTarget:
         headers: Mapping[str, str] | None = None,
         timeout: float = 30.0,
     ) -> None:
+        if (request is None) == (body is None):
+            raise ValueError(
+                "HttpTarget needs `request` or `body`, and not both: they are "
+                "two ways of saying what to post, and two would be a question "
+                "about which one was sent"
+            )
         self.url = url
-        self.request = request
+        #: The declarative half (ADR 0007 §5): the payload's own shape, with
+        #: leaves that name case fields. Kept as the table it was written as, so
+        #: `repr` and a debugger show what the suite said.
+        self.body = None if body is None else dict(body)
+        if self.body is not None:
+            check_references(self.body)
+        self.request = request if request is not None else self._from_body
         self.output_path = output_path
         self.cost_path = cost_path
         #: A path, not a flag: where in the answer the application reports the
@@ -159,6 +253,11 @@ class HttpTarget:
                 f"{len(cases)} case(s) and every one of them would fail the "
                 "same way — start the application, or point the target at it"
             ) from exc
+
+    def _from_body(self, case: Case) -> Mapping[str, object]:
+        """`request` when the suite declared a body instead of a function."""
+        assert self.body is not None  # noqa: S101 — guarded in __init__
+        return render_body(self.body, case)
 
     def __call__(self, case: Case) -> Response:
         sent = json.dumps(dict(self.request(case)), sort_keys=True)
