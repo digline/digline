@@ -246,3 +246,37 @@ def test_the_tenant_verifies_and_never_overrides(repo: Path) -> None:
     message = anyio.run(go)
     assert "does not match the suite" in message
     assert "The suite decides" in message
+
+
+def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
+    """The third of the three reused shapes, and the one that is easiest to
+    forget: it is four keys, so it looks too small to drift."""
+    suite = str(repo / "suite_qa.py")
+    through_the_tool = call(repo, "run", suite=suite, acknowledge_calls=2)
+    done = cli(repo, "run", "--suite", "suite_qa.py", "--json")
+    through_the_cli = json.loads(done.stdout)
+    # The keys are the contract; the run key itself differs because these are
+    # two different runs, which is the only honest way to compare two writes.
+    assert set(through_the_tool) == set(through_the_cli)
+    assert through_the_tool["tenant"] == through_the_cli["tenant"]
+    assert through_the_tool["suite"] == through_the_cli["suite"]
+    assert through_the_tool["sentence"] == through_the_cli["sentence"]
+    assert through_the_tool["output_version"] == through_the_cli["output_version"]
+
+
+def test_list_runs_reports_what_it_could_not_read(repo: Path) -> None:
+    """A stored history outlives the schema that wrote it. Over MCP there is no
+    stderr, so a listing that quietly dropped half a suite would read exactly
+    like a suite with a shorter history — and `AGENTS.md` §8 tells a reader to
+    propose a migration, which needs a field to propose from."""
+    run_key(repo)
+    stored = next((repo / ".digline").rglob("runs/qa/*.json"))
+    document = json.loads(stored.read_text(encoding="utf-8"))
+    document["schema_version"] = 2  # a schema this version cannot read
+    stored.write_text(json.dumps(document), encoding="utf-8")
+
+    listing = call(repo, "list_runs", suite=str(repo / "suite_qa.py"))
+    assert listing["runs"] == []
+    assert listing["skipped"] == {"2": 1}
+    assert "1 run(s) at schema 2" in str(listing["note"])
+    assert listing["unreadable"] == 0
