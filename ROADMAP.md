@@ -79,7 +79,7 @@ reads them fails if it stops being met.
       — so a run from a service Digline cannot import is as complete a document
       as one from a plugin (`examples/langchain4j/`, ADR 0005 §8)
 - [x] A declarative suite format, `digline run suite.toml` (ADR 0007) —
-      implemented on `adr-0007`, ships in 0.5.0. TOML rather than YAML:
+      shipped in 0.5.0. TOML rather than YAML:
       `tomllib` is in the standard library from 3.11, and a suite format that
       costs a runtime dependency to read would double the one this project has.
       It arrived together with **providers as entry points** — fixed decision
@@ -89,12 +89,15 @@ reads them fails if it stops being met.
       data; a custom assertion, a custom target and a `Disclosure` stay Python,
       and the loader says so by name
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
-- [ ] An official container image, `ghcr.io/digline/digline`: the CLI and the
+- [x] An official container image, `ghcr.io/digline/digline`: the CLI and the
       three provider plugins, published by the release workflow on a `v*` tag.
       For the reader who wants the cycle in CI without a Python toolchain of
-      their own. Not started — no `Dockerfile` exists yet, and the shape of the
-      thing is the open question: the image mounts the repository, because
-      `.digline/` lives there and never in the container
+      their own. Shipped in 0.5.0, tagged `:0.5.0`, `:0.5` and `:latest`, built
+      for `amd64` and `arm64`. The open question resolved the way it was posed:
+      the image mounts the repository, because `.digline/` lives there and never
+      in the container — and it writes as the calling user rather than as root,
+      which the workflow checks on the filesystem before it pushes
+      (`docker/README.md`)
 
 This replaces *"a thin JVM emitter"*, which was on this list and was wrong. An
 emitter means the JVM side runs its own assertions and posts the verdicts, which
