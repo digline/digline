@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
@@ -37,7 +36,6 @@ from pathlib import Path
 from digline import __version__
 from digline.cli.view import serve
 from digline.core import (
-    Artifact,
     AssertionDelta,
     CheckDifference,
     ConfigDelta,
@@ -57,6 +55,8 @@ from digline.host import (
     load_target,
     utc_now_iso,
 )
+from digline.host.artifacts import read_artifacts
+from digline.host.resolve import need_baseline, read_run, resolve_key
 from digline.report import (
     Headline,
     artifact_lines,
@@ -68,7 +68,7 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.report import diff as diff_report
-from digline.run import HasArtifacts, Suite, execute, planned_calls
+from digline.run import Suite, execute, planned_calls
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -141,50 +141,6 @@ def exit_code(head: Headline) -> int:
     return EXIT_OK
 
 
-def read_artifacts(suite: Suite, target: object, base: Path) -> dict[str, Artifact]:
-    """The declared files, as they are right now.
-
-    Here rather than in the driver for the same reason the clock and git are
-    here: this is the layer allowed to touch the world, and a driver that opened
-    files would need one to be tested. Relative paths resolve against the
-    suite's own directory, which is where a prompt sits next to the suite that
-    names it.
-
-    The **target** is asked too, when it can answer. A `ProviderTarget` builds
-    its prompt from a file and already knows which one, so `artifacts=[…]` does
-    not have to repeat a path that would then have two places to be wrong.
-
-    A declared file that is missing raises. It is the thing under examination —
-    a run that quietly recorded no prompt would be a run whose evidence is
-    absent exactly when it matters.
-    """
-    declared: list[Path] = list(suite.artifacts)
-    if isinstance(target, HasArtifacts):
-        declared.extend(target.artifacts())
-
-    found: dict[str, Artifact] = {}
-    for entry in declared:
-        path = entry if entry.is_absolute() else base / entry
-        if not path.is_file():
-            raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"is not a file at {path}: the thing under test cannot be "
-                "recorded, so the run would not say what produced it"
-            )
-        data = path.read_bytes()
-        # Keyed by where it sits relative to the suite, so a run file stays
-        # readable on another machine: an absolute path is this laptop's fact.
-        try:
-            key = str(path.resolve().relative_to(base.resolve()))
-        except ValueError:
-            key = path.name
-        found[key] = Artifact(
-            sha=hashlib.sha256(data).hexdigest(),
-            text=data.decode("utf-8"),
-        )
-    return found
-
-
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
     """`--meta k=v`, repeatable. Values stay strings: a command line gives
     strings, and guessing at types would make `1499` arrive as a number that
@@ -230,65 +186,18 @@ def _load(args: argparse.Namespace) -> tuple[Suite, Loaded, FileResultStore]:
     return suite, loaded, FileResultStore(args.root)
 
 
-LATEST = "latest"
+def _resolve(store: FileResultStore, suite: Suite, key: str) -> str:
+    """`resolve_key` for a terminal: the key, and the note on stderr.
 
-
-def _resolve_key(store: FileResultStore, suite: Suite, key: str) -> str:
-    """`--run latest` means the most recent run of this suite in this perimeter.
-
-    Not a guess and not a default: `--run` stays mandatory, and `latest` is a
-    value the caller types. It exists because copying a key by hand right after
-    `run` printed it is the friction of minute three, and a tool people abandon
-    at minute three has no other qualities worth discussing.
-
-    Resolved over a **scan**, which steps over documents this version cannot
-    read. A stored history outlives the schema that wrote it, and the morning
-    after a release `latest` used to fail on yesterday's files — a refusal about
-    a run nobody had asked for. What was skipped is stated, never swallowed.
-
-    Within what can be read, the newest is chosen on `created_at`, the recorded
-    fact, rather than on the filename that encodes it.
+    The host returns what the scan stepped over rather than printing it
+    (ADR 0011 §7). Here that becomes a line on stderr — `latest` is resolved
+    inside commands whose stdout may be JSON, and a note that broke a pipeline
+    would teach people to ignore it.
     """
-    if key != LATEST:
-        return key
-    listing = store.scan_runs(suite.tenant, suite.name)
-    if not listing.runs:
-        # Two different situations, and telling them apart is the whole value of
-        # the message: an empty store needs a run, a store full of old schemas
-        # needs a migration. "No readable runs" on an empty store would suggest
-        # unreadable ones exist.
-        if listing.skipped or listing.unreadable:
-            raise UsageError(
-                f"no readable runs stored for suite {suite.name!r} in tenant "
-                f"{suite.tenant!r} — {listing.note()}. "
-                "Run `digline migrate` to bring them up to date."
-            )
-        raise UsageError(
-            f"no runs stored for suite {suite.name!r} in tenant {suite.tenant!r}, "
-            "so there is no latest one. Run it first."
-        )
-    if listing.skipped:
-        # On stderr: `latest` is resolved inside commands whose stdout may be
-        # JSON, and a note that broke a pipeline would teach people to ignore it.
-        print(f"note: {listing.note()}", file=sys.stderr)
-    newest = max(
-        (store.read_run(ref) for ref in listing.runs), key=lambda r: r.created_at
-    )
-    return store.key_for(newest)
-
-
-def _read_run(store: FileResultStore, suite: Suite, key: str) -> Run:
-    return store.read_run(RunRef(tenant=suite.tenant, suite=suite.name, key=key))
-
-
-def _need_baseline(store: FileResultStore, suite: Suite) -> Run:
-    baseline = store.read_baseline(suite.tenant, suite.name)
-    if baseline is None:
-        raise UsageError(
-            f"suite {suite.name!r} has no baseline for tenant {suite.tenant!r} yet. "
-            "Run it, look at the result, then 'digline promote --run <key>'."
-        )
-    return baseline
+    resolved = resolve_key(store, suite, key)
+    if resolved.note:
+        print(f"note: {resolved.note}", file=sys.stderr)
+    return resolved.key
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -398,8 +307,8 @@ def _config_json(delta: ConfigDelta) -> dict[str, object]:
 
 def cmd_compare(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    run = _read_run(store, suite, _resolve_key(store, suite, args.run))
-    baseline = _need_baseline(store, suite)
+    run = read_run(store, suite, _resolve(store, suite, args.run))
+    baseline = need_baseline(store, suite)
 
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale=args.locale)
@@ -559,15 +468,15 @@ def cmd_diff(args: argparse.Namespace) -> int:
     contents somebody dislikes, and only the first is a non-zero exit.
     """
     suite, _loaded, store = _load(args)
-    left_key, right_key = (_resolve_key(store, suite, k) for k in args.runs)
+    left_key, right_key = (_resolve(store, suite, k) for k in args.runs)
     if left_key == right_key:
         raise UsageError(
             f"both arguments resolve to the run {left_key}: a run diffed with "
             "itself has nothing to report, because every line of the answer "
             "would be a tautology"
         )
-    left = _read_run(store, suite, left_key)
-    right = _read_run(store, suite, right_key)
+    left = read_run(store, suite, left_key)
+    right = read_run(store, suite, right_key)
 
     difference = diff(left, right)
     keys = (left_key, right_key)
@@ -676,7 +585,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_promote(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    key = _resolve_key(store, suite, args.run)
+    key = _resolve(store, suite, args.run)
     ref = RunRef(tenant=suite.tenant, suite=suite.name, key=key)
     promoted = store.promote_baseline(ref, suite.config_hash())
     # The resolved key, never the literal "latest": what was promoted must be
@@ -732,12 +641,12 @@ def cmd_view(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    run = _read_run(store, suite, _resolve_key(store, suite, args.run))
+    run = read_run(store, suite, _resolve(store, suite, args.run))
     baseline = store.read_baseline(suite.tenant, suite.name)
 
     if baseline is None:
         # Not a refusal, and this is the whole point of the command existing.
-        # `_need_baseline` — which `compare` still uses, rightly — says "run it,
+        # `need_baseline` — which `compare` still uses, rightly — says "run it,
         # look at the result, then promote", and `report` *was* the only way to
         # look. Naming looking as the prerequisite for looking is a dead end,
         # and the first person to hit it is always someone on their first run.
