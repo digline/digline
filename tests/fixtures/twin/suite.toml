@@ -61,3 +61,4 @@ type = "precision"
 over = "contains"
 threshold = "9/10"
 tolerance = "1/10"
+by_group = true

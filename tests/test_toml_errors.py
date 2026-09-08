@@ -186,6 +186,29 @@ def test_a_misspelt_parameter_is_named_with_its_near_miss(failing: Load) -> None
     assert "Did you mean `threshold`?" in message
 
 
+def test_naming_one_group_on_an_aggregate_is_refused_and_pointed_at_the_flag(
+    failing: Load,
+) -> None:
+    """ADR 0010 §5 forbids `Precision(group="x")`, and the format inherits the
+    refusal for free: `group` is `init=False`, so `_init_fields` never offers
+    it and the existing unknown-parameter message is what an author meets.
+
+    The near miss is the gift here. `by_group` is one word away, so the
+    refusal does not merely say no — it names the thing that *is* the answer,
+    which is the difference between a reader concluding groups are
+    unsupported and a reader writing the flag.
+    """
+    message = str(
+        failing(
+            SUITE + TARGET + CONTAINS + '\n[[assertions]]\ntype = "precision"\n'
+            'over = "contains"\nthreshold = "9/10"\ntolerance = "1/10"\n'
+            'group = "refunds"\n'
+        )
+    )
+    assert "`precision` has no parameter `group`" in message
+    assert "Did you mean `by_group`?" in message
+
+
 def test_the_yaml_habit_is_recognised(failing: Load) -> None:
     """`llm-rubric` for `llm_rubric` is not a guess, it is a certainty."""
     message = str(failing(SUITE + TARGET + '\n[[assertions]]\ntype = "llm-rubric"\n'))
