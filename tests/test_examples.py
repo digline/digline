@@ -16,9 +16,11 @@ import socket
 import subprocess
 import sys
 import time
+import tomllib
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 import pytest
 from tests._site import nav_lists, require_site_config
@@ -556,3 +558,64 @@ def test_every_example_has_a_page_in_the_site_nav() -> None:
         "If that path is a checkout of your own, it may simply be behind "
         "origin — the entry is added in digline/digline.dev, not here."
     )
+
+
+# --------------------------------------------------------------------------- #
+# The examples run against the release, not against the one before it
+# --------------------------------------------------------------------------- #
+
+
+def declared_version() -> tuple[int, ...]:
+    """The version this workspace declares, as a comparable tuple."""
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        version = tomllib.load(handle)["project"]["version"]
+    return tuple(int(part) for part in version.split("."))
+
+
+def core_pins() -> list[tuple[str, str]]:
+    """Each example's own pin on the core, as (example, specifier)."""
+    pins: list[tuple[str, str]] = []
+    for path in sorted((ROOT / "examples").glob("*/pyproject.toml")):
+        with path.open("rb") as handle:
+            document = tomllib.load(handle)
+        # `tomllib` returns an untyped document, so the shape is asserted here
+        # rather than trusted: this is the one place that reads it.
+        dependencies = cast("list[str]", document["project"].get("dependencies", []))
+        for dependency in dependencies:
+            if re.match(r"^digline\s*[<>=]", dependency):
+                pins.append((path.parent.name, dependency))
+    return pins
+
+
+def bounds(specifier: str) -> list[tuple[str, tuple[int, ...]]]:
+    """`digline>=0.5,<0.6` -> [(">=", (0, 5)), ("<", (0, 6))]."""
+    return [
+        (operator, tuple(int(part) for part in version.split(".")))
+        for operator, version in re.findall(
+            r"(>=|<=|<|>|==)\s*([0-9][0-9.]*)", specifier
+        )
+    ]
+
+
+def test_every_example_admits_the_version_this_workspace_declares() -> None:
+    """An example capped below the release is tested against the release before it.
+
+    `examples-from-pypi` resolves each example from the real index, so a cap of
+    `<0.5` on a workspace at 0.5.0 does not fail: it installs 0.4.0 and passes,
+    green against the version nobody is shipping. That is what happened on the
+    0.5.0 release — six examples reported green having never seen it — and the
+    green is what made it invisible. The ritual in RELEASING.md raises the caps
+    with the release; this is what notices when it was not done.
+    """
+    version = declared_version()
+    for example, specifier in core_pins():
+        for operator, bound in bounds(specifier):
+            padded = version[: len(bound)]
+            admits = padded >= bound if operator == ">=" else padded < bound
+            assert admits, (
+                f"examples/{example} pins `{specifier}`, which excludes "
+                f"{'.'.join(str(p) for p in version)} — the version this "
+                f"workspace declares. Raise the cap with the release, as "
+                f"RELEASING.md says, or the example is tested against the "
+                f"release before this one."
+            )

@@ -6,8 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    # 0.3.0 is where `config_path` arrives (ADR 0005 §8).
-    "digline>=0.4,<0.5",
+    # `config_path` arrives in 0.3.0 (ADR 0005 §8). The pin is not that minimum
+    # but the current release, which the ritual raises and the caps gate holds.
+    "digline>=0.5,<0.6",
 ]
 
 [dependency-groups]
