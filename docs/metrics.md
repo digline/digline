@@ -451,6 +451,14 @@ Every case must carry a `label` the moment one of these is declared, and `Suite`
 refuses `over` that names no assertion **or** two. Where to put the threshold:
 where the system measurably is — chapter 5 of the [guide](guide.md).
 
+All four also take **`by_group`**. Set it and the whole-run figure stays, with
+one aggregate added per class the cases declare — `precision[group=refunds]`
+beside `precision` — each inheriting the same threshold, the same tolerance and
+the same noise floor, computed over that class's cases. Every class or none:
+there is no `Precision(group="x")`, because the class that degrades is the one
+you were not watching. It costs a `group` on the cases and nothing else
+([ADR 0010](adr/0010-per-group-aggregates.md)).
+
 ### `Precision`
 
 **Use it when** false positives are what your users see: the item that should
@@ -462,6 +470,10 @@ Precision(over="agrees_with_mark", threshold="3/5", tolerance="1/21")
 
 `TP / (TP + FP)`. Rises when the system gets choosier — including when it gets
 choosier by keeping almost nothing, which is what `Recall` is for.
+
+**`by_group`** — false positives rarely spread evenly. One class the system is
+too eager about can sit under a whole-run figure that clears its bar, and this
+is what makes it a gate rather than a footnote.
 
 ### `Recall`
 
@@ -475,6 +487,9 @@ Recall(over="agrees_with_mark", threshold="3/5", tolerance="1/21")
 `TP / (TP + FN)`. Rises when the system gets more generous, and a system that
 keeps everything scores `1.0` — which is what `Precision` is for.
 
+**`by_group`** — what is missed is missed unevenly, and a class the system never
+catches is invisible in a run-level recall that the other classes carry.
+
 ### `Accuracy`
 
 **Use it when** the two classes matter equally and are roughly balanced.
@@ -485,6 +500,11 @@ Accuracy(over="agrees_with_mark", threshold="2/3", tolerance="1/21")
 
 `(TP + TN) / considered`. **Watch out** on a skewed suite it flatters: with one
 positive in twenty, answering "no" to everything scores `0.95`.
+
+**`by_group`** — the sharpest of the four here, because the flattery is exactly
+what a class boundary undoes: a group cannot be carried by another group's
+balance. The `classifier` example ships four red per-class figures under two
+green whole-run ones, which is the case this parameter exists for.
 
 ### `F1`
 
@@ -499,6 +519,10 @@ F1(over="agrees_with_mark", threshold="3/5", tolerance="1/21")
 `2TP / (2TP + FP + FN)`. Written that way and not as `2PR / (P + R)`: the same
 number with one denominator to check instead of three, and no decision to make
 about what `F1` means once precision has already gone to `error`.
+
+**`by_group`** — one number per class, with the same warning as the whole-run
+one: it says a class moved, never which of the two halves moved it. Read
+`precision[group=…]` and `recall[group=…]` beside it when it does.
 
 ---
 
