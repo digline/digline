@@ -243,11 +243,23 @@ def _settings(run: Run, comparison: Comparison | None) -> list[Fact]:
             ("target", run.target_config),
             ("judge", run.judge_config),
         )
-        alone.extend(
-            SettingFact(kind, field, after=value)
-            for kind, config in systems
-            for field, value in sorted(config.values.items())
-        )
+        for kind, config in systems:
+            # `redacted()`, never `.values`. It is the one place ADR 0005 §2's
+            # withholding lives, and reading around it would make a value one
+            # surface keeps back reachable through another — which is the
+            # hazard `tests/test_wire_boundary.py` was extended to catch, and
+            # did, on this exact line.
+            kept = config.redacted()
+            alone.extend(
+                SettingFact(kind, field, after=value)
+                for field, value in sorted(kept.values.items())
+            )
+            # Named, and without a value. "This run kept it back" and "this run
+            # recorded none" are different facts, and a reader is owed both.
+            alone.extend(
+                SettingFact(kind, field, withheld=True)
+                for field in sorted(kept.withheld)
+            )
         return alone
 
     out: list[Fact] = [
@@ -461,16 +473,20 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
 
     lines: list[str] = [phrase(locale, "explain.heading.tally")]
     lines.extend(_tally_line(fact, locale) for fact in tallies)
-    for key, group, render in (
-        (f"explain.heading.settings.{where}", settings, _setting_line),
-        (f"explain.heading.checks.{where}", checks, _check_line),
-    ):
-        lines.append("")
-        lines.append(phrase(locale, key))
-        if not group:
-            lines.append(phrase(locale, "explain.nothing"))
-            continue
-        lines.extend(render(fact, locale) for fact in group)  # type: ignore[arg-type]
+
+    lines.append("")
+    lines.append(phrase(locale, f"explain.heading.settings.{where}"))
+    if settings:
+        lines.extend(_setting_line(fact, locale) for fact in settings)
+    else:
+        lines.append(phrase(locale, "explain.nothing"))
+
+    lines.append("")
+    lines.append(phrase(locale, f"explain.heading.checks.{where}"))
+    if checks:
+        lines.extend(_check_line(fact, locale, compared=compared) for fact in checks)
+    else:
+        lines.append(phrase(locale, "explain.nothing"))
     return tuple(lines)
 
 
@@ -516,9 +532,10 @@ def _setting_line(fact: SettingFact, locale: Locale) -> str:
         # to have moved from. `_run_artifacts` says the same thing by leaving
         # the outcome column out rather than filling it with a dash.
         if fact.kind != "artifact":
+            withheld = ".withheld" if fact.withheld else ""
             return phrase(
                 locale,
-                f"explain.setting.{fact.kind}.alone",
+                f"explain.setting.{fact.kind}.alone{withheld}",
                 name=fact.name,
                 after=after,
             )
@@ -582,7 +599,7 @@ def _where(fact: CheckFact, locale: Locale) -> str:
     return f"{subject}{SUBJECT_SEPARATOR}{fact.assertion}"
 
 
-def _check_line(fact: CheckFact, locale: Locale) -> str:
+def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
     where = _where(fact, locale)
     before = ABSENT if fact.before is None else fmt_score(fact.before)
     now = ABSENT if fact.after is None else fmt_score(fact.after)
@@ -601,7 +618,7 @@ def _check_line(fact: CheckFact, locale: Locale) -> str:
                 now=now,
                 delta=moved,
             )
-            return said + _beyond(fact, locale) + _bar(fact, locale)
+            return said + _beyond(fact, locale) + _bar(fact, locale, compared=compared)
         case "unchanged" | "within_noise":
             said = phrase(
                 locale,
@@ -610,18 +627,20 @@ def _check_line(fact: CheckFact, locale: Locale) -> str:
                 before=before,
                 now=now,
             )
-            return said + _bar(fact, locale)
+            return said + _bar(fact, locale, compared=compared)
         case "new":
-            return phrase(locale, "explain.check.new", where=where, now=now) + _bar(
-                fact, locale
-            )
+            # No score, and the document is why: `detail.new` states that the
+            # check is here and not in the reference, and states no number. A
+            # reading that printed one would be stating a fact with nowhere to
+            # appear. The value is on the fact and in `--json` either way.
+            return phrase(locale, "explain.check.new", where=where)
         case "missing":
-            return phrase(locale, "explain.check.missing", where=where, before=before)
+            return phrase(locale, "explain.check.missing", where=where)
         case "errored":
             return phrase(locale, "explain.check.errored", where=where)
         case "failing":
             said = phrase(locale, "explain.check.failing", where=where, now=now)
-            return said + _bar(fact, locale) + _measured(fact, locale)
+            return said + _bar(fact, locale, compared=compared)
         case "suspended":
             return phrase(locale, "explain.check.suspended", case=fact.case_id)
     assert_never(fact.kind)
@@ -650,14 +669,15 @@ def _beyond(fact: CheckFact, locale: Locale) -> str:
     return phrase(locale, "explain.noise.beyond", noise=_interval(fact.noise, locale))
 
 
-def _measured(fact: CheckFact, locale: Locale) -> str:
-    """A run read alone can show one interval: its own samples'."""
-    if not fact.noise.known:
-        return ""
-    return phrase(locale, "explain.noise.measured", noise=_interval(fact.noise, locale))
+def _bar(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
+    """The threshold, where a document states it and nowhere else.
 
-
-def _bar(fact: CheckFact, locale: Locale) -> str:
-    if fact.threshold is None:
+    A run read alone prints `score / threshold` on every verdict row, and the
+    aggregates table prints it in both documents. A comparison's case tables do
+    not — they are about movement against a reference — so a reading of one
+    states no bar either. The value stays on the fact and in `--json`
+    regardless: what is held here is what the prose claims. (ADR 0012 §2)
+    """
+    if fact.threshold is None or (compared and fact.scope == "case"):
         return ""
     return phrase(locale, "explain.bar", threshold=fmt_score(fact.threshold))

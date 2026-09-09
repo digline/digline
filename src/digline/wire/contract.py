@@ -41,6 +41,16 @@ __all__ = [
 #:    change. Its structure is symmetric and carries **no `worse` field** — the
 #:    absence is the point, not an omission (ADR 0008 §1).
 #:
+#:    `digline explain --json` is under this same contract from its first
+#:    release, and its arrival is not a bump either — by the same rule as
+#:    `diff`'s, and the rule is **"a new command"** rather than "additive".
+#:    The word matters: what it emits is a new top-level shape, a list of typed
+#:    facts, not a key added to an existing document. Calling that additive
+#:    would license adding shapes to `compare --json` later under a word that
+#:    was never about them. It carries no sentence at all, which is the other
+#:    half of ADR 0012 §3: the prose is a render of those facts, so shipping it
+#:    would ship a derived value. (ADR 0012 §8)
+#:
 #:    `exit_code` joins the headline under the same rule (ADR 0011 §4). It is
 #:    the number `AGENTS.md` §6 calls the contract, and it is a *field* because
 #:    an MCP tool has no process to exit; it is on `compare --json` as well so

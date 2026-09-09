@@ -438,6 +438,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The system under test answered with {name} {after}."
         ),
         "explain.setting.judge.alone": "The judge graded with {name} {after}.",
+        "explain.setting.target.alone.withheld": (
+            "The system under test recorded {name}; the value is not included."
+        ),
+        "explain.setting.judge.alone.withheld": (
+            "The judge recorded {name}; the value is not included."
+        ),
         "explain.setting.artifact.alone": "{name} was under test.",
         "explain.setting.artifact.alone.withheld": (
             "{name} was under test; its contents are not included."
@@ -457,10 +463,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "reference measured."
         ),
         "explain.check.new": (
-            "{where} scored {now}, and the reference has nothing to hold it against."
+            "{where} was checked here and is not in the reference, so there is "
+            "nothing to hold it against."
         ),
         "explain.check.missing": (
-            "{where} stands at {before} in the reference and did not run here."
+            "{where} is in the reference and was not checked here."
         ),
         "explain.check.errored": "{where} could not be judged.",
         "explain.check.failing": "{where} is under its bar at {now}.",
@@ -473,7 +480,6 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.noise.beyond": (
             " That is outside the interval its reference measured, {noise}."
         ),
-        "explain.noise.measured": " Its own samples spanned {noise}.",
         "explain.nothing": "Nothing in this group.",
     },
     "it": {
@@ -878,6 +884,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Il sistema sotto esame ha risposto con {name} {after}."
         ),
         "explain.setting.judge.alone": "Il giudice ha valutato con {name} {after}.",
+        "explain.setting.target.alone.withheld": (
+            "Il sistema sotto esame ha registrato {name}; il valore non è incluso."
+        ),
+        "explain.setting.judge.alone.withheld": (
+            "Il giudice ha registrato {name}; il valore non è incluso."
+        ),
         "explain.setting.artifact.alone": "{name} era sotto esame.",
         "explain.setting.artifact.alone.withheld": (
             "{name} era sotto esame; il contenuto non è incluso."
@@ -897,11 +909,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "misurato dal riferimento."
         ),
         "explain.check.new": (
-            "{where} ha ottenuto {now}, e il riferimento non ha nulla con cui "
-            "confrontarlo."
+            "{where} è stato controllato qui e non è nel riferimento, quindi "
+            "non c'è nulla con cui confrontarlo."
         ),
         "explain.check.missing": (
-            "{where} sta a {before} nel riferimento e qui non è stato eseguito."
+            "{where} è nel riferimento e qui non è stato controllato."
         ),
         "explain.check.errored": "{where} non è stato valutato.",
         "explain.check.failing": "{where} è sotto la sua soglia, a {now}.",
@@ -914,7 +926,6 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.noise.beyond": (
             " È fuori dall'intervallo misurato dal riferimento, {noise}."
         ),
-        "explain.noise.measured": (" I suoi campioni si sono estesi su {noise}."),
         "explain.nothing": "Niente in questo gruppo.",
     },
 }
