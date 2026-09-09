@@ -171,7 +171,13 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
 
     if not scores:
         return failed(f"no sample could be judged over {len(verdicts)} attempts")
-    if agreement < min_agreement:
+    # Rounded on both sides, like every other limit (ADR 0009 §1 and §7). The
+    # reachability guard in `as_agreement` already judged this value at storage
+    # precision, and comparing raw quotients here made the two disagree: with
+    # three samples `min_agreement=0.666667` was accepted as reachable and then
+    # rejected two-of-three as "did not agree: 0.67 ... below the required
+    # 0.67". The guard and the gate are one comparison now.
+    if not meets(agreement, min_agreement):
         return failed(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "

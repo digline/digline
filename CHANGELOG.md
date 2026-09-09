@@ -29,6 +29,17 @@ What changed for you, three lines a version. The reasoning lives in
   now one comparison, so the sentence and the status cannot drift apart. Only
   overruns within about 2e-6 of the cap change verdict; anything already
   failing still fails, and a cost exactly at the cap still passes at `0.5`.
+- **Fixed:** `min_agreement` written as the printed form of a reachable
+  agreement no longer rejects the agreement it names. With three samples,
+  `min_agreement=0.666667` was accepted at construction — the guard checks
+  reachability at `FLOAT_PRECISION` — and then failed two-of-three with "did
+  not agree: 0.67 of them share the majority verdict, below the required 0.67",
+  a sentence that refutes itself. There was no float spelling of "two of three"
+  that worked, and the resulting `error` is an outcome that cannot be promoted
+  to a baseline. The guard and the gate now compare at the same precision.
+  **Write the fraction anyway** — `"2/3"` says what it means, and it is the
+  form that cannot be spelled wrong. `docs/api.md` says so, and its own
+  `Repeated` example no longer shows `0.67`, which raises.
 
 - **Added:** `examples/operator/` — the reference assembly for the **operator
   loop**: a suite watched on a schedule by an agent that re-runs within a

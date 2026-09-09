@@ -19,6 +19,8 @@ invariant, and `test_assertions.py` holds the budgets at their cap.
 
 from __future__ import annotations
 
+import pytest
+
 from digline.core import (
     CaseOutcome,
     CaseResult,
@@ -30,10 +32,13 @@ from digline.core import (
     Precision,
     Run,
     Score,
+    Status,
     Verdict,
+    combine_samples,
     compare,
     diff,
 )
+from digline.core.ratio import as_agreement
 from digline.core.types import STORAGE_STEP, at_precision
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -365,3 +370,61 @@ def test_a_latency_budget_holds_the_same_edge() -> None:
     )
     assert over.status == "fail"
     assert "over budget" in over.reason
+
+
+# --------------------------------------------------------------------------- #
+# 6. `min_agreement`: the guard and the gate are one comparison
+# --------------------------------------------------------------------------- #
+
+
+def sample(score: float, status: Status) -> Verdict:
+    return Verdict(
+        score=Score(name="rubric", score=score),
+        threshold=0.5,
+        status=status,
+        reason="judged",
+        tolerance=0.0,
+        assertion_id="id-rubric",
+    )
+
+
+#: Two of three agreeing — the majority this section is about.
+TWO_OF_THREE = (sample(0.9, "pass"), sample(0.8, "pass"), sample(0.1, "fail"))
+
+
+def test_min_agreement_is_inclusive_at_the_edge() -> None:
+    """Samples that agree exactly as much as you asked for agree."""
+    assert combine_samples(TWO_OF_THREE, min_agreement=2 / 3).status == "pass"
+    assert combine_samples(TWO_OF_THREE, min_agreement=1.0).status == "error"
+
+
+def test_both_spellings_of_an_agreement_reach_the_same_verdict() -> None:
+    """The defect ADR 0009 §7 records.
+
+    `as_agreement` refuses any value the sample count cannot produce, and judges
+    reachability **at storage precision**. The gate then compared raw quotients,
+    so with three samples `0.666667` — the printed form of two-thirds, and the
+    exact string the document stores — was accepted as reachable and then
+    rejected two-of-three as `error`, with the sentence "did not agree: 0.67 of
+    them share the majority verdict, below the required 0.67".
+
+    There was no float spelling of "two of three" that worked: the guard said
+    reachable, the gate said it was not, and a check declared correctly became
+    an outcome that by ADR 0006 §2 cannot be promoted to a baseline.
+    """
+    as_fraction = combine_samples(TWO_OF_THREE, min_agreement=2 / 3)
+    as_printed = combine_samples(TWO_OF_THREE, min_agreement=0.666667)
+    assert as_fraction.status == as_printed.status == "pass"
+    assert as_fraction.score.score == as_printed.score.score
+
+
+def test_an_unreachable_agreement_is_still_refused() -> None:
+    """The guard is not loosened by any of this. `0.666666` is one storage step
+    below two-thirds and no `k/3` produces it, so it is refused before a run
+    starts — which is the whole reason the string form is the one the reference
+    page recommends."""
+    with pytest.raises(ValueError, match="which 3 samples cannot produce"):
+        as_agreement(0.666666, samples=3, field="min_agreement")
+
+    assert as_agreement("2/3", samples=3, field="min_agreement") == 2 / 3
+    assert as_agreement(0.666667, samples=3, field="min_agreement") == 0.666667

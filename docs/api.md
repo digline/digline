@@ -630,9 +630,14 @@ which wraps an assertion and asks it N times:
 Repeated(
     inner=LlmRubric(rubric="…", judge=judge, threshold=0.7, tolerance=0.05),
     samples=3,
-    min_agreement=0.67,
+    min_agreement="2/3",
 )
 ```
+
+`min_agreement` is a count of samples, so **write it as one**. `0.67` in that
+slot is refused at construction — three samples produce `1/3`, `2/3` and `3/3`
+and nothing else — and it is refused for a good reason: see
+["k out of n"](#k-out-of-n-when-a-number-is-a-count) below.
 
 It takes `threshold`, `tolerance` and `accepts` from `inner` and they cannot be
 passed: two copies of a threshold drift apart. Wrapping an assertion **changes
@@ -833,7 +838,12 @@ and that cost two mistakes in one hour of real suite work:
 
 So the fraction can be written as one — `"2/3"` or `Fraction(2, 3)` — and a float that
 lands on no reachable `k/n` **is refused at construction**, with the list of the ones that
-exist. The refusal looks at the value, not the notation: `"2/4"` is as impossible with
+exist. A float that *does* land on one is accepted and reaches the same verdict as the
+fraction: the gate compares at `FLOAT_PRECISION` like every other limit, so `0.666667` and
+`"2/3"` agree (they did not before ADR 0009 §7 — the guard rounded and the gate did not,
+so `0.666667` was accepted and then rejected two-of-three as `error`). **Write the
+fraction anyway.** It says what it means, and it is the form that cannot be spelled
+wrong. The refusal looks at the value, not the notation: `"2/4"` is as impossible with
 three samples as `0.67` is.
 
 For an aggregate's tolerance the form counts as an expression, not as a check — the
