@@ -1467,6 +1467,45 @@ redacted run says `unknown` about its artifacts rather than `same`, because it
 genuinely cannot tell. The reasoning is
 [ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
+## The other question: should I switch?
+
+Eight chapters of holding a line, and then one morning you want to *move* it.
+A different prompt. Another model. Temperature 0.3 rather than 0.7. You run
+both, and `compare` is the wrong tool for what you are now asking: it holds a
+run against the **approved** reference, and the whole point is that you have
+approved neither of these.
+
+`digline diff` takes two runs and judges neither. Two keys, in either order —
+`latest` resolves on both, as everywhere else:
+
+```text
+$ digline diff --suite support.py <key of run A> latest
+2026-09-04 13:55  <key of run A>  staging
+2026-09-04 13:56  <key of run B>  staging
+
+  The systems differ: temperature 0.3 vs 0.7.
+
+2 of 2 checks differ: 2 favour 2026-09-04 13:55. 2 of 2026-09-04 13:55's advantages exceed both runs' observed intervals.
+```
+
+It **always exits 0**. That is not an oversight and not a missing `--strict`:
+an exit code is a verdict, a verdict needs an approved reference, and calling
+one of two candidates the reference is the decision you opened the terminal to
+make. Nothing here gates a pipeline, and `--json` carries no `worse` field.
+
+Everything chapter 3 bought you is still working. Where both runs were sampled,
+the report says whether an advantage clears the intervals both of them observed
+— which is the difference between *"B is better"* and *"B was luckier this
+afternoon"*. Where the intervals overlap it says the two are not distinguishable
+by that check, as evidence beside the count and never as an excuse: neither run
+has the standing to overrule the other.
+
+Swap the arguments and you get the same report with the columns exchanged. No
+"before", no "after", no "regressed" — none of those words is true of two runs
+neither of which was approved. What a diff refuses, and why the target is
+deliberately free where the rules and the judge are not, is in
+[`diff.md`](diff.md).
+
 ## Where to go next
 
 - [`metrics.md`](metrics.md) — a card per assertion and aggregate: when to reach
@@ -1475,4 +1514,6 @@ genuinely cannot tell. The reasoning is
   parameter, custom assertions
 - [`view.md`](view.md) — the browser UI, which is where chapters 4 and 6 are a
   table instead of a script
+- [`diff.md`](diff.md) — two runs, neither of them a baseline: the section above
+  in full
 - [`adr/`](adr/) — why the fixed decisions are fixed
