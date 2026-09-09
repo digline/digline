@@ -17,6 +17,7 @@ the old code.
 ```sh
 uv add --upgrade digline digline-mcp
 ```
+
 - **Security:** `digline-mcp` now checks that the `suite` a tool names is a file
   inside `--root`. It did not, and `load_suite` executes a `.py`, so every tool
   was a way to run a file from anywhere on the disk — including the five
@@ -48,6 +49,13 @@ uv add --upgrade digline digline-mcp
   open anything.
   ([ADR 0007 §6](https://digline.dev/product/adr/0007-the-declarative-suite-format/),
   amended)
+- **Security:** `HttpTarget` names its endpoint by **host** in every message it
+  raises, never by URL. `url = "https://user:sk-secret@gateway/answer"` is a URL
+  people write, and "nothing answered at …" carried it whole — to stderr, and in
+  CI to a build log, which is often read more widely than the repository is. The
+  reduction is the one `base_url` has had since 0.2.0; a target that took its
+  endpoint under another name had simply never been looked at. The URL itself is
+  untouched: only what is *said* about it changes.
 - **Changed:** artifacts are keyed relative to the **perimeter** rather than to
   the suite file's directory. The old rule fell back to the bare filename for
   anything outside that directory, so a file from elsewhere was recorded under

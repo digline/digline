@@ -21,7 +21,7 @@ from typing import Any, cast
 
 from digline.core import ConfigValue, Output
 from digline.run import Case, Response
-from digline.targets.config import declared_config
+from digline.targets.config import declared_config, endpoint_host
 
 __all__ = ["HttpTarget"]
 
@@ -164,6 +164,13 @@ class HttpTarget:
                 "about which one was sent"
             )
         self.url = url
+        #: What every message about this endpoint says instead of `url`.
+        #: `https://user:sk-secret@gateway/v1` is a URL somebody really does
+        #: write — and it used to reach stderr, and in CI a build log, whole.
+        #: ADR 0005 §2 already reduced `base_url` to its host for exactly this
+        #: reason; a target that took its endpoint under another name was not
+        #: covered by that decision, only by the fact that nobody had looked.
+        self._spoken = endpoint_host(url) or url
         #: The declarative half (ADR 0007 §5): the payload's own shape, with
         #: leaves that name case fields. Kept as the table it was written as, so
         #: `repr` and a debugger show what the suite said.
@@ -225,7 +232,7 @@ class HttpTarget:
                 f"{k}: {self._config.get(k)!r} then {declared.get(k)!r}" for k in moved
             )
             raise ValueError(
-                f"{self.url} answered under a different configuration part way "
+                f"{self._spoken} answered under a different configuration part way "
                 f"through the run ({changes}). One run measures one system, so "
                 "there is no single configuration to record: pin the "
                 "application's model and parameters for the run, or evaluate "
@@ -249,7 +256,7 @@ class HttpTarget:
             return
         except OSError as exc:
             raise ValueError(
-                f"nothing answered at {self.url}: {exc}. The suite declares "
+                f"nothing answered at {self._spoken}: {exc}. The suite declares "
                 f"{len(cases)} case(s) and every one of them would fail the "
                 "same way — start the application, or point the target at it"
             ) from exc
@@ -275,7 +282,7 @@ class HttpTarget:
             payload: Any = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise ValueError(
-                f"{self.url} answered something that is not JSON: {raw[:120]!r}"
+                f"{self._spoken} answered something that is not JSON: {raw[:120]!r}"
             ) from exc
 
         found = _dig(payload, self.output_path)
