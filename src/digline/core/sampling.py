@@ -21,12 +21,13 @@ from digline.core.assertions import AssertionBase
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.types import (
-    FLOAT_PRECISION,
     EvaluatorInputs,
     OutputKind,
     Score,
     Status,
     Verdict,
+    at_precision,
+    meets,
 )
 
 __all__ = ["COST_KEY", "TOTAL_COST_KEY", "Repeated", "combine_samples"]
@@ -170,7 +171,13 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
 
     if not scores:
         return failed(f"no sample could be judged over {len(verdicts)} attempts")
-    if agreement < min_agreement:
+    # Rounded on both sides, like every other limit (ADR 0009 §1 and §7). The
+    # reachability guard in `as_agreement` already judged this value at storage
+    # precision, and comparing raw quotients here made the two disagree: with
+    # three samples `min_agreement=0.666667` was accepted as reachable and then
+    # rejected two-of-three as "did not agree: 0.67 ... below the required
+    # 0.67". The guard and the gate are one comparison now.
+    if not meets(agreement, min_agreement):
         return failed(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "
@@ -183,7 +190,7 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     # average to 0.6999999999999998, which is `fail` before rounding and `pass`
     # after — and the Verdict refuses to exist, so a check that passes on its
     # own becomes an `error` the moment it is wrapped. (friction 31)
-    mean = round(fmean(scores), FLOAT_PRECISION)
+    mean = at_precision(fmean(scores))
     metadata: dict[str, object] = dict(_folded_metadata(verdicts))
     metadata.update(
         {
@@ -212,7 +219,7 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         ),
         threshold=first.threshold,
         tolerance=first.tolerance,
-        status="pass" if mean >= first.threshold else "fail",
+        status="pass" if meets(mean, first.threshold) else "fail",
         reason=f"mean of {len(verdicts)} samples ({_rendered(verdicts)})",
         assertion_id=first.assertion_id,
     )

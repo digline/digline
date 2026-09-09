@@ -16,7 +16,6 @@ from typing import Any, cast
 from digline.core.aggregate import RunAssertion
 from digline.core.protocols import Assertion
 from digline.core.types import (
-    FLOAT_PRECISION,
     NOTHING_EXTRA,
     REDACTED,
     ConfigValue,
@@ -24,6 +23,7 @@ from digline.core.types import (
     Score,
     Status,
     Verdict,
+    at_precision,
     canonical,
     travels,
 )
@@ -72,7 +72,7 @@ SCHEMA_VERSION = 9
 
 
 def _num(value: float) -> float:
-    return round(value, FLOAT_PRECISION)
+    return at_precision(value)
 
 
 #: The one recorded field that describes the client's own perimeter rather than

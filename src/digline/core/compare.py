@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from digline.core.run import Run, SystemConfig
-from digline.core.types import ConfigValue, Verdict
+from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 
 __all__ = [
     "IDENTITY_FIELD",
@@ -301,7 +301,7 @@ class Noise:
         """
         if self.low is None or self.high is None:
             return False
-        return self.low <= score <= self.high
+        return meets(score, self.low) and within(score, self.high)
 
     def rendered(self) -> str:
         assert self.low is not None and self.high is not None
@@ -426,7 +426,11 @@ def compare(run: Run, baseline: Run) -> Comparison:
         # Past this point both statuses are pass or fail, so both scores are
         # numeric: Verdict.__post_init__ guarantees it.
         assert now.score.score is not None and before.score.score is not None
-        delta = now.score.score - before.score.score
+        # Rounded where it is computed, not where it is tested (ADR 0009 §4).
+        # `AssertionDelta.delta` is a public field: a delta that compared as
+        # 0.047619 and serialized as 0.04761900000000008 would have moved the
+        # inconsistency out of the verdict and into the JSON.
+        delta = at_precision(now.score.score - before.score.score)
         was, is_now = f"{before.score.score:.6f}", f"{now.score.score:.6f}"
 
         if now.status != before.status:
@@ -464,7 +468,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
         floor = _noise(before)
         within_noise = False
 
-        if abs(delta) <= now.tolerance:
+        if within(abs(delta), now.tolerance):
             # Declared before measured, and the reason says which one spoke. A
             # tolerance is what a reviewer decided is acceptable; the interval
             # is what the system does. A reader is never left to guess which of

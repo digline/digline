@@ -21,7 +21,7 @@ from digline.core.pii import ITALIAN_PII, PiiPattern
 from digline.core.protocols import Assertion, ClaimJudge, Judge
 from digline.core.types import (
     ALL_KINDS,
-    FLOAT_PRECISION,
+    STORAGE_STEP,
     TEXT_ONLY,
     TEXT_OR_CONVERSATION,
     TEXT_OR_STRUCTURED,
@@ -31,9 +31,12 @@ from digline.core.types import (
     OutputKind,
     Score,
     Verdict,
+    at_precision,
     canonical,
+    meets,
     normalize_output,
     output_kind,
+    within,
 )
 
 __all__ = [
@@ -53,6 +56,7 @@ __all__ = [
     "PiiAbsent",
     "Regex",
     "budget_score",
+    "budget_score_at_precision",
     "error_verdict",
     "levenshtein_distance",
 ]
@@ -165,18 +169,17 @@ class AssertionBase:
     def _graded(
         self, value: float, reason: str, metadata: Mapping[str, object] | None = None
     ) -> Verdict:
-        # Rounded before the comparison, not after: `Verdict` stores at this
-        # precision, so deriving the status from the unrounded value could
-        # disagree with the stored score for a value sitting exactly on the
-        # threshold — and `Verdict.__post_init__` would rightly reject it.
-        value = round(value, FLOAT_PRECISION)
+        # The one rule of ADR 0009 §1: compared at storage precision, inclusive.
+        # `Verdict` stores at this precision and re-derives the status from what
+        # it stored, so a status decided from the unrounded value could disagree
+        # with the stored score — and `Verdict.__post_init__` would rightly
+        # reject it.
+        value = at_precision(value)
         return Verdict(
             score=Score(name=self.name, score=value, metadata=dict(metadata or {})),
             threshold=self.threshold,
             tolerance=self.tolerance,
-            status="pass"
-            if value >= round(self.threshold, FLOAT_PRECISION)
-            else "fail",
+            status="pass" if meets(value, self.threshold) else "fail",
             reason=reason,
             assertion_id=self.identity,
         )
@@ -1001,6 +1004,38 @@ def budget_score(measured: float, cap: float) -> float:
     return cap / (cap + measured)
 
 
+def budget_score_at_precision(measured: float, cap: float, threshold: float) -> float:
+    """`budget_score` as the document stores it, kept on the side of `threshold`
+    that `measured <= cap` puts it on.
+
+    A budget used to answer its own question twice. The word in the reason came
+    from `measured <= cap` on the raw values; the status came from the rounded
+    score against the threshold. Near the cap those disagree — `budget_score` is
+    exactly `0.5` at the cap and rounds to `0.5` for any overrun below about
+    2e-6 relative — so a run 0.000002 USD over a 1.000000 USD cap **passed**
+    while its own reason said "over budget". Fixed decision 4 says a declared
+    ceiling fails the run, and it did not. (ADR 0009 §6)
+
+    The repair is one comparison instead of two, and this is where the two are
+    reconciled. The score is a comparability aid: deliberately non-linear, kept
+    because `compare()` needs cost drift to be visible, and documented as
+    something to read as a trend rather than a quantity. Where a compressed
+    proxy cannot express a difference at storage precision, **the proxy yields
+    to the fact** — the caller then derives `within`/`over` from this score, so
+    the reason and the status are one statement and cannot drift apart again.
+
+    A budget declared with `threshold=0.0` stays vacuously green: the failing
+    side has nowhere below zero to go. That is fixed decision 3's problem, not
+    this function's, and it is named here so the next reader does not mistake
+    the clamp for an oversight.
+    """
+    score = at_precision(budget_score(measured, cap))
+    limit = at_precision(threshold)
+    if within(measured, cap):
+        return max(score, limit)
+    return min(score, max(0.0, limit - STORAGE_STEP))
+
+
 @dataclass(frozen=True, slots=True)
 class CostBudget(AssertionBase):
     """A declared spending cap. Exceeding the budget fails the run.
@@ -1038,11 +1073,14 @@ class CostBudget(AssertionBase):
         if inputs.cost_usd < 0:
             return self._error(f"cost_usd is negative: {inputs.cost_usd}")
 
-        within = inputs.cost_usd <= self.max_usd
+        score = budget_score_at_precision(inputs.cost_usd, self.max_usd, self.threshold)
+        # Derived from the score `_graded` is about to test, so the sentence and
+        # the status are the same comparison. (ADR 0009 §6)
+        met = meets(score, self.threshold)
         return self._graded(
-            budget_score(inputs.cost_usd, self.max_usd),
+            score,
             f"{inputs.cost_usd:.6f} USD against a {self.max_usd:.6f} cap "
-            f"({'within' if within else 'over'} budget)",
+            f"({'within' if met else 'over'} budget)",
             metadata={
                 "cost_usd": inputs.cost_usd,
                 "max_usd": self.max_usd,
@@ -1083,11 +1121,14 @@ class LatencyBudget(AssertionBase):
         if inputs.latency_ms < 0:
             return self._error(f"latency_ms is negative: {inputs.latency_ms}")
 
-        within = inputs.latency_ms <= self.max_ms
+        score = budget_score_at_precision(
+            inputs.latency_ms, self.max_ms, self.threshold
+        )
+        met = meets(score, self.threshold)
         return self._graded(
-            budget_score(inputs.latency_ms, self.max_ms),
+            score,
             f"{inputs.latency_ms:.3f} ms against a {self.max_ms:.3f} cap "
-            f"({'within' if within else 'over'} budget)",
+            f"({'within' if met else 'over'} budget)",
             metadata={
                 "latency_ms": inputs.latency_ms,
                 "max_ms": self.max_ms,

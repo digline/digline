@@ -20,7 +20,7 @@ from typing import Any, ClassVar, Literal, Protocol, cast
 
 from digline.core.assertions import dataclass_identity
 from digline.core.ratio import Ratio, as_ratio
-from digline.core.types import FLOAT_PRECISION, Score, Verdict
+from digline.core.types import Score, Verdict, at_precision, meets
 
 __all__ = [
     "F1",
@@ -240,22 +240,20 @@ class RunAssertionBase:
         )
 
     def _graded(self, value: float, reason: str, matrix: Matrix) -> Verdict:
-        # Rounded before the comparison, exactly as `AssertionBase._graded`
-        # does one level up: `Verdict` stores both numbers at this precision
-        # and then re-derives the status from what it stored, so deciding here
-        # from the unrounded pair lets the two disagree. An accuracy of 14/21
-        # against a threshold of 0.666667 is `fail` unrounded and `pass` once
-        # both are rounded — and the Verdict rightly refuses to exist, turning
-        # the run's gate into a crash. Both sides need it: the threshold
-        # arrives from `as_ratio` unrounded too, so "2/3" hits the same edge
-        # from the other direction. (friction 34)
-        value = round(value, FLOAT_PRECISION)
-        threshold = round(float(self.threshold), FLOAT_PRECISION)
+        # ADR 0009 §1, and this site is the reason the record exists: the
+        # rounding arrived here in 0.6.0 as a crash fix (`55e9d2f`) and was a
+        # boundary ruling nobody wrote down. An accuracy of 14/21 against a
+        # threshold of 0.666667 is `fail` unrounded and `pass` once both are
+        # rounded — and the Verdict rightly refuses to exist, turning the run's
+        # gate into a traceback. Both sides need it: the threshold arrives from
+        # `as_ratio` unrounded too, so "2/3" hits the same edge from the other
+        # direction. (friction 34)
+        value = at_precision(value)
         return Verdict(
             score=Score(name=self.name, score=value, metadata=matrix.as_metadata()),
             threshold=float(self.threshold),
             tolerance=float(self.tolerance),
-            status="pass" if value >= threshold else "fail",
+            status="pass" if meets(value, float(self.threshold)) else "fail",
             reason=reason,
             assertion_id=self.identity,
         )
@@ -524,14 +522,17 @@ def _at(verdict: Verdict, index: int) -> Verdict:
 
     `score >= threshold` on a verdict that already carries both, which is why
     §7 costs nothing: no call to a target, no call to a judge, arithmetic over
-    numbers the run already recorded.
+    numbers the run already recorded. The comparison is the one rule of
+    ADR 0009 §1, like every other in this file — both operands are already at
+    storage precision here, and it is spelled that way so the next reader does
+    not have to establish that before trusting it.
     """
     score = verdict.score.samples[index]
     return Verdict(
         score=Score(name=verdict.score.name, score=score),
         threshold=verdict.threshold,
         tolerance=verdict.tolerance,
-        status="pass" if score >= verdict.threshold else "fail",
+        status="pass" if meets(score, verdict.threshold) else "fail",
         reason=f"sample {index + 1} scored {score:.6f}",
         assertion_id=verdict.assertion_id,
     )

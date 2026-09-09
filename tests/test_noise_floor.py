@@ -661,10 +661,44 @@ def test_migration_gives_the_wobbling_case_its_interval() -> None:
     assert verdict.score.score == 0.4
 
 
-def test_the_run_that_cried_wolf_is_within_noise_at_the_aggregate() -> None:
-    """The finding this ADR was written for. Accuracy moved by one case in
-    twenty-one, and the baseline's own five samples had already covered that
-    much ground: 0.666667 to 0.809524, with 0.714286 inside it."""
+def _untoleranced(run: Run) -> Run:
+    """The same run with every declared tolerance set to zero.
+
+    Used to reach the measured floor on purpose. `compare()` checks the declared
+    tolerance before the interval (ADR 0006 §5), so a test that wants the second
+    rule has to silence the first — and silencing it here, on the run, is
+    honest: it is the same document with a different declaration, not a
+    different measurement.
+    """
+    return replace(
+        run,
+        aggregate=tuple(replace(v, tolerance=0.0) for v in run.aggregate),
+        results=tuple(
+            replace(
+                case,
+                verdicts=tuple(replace(v, tolerance=0.0) for v in case.verdicts),
+            )
+            for case in run.results
+        ),
+    )
+
+
+def test_the_run_that_cried_wolf_is_quiet_at_the_aggregate() -> None:
+    """The finding this ADR was written for, and the one ADR 0009 moved.
+
+    Accuracy moved by one case in twenty-one against a tolerance declared as one
+    case in twenty-one. **Which control answers is what changed, not the
+    answer.** Before ADR 0009 the subtraction left a residue of 7.6e-17, the
+    delta missed its own tolerance edge, and the measured floor was what quieted
+    the run — 0.666667 to 0.809524, with 0.714286 inside it. Now the delta is
+    rounded at storage precision, the declared tolerance catches it first, and
+    the floor never has to speak.
+
+    ADR 0006 keeps its argument: the run is `unchanged`, which is the whole of
+    what its story turns on, and the measured floor still exists for every
+    movement wider than the declared tolerance. The fixtures are untouched —
+    they are evidence, and evidence is not adjusted to agree with a test.
+    """
     comparison = compare(
         with_aggregates(brief_run(CRIED_WOLF)),
         with_aggregates(brief_run(BASELINE)),
@@ -673,15 +707,33 @@ def test_the_run_that_cried_wolf_is_within_noise_at_the_aggregate() -> None:
         d for d in comparison.deltas if d.scope == "run" and d.assertion == "accuracy"
     )
     assert accuracy.outcome == "unchanged"
-    # `within_noise` is the load-bearing half. The declared tolerance is one
-    # case in twenty-one and the drop is one case in twenty-one, so it lands a
-    # hair outside — which is exactly why the wolf was cried. The measured floor
-    # is what quiets it, and this assertion fails if that floor is ever removed.
-    assert accuracy.within_noise
-    assert "within the noise" in accuracy.reason
+    # The declared rule spoke, so `within_noise` is false: it is a fact about
+    # the measured floor, and the measured floor was never consulted.
+    assert not accuracy.within_noise
+    assert accuracy.reason == "delta -0.047619 within tolerance 0.047619"
+    assert accuracy.delta == -0.047619
+    # The interval is still measured, still recorded, and still rides along —
+    # it just did not decide this one. (ADR 0006 §10)
     assert (accuracy.noise_min, accuracy.noise_max) == (0.666667, 0.809524)
     assert accuracy.current is not None
     assert accuracy.current.score.score == 0.714286
+
+
+def test_the_measured_floor_still_answers_past_the_declared_tolerance() -> None:
+    """The half of ADR 0006 that ADR 0009 does not touch, pinned on the same
+    fixtures. Declare no tolerance and the floor is the only rule left — and it
+    still covers the movement that cried wolf, which is what §5 is for."""
+    now, before = (
+        with_aggregates(brief_run(CRIED_WOLF)),
+        with_aggregates(brief_run(BASELINE)),
+    )
+    comparison = compare(_untoleranced(now), _untoleranced(before))
+    accuracy = next(
+        d for d in comparison.deltas if d.scope == "run" and d.assertion == "accuracy"
+    )
+    assert accuracy.outcome == "unchanged"
+    assert accuracy.within_noise
+    assert "within the noise" in accuracy.reason
 
 
 def test_no_aggregate_of_that_run_is_reported_as_a_regression() -> None:

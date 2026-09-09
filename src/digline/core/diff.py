@@ -34,7 +34,7 @@ from digline.core.compare import (
     index_verdicts,
 )
 from digline.core.run import Run
-from digline.core.types import Verdict
+from digline.core.types import Verdict, at_precision, within
 
 __all__ = [
     "CheckDifference",
@@ -274,7 +274,7 @@ def _overlap(left: Noise, right: Noise) -> tuple[bool, bool]:
         return False, False
     assert left.low is not None and left.high is not None
     assert right.low is not None and right.high is not None
-    overlaps = left.low <= right.high and right.low <= left.high
+    overlaps = within(left.low, right.high) and within(right.low, left.high)
     return overlaps, not overlaps
 
 
@@ -439,7 +439,13 @@ def _check(
     # Past this point both statuses are pass or fail, so both scores are
     # numeric: Verdict.__post_init__ guarantees it.
     assert left.score.score is not None and right.score.score is not None
-    delta = right.score.score - left.score.score
+    # Rounded where it is computed, for the reason `compare()` rounds its own
+    # (ADR 0009 §4). This site is why the record exists in the shape it does:
+    # the unrounded subtraction was written here in 0.6.0, the obvious way, in a
+    # new file, while the draft describing the same defect in `compare()` sat
+    # parked in a stash. A rule spelled out at call sites is a rule the next
+    # call site does not inherit.
+    delta = at_precision(right.score.score - left.score.score)
     tolerance = _tolerance(left, right)
     low, high = _noise(left), _noise(right)
     overlap, disjoint = _overlap(low, high)
@@ -463,7 +469,7 @@ def _check(
             flipped=True,
         )
 
-    if abs(delta) <= tolerance:
+    if within(abs(delta), tolerance):
         outcome: DiffOutcome = "same"
         favours: Favours = "neither"
     else:
