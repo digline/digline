@@ -4,7 +4,15 @@ Pure functions — the caller writes the file. Depends on `digline.core` and on
 nothing else in digline.
 """
 
-from digline.report import diff, pages
+from digline.report import diff, explain, pages
+from digline.report.explain import (
+    CheckFact,
+    Fact,
+    SettingFact,
+    TallyFact,
+    explain_text,
+    facts,
+)
 from digline.report.history import CaseEntry, CaseHistory, case_history
 from digline.report.pages import (
     VIEW_CSS,
@@ -45,6 +53,10 @@ __all__ = [
     "VIEW_CSS",
     "CaseEntry",
     "CaseHistory",
+    "CheckFact",
+    "Fact",
+    "SettingFact",
+    "TallyFact",
     "RUN_SECTIONS",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
@@ -71,6 +83,9 @@ __all__ = [
     "render_html",
     "render_run_html",
     "errored_verdicts",
+    "explain",
+    "explain_text",
+    "facts",
     "run_tally",
     "runs_page",
     "summary_lines",

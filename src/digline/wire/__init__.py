@@ -25,6 +25,7 @@ from digline.wire.contract import (
     exit_code,
 )
 from digline.wire.diff import check_json, diff_json, interval_json
+from digline.wire.explain import explain_json, fact_json
 from digline.wire.run import run_document, run_json, runs_json
 
 __all__ = [
@@ -39,6 +40,8 @@ __all__ = [
     "delta_json",
     "diff_json",
     "exit_code",
+    "explain_json",
+    "fact_json",
     "interval_json",
     "run_document",
     "run_json",
