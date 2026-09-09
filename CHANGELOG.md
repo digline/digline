@@ -5,7 +5,7 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
-## 0.6.0 — 2026-09-10
+## 0.6.0 — 2026-09-09
 
 digline 0.6.0, and **`digline-mcp` 0.1.0**, the first new package this
 workspace has published since `digline-bedrock`. The three provider plugins

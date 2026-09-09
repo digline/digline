@@ -24,6 +24,11 @@
   declares — holds that a digest is a *verifier*, prompts live in a small
   guessable space, and a digest that travelled would defeat the withholding it
   travelled beside
+- Amended: 2026-09-09 — shipped with 0.6.0 rather than after it: the release
+  was widened by decision. The reasoning above stands unchanged, including
+  §12's rejected alternative and the paragraph in §7 that weighed it; only the
+  tag the work rode is different. `Requires: digline 0.6.0` still holds — the
+  dependency is on what 0.6.0 contains, and it now contains it on the same day
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §8 (a baseline is an approved reference) and the
   payload/verdict boundary that fixed decision 9 states;
