@@ -224,7 +224,7 @@ class Loaded:
         return self.module is None
 
 
-def load_suite(spec: str) -> tuple[Suite, Loaded]:
+def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
     """The `Suite`, and how it was loaded.
 
     The extension chooses the format and nothing else does (ADR 0007 §6): a
@@ -236,7 +236,10 @@ def load_suite(spec: str) -> tuple[Suite, Loaded]:
         path = Path(spec)
         if not path.is_file():
             raise UsageError(f"no such file: {path.resolve()} (from {spec!r})")
-        suite, target = load_toml_suite(path)
+        # `root` is the perimeter a data suite may read inside (ADR 0007 §6).
+        # It reaches only the TOML form: a `.py` suite is code and can already
+        # open anything, so a boundary there would be decoration.
+        suite, target = load_toml_suite(path, root=root)
         return suite, Loaded(suite=suite, target=target)
 
     module_part, attr = _split(spec)

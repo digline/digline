@@ -142,7 +142,7 @@ CREDENTIALS = frozenset({"api_key"})
 INSTRUMENTS = {"Judge": "judge", "ClaimJudge": "claim_judge"}
 
 
-def load_toml_suite(path: Path) -> tuple[Suite, Target]:
+def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Target]:
     """The suite and its target, from a file that is data.
 
     Returns both because a TOML suite has no module for `--target` to look in:
@@ -150,6 +150,10 @@ def load_toml_suite(path: Path) -> tuple[Suite, Target]:
     """
     document = _parse(path)
     where = path.name
+    # The suite's own directory when no root is given: the tightest perimeter
+    # that can be right, so a caller who has not thought about it is not
+    # quietly handed the widest one.
+    perimeter = (root or path.parent).resolve()
 
     _refuse_unknown(
         document, {"suite", "target", "assertions"}, f"{where}, top level", "table"
@@ -180,15 +184,25 @@ def load_toml_suite(path: Path) -> tuple[Suite, Target]:
         )
 
     declared = dict(table)
-    declared["cases"] = _cases(path.parent / str(declared.pop("cases")), where)
+    declared["cases"] = _cases(
+        within_perimeter(
+            path.parent / str(declared.pop("cases")), perimeter, "cases", where
+        ),
+        where,
+    )
     if "artifacts" in declared:
         # An array here, `Path` there: the str-to-Path step is `Suite`'s own
         # (`__post_init__`), so the data form and the Python constructor coerce
         # by the same rule and refuse by the same sentence. What is checked
         # here is what only this layer knows — that TOML was given a list.
-        declared["artifacts"] = list(
-            _sequence(declared["artifacts"], "artifacts", where)
-        )
+        # Verified joined, kept as written: `read_artifacts` resolves these
+        # against the suite's directory itself, so storing the joined path here
+        # would prefix it twice — and `Suite.artifacts` stays the relative thing
+        # a reader typed, which is what the run records.
+        entries = list(_sequence(declared["artifacts"], "artifacts", where))
+        for entry in entries:
+            within_perimeter(path.parent / str(entry), perimeter, "artifacts", where)
+        declared["artifacts"] = entries
 
     try:
         # `cast` because a parsed document is `object` all the way down and
@@ -207,7 +221,7 @@ def load_toml_suite(path: Path) -> tuple[Suite, Target]:
         # the Python form already fails with (ADR 0007 §6).
         raise UsageError(f"{where}: {exc}") from exc
 
-    return suite, _target(document, path)
+    return suite, _target(document, path, perimeter)
 
 
 # --------------------------------------------------------------------------- #
@@ -455,7 +469,7 @@ def _cases(path: Path, where: str) -> list[Case]:
 # --------------------------------------------------------------------------- #
 
 
-def _target(document: Mapping[str, object], path: Path) -> Target:
+def _target(document: Mapping[str, object], path: Path, root: Path) -> Target:
     where = f"{path.name}, [target]"
     table = _table(document, "target", path.name)
     kind = table.get("type")
@@ -466,9 +480,9 @@ def _target(document: Mapping[str, object], path: Path) -> Target:
         )
     arguments = {key: value for key, value in table.items() if key != "type"}
     if kind == "http":
-        return _http(arguments, where, path.parent)
+        return _http(arguments, where, path.parent, root)
     if kind == "provider":
-        return _provider(arguments, where, path.parent)
+        return _provider(arguments, where, path.parent, root)
     raise UsageError(
         f'{where}: `type` is {kind!r}, and there are two forms — "http" and '
         '"provider". A target that is a function is a suite.py: there is no '
@@ -476,7 +490,9 @@ def _target(document: Mapping[str, object], path: Path) -> Target:
     )
 
 
-def _http(arguments: Mapping[str, object], where: str, base: Path) -> Target:
+def _http(
+    arguments: Mapping[str, object], where: str, base: Path, root: Path
+) -> Target:
     if "request" in arguments:
         raise computed_body(where)
     _refuse_credentials(arguments, where)
@@ -487,12 +503,16 @@ def _http(arguments: Mapping[str, object], where: str, base: Path) -> Target:
         arguments, _accepted(HttpTarget) - {"request"}, where, "parameter", "http"
     )
     try:
-        return HttpTarget(**cast("Any", _resolve_paths(arguments, HttpTarget, base)))
+        return HttpTarget(
+            **cast("Any", _resolve_paths(arguments, HttpTarget, base, root, where))
+        )
     except (TypeError, ValueError) as exc:
         raise UsageError(f"{where}: {exc}") from exc
 
 
-def _provider(arguments: Mapping[str, object], where: str, base: Path) -> Target:
+def _provider(
+    arguments: Mapping[str, object], where: str, base: Path, root: Path
+) -> Target:
     coordinate = arguments.get("provider")
     if not isinstance(coordinate, str):
         raise UsageError(
@@ -532,7 +552,7 @@ def _provider(arguments: Mapping[str, object], where: str, base: Path) -> Target
         provider_name,
     )
     try:
-        settled = _resolve_paths(rest, provider.target, base)
+        settled = _resolve_paths(rest, provider.target, base, root, where)
         return provider.target(model=model, **cast("Any", settled))
     except (TypeError, ValueError) as exc:
         raise UsageError(
@@ -545,8 +565,38 @@ def _provider(arguments: Mapping[str, object], where: str, base: Path) -> Target
 # --------------------------------------------------------------------------- #
 
 
+def within_perimeter(path: Path, root: Path, field: str, where: str) -> Path:
+    """A path a data file named, verified to stay inside the perimeter.
+
+    ADR 0007 §5 closed the **code** boundary — no `python =`, no `import =`, no
+    dotted path to a callable — and that boundary held. What was never drawn is
+    the **read** boundary: `artifacts = ["/etc/passwd"]` in a file with no
+    Python in it read the file and recorded its contents in the run, and
+    `cases = "../../elsewhere.json"` did the same for cases. A format whose
+    whole claim is that it is data has to be unable to reach outside the
+    repository it sits in.
+
+    The perimeter is the **repo root**, not the suite's own directory. A suite
+    in `eval/` naming `../prompts/system.md` is reading a file its own project
+    owns, and that is the ordinary layout of a repository that keeps its
+    evaluation beside what it evaluates — decision 2's perimeter, not a
+    directory boundary invented here.
+    """
+    resolved = path.resolve()
+    if not resolved.is_relative_to(root):
+        raise UsageError(
+            f"{where}: `{field}` names {resolved}, which is outside {root}. "
+            "A suite that is data reads inside its own repository and nowhere "
+            "else: the file would be recorded in every run, and a data file "
+            "that can name any path on the machine is a read no reviewer of "
+            "that file could see coming. Move it into the project, or write a "
+            "suite.py, which is code and says so."
+        )
+    return path
+
+
 def _resolve_paths(
-    arguments: Mapping[str, object], factory: object, base: Path
+    arguments: Mapping[str, object], factory: object, base: Path, root: Path, where: str
 ) -> dict[str, object]:
     """A relative path in a suite file is relative to **the suite file**.
 
@@ -575,7 +625,11 @@ def _resolve_paths(
         if "Path" in declared and isinstance(given, str):
             candidate = Path(given)
             if not candidate.is_absolute():
-                resolved[name] = base / candidate
+                candidate = base / candidate
+            # Every path a data suite can write, which is ADR 0007 §6's own
+            # phrase for the resolution rule — a prompt file a target names
+            # reaches the run exactly as a declared artifact does.
+            resolved[name] = within_perimeter(candidate, root, name, where)
     return resolved
 
 

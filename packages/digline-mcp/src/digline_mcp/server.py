@@ -133,7 +133,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
 
     def loaded(spec: str) -> Suite:
         verified, _path = within_root(spec)
-        suite, _ = load_suite(verified)
+        suite, _ = load_suite(verified, root=perimeter)
         if tenant is not None and tenant != suite.tenant:
             refuse(
                 f"--tenant {tenant!r} does not match the suite, which declares "
@@ -236,7 +236,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # string that may still carry a `:attribute` was how it could differ
         # from the file that was actually loaded.
         verified, path = within_root(suite)
-        _suite, module = load_suite(verified)
+        _suite, module = load_suite(verified, root=perimeter)
         target = load_target(None, module, verified)
         written = execute(
             loaded_suite,

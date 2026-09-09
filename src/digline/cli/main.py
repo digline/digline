@@ -142,7 +142,10 @@ def _load(args: argparse.Namespace) -> tuple[Suite, Loaded, FileResultStore]:
     `Loaded` carries whichever half the form still owes — the module for a
     suite.py, the declared target for a suite.toml.
     """
-    suite, loaded = load_suite(args.suite)
+    # `--root` is the perimeter, and a data suite may only read inside it
+    # (ADR 0007 §6). It is passed here rather than at the one call that reads
+    # artifacts, because `cases` is opened during the load itself.
+    suite, loaded = load_suite(args.suite, root=Path(args.root))
     _check_perimeter(suite, args.tenant, args.env)
     return suite, loaded, FileResultStore(args.root)
 
@@ -187,7 +190,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         created_at=created_at,
         git_commit=commit,
         run_metadata=_meta(args.meta),
-        artifacts=read_artifacts(suite, target, Path(args.suite).resolve().parent),
+        artifacts=read_artifacts(
+            suite, target, Path(args.suite).resolve().parent, root=Path(args.root)
+        ),
     )
     ref = store.write_run(run)
 

@@ -5,6 +5,20 @@
   landed first and the code was written against it, the way
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) was
 - Date: 2026-09-03
+- Amended: 2026-09-09 — **§6 gains the read boundary.** A security review found
+  that `artifacts = ["/etc/passwd"]` in a file with no Python in it read the
+  file and recorded its contents in every run, and that `cases` and a
+  `[target]`'s `prompt_file` could do the same. §5 closed the **code** boundary
+  and closed it properly — no `python =`, no `import =`, no dotted path to a
+  callable, and that held. What was never drawn was the **read** boundary: §6
+  said where a relative path resolves *from* and nothing said where it may
+  resolve *to*. It is now drawn at the **perimeter** — the repository, fixed
+  decision 2's own unit, and not the suite file's directory, because a suite in
+  `eval/` naming `../prompts/system.md` is reading a file its own project owns
+  and that is the layout this format is for. Outside it is a `UsageError`
+  naming the field and the resolved path. Artifact keys become perimeter-
+  relative in the same change, so a file from outside can no longer arrive in a
+  run recorded as a bare basename. Ships in 0.7.1
 - Amended: 2026-09-08 — one factual correction, no decision revisited: the
   body said the container image had run the cycle *since 0.4.0*. It ships
   in 0.5.0, this ADR's own release, and existed only on a branch when this
@@ -373,6 +387,22 @@ the prompt a `[target]` names; resolving against the process's own directory
 would make a suite runnable from one place only, and CI, the container and a
 colleague's checkout are all somewhere else. It is the rule `Suite.artifacts`
 already follows, applied to every path a data suite can write.
+
+**And it resolves inside the perimeter, or it is refused.** The code boundary
+was closed in §5; the read boundary is now drawn, and it is the perimeter — the
+repository, not this file's own directory. Saying where a path resolves *from*
+turned out not to say anything about where it may resolve *to*, and
+`artifacts = ["/etc/passwd"]` in a file with no Python in it read the file and
+put its contents in every run. The perimeter is the right unit rather than the
+suite's directory because `eval/suite.toml` naming `../prompts/system.md` is
+reading its own project, which is the layout this format is for; `/etc/passwd`
+is not. Outside it is a `UsageError` naming the field and the resolved path,
+and it applies to `cases`, to `artifacts`, and to every `Path` parameter a
+`[target]` can set. The keys artifacts are recorded under become perimeter-
+relative in the same change: keying from the suite's directory meant a path
+that escaped it fell back to the bare filename, so `/etc/hosts` was recorded as
+`hosts` — the escape was invisible in the one document whose job is to say what
+was under test.
 
 `--target` has no meaning here and is refused with a TOML suite rather than
 ignored: the target is in `[target]`, and a flag pointing at a Python attribute

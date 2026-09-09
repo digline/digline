@@ -35,6 +35,30 @@ uv add --upgrade digline digline-mcp
   outside `.digline/`. Bounded in practice: only files ending `.json` that parse
   as a run, and a run addressed through the wrong tenant was already refused. It
   is now a 400.
+- **Security:** a suite that is **data** reads inside the repository, or it is
+  refused. `artifacts = ["/etc/passwd"]` in a file with no Python in it read the
+  file and recorded its contents in every run; `cases` and a `[target]`'s
+  `prompt_file` could do the same. The code boundary was closed when the format
+  shipped — no `python =`, no `import =`, no dotted path to a callable — and it
+  held; the read boundary had never been drawn. It is drawn at the **perimeter**,
+  the repository, and not at the suite file's directory: `eval/suite.toml`
+  naming `../prompts/system.md` is reading its own project, and that is the
+  layout the format is for. Outside it is a load error naming the field and the
+  resolved path. A `suite.py` is unaffected — it is code, and code can already
+  open anything.
+  ([ADR 0007 §6](https://digline.dev/product/adr/0007-the-declarative-suite-format/),
+  amended)
+- **Changed:** artifacts are keyed relative to the **perimeter** rather than to
+  the suite file's directory. The old rule fell back to the bare filename for
+  anything outside that directory, so a file from elsewhere was recorded under
+  the same name a file in the project would have had. For a suite at the root of
+  its project — every example in this repository, and the ordinary layout — the
+  keys are byte-identical and nothing moves. A suite kept in a subdirectory will
+  see its artifacts renamed once, from `system.md` to `prompts/system.md`: it
+  shows in the report's artifact section and **does not fail a run**, since an
+  artifact change has never affected the exit code.
+
+
 ## 0.7.0 — 2026-09-09
 
 digline 0.7.0, the second release today and a different kind from the first.
