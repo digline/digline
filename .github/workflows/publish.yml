@@ -124,13 +124,17 @@ jobs:
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              digline digline-anthropic digline-openai digline-bedrock && break
+              digline digline-anthropic digline-openai digline-bedrock \
+              digline-mcp && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
+          # digline_mcp is not a provider plugin, but it is published from
+          # this workspace and this is the only step that proves an installed
+          # wheel imports at all.
           /tmp/from-index/bin/python -c \
             "import digline_anthropic, digline_openai, digline_bedrock; \
-             print('plugins ok')"
+             import digline_mcp; print('plugins and mcp ok')"
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
