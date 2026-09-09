@@ -29,6 +29,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
+from digline import __version__
 from digline.cli.environment import git_commit, utc_now_iso
 from digline.cli.loader import Loaded, UsageError, load_suite, load_target
 from digline.cli.view import serve
@@ -763,6 +764,16 @@ def build_parser() -> argparse.ArgumentParser:
             "committed in your own repository."
         ),
         epilog="Options for one command: digline <command> -h",
+    )
+    # Right after the parser and before the subcommands, so it is reachable as
+    # `digline --version` and not only as a flag on one of them. `action=
+    # "version"` prints and exits 0 inside argparse, which is why nothing in
+    # `main()` dispatches on it.
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"digline {__version__}",
+        help="print the version and exit",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

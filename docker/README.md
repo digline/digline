@@ -45,7 +45,7 @@ digline compare --suite eval/suite.py --run latest
 | Tag | |
 |---|---|
 | `0.5.0` | that version of digline, and the plugin versions it shipped with |
-| `0.4` | the newest patch on that minor |
+| `0.5` | the newest patch on that minor |
 | `latest` | the newest release |
 
 **Pin the exact version in CI.** A gate that silently changes what it runs is a
@@ -129,7 +129,7 @@ workflow therefore waits for the version to appear on the index before it
 builds, for up to thirty minutes.
 
 A release of a plugin alone does not rebuild the image: its tags are the
-*core's* version, and moving `0.5.0` to a new digest would break what the
-table above promises. Rebuilding one by hand
+*core's* version, and moving a published tag to a new digest would break what
+the table above promises. Rebuilding one by hand
 (`gh workflow run docker-publish.yml --ref <ref>`) is still there, with a
 checkbox that keeps a rebuild of an older release from becoming `latest`.

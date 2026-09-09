@@ -108,6 +108,17 @@ What changed for you, three lines a version. The reasoning lives in
   that could not fail. Refused where the case is declared, so both entrances
   are covered: Python and `cases.json`. `expected=None` stays legal; absence is
   not emptiness.
+- **Added:** `digline --version` prints the version and exits 0, with no
+  subcommand.
+- **Fixed:** `digline.__version__` said `0.4.0` while the release was `0.5.0`.
+  It is now read from the installed distribution's metadata, so it cannot drift
+  again, and a new gate holds every remaining hand-written version claim to
+  `pyproject.toml`: each one is either pinned or registered as a record of a
+  version that has already shipped. Bump the release and any claim nobody
+  updated fails by file and line. Two sentences that named a version for no
+  reason were reworded without one — a claim that cannot go stale beats a gated
+  one — and the image's minor tag, documented as `0.4` since 0.5.0 shipped, is
+  correct again.
 
 ## 0.5.0 — 2026-09-08
 

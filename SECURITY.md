@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-**The latest release, and nothing else.** digline is alpha and moves quickly:
-0.4.0 and 0.5.0 are three weeks apart, and a fix backported to a version nobody
-is running is time not spent on the one everybody is. If you hit something on
-an older version, please reproduce it on the current release before reporting —
-and if you cannot upgrade far enough to try, say so in the report and we will
-work out what to do.
+**The latest release, and nothing else.** digline is alpha and moves quickly —
+releases are weeks apart, not quarters — and a fix backported to a version
+nobody is running is time not spent on the one everybody is. If you hit
+something on an older version, please reproduce it on the current release
+before reporting — and if you cannot upgrade far enough to try, say so in the
+report and we will work out what to do.
 
 ## Reporting a vulnerability
 
