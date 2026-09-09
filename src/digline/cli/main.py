@@ -5,11 +5,11 @@ composes it. The clock and git are still read once per command and passed down
 as values; they are now read through `digline.host` so that a second front end
 reads them the same way rather than growing its own. (ADR 0011 §7)
 
-Eight commands, each doing one thing, and nothing promoting as a side effect of
+Nine commands, each doing one thing, and nothing promoting as a side effect of
 anything else: `run` writes a run and prints its key, `compare` reads and
 judges, `diff` reads two runs and judges neither, `promote` promotes, `report`
-renders, `migrate` brings stored documents up to the current schema, `list` and
-`view` show.
+renders, `explain` reads the same facts back at length, `migrate` brings stored
+documents up to the current schema, `list` and `view` show.
 
 `compare` and `diff` are two commands and not one with a flag, because **the
 exit code is the contract**: `compare` gates and `diff` never does, and a user
@@ -56,6 +56,8 @@ from digline.host import (
 from digline.report import (
     artifact_lines,
     config_lines,
+    explain_text,
+    facts,
     headline,
     render_html,
     render_run_html,
@@ -81,6 +83,7 @@ from digline.wire import (
     compare_json,
     diff_json,
     exit_code,
+    explain_json,
     run_json,
 )
 
@@ -422,6 +425,51 @@ def cmd_view(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_explain(args: argparse.Namespace) -> int:
+    """The run read back at length, and the comparison too where there is one.
+
+    The scope follows the store, never a flag: `report`'s pattern, for
+    `report`'s reason — making a reader name the scope means making them know,
+    before they type, which of two documents they are entitled to (ADR 0012 §1).
+
+    It gates like `report` and not like `diff`. Explain with a baseline holds a
+    run against the same approved reference `compare` gates on, so withholding
+    the exit code would mean exiting 1 on a one-line summary of a regression and
+    0 on three paragraphs about it.
+    """
+    suite, _loaded, store = _load(args)
+    run = read_run(store, suite, _resolve(store, suite, args.run))
+    baseline = store.read_baseline(suite.tenant, suite.name)
+
+    if baseline is None:
+        # `_report_single`'s rule, and for its reason: "worse" is a relation,
+        # and there is nothing here to be worse than. An unjudged case survives
+        # — that is a fact about the harness rather than about a reference.
+        reading = facts(run)
+        code = EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
+        scope = "run"
+    else:
+        comparison = compare(run, baseline)
+        reading = facts(run, comparison)
+        code = exit_code(headline(comparison, run, baseline, locale=args.locale))
+        scope = "comparison"
+
+    if args.json:
+        print(
+            json.dumps(
+                explain_json(reading, scope=scope, exit_code=code),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return code
+
+    for line in explain_text(reading, locale=args.locale):
+        print(line)
+    return code
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = read_run(store, suite, _resolve(store, suite, args.run))
@@ -622,6 +670,23 @@ def build_parser() -> argparse.ArgumentParser:
     view_p.add_argument("--host", default="127.0.0.1", help="bind address")
     view_p.add_argument("--port", type=int, default=7373, help="bind port")
     view_p.set_defaults(func=cmd_view)
+
+    exp_p = subparsers.add_parser(
+        "explain", help="read a run back at length; compares if there is a baseline"
+    )
+    common(exp_p)
+    # The terminal rule, like `compare` and `diff`. There is no `--out`, and
+    # that is what keeps the rule honest rather than an oversight: a reading
+    # written to a file has a recipient who did not choose English, and the
+    # locale becomes mandatory the way `report`'s is. (ADR 0012 §7)
+    terminal_locale(exp_p)
+    exp_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    exp_p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the fact list the prose is rendered from, instead of the prose",
+    )
+    exp_p.set_defaults(func=cmd_explain)
 
     rep_p = subparsers.add_parser("report", help="render the report")
     common(rep_p)

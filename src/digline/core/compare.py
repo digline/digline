@@ -18,9 +18,11 @@ from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 __all__ = [
     "IDENTITY_FIELD",
     "ArtifactDelta",
+    "ArtifactOutcome",
     "AssertionDelta",
     "Comparison",
     "ConfigDelta",
+    "ConfigOutcome",
     "Noise",
     "Outcome",
     "Scope",

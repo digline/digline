@@ -28,10 +28,12 @@ from digline.core import (
     LlmRubric,
     Run,
     SystemConfig,
+    compare,
     config_hash,
 )
+from digline.report import facts
 from digline.store import Listing, RunRef
-from digline.wire import run_document, runs_json
+from digline.wire import explain_json, run_document, runs_json
 
 CREATED = "2026-09-08T10:00:00+00:00"
 #: A real digest of the prompt below, so the test that says it must not travel
@@ -320,3 +322,74 @@ def test_a_disclosure_cannot_release_the_perimeter_field() -> None:
         artifacts=True,
     )
     assert WITHHELD_HOST not in json.dumps(run_document(loaded_run(), widest))
+
+
+# --------------------------------------------------------------------------- #
+# The reading's surface (ADR 0012 §4)
+#
+# The same marker suite, driven through `explain_json`. The difference from
+# everything above is what the assertions are proving: there, that a function
+# declines to emit; here, that there is nothing to decline. The fact types have
+# no field a reason fits in, so the boundary is a property of the type rather
+# than of the projection — and this is what makes that claim testable instead
+# of merely stated.
+# --------------------------------------------------------------------------- #
+
+
+def test_no_marker_survives_the_reading() -> None:
+    run = loaded_run()
+    for reading, scope in (
+        (facts(run), "run"),
+        (facts(run, compare(run, loaded_run())), "comparison"),
+    ):
+        document = json.dumps(explain_json(reading, scope=scope, exit_code=0))
+        for marker in MARKERS:
+            assert marker not in document, f"{marker!r} crossed on the {scope} reading"
+
+
+def test_the_reading_has_no_reason_field_to_fill() -> None:
+    """Absent from the *type*, which is stronger than absent from the output: a
+    key that is never written can be written by the next edit, and a field that
+    does not exist cannot."""
+    run = loaded_run()
+    reading = facts(run, compare(run, loaded_run()))
+    assert reading, "an empty reading would make this prove nothing"
+    for fact in reading:
+        assert not hasattr(fact, "reason")
+    assert '"reason"' not in json.dumps(
+        explain_json(reading, scope="comparison", exit_code=0)
+    )
+
+
+def test_a_suspension_reaches_the_reading_as_a_case_and_not_as_a_sentence() -> None:
+    """The case id is a fact about coverage and travels; the stated reason is
+    payload. A suite whose coverage silently shrank must still be visible."""
+    run = loaded_run()
+    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    assert "case-2" in document
+    assert SUSPENSION not in document
+
+
+def test_neither_the_prompt_nor_its_digest_reaches_the_reading() -> None:
+    """A digest is a verifier: prompts live in a guessable space, so one
+    travelling beside a withheld prompt would defeat the withholding it
+    travelled beside. The reading carries the path and the outcome, and there
+    is no field for either the text or the hash."""
+    run = loaded_run()
+    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    assert "prompt.md" in document
+    assert ARTIFACT_TEXT not in document
+    assert ARTIFACT_SHA not in document
+    assert "sha" not in document
+
+
+def test_the_withheld_perimeter_field_never_reaches_the_reading() -> None:
+    """`base_url` is the client's topology and `SystemConfig.redacted()` keeps
+    it back. The reading reads `config_deltas`, which already applied that
+    rule — so a value one surface withholds is not reachable through another.
+    """
+    run = loaded_run()
+    reading = facts(run, compare(run, loaded_run()))
+    assert WITHHELD_HOST not in json.dumps(
+        explain_json(reading, scope="comparison", exit_code=0)
+    )

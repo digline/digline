@@ -5,6 +5,25 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+- **Added:** `digline explain` — the run read back at length. The report
+  compresses; this expands: what ran, what moved and by how much, inside or
+  outside which measured interval, what was set aside, what could not be
+  judged, which of the three configurations differed. It compares when the
+  suite has a baseline and reads the run alone when it does not, with no mode
+  flag — the presence of a reference is a fact, not something you should have
+  to state. It gates like `report` (`0` fine, `1` worse, `2` unjudged) and can
+  never exit `1` without a reference. `--json` emits the **fact list the prose
+  is rendered from** — typed facts with case and assertion references, no
+  sentences — so a terminal and a pipeline cannot drift into two descriptions
+  of one run; `OUTPUT_VERSION` stays 1, because a new command's output breaks
+  no existing consumer. `--locale en|it`, defaulting to `en`, and there is no
+  `--out`: a reading written to a file would have a recipient who did not
+  choose English. **It states and never advises**, and quotes no judge — no
+  fact has a field a reason fits in, which is what makes that boundary
+  something no later edit can open by accident. For the judge's words,
+  `digline report` is one command away. [`docs/explain.md`](docs/explain.md),
+  and the reasoning is [ADR 0012](docs/adr/0012-the-reading.md).
+
 - **Changed:** one rule for every limit — **every limit in digline is compared
   at `FLOAT_PRECISION`, and every limit is inclusive**. Thresholds, tolerances,
   the measured noise floor, budgets and `min_agreement` all read the numbers as

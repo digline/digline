@@ -24,6 +24,7 @@ from digline.core import (
     ConfigValue,
     Outcome,
     Run,
+    Scope,
     Status,
     SystemConfig,
     Verdict,
@@ -37,15 +38,20 @@ __all__ = [
     "RUN_SECTIONS",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
+    "ErroredVerdict",
     "Headline",
+    "RunTally",
     "Section",
     "config_changes",
     "config_lines",
+    "errored_verdicts",
     "fmt_value",
     "headline",
     "render_html",
     "render_run_html",
+    "run_tally",
     "summary_lines",
+    "suspended_cases",
     "unjudged_cases",
 ]
 
@@ -240,6 +246,95 @@ def unjudged_cases(run: Run) -> int:
     )
 
 
+def suspended_cases(run: Run) -> int:
+    """How many cases somebody set aside.
+
+    Beside `unjudged_cases` and counted the same way, from the run alone: a
+    suspension is a decision rather than an outcome, so it is true whether or
+    not there is a reference to compare against.
+
+    A function rather than the expression it replaces, and the expression is
+    why: it was written out twice, independently, in `headline()` and in
+    `_run_answer()`. Two counters over one fact are two chances to disagree
+    about it, and the document that would then contradict itself is the one
+    where the headline says a case is suspended and the tally beside it says
+    none is. (ADR 0012 §2)
+    """
+    return sum(1 for case in run.results if case.suspended is not None)
+
+
+@dataclass(frozen=True, slots=True)
+class RunTally:
+    """What a run counts about itself, with no reference in sight.
+
+    Four numbers rather than four locals, because they are now read by two
+    renderings — the document's tally and the reading `digline explain` gives —
+    and a fact two documents state has to come from one place. (ADR 0012 §2)
+
+    `checks` counts verdicts and `unjudged` counts cases, which is a difference
+    the report already carries in its labels: one errored case can hold three
+    errored verdicts, and both numbers are true. Anything printing them says
+    which it is counting.
+    """
+
+    cases: int
+    checks: int
+    unjudged: int
+    suspended: int
+
+
+def run_tally(run: Run) -> RunTally:
+    """The run's own four numbers."""
+    return RunTally(
+        cases=len(run.results),
+        checks=sum(len(case.verdicts) for case in run.results),
+        unjudged=unjudged_cases(run),
+        suspended=suspended_cases(run),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ErroredVerdict:
+    """One check that could not be judged, and where it sits.
+
+    `case_id` is empty in run scope, where the verdict belongs to no case —
+    the same convention `AssertionDelta` follows, so a reader who has learnt
+    it once has learnt it everywhere.
+    """
+
+    scope: Scope
+    case_id: str
+    verdict: Verdict
+
+
+def errored_verdicts(run: Run) -> tuple[ErroredVerdict, ...]:
+    """Every check this run could not judge, named.
+
+    `unjudged_cases` answers *how many* and is what an exit code is built from.
+    This answers *which*, which is what a reading has to say, and it answers it
+    **from the run alone**. `_summarized()` can already name them, but only out
+    of a `Comparison` — so without a baseline there is nothing that can, and
+    "1 case could not be judged" would be as much as any document could manage.
+
+    The traversal is `index_verdicts`' — every case in the run's order, then the
+    aggregates — because that is the one walk over a run's verdicts this
+    codebase has already fixed, and a second order would be a second answer to
+    "which check comes first".
+    """
+    found = [
+        ErroredVerdict("case", case.case_id, verdict)
+        for case in run.results
+        for verdict in case.verdicts
+        if verdict.status == "error"
+    ]
+    found.extend(
+        ErroredVerdict("run", "", verdict)
+        for verdict in run.aggregate
+        if verdict.status == "error"
+    )
+    return tuple(found)
+
+
 def headline(
     comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
 ) -> Headline:
@@ -265,7 +360,7 @@ def headline(
     else:
         worse_text = phrase(locale, "fact.worse.many", count=regressed)
 
-    suspended = sum(1 for case in run.results if case.suspended is not None)
+    suspended = suspended_cases(run)
 
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
@@ -1186,14 +1281,12 @@ def _run_answer(run: Run, locale: Locale) -> str:
     with six zeroes would say "nothing regressed", which is exactly the thing
     this document must not say.
     """
-    checks = sum(len(case.verdicts) for case in run.results)
-    unjudged = unjudged_cases(run)
-    suspended = sum(1 for case in run.results if case.suspended is not None)
+    tally_of = run_tally(run)
     counted = (
-        ("runtally.cases", len(run.results)),
-        ("runtally.checks", checks),
-        ("runtally.unjudged", unjudged),
-        ("runtally.suspended", suspended),
+        ("runtally.cases", tally_of.cases),
+        ("runtally.checks", tally_of.checks),
+        ("runtally.unjudged", tally_of.unjudged),
+        ("runtally.suspended", tally_of.suspended),
     )
     tally = "".join(
         f"<li>{escape(phrase(locale, key))} <b>{value}</b></li>"

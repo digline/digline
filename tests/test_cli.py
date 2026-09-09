@@ -1218,3 +1218,96 @@ def test_the_help_and_the_package_summary_say_the_same_thing() -> None:
     summary = pyproject["project"]["description"]
     assert "baseline" in summary and "repo" in summary
     assert "worse" in build_parser().format_help()
+
+
+# --------------------------------------------------------------------------- #
+# `digline explain` — the scope follows the store, and the exit code gates
+# (ADR 0012 §1, §6)
+# --------------------------------------------------------------------------- #
+
+
+def test_explaining_without_a_baseline_reads_the_run_alone(repo: Path) -> None:
+    """Not a refusal, and this is the pattern `report` settled in 0.6.0: making
+    a reader name the scope means making them know, before they type, which of
+    two documents they are entitled to."""
+    key = run_key(repo)
+    done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key)
+    assert done.returncode == EXIT_OK, done.stderr
+    assert "What ran" in done.stdout
+    assert "How it was set up" in done.stdout
+    assert "What it found" in done.stdout
+    # No comparative claim anywhere: there is nothing here to be worse than.
+    assert "reference" not in done.stdout.lower()
+    assert "got worse" not in done.stdout
+
+
+def test_explaining_with_a_baseline_compares_without_being_asked(repo: Path) -> None:
+    key = run_key(repo)
+    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key)
+    assert done.returncode == EXIT_OK, done.stderr
+    assert "What moved" in done.stdout
+    assert "What differed underneath" in done.stdout
+
+
+def test_explaining_a_run_that_got_worse_exits_one(repo: Path) -> None:
+    """It gates like `report` and not like `diff`: with a baseline it holds a
+    run against the same approved reference `compare` gates on, and a command
+    that described a regression at length while exiting 0 would teach a reader
+    that the exit code is decoration."""
+    good = run_key(repo)
+    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", good).returncode == 0
+    write_suite(repo, fr_score="0.1")
+    worse = run_key(repo)
+    done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", worse)
+    assert done.returncode == EXIT_WORSE, done.stdout
+    assert "got worse" in done.stdout
+
+
+def test_a_reading_with_no_reference_never_exits_worse(repo: Path) -> None:
+    """The one test to read first if ADR 0012 §6 ever looks like it stopped
+    being true. "Worse" is a relation, and a run read alone has nothing to be
+    worse than — however badly it scored."""
+    write_suite(repo, fr_score="0.1")
+    key = run_key(repo)
+    done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key)
+    assert done.returncode != EXIT_WORSE
+    assert done.returncode == EXIT_OK, done.stderr
+
+
+def test_a_reading_emits_the_fact_list_and_no_prose(repo: Path) -> None:
+    key = run_key(repo)
+    done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key, "--json")
+    assert done.returncode == EXIT_OK, done.stderr
+    payload = json.loads(done.stdout)
+    assert payload["output_version"] == OUTPUT_VERSION
+    assert payload["scope"] == "run"
+    assert payload["exit_code"] == EXIT_OK
+    assert payload["facts"], "an empty list would make this test prove nothing"
+    assert {fact["about"] for fact in payload["facts"]} <= {"check", "setting", "run"}
+    # The prose is a render of this, so none of it travels: a consumer with the
+    # typed facts in hand must never be invited to parse English.
+    assert "sentence" not in payload
+    assert "What ran" not in done.stdout
+
+
+def test_the_reading_is_available_in_italian(repo: Path) -> None:
+    key = run_key(repo)
+    done = cli(
+        repo, "explain", "--suite", "suite_qa.py", "--run", key, "--locale", "it"
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+    assert "Che cosa è stato eseguito" in done.stdout
+
+
+def test_the_reading_takes_no_out_flag(repo: Path) -> None:
+    """ADR 0012 §7, asserted as an absence. A reading written to a file has a
+    recipient who did not choose English, and `--locale` would have to become
+    mandatory as it is on `report`. The flag's absence is what keeps the
+    document/terminal split honest rather than bent."""
+    key = run_key(repo)
+    done = cli(
+        repo, "explain", "--suite", "suite_qa.py", "--run", key, "--out", "x.txt"
+    )
+    assert done.returncode != EXIT_OK
+    assert "--out" in done.stderr

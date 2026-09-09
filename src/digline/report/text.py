@@ -345,6 +345,142 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "A suspension without a stated reason is a case that disappears "
             "quietly. Write why."
         ),
+        # --- the reading (`digline explain`, ADR 0012) ----------------------
+        #
+        # Every string here is a statement, never an instruction. No modal verb
+        # aimed at the reader, and no word about a second run: a reading is of
+        # one run and its reference, so "again", "repeats" and "drift" are
+        # measurements nobody took here. Both are gates, not conventions.
+        "explain.heading.tally": "What ran",
+        "explain.heading.settings.compared": "What differed underneath",
+        "explain.heading.settings.alone": "How it was set up",
+        "explain.heading.checks.compared": "What moved",
+        "explain.heading.checks.alone": "What it found",
+        "explain.tally.cases.none": "No case ran.",
+        "explain.tally.cases.one": "1 case ran.",
+        "explain.tally.cases.many": "{count} cases ran.",
+        "explain.tally.checks.none": "No check ran.",
+        "explain.tally.checks.one": "1 check ran.",
+        "explain.tally.checks.many": "{count} checks ran.",
+        "explain.tally.unjudged.none": "Every case could be judged.",
+        "explain.tally.unjudged.one": "1 case could not be judged.",
+        "explain.tally.unjudged.many": "{count} cases could not be judged.",
+        "explain.tally.suspended.none": "No case is suspended.",
+        "explain.tally.suspended.one": "1 case is suspended.",
+        "explain.tally.suspended.many": "{count} cases are suspended.",
+        "explain.tally.within_noise.one": (
+            "1 check moved, and the interval its reference measured covers "
+            "the movement."
+        ),
+        "explain.tally.within_noise.many": (
+            "{count} checks moved, and the intervals their reference measured "
+            "cover the movement."
+        ),
+        "explain.tally.suite_config.changed": (
+            "The suite changed since the reference, so these numbers compare "
+            "different rules."
+        ),
+        "explain.tally.suite_config.unchanged": (
+            "The suite is unchanged from the reference."
+        ),
+        "explain.tally.comparability": (
+            "The instrument that graded is not the one that graded the "
+            "reference, so every difference below is measured on two scales."
+        ),
+        "explain.setting.target.changed": (
+            "The system under test answered with {name} {after}; the reference "
+            "answered with {before}."
+        ),
+        "explain.setting.target.new": (
+            "The system under test recorded {name} {after}, which the "
+            "reference did not record."
+        ),
+        "explain.setting.target.missing": (
+            "The reference recorded {name} {before}; this run recorded none."
+        ),
+        "explain.setting.target.unknown": (
+            "Whether {name} changed is not known: one side did not record it, "
+            "or it was withheld."
+        ),
+        "explain.setting.judge.changed": (
+            "The judge graded with {name} {after}; the reference was graded "
+            "with {before}."
+        ),
+        "explain.setting.judge.new": (
+            "The judge recorded {name} {after}, which the reference did not record."
+        ),
+        "explain.setting.judge.missing": (
+            "The reference was graded with {name} {before}; this run recorded none."
+        ),
+        "explain.setting.judge.unknown": (
+            "Whether the judge's {name} changed is not known: one side did not "
+            "record it, or it was withheld."
+        ),
+        "explain.setting.judge.added": (
+            "{after} graded this run and did not grade the reference."
+        ),
+        "explain.setting.judge.removed": (
+            "{before} graded the reference and did not grade this run."
+        ),
+        "explain.setting.artifact.changed": "{name} changed: {tally}.",
+        "explain.setting.artifact.changed.untallied": "{name} changed.",
+        "explain.setting.artifact.new": (
+            "{name} is under test in this run and was not in the reference."
+        ),
+        "explain.setting.artifact.missing": (
+            "{name} was under test in the reference and is not in this run."
+        ),
+        "explain.setting.artifact.unknown": (
+            "{name} is under test; its contents are not included, so whether "
+            "it changed is not known."
+        ),
+        "explain.setting.target.alone": (
+            "The system under test answered with {name} {after}."
+        ),
+        "explain.setting.judge.alone": "The judge graded with {name} {after}.",
+        "explain.setting.target.alone.withheld": (
+            "The system under test recorded {name}; the value is not included."
+        ),
+        "explain.setting.judge.alone.withheld": (
+            "The judge recorded {name}; the value is not included."
+        ),
+        "explain.setting.artifact.alone": "{name} was under test.",
+        "explain.setting.artifact.alone.withheld": (
+            "{name} was under test; its contents are not included."
+        ),
+        "explain.check.regressed": (
+            "{where} got worse: {before} to {now}, a drop of {delta}."
+        ),
+        "explain.check.improved": (
+            "{where} got better: {before} to {now}, a rise of {delta}."
+        ),
+        "explain.check.unchanged": (
+            "{where} moved from {before} to {now}, inside the tolerance the "
+            "suite declares."
+        ),
+        "explain.check.within_noise": (
+            "{where} moved from {before} to {now}, inside the interval its "
+            "reference measured."
+        ),
+        "explain.check.new": (
+            "{where} was checked here and is not in the reference, so there is "
+            "nothing to hold it against."
+        ),
+        "explain.check.missing": (
+            "{where} is in the reference and was not checked here."
+        ),
+        "explain.check.errored": "{where} could not be judged.",
+        "explain.check.failing": "{where} is under its bar at {now}.",
+        "explain.check.suspended": (
+            "The case {case} was set aside, so nothing was measured on it. The "
+            "stated reason is not carried here."
+        ),
+        "explain.where.run": "the whole run",
+        "explain.bar": " The bar is {threshold}.",
+        "explain.noise.beyond": (
+            " That is outside the interval its reference measured, {noise}."
+        ),
+        "explain.nothing": "Nothing in this group.",
     },
     "it": {
         "document.title": "Rapporto di valutazione — {suite}",
@@ -653,6 +789,144 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Una sospensione senza motivo dichiarato è un caso che sparisce in "
             "silenzio. Scrivi perché."
         ),
+        # --- la lettura (`digline explain`, ADR 0012) ------------------------
+        #
+        # Vale qui la regola scritta in inglese sopra: ogni stringa è una
+        # constatazione, mai un'istruzione, e nessuna parla di una seconda
+        # esecuzione — una lettura riguarda una run e il suo riferimento.
+        "explain.heading.tally": "Che cosa è stato eseguito",
+        "explain.heading.settings.compared": "Che cosa differiva sotto",
+        "explain.heading.settings.alone": "Com'era configurato",
+        "explain.heading.checks.compared": "Che cosa si è mosso",
+        "explain.heading.checks.alone": "Che cosa ha rilevato",
+        "explain.tally.cases.none": "Nessun caso è stato eseguito.",
+        "explain.tally.cases.one": "È stato eseguito 1 caso.",
+        "explain.tally.cases.many": "Sono stati eseguiti {count} casi.",
+        "explain.tally.checks.none": "Nessun controllo è stato eseguito.",
+        "explain.tally.checks.one": "È stato eseguito 1 controllo.",
+        "explain.tally.checks.many": "Sono stati eseguiti {count} controlli.",
+        "explain.tally.unjudged.none": "Ogni caso è stato valutato.",
+        "explain.tally.unjudged.one": "1 caso non è stato valutato.",
+        "explain.tally.unjudged.many": "{count} casi non sono stati valutati.",
+        "explain.tally.suspended.none": "Nessun caso è sospeso.",
+        "explain.tally.suspended.one": "1 caso è sospeso.",
+        "explain.tally.suspended.many": "{count} casi sono sospesi.",
+        "explain.tally.within_noise.one": (
+            "1 controllo si è mosso, e l'intervallo misurato dal riferimento "
+            "copre lo spostamento."
+        ),
+        "explain.tally.within_noise.many": (
+            "{count} controlli si sono mossi, e gli intervalli misurati dal "
+            "riferimento coprono lo spostamento."
+        ),
+        "explain.tally.suite_config.changed": (
+            "La suite è cambiata rispetto al riferimento: questi numeri "
+            "confrontano regole diverse."
+        ),
+        "explain.tally.suite_config.unchanged": (
+            "La suite è invariata rispetto al riferimento."
+        ),
+        "explain.tally.comparability": (
+            "Lo strumento che ha valutato non è quello che ha valutato il "
+            "riferimento: ogni differenza qui sotto è misurata su due scale."
+        ),
+        "explain.setting.target.changed": (
+            "Il sistema sotto esame ha risposto con {name} {after}; il "
+            "riferimento ha risposto con {before}."
+        ),
+        "explain.setting.target.new": (
+            "Il sistema sotto esame ha registrato {name} {after}, che il "
+            "riferimento non registrava."
+        ),
+        "explain.setting.target.missing": (
+            "Il riferimento registrava {name} {before}; questa esecuzione non "
+            "ne registra alcuno."
+        ),
+        "explain.setting.target.unknown": (
+            "Se {name} sia cambiato non è noto: un lato non l'ha registrato, "
+            "oppure è stato trattenuto."
+        ),
+        "explain.setting.judge.changed": (
+            "Il giudice ha valutato con {name} {after}; il riferimento è stato "
+            "valutato con {before}."
+        ),
+        "explain.setting.judge.new": (
+            "Il giudice ha registrato {name} {after}, che il riferimento non "
+            "registrava."
+        ),
+        "explain.setting.judge.missing": (
+            "Il riferimento è stato valutato con {name} {before}; questa "
+            "esecuzione non ne registra alcuno."
+        ),
+        "explain.setting.judge.unknown": (
+            "Se {name} del giudice sia cambiato non è noto: un lato non l'ha "
+            "registrato, oppure è stato trattenuto."
+        ),
+        "explain.setting.judge.added": (
+            "{after} ha valutato questa esecuzione e non ha valutato il riferimento."
+        ),
+        "explain.setting.judge.removed": (
+            "{before} ha valutato il riferimento e non ha valutato questa esecuzione."
+        ),
+        "explain.setting.artifact.changed": "{name} è cambiato: {tally}.",
+        "explain.setting.artifact.changed.untallied": "{name} è cambiato.",
+        "explain.setting.artifact.new": (
+            "{name} è sotto esame in questa esecuzione e non lo era nel riferimento."
+        ),
+        "explain.setting.artifact.missing": (
+            "{name} era sotto esame nel riferimento e non lo è in questa esecuzione."
+        ),
+        "explain.setting.artifact.unknown": (
+            "{name} è sotto esame; il contenuto non è incluso, quindi se sia "
+            "cambiato non è noto."
+        ),
+        "explain.setting.target.alone": (
+            "Il sistema sotto esame ha risposto con {name} {after}."
+        ),
+        "explain.setting.judge.alone": "Il giudice ha valutato con {name} {after}.",
+        "explain.setting.target.alone.withheld": (
+            "Il sistema sotto esame ha registrato {name}; il valore non è incluso."
+        ),
+        "explain.setting.judge.alone.withheld": (
+            "Il giudice ha registrato {name}; il valore non è incluso."
+        ),
+        "explain.setting.artifact.alone": "{name} era sotto esame.",
+        "explain.setting.artifact.alone.withheld": (
+            "{name} era sotto esame; il contenuto non è incluso."
+        ),
+        "explain.check.regressed": (
+            "{where} è peggiorato: da {before} a {now}, un calo di {delta}."
+        ),
+        "explain.check.improved": (
+            "{where} è migliorato: da {before} a {now}, un aumento di {delta}."
+        ),
+        "explain.check.unchanged": (
+            "{where} si è spostato da {before} a {now}, entro la tolleranza "
+            "dichiarata dalla suite."
+        ),
+        "explain.check.within_noise": (
+            "{where} si è spostato da {before} a {now}, entro l'intervallo "
+            "misurato dal riferimento."
+        ),
+        "explain.check.new": (
+            "{where} è stato controllato qui e non è nel riferimento, quindi "
+            "non c'è nulla con cui confrontarlo."
+        ),
+        "explain.check.missing": (
+            "{where} è nel riferimento e qui non è stato controllato."
+        ),
+        "explain.check.errored": "{where} non è stato valutato.",
+        "explain.check.failing": "{where} è sotto la sua soglia, a {now}.",
+        "explain.check.suspended": (
+            "Il caso {case} è stato messo da parte, quindi su di esso non è "
+            "stato misurato nulla. Il motivo dichiarato non viaggia qui."
+        ),
+        "explain.where.run": "l'intera esecuzione",
+        "explain.bar": " La soglia è {threshold}.",
+        "explain.noise.beyond": (
+            " È fuori dall'intervallo misurato dal riferimento, {noise}."
+        ),
+        "explain.nothing": "Niente in questo gruppo.",
     },
 }
 
