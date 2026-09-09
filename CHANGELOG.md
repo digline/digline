@@ -27,6 +27,14 @@ uv add --upgrade digline digline-mcp
   something the server cannot place inside the repository at all. The CLI still
   takes that form — a person's tool has no perimeter to keep.
   ([ADR 0011 §8](https://digline.dev/product/adr/0011-the-mcp-server/), amended)
+- **Security:** a run key is validated like the other two path segments. The
+  store checked the tenant and the suite and took the key verbatim, and the key
+  is the one segment that arrives from outside — `--run`, and `?run=` in the
+  view's query string. `digline view` would answer
+  `/compare?run=../../../../elsewhere` with a 200 and render a run document from
+  outside `.digline/`. Bounded in practice: only files ending `.json` that parse
+  as a run, and a run addressed through the wrong tenant was already refused. It
+  is now a 400.
 ## 0.7.0 — 2026-09-09
 
 digline 0.7.0, the second release today and a different kind from the first.

@@ -276,6 +276,23 @@ def test_dangerous_names_are_rejected(tmp_path: Path) -> None:
             store.baseline_path("acme", bad)
         with pytest.raises(ValueError, match="invalid tenant name"):
             store.baseline_path(bad, "test-suite")
+        # The run key too, and it is the one that matters most: tenant and
+        # suite are read from a suite the developer wrote, while the key
+        # arrives from `--run` or from `?run=` in the view's query string.
+        with pytest.raises(ValueError, match="invalid run name"):
+            store.run_path(RunRef(tenant="acme", suite="test-suite", key=bad))
+
+
+def test_a_real_run_key_is_still_a_legal_name(tmp_path: Path) -> None:
+    """The check above has to admit what `key_for` produces, or it refuses every
+    run there has ever been. `latest` too: `resolve_key` normally spends it
+    before the store sees it, but nothing stops a caller passing it through."""
+    store = FileResultStore(tmp_path)
+    key = store.key_for(run())
+    assert (
+        store.run_path(RunRef(tenant="acme", suite="qa", key=key)).name == f"{key}.json"
+    )
+    store.run_path(RunRef(tenant="acme", suite="qa", key="latest"))
 
 
 # --------------------------------------------------------------------------- #

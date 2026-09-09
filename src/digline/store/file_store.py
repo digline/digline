@@ -117,10 +117,16 @@ class FileResultStore:
         return self.baselines_dir(tenant) / f"{_check_name(suite, 'suite')}.json"
 
     def run_path(self, ref: RunRef) -> Path:
+        # The key is checked like the other two segments, and for a sharper
+        # reason: tenant and suite come from a suite the developer wrote, while
+        # the key is the one segment that arrives from outside — `--run` on the
+        # command line, `?run=` in the view's query string. It was once the only
+        # part of this path taken verbatim, and `?run=../../../elsewhere` then
+        # read a file outside `.digline/` and the view rendered it.
         return (
             self.runs_dir(ref.tenant)
             / _check_name(ref.suite, "suite")
-            / f"{ref.key}.json"
+            / f"{_check_name(ref.key, 'run')}.json"
         )
 
     @staticmethod

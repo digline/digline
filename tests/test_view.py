@@ -365,6 +365,29 @@ def test_an_unknown_path_is_a_page_not_a_file(served: tuple[str, str]) -> None:
     assert get(f"{base}../../etc/passwd")[0] == 404
 
 
+def test_a_run_key_cannot_climb_out_of_the_store(
+    served: tuple[str, str], repo: Path
+) -> None:
+    """The traversal that mattered was in the query string, not the path.
+
+    The test above holds the *route*, and passed throughout: `/compare` is a
+    real route, so the escape rode in as its argument. `?run=../../../../x`
+    resolved under `.digline/<tenant>/runs/<suite>/` and, before 0.7.1, was read
+    and rendered with a 200. The file planted here is a valid run document, so
+    what is being tested is the boundary and not a parse failure.
+    """
+    base, key = served
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    (repo / "outside.json").write_text(stored.read_text(encoding="utf-8"), "utf-8")
+
+    status, body = get(f"{base}compare?run=../../../../outside")
+    assert status == 400
+    assert "invalid run name" in body
+    # The planted document is readable and really is a run: without this the
+    # assertion above would also pass if the escape had merely failed to parse.
+    assert stored.exists() and '"schema_version"' in (repo / "outside.json").read_text()
+
+
 def post(url: str, data: str, *, origin: str | None) -> int:
     request = urllib.request.Request(
         url,
