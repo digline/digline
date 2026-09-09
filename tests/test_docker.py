@@ -272,3 +272,49 @@ def test_the_entrypoint_is_the_cli_in_the_mounted_repository() -> None:
     text = dockerfile()
     assert 'ENTRYPOINT ["digline"]' in text
     assert re.search(r"^WORKDIR /work$", text, re.M)
+
+
+def test_the_readme_lists_the_commands_the_image_can_run() -> None:
+    """The image's command list, pinned to the parser it describes.
+
+    `docker/README.md` tells a reader that every argument after the image name
+    is the command line they would have typed locally, then names them. That
+    list was typed by hand and had no relationship to `build_parser()`: `diff`
+    shipped in 0.6.0 and the sentence still stopped at six commands, which the
+    0.6.0 release audit found by counting rather than by anything failing.
+
+    **`view` is the one exclusion, and it is deliberate.** It serves HTTP on a
+    port, and the `docker run` this page documents publishes none — a reader
+    who followed the sentence would get a server they cannot reach. Every other
+    subcommand reads and writes the mounted repository and nothing else, which
+    is exactly what the image is for.
+    """
+    from digline.cli.main import build_parser
+
+    # Read off the usage line — `{run,compare,diff,...}` — rather than out of
+    # `parser._actions`. It is the parser's own public rendering, it is what
+    # `digline --help` shows a reader, and it needs no private argparse type.
+    usage = build_parser().format_usage()
+    choices = re.search(r"\{([a-z,]+)\}", usage)
+    assert choices is not None, f"no subcommand list in the usage line: {usage!r}"
+    expected = set(choices.group(1).split(",")) - {"view"}
+
+    text = (ROOT / "docker" / "README.md").read_text(encoding="utf-8")
+    found = re.search(
+        r"the command line you would have typed locally — (.+?)\. The exit code",
+        text,
+        re.S,
+    )
+    assert found is not None, (
+        "docker/README.md no longer has the sentence this gate reads. If it "
+        "moved, move the pattern with it: the list in it is written by hand."
+    )
+    listed = set(re.findall(r"`([a-z]+)`", found.group(1)))
+
+    assert listed == expected, (
+        f"docker/README.md names {sorted(listed)} and the CLI offers "
+        f"{sorted(expected)} (every subcommand but `view`, which needs a "
+        "published port). Add the missing ones to the sentence, or — if a "
+        "command genuinely cannot run in the image — exclude it here with the "
+        "reason, the way `view` is excluded."
+    )

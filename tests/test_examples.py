@@ -736,3 +736,59 @@ def test_every_example_admits_the_versions_this_workspace_declares() -> None:
                 f"with the release, as RELEASING.md says, or the example is "
                 f"tested against the release before this one."
             )
+
+
+#: Spelt out, because the front page spells them out. Only as far as the number
+#: of examples could plausibly reach — a longer table would be inventing a
+#: problem nobody has.
+NUMBER_WORDS = {
+    5: "Five",
+    6: "Six",
+    7: "Seven",
+    8: "Eight",
+    9: "Nine",
+    10: "Ten",
+}
+
+
+def test_the_front_page_counts_the_examples_it_lists() -> None:
+    """One source of truth for how many examples there are: the directories.
+
+    `README.md` said "Six projects in `examples/`" and listed six for the whole
+    of 0.5.0 and 0.6.0, while `quickstart-toml` was the seventh — present in the
+    site's nav, in `sync-docs.sh`'s glob and in `test_example_caps.STANDALONE`,
+    and missing only from the page a reader arrives on. Nothing counted, so
+    nothing noticed. The example that went missing was the one for a reader who
+    writes no Python, which is the one least able to find itself by browsing a
+    directory of Python projects.
+    """
+    names = examples_with_a_readme()
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    word = NUMBER_WORDS.get(len(names))
+    assert word is not None, (
+        f"{len(names)} examples, which NUMBER_WORDS above does not spell. Add "
+        "the word rather than changing the sentence to a digit: the page is "
+        "prose."
+    )
+    assert f"{word} projects in [`examples/`](examples/)" in text, (
+        f"README.md does not say “{word} projects in `examples/`”, and there "
+        f"are {len(names)}: {names}. If the sentence moved, move this pattern "
+        "with it — the number in it is written by hand."
+    )
+
+    # Bullets only. The page links `examples/quickstart/` further down as the
+    # guide's first chapter, and that directory is deliberately not one of the
+    # projects — it has no README, which is the same rule the glob follows.
+    linked = {
+        found.group(1)
+        for line in text.splitlines()
+        if line.startswith("- [")
+        for found in [re.search(r"\]\(examples/([\w-]+)/\)", line)]
+        if found is not None
+    }
+    assert linked == set(names), (
+        "the bullets under that sentence do not match the directories.\n"
+        f"  listed but not an example: {sorted(linked - set(names))}\n"
+        f"  an example but not listed:  {sorted(set(names) - linked)}"
+    )
