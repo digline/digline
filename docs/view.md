@@ -40,10 +40,23 @@ store's refusal stays underneath as the second line of defence.
 Below the table, two pickers compare **any two runs**. Comparing with the
 baseline is not among them: that question is the button on the row.
 
-**Comparison** (`/compare`) — the exported report with a navigation bar in front
-of it. It calls `render_html`, the same function `digline report` writes to a
-file, so the unified diff of any file under test appears here too, above the
-score deltas.
+**Comparison, or diff** (`/compare`) — one route, two questions, and the
+reference is what tells them apart.
+
+Against the **baseline** — which is what the row's button asks, and what an
+omitted `against` means — this is a run held against an approved reference.
+That is `compare()`'s question, so the page is the verdict document: it calls
+`render_html`, the same function `digline report` writes to a file, and the
+unified diff of any file under test appears here too, above the score deltas.
+
+Against **any other run** — the two pickers — neither side was approved by
+anybody, so the page is the [diff report](diff.md) instead. Until ADR 0008 this
+route rendered the verdict for every pair, which put two candidates under a
+heading asking *"Did it get worse?"* beside a column called *"Reference"*: the
+diff's need served with the verdict's semantics. A refusal from a diff — two
+runs measured under different rules — arrives here as the **same sentence the
+CLI prints**, because it is the same refusal and a refusal worded twice would be
+two refusals.
 
 **History of a case** (`/case/<id>`) — one row per run, one column per
 assertion, and for sampled assertions the **raw votes** under the combined
