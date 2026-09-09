@@ -36,9 +36,16 @@ What differed underneath
 prompts/system.txt changed: +1 −0 lines.
 
 What moved
-gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. That is outside the interval its reference measured, 1.000000–1.000000 across 3 samples. The bar is 0.700000.
-opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636. The bar is 0.750000.
+gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. That is outside the interval its reference measured, 1.000000–1.000000 across 3 samples.
+opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636.
 ```
+
+A comparison states no threshold, and the report is why: its case tables are
+about movement against a reference and print no bars, so a reading of one
+prints none either. The number is on the fact and in `--json`, and the run
+document shows `score / threshold` on every row. That rule has a name — every
+value this command prints appears in the same run's report — and it is a test,
+not a convention.
 
 With **no baseline** it reads the run alone, and says so by what it does not
 say — no "reference", no "got worse", no comparison of any kind:
