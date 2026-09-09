@@ -150,6 +150,25 @@ What changed for you, three lines a version. The reasoning lives in
   not judge still exits 2, because that is a fact about the harness rather than
   about a reference. `digline compare` is unchanged and still refuses: a
   comparison needs a reference, a document does not.
+- **Changed:** a judge that returns no text now says so. An empty completion is
+  a legal *output* — the assertions get to fail it, and that is unchanged — but
+  it is not a legal *judgment*: there is nothing to parse, so nothing was
+  judged. The verdict was already `error`; what was wrong was the sentence,
+  which reported that the reply held no JSON object and sent whoever read it
+  looking for malformed JSON that was not there. It now names the fact first
+  and the likely cause second, marked as the inference it is: *"output hit the
+  max_tokens cap (512 of 512) — likely truncated before the first character"*
+  against *"output well under the cap (7 of 512) — a non-text reply or a
+  refusal"*. The two need different actions, and raising the cap fixes only one
+  of them.
+
+  The check sees past an assistant **prefill**, which is what makes it work for
+  the provider most likely to be judging: Anthropic's judge opens the reply with
+  `{` so the model's output is an object either way, and a model that produced
+  nothing arrived as `"{"` rather than as `""`. No plugin changed and none needs
+  a release. The provider's own `finish_reason` is still not reported — it does
+  not reach this layer — so the cause is stated as a reading of the token
+  counts and never as the provider's word.
 
 ## 0.5.0 — 2026-09-08
 

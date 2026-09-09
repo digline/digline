@@ -148,6 +148,40 @@ def _matching_brace(text: str, start: int) -> int:
     return -1
 
 
+def _no_text(output_tokens: int, max_tokens: int) -> str:
+    """Why a judge that said nothing said nothing, as far as this can tell.
+
+    **A judge that returned no text did not judge**, so the caller turns this
+    into `error` — the same family as an unverifiable budget not being a budget
+    met. The status was already right before this existed: `loads_lenient("")`
+    raises and every judging assertion catches it. What was wrong was the
+    sentence, which said the reply held no JSON object — a *parser* fact, in a
+    document read by an operator who then goes looking for malformed JSON that
+    is not there.
+
+    So the fact comes first and the cause second, and the cause is marked as
+    the inference it is. The two shapes it can take need different actions:
+    raising `max_tokens` fixes one and nothing about the other, which is a
+    prompt or a model that answered with a tool call.
+
+    What is *not* here is the provider's own `finish_reason` / `stop_reason`.
+    That would say which of the two it really was rather than which it looks
+    like, and it cannot reach this function: `_complete` returns `(text,
+    Usage)` and nothing else, in every plugin and in the abstract method. The
+    numbers below are what this layer holds, so they are what it may claim.
+    """
+    counted = f"{output_tokens} of {max_tokens}"
+    if output_tokens >= max_tokens:
+        return (
+            "the judge returned no text: output hit the max_tokens cap "
+            f"({counted}) — likely truncated before the first character"
+        )
+    return (
+        "the judge returned no text with output well under the cap "
+        f"({counted}) — a non-text reply or a refusal"
+    )
+
+
 class JudgeBase(ABC):
     """A model, a price list, and a running total of what judging has cost.
 
@@ -165,6 +199,12 @@ class JudgeBase(ABC):
     #: than passed in: a judge whose system prompt is a constructor argument is
     #: a judge whose replies the parser cannot promise to read.
     system: ClassVar[str]
+
+    #: What the plugin wrote into the assistant turn before the model spoke, if
+    #: it did. Declared here so `_said_something` can see past it — a reply that
+    #: is only the prefill is a model that said nothing, however non-empty the
+    #: string looks. A plugin that does not prefill leaves this alone.
+    prefill: str | None = None
 
     def __init__(
         self,
@@ -200,6 +240,10 @@ class JudgeBase(ABC):
         self.calls += 1
         self.latency_ms += elapsed_ms
         self.spent_usd += self.pricing.cost(self.model, usage)
+        if not self._said_something(text):
+            raise ValueError(_no_text(usage.output_tokens, self.max_tokens))
+        # The whole text, prefill included: the prefill is part of the reply to
+        # be parsed, it is only not part of what the *model* said.
         return loads_lenient(text)
 
     @property
@@ -233,6 +277,27 @@ class JudgeBase(ABC):
                 f"judge model {self.model!r} has no price (known: {known}); "
                 "pass `pricing=` to add it"
             )
+
+    def _said_something(self, text: str) -> bool:
+        """Whether the *model* contributed anything, past what we wrote for it.
+
+        A plugin may open the assistant turn for the model — Anthropic's judge
+        prefills `{` so the reply is a JSON object whether or not the model
+        felt like opening one. `_complete` prepends that prefill back before
+        returning, which is right for parsing and wrong for this question: a
+        model that produced nothing comes back as `"{"`, and `"{"` is not
+        empty. Without this, the provider most likely to be judging here would
+        be the one provider the check never fired for.
+
+        Read off `self.prefill` because that is the name the plugin already
+        uses; declared on `JudgeBase` so it is a contract rather than a
+        coincidence. A judge that does not prefill leaves it `None` and this is
+        a `strip()`.
+        """
+        body = text
+        if self.prefill and body.startswith(self.prefill):
+            body = body[len(self.prefill) :]
+        return bool(body.strip())
 
     @abstractmethod
     def _complete(self, system: str, prompt: str) -> tuple[str, Usage]:
