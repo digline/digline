@@ -408,6 +408,16 @@ def test_artifacts_are_declared_relative_to_the_suite(build: Build) -> None:
     assert [str(p) for p in suite.artifacts] == ["prompt.md"]
 
 
+def test_an_artifact_that_is_not_a_path_is_refused_by_field_name(
+    build: Build,
+) -> None:
+    """The str-to-Path step is `Suite.__post_init__`'s, here as in a suite.py,
+    so a number in the array is refused by the same sentence rather than
+    quietly loaded as the path `3` (ADR 0007 §6)."""
+    with pytest.raises(UsageError, match="`artifacts`"):
+        build(SUITE + "artifacts = [3]\n" + TARGET + CONTAINS)
+
+
 # --------------------------------------------------------------------------- #
 # A real plugin, resolved by coordinate
 # --------------------------------------------------------------------------- #

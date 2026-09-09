@@ -182,10 +182,13 @@ def load_toml_suite(path: Path) -> tuple[Suite, Target]:
     declared = dict(table)
     declared["cases"] = _cases(path.parent / str(declared.pop("cases")), where)
     if "artifacts" in declared:
-        declared["artifacts"] = [
-            Path(str(entry))
-            for entry in _sequence(declared["artifacts"], "artifacts", where)
-        ]
+        # An array here, `Path` there: the str-to-Path step is `Suite`'s own
+        # (`__post_init__`), so the data form and the Python constructor coerce
+        # by the same rule and refuse by the same sentence. What is checked
+        # here is what only this layer knows — that TOML was given a list.
+        declared["artifacts"] = list(
+            _sequence(declared["artifacts"], "artifacts", where)
+        )
 
     try:
         # `cast` because a parsed document is `object` all the way down and

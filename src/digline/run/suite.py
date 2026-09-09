@@ -7,9 +7,10 @@ produce them, which is the `Target`'s business.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
+from typing import cast
 
 from digline.core import (
     GROUP_MARKER,
@@ -155,6 +156,10 @@ class Suite:
     #: contents to `execute()`, as it already does for the clock and for git.
     #: They do not enter `config_hash`: changing a prompt must stay comparable,
     #: because that comparison is the experiment. (ADR 0003)
+    #:
+    #: A `str` is accepted where a `Path` is meant and coerced on construction,
+    #: as the TOML loader already coerces by declared type; anything else is
+    #: refused here, by field name, rather than at read time.
     artifacts: Sequence[Path] = ()
 
     def __post_init__(self) -> None:
@@ -171,6 +176,11 @@ class Suite:
             )
         if not self.cases:
             raise ValueError(f"suite {self.name!r} declares no cases")
+        # Before the duplicate check below, so `"prompt.md"` and
+        # `Path("prompt.md")` are one artifact declared twice rather than two.
+        object.__setattr__(
+            self, "artifacts", _as_paths(self.artifacts, suite=self.name)
+        )
         if len({str(p) for p in self.artifacts}) != len(self.artifacts):
             raise ValueError(
                 f"suite {self.name!r} declares the same artifact twice: the "
@@ -294,6 +304,46 @@ class Suite:
             ),
             run_assertions=self.run_assertions,
         )
+
+
+def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
+    """`artifacts=["prompt.md"]` is what a reader writes; `Sequence[Path]` is
+    what the field declares.
+
+    The same rule the TOML loader applies — a field that declares a `Path`
+    accepts a `str` — extended from the data form to the Python constructor
+    rather than written a second time. Without it the `str` travels: nothing
+    here refuses it, and it surfaces later and elsewhere as `AttributeError:
+    'str' object has no attribute 'is_absolute'`, raised inside
+    `read_artifacts` at run time, naming neither the suite nor the field.
+
+    What cannot be coerced is refused **by field name**, which is the fallback
+    the loader's own errors model: a locator, a cause, a way out.
+    """
+    if not isinstance(values, Iterable) or isinstance(values, str | bytes):
+        # A `str` is itself a `Sequence` — of characters — so `artifacts="p.md"`
+        # would iterate into five one-letter paths instead of failing. It is the
+        # one wrong value this rule would otherwise accept enthusiastically,
+        # and it is grouped here with what cannot be iterated at all so that
+        # neither escapes as a bare `TypeError` from the loop below.
+        raise ValueError(
+            f"suite {suite!r} declares `artifacts` as `{type(values).__name__}`"
+            ": it is a list of the files under test, one str or Path each — "
+            'write ["p.md"]'
+        )
+    coerced: list[Path] = []
+    for entry in cast("Sequence[object]", values):
+        if isinstance(entry, str):
+            coerced.append(Path(entry))
+        elif isinstance(entry, Path):
+            coerced.append(entry)
+        else:
+            raise ValueError(
+                f"suite {suite!r} declares `artifacts` entry {len(coerced)} "
+                f"as `{type(entry).__name__}`: an artifact is the file that is "
+                "the thing under test, and it is named by a str or a Path"
+            )
+    return tuple(coerced)
 
 
 @dataclass(frozen=True, slots=True)

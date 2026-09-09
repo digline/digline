@@ -89,7 +89,10 @@ Suite(..., artifacts=[Path("prompts/system.md"), Path("prompts/rubric.md")])
 ```
 
 Declared, never discovered — a file that counts as evidence is a file someone
-named. Relative paths resolve against the suite's own directory. The **CLI**
+named. A `str` where a `Path` is meant is coerced on construction, the way the
+TOML loader coerces by declared type, and what cannot be a path is refused there
+by field name rather than at read time. Relative paths resolve against the
+suite's own directory. The **CLI**
 reads them and hands the contents to `execute()`, exactly as it does for the
 clock and for git, so the driver opens no files and stays testable without one.
 A declared file that is missing is a usage error, not a run with no evidence.

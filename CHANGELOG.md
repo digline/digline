@@ -5,6 +5,13 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+- **Fixed:** `Suite(artifacts=["prompt.md"])` — a `str` where a `Path` is meant
+  — is coerced on construction instead of failing later and elsewhere, inside
+  `read_artifacts`, with an `AttributeError` naming neither the suite nor the
+  field. It is the rule the TOML loader already applied, moved to the one place
+  both forms pass through; what cannot be a path is now refused by field name,
+  so `artifacts = [3]` in a data suite stops loading quietly as the path `3`.
+
 - **Added:** `examples/operator/` — the reference assembly for the **operator
   loop**: a suite watched on a schedule by an agent that re-runs within a
   stopping rule declared in a file, tells a draw from a drift from a structural

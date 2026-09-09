@@ -104,15 +104,17 @@ reads them fails if it stops being met.
       two internal layers with it: `digline.host`, the part of the CLI that
       touches the world, and `digline.wire`, the machine surface both front ends
       render through
-- [ ] `Suite(artifacts=[...])` accepts a `str` where it means a `Path`, and
-      fails later and elsewhere: `AttributeError: 'str' object has no attribute
+- [x] `Suite(artifacts=[...])` accepted a `str` where it means a `Path`, and
+      failed later and elsewhere: `AttributeError: 'str' object has no attribute
       'is_absolute'`, raised inside `read_artifacts` at run time, naming neither
-      the suite nor the field. Coerce it in `Suite.__post_init__`, the way the
+      the suite nor the field. Coerced in `Suite.__post_init__`, the way the
       TOML loader already coerces by declared type — one rule, extended from the
-      data form to the Python constructor rather than invented twice. Where a
-      value cannot be coerced, refuse it **by field name** in the message, which
-      is the fallback the TOML errors already model. Found while writing a
-      fixture for ADR 0011's boundary gate
+      data form to the Python constructor rather than invented twice, and the
+      loader's own `Path(str(entry))` is gone with it. Where a value cannot be
+      coerced it is refused **by field name**, which is the fallback the TOML
+      errors already model — so `artifacts = [3]` in a data suite stops loading
+      quietly as the path `3`. Found while writing a fixture for ADR 0011's
+      boundary gate
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
 - [x] An official container image, `ghcr.io/digline/digline`: the CLI and the
       three provider plugins, published by the release workflow on a `v*` tag.
