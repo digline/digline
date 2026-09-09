@@ -133,6 +133,23 @@ What changed for you, three lines a version. The reasoning lives in
   one script rather than two copies. The job is gated on the paths that decide
   what the image is, because the Dockerfile installs from PyPI and a change
   under `src/` cannot change the image being built.
+- **Fixed:** `digline report` no longer refuses a run that has no baseline. It
+  used to say *"run it, look at the result, then promote"* while being the only
+  way to look — a dead end whose first victim is always someone on their first
+  run. It now renders the run on its own: the same header, aggregates, files
+  under test and configuration, with the cases grouped by what each verdict
+  **is** — met its threshold, did not, could not be judged, set aside — instead
+  of by what it did against a reference it does not have. Where the verdict
+  goes, the document states the fact rather than answering a question it cannot
+  ask: *"No reference to compare against."* Both locales.
+
+  No flag decides this, the way `--redacted` is not what makes a report
+  redacted: complete or redacted follows from the run, comparative or not
+  follows from whether a reference exists. It **never exits 1** — "worse" is a
+  relation and there is nothing to be worse than — but a case the suite could
+  not judge still exits 2, because that is a fact about the harness rather than
+  about a reference. `digline compare` is unchanged and still refuses: a
+  comparison needs a reference, a document does not.
 
 ## 0.5.0 — 2026-09-08
 

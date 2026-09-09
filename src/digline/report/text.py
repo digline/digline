@@ -62,6 +62,22 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "header.redacted": "Contents omitted",
         "header.redacted.value": "This report was produced from redacted data.",
+        # The third state of the answer block: a run with no approved
+        # reference. Not a verdict and not an empty box — the fact, stated.
+        "noreference.title": "No reference to compare against",
+        "noreference.sentence": (
+            "This is the run as measured. Whether it got worse is a question "
+            "that needs an approved reference; nothing in this document "
+            "answers it."
+        ),
+        "runtally.cases": "cases",
+        "runtally.checks": "checks",
+        # The unit is in the label. The sections below count verdicts —
+        # one errored case can carry three — and the headline slot counts
+        # cases, the way every sentence in this document does. Two true
+        # numbers that differ need to say what they are counting.
+        "runtally.unjudged": "cases not judged",
+        "runtally.suspended": "cases set aside",
         "answer.question": "Did it get worse?",
         "answer.yes": "Yes",
         "answer.no": "No",
@@ -144,6 +160,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.withheld": "The contents are not included in this report.",
         "artifacts.tally": "+{added} −{removed} lines",
         "artifacts.column.file": "File",
+        "artifacts.column.fingerprint": "Fingerprint",
         "artifacts.column.what": "What happened",
         "aggregates.title": "Overall",
         "aggregates.failing_not_worse": (
@@ -159,6 +176,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "column.measure": "Measure",
         "column.result": "Result",
         "scope.run": "whole run",
+        # The single-run document groups by what a verdict *is*, where the
+        # comparison groups by what it did. `unjudged` and `suspended` are
+        # shared: they mean the same thing with or without a reference.
+        "section.failed": "What did not meet its threshold",
+        "section.passed": "What met its threshold",
         "section.regressions": "What got worse",
         "section.unjudged": "What could not be judged",
         "section.suspended": "What is set aside",
@@ -337,6 +359,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "header.redacted": "Contenuti omessi",
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
+        "noreference.title": "Nessun riferimento con cui confrontare",
+        "noreference.sentence": (
+            "Questa è l'esecuzione così come è stata misurata. Se sia "
+            "peggiorata è una domanda che richiede un riferimento approvato: "
+            "questo documento non risponde a quella domanda."
+        ),
+        "runtally.cases": "casi",
+        "runtally.checks": "controlli",
+        "runtally.unjudged": "casi non giudicati",
+        "runtally.suspended": "casi messi da parte",
         "answer.question": "È peggiorato?",
         "answer.yes": "Sì",
         "answer.no": "No",
@@ -421,6 +453,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.withheld": "Il contenuto non è incluso in questo rapporto.",
         "artifacts.tally": "+{added} −{removed} righe",
         "artifacts.column.file": "File",
+        "artifacts.column.fingerprint": "Impronta",
         "artifacts.column.what": "Che cosa è successo",
         "aggregates.title": "Nel complesso",
         "aggregates.failing_not_worse": (
@@ -436,6 +469,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "column.measure": "Misura",
         "column.result": "Risultato",
         "scope.run": "intera esecuzione",
+        "section.failed": "Che cosa non ha raggiunto la soglia",
+        "section.passed": "Che cosa ha raggiunto la soglia",
         "section.regressions": "Che cosa è peggiorato",
         "section.unjudged": "Che cosa non è stato possibile giudicare",
         "section.suspended": "Che cosa è messo da parte",

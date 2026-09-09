@@ -564,6 +564,96 @@ def test_report_does_demand_a_locale(repo: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# The first run, before there is anything to compare it with (friction 3)
+# --------------------------------------------------------------------------- #
+
+
+def test_report_renders_a_run_that_has_no_baseline(repo: Path) -> None:
+    """The dead end this closes: `report` refused a run with no baseline and
+    said "run it, look at the result, then promote" — while being the only way
+    to look. A command that names looking as the prerequisite for looking is
+    the friction, not the documentation."""
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_OK, done.stderr
+    assert done.stdout.startswith("<!DOCTYPE html>")
+    assert "No reference to compare against" in done.stdout
+
+
+def test_a_run_with_no_baseline_is_never_reported_as_worse(repo: Path) -> None:
+    """`EXIT_WORSE` is a relation, and there is nothing here to be worse than.
+
+    The suite this runs is the one that scores badly on `capital-fr`, which
+    against a baseline would exit 1. Without one it exits 0: a low score is not
+    a regression, it is a measurement.
+    """
+    write_suite(repo, fr_score="0.2")
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_OK, done.stderr
+    assert done.returncode != EXIT_WORSE
+
+
+def test_a_case_that_could_not_be_judged_still_exits_two(repo: Path) -> None:
+    """The half of the contract that survives without a reference: a case the
+    suite could not judge is a fact about the harness, and a document that
+    reports one must not exit as though everything went fine."""
+    write_suite(repo, extra=', Case(id="flaky")')
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_UNJUDGED, done.stderr
+    # Three verdicts on one case: the section counts checks and the
+    # tally counts cases, and each says which.
+    assert "What could not be judged (3)" in done.stdout
+    assert "<li>cases not judged <b>1</b></li>" in done.stdout
+
+
+def test_the_document_becomes_comparative_once_a_baseline_exists(repo: Path) -> None:
+    """No flag decides this. The same command answers the question it can
+    answer, and says so when it cannot — the way `--redacted` is not what makes
+    a report redacted."""
+    key = run_key(repo)
+    before = cli(
+        repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
+    ).stdout
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    after = cli(
+        repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
+    ).stdout
+
+    assert "No reference to compare against" in before
+    assert "Did it get worse?" not in before
+    assert "No reference to compare against" not in after
+    assert "Did it get worse?" in after
+
+
+def test_compare_still_refuses_without_a_baseline(repo: Path) -> None:
+    """A comparison needs a reference; a document does not. `report` stopped
+    refusing and `compare` did not, which is the whole distinction."""
+    key = run_key(repo)
+    done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
+    assert done.returncode != EXIT_OK
+    assert "has no baseline" in done.stderr
+
+
+def test_a_baseless_report_can_still_be_redacted(repo: Path) -> None:
+    key = run_key(repo)
+    done = cli(
+        repo,
+        "report",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+        "--locale",
+        "en",
+        "--redacted",
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+    assert "judged: " not in done.stdout
+
+
+# --------------------------------------------------------------------------- #
 # --run latest
 # --------------------------------------------------------------------------- #
 

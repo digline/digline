@@ -17,6 +17,7 @@ from digline.report.pages import (
     suspension_snippet,
 )
 from digline.report.render import (
+    RUN_SECTIONS,
     SECTIONS,
     SUMMARY_OUTCOMES,
     Headline,
@@ -28,7 +29,9 @@ from digline.report.render import (
     diff_tally,
     headline,
     render_html,
+    render_run_html,
     summary_lines,
+    unjudged_cases,
 )
 from digline.report.text import LOCALES, TEXT, Locale, phrase
 
@@ -37,6 +40,7 @@ __all__ = [
     "VIEW_CSS",
     "CaseEntry",
     "CaseHistory",
+    "RUN_SECTIONS",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
     "TEXT",
@@ -58,8 +62,10 @@ __all__ = [
     "pages",
     "phrase",
     "render_html",
+    "render_run_html",
     "runs_page",
     "summary_lines",
     "suspend_page",
     "suspension_snippet",
+    "unjudged_cases",
 ]

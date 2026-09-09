@@ -110,6 +110,23 @@ A photograph, not a target: it records where the system **was**, measured, not
 where you would like it to be. Everything below is about taking the photograph
 at a moment worth keeping.
 
+Which raises the obvious question about the sequence above: `promote` is a
+decision, so what do you look at before taking it? `digline report` on a run
+with no baseline renders that run on its own — every case and what it scored,
+the aggregates, the files under test, what answered and what judged. Where the
+verdict would be it says **no reference to compare against**, because there is
+none, and it exits 0 rather than pretending to gate anything.
+
+```console
+$ digline run --suite support.py
+2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
+
+$ digline report --suite support.py --run latest --locale en --out first-run.html
+```
+
+`digline compare` still refuses without a baseline, and should: a comparison
+needs a reference. A document does not.
+
 ## 2. The judge's noise: one run, two runs
 
 Nothing about the system has changed. Only the judge is now the one you actually

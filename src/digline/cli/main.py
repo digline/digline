@@ -52,7 +52,9 @@ from digline.report import (
     config_lines,
     headline,
     render_html,
+    render_run_html,
     summary_lines,
+    unjudged_cases,
 )
 from digline.report import diff as diff_report
 from digline.run import HasArtifacts, Suite, execute, planned_calls
@@ -720,7 +722,23 @@ def cmd_view(args: argparse.Namespace) -> int:
 def cmd_report(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = _read_run(store, suite, _resolve_key(store, suite, args.run))
-    baseline = _need_baseline(store, suite)
+    baseline = store.read_baseline(suite.tenant, suite.name)
+
+    if baseline is None:
+        # Not a refusal, and this is the whole point of the command existing.
+        # `_need_baseline` — which `compare` still uses, rightly — says "run it,
+        # look at the result, then promote", and `report` *was* the only way to
+        # look. Naming looking as the prerequisite for looking is a dead end,
+        # and the first person to hit it is always someone on their first run.
+        #
+        # Automatic rather than a flag, for the reason `--redacted` is not a
+        # choice about what the document says: complete or redacted follows
+        # from `run.redacted`, and comparative or not follows from whether a
+        # reference exists. A flag would have to be an error when a baseline is
+        # present, and would leave the dead end intact for whoever has not yet
+        # learned the flag.
+        return _report_single(run, suite, args)
+
     comparison = compare(run, baseline)
 
     if args.redacted:
@@ -752,6 +770,29 @@ def cmd_report(args: argparse.Namespace) -> int:
     return exit_code(
         headline(compare(run, baseline), run, baseline, locale=args.locale)
     )
+
+
+def _report_single(run: Run, suite: Suite, args: argparse.Namespace) -> int:
+    """The run on its own, and an exit code that claims no more than it can.
+
+    Never `EXIT_WORSE`: "worse" is a relation and there is nothing here to be
+    worse than. `EXIT_UNJUDGED` survives, because a case the suite could not
+    judge is a fact about the harness rather than about a reference — the
+    partial contract mirrors what the document itself claims.
+    """
+    if args.redacted:
+        # No artifact-outcome rescue here, unlike the comparison path: those
+        # outcomes are computed from two runs, and the reason that code exists
+        # — a redacted run compared alone reports `unknown` — cannot arise
+        # where nothing is compared.
+        run = redact(run, suite.disclosure)
+
+    document = render_run_html(run, locale=args.locale)
+    if args.out:
+        Path(args.out).write_text(document, encoding="utf-8")
+    else:
+        print(document, end="")
+    return EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
 
 
 def build_parser() -> argparse.ArgumentParser:

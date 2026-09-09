@@ -209,7 +209,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline compare` | headline plus the lines that got worse; `--json`, `--json full` for CI |
 | `digline diff` | what differs between two runs, neither of them a baseline — for "should I switch?" rather than "did it get worse?". Always exits 0: it is a report, not a verdict — [`docs/diff.md`](docs/diff.md) |
 | `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, or any check errored |
-| `digline report` | self-contained HTML for readers who do not read code; `--locale` mandatory, `--redacted` keeps the verdicts and drops the payload |
+| `digline report` | self-contained HTML for readers who do not read code; `--locale` mandatory, `--redacted` keeps the verdicts and drops the payload. With no baseline yet it renders the run on its own and says so, so the first run is readable before anything is promoted |
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
