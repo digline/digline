@@ -591,3 +591,45 @@ def test_the_run_records_what_the_endpoint_declared(declaring_service: Stub) -> 
     )
     assert run.target_config.values["model"] == "gpt-4o-mini"
     assert run.target_config.recorded
+
+
+def test_a_credential_in_the_url_never_reaches_a_message() -> None:
+    """`https://user:sk-secret@gateway/v1` is a URL people really write, and the
+    sentence this target raises when nothing answers used to carry it whole — to
+    stderr, and in CI to a build log, which is often read more widely than the
+    repository is.
+
+    ADR 0005 §2 already reduced `base_url` to its host for exactly this reason.
+    A target that took its endpoint under a different name was not covered by
+    that decision, only by the fact that nobody had looked.
+    """
+    secret = "sk-SUPERSECRET"  # noqa: S105 — the thing being kept out of a message
+    target = HttpTarget(
+        f"http://user:{secret}@127.0.0.1:1/answer",
+        body={"question": "case.vars.question"},
+        output_path="data.answer",
+    )
+    with pytest.raises(ValueError) as refusal:
+        target.preflight([Case(id="one", vars={"question": "q"})])
+
+    said = str(refusal.value)
+    assert secret not in said
+    assert "user" not in said
+    # Still names the endpoint, or the message would have lost its diagnosis
+    # along with the credential.
+    assert "127.0.0.1:1" in said
+    # The URL itself is untouched: it is what gets called, and only what is
+    # *said* about it is reduced.
+    assert target.url.endswith("@127.0.0.1:1/answer")
+
+
+def test_the_endpoint_is_still_named_when_there_is_no_credential() -> None:
+    """The guard on the guard: reducing to the host must not reduce to nothing,
+    or every diagnostic sentence about a down endpoint becomes the same one."""
+    target = HttpTarget(
+        "http://127.0.0.1:1/answer",
+        body={"question": "case.vars.question"},
+        output_path="data.answer",
+    )
+    with pytest.raises(ValueError, match="nothing answered at 127.0.0.1:1"):
+        target.preflight([Case(id="one", vars={"question": "q"})])

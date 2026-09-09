@@ -5,6 +5,68 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+digline 0.7.1 and digline-mcp 0.1.1: a security pass, and nothing else. Four
+findings from a review of digline's own surfaces — the tool mishandling what it
+is given, which is what `SECURITY.md` says is in scope. None of them is a
+vulnerability in a model you evaluate, and none needs a baseline re-promoted:
+`SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1.
+
+Each was reproduced before it was fixed and is pinned by a test that fails on
+the old code.
+
+```sh
+uv add --upgrade digline digline-mcp
+```
+
+- **Security:** `digline-mcp` now checks that the `suite` a tool names is a file
+  inside `--root`. It did not, and `load_suite` executes a `.py`, so every tool
+  was a way to run a file from anywhere on the disk — including the five
+  annotated `read_only_hint=True`, which is the annotation a client reads to
+  decide it may call one without asking a person first. The check sits in the
+  one function all six tools cross, and it is stricter than the loader: it also
+  refuses the dotted-module form, which resolves through `sys.path` and so names
+  something the server cannot place inside the repository at all. The CLI still
+  takes that form — a person's tool has no perimeter to keep.
+  ([ADR 0011 §8](https://digline.dev/product/adr/0011-the-mcp-server/), amended)
+- **Security:** a run key is validated like the other two path segments. The
+  store checked the tenant and the suite and took the key verbatim, and the key
+  is the one segment that arrives from outside — `--run`, and `?run=` in the
+  view's query string. `digline view` would answer
+  `/compare?run=../../../../elsewhere` with a 200 and render a run document from
+  outside `.digline/`. Bounded in practice: only files ending `.json` that parse
+  as a run, and a run addressed through the wrong tenant was already refused. It
+  is now a 400.
+- **Security:** a suite that is **data** reads inside the repository, or it is
+  refused. `artifacts = ["/etc/passwd"]` in a file with no Python in it read the
+  file and recorded its contents in every run; `cases` and a `[target]`'s
+  `prompt_file` could do the same. The code boundary was closed when the format
+  shipped — no `python =`, no `import =`, no dotted path to a callable — and it
+  held; the read boundary had never been drawn. It is drawn at the **perimeter**,
+  the repository, and not at the suite file's directory: `eval/suite.toml`
+  naming `../prompts/system.md` is reading its own project, and that is the
+  layout the format is for. Outside it is a load error naming the field and the
+  resolved path. A `suite.py` is unaffected — it is code, and code can already
+  open anything.
+  ([ADR 0007 §6](https://digline.dev/product/adr/0007-the-declarative-suite-format/),
+  amended)
+- **Security:** `HttpTarget` names its endpoint by **host** in every message it
+  raises, never by URL. `url = "https://user:sk-secret@gateway/answer"` is a URL
+  people write, and "nothing answered at …" carried it whole — to stderr, and in
+  CI to a build log, which is often read more widely than the repository is. The
+  reduction is the one `base_url` has had since 0.2.0; a target that took its
+  endpoint under another name had simply never been looked at. The URL itself is
+  untouched: only what is *said* about it changes.
+- **Changed:** artifacts are keyed relative to the **perimeter** rather than to
+  the suite file's directory. The old rule fell back to the bare filename for
+  anything outside that directory, so a file from elsewhere was recorded under
+  the same name a file in the project would have had. For a suite at the root of
+  its project — every example in this repository, and the ordinary layout — the
+  keys are byte-identical and nothing moves. A suite kept in a subdirectory will
+  see its artifacts renamed once, from `system.md` to `prompts/system.md`: it
+  shows in the report's artifact section and **does not fail a run**, since an
+  artifact change has never affected the exit code.
+
+
 ## 0.7.0 — 2026-09-09
 
 digline 0.7.0, the second release today and a different kind from the first.

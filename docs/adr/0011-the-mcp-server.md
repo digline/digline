@@ -9,6 +9,12 @@
   count is `target_calls`, §4's `exit_code` lands on both surfaces through the
   one function, and §7's host extraction goes ahead as drafted
 - Date: 2026-09-08
+- Amended: 2026-09-09 — **§8 gains the check that makes it true.** A security
+  review found that `suite` was unconstrained: the section's "the perimeter is
+  the repository" was a description of intent, not of behaviour, and every
+  tool — the read-only ones included — would execute a `.py` from any path on
+  the machine. The decision is unchanged and now enforced. Ships in
+  digline-mcp 0.1.1
 - Amended: 2026-09-08 — §5's projection gains three things, each of them the
   section's own sentence deciding its own list. **The intervals**
   (`samples`, `sample_min`, `sample_max`, as recorded): they are readings of the
@@ -556,6 +562,18 @@ rejected.
 `digline-mcp --root <path>` and, like every CLI command, `--tenant` and `--env`,
 which **verify and never override** (ADR 0002 §1). One server process serves one
 repository, and the perimeter is the repository.
+
+**And `suite` is checked against it.** This section said the perimeter was the
+repository and nothing enforced it: the argument arrived from a tool call and
+went to `load_suite`, which *executes* a `.py`. Every tool was therefore a way
+to run a file from anywhere on the disk — including the five annotated
+`read_only_hint=True`, which is the annotation a client reads to decide it may
+call one without asking a person. From 0.1.1 the spec must name a file inside
+`--root`, checked in the one function all six tools cross. The check is
+deliberately stricter than the loader's: it also refuses the dotted-module
+form, which resolves through `sys.path` and so names something this server
+cannot place inside the repository at all. The CLI still takes that form — a
+person's tool has no perimeter to keep.
 
 **Multi-project is N named servers in the client's config**, not a registry in
 ours:

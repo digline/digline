@@ -75,6 +75,51 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     customer. As a check they earn their keep — a client config can state what
     it believes it is pointed at and be told when it is wrong.
     """
+    perimeter = Path(root).resolve()
+
+    def within_root(spec: str) -> tuple[str, Path]:
+        """The spec to load, and the file it names — both inside this root.
+
+        ADR 0011 §8 said "one server, one repository" and nothing enforced it:
+        `spec` arrived from a tool call and went straight to `load_suite`, which
+        **executes** a `.py`. So every tool here — including the five annotated
+        `read_only_hint=True` — was a way to run a file from anywhere on the
+        disk. The annotation is what a client reads to decide it may call
+        something without asking, which is precisely why this had to become a
+        boundary rather than a caution in a docstring.
+
+        The rule is stricter than the loader's on purpose: **the spec must name
+        a file inside the root.** That refuses the traversal, and it also
+        refuses the dotted-module form, which resolves through `sys.path` and
+        therefore names something this server cannot place inside the
+        repository at all. A suite reachable only as an installed module is
+        reachable by the CLI, which is a person's tool and has no perimeter to
+        keep.
+        """
+        # Same rule as the loader's own `_split`: only a trailing `:name`
+        # counts, and only when `name` is an identifier — so a Windows path
+        # like `C:\suites\qa.py` keeps its drive letter.
+        head, sep, tail = spec.rpartition(":")
+        stem, attr = (head, tail) if sep and tail.isidentifier() else (spec, "")
+        # An absolute `stem` wins over `perimeter` here, which is what makes the
+        # containment check below meaningful rather than decorative.
+        path = (perimeter / stem).resolve()
+        if not path.is_relative_to(perimeter):
+            refuse(
+                f"the suite {spec!r} resolves to {path}, which is outside "
+                f"{perimeter}: one server, one repository (ADR 0011 §8). "
+                "Name a suite inside this repository, or start a second "
+                "server rooted where that one lives."
+            )
+        if not path.is_file():
+            refuse(
+                f"the suite {spec!r} names no file inside {perimeter} "
+                f"(looked at {path}). This server takes a path to a suite "
+                "within its own repository — not a module to import, because "
+                "a module resolves through `sys.path` and could be anywhere."
+            )
+        return (f"{path}:{attr}" if attr else str(path)), path
+
     server = MCPServer(
         name="digline",
         version="0.1.0",
@@ -87,7 +132,8 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     store = FileResultStore(root)
 
     def loaded(spec: str) -> Suite:
-        suite, _ = load_suite(spec)
+        verified, _path = within_root(spec)
+        suite, _ = load_suite(verified, root=perimeter)
         if tenant is not None and tenant != suite.tenant:
             refuse(
                 f"--tenant {tenant!r} does not match the suite, which declares "
@@ -185,16 +231,19 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # import had just dirtied.
         commit = git_commit(Path(root))
         created_at = utc_now_iso()
-        _suite, module = load_suite(suite)
-        target = load_target(None, module, suite)
+        # The verified path, not the raw spec: `read_artifacts` resolves the
+        # suite's declared files against this directory, and taking it from a
+        # string that may still carry a `:attribute` was how it could differ
+        # from the file that was actually loaded.
+        verified, path = within_root(suite)
+        _suite, module = load_suite(verified, root=perimeter)
+        target = load_target(None, module, verified)
         written = execute(
             loaded_suite,
             target,
             created_at=created_at,
             git_commit=commit,
-            artifacts=read_artifacts(
-                loaded_suite, target, Path(suite).resolve().parent
-            ),
+            artifacts=read_artifacts(loaded_suite, target, path.parent, root=perimeter),
         )
         return run_json(store.write_run(written), plan)
 
