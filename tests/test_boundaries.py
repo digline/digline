@@ -22,8 +22,10 @@ from __future__ import annotations
 from digline.core import (
     CaseOutcome,
     CaseResult,
+    CostBudget,
     EvaluatorInputs,
     JudgeReply,
+    LatencyBudget,
     LlmRubric,
     Precision,
     Run,
@@ -294,3 +296,72 @@ def test_a_run_compared_with_itself_is_unchanged_at_zero_tolerance() -> None:
     comparison = compare(run, run)
     assert [d.outcome for d in comparison.deltas] == ["unchanged", "unchanged"]
     assert comparison.regressed == ()
+
+
+# --------------------------------------------------------------------------- #
+# 5. The budget cap: `measured <= cap`, and one comparison deciding it
+# --------------------------------------------------------------------------- #
+
+
+def spent(amount: float, *, cap: float = 1.0) -> Verdict:
+    return CostBudget(max_usd=cap, tolerance=0.0)(
+        EvaluatorInputs(output="hello", cost_usd=amount)
+    )
+
+
+def test_a_budget_exactly_at_its_cap_is_within_budget() -> None:
+    """`budget_score` is built so the cap scores exactly `0.5` against a
+    threshold of `0.5`, which is how "within budget" is encoded once rather than
+    twice. The edge is inclusive like every other."""
+    at_cap = spent(1.0)
+    assert at_cap.score.score == 0.5
+    assert at_cap.status == "pass"
+    assert "within budget" in at_cap.reason
+
+
+def test_a_budget_over_its_cap_fails_and_says_the_same_thing_twice() -> None:
+    """The defect ADR 0009 §6 records, and the fixed decision it was breaking.
+
+    `CostBudget` used to compute the word in its reason from `measured <= cap`
+    on the raw values and its status from the rounded score. Near the cap those
+    disagree: `budget_score` is exactly `0.5` at the cap and rounds to `0.5` for
+    any overrun below about 2e-6 relative, so this run **passed** while its own
+    reason read "over budget". Fixed decision 4 says a declared ceiling fails
+    the run; it did not, and the document contradicted the gate.
+    """
+    over = spent(1.000002)
+    assert over.status == "fail"
+    assert "over budget" in over.reason
+    # The two halves are now one comparison, so no input can separate them.
+    for amount in (1.0, 1.000001, 1.000002, 1.5, 0.5, 0.999999):
+        verdict = spent(amount)
+        said_within = "within budget" in verdict.reason
+        assert said_within == (verdict.status == "pass"), (amount, verdict.reason)
+
+
+def test_the_budget_score_yields_to_the_fact_at_storage_precision() -> None:
+    """Where the compressed proxy cannot express the difference, it is moved one
+    `STORAGE_STEP` to the side the cap puts it on — rather than the status being
+    moved to the side the proxy rounded to."""
+    assert spent(1.0).score.score == 0.5
+    assert spent(1.0 + STEP).score.score == 0.5 - STEP
+    # And a cost that rounds to the cap at six decimals *is* at the cap: that is
+    # the rule, not an exception to it.
+    assert spent(1.0 + STEP / 10).status == "pass"
+
+
+def test_a_latency_budget_holds_the_same_edge() -> None:
+    """The same scale and the same rule, on the other budget. Written out rather
+    than parametrized: a copy of the cost path that silently stopped being a
+    copy is exactly how `diff` acquired its own unrounded subtraction."""
+    at_cap = LatencyBudget(max_ms=30_000.0, tolerance=0.0)(
+        EvaluatorInputs(output="hello", latency_ms=30_000.0)
+    )
+    assert (at_cap.score.score, at_cap.status) == (0.5, "pass")
+    assert "within budget" in at_cap.reason
+
+    over = LatencyBudget(max_ms=30_000.0, tolerance=0.0)(
+        EvaluatorInputs(output="hello", latency_ms=30_000.05)
+    )
+    assert over.status == "fail"
+    assert "over budget" in over.reason

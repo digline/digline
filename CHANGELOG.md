@@ -20,6 +20,15 @@ What changed for you, three lines a version. The reasoning lives in
   `meets`, `within`, `at_precision` and `STORAGE_STEP` so an assertion of your
   own compares the way the built-in ones do. The reasoning is
   [ADR 0009](docs/adr/0009-boundary-semantics.md).
+- **Fixed:** a cost or latency budget **over its cap now fails**. Both budgets
+  answered their own question twice — the word in the reason came from
+  `measured <= cap`, the pass/fail came from the rounded score — and near the
+  cap the two disagreed: a run 0.000002 USD over a 1.000000 USD cap passed
+  while its own reason read `(over budget)`. Fixed decision 4 says a declared
+  ceiling fails the run, and the document was contradicting the gate. There is
+  now one comparison, so the sentence and the status cannot drift apart. Only
+  overruns within about 2e-6 of the cap change verdict; anything already
+  failing still fails, and a cost exactly at the cap still passes at `0.5`.
 
 - **Added:** `examples/operator/` — the reference assembly for the **operator
   loop**: a suite watched on a schedule by an agent that re-runs within a
