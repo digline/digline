@@ -95,6 +95,13 @@ What changed for you, three lines a version. The reasoning lives in
   gates: comparable, and not promotable until you re-promote deliberately.
   `SCHEMA_VERSION` stays at 9 — an expanded aggregate is an ordinary verdict
   under an ordinary name — and no plugin needs a release.
+- **Fixed:** an aggregate whose ratio sits on a rounding boundary raised
+  `ValueError` instead of producing a verdict — 14 of 21 cases against a
+  threshold of `0.666667` crashed the run's gate. The status was decided from
+  the unrounded ratio while `Verdict` re-derives it from the score it stores at
+  six decimals, so the two disagreed by one part in a million. Both numbers are
+  now rounded before the comparison, as the per-case and sampled paths already
+  were.
 
 ## 0.5.0 — 2026-09-08
 

@@ -20,7 +20,7 @@ from typing import Any, ClassVar, Literal, Protocol, cast
 
 from digline.core.assertions import dataclass_identity
 from digline.core.ratio import Ratio, as_ratio
-from digline.core.types import Score, Verdict
+from digline.core.types import FLOAT_PRECISION, Score, Verdict
 
 __all__ = [
     "F1",
@@ -240,11 +240,22 @@ class RunAssertionBase:
         )
 
     def _graded(self, value: float, reason: str, matrix: Matrix) -> Verdict:
+        # Rounded before the comparison, exactly as `AssertionBase._graded`
+        # does one level up: `Verdict` stores both numbers at this precision
+        # and then re-derives the status from what it stored, so deciding here
+        # from the unrounded pair lets the two disagree. An accuracy of 14/21
+        # against a threshold of 0.666667 is `fail` unrounded and `pass` once
+        # both are rounded — and the Verdict rightly refuses to exist, turning
+        # the run's gate into a crash. Both sides need it: the threshold
+        # arrives from `as_ratio` unrounded too, so "2/3" hits the same edge
+        # from the other direction. (friction 34)
+        value = round(value, FLOAT_PRECISION)
+        threshold = round(float(self.threshold), FLOAT_PRECISION)
         return Verdict(
             score=Score(name=self.name, score=value, metadata=matrix.as_metadata()),
             threshold=float(self.threshold),
             tolerance=float(self.tolerance),
-            status="pass" if value >= float(self.threshold) else "fail",
+            status="pass" if value >= threshold else "fail",
             reason=reason,
             assertion_id=self.identity,
         )
