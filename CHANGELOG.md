@@ -119,6 +119,14 @@ What changed for you, three lines a version. The reasoning lives in
   reason were reworded without one — a claim that cannot go stale beats a gated
   one — and the image's minor tag, documented as `0.4` since 0.5.0 shipped, is
   correct again.
+- **Fixed:** an example could cap digline below a release able to read its own
+  committed baseline. `uv sync` in an example installs the newest release the
+  cap admits, and `run_from_json` refuses any schema but its own, so the wrong
+  ceiling makes the example unrunnable by the only person it is for — it had
+  already happened once, four baselines deep. It held by luck until now: schema
+  9 arrived in 0.4.0 and the caps admit 0.4.0. `tests/test_example_caps.py`
+  makes it hold by construction, with the schema each release wrote pinned from
+  its tag, and a release cannot be cut without recording what it writes.
 
 ## 0.5.0 — 2026-09-08
 
