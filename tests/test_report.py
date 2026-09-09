@@ -20,10 +20,13 @@ from digline.core import (
 from digline.report import (
     LOCALES,
     TEXT,
+    errored_verdicts,
     headline,
     render_html,
     render_run_html,
+    run_tally,
     summary_lines,
+    suspended_cases,
 )
 
 CREATED_RUN = "2026-08-25T11:00:00+00:00"
@@ -671,3 +674,88 @@ def test_the_no_reference_heading_never_appears_with_a_baseline() -> None:
         assert escape(TEXT[locale]["noreference.sentence"]) not in document
         # The question is still asked, which is the other half of the same fact.
         assert escape(TEXT[locale]["answer.question"]) in document
+
+
+# --------------------------------------------------------------------------- #
+# The run's own facts, as structures rather than as expressions in a renderer
+#
+# The extraction ADR 0012 §2 makes a prerequisite. These are not new facts:
+# every one was already printed. What is new is that one function produces
+# each of them, so a reading and a document cannot count the same run twice
+# and reach two numbers.
+# --------------------------------------------------------------------------- #
+
+
+def a_mixed_run() -> Run:
+    """One case judged, one that errored, one set aside, and a run-level check
+    that errored too — every state the tally distinguishes, in one run."""
+    return Run(
+        tenant="acme-bank",
+        environment="staging",
+        suite="qa",
+        config_hash="cfg-1",
+        created_at=CREATED_RUN,
+        results=(
+            CaseResult("capital-of-italy", (verdict("llm_rubric", 0.91),)),
+            CaseResult(
+                "who-is-the-president",
+                (verdict("llm_rubric", None), verdict("contains", None)),
+            ),
+            CaseResult("the-rossi-account", (), suspended="fails since March"),
+        ),
+        aggregate=(verdict("precision", None),),
+    )
+
+
+def test_the_tally_counts_cases_and_checks_as_the_labels_say() -> None:
+    tally = run_tally(a_mixed_run())
+    assert tally.cases == 3
+    assert tally.checks == 3
+    # Cases, not verdicts: the one errored case carries two errored verdicts,
+    # and both numbers are true of different things.
+    assert tally.unjudged == 1
+    assert tally.suspended == 1
+
+
+def test_a_suspended_case_is_counted_once_by_both_readers() -> None:
+    """The duplication this extraction removes, asserted rather than trusted.
+
+    `headline()` and `_run_answer()` each used to write the count out. Two
+    counters over one fact are two chances to disagree, and this is the test
+    that would fail if one of them ever grew a rule the other did not.
+    """
+    run = a_mixed_run()
+    baseline = replace(run, created_at=CREATED_BASE, environment="production")
+    head = headline(compare(run, baseline), run, baseline, locale="en")
+    assert head.suspended == suspended_cases(run) == run_tally(run).suspended
+
+
+def test_a_run_with_nothing_set_aside_counts_none() -> None:
+    """Not `a_lone_run()`: that fixture deliberately carries a suspension and
+    an error, because it exists to exercise the document that has no
+    reference. The zero has to be asserted on a run that really has none."""
+    clean = a_run(verdict("llm_rubric", 0.91), when=CREATED_RUN)
+    assert suspended_cases(clean) == 0
+    assert run_tally(clean).suspended == 0
+    assert run_tally(clean).unjudged == 0
+
+
+def test_every_check_that_could_not_be_judged_is_named_from_the_run_alone() -> None:
+    """The fact `unjudged_cases` cannot give: *which* ones.
+
+    From the run and nothing else, which is the point — `_summarized()` names
+    them out of a `Comparison`, so without a baseline nothing could.
+    """
+    found = errored_verdicts(a_mixed_run())
+    assert [(e.scope, e.case_id, e.verdict.score.name) for e in found] == [
+        ("case", "who-is-the-president", "llm_rubric"),
+        ("case", "who-is-the-president", "contains"),
+        # The aggregates last, and in run scope with no case to belong to:
+        # `index_verdicts`' traversal, so there is one answer to which check
+        # comes first.
+        ("run", "", "precision"),
+    ]
+
+
+def test_a_run_that_judged_everything_names_nothing() -> None:
+    assert errored_verdicts(a_run(verdict("llm_rubric", 0.91), when=CREATED_RUN)) == ()
