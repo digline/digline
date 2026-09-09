@@ -1037,6 +1037,63 @@ tolerance, then the measured noise floor — see
 [the interval](#the-interval-and-the-noise-floor). The last two both produce
 `unchanged`, and `within_noise` on the delta says which one spoke.
 
+### Boundaries
+
+**Every limit in digline is compared at `FLOAT_PRECISION`, and every limit is
+inclusive.** One rule, no exceptions — a value sitting exactly on a limit is on
+the passing side of it, and the comparison reads the numbers as the document
+stores them, never the residue underneath.
+
+What that means at each limit:
+
+- **the threshold**, per case, per aggregate, per group and per sample, is
+  `score >= threshold`: a score exactly equal to the threshold **passes**;
+- **the declared tolerance**, on a delta, is `abs(delta) <= tolerance`: a
+  movement exactly equal to the tolerance is **`unchanged`** (and `same` under
+  `diff`);
+- **the measured noise floor**, on the baseline's interval, is
+  `sample_min <= score <= sample_max`: a score exactly on either end of the
+  interval is **within noise**, so `unchanged` with `within_noise` set;
+- **a budget** is `measured <= cap`: a cost or a latency exactly at its ceiling
+  is **within budget**, and scores exactly `0.5`;
+- **`min_agreement`** is `agreement >= min_agreement`: samples that agree
+  exactly as much as you asked for **agree**.
+
+Because the rule reads the stored numbers, it is decidable from the document in
+front of you. A delta of `0.047619` against a tolerance of `0.047619` is
+`unchanged`, and stays `unchanged` whether or not either run has been through
+the disk — the arithmetic underneath cannot answer differently from the six
+decimals you can see.
+
+The live example is one run of the public `brief` fixtures, pinned at
+[`c9d86ff`](https://github.com/digline/brief/blob/c9d86ff22d68d3df458fa0da81348ec962d16aa7/fixtures/README.md):
+the baseline's `precision`, re-evaluated at sample index 1, scores exactly
+`0.600000` against a threshold of `0.600000` and passes.
+
+`digline.core` exports the rule, so an assertion of your own compares the way
+the built-in ones do:
+
+```python
+from digline.core import meets, within, at_precision, STORAGE_STEP
+
+meets(0.7, 0.7)              # True  — a score meeting its threshold
+within(0.047619, 0.047619)   # True  — a delta within its tolerance
+at_precision(1 / 3)          # 0.333333
+STORAGE_STEP                 # 1e-06, one unit at storage precision
+```
+
+Why it is stated once rather than at each call site, and what it cost to adopt,
+is [ADR 0009](adr/0009-boundary-semantics.md).
+
+#### Writing an agreement
+
+`min_agreement` accepts `"2/3"` and `0.666667` alike, and both now reach the
+same verdict. **Write the string.** An agreement is a count of samples over a
+count of samples; `"2/3"` says that, and `0.666667` is a rendering of it that a
+reader has to decode. The string form is also the one that cannot be spelled
+wrong: a float that no `k/n` can produce is refused, and with three samples
+`0.666666` is one such value.
+
 ## Redaction
 
 `Disclosure(score_metadata, run_metadata)` declares **in the suite's code** the

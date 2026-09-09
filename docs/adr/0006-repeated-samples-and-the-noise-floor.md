@@ -40,6 +40,18 @@ there was nothing there. A tool that cries wolf on its own measurement error
 teaches people to promote past it, which is the failure mode that ends with
 nobody reading the report at all.
 
+> **Footnote, added by [ADR 0009](0009-boundary-semantics.md) §5.** That
+> movement is now caught one rule earlier. It was always *inside* the tolerance
+> the suite declared — one case in twenty-one, against a tolerance of one case
+> in twenty-one — and reached the measured floor only because the unrounded
+> subtraction missed its own edge by 7.6e-17. With every limit compared at
+> `FLOAT_PRECISION`, the declared tolerance answers first and the run reads
+> `unchanged` by tolerance rather than by noise. **Nothing in the argument below
+> changes**: the run is still quiet, which is what this record is about, and the
+> measured floor still decides every movement wider than the declared tolerance
+> — which is what §5 and §6 are for. `tests/test_noise_floor.py` holds both
+> halves, the second on the same fixtures with the tolerances set to zero.
+
 Two further things are missing today.
 
 **A scalar cannot say how far it moves.** `combine_samples` folds the samples

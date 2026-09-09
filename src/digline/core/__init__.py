@@ -101,6 +101,7 @@ from digline.core.types import (
     CONVERSATION_ONLY,
     NOTHING_EXTRA,
     REDACTED,
+    STORAGE_STEP,
     STRUCTURED_ONLY,
     TEXT_ONLY,
     TEXT_OR_CONVERSATION,
@@ -116,8 +117,11 @@ from digline.core.types import (
     Score,
     Status,
     Verdict,
+    at_precision,
+    meets,
     output_kind,
     travels,
+    within,
 )
 
 __all__ = [
@@ -201,6 +205,10 @@ __all__ = [
     "config_deltas",
     "diff",
     "index_verdicts",
+    "STORAGE_STEP",
+    "at_precision",
+    "meets",
+    "within",
     "budget_score",
     "combine_samples",
     "compare",

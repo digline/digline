@@ -20,6 +20,7 @@ __all__ = [
     "FLOAT_PRECISION",
     "NOTHING_EXTRA",
     "REDACTED",
+    "STORAGE_STEP",
     "ClaimReply",
     "ConfigValue",
     "Disclosure",
@@ -34,10 +35,13 @@ __all__ = [
     "TEXT_OR_CONVERSATION",
     "TEXT_OR_STRUCTURED",
     "Verdict",
+    "at_precision",
     "canonical",
+    "meets",
     "normalize_output",
     "output_kind",
     "travels",
+    "within",
 ]
 
 #: In-memory marker for a payload field that has been removed. On the wire the
@@ -111,6 +115,44 @@ type ConfigValue = str | int | float | bool | None
 # A diff that churns on the seventeenth digit of a float gets read by nobody.
 FLOAT_PRECISION = 6
 
+#: One unit at storage precision: the smallest step either side of a limit that
+#: survives being written to a baseline and read back. Anything smaller is the
+#: same number as the limit by the time a comparison sees it.
+STORAGE_STEP = 10.0**-FLOAT_PRECISION
+
+
+def at_precision(value: float) -> float:
+    """A number as the document stores it.
+
+    Every limit in digline is compared here first (ADR 0009 §1). The reason is
+    the one `Verdict.__post_init__` already rounds for: what a comparison reads
+    must be what the baseline stores, or the same two runs answer differently
+    depending on whether one of them has been through the disk.
+    """
+    return round(value, FLOAT_PRECISION)
+
+
+def meets(value: float, limit: float) -> bool:
+    """`value >= limit` at storage precision — a score meeting a threshold.
+
+    Inclusive, and that half of the rule is not a preference: 112 of the 280
+    scored verdicts in the committed baselines sit exactly on their threshold.
+    A `>=` becoming a `>` reddens two fifths of every example in the repository
+    and inverts fixed decision 3 rather than upholding it. (ADR 0009 §1)
+    """
+    return at_precision(value) >= at_precision(limit)
+
+
+def within(value: float, limit: float) -> bool:
+    """`value <= limit` at storage precision — a delta within a tolerance, a
+    measurement within a cap. The same rule as `meets`, the other way round.
+
+    Two named predicates rather than one general comparator, because these read
+    as what the call site means. A `compare_at_precision(a, op, b)` would read
+    as neither. (ADR 0009 §3)
+    """
+    return at_precision(value) <= at_precision(limit)
+
 
 def canonical(value: object) -> object:
     """Recursively reduce `value` to a JSON-serializable, deterministic form.
@@ -132,7 +174,7 @@ def canonical(value: object) -> object:
         # becoming `null`.
         if math.isnan(value) or math.isinf(value):
             return str(value)
-        return round(value, FLOAT_PRECISION)
+        return at_precision(value)
     if isinstance(value, bytes | bytearray):
         return value.hex()
     if isinstance(value, Mapping):
@@ -277,7 +319,7 @@ class Score:
         checks it, and a recorded value that nothing verifies is a value that
         drifts.
         """
-        rounded = tuple(round(float(s), FLOAT_PRECISION) for s in self.samples)
+        rounded = tuple(at_precision(float(s)) for s in self.samples)
         if rounded != self.samples:
             object.__setattr__(self, "samples", rounded)
         for value in rounded:
@@ -299,8 +341,8 @@ class Score:
                 "the interval is what compare() reads, so a half-recorded one "
                 "is a noise floor that silently is not there"
             )
-        low = round(self.sample_min, FLOAT_PRECISION)
-        high = round(self.sample_max, FLOAT_PRECISION)
+        low = at_precision(self.sample_min)
+        high = at_precision(self.sample_max)
         if (low, high) != (min(rounded), max(rounded)):
             raise ValueError(
                 f"Score records the interval [{low}, {high}], which is not the "
@@ -359,10 +401,10 @@ class Verdict:
         # Rounding here rather than in `compare()` makes it an invariant of the
         # value instead of a courtesy of one caller: a Verdict and its
         # round-tripped copy are indistinguishable.
-        object.__setattr__(self, "threshold", round(self.threshold, FLOAT_PRECISION))
-        object.__setattr__(self, "tolerance", round(self.tolerance, FLOAT_PRECISION))
+        object.__setattr__(self, "threshold", at_precision(self.threshold))
+        object.__setattr__(self, "tolerance", at_precision(self.tolerance))
         if self.score.score is not None:
-            rounded = round(self.score.score, FLOAT_PRECISION)
+            rounded = at_precision(self.score.score)
             if rounded != self.score.score:
                 object.__setattr__(
                     self,
@@ -406,7 +448,7 @@ class Verdict:
         # statement, so a Verdict that disagrees with itself must not exist:
         # otherwise the run table and the pass/fail gate could tell a reviewer
         # two different stories about the same result.
-        expected: Status = "pass" if self.score.score >= self.threshold else "fail"
+        expected: Status = "pass" if meets(self.score.score, self.threshold) else "fail"
         if self.status != expected:
             raise ValueError(
                 f"status={self.status!r} contradicts score {self.score.score} "

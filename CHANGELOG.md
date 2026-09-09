@@ -5,6 +5,22 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+- **Changed:** one rule for every limit — **every limit in digline is compared
+  at `FLOAT_PRECISION`, and every limit is inclusive**. Thresholds, tolerances,
+  the measured noise floor, budgets and `min_agreement` all read the numbers as
+  the document stores them, so an edge case is decidable from the six decimals
+  in front of you instead of from the residue underneath. In practice one
+  comparison moves: a delta exactly at its declared tolerance is now
+  `unchanged` (and `same` under `diff`) even where the subtraction left a
+  remainder in the last bits. **No document changes** — `SCHEMA_VERSION` stays
+  9, `OUTPUT_VERSION` stays 1, no baseline needs re-promoting. On the `brief`
+  fixtures the run ADR 0006 was written about is still `unchanged`; what
+  changed is which control says so, and its `reason` and `within_noise` say the
+  declared tolerance rather than the measured floor. `digline.core` now exports
+  `meets`, `within`, `at_precision` and `STORAGE_STEP` so an assertion of your
+  own compares the way the built-in ones do. The reasoning is
+  [ADR 0009](docs/adr/0009-boundary-semantics.md).
+
 - **Added:** `examples/operator/` — the reference assembly for the **operator
   loop**: a suite watched on a schedule by an agent that re-runs within a
   stopping rule declared in a file, tells a draw from a drift from a structural

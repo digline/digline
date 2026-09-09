@@ -21,7 +21,6 @@ from digline.core.pii import ITALIAN_PII, PiiPattern
 from digline.core.protocols import Assertion, ClaimJudge, Judge
 from digline.core.types import (
     ALL_KINDS,
-    FLOAT_PRECISION,
     TEXT_ONLY,
     TEXT_OR_CONVERSATION,
     TEXT_OR_STRUCTURED,
@@ -31,7 +30,9 @@ from digline.core.types import (
     OutputKind,
     Score,
     Verdict,
+    at_precision,
     canonical,
+    meets,
     normalize_output,
     output_kind,
 )
@@ -165,18 +166,17 @@ class AssertionBase:
     def _graded(
         self, value: float, reason: str, metadata: Mapping[str, object] | None = None
     ) -> Verdict:
-        # Rounded before the comparison, not after: `Verdict` stores at this
-        # precision, so deriving the status from the unrounded value could
-        # disagree with the stored score for a value sitting exactly on the
-        # threshold — and `Verdict.__post_init__` would rightly reject it.
-        value = round(value, FLOAT_PRECISION)
+        # The one rule of ADR 0009 §1: compared at storage precision, inclusive.
+        # `Verdict` stores at this precision and re-derives the status from what
+        # it stored, so a status decided from the unrounded value could disagree
+        # with the stored score — and `Verdict.__post_init__` would rightly
+        # reject it.
+        value = at_precision(value)
         return Verdict(
             score=Score(name=self.name, score=value, metadata=dict(metadata or {})),
             threshold=self.threshold,
             tolerance=self.tolerance,
-            status="pass"
-            if value >= round(self.threshold, FLOAT_PRECISION)
-            else "fail",
+            status="pass" if meets(value, self.threshold) else "fail",
             reason=reason,
             assertion_id=self.identity,
         )

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from digline.core.types import FLOAT_PRECISION
+from digline.core.types import at_precision
 
 __all__ = ["Ratio", "as_agreement", "as_ratio", "reachable_agreements"]
 
@@ -60,8 +60,12 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
             "fraction of the samples"
         )
     reachable = reachable_agreements(samples)
-    rounded = round(parsed, FLOAT_PRECISION)
-    if any(round(float(f), FLOAT_PRECISION) == rounded for f in reachable):
+    # Reachability is judged at storage precision, and after ADR 0009 §7 the
+    # gate in `combine_samples` judges agreement at the same precision. The two
+    # are one comparison now: a value this guard calls reachable is a value that
+    # gate can reach.
+    rounded = at_precision(parsed)
+    if any(at_precision(float(f)) == rounded for f in reachable):
         return parsed
 
     # Rendered as `k/samples`, not as the normalized fraction: with five samples
