@@ -5,6 +5,28 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+digline 0.7.1 and digline-mcp 0.1.1: a security pass, and nothing else. Four
+findings from a review of digline's own surfaces — the tool mishandling what it
+is given, which is what `SECURITY.md` says is in scope. None of them is a
+vulnerability in a model you evaluate, and none needs a baseline re-promoted:
+`SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1.
+
+Each was reproduced before it was fixed and is pinned by a test that fails on
+the old code.
+
+```sh
+uv add --upgrade digline digline-mcp
+```
+- **Security:** `digline-mcp` now checks that the `suite` a tool names is a file
+  inside `--root`. It did not, and `load_suite` executes a `.py`, so every tool
+  was a way to run a file from anywhere on the disk — including the five
+  annotated `read_only_hint=True`, which is the annotation a client reads to
+  decide it may call one without asking a person first. The check sits in the
+  one function all six tools cross, and it is stricter than the loader: it also
+  refuses the dotted-module form, which resolves through `sys.path` and so names
+  something the server cannot place inside the repository at all. The CLI still
+  takes that form — a person's tool has no perimeter to keep.
+  ([ADR 0011 §8](https://digline.dev/product/adr/0011-the-mcp-server/), amended)
 ## 0.7.0 — 2026-09-09
 
 digline 0.7.0, the second release today and a different kind from the first.
