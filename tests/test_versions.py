@@ -23,9 +23,12 @@ The gate has two halves:
   a version number cannot pass without someone deciding which kind it is.
 
 `RECORDED` is therefore an allowance for numbers that are *not* the current
-one — "shipped in 0.2.0", a worked example, a third-party pin. Registering the
-current version there is refused, because that would be exactly the way to
-silence a claim that had gone stale.
+one — "shipped in 0.2.0", a worked example, a third-party pin, or a plan that
+names the release it is waiting for. Registering the current version there is
+refused, because that would be exactly the way to silence a claim that had gone
+stale; and it is what makes a forward reference read itself back, since the day
+its version ships the entry becomes illegal and somebody has to say whether the
+sentence is now history or now wrong.
 
 Three trees are out of the sweep and stay out. `CHANGELOG.md` is dated history
 in every line, and `docs/adr/` is immutable once a decision is accepted:
@@ -92,10 +95,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.2.0": "'v0.2.0 was tagged after a check that ran ruff' — what happened",
         "0.3.0": "'skipping it is what v0.3.0 cost' — the same",
         "0.4.0": "'a v0.4.0 rebuild sent an hour after the release' — the same",
+        "0.6.0": "'digline-mcp merges after 0.6.0' — a plan, not a claim about "
+        "what shipped. Re-read it when 0.6.0 is the current release",
     },
     "ROADMAP.md": {
         "0.2.0": "'shipped in 0.2.0' — when a decision landed",
         "0.3.0": "'extended in 0.3.0' — the same",
+        "0.6.0": "'digline-mcp merges after 0.6.0' — a plan, not a claim about "
+        "what shipped. Re-read it when 0.6.0 is the current release",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "
@@ -197,9 +204,11 @@ def test_a_record_may_not_be_the_current_version() -> None:
     assert not guilty, (
         f"RECORDED registers {version}, which is the current release:\n  "
         + "\n  ".join(guilty)
-        + "\nA record is a version that has already been superseded. Move "
-        "these to LIVE, or leave them to the sweep, which accepts the current "
-        "version everywhere."
+        + "\nA record is a version this release has left behind. If one of "
+        "these was a forward reference — a plan naming the release it waits "
+        "for — that release is now here, so the sentence is either history or "
+        "wrong: read it and say which. Otherwise move the entry to LIVE, or "
+        "drop it and let the sweep accept the current version."
     )
 
 
