@@ -102,6 +102,8 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "RELEASING.md": {
         "0.1.0": "a worked example of the tag format, with invented numbers",
+        "0.6.0": "'v0.6.0 was the tag that exercised it' — the release that "
+        "first ran the new-package section, said as history rather than plan",
         "0.1.1": "the same worked example",
         "0.1.3": "the same worked example",
         "0.2.0": "'v0.2.0 was tagged after a check that ran ruff' — what happened",
@@ -120,6 +122,8 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.3.0": "'extended in 0.3.0' — the same",
         "0.5.0": "'shipped in 0.5.0', 'real from 0.5.0', and the image's tag "
         "row — what landed in that release",
+        "0.6.0": "'what 0.6.0 shipped: digline.wire and OUTPUT_VERSION', and "
+        "'an MCP server shipped in 0.6.0' — two lines about what landed then",
     },
     "SECURITY.md": {
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
@@ -156,6 +160,17 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "src/digline/report/pages.py": {
         "0.4.0": "'0.4.0 rendering compare_page' — the state of a shipped release",
+    },
+    # Two comments ADR 0009 asked for: each names the release in which the
+    # boundary bug it describes was written, which is the whole point of the
+    # sentence. Neither is a claim about what digline is at now.
+    "src/digline/core/aggregate.py": {
+        "0.6.0": "'the rounding arrived here in 0.6.0 as a crash fix' — where "
+        "the ruling ADR 0009 wrote down had been made without being written",
+    },
+    "src/digline/core/diff.py": {
+        "0.6.0": "'the unrounded subtraction was written here in 0.6.0' — the "
+        "second site of the same defect, and why the record names call sites",
     },
 }
 

@@ -59,7 +59,11 @@ This track makes the verdict itself trustworthy.
 **Exit gate:** a baseline comparison can state, honestly, whether an observed
 difference is signal or sampling noise. **Met** — the two runs in
 `tests/fixtures/brief/` are the case it was written against, and the test that
-reads them fails if it stops being met.
+reads them fails if it stops being met. 0.7.0 closed the last gap underneath
+it: every limit — threshold, tolerance, measured floor, budget,
+`min_agreement` — is now compared at the precision the document stores and is
+inclusive (ADR 0009), so an edge case is decidable from the six decimals a
+reader can see rather than from a residue nobody can.
 
 ## Track C — Adoption and developer experience
 
@@ -104,6 +108,16 @@ reads them fails if it stops being met.
       two internal layers with it: `digline.host`, the part of the CLI that
       touches the world, and `digline.wire`, the machine surface both front ends
       render through
+- [x] `digline explain` (ADR 0012) — the run read back at length, in prose:
+      what ran, what moved and against which measured interval, what was set
+      aside, which configuration differed. It compares where the suite has a
+      baseline and reads the run alone where it does not. The report is written
+      for someone who does not read code and therefore compresses; this is the
+      same facts expanded, for the developer holding the report. It **states
+      and never advises** — the judgment `AGENTS.md` describes stays a
+      person's — and `--json` returns the typed fact list the prose is rendered
+      from, so a terminal and a pipeline cannot describe one run two ways.
+      Shipped in 0.7.0
 - [x] `Suite(artifacts=[...])` accepted a `str` where it means a `Path`, and
       failed later and elsewhere: `AttributeError: 'str' object has no attribute
       'is_absolute'`, raised inside `read_artifacts` at run time, naming neither

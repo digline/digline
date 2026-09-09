@@ -8,7 +8,7 @@ dependencies = [
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
     # `config_path` arrives in 0.3.0 (ADR 0005 §8). The pin is not that minimum
     # but the current release, which the ritual raises and the caps gate holds.
-    "digline>=0.6,<0.7",
+    "digline>=0.7,<0.8",
 ]
 
 [dependency-groups]

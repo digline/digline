@@ -5,24 +5,19 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
-- **Added:** `digline explain` — the run read back at length. The report
-  compresses; this expands: what ran, what moved and by how much, inside or
-  outside which measured interval, what was set aside, what could not be
-  judged, which of the three configurations differed. It compares when the
-  suite has a baseline and reads the run alone when it does not, with no mode
-  flag — the presence of a reference is a fact, not something you should have
-  to state. It gates like `report` (`0` fine, `1` worse, `2` unjudged) and can
-  never exit `1` without a reference. `--json` emits the **fact list the prose
-  is rendered from** — typed facts with case and assertion references, no
-  sentences — so a terminal and a pipeline cannot drift into two descriptions
-  of one run; `OUTPUT_VERSION` stays 1, because a new command's output breaks
-  no existing consumer. `--locale en|it`, defaulting to `en`, and there is no
-  `--out`: a reading written to a file would have a recipient who did not
-  choose English. **It states and never advises**, and quotes no judge — no
-  fact has a field a reason fits in, which is what makes that boundary
-  something no later edit can open by accident. For the judge's words,
-  `digline report` is one command away. [`docs/explain.md`](docs/explain.md),
-  and the reasoning is [ADR 0012](docs/adr/0012-the-reading.md).
+## 0.7.0 — 2026-09-09
+
+digline 0.7.0, the second release today and a different kind from the first.
+0.6.0 added surfaces; this one is **correctness and reading**: one rule for
+every limit digline compares, and a command that reads a run back at length.
+No new packages — the three provider plugins stay at 0.3.0 and `digline-mcp`
+at 0.1.0 — no breaking change, and **nothing on disk moves**: `SCHEMA_VERSION`
+stays 9 and `OUTPUT_VERSION` stays 1, so no baseline needs re-promoting and no
+pipeline sees a byte change.
+
+```sh
+uv add --upgrade digline
+```
 
 - **Changed:** one rule for every limit — **every limit in digline is compared
   at `FLOAT_PRECISION`, and every limit is inclusive**. Thresholds, tolerances,
@@ -31,41 +26,30 @@ What changed for you, three lines a version. The reasoning lives in
   in front of you instead of from the residue underneath. In practice one
   comparison moves: a delta exactly at its declared tolerance is now
   `unchanged` (and `same` under `diff`) even where the subtraction left a
-  remainder in the last bits. **No document changes** — `SCHEMA_VERSION` stays
-  9, `OUTPUT_VERSION` stays 1, no baseline needs re-promoting. On the `brief`
-  fixtures the run ADR 0006 was written about is still `unchanged`; what
-  changed is which control says so, and its `reason` and `within_noise` say the
-  declared tolerance rather than the measured floor. `digline.core` now exports
-  `meets`, `within`, `at_precision` and `STORAGE_STEP` so an assertion of your
-  own compares the way the built-in ones do. The reasoning is
-  [ADR 0009](docs/adr/0009-boundary-semantics.md).
-- **Fixed:** a cost or latency budget **over its cap now fails**. Both budgets
-  answered their own question twice — the word in the reason came from
-  `measured <= cap`, the pass/fail came from the rounded score — and near the
-  cap the two disagreed: a run 0.000002 USD over a 1.000000 USD cap passed
-  while its own reason read `(over budget)`. Fixed decision 4 says a declared
-  ceiling fails the run, and the document was contradicting the gate. There is
-  now one comparison, so the sentence and the status cannot drift apart. Only
-  overruns within about 2e-6 of the cap change verdict; anything already
-  failing still fails, and a cost exactly at the cap still passes at `0.5`.
-- **Fixed:** `min_agreement` written as the printed form of a reachable
-  agreement no longer rejects the agreement it names. With three samples,
-  `min_agreement=0.666667` was accepted at construction — the guard checks
-  reachability at `FLOAT_PRECISION` — and then failed two-of-three with "did
-  not agree: 0.67 of them share the majority verdict, below the required 0.67",
-  a sentence that refutes itself. There was no float spelling of "two of three"
-  that worked, and the resulting `error` is an outcome that cannot be promoted
-  to a baseline. The guard and the gate now compare at the same precision.
-  **Write the fraction anyway** — `"2/3"` says what it means, and it is the
-  form that cannot be spelled wrong. `docs/api.md` says so, and its own
-  `Repeated` example no longer shows `0.67`, which raises.
-- **Fixed:** `Suite(artifacts=["prompt.md"])` — a `str` where a `Path` is meant
-  — is coerced on construction instead of failing later and elsewhere, inside
-  `read_artifacts`, with an `AttributeError` naming neither the suite nor the
-  field. It is the rule the TOML loader already applied, moved to the one place
-  both forms pass through; what cannot be a path is now refused by field name,
-  so `artifacts = [3]` in a data suite stops loading quietly as the path `3`.
-
+  remainder in the last bits. On the `brief` fixtures the run ADR 0006 was
+  written about is still `unchanged`; what changed is which control says so,
+  and its `reason` and `within_noise` name the declared tolerance rather than
+  the measured floor. `digline.core` now exports `meets`, `within`,
+  `at_precision` and `STORAGE_STEP` so an assertion of your own compares the
+  way the built-in ones do. The reasoning is
+  [ADR 0009](https://digline.dev/product/adr/0009-boundary-semantics/).
+- **Added:** `digline explain` — the run read back at length. The report
+  compresses; this expands: what ran, what moved and by how much, inside or
+  outside which measured interval, what was set aside, what could not be
+  judged, which of the three configurations differed. It compares when the
+  suite has a baseline and reads the run alone when it does not, with no mode
+  flag — whether a reference exists is a fact the store already knows. It gates
+  like `report` (`0` fine, `1` worse, `2` unjudged) and can never exit `1`
+  without a reference. `--json` emits the **fact list the prose is rendered
+  from** — typed facts with case and assertion references, no sentences — so a
+  terminal and a pipeline cannot drift into two descriptions of one run.
+  `--locale en|it`, defaulting to `en`, and there is no `--out`: a reading
+  written to a file would have a recipient who did not choose English.
+  **It states and never advises**, and quotes no judge — no fact has a field a
+  reason fits in, which is what makes that boundary something no later edit can
+  open by accident. For the judge's words, `digline report` is one command
+  away. ([`docs/explain.md`](https://digline.dev/product/explain/),
+  [ADR 0012](https://digline.dev/product/adr/0012-the-reading/))
 - **Added:** `examples/operator/` — the reference assembly for the **operator
   loop**: a suite watched on a schedule by an agent that re-runs within a
   stopping rule declared in a file, tells a draw from a drift from a structural
@@ -75,8 +59,34 @@ What changed for you, three lines a version. The reasoning lives in
   never as digline's verdict — and only the third needs a key. `promote` is
   absent from the whole assembly, as it is from the MCP surface. Two real
   alerts ship with it: the drift that escalates and the draw that deliberately
-  does not, both rebuilt from their committed cycle on every build. The design
-  it was built against is `examples/operator/DESIGN.md`.
+  does not, both rebuilt from their committed cycle on every build.
+  ([The operator loop](https://digline.dev/product/operator/))
+- **Fixed:** a cost or latency budget **over its cap now fails**. Both budgets
+  answered their own question twice — the word in the reason came from
+  `measured <= cap`, the pass/fail came from the rounded score — and near the
+  cap the two disagreed: a run 0.000002 USD over a 1.000000 USD cap passed
+  while its own reason read `(over budget)`. Fixed decision 4 says a declared
+  ceiling fails the run, and the document was contradicting the gate. There is
+  now one comparison, so the sentence and the status cannot drift apart. Only
+  overruns within about 2e-6 of the cap change verdict; anything already
+  failing still fails, and a cost exactly at the cap still passes at `0.5`.
+- **Fixed:** a `min_agreement` no float could spell. With three samples,
+  `min_agreement=0.666667` was accepted at construction — the guard checks
+  reachability at `FLOAT_PRECISION` — and then failed two-of-three with "did
+  not agree: 0.67 of them share the majority verdict, below the required 0.67",
+  a sentence that refutes itself. There was no float spelling of "two of three"
+  that worked, and the resulting `error` is an outcome that cannot be promoted
+  to a baseline. The guard and the gate now compare at the same precision.
+  **Write the fraction anyway** — `"2/3"` says what it means, and it is the
+  form that cannot be spelled wrong. `docs/api.md` says so, and its own
+  `Repeated` example no longer shows `0.67`, which raises.
+- **Fixed:** an artifact is refused by field name at the door.
+  `Suite(artifacts=["prompt.md"])` — a `str` where a `Path` is meant — is
+  coerced on construction instead of failing later and elsewhere, inside
+  `read_artifacts`, with an `AttributeError` naming neither the suite nor the
+  field. It is the rule the TOML loader already applied, moved to the one place
+  both forms pass through; what cannot be a path is now refused by name, so
+  `artifacts = [3]` in a data suite stops loading quietly as the path `3`.
 
 ## 0.6.0 — 2026-09-09
 

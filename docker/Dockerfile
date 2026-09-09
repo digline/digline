@@ -14,7 +14,7 @@ FROM python:3.12-slim
 # reads the tags back out of this file rather than repeating them — so an image
 # that lags a release fails in the repository, before anything reaches a
 # registry.
-ARG DIGLINE_VERSION=0.6.0
+ARG DIGLINE_VERSION=0.7.0
 ARG DIGLINE_ANTHROPIC_VERSION=0.3.0
 ARG DIGLINE_OPENAI_VERSION=0.3.0
 ARG DIGLINE_BEDROCK_VERSION=0.3.0
@@ -75,6 +75,6 @@ USER digline
 WORKDIR /work
 
 ENTRYPOINT ["digline"]
-# So that a bare `docker run ghcr.io/digline/digline:0.6.0` says what it is
+# So that a bare `docker run ghcr.io/digline/digline:0.7.0` says what it is
 # instead of an argparse usage line and exit 2.
 CMD ["--help"]
