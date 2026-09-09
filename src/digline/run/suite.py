@@ -39,6 +39,11 @@ class Case:
     chooses it: digline generates it, and there is no parameter through
     which an application identifier could be passed (ADR 0002 §5).
 
+    `expected` is the value the output is compared against, and it is either
+    absent or a real expectation: `None` says the case has nothing to compare
+    against, while `""` claims an expectation that every empty output meets.
+    The empty one is refused — absence is not emptiness.
+
     `metadata` is payload unless the suite's `Disclosure` says otherwise, and it
     never reaches a `Score`: an assertion writes its own metadata from what it
     measured.
@@ -81,6 +86,20 @@ class Case:
             raise ValueError(
                 f"case {self.id!r} is suspended without a stated reason: "
                 "a suspension nobody can justify is a case quietly dropped"
+            )
+        if self.expected is not None and not self.expected:
+            # `None` says "this case has no expected value"; `""` claims there
+            # *is* one and that it is nothing. The second is the vacuously
+            # green assertion by another route: `levenshtein` scores an empty
+            # expected against an empty output as a perfect 1.0 — both
+            # behaviours defensible on their own, composing into a check that
+            # cannot fail. Refused here rather than in the assertions, because
+            # it is the case that is malformed. (fixed decision 3)
+            raise ValueError(
+                f"case {self.id!r} declares an empty expected: an empty "
+                "expectation is a perfect match against an empty output. "
+                "Leave it unset if the case has nothing to compare against — "
+                "absence is not emptiness"
             )
         if self.group is not None and not self.group:
             # `None` and `""` would otherwise be two spellings of "no group"

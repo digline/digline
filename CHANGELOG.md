@@ -102,6 +102,12 @@ What changed for you, three lines a version. The reasoning lives in
   six decimals, so the two disagreed by one part in a million. Both numbers are
   now rounded before the comparison, as the per-case and sampled paths already
   were.
+- **Fixed:** `Case(expected="")` is refused. An empty expectation scored a
+  perfect 1.0 against an empty output — `levenshtein`'s both-empty branch and
+  an optional `expected` are each defensible, and together they were a check
+  that could not fail. Refused where the case is declared, so both entrances
+  are covered: Python and `cases.json`. `expected=None` stays legal; absence is
+  not emptiness.
 
 ## 0.5.0 — 2026-09-08
 

@@ -340,6 +340,14 @@ def test_an_empty_group_in_a_cases_file_is_refused(build: Build) -> None:
         build(cases=json.dumps([{"id": "a", "group": ""}]))
 
 
+def test_an_empty_expected_in_a_cases_file_is_refused(build: Build) -> None:
+    """The other entrance to the same refusal. Nothing in the loader knows
+    about `expected`: the check lives on `Case`, and every form goes through
+    it."""
+    with pytest.raises(UsageError, match="declares an empty expected"):
+        build(cases=json.dumps([{"id": "a", "expected": ""}]))
+
+
 def test_by_group_expands_a_data_suite_without_a_line_in_the_loader(
     build: Build,
 ) -> None:
