@@ -50,6 +50,11 @@ tolerance = 0.05
 ]
 ```
 
+A case is a JSON object whose keys are `Case`'s fields, so the file needs no
+schema of its own: `id`, `vars`, `expected`, `label`, `group`, `context`,
+`metadata`, `suspended`. Name one that does not exist and the loader lists the
+ones that do.
+
 Then the cycle you already know:
 
 ```console
@@ -128,6 +133,49 @@ tolerance = "1/10"
 A `threshold` that is really a count of cases is written as one. An `over` that
 matches nothing is refused; so is one that matches two, and the fix is to give
 one of them a `name`.
+
+### `by_group` splits an aggregate by class
+
+An aggregate over the whole run is an average, and an average carries a class
+that is broken. Give the cases a `group` and set `by_group` on the aggregate,
+and you keep the whole-run figure and gain one per class:
+
+```json
+[
+  {"id": "art-01", "label": "positive", "group": "refunds", "vars": {"question": "…"}},
+  {"id": "art-02", "label": "negative", "group": "travel",  "vars": {"question": "…"}}
+]
+```
+
+```toml
+[[assertions]]
+type = "precision"
+over = "contains"
+threshold = "1/2"
+tolerance = "1/2"
+by_group = true
+```
+
+That suite gates on three names rather than one — `precision`,
+`precision[group=refunds]`, `precision[group=travel]` — with the threshold, the
+tolerance and the ADR 0006 noise floor inherited and computed over each group's
+own cases. The groups come from the cases and never from a declaration, so a
+class appears the moment a case names it.
+
+Nothing to learn beyond those two words: `group` is a `Case` field like any
+other and `by_group` is a parameter like any other, which is why neither needed
+a rule of its own here.
+
+**There is no `group` on an assertion.** You get every class or none — the class
+that degrades is the one you were not watching — and the near miss is caught by
+name:
+
+```
+suite.toml, [[assertions]] #2: `precision` has no parameter `group`.
+Did you mean `by_group`?
+```
+
+The reasoning is in [ADR 0010](adr/0010-per-group-aggregates.md).
 
 ### `repeated` wraps another check
 
