@@ -538,6 +538,205 @@ def test_the_prompt_is_shared_by_both_services_and_owned_by_neither() -> None:
         )
 
 
+# --------------------------------------------------------------------------- #
+# The operator loop: the alert is the deliverable, so the alert is what is gated
+# --------------------------------------------------------------------------- #
+
+OPERATOR = ROOT / "examples" / "operator"
+
+#: Each scenario `fake.py` can be put in, and what the loop must conclude about
+#: it: the verdict, how many runs it took, and whether it wakes anybody.
+#:
+#: This is the example's whole claim, so it is the example's whole test. A loop
+#: that classified everything as drift would escalate every week and be ignored
+#: by the third; one that classified everything as a draw would be a monitor
+#: that never monitors. Both failures are silent, and both are caught here.
+SCENARIOS = {
+    "steady": ("clean", 1, False),
+    "wobble": ("draw", 2, False),
+    "drift": ("drift", 3, True),
+    "structural": ("structural", 1, True),
+}
+
+#: The alerts committed under `examples/operator/alerts/`, each with the cycle
+#: it was built from.
+CAPTURED = ("drift", "draw")
+
+
+def operator_script(
+    workdir: Path, script: str, *args: str
+) -> subprocess.CompletedProcess[str]:
+    """One of the example's own scripts, run the way its workflow runs it."""
+    return subprocess.run(
+        [sys.executable, script, *args],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.fixture
+def operator(tmp_path: Path) -> Path:
+    """A copy with its baseline kept: the loop compares against an approved
+    reference, and a cycle with nothing to compare against is not a cycle."""
+    workdir = tmp_path / "operator"
+    shutil.copytree(OPERATOR, workdir)
+    shutil.rmtree(workdir / ".digline" / "northwind" / "runs", ignore_errors=True)
+    return workdir
+
+
+@pytest.mark.parametrize("scenario", sorted(SCENARIOS))
+def test_the_operator_classifies_each_scenario(operator: Path, scenario: str) -> None:
+    """The four events `AGENTS.md` separates, told apart by the loop.
+
+    Structural is the one worth reading twice: it escalates on **one** run.
+    Several cases flipping together is investigated and never retried, because
+    retrying destroys the evidence either way — so a loop that re-ran it would
+    be breaking §4 while looking diligent.
+    """
+    want_verdict, want_runs, want_escalate = SCENARIOS[scenario]
+    done = subprocess.run(
+        [sys.executable, "loop.py", "--config", "operator.toml", "--out", "cycle.json"],
+        cwd=operator,
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "OPERATOR_SCENARIO": scenario},
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+
+    cycle = json.loads((operator / "cycle.json").read_text(encoding="utf-8"))
+    assert cycle["verdict"] == want_verdict, done.stdout
+    assert len(cycle["runs"]) == want_runs, (
+        f"{scenario} took {len(cycle['runs'])} run(s), not {want_runs}: the "
+        "stopping rule is declared in operator.toml and the loop has to obey it"
+    )
+    assert cycle["escalate"] is want_escalate
+    assert cycle["budget"]["spent"] <= cycle["budget"]["max_target_calls"]
+
+
+@pytest.mark.parametrize("name", CAPTURED)
+def test_the_captured_alert_is_what_the_dossier_writes_today(
+    operator: Path, name: str
+) -> None:
+    """The README tells a story about an alert this loop produced. A captured
+    document beside a script that has since moved on is a screenshot, and
+    screenshots rot in the direction that flatters — so the committed alert is
+    rebuilt from the committed cycle, byte for byte, on every build.
+
+    `dossier.py` is pure for exactly this reason: a cycle in, a document out,
+    no clock and no filesystem of its own. Rebuilding it needs no run, no
+    target and no key.
+    """
+    built = operator / "rebuilt.md"
+    done = operator_script(
+        operator,
+        "dossier.py",
+        "--cycle",
+        f"alerts/{name}-cycle.json",
+        "--out",
+        str(built),
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+    assert built.read_text(encoding="utf-8") == (
+        OPERATOR / "alerts" / f"{name}.md"
+    ).read_text(encoding="utf-8"), (
+        f"examples/operator/alerts/{name}.md is not what dossier.py writes "
+        f"from alerts/{name}-cycle.json any more. Rebuild it and commit the "
+        "new one — the alert is the example's deliverable, not an illustration"
+    )
+
+
+@pytest.mark.parametrize("name", CAPTURED)
+def test_every_captured_alert_says_the_judgment_layer_did_not_run(name: str) -> None:
+    """Layer 3 is the only one a model writes, and no key was configured when
+    these were captured. The heading is still there, saying so: an absence is
+    stated, never faked — a document that quietly dropped the section would
+    read as though a judgment had been made."""
+    text = (OPERATOR / "alerts" / f"{name}.md").read_text(encoding="utf-8")
+    assert "## 3. The judgment" in text
+    assert "**This layer was not run.**" in text
+
+
+def test_the_captured_alerts_cover_both_answers() -> None:
+    """One that wakes somebody and one that deliberately does not.
+
+    The second is the half that is easy to leave out and is worth more: a loop
+    that only ever escalates has not demonstrated absorbing anything, which is
+    the job it exists to do.
+    """
+    escalations = {
+        name: json.loads(
+            (OPERATOR / "alerts" / f"{name}-cycle.json").read_text(encoding="utf-8")
+        )["escalate"]
+        for name in CAPTURED
+    }
+    assert sorted(escalations.values()) == [False, True], escalations
+
+
+def test_the_operator_config_agrees_with_the_workflow_about_the_cadence() -> None:
+    """`operator.toml` states the cadence and GitHub reads it from the YAML, so
+    the file's most editable field is the one that could silently do nothing.
+    `loop.py` refuses to start when they disagree; this is that refusal, checked
+    against the pair the example actually ships."""
+    config = tomllib.loads((OPERATOR / "operator.toml").read_text(encoding="utf-8"))
+    cadence = config["operator"]["cadence"]
+    workflow = (OPERATOR / ".github" / "workflows" / "operator.yml").read_text(
+        encoding="utf-8"
+    )
+    assert re.search(rf'-\s*cron:\s*"{re.escape(str(cadence))}"', workflow), (
+        f"operator.toml declares the cadence {cadence!r} and operator.yml does "
+        "not schedule it. loop.py fails loudly on this at run time; it is here "
+        "so it fails in a pull request instead"
+    )
+
+
+def test_the_operator_cannot_reach_promote() -> None:
+    """`AGENTS.md` §1 as a property of the assembly rather than a rule in it.
+
+    The MCP surface has no `promote` tool by construction, and the loop shells
+    out to the CLI, where the command does exist. So the absence has to hold
+    here too — and the way it stops holding is somebody adding a helpful line
+    to a workflow at two in the morning.
+    """
+    # The word itself is all over these files, and has to be: they explain why
+    # they do not do it. What is looked for is the *call* — `promote` as a
+    # quoted argument, which is the only shape it could reach the CLI in.
+    called = re.compile(r"""['"]promote['"]""")
+    for name in ("loop.py", "dossier.py", "judgment.py"):
+        source = (OPERATOR / name).read_text(encoding="utf-8")
+        assert not called.search(source), (
+            f"examples/operator/{name} passes 'promote' to something: a "
+            "baseline is an approved reference and the approval is a person's"
+        )
+    for workflow in sorted((OPERATOR / ".github" / "workflows").glob("*.yml")):
+        assert "digline promote" not in workflow.read_text(encoding="utf-8"), workflow
+
+
+def test_the_operator_mcp_config_points_at_this_example() -> None:
+    """The interactive path: somebody opens a coding agent in this directory
+    and the operator's surface is already there. A server pointed one directory
+    up would read another project's `.digline/`, which is the perimeter
+    mistake the tenant exists to prevent."""
+    config = json.loads((OPERATOR / ".mcp.json").read_text(encoding="utf-8"))
+    servers = cast("dict[str, Any]", config)["mcpServers"]
+    assert list(servers) == ["digline-northwind"], servers
+    server = cast("dict[str, Any]", servers["digline-northwind"])
+    # `uv run` and not the bare script: the server is a dependency of *this*
+    # project, so it lives in this directory's environment and not on anybody's
+    # PATH. `--tenant` verifies and never overrides — the suite decides.
+    assert server["command"] == "uv"
+    assert server["args"] == [
+        "run",
+        "digline-mcp",
+        "--root",
+        ".",
+        "--tenant",
+        "northwind",
+    ]
+
+
 @pytest.mark.parametrize("name", STANDALONE)
 def test_no_example_workflow_promotes_before_it_compares(name: str) -> None:
     """A job that promotes and then compares is comparing a run with itself and

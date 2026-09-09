@@ -1,0 +1,59 @@
+# The operator's configuration. It reads this; it never decides it.
+#
+# Everything an agent could otherwise talk itself into is a number in this
+# file, written down before anything runs. That is the whole discipline: a
+# stopping rule chosen after the fact measures your patience rather than the
+# system.
+
+[operator]
+suite = "suite.py"
+
+# What the schedule says, repeated here so this file is readable on its own.
+# GitHub reads the real cadence from `.github/workflows/operator.yml`, not from
+# here — so `loop.py` refuses to start when the two disagree rather than let
+# this line quietly become decoration.
+#
+# Weekly, because this is a demonstration. A real one is as often as you can
+# afford: every run costs what the suite costs.
+cadence = "0 6 * * 1"
+
+[stopping_rule]
+# AGENTS.md §3. Two is usually enough to tell a wobble from a drift. Decided
+# here, before the first run, because with a stochastic judge enough re-runs
+# always produce a green one.
+max_reruns = 2
+
+# AGENTS.md §4. At or above this many cases regressing together in one run, the
+# event is investigated and **never** retried: retrying destroys the evidence
+# either way — the regression gets a green run to hide behind, and a judge that
+# has moved is never measured.
+structural_flip_cases = 2
+
+[budget]
+# The ceiling on calls to the target for one cycle, worst case. `loop.py`
+# multiplies the suite's planned calls by `1 + max_reruns` and refuses to start
+# if the answer is above this — before spending anything, which is the only
+# moment a budget means something.
+#
+# digline itself enforces nothing here: `acknowledge_calls` is per call. This
+# is the loop applying the same discipline to the whole cycle.
+max_target_calls = 12
+
+[escalation]
+destination = "github-issue"
+
+# The default, and deliberately. The three-layer document is written on every
+# cycle whatever this says; `false` is what also opens an issue. A loop that
+# escalated the day you forked it would teach you to ignore it by the third
+# week.
+dry_run = true
+
+labels = ["digline", "operator"]
+
+[judgment]
+# Layer 3, the only one a model writes. Off unless the key is configured — the
+# same opt-in every example in this repository uses. When it is off the alert
+# still carries the heading and says the layer was not run: an absence is
+# stated, never faked.
+enabled_when = "DIGLINE_LIVE=1"
+model = "claude-haiku-4-5"
