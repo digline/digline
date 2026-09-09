@@ -1,0 +1,109 @@
+name: operator
+
+# The loop. Inert while this lives inside the digline monorepo — GitHub runs
+# only the workflows at a repository's own root — and live the day you fork
+# this directory into one.
+#
+# `check.yml` beside it is the gate: every push, fails on a regression.
+# This one is the operator: on a schedule, it decides what a red run *means*
+# and wakes somebody only when the answer deserves a decision.
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC. This is a demonstration, not a production
+    # default: a real cadence is as often as you can afford, because every
+    # cycle costs what the suite costs. Change it here **and** in
+    # `operator.toml` — `loop.py` refuses to start when the two disagree.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "steady | wobble | drift | structural (the demo's fake system)"
+        default: steady
+        type: string
+      escalate:
+        description: "open an issue, rather than only writing the alert"
+        default: false
+        type: boolean
+
+# `issues: write` is what `gh issue create` needs, and `GITHUB_TOKEN` can only
+# open an issue in the repository this workflow runs in. That is not a
+# limitation here — it is DESIGN.md's "an issue in your own repository",
+# enforced by the platform instead of by a policy.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+
+      # ------------------------------------------------------------------ #
+      # Layers 1 and 2. No key, no model, no network beyond the target.
+      # ------------------------------------------------------------------ #
+      - name: Run the cycle
+        id: cycle
+        env:
+          # The demo's fake system. Delete this line when you point the suite
+          # at your own endpoint: there is no scenario in a real one.
+          OPERATOR_SCENARIO: ${{ inputs.scenario || 'steady' }}
+        run: |
+          uv run python loop.py --config operator.toml --out cycle.json
+          # Lifted out of the document so the escalation step can branch on it:
+          # a workflow `if:` cannot read a file.
+          echo "escalate=$(jq -r .escalate cycle.json)" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------ #
+      # Layer 3. The only layer a model writes, and the only step that needs
+      # a key. Skipped in full when the repository has not configured one —
+      # and the alert then says so, rather than reading as though a judgment
+      # had been made.
+      # ------------------------------------------------------------------ #
+      - name: The judgment layer
+        id: judgment
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DIGLINE_LIVE: "1"
+        run: uv run python judgment.py --cycle cycle.json --out judgment.md
+
+      - name: Build the alert
+        run: |
+          if [ -f judgment.md ]; then
+            uv run python dossier.py --cycle cycle.json --judgment judgment.md --out alert.md
+          else
+            uv run python dossier.py --cycle cycle.json --out alert.md
+          fi
+          cat alert.md >> "$GITHUB_STEP_SUMMARY"
+
+      # The alert always exists, whatever happens next. Delivery is
+      # deliberately boring, and the job summary is the most boring delivery
+      # there is: it needs no token and no permission.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digline-operator-alert
+          path: |
+            alert.md
+            cycle.json
+
+      # ------------------------------------------------------------------ #
+      # Escalation. Off by default: a loop that opened an issue the day you
+      # forked it would teach you to ignore it by the third week. Set the
+      # repository variable OPERATOR_ESCALATE to `true`, or dispatch with
+      # `escalate: true`, once you trust what it is telling you.
+      # ------------------------------------------------------------------ #
+      - name: Open an issue
+        if: >-
+          fromJSON(steps.cycle.outputs.escalate || 'false') &&
+          (vars.OPERATOR_ESCALATE == 'true' || inputs.escalate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "digline operator: $(jq -r .verdict cycle.json) on $(jq -r .suite cycle.json)" \
+            --body-file alert.md \
+            --label "$(jq -r '.escalation.labels | join(",")' cycle.json)"

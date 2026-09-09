@@ -1,0 +1,314 @@
+{
+  "aggregate": [],
+  "artifacts": {},
+  "config_hash": "4d2ac7a7f606b8de",
+  "created_at": "2026-09-09T12:23:35.788080+00:00",
+  "environment": "production",
+  "git_commit": "6108ea0accec158bcc245e846b1fe59001e8b3fe-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "where-is-my-order",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "starts_capitalised",
+          "assertion_id": "05638370ca109393",
+          "metadata": {},
+          "reason": "pattern /^[A-Z]/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "fbc1272dfe824664",
+          "metadata": {
+            "length": 145,
+            "maximum": 400,
+            "unit": "characters"
+          },
+          "reason": "145 characters, within bounds (at most 400)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "e7c3e24524385570",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              0.9309,
+              0.8729,
+              0.87
+            ],
+            "spread": 0.0609
+          },
+          "reason": "mean of 3 samples (0.930900, 0.872900, 0.870000)",
+          "sample_max": 0.9309,
+          "sample_min": 0.87,
+          "samples": [
+            0.9309,
+            0.8729,
+            0.87
+          ],
+          "score": 0.891267,
+          "status": "pass",
+          "threshold": 0.7,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "4c23878b76f24fbd",
+          "metadata": {
+            "cost_usd": 0.0042,
+            "max_usd": 0.02,
+            "ratio": 0.21
+          },
+          "reason": "0.004200 USD against a 0.020000 cap (within budget)",
+          "score": 0.826446,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "b0f42e6ea7e15d56",
+          "metadata": {
+            "latency_ms": 180.0,
+            "max_ms": 800.0,
+            "ratio": 0.225
+          },
+          "reason": "180.000 ms against a 800.000 cap (within budget)",
+          "score": 0.816327,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "how-do-i-return",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "starts_capitalised",
+          "assertion_id": "05638370ca109393",
+          "metadata": {},
+          "reason": "pattern /^[A-Z]/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "fbc1272dfe824664",
+          "metadata": {
+            "length": 142,
+            "maximum": 400,
+            "unit": "characters"
+          },
+          "reason": "142 characters, within bounds (at most 400)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "e7c3e24524385570",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              0.9017,
+              0.8603,
+              0.9221
+            ],
+            "spread": 0.0618
+          },
+          "reason": "mean of 3 samples (0.901700, 0.860300, 0.922100)",
+          "sample_max": 0.9221,
+          "sample_min": 0.8603,
+          "samples": [
+            0.9017,
+            0.8603,
+            0.9221
+          ],
+          "score": 0.8947,
+          "status": "pass",
+          "threshold": 0.7,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "4c23878b76f24fbd",
+          "metadata": {
+            "cost_usd": 0.0042,
+            "max_usd": 0.02,
+            "ratio": 0.21
+          },
+          "reason": "0.004200 USD against a 0.020000 cap (within budget)",
+          "score": 0.826446,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "b0f42e6ea7e15d56",
+          "metadata": {
+            "latency_ms": 180.0,
+            "max_ms": 800.0,
+            "ratio": 0.225
+          },
+          "reason": "180.000 ms against a 800.000 cap (within budget)",
+          "score": 0.816327,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "is-it-waterproof",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "contains",
+          "assertion_id": "e989302a5befb3b2",
+          "metadata": {},
+          "reason": "'Northwind Support' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "starts_capitalised",
+          "assertion_id": "05638370ca109393",
+          "metadata": {},
+          "reason": "pattern /^[A-Z]/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "length",
+          "assertion_id": "fbc1272dfe824664",
+          "metadata": {
+            "length": 119,
+            "maximum": 400,
+            "unit": "characters"
+          },
+          "reason": "119 characters, within bounds (at most 400)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "e7c3e24524385570",
+          "metadata": {
+            "agreement": 1.0,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              0.9369,
+              0.9249,
+              0.8694
+            ],
+            "spread": 0.0675
+          },
+          "reason": "mean of 3 samples (0.936900, 0.924900, 0.869400)",
+          "sample_max": 0.9369,
+          "sample_min": 0.8694,
+          "samples": [
+            0.9369,
+            0.9249,
+            0.8694
+          ],
+          "score": 0.9104,
+          "status": "pass",
+          "threshold": 0.7,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "cost_budget",
+          "assertion_id": "4c23878b76f24fbd",
+          "metadata": {
+            "cost_usd": 0.0042,
+            "max_usd": 0.02,
+            "ratio": 0.21
+          },
+          "reason": "0.004200 USD against a 0.020000 cap (within budget)",
+          "score": 0.826446,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.05
+        },
+        {
+          "assertion": "latency_budget",
+          "assertion_id": "b0f42e6ea7e15d56",
+          "metadata": {
+            "latency_ms": 180.0,
+            "max_ms": 800.0,
+            "ratio": 0.225
+          },
+          "reason": "180.000 ms against a 800.000 cap (within budget)",
+          "score": 0.816327,
+          "status": "pass",
+          "threshold": 0.5,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "refund-status",
+      "suspended": true,
+      "suspended_reason": "the refund API is down, ticket 412",
+      "verdicts": []
+    }
+  ],
+  "schema_version": 9,
+  "suite": "support",
+  "target_config": {
+    "values": {
+      "model": "support-desk-2",
+      "provider": "northwind-inhouse",
+      "temperature": 0.0
+    }
+  },
+  "tenant": "northwind"
+}

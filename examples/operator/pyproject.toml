@@ -1,0 +1,39 @@
+[project]
+name = "northwind-operator"
+version = "0.1.0"
+description = "A digline suite watched by an operator on a schedule."
+requires-python = ">=3.12"
+dependencies = [
+    # The published package, nothing local. This directory is meant to become
+    # its own repository: `cp -r` it anywhere and `uv sync` has to work.
+    "digline>=0.6,<0.7",
+    # The operator's own model, reached only by `judgment.py` and only with
+    # DIGLINE_LIVE=1. The SDK directly rather than `digline-anthropic`: that
+    # package ships a Target and a Judge, and this call is neither — it reads a
+    # report. Depending on it would say something untrue about what runs here.
+    "anthropic>=0.40,<1",
+    # The interactive path: `.mcp.json` starts this, and a coding agent opened
+    # in this directory gets the six reading tools — and no `promote`, because
+    # there is no such tool to have.
+    "digline-mcp>=0.1,<0.2",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+# An application, not a library: there is nothing here to build a wheel from.
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+# `.` and not the default: without an explicit include pyright walks the
+# virtualenv and type-checks site-packages, which is somebody else's code.
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"
