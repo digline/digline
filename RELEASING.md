@@ -103,10 +103,11 @@ actually build against is whatever that branch holds at dispatch time.
 The three-line rule above has a first real batch, and the pages are held back
 deliberately: `digline.dev` is on its default branch and this documentation is
 not merged yet, so adding the entries early would fail the site build on pages
-that do not exist. They land together. This branch brings two of them —
+that do not exist. They land together. Three, with this branch on the pile —
 
 - `docs/diff.md` → `product/diff.md`, under `- Reference:`;
 - `docs/adr/0010-per-group-aggregates.md` → under `- Decisions:`;
+- `docs/adr/0011-the-mcp-server.md` → under `- Decisions:`;
 
 — and `tests/test_docs_pages.py` and `tests/test_adr.py` are red here for
 exactly that reason, which is the gate keeping the two repositories in step
