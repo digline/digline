@@ -127,6 +127,12 @@ What changed for you, three lines a version. The reasoning lives in
   9 arrived in 0.4.0 and the caps admit 0.4.0. `tests/test_example_caps.py`
   makes it hold by construction, with the schema each release wrote pinned from
   its tag, and a release cannot be cut without recording what it writes.
+- **Changed:** the official image is built and smoke-tested on every change to
+  it, not only by the workflow that publishes it. Same context, same quickstart,
+  no registry — the smoke moved into `docker/smoke.sh` so the two workflows run
+  one script rather than two copies. The job is gated on the paths that decide
+  what the image is, because the Dockerfile installs from PyPI and a change
+  under `src/` cannot change the image being built.
 
 ## 0.5.0 — 2026-09-08
 

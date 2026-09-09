@@ -1,0 +1,7 @@
+# The build context is this directory, and the Dockerfile copies nothing out of
+# it: every byte in the image comes from apt and PyPI. So the context is the
+# Dockerfile and nothing else — the page beside it and the smoke test that runs
+# the built image are for readers and for CI, and neither belongs in a layer or
+# in the tarball the daemon is handed.
+*
+!Dockerfile
