@@ -130,13 +130,24 @@ def test_a_brace_inside_a_string_is_not_a_brace() -> None:
     assert parsed == {"reason": 'it wrote {"a": 1}'}
 
 
-@pytest.mark.parametrize(
-    "text", ["", "I would rather not.", "[1, 2, 3]", '{"unclosed": 1']
-)
+@pytest.mark.parametrize("text", ["I would rather not.", "[1, 2, 3]", '{"unclosed": 1'])
 def test_a_reply_with_no_object_in_it_raises(text: str) -> None:
-    """The caller turns this into `error` — neither green nor a regression."""
+    """The caller turns this into `error` — neither green nor a regression.
+
+    `""` used to be a fourth case here and has moved to the judge's own tests
+    below. The parser still refuses it — nothing about `loads_lenient` changed
+    — but an empty reply never reaches it any more, and the fact it states is
+    about the *judge* rather than about the JSON.
+    """
     with pytest.raises(ValueError, match="no JSON object|not an object"):
         loads_lenient(text)
+
+
+def test_the_parser_still_refuses_an_empty_string_on_its_own() -> None:
+    """Unchanged, and checked so the move above is a move and not a deletion:
+    `loads_lenient` is reachable from a suite that wrote its own judge."""
+    with pytest.raises(ValueError, match="no JSON object"):
+        loads_lenient("")
 
 
 # -- validation --------------------------------------------------------------------- #
@@ -272,3 +283,127 @@ def test_faithfulness_divides_what_the_claim_judge_counted() -> None:
         )
     )
     assert verdict.status == "fail" and verdict.score.score == pytest.approx(0.5)
+
+
+# --------------------------------------------------------------------------- #
+# A judge that said nothing did not judge (field verification #6)
+# --------------------------------------------------------------------------- #
+#
+# An empty completion is a legal *output* — the assertions get to fail it, and
+# the openai client says why in a comment. It is not a legal *judgment*: there
+# is nothing to parse, so there is nothing that was judged. The status was
+# already `error` before this existed, because the parser refused `""` and the
+# assertions catch what a judge raises. What was wrong was the sentence.
+
+
+@pytest.mark.parametrize("judge_class", [FakeScoreJudge, FakeClaimJudge])
+def test_an_empty_reply_names_the_cap_when_the_output_hit_it(
+    judge_class: type[FakeScoreJudge] | type[FakeClaimJudge],
+) -> None:
+    """`max_tokens` reached before the first character. The operator action is
+    to raise the cap, and the sentence has to be the one that suggests it."""
+    judge = judge_class(
+        "", max_tokens=64, usage=Usage(input_tokens=10, output_tokens=64)
+    )
+    with pytest.raises(ValueError) as raised:
+        judge("p")
+    message = str(raised.value)
+    assert "the judge returned no text" in message
+    assert "max_tokens cap (64 of 64)" in message
+    assert "likely truncated" in message
+    # The parser's sentence must not be the one that reaches the operator: it
+    # would send them looking for malformed JSON that is not there.
+    assert "no JSON object" not in message
+
+
+@pytest.mark.parametrize("judge_class", [FakeScoreJudge, FakeClaimJudge])
+def test_an_empty_reply_under_the_cap_says_so_instead(
+    judge_class: type[FakeScoreJudge] | type[FakeClaimJudge],
+) -> None:
+    """A tool call, a thinking-only reply, a refusal. Raising the cap would do
+    nothing here, so the sentence must not suggest it."""
+    judge = judge_class(
+        "", max_tokens=512, usage=Usage(input_tokens=10, output_tokens=7)
+    )
+    with pytest.raises(ValueError) as raised:
+        judge("p")
+    message = str(raised.value)
+    assert "the judge returned no text" in message
+    assert "well under the cap (7 of 512)" in message
+    assert "a non-text reply or a refusal" in message
+    assert "max_tokens cap" not in message
+
+
+@pytest.mark.parametrize("reply", ["", "   ", "\n\t "])
+def test_whitespace_is_no_text_either(reply: str) -> None:
+    """A reply of spaces judged nothing, exactly as a reply of nothing did."""
+    judge = FakeScoreJudge(
+        reply, max_tokens=512, usage=Usage(input_tokens=10, output_tokens=3)
+    )
+    with pytest.raises(ValueError, match="the judge returned no text"):
+        judge("p")
+
+
+def test_an_empty_reply_is_still_counted_and_still_priced() -> None:
+    """The call happened. A judging call that produced nothing usable is one a
+    reader has to see in the spend — not counting it is the undercount that
+    reads as good news, and the refusal comes after the accounting for that
+    reason."""
+    judge = FakeScoreJudge(
+        "", max_tokens=512, usage=Usage(input_tokens=1_000_000, output_tokens=0)
+    )
+    with pytest.raises(ValueError, match="the judge returned no text"):
+        judge("p")
+    assert judge.calls == 1
+    assert judge.spent_usd > 0.0
+
+
+def test_an_empty_judge_reply_reaches_the_assertion_as_error() -> None:
+    """End to end, which is the claim that matters: the verdict is `error`, it
+    carries no score, and the reason names what happened rather than what the
+    parser could not do."""
+    verdict = LlmRubric(
+        rubric="is it polite?",
+        judge=FakeScoreJudge(
+            "", max_tokens=64, usage=Usage(input_tokens=10, output_tokens=64)
+        ),
+        threshold=0.7,
+        tolerance=0.05,
+    )(EvaluatorInputs(output="hello"))
+
+    assert verdict.status == "error"
+    assert verdict.score.score is None
+    assert "the judge returned no text" in verdict.reason
+    assert "max_tokens cap" in verdict.reason
+
+
+def test_a_reply_that_is_only_the_prefill_is_no_text_either() -> None:
+    """The case that would have escaped, and on the provider most likely to be
+    judging here.
+
+    A plugin may open the assistant turn for the model: Anthropic's judge
+    prefills `{` so the reply is an object whether or not the model opened one,
+    and `_complete` prepends it back before returning. A model that produced
+    nothing then arrives as `"{"` — not empty, and past a bare `strip()`.
+    """
+    judge = FakeScoreJudge(
+        "{", max_tokens=512, usage=Usage(input_tokens=10, output_tokens=7)
+    )
+    judge.prefill = "{"
+    with pytest.raises(ValueError, match="the judge returned no text"):
+        judge("p")
+
+
+def test_a_prefill_is_still_parsed_as_part_of_the_reply() -> None:
+    """Seeing past the prefill is for one question only. The prefill is a real
+    part of the text to parse — dropping it there would break every reply the
+    trick exists to make readable."""
+    judge = FakeScoreJudge(
+        '{"score": 0.8, "reason": "fine"}',
+        max_tokens=512,
+        usage=Usage(input_tokens=10, output_tokens=20),
+    )
+    judge.prefill = "{"
+    reply = judge("p")
+    assert reply.score == pytest.approx(0.8)
+    assert reply.reason == "fine"

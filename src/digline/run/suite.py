@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 
 from digline.core import (
+    GROUP_MARKER,
     NOTHING_EXTRA,
     Assertion,
     Disclosure,
@@ -20,6 +21,7 @@ from digline.core import (
     Repeated,
     RunAssertion,
     config_hash,
+    expand_by_group,
 )
 from digline.core.ratio import Ratio, as_agreement
 
@@ -36,6 +38,11 @@ class Case:
     are their own test data. On the production-to-repository bridge nobody
     chooses it: digline generates it, and there is no parameter through
     which an application identifier could be passed (ADR 0002 §5).
+
+    `expected` is the value the output is compared against, and it is either
+    absent or a real expectation: `None` says the case has nothing to compare
+    against, while `""` claims an expectation that every empty output meets.
+    The empty one is refused — absence is not emptiness.
 
     `metadata` is payload unless the suite's `Disclosure` says otherwise, and it
     never reaches a `Score`: an assertion writes its own metadata from what it
@@ -60,6 +67,17 @@ class Case:
     #: The human mark, when the suite has ground truth. Required on every case
     #: as soon as a `RunAssertion` counts a confusion matrix.
     label: Label | None = None
+    #: Which class this case belongs to — an expense category, a language, a
+    #: customer segment. **Descriptive, never behavioural**: nothing about
+    #: execution changes, no target and no assertion is given it, and a suite
+    #: that sets `by_group` nowhere behaves as if the field did not exist. It is
+    #: read in one place, `Suite.__post_init__`, and read there as a label.
+    #:
+    #: `None` means the case belongs to no group, and is counted only in the
+    #: whole-run aggregate: there is no implicit "ungrouped" bucket, which would
+    #: be a gate nobody declared, appearing and vanishing as cases were
+    #: labelled. (ADR 0010 §1, §2)
+    group: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -68,6 +86,28 @@ class Case:
             raise ValueError(
                 f"case {self.id!r} is suspended without a stated reason: "
                 "a suspension nobody can justify is a case quietly dropped"
+            )
+        if self.expected is not None and not self.expected:
+            # `None` says "this case has no expected value"; `""` claims there
+            # *is* one and that it is nothing. The second is the vacuously
+            # green assertion by another route: `levenshtein` scores an empty
+            # expected against an empty output as a perfect 1.0 — both
+            # behaviours defensible on their own, composing into a check that
+            # cannot fail. Refused here rather than in the assertions, because
+            # it is the case that is malformed. (fixed decision 3)
+            raise ValueError(
+                f"case {self.id!r} declares an empty expected: an empty "
+                "expectation is a perfect match against an empty output. "
+                "Leave it unset if the case has nothing to compare against — "
+                "absence is not emptiness"
+            )
+        if self.group is not None and not self.group:
+            # `None` and `""` would otherwise be two spellings of "no group"
+            # with different consequences: the empty one names a group, so it
+            # would expand into `precision[group=]`, a gate nobody can read.
+            raise ValueError(
+                f"case {self.id!r} declares an empty group: leave it unset to "
+                "put the case in no group"
             )
 
 
@@ -172,7 +212,28 @@ class Suite:
                 )
             seen.add(case.id)
 
+        # Validated on the *declared* set, so a refusal names what the author
+        # wrote rather than a copy the expansion made.
         self._check_aggregates()
+        # And expanded after, into the field the rest of the product reads:
+        # `config_hash()` below, and the driver. So a data suite gets §2 with
+        # no line in the loader, and `run_assertions` is longer than what was
+        # written — deterministically, whole-run instance first. (ADR 0010 §6)
+        object.__setattr__(
+            self,
+            "run_assertions",
+            expand_by_group(self.run_assertions, self.groups()),
+        )
+
+    def groups(self) -> tuple[str, ...]:
+        """The groups the cases declare, sorted and without repetition.
+
+        Sorted here rather than in `expand_by_group`, which takes the order it
+        is given: the core is not the layer that decides a group set exists at
+        all. Sorted at all because it fixes the expansion's order, and with it
+        the identity set, the `config_hash` and the report's columns.
+        """
+        return tuple(sorted({c.group for c in self.cases if c.group is not None}))
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be
@@ -185,6 +246,15 @@ class Suite:
         whichever came first. Both produce a number that looks like an answer.
         """
         for aggregate in self.run_assertions:
+            if GROUP_MARKER in aggregate.name:
+                raise ValueError(
+                    f"aggregate {aggregate.name!r} writes {GROUP_MARKER!r} in "
+                    "its own name, which is the form an expanded aggregate "
+                    "takes. Two checks could then arrive under one name, which "
+                    "is what identity exists to prevent and what the run grid "
+                    "would silently merge. Set by_group=True and let the "
+                    "expansion name them"
+                )
             matches = [a for a in self.assertions if a.name == aggregate.over]
             if not matches:
                 available = ", ".join(sorted({a.name for a in self.assertions}))

@@ -25,6 +25,7 @@ from digline.core import (
     Label,
     Output,
     Run,
+    RunAssertion,
     SystemConfig,
     Verdict,
     combine_samples,
@@ -313,25 +314,46 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
 
 
 def _outcomes(
-    suite: Suite, results: Sequence[CaseResult], over: str
+    suite: Suite, results: Sequence[CaseResult], run_assertion: RunAssertion
 ) -> tuple[CaseOutcome, ...]:
-    """Every case as the aggregate sees it: its mark, and the verdict of the one
+    """Every case the aggregate counts: its mark, and the verdict of the one
     check named by `over`.
 
     `Suite` has already refused an `over` that is absent or ambiguous, so a case
     that ran has exactly one verdict under that name — including a case whose
     target raised, where the driver built an errored verdict for every declared
     assertion. A suspended case has none, and is excluded rather than guessed at.
+
+    **A scoped aggregate is filtered here**, and that is the whole of "the same
+    machinery on a subset": `with_noise_interval` is handed a shorter list and
+    needs no branch, so the per-sample re-evaluation of ADR 0006 §7 is
+    restricted to the group because what it re-evaluates already is.
+
+    Filtering here rather than inside the aggregate is deliberate.
+    `per_sample_outcomes` gives up unless every judged case in the list carries
+    the same number of samples; over the group, that condition is about the
+    group, and one odd case elsewhere in the run cannot silence its interval.
+    (ADR 0010 §7)
     """
     # Annotated: inferring the dict would widen the Literal to `str`.
     labels: dict[str, Label | None] = {c.id: c.label for c in suite.cases}
+    over = run_assertion.over
+    # `getattr` rather than an attribute, for the reason `expand_by_group` reads
+    # the flag that way: `RunAssertion` is a structural Protocol and a custom
+    # aggregate that never heard of groups must go on satisfying it.
+    group: str | None = getattr(run_assertion, "group", None)
+    if group is None:
+        counted = results
+    else:
+        groups = {c.id: c.group for c in suite.cases}
+        counted = [r for r in results if groups.get(r.case_id) == group]
     return tuple(
         CaseOutcome(
             case_id=result.case_id,
             label=labels.get(result.case_id),
             verdict=next((v for v in result.verdicts if v.score.name == over), None),
         )
-        for result in results
+        for result in counted
     )
 
 
@@ -389,9 +411,7 @@ def execute(
     # moves. It costs no call to anything: the per-case samples already exist
     # and a `RunAssertion` is a pure function. (ADR 0006 §7)
     aggregate = tuple(
-        with_noise_interval(
-            run_assertion, _outcomes(suite, results, run_assertion.over)
-        )
+        with_noise_interval(run_assertion, _outcomes(suite, results, run_assertion))
         for run_assertion in suite.run_assertions
     )
     return Run(

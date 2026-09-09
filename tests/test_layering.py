@@ -13,7 +13,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parents[1] / "src" / "digline" / "core"
+SRC = Path(__file__).resolve().parents[1] / "src" / "digline"
+PACKAGES = Path(__file__).resolve().parents[1] / "packages"
+CORE = SRC / "core"
 
 
 def imported_modules(path: Path) -> set[str]:
@@ -101,6 +103,98 @@ def test_the_report_does_no_io_and_knows_no_store() -> None:
             )
 
 
+def test_nothing_below_a_front_end_imports_the_cli() -> None:
+    """A front end is the top of the chain, and front ends do not import each
+    other.
+
+    `digline.cli` used to be two layers wearing one name: the host that reads
+    the clock, asks git and imports the user's suite, and the terminal that
+    parses arguments and prints. Only the second is left in it (ADR 0011 §7), so
+    a second front end — `digline-mcp` — has nothing to want from it, and this
+    is the check that keeps that true.
+
+    Without it the drift is quiet and specific: a server that imported
+    `cli.main._delta_json` would be parsing a private function, and the next
+    person to refactor `cmd_compare` would have no way to know a published
+    package depended on it. The machine surface lives in `digline.wire` for
+    exactly that reason, and this gate is what stops the shortcut back.
+
+    `cli/` importing its own submodules is not the question, so it is skipped.
+    Tests are exempt by construction: they drive every layer, the CLI included.
+    """
+    for tree in (SRC, PACKAGES):
+        for source in sorted(tree.rglob("*.py")):
+            if SRC / "cli" in source.parents:
+                continue
+            for module in imported_modules(source):
+                assert not module.startswith("digline.cli"), (
+                    f"{source} imports {module}: `digline.cli` is a front end, "
+                    "and nothing below one may import it. What it needs is "
+                    "either in `digline.host` (the clock, git, the suite, the "
+                    "declared files) or in `digline.wire` (the machine surface)."
+                )
+
+
+def test_the_host_is_the_only_layer_that_reads_the_clock_or_git() -> None:
+    """The rule `CLAUDE.md` has always stated, now checked where it is true.
+
+    A **duration** is not a clock — it cannot say what time it is — so
+    `perf_counter` in a target stays allowed, and `time` is not forbidden
+    outright here the way it is in the core. What is forbidden is asking what
+    time it *is*, and shelling out to git, anywhere but `host/`.
+
+    `store/file_store.py` is the one exception and it is deliberate: it exposes
+    `utc_now_iso` for tests and helpers that need a stamp, and never calls it to
+    fill a field of a `Run`. A run's `created_at` is passed in, which is what
+    makes it reproducible.
+    """
+    allowed = {SRC / "host", SRC / "store"}
+    for source in sorted(SRC.rglob("*.py")):
+        if any(parent in allowed for parent in source.parents):
+            continue
+        text = source.read_text(encoding="utf-8")
+        for forbidden in ("datetime.now(", "utcnow(", "subprocess.run"):
+            assert forbidden not in text, (
+                f"{source.relative_to(SRC)} calls {forbidden}: the clock and "
+                "git belong to `digline.host`, and everything below receives "
+                "them as values so a run stays reproducible"
+            )
+
+
+def test_the_wire_is_pure() -> None:
+    """The machine surface renders facts; it does not go and get them.
+
+    Held to `report/`'s constraints and for the same reason: both are renderings
+    of a comparison somebody else produced, and a renderer that could read a
+    file or a clock would be a renderer whose output depends on when it ran.
+    Two runs of the same comparison must serialize identically. (ADR 0011 §6)
+    """
+    wire = SRC / "wire"
+    forbidden = {"datetime", "time", "pathlib", "os", "io", "tempfile", "subprocess"}
+    # `digline.run` and `digline.store` are allowed, and only for their value
+    # types: `CallPlan` is arithmetic over a declared suite and `RunRef` is an
+    # address. What is forbidden is the verb — a renderer that could run a suite
+    # would be a renderer with a reason to have side effects.
+    verbs = {"execute", "write_run", "promote_baseline", "migrate_paths"}
+    for source in sorted(wire.glob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        modules = imported_modules(source)
+        offenders = modules & forbidden
+        assert not offenders, f"{source.name} imports {offenders}: the wire is pure"
+        for module in modules:
+            assert not module.startswith("digline.host"), (
+                f"{source.name} imports {module}: the wire renders what it is "
+                "given, it does not go and get it"
+            )
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                called = {a.name for a in node.names} & verbs
+                assert not called, (
+                    f"{source.name} imports {sorted(called)}: the wire renders a "
+                    "result, it does not produce or persist one"
+                )
+
+
 def test_the_core_imports_on_its_own() -> None:
     """A clean process importing only `digline.core` must not drag in
     `digline.store`: that is the condition for Plumbline to use it as a
@@ -110,10 +204,6 @@ def test_the_core_imports_on_its_own() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "False"
-
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "digline"
-PACKAGES = Path(__file__).resolve().parents[1] / "packages"
 
 
 def test_nothing_shipped_with_digline_imports_a_plugin() -> None:

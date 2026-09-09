@@ -171,12 +171,31 @@ def test_resolving_one_provider_does_not_import_another() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_the_hint_table_names_every_plugin_in_this_workspace() -> None:
+def test_the_hint_table_names_every_provider_in_this_workspace() -> None:
     """`FIRST_PARTY` is what turns "no provider named 'bedrock'" into a command
-    somebody can run. A fourth plugin that is not listed here would get the
-    general sentence instead, which is a worse message and a silent one."""
-    shipped = {path.name for path in (ROOT / "packages").iterdir() if path.is_dir()}
-    assert set(FIRST_PARTY.values()) == shipped
+    somebody can run. A fourth provider that is not listed here would get the
+    general sentence instead, which is a worse message and a silent one.
+
+    A **provider**, not a directory. This used to read every directory under
+    `packages/`, which was the same thing for as long as every workspace package
+    was a plugin. `digline-mcp` is not one — it registers nothing in
+    `digline.providers` and there is no coordinate that could name it — so the
+    question is asked of the metadata that decides it rather than of the
+    filesystem. (ADR 0011 §11, the same widening as `test_plugin_floors.py`.)
+    """
+    import tomllib
+
+    providers: set[str] = set()
+    for directory in sorted((ROOT / "packages").iterdir()):
+        manifest = directory / "pyproject.toml"
+        if not manifest.is_file():
+            continue
+        with manifest.open("rb") as handle:
+            entry_points = tomllib.load(handle)["project"].get("entry-points", {})
+        if "digline.providers" in entry_points:
+            providers.add(directory.name)
+    assert providers, "no provider in the workspace; this test would prove nothing"
+    assert set(FIRST_PARTY.values()) == providers
 
 
 @pytest.mark.parametrize(

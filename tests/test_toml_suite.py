@@ -23,14 +23,14 @@ import pytest
 from tests._providers import BUCKET, FakeJudge, FakeTarget
 
 from digline import core
-from digline.cli.errors import UsageError
-from digline.cli.toml_suite import (
+from digline.core import Faithfulness, LlmRubric
+from digline.host.errors import UsageError
+from digline.host.toml_suite import (
     AGGREGATES,
     ASSERTIONS,
     PYTHON_ONLY,
     load_toml_suite,
 )
-from digline.core import Faithfulness, LlmRubric
 from digline.run import Suite
 from digline.targets import HttpTarget
 
@@ -313,6 +313,7 @@ def test_a_case_carries_every_field_the_dataclass_has(build: Build) -> None:
                     "context": ["one", "two"],
                     "metadata": {"quarter": "2026-Q3"},
                     "label": "positive",
+                    "group": "orders",
                 },
                 {"id": "b", "suspended": "the API is down, ticket 412"},
             ]
@@ -324,7 +325,60 @@ def test_a_case_carries_every_field_the_dataclass_has(build: Build) -> None:
     assert list(first.context) == ["one", "two"]
     assert first.metadata == {"quarter": "2026-Q3"}
     assert first.label == "positive"
+    # No line in the loader made this work: `cases.json` is the `Case`
+    # dataclass, so a field added there arrives in a data suite the day it
+    # exists (ADR 0007 §4, ADR 0010 §1).
+    assert first.group == "orders"
+    assert second.group is None
     assert second.suspended == "the API is down, ticket 412"
+
+
+def test_an_empty_group_in_a_cases_file_is_refused(build: Build) -> None:
+    """`None` already spells "no group"; `""` is a second spelling of it that
+    would expand into `precision[group=]` (ADR 0010 §1)."""
+    with pytest.raises(UsageError, match="declares an empty group"):
+        build(cases=json.dumps([{"id": "a", "group": ""}]))
+
+
+def test_an_empty_expected_in_a_cases_file_is_refused(build: Build) -> None:
+    """The other entrance to the same refusal. Nothing in the loader knows
+    about `expected`: the check lives on `Case`, and every form goes through
+    it."""
+    with pytest.raises(UsageError, match="declares an empty expected"):
+        build(cases=json.dumps([{"id": "a", "expected": ""}]))
+
+
+def test_by_group_expands_a_data_suite_without_a_line_in_the_loader(
+    build: Build,
+) -> None:
+    """The aggregate is written once and arrives as three, because the
+    expansion is in `Suite.__post_init__` and every form goes through it
+    (ADR 0010 §6)."""
+    suite = build(
+        SUITE
+        + TARGET
+        + CONTAINS
+        + """
+[[assertions]]
+type = "precision"
+over = "contains"
+threshold = "1/2"
+tolerance = "1/10"
+by_group = true
+""",
+        cases=json.dumps(
+            [
+                {"id": "a", "label": "positive", "group": "beta"},
+                {"id": "b", "label": "negative", "group": "alpha"},
+                {"id": "c", "label": "negative"},
+            ]
+        ),
+    )
+    assert [a.name for a in suite.run_assertions] == [
+        "precision",
+        "precision[group=alpha]",
+        "precision[group=beta]",
+    ]
 
 
 def test_a_cases_file_that_is_not_there_says_where_it_looked(build: Build) -> None:

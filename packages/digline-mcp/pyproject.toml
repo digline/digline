@@ -1,0 +1,44 @@
+[project]
+name = "digline-mcp"
+version = "0.1.0"
+description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [
+    { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    # 0.6.0 is the release that first publishes `digline.wire` and
+    # `digline.host`, and `core.diff` with them. Held there by
+    # `tests/test_plugin_floors.py`, which computes the floor from the newest
+    # name these sources import rather than taking this number on trust.
+    "digline>=0.6.0",
+    # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
+    # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
+    # 2.0 release renamed FastMCP, and every example written before it is wrong.
+    # The cap is the same lesson the examples' caps gate encodes — a major
+    # version that renames the entry point is not hypothetical here, it happened.
+    "mcp>=2.2,<3",
+]
+
+[project.scripts]
+digline-mcp = "digline_mcp.server:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/digline_mcp"]
+
+[tool.uv.sources]
+digline = { workspace = true }

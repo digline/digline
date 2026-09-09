@@ -156,6 +156,18 @@ class ViewHandler(BaseHTTPRequestHandler):
     def _screen_compare(
         self, locale: Locale, query: Mapping[str, Sequence[str]]
     ) -> None:
+        """One route, two questions, and the reference is what tells them apart.
+
+        Against the **baseline** — including when `against` is omitted, which is
+        the default — this is a run held against an approved reference, which is
+        `compare()`'s question, and the verdict document is the right answer.
+
+        Against **any other run** neither side was approved by anybody, so the
+        page is the diff report. Until ADR 0008 this route rendered the verdict
+        for every pair, which put two candidates under a heading asking "Did it
+        get worse?" beside a column called "Reference" — the diff's need served
+        with the verdict's semantics. (ADR 0008 §6)
+        """
         key = (query.get("run") or [""])[0]
         if not key:
             self._error(400, "compare needs a run")
@@ -164,20 +176,39 @@ class ViewHandler(BaseHTTPRequestHandler):
             RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=key)
         )
 
+        baseline = self.store.read_baseline(self.suite.tenant, self.suite.name)
+        baseline_key = None if baseline is None else self.store.key_for(baseline)
+
         other = (query.get("against") or [""])[0]
-        if other:
+        if other and other != baseline_key:
+            if other == key:
+                self._error(400, pages.phrase(locale, "view.compare.same"))
+                return
             against = self.store.read_run(
                 RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=other)
             )
-        else:
-            baseline = self.store.read_baseline(self.suite.tenant, self.suite.name)
-            if baseline is None:
-                self._error(404, "this suite has no baseline yet")
-                return
-            against = baseline
+            # A refusal from ADR 0008 §3 is a `ValueError`, which `do_GET`
+            # already turns into a 400 carrying `str(exc)` — so the screen shows
+            # **the same sentence the CLI prints**, naming the same remedy. The
+            # page around it is plain and may stay plain; the sentence is the
+            # product, and a refusal worded twice would be two refusals.
+            self._send(
+                200,
+                pages.diff_page(
+                    run,
+                    against,
+                    locale=locale,
+                    suite=self.suite.name,
+                    keys=(key, other),
+                ),
+            )
+            return
 
+        if baseline is None:
+            self._error(404, "this suite has no baseline yet")
+            return
         self._send(
-            200, pages.compare_page(run, against, locale=locale, suite=self.suite.name)
+            200, pages.compare_page(run, baseline, locale=locale, suite=self.suite.name)
         )
 
     def _screen_case(self, locale: Locale, case_id: str) -> None:

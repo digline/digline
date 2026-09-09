@@ -1,9 +1,19 @@
-"""The command line: the last layer, and the only one that touches the world.
+"""The command line: the last layer, and one of the front ends.
 
-Seven commands, each doing one thing, and nothing promoting as a side effect of
+It no longer *is* the layer that touches the world — `digline.host` is, and this
+composes it. The clock and git are still read once per command and passed down
+as values; they are now read through `digline.host` so that a second front end
+reads them the same way rather than growing its own. (ADR 0011 §7)
+
+Eight commands, each doing one thing, and nothing promoting as a side effect of
 anything else: `run` writes a run and prints its key, `compare` reads and
-judges, `promote` promotes, `report` renders, `migrate` brings stored documents
-up to the current schema, `list` and `view` show.
+judges, `diff` reads two runs and judges neither, `promote` promotes, `report`
+renders, `migrate` brings stored documents up to the current schema, `list` and
+`view` show.
+
+`compare` and `diff` are two commands and not one with a flag, because **the
+exit code is the contract**: `compare` gates and `diff` never does, and a user
+must never have to remember which mode they selected (ADR 0008 §2).
 
 **None of this is `--help`.** What a reader of the source needs — why the layer
 exists, what it is allowed to touch — is not what someone typing `digline -h`
@@ -16,35 +26,44 @@ live here and in `docs/adr/`.
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from digline.cli.environment import git_commit, utc_now_iso
-from digline.cli.loader import Loaded, UsageError, load_suite, load_target
+from digline import __version__
 from digline.cli.view import serve
 from digline.core import (
-    Artifact,
-    AssertionDelta,
-    ConfigDelta,
     Run,
     compare,
+    diff,
     redact,
     withhold_artifacts,
 )
+from digline.host import (
+    Loaded,
+    UsageError,
+    git_commit,
+    load_suite,
+    load_target,
+    need_baseline,
+    read_artifacts,
+    read_run,
+    resolve_key,
+    utc_now_iso,
+)
 from digline.report import (
-    Headline,
     artifact_lines,
     config_lines,
     headline,
     render_html,
+    render_run_html,
     summary_lines,
+    unjudged_cases,
 )
-from digline.run import HasArtifacts, Suite, execute, planned_calls
+from digline.report import diff as diff_report
+from digline.run import Suite, execute, planned_calls
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -52,6 +71,17 @@ from digline.store import (
     RunRef,
     TenantMismatchError,
     migrate_paths,
+)
+from digline.wire import (
+    EXIT_OK,
+    EXIT_UNJUDGED,
+    EXIT_USAGE,
+    EXIT_WORSE,
+    OUTPUT_VERSION,
+    compare_json,
+    diff_json,
+    exit_code,
+    run_json,
 )
 
 __all__ = [
@@ -64,95 +94,9 @@ __all__ = [
     "main",
 ]
 
-#: The shape of what `--json` prints, and nothing to do with `SCHEMA_VERSION`.
-#:
-#: Two contracts, two lifetimes. `SCHEMA_VERSION` is about documents already on
-#: disk, which is why it comes with migrations: a file written last month must
-#: still be readable. This one is about what a pipeline parses on stdout today,
-#: where nothing needs migrating and the only question is whether the consumer
-#: knows the shape moved. Tying them together would mean a reworded sentence
-#: bumping the storage schema, and a new field inside a `Run` bumping the output
-#: contract for consumers who saw no change.
-#:
-#: 1: `worse`, `unjudged`, `suspended`, `config_changed`, `artifacts_changed`,
-#:    `counts`, `reasons_available`, `sentence`; `deltas` under `--json full`.
-#:    Since then, and without a bump because the rule above is that added keys
-#:    do not break a consumer: `target_config_changed` and
-#:    `judge_config_changed` on the headline, and `target_config_deltas` /
-#:    `judge_config_deltas` under `full` (ADR 0005 §7).
-OUTPUT_VERSION = 1
-
-EXIT_OK = 0
-EXIT_WORSE = 1
-EXIT_UNJUDGED = 2
-EXIT_USAGE = 64
-
 LOCALES: tuple[str, ...] = ("en", "it")
 
 RUN_HELP = "a run key, or 'latest' for the most recent run of this suite"
-
-
-def exit_code(head: Headline) -> int:
-    """The one place a headline becomes a number.
-
-    Precedence is deliberate: **a regression outranks an unjudged case.** Both
-    need attention, but a regression is a statement about behaviour that got
-    worse, while an unjudged case is a statement about the harness. When both
-    are true the louder fact must be the one the pipeline reports, or a real
-    regression would hide behind a flaky provider.
-
-    A suspension never fails: it is a decision someone already made, not an
-    outcome.
-    """
-    if head.worse:
-        return EXIT_WORSE
-    if head.unjudged:
-        return EXIT_UNJUDGED
-    return EXIT_OK
-
-
-def read_artifacts(suite: Suite, target: object, base: Path) -> dict[str, Artifact]:
-    """The declared files, as they are right now.
-
-    Here rather than in the driver for the same reason the clock and git are
-    here: this is the layer allowed to touch the world, and a driver that opened
-    files would need one to be tested. Relative paths resolve against the
-    suite's own directory, which is where a prompt sits next to the suite that
-    names it.
-
-    The **target** is asked too, when it can answer. A `ProviderTarget` builds
-    its prompt from a file and already knows which one, so `artifacts=[…]` does
-    not have to repeat a path that would then have two places to be wrong.
-
-    A declared file that is missing raises. It is the thing under examination —
-    a run that quietly recorded no prompt would be a run whose evidence is
-    absent exactly when it matters.
-    """
-    declared: list[Path] = list(suite.artifacts)
-    if isinstance(target, HasArtifacts):
-        declared.extend(target.artifacts())
-
-    found: dict[str, Artifact] = {}
-    for entry in declared:
-        path = entry if entry.is_absolute() else base / entry
-        if not path.is_file():
-            raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"is not a file at {path}: the thing under test cannot be "
-                "recorded, so the run would not say what produced it"
-            )
-        data = path.read_bytes()
-        # Keyed by where it sits relative to the suite, so a run file stays
-        # readable on another machine: an absolute path is this laptop's fact.
-        try:
-            key = str(path.resolve().relative_to(base.resolve()))
-        except ValueError:
-            key = path.name
-        found[key] = Artifact(
-            sha=hashlib.sha256(data).hexdigest(),
-            text=data.decode("utf-8"),
-        )
-    return found
 
 
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
@@ -200,65 +144,18 @@ def _load(args: argparse.Namespace) -> tuple[Suite, Loaded, FileResultStore]:
     return suite, loaded, FileResultStore(args.root)
 
 
-LATEST = "latest"
+def _resolve(store: FileResultStore, suite: Suite, key: str) -> str:
+    """`resolve_key` for a terminal: the key, and the note on stderr.
 
-
-def _resolve_key(store: FileResultStore, suite: Suite, key: str) -> str:
-    """`--run latest` means the most recent run of this suite in this perimeter.
-
-    Not a guess and not a default: `--run` stays mandatory, and `latest` is a
-    value the caller types. It exists because copying a key by hand right after
-    `run` printed it is the friction of minute three, and a tool people abandon
-    at minute three has no other qualities worth discussing.
-
-    Resolved over a **scan**, which steps over documents this version cannot
-    read. A stored history outlives the schema that wrote it, and the morning
-    after a release `latest` used to fail on yesterday's files — a refusal about
-    a run nobody had asked for. What was skipped is stated, never swallowed.
-
-    Within what can be read, the newest is chosen on `created_at`, the recorded
-    fact, rather than on the filename that encodes it.
+    The host returns what the scan stepped over rather than printing it
+    (ADR 0011 §7). Here that becomes a line on stderr — `latest` is resolved
+    inside commands whose stdout may be JSON, and a note that broke a pipeline
+    would teach people to ignore it.
     """
-    if key != LATEST:
-        return key
-    listing = store.scan_runs(suite.tenant, suite.name)
-    if not listing.runs:
-        # Two different situations, and telling them apart is the whole value of
-        # the message: an empty store needs a run, a store full of old schemas
-        # needs a migration. "No readable runs" on an empty store would suggest
-        # unreadable ones exist.
-        if listing.skipped or listing.unreadable:
-            raise UsageError(
-                f"no readable runs stored for suite {suite.name!r} in tenant "
-                f"{suite.tenant!r} — {listing.note()}. "
-                "Run `digline migrate` to bring them up to date."
-            )
-        raise UsageError(
-            f"no runs stored for suite {suite.name!r} in tenant {suite.tenant!r}, "
-            "so there is no latest one. Run it first."
-        )
-    if listing.skipped:
-        # On stderr: `latest` is resolved inside commands whose stdout may be
-        # JSON, and a note that broke a pipeline would teach people to ignore it.
-        print(f"note: {listing.note()}", file=sys.stderr)
-    newest = max(
-        (store.read_run(ref) for ref in listing.runs), key=lambda r: r.created_at
-    )
-    return store.key_for(newest)
-
-
-def _read_run(store: FileResultStore, suite: Suite, key: str) -> Run:
-    return store.read_run(RunRef(tenant=suite.tenant, suite=suite.name, key=key))
-
-
-def _need_baseline(store: FileResultStore, suite: Suite) -> Run:
-    baseline = store.read_baseline(suite.tenant, suite.name)
-    if baseline is None:
-        raise UsageError(
-            f"suite {suite.name!r} has no baseline for tenant {suite.tenant!r} yet. "
-            "Run it, look at the result, then 'digline promote --run <key>'."
-        )
-    return baseline
+    resolved = resolve_key(store, suite, key)
+    if resolved.note:
+        print(f"note: {resolved.note}", file=sys.stderr)
+    return resolved.key
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -278,7 +175,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     # still captures only the key. Arithmetic over the declared suite: no
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
-    print(f"digline: {planned_calls(suite).sentence()}", file=sys.stderr)
+    plan = planned_calls(suite)
+    print(f"digline: {plan.sentence()}", file=sys.stderr)
 
     run = execute(
         suite,
@@ -291,16 +189,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     ref = store.write_run(run)
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "output_version": OUTPUT_VERSION,
-                    "key": ref.key,
-                    "tenant": ref.tenant,
-                    "suite": ref.suite,
-                }
-            )
-        )
+        print(json.dumps(run_json(ref, plan)))
     else:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
@@ -313,80 +202,16 @@ def cmd_run(args: argparse.Namespace) -> int:
 SUMMARY_LIMIT = 20
 
 
-def _delta_json(delta: AssertionDelta) -> dict[str, object]:
-    """The structured facts, and deliberately **not** the verdict's `reason`.
-
-    A reason is payload, and stdout of a CI job is a place logs go and stay. A
-    pipeline that genuinely needs the judge's words can read the run file, from
-    inside the perimeter where it is allowed to.
-
-    `scope` is emitted even though a run-scoped delta always carries
-    `case_id == ""`: deriving the kind of a delta from an empty string asks the
-    consumer to know a convention instead of reading a field, and an empty
-    `case_id` is equally what a malformed one would look like.
-
-    `within_noise` and the interval ride beside the outcome rather than inside
-    it, in `--json` for the same reason as in the document: `Outcome` gains no
-    sixth member, so a pipeline that already knows the five keeps working, and
-    one that wants to tell "nothing moved" from "what moved was noise" reads a
-    field. The interval is emitted on a regression too — that is the sentence
-    "beyond the noise of this check" in machine form. (ADR 0006 §9)
-    """
-    before = None if delta.baseline is None else delta.baseline.score.score
-    after = None if delta.current is None else delta.current.score.score
-    return {
-        "case_id": delta.case_id,
-        "scope": delta.scope,
-        "assertion": delta.assertion,
-        "outcome": delta.outcome,
-        "before": before,
-        "after": after,
-        "delta": delta.delta,
-        "within_noise": delta.within_noise,
-        "noise_min": delta.noise_min,
-        "noise_max": delta.noise_max,
-        "noise_samples": delta.noise_samples,
-    }
-
-
-def _config_json(delta: ConfigDelta) -> dict[str, object]:
-    """A configuration delta as a pipeline reads it.
-
-    The values travel, unlike a verdict's `reason`: a model id and a temperature
-    are measurements of the system, and a withheld field carries no value to
-    print in the first place — redaction removed it before this was built
-    (ADR 0005 §2).
-    """
-    return {
-        "field": delta.field,
-        "outcome": delta.outcome,
-        "before": delta.before,
-        "after": delta.after,
-        "withheld": delta.withheld,
-    }
-
-
 def cmd_compare(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    run = _read_run(store, suite, _resolve_key(store, suite, args.run))
-    baseline = _need_baseline(store, suite)
+    run = read_run(store, suite, _resolve(store, suite, args.run))
+    baseline = need_baseline(store, suite)
 
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale=args.locale)
 
     if args.json:
-        # The headline, not the document: a pipeline wants the facts, and the
-        # sentence it carries is the same one a customer will read.
-        payload: dict[str, object] = {"output_version": OUTPUT_VERSION}
-        payload.update(dataclasses.asdict(head))
-        if args.json == "full":
-            payload["deltas"] = [_delta_json(d) for d in comparison.deltas]
-            payload["target_config_deltas"] = [
-                _config_json(d) for d in comparison.target_config_deltas
-            ]
-            payload["judge_config_deltas"] = [
-                _config_json(d) for d in comparison.judge_config_deltas
-            ]
+        payload = compare_json(comparison, head, full=args.json == "full")
         print(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
@@ -414,6 +239,79 @@ def cmd_compare(args: argparse.Namespace) -> int:
         for line in lines:
             print(line)
     return exit_code(head)
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    """Two runs, neither of them a reference. Always exits 0 on a report.
+
+    `exit_code()` is deliberately not called and must never be: a verdict exists
+    only against an approved reference, and neither side of a diff was approved
+    by anybody (ADR 0008 §1). The refusals below are usage errors — the report
+    could not be produced — which is a different thing from a report whose
+    contents somebody dislikes, and only the first is a non-zero exit.
+    """
+    suite, _loaded, store = _load(args)
+    left_key, right_key = (_resolve(store, suite, k) for k in args.runs)
+    if left_key == right_key:
+        raise UsageError(
+            f"both arguments resolve to the run {left_key}: a run diffed with "
+            "itself has nothing to report, because every line of the answer "
+            "would be a tautology"
+        )
+    left = read_run(store, suite, left_key)
+    right = read_run(store, suite, right_key)
+
+    difference = diff(left, right)
+    keys = (left_key, right_key)
+    labels = diff_report.run_labels(
+        left.created_at, right.created_at, left_key=left_key, right_key=right_key
+    )
+    sentence = diff_report.sentence(difference, locale=args.locale, labels=labels)
+
+    if args.json:
+        print(
+            json.dumps(
+                diff_json(
+                    difference,
+                    left,
+                    right,
+                    keys=keys,
+                    labels=labels,
+                    sentence=sentence,
+                    full=args.json == "full",
+                ),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+
+    # The two runs bound to the labels everything below uses. No word in front
+    # of either: "run 1" and "run 2" would be a rank, and the order of two
+    # columns is not one. The key is dropped where the label already is the key.
+    for key, label, run in ((left_key, labels[0], left), (right_key, labels[1], right)):
+        stamp = "" if label == key else f"  {key}"
+        print(f"{label}{stamp}  {run.environment}")
+
+    # What differs about the systems, before what it did to the scores.
+    opening = diff_report.header_lines(difference, locale=args.locale, labels=labels)
+    if opening:
+        print()
+        for line in opening:
+            print(f"  {line}")
+
+    print()
+    print(sentence)
+
+    lines = diff_report.summary_lines(
+        difference, locale=args.locale, labels=labels, limit=SUMMARY_LIMIT
+    )
+    if lines:
+        print()
+        for line in lines:
+            print(line)
+    return EXIT_OK
 
 
 def _short_commit(commit: str | None) -> str:
@@ -470,7 +368,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_promote(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    key = _resolve_key(store, suite, args.run)
+    key = _resolve(store, suite, args.run)
     ref = RunRef(tenant=suite.tenant, suite=suite.name, key=key)
     promoted = store.promote_baseline(ref, suite.config_hash())
     # The resolved key, never the literal "latest": what was promoted must be
@@ -526,8 +424,24 @@ def cmd_view(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    run = _read_run(store, suite, _resolve_key(store, suite, args.run))
-    baseline = _need_baseline(store, suite)
+    run = read_run(store, suite, _resolve(store, suite, args.run))
+    baseline = store.read_baseline(suite.tenant, suite.name)
+
+    if baseline is None:
+        # Not a refusal, and this is the whole point of the command existing.
+        # `need_baseline` — which `compare` still uses, rightly — says "run it,
+        # look at the result, then promote", and `report` *was* the only way to
+        # look. Naming looking as the prerequisite for looking is a dead end,
+        # and the first person to hit it is always someone on their first run.
+        #
+        # Automatic rather than a flag, for the reason `--redacted` is not a
+        # choice about what the document says: complete or redacted follows
+        # from `run.redacted`, and comparative or not follows from whether a
+        # reference exists. A flag would have to be an error when a baseline is
+        # present, and would leave the dead end intact for whoever has not yet
+        # learned the flag.
+        return _report_single(run, suite, args)
+
     comparison = compare(run, baseline)
 
     if args.redacted:
@@ -561,6 +475,29 @@ def cmd_report(args: argparse.Namespace) -> int:
     )
 
 
+def _report_single(run: Run, suite: Suite, args: argparse.Namespace) -> int:
+    """The run on its own, and an exit code that claims no more than it can.
+
+    Never `EXIT_WORSE`: "worse" is a relation and there is nothing here to be
+    worse than. `EXIT_UNJUDGED` survives, because a case the suite could not
+    judge is a fact about the harness rather than about a reference — the
+    partial contract mirrors what the document itself claims.
+    """
+    if args.redacted:
+        # No artifact-outcome rescue here, unlike the comparison path: those
+        # outcomes are computed from two runs, and the reason that code exists
+        # — a redacted run compared alone reports `unknown` — cannot arise
+        # where nothing is compared.
+        run = redact(run, suite.disclosure)
+
+    document = render_run_html(run, locale=args.locale)
+    if args.out:
+        Path(args.out).write_text(document, encoding="utf-8")
+    else:
+        print(document, end="")
+    return EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="digline",
@@ -571,6 +508,16 @@ def build_parser() -> argparse.ArgumentParser:
             "committed in your own repository."
         ),
         epilog="Options for one command: digline <command> -h",
+    )
+    # Right after the parser and before the subcommands, so it is reachable as
+    # `digline --version` and not only as a flag on one of them. `action=
+    # "version"` prints and exits 0 inside argparse, which is why nothing in
+    # `main()` dispatches on it.
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"digline {__version__}",
+        help="print the version and exit",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -623,6 +570,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit JSON: the headline alone, or 'full' to add the deltas",
     )
     cmp_p.set_defaults(func=cmd_compare)
+
+    diff_p = subparsers.add_parser(
+        "diff", help="report what differs between two runs; judges neither"
+    )
+    common(diff_p)
+    # The terminal rule, not the document one: this writes to a terminal, and
+    # `CLAUDE.md` splits the locale grade on document-against-terminal rather
+    # than on the word "report". A future HTML diff document takes the mandatory
+    # flag like every other document. (ADR 0008 §2)
+    terminal_locale(diff_p)
+    diff_p.add_argument("runs", nargs=2, metavar="RUN", help=RUN_HELP)
+    # The value is **mandatory here and optional on `compare`**, and the
+    # difference is forced rather than chosen. `compare` takes its run through
+    # `--run`, so a bare `--json` has no positional to be confused with; `diff`
+    # takes two positionals, and an optional-valued flag in front of them makes
+    # argparse swallow the first run key as the flag's value — `digline diff
+    # --json A B` becomes "invalid choice: A". Found by running it. A required
+    # value is the one shape with no trap in it, at the cost of a shorthand.
+    diff_p.add_argument(
+        "--json",
+        choices=("counts", "full"),
+        help="emit JSON: 'counts' for the figures, 'full' to add every check",
+    )
+    diff_p.set_defaults(func=cmd_diff)
 
     list_p = subparsers.add_parser("list", help="list stored runs, newest first")
     common(list_p)

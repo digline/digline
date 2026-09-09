@@ -54,19 +54,31 @@ correct its structural mistakes and are not negotiable.
                             packages/, and each one ships a Target *and* a Judge (ADR 0004)
     src/digline/run/        offline driver
     src/digline/report/     the document for world 3: pure functions, self-contained HTML, mandatory locale
+    src/digline/wire/       the same facts for a program: OUTPUT_VERSION and the pure functions
+                            that build every `--json` and every MCP response. One rendering of
+                            the truth, so two front ends cannot drift. No I/O and no clock —
+                            the constraints report/ is held to (ADR 0011 §6)
     src/digline/production/ [planned] production store, Postgres first, mandatory retention
     src/digline/bridge/     [planned] production → repo: mandatory anonymization, generated case_id
     src/digline/online/     production driver
-    src/digline/cli/        last layer: the **only** one allowed to read the clock and git
+    src/digline/host/       the layer that touches the world: the **only** one allowed to read
+                            the clock and git, and the one that imports the user's suite and
+                            reads the files it declares
                             (the *clock*, meaning wall time: `created_at` is passed in so a
                             run is reproducible. A **duration** is not a clock — it cannot
                             say what time it is — so `perf_counter` for `latency_ms` in a
                             target is allowed and is what fills `Response.latency_ms`.)
+    src/digline/cli/        a front end: argparse, the printed output, the exit codes, and
+                            nothing else. `digline-mcp` is a second front end over the same
+                            host and the same wire, which is why **nothing imports this
+                            package** (ADR 0011 §7)
     docs/                   public documentation: API reference, decisions (numbered ADRs)
 
-Allowed dependencies: cli → targets → run/report/bridge/online →
-store/production → core. Never the other way round, and nothing under `src/`
-ever imports a plugin from `packages/`.
+Allowed dependencies: cli → host → targets → run/report/wire/bridge/online →
+store/production → core. Never the other way round; nothing under `src/` ever
+imports a plugin from `packages/`; and nothing under `src/` or `packages/`
+imports `digline.cli`, which is a front end and therefore the top of the chain.
+Tests are exempt from that last one by construction — they drive every layer.
 
 Build order: offline driver → report → store and CLI. **Nothing online before
 the report**: it is what world 3 sees, and it is the only one of the three

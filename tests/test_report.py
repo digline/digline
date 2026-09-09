@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from html import escape
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from digline.core import (
     CaseResult,
     Comparison,
+    Disclosure,
     Run,
     Score,
     Verdict,
@@ -20,6 +22,7 @@ from digline.report import (
     TEXT,
     headline,
     render_html,
+    render_run_html,
     summary_lines,
 )
 
@@ -528,3 +531,143 @@ def test_every_delta_appears_exactly_once() -> None:
     document = render_html(comparison, run, baseline, locale="en")
     for delta in comparison.deltas:
         assert document.count(f"<code>{delta.assertion}</code>") == 1
+
+
+# --------------------------------------------------------------------------- #
+# One run, with nothing held against it (friction 3)
+# --------------------------------------------------------------------------- #
+#
+# `digline report` used to refuse a run with no baseline, and the refusal said
+# "run it, look at the result, then promote" — while being the only way to
+# look. The document below is what replaces that dead end.
+
+
+def a_lone_run() -> Run:
+    """A run with one of everything the document has a section for."""
+    return Run(
+        tenant="acme-bank",
+        environment="staging",
+        suite="qa",
+        config_hash="cfg-1",
+        created_at=CREATED_RUN,
+        results=(
+            CaseResult("capital-of-italy", (verdict("llm_rubric", 0.91),)),
+            CaseResult("capital-of-france", (verdict("llm_rubric", 0.55),)),
+            CaseResult("capital-of-spain", (verdict("contains", None),)),
+            CaseResult("capital-of-peru", (), suspended="flaky on the Rossi account"),
+        ),
+    )
+
+
+def test_a_run_with_no_reference_still_renders() -> None:
+    for locale in LOCALES:
+        document = render_run_html(a_lone_run(), locale=locale)
+        assert document.startswith("<!DOCTYPE html>")
+        assert document.endswith("</html>\n")
+        assert escape(TEXT[locale]["noreference.title"]) in document
+
+
+def test_the_no_reference_block_asks_no_question() -> None:
+    """The slot a verdict occupies, saying why there is none.
+
+    Not the question with an empty answer, and not an empty box: either would
+    invite the reader to supply the answer themselves.
+    """
+    for locale in LOCALES:
+        document = render_run_html(a_lone_run(), locale=locale)
+        assert escape(TEXT[locale]["answer.question"]) not in document
+        assert TEXT[locale]["answer.yes"] not in document
+        assert escape(TEXT[locale]["noreference.sentence"]) in document
+
+
+def test_the_verdict_block_is_neutral_not_green() -> None:
+    """`worse` is red and `fine` is green, and either would be a claim. The
+    third state is the absence of the claim, so it is the absence of the
+    modifier — which is also why the stylesheet did not have to change."""
+    document = render_run_html(a_lone_run(), locale="en")
+    assert '<section class="answer">' in document
+    assert 'class="answer fine"' not in document
+    assert 'class="answer worse"' not in document
+
+
+def test_the_tally_counts_the_run_and_not_outcomes() -> None:
+    """An outcome is a relation between two runs. Printing six zeroes here
+    would say "nothing regressed", which is the one thing this document is not
+    entitled to say."""
+    document = render_run_html(a_lone_run(), locale="en")
+    for outcome in ("regressed", "improved", "unchanged", "missing"):
+        assert f"<li>{outcome}" not in document
+    assert "<li>cases <b>4</b></li>" in document
+    assert "<li>checks <b>3</b></li>" in document
+    assert "<li>cases not judged <b>1</b></li>" in document
+    assert "<li>cases set aside <b>1</b></li>" in document
+
+
+def test_the_cases_are_grouped_by_what_each_verdict_is() -> None:
+    """The comparison groups by what a verdict *did*, which needs two runs.
+    With one, the only grouping left is what it is."""
+    document = render_run_html(a_lone_run(), locale="en")
+    assert "What did not meet its threshold (1)" in document
+    assert "What could not be judged (1)" in document
+    assert "What is set aside (1)" in document
+    assert "What met its threshold (1)" in document
+    # Every case reaches exactly one section, and none is dropped.
+    for case_id in ("capital-of-italy", "capital-of-france", "capital-of-spain"):
+        assert document.count(f"<code>{case_id}</code>") == 1
+
+
+def test_the_worst_sections_are_open_and_the_passing_one_is_not() -> None:
+    document = render_run_html(a_lone_run(), locale="en")
+    chunks = document.split("<details")[1:]
+    assert [chunk.startswith(" open") for chunk in chunks] == [True, True, True, False]
+
+
+def test_the_header_names_no_reference_it_does_not_have() -> None:
+    """Absent rather than empty: a "Reference" row reading "—" would have the
+    reader wondering which reference produced nothing."""
+    document = render_run_html(a_lone_run(), locale="en")
+    assert escape(TEXT["en"]["header.environment"]) in document
+    assert escape(TEXT["en"]["header.baseline_environment"]) not in document
+
+
+def test_a_failing_aggregate_carries_no_comparison_note() -> None:
+    """ADR 0010 §10's sentence explains a measure that fails while the run is
+    not *worse*. Without a reference there is no "not worse" to contrast with,
+    so the sentence would be a comparison claim in a document that makes none.
+    """
+    run = replace(
+        a_lone_run(),
+        aggregate=(verdict("accuracy", 0.5, threshold=0.9),),
+    )
+    document = render_run_html(run, locale="en")
+    assert "Overall" in document
+    assert escape(TEXT["en"]["aggregates.failing_not_worse"]) not in document
+
+
+def test_a_redacted_run_renders_without_the_reasons() -> None:
+    run = redact(a_lone_run(), Disclosure())
+    document = render_run_html(run, locale="en")
+    assert escape(TEXT["en"]["header.redacted.value"]) in document
+    assert "the judge explained itself" not in document
+    assert "flaky on the Rossi account" not in document
+
+
+def test_an_unknown_locale_fails_before_a_single_run_document_is_built() -> None:
+    with pytest.raises(ValueError, match="unknown locale"):
+        render_run_html(a_lone_run(), locale="de")  # type: ignore[arg-type]
+
+
+# The absence test, and the reason it is phrased as an absence: the with-
+# baseline document must be exactly what it was, and the cheapest thing to
+# assert about "exactly what it was" that does not rot is that the new
+# document's own heading never appears in it. Byte-for-byte equality was
+# verified against six stored renders when this landed; pinning a digest here
+# would fire on every legitimate change to the report from now on.
+def test_the_no_reference_heading_never_appears_with_a_baseline() -> None:
+    comparison, run, baseline = a_comparison()
+    for locale in LOCALES:
+        document = render_html(comparison, run, baseline, locale=locale)
+        assert escape(TEXT[locale]["noreference.title"]) not in document
+        assert escape(TEXT[locale]["noreference.sentence"]) not in document
+        # The question is still asked, which is the other half of the same fact.
+        assert escape(TEXT[locale]["answer.question"]) in document

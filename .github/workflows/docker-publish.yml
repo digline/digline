@@ -142,67 +142,12 @@ jobs:
         # The one test that has to happen before the push, because it is the
         # only one that exercises what the image actually is: the entrypoint,
         # the working directory, and a repository arriving as a bind mount.
-        run: |
-          set -euo pipefail
-          work="$RUNNER_TEMP/quickstart"
-          rm -rf "$work" && mkdir -p "$work"
-
-          # Extracted from README.md rather than copied into this file: a
-          # second copy of the suite would drift, and `tests/test_readme.py`
-          # already holds the front page to exactly one runnable block.
-          python - <<'PY'
-          import os, pathlib, re
-          text = pathlib.Path("README.md").read_text(encoding="utf-8")
-          blocks = re.findall(r"```python\n(.*?)```", text, re.DOTALL)
-          assert len(blocks) == 1, f"expected one suite on the front page, found {len(blocks)}"
-          work = pathlib.Path(os.environ["RUNNER_TEMP"]) / "quickstart"
-          (work / "suite.py").write_text(blocks[0], encoding="utf-8")
-          PY
-
-          # `--user`, because the runner's checkout is not owned by the image's
-          # uid 1000 — the case README.md documents, run here rather than only
-          # described.
-          digline() {
-            docker run --rm --user "$(id -u):$(id -g)" -v "$work:/work" digline:smoke "$@"
-          }
-
-          digline --help > /dev/null
-          digline run --suite suite.py
-          digline promote --suite suite.py --run latest
-
-          # "Now make it worse": the sign-off leaves the second answer, which
-          # is the regression the front page shows.
-          python - <<'PY'
-          import os, pathlib
-          suite = pathlib.Path(os.environ["RUNNER_TEMP"]) / "quickstart" / "suite.py"
-          source = suite.read_text(encoding="utf-8")
-          sign_off = " — Northwind Support"
-          assert source.count(sign_off) == 2, source.count(sign_off)
-          head, _, tail = source.rpartition(sign_off)
-          suite.write_text(head + tail, encoding="utf-8")
-          PY
-
-          digline run --suite suite.py
-          set +e
-          digline compare --suite suite.py --run latest
-          status=$?
-          set -e
-          if [ "$status" -ne 1 ]; then
-            echo "compare should have exited 1 on a worse run, exited $status"; exit 1
-          fi
-
-          # Decision 2 of CLAUDE.md, checked on the filesystem: everything the
-          # run wrote is in the mounted repository, and it belongs to the user
-          # who owns that repository rather than to root.
-          test -f "$work/.digline/northwind/baselines/support.json"
-          test -d "$work/.digline/northwind/runs/support"
-          test -f "$work/.digline/.gitignore"
-          if find "$work/.digline" ! -user "$(id -u)" -print -quit | grep -q .; then
-            echo "the run left files the caller does not own:"
-            find "$work/.digline" ! -user "$(id -u)" -ls
-            exit 1
-          fi
-          echo "quickstart ok: exit 0 before the break, exit 1 after it"
+        #
+        # The script, not a copy of it: `ci.yml` runs the same smoke against
+        # the same image on every change to `docker/`, and two copies of it
+        # would drift — with the drift landing in whichever one guards the
+        # release.
+        run: docker/smoke.sh digline:smoke
 
   publish:
     name: Build multi-arch and push to GHCR

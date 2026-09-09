@@ -25,6 +25,19 @@ motion.
 The report lives in `digline.report` (`headline`, `render_html`, `Locale`), the
 store in `digline.store` (`FileResultStore`, `RunRef`).
 
+Two more, for anything that drives digline rather than declares a suite.
+`digline.host` is the layer that touches the world — `load_suite`,
+`load_target`, `read_artifacts`, `git_commit`, `utc_now_iso`, `resolve_key`.
+`digline.wire` is the machine surface: `OUTPUT_VERSION`, the exit codes, and the
+functions that build every `--json` and every MCP response. A script that loads
+a suite imports the first; nothing but a front end needs the second.
+
+**These moved in the release after 0.6.0.** `load_suite` and its neighbours used
+to live in `digline.cli.loader`, which was two layers wearing one name — the
+host, and the terminal. If you followed an earlier version of
+[the guide](guide.md), change `from digline.cli.loader import load_suite` to
+`from digline.host import load_suite`. (ADR 0011 §7)
+
 A normal suite imports from both:
 
 ```python
@@ -130,9 +143,18 @@ test changed"* and stops — no diff, no digest, no path.
 | `metadata` | `Mapping[str, object]` | `{}` |
 | `suspended` | `str \| None` | `None` |
 | `label` | `"positive" \| "negative" \| None` | `None`, mandatory with an aggregate |
+| `group` | `str \| None` | `None` |
 
 `id` is the key `compare()` pairs on: renaming it produces a `new` plus a
 `missing`. Choose it stable and **with no production data inside**.
+
+`group` names the class this case belongs to — an expense category, a language,
+a customer segment. It is **descriptive**: no target and no assertion is given
+it, and a suite that sets `by_group` nowhere behaves as though the field did not
+exist. `None` means the case is in no group and is counted only in the whole-run
+aggregate; there is no implicit "ungrouped" bucket. An empty string is refused,
+because `None` already spells "no group". See
+[ADR 0010](adr/0010-per-group-aggregates.md).
 
 `suspended` sets the case aside with a mandatory reason: the driver does not run
 it, the run records it, the report shows it. It is for when a case is unstable —
@@ -736,6 +758,48 @@ what `F1` means when precision has already gone to `error`.
 they are the same mistake seen from two sides. And if an aggregate counts a matrix, every
 case must have a `label`.
 
+### Per class: `by_group`
+
+An aggregate over the whole run is an average, and an average carries a class that is
+broken. `by_group=True` keeps the whole-run figure and adds one aggregate per group
+present in the cases:
+
+```python
+run_assertions = (
+    [
+        Precision(
+            over="agrees_with_mark", threshold=0.60, tolerance="3/20", by_group=True
+        ),
+    ],
+)
+cases = ([Case(id="art-01", label="positive", group="refunds"), ...],)
+```
+
+With three groups that is four verdicts, named `precision`, `precision[group=…]` — and
+those names are a **public format**: they land in `Run.aggregate[].assertion` in every run
+file and baseline, in `compare --json`, and in both documents.
+
+| | |
+|---|---|
+| **All of them or none** | There is no `Precision(group="x")`, in Python or in TOML. The class that degrades is the one you were not watching, so watching a class you named is watching your own assumptions. |
+| **The expansion adds** | The whole-run figure keeps its identity, its threshold and its baseline. `config_hash` still moves, because the new gates join it — so a baseline promoted before the flag is comparable but not promotable. |
+| **Groups come from the cases** | Never from a declaration. A group exists because a case carries its name, and its aggregates are `new` or `missing` when that changes, like any other check. `diff()` refuses such a pair outright: a changed group set is a changed configuration. |
+| **Same machinery, smaller set** | Thresholds, tolerance and the ADR 0006 §7 noise floor are inherited and computed over the group's cases. No new semantics anywhere. |
+
+Two things to expect on a small class. The **declared tolerance goes quiet**: a tolerance
+measured over twenty cases means nothing over three, where one case is a third of the
+group — the measured floor is what still sizes itself to the denominator. And an aggregate
+can **error**, where a class carries one label only and the denominator is empty. That is
+not a malfunction: the suite asserted something the class cannot answer, and `error` is the
+accurate report of it. It changes no exit code, exactly as it did before.
+
+**A failing class beside a green pipeline is a legitimate reading.** `compare` gates on
+*movement*: a class under its threshold in this run that was under it in the baseline is
+`unchanged`, so nothing got worse and the exit code is 0. The threshold says the system
+does not meet the bar; the comparison says it has not moved. The report prints that
+sentence under the figures rather than leaving a reader to conclude it is a defect. The
+`classifier` example ships exactly this, on purpose — see its README.
+
 Empty denominator → **`error`**, not `1.0`: if the system kept nothing, precision is
 undefined, and `1.0` would be the most dangerous possible answer.
 
@@ -937,9 +1001,18 @@ change.
 
 At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
 `config_changed`, `artifacts_changed`, `target_config_changed`,
-`judge_config_changed`, `within_noise`, `counts`, `reasons_available` and
-`sentence`; `--json full` adds `deltas`, `target_config_deltas` and
-`judge_config_deltas`. A golden key set in the tests fails the build if a key is
+`judge_config_changed`, `within_noise`, `counts`, `reasons_available`,
+`sentence` and `exit_code`; `--json full` adds `deltas`, `target_config_deltas`
+and `judge_config_deltas`.
+
+`exit_code` is the number the process exits with, in the object — the same
+`0` / `1` / `2` a shell sees, computed by the one function that knows a
+regression outranks an unjudged case. It is there because the same object is
+returned by the MCP server's `compare` tool, which has no process to exit, and
+a caller made to re-derive it from `worse` and `unjudged` would have to know a
+precedence rule it should never have to think about. `digline diff --json` has
+no such field and must not: neither side of a diff was approved by anybody, so
+there is nothing to gate on. A golden key set in the tests fails the build if a key is
 added without the bump — *added* keys leave a consumer working, which is why
 these arrived without one. Each delta carries `within_noise`, `noise_min`,
 `noise_max` and `noise_samples` beside its outcome.

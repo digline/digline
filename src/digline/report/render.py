@@ -24,6 +24,9 @@ from digline.core import (
     ConfigValue,
     Outcome,
     Run,
+    Status,
+    SystemConfig,
+    Verdict,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -31,6 +34,7 @@ __all__ = [
     "fmt_score",
     "ABSENT",
     "DIRTY_SUFFIX",
+    "RUN_SECTIONS",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
     "Headline",
@@ -40,7 +44,9 @@ __all__ = [
     "fmt_value",
     "headline",
     "render_html",
+    "render_run_html",
     "summary_lines",
+    "unjudged_cases",
 ]
 
 #: What stands where a parameter has no value on one side. Not localized, for
@@ -217,6 +223,23 @@ def fmt_score(value: float) -> str:
     return f"{value:.6f}"
 
 
+def unjudged_cases(run: Run) -> int:
+    """How many cases this run could not judge.
+
+    Counted from the run and from nothing else, which is what makes it usable
+    without a reference: a case the suite could not judge is a fact about the
+    harness, true whether or not there is anything to compare against. It is
+    what `digline report` exits on when there is no baseline.
+
+    Cases, not verdicts, because that is what every sentence built on it says.
+    """
+    return sum(
+        1
+        for case in run.results
+        if any(verdict.status == "error" for verdict in case.verdicts)
+    )
+
+
 def headline(
     comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
 ) -> Headline:
@@ -233,11 +256,7 @@ def headline(
     # unjudgeable — a case added to the suite that immediately fails to run — is
     # reported as `new`, and reading the tally would let the report announce
     # that every case could be judged while three of them could not.
-    unjudged = sum(
-        1
-        for case in run.results
-        if any(verdict.status == "error" for verdict in case.verdicts)
-    )
+    unjudged = unjudged_cases(run)
 
     if regressed == 0:
         worse_text = phrase(locale, "fact.worse.none")
@@ -723,7 +742,9 @@ def _section(
     return f"<details{open_attr}><summary>{title} ({count})</summary>{body}</details>"
 
 
-def _aggregates(run: Run, locale: Locale, *, reasons: bool) -> str:
+def _aggregates(
+    run: Run, locale: Locale, *, reasons: bool, worse: bool, comparative: bool = True
+) -> str:
     """The run-level verdicts, above the cases.
 
     They come first because they are what gates a release: four runs of one
@@ -765,8 +786,24 @@ def _aggregates(run: Run, locale: Locale, *, reasons: bool) -> str:
         rows,
         locale,
     )
+    # A failing measure beside an answer of "no" is a combination this document
+    # can now show often — a group can be under its threshold in this run and
+    # have been under it in the reference, which is `unchanged` and gates
+    # nothing. Left unexplained it reads as a defect in the report, so it is
+    # said in words, here, under the figures that raise the question rather
+    # than in a note somebody has to go and find. (ADR 0010 §10)
+    #
+    # `comparative` is what turns it off. Without a reference there is no
+    # "not worse" to contrast a failing measure with, so the sentence would be
+    # a comparison claim in a document that makes none — and a failing figure
+    # in a single-run document raises no question to answer: it says the run
+    # is under the bar, which is all it says.
+    note = ""
+    if comparative and not worse and any(v.status == "fail" for v in run.aggregate):
+        told = escape(phrase(locale, "aggregates.failing_not_worse"))
+        note = f'<p class="note">{told}</p>'
     title = escape(phrase(locale, "aggregates.title"))
-    return f'<section class="aggregates"><h2>{title}</h2>{table}</section>'
+    return f'<section class="aggregates"><h2>{title}</h2>{table}{note}</section>'
 
 
 def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> str:
@@ -1062,6 +1099,9 @@ def render_html(
         for s in SECTIONS
     )
     title = phrase(locale, "document.title", suite=comparison.suite)
+    aggregates = _aggregates(
+        run, locale, reasons=head.reasons_available, worse=head.worse
+    )
 
     return (
         "<!DOCTYPE html>\n"
@@ -1081,9 +1121,279 @@ def render_html(
         f"<p>{escape(head.sentence)}</p>\n"
         f'<ul class="tally">{tally}</ul>\n'
         "</section>\n"
-        f"{_aggregates(run, locale, reasons=head.reasons_available)}\n"
+        f"{aggregates}\n"
         f"{_artifacts(comparison, locale)}\n"
         f"{_configs(comparison, locale)}\n"
+        f"{sections}\n"
+        "</body>\n"
+        "</html>\n"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The single-run document: what was measured, with nothing held against it
+# --------------------------------------------------------------------------- #
+
+#: Reading order for a run judged on its own. The comparison groups by what a
+#: verdict *did* — regressed, improved — which is a question about two runs.
+#: With one run the only thing a verdict can be grouped by is what it *is*, so
+#: these are statuses. Worst first and the first three open, the same rule
+#: `SECTIONS` follows, so a reader who knows one document can read the other.
+RUN_SECTIONS: Sequence[tuple[str, bool, Status | None]] = (
+    ("failed", True, "fail"),
+    ("unjudged", True, "error"),
+    ("suspended", True, None),
+    ("passed", False, "pass"),
+)
+
+
+def _run_meta(run: Run, locale: Locale) -> str:
+    """The header, without the row that names a reference.
+
+    Absent rather than empty: a "Reference" line reading "—" would invite the
+    reader to wonder which reference produced nothing, when the answer is that
+    there is none.
+    """
+    pairs = [
+        ("header.tenant", run.tenant),
+        ("header.suite", run.suite),
+        ("header.environment", f"{run.environment} — {run.created_at}"),
+    ]
+    if run.git_commit is not None:
+        commit = run.git_commit
+        if commit.endswith(DIRTY_SUFFIX):
+            commit += phrase(locale, "header.dirty")
+        pairs.append(("header.commit", commit))
+    if run.redacted:
+        pairs.append(("header.redacted", phrase(locale, "header.redacted.value")))
+    return "".join(
+        f"<dt>{escape(phrase(locale, key))}</dt><dd>{escape(value)}</dd>"
+        for key, value in pairs
+    )
+
+
+def _run_answer(run: Run, locale: Locale) -> str:
+    """The slot the verdict occupies in a comparison, saying why there is none.
+
+    `class="answer"` with no modifier, which is the whole of the styling
+    decision: `worse` is red and `fine` is green, and either would be a claim.
+    The neutral state is the absence of the claim, so it is the absence of the
+    modifier — and it costs the stylesheet nothing, which keeps every existing
+    report byte for byte what it was.
+
+    The tally beside it counts the run's own facts. The comparison tally counts
+    outcomes, and an outcome is a relation between two runs: printing it here
+    with six zeroes would say "nothing regressed", which is exactly the thing
+    this document must not say.
+    """
+    checks = sum(len(case.verdicts) for case in run.results)
+    unjudged = unjudged_cases(run)
+    suspended = sum(1 for case in run.results if case.suspended is not None)
+    counted = (
+        ("runtally.cases", len(run.results)),
+        ("runtally.checks", checks),
+        ("runtally.unjudged", unjudged),
+        ("runtally.suspended", suspended),
+    )
+    tally = "".join(
+        f"<li>{escape(phrase(locale, key))} <b>{value}</b></li>"
+        for key, value in counted
+    )
+    return (
+        '<section class="answer">\n'
+        f'<p class="verdict">{escape(phrase(locale, "noreference.title"))}</p>\n'
+        f"<p>{escape(phrase(locale, 'noreference.sentence'))}</p>\n"
+        f'<ul class="tally">{tally}</ul>\n'
+        "</section>"
+    )
+
+
+def _run_artifacts(run: Run, locale: Locale) -> str:
+    """The files that were under test, by path and fingerprint.
+
+    No diff and no outcome column: both are statements about a second version
+    that does not exist here. What is left is what ADR 0003 says a run records
+    — which files were the thing under test, and what they were.
+
+    The text follows the same rule it does everywhere: present when the run
+    carries it, absent when the suite withheld it. Nothing is decided here; the
+    run already had the decision applied to it.
+    """
+    if not run.artifacts:
+        return ""
+    rows: list[str] = []
+    bodies: list[str] = []
+    for path, artifact in sorted(run.artifacts.items()):
+        mark = (
+            phrase(locale, "artifacts.withheld")
+            if artifact.withheld
+            else artifact.sha[:12]
+        )
+        rows.append(
+            "<tr>"
+            f"<td><code>{escape(path)}</code></td>"
+            f"<td><code>{escape(mark)}</code></td>"
+            "</tr>"
+        )
+        if artifact.text is not None:
+            bodies.append(
+                f"<details><summary>{escape(path)}</summary>"
+                f"<pre>{escape(artifact.text)}</pre></details>"
+            )
+    table = _table(
+        ("artifacts.column.file", "artifacts.column.fingerprint"), rows, locale
+    )
+    title = escape(phrase(locale, "artifacts.title"))
+    return (
+        f'<section class="artifacts"><h2>{title}</h2>{table}{"".join(bodies)}</section>'
+    )
+
+
+def _run_config_table(config: SystemConfig, locale: Locale, *, key: str) -> str:
+    """One system's configuration as values, where the comparison shows deltas.
+
+    Through `SystemConfig` as recorded: a withheld parameter is named and its
+    value is not, which is the same shape ADR 0005 gives the delta table — the
+    reader is owed the fact that a parameter exists even when its value stays
+    inside the perimeter.
+    """
+    if not config.values and not config.withheld:
+        return ""
+    rows = [
+        f"<tr><td><code>{escape(name)}</code></td><td>{escape(str(value))}</td></tr>"
+        for name, value in sorted(config.values.items())
+    ]
+    rows += [
+        "<tr>"
+        f"<td><code>{escape(name)}</code></td>"
+        f"<td>{escape(phrase(locale, 'config.value.withheld'))}</td>"
+        "</tr>"
+        for name in sorted(config.withheld)
+    ]
+    table = _table(("config.column.parameter", "config.column.value"), rows, locale)
+    title = escape(phrase(locale, key))
+    return f'<section class="config"><h2>{title}</h2>{table}</section>'
+
+
+def _run_configs(run: Run, locale: Locale) -> str:
+    parts = (
+        _run_config_table(run.target_config, locale, key="config.title"),
+        _run_config_table(run.judge_config, locale, key="config.judge.title"),
+    )
+    return "\n".join(part for part in parts if part)
+
+
+def _run_verdict_row(
+    case_id: str, verdict: Verdict, locale: Locale, *, reasons: bool
+) -> str:
+    score = verdict.score.score
+    result = phrase(locale, "detail.errored") if score is None else fmt_score(score)
+    why = verdict.reason if reasons else phrase(locale, "reason.unavailable")
+    return (
+        "<tr>"
+        f"<td><code>{escape(case_id)}</code></td>"
+        f"<td><code>{escape(verdict.score.name)}</code></td>"
+        f"<td><b>{escape(result)}</b> / {fmt_score(verdict.threshold)}</td>"
+        f"<td>{escape(why)}</td>"
+        "</tr>"
+    )
+
+
+def _run_section(
+    key: str,
+    open_by_default: bool,
+    status: Status | None,
+    run: Run,
+    locale: Locale,
+    *,
+    reasons: bool,
+) -> str:
+    title = escape(phrase(locale, f"section.{key}"))
+    empty = f'<p class="empty">{escape(phrase(locale, "section.empty"))}</p>'
+    open_attr = " open" if open_by_default else ""
+
+    if status is None:
+        cases = [c for c in run.results if c.suspended is not None]
+        body = (
+            empty
+            if not cases
+            else _table(
+                ("column.case", "column.reason"),
+                [_suspended_row(c, locale, reasons=reasons) for c in cases],
+                locale,
+            )
+        )
+        count = len(cases)
+    else:
+        rows = [
+            _run_verdict_row(case.case_id, verdict, locale, reasons=reasons)
+            for case in run.results
+            for verdict in case.verdicts
+            if verdict.status == status
+        ]
+        body = (
+            empty
+            if not rows
+            else _table(
+                ("column.case", "column.check", "column.result", "column.reason"),
+                rows,
+                locale,
+            )
+        )
+        count = len(rows)
+
+    return f"<details{open_attr}><summary>{title} ({count})</summary>{body}</details>"
+
+
+def render_run_html(run: Run, *, locale: Locale) -> str:
+    """One run, rendered on its own, because there is no reference yet.
+
+    The same document as `render_html` wherever a section is a statement about
+    the run — the header, the aggregates, the files under test, what answered
+    and what judged — and a different one wherever a section was a statement
+    about two runs. The verdict block says there is no reference instead of
+    answering a question it cannot ask, and the cases are grouped by what each
+    verdict *is* rather than by what it did.
+
+    It exists because the refusal it replaces was circular: `digline report`
+    told a first-time reader to look at the result and then promote, and was
+    itself the only way to look. A command that names looking as the
+    prerequisite for looking is a command that has to be fixed, not documented.
+
+    Not a verdict, and the exit code says so: `digline report` on a run with no
+    baseline never exits 1, because "worse" is a relation and there is nothing
+    to be worse than.
+
+    `locale` is mandatory here for the reason it is there: the language of a
+    document with a recipient is not something to settle by omission.
+    """
+    strings(locale)  # fail here, not halfway through a document
+    title = phrase(locale, "document.title", suite=run.suite)
+    reasons = not run.redacted
+    sections = "".join(
+        _run_section(key, open_by_default, status, run, locale, reasons=reasons)
+        for key, open_by_default, status in RUN_SECTIONS
+    )
+    aggregates = _aggregates(
+        run, locale, reasons=reasons, worse=False, comparative=False
+    )
+
+    return (
+        "<!DOCTYPE html>\n"
+        f'<html lang="{escape(locale)}">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"<title>{escape(title)}</title>\n"
+        f"<style>\n{CSS}</style>\n"
+        "</head>\n"
+        "<body>\n"
+        f"<h1>{escape(title)}</h1>\n"
+        f'<dl class="meta">{_run_meta(run, locale)}</dl>\n'
+        f"{_run_answer(run, locale)}\n"
+        f"{aggregates}\n"
+        f"{_run_artifacts(run, locale)}\n"
+        f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
         "</body>\n"
         "</html>\n"

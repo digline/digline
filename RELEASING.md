@@ -73,12 +73,45 @@ on GitHub fail there**:
   `- <label>: product/examples/<name>.md`. Adding `docs/adr/<name>.md` needs
   the same line under `- Decisions:`, as `product/adr/<name>.md`.
 
-Both are gated now — by the `docs` job in `ci.yml`, which runs this same build
-on every push, and, for the nav entry specifically, by `tests/test_examples.py`
-and `tests/test_adr.py`, which name the page and the line to add.
+**A new page costs three lines there, not one**, and they are in three files:
+
+| Where | What | Fails as |
+|---|---|---|
+| `mkdocs.yml`, `nav:` | the entry | a `--strict` warning, so a failed build |
+| `tools/hooks/seo.py`, `PRODUCT` | the title and the `<meta name="description">` | a `PluginError` naming the page |
+| `tools/hooks/llms.py`, `DESCRIPTIONS` | what the page answers, for llms.txt | a `PluginError` naming the page |
+
+The last two are for pages under `product/` — everything copied out of this
+repository. A page written in `digline.dev` itself carries its description in
+its own front matter instead, and the same gate says so.
+
+`PRODUCT` is the newest of the three and the one most likely to be forgotten,
+because until it was gated a missing entry was silent: the hook fell back to the
+page's first paragraph and shipped it to Google as the description. That
+fallback is a net, not a decision.
+
+All of it is gated — by the `docs` job in `ci.yml`, which runs this same build
+on every push, and, for the nav entry specifically, by `tests/test_examples.py`,
+`tests/test_adr.py` and `tests/test_docs_pages.py`, which name the page and the
+line to add.
 So this block should already be green by the time you reach it. Run it anyway:
 the job checks `digline.dev`'s **default branch**, and what the release will
 actually build against is whatever that branch holds at dispatch time.
+
+### Queued for the next site push
+
+The three-line rule above has a first real batch, and the pages are held back
+deliberately: `digline.dev` is on its default branch and this documentation is
+not merged yet, so adding the entries early would fail the site build on pages
+that do not exist. They land together. Three, with this branch on the pile —
+
+- `docs/diff.md` → `product/diff.md`, under `- Reference:`;
+- `docs/adr/0010-per-group-aggregates.md` → under `- Decisions:`;
+- `docs/adr/0011-the-mcp-server.md` → under `- Decisions:`;
+
+— and `tests/test_docs_pages.py` and `tests/test_adr.py` are red here for
+exactly that reason, which is the gate keeping the two repositories in step
+rather than a defect. Three lines each, per the table above.
 
 **A failure here is not a re-tag.** The site job is the last step of
 `publish.yml` and runs *after* PyPI, so a docs defect discovered at that point
@@ -125,6 +158,35 @@ attach to, and the failure comes at the *end* — after the build, after the
 checks, after TestPyPI — with a version number spent on one index and not the
 other. This is not something the workflow can check for you: it is a setting in
 an account.
+
+**And wire it into `publish.yml` in the same pass.** A pending publisher with no
+job to claim it is the same failure one step later: the tag builds nothing, and
+nobody notices until somebody tries to install the package.
+
+### `digline-mcp` is the first package this section is actually about
+
+It was written after `digline-bedrock` and has never been exercised — every
+release since has been a version bump of packages that already existed on both
+indexes, so the section read as advice for a hypothetical. It is not
+hypothetical now. Before the **first** tag that carries `digline-mcp`:
+
+1. pending publisher on **TestPyPI**, for `digline-mcp`;
+2. pending publisher on **PyPI**, for `digline-mcp`;
+3. the **two hardcoded lists** in `publish.yml` updated. Discovery, `uv build
+   --all-packages`, `select_unpublished.py` and both upload steps are
+   glob-driven and pick a new package up on their own — the wiring that is
+   *not* automatic is the post-publish check that installs from the index:
+   `pip install … digline digline-anthropic digline-openai digline-bedrock`
+   and the `import digline_anthropic, digline_openai, digline_bedrock`
+   beside it. A package missing from those two lines is published and never
+   verified, which is the failure that looks like success;
+4. only then the tag.
+
+The order matters and the first three are not reversible by a re-run: a spent
+version number stays spent.
+
+`digline-mcp` merges **after** 0.6.0 and is tagged on its own day — nothing
+about it rides that release, so 0.6.0 does not need any of the above.
 
 ## The one secret
 

@@ -27,7 +27,17 @@ from collections.abc import Mapping, Sequence
 from html import escape
 from typing import cast
 
-from digline.core import Run, Verdict, artifacts_sha, compare
+from digline.core import (
+    CheckDifference,
+    Difference,
+    Run,
+    Verdict,
+    artifacts_sha,
+    compare,
+    split_grouped_name,
+)
+from digline.core import diff as core_diff
+from digline.report import diff as diff_report
 from digline.report.history import CaseEntry, CaseHistory
 from digline.report.render import CSS, render_html
 from digline.report.text import LOCALES, MONTHS, Locale, phrase
@@ -36,6 +46,7 @@ __all__ = [
     "VIEW_CSS",
     "case_page",
     "compare_page",
+    "diff_page",
     "fmt3",
     "human_time",
     "locale_of",
@@ -382,11 +393,7 @@ def runs_page(
     wrong.
     """
     ordered = sorted(runs, key=lambda pair: (pair[1].created_at, pair[0]), reverse=True)
-    measures: list[str] = []
-    for _key, run in ordered:
-        for verdict in run.aggregate:
-            if verdict.score.name not in measures:
-                measures.append(verdict.score.name)
+    measures = _measure_columns(ordered)
 
     baseline_scores: dict[str, float] = {}
     for key, run in ordered:
@@ -432,6 +439,42 @@ def runs_page(
         told = phrase(locale, "view.ignored", note=ignored)
         body.append(f'<p class="note">{escape(told)}</p>\n')
     return _document(title, locale, "".join(body), wide=True)
+
+
+def _measure_columns(ordered: Sequence[tuple[str, Run]]) -> list[str]:
+    """One column per aggregate, in an order that does not move between runs.
+
+    **Whole-run figure first, then its groups alphabetically**, per declared
+    aggregate. The figure that gates the release stays leftmost, where it was
+    before groups existed, and a reader scanning down a class finds it in the
+    same place every time (ADR 0010 §9).
+
+    Sorted rather than taken in arrival order, which is what this was. Arrival
+    order is the newest run's order, so a group that only older runs carry
+    lands after everything — and the columns rearrange themselves as runs come
+    and go, which is the one thing a table read by eye must not do.
+
+    The family is recovered from the name because a stored run carries the
+    group nowhere else: `split_grouped_name` is the reader for the grammar
+    `grouped_name` writes. Families keep first-arrival order, so the author's
+    declaration order survives; only the groups within one are sorted.
+    """
+    families: list[str] = []
+    names: set[str] = set()
+    for _key, run in ordered:
+        for verdict in run.aggregate:
+            family, _group = split_grouped_name(verdict.score.name)
+            if family not in families:
+                families.append(family)
+            names.add(verdict.score.name)
+
+    def place(name: str) -> tuple[int, int, str]:
+        family, group = split_grouped_name(name)
+        # `group is not None` as the middle key is what puts the whole-run
+        # instance ahead of every group of its family, whatever they are called.
+        return (families.index(family), group is not None, group or "")
+
+    return sorted(names, key=place)
 
 
 def _runs_table(
@@ -637,6 +680,91 @@ def compare_page(run: Run, against: Run, *, locale: Locale, suite: str) -> str:
     # the only one in the document.
     document = document.replace("</style>\n", f"{VIEW_CSS}</style>\n", 1)
     return document.replace("<body>\n", f"<body>\n{bar}", 1)
+
+
+def diff_page(
+    left: Run,
+    right: Run,
+    *,
+    locale: Locale,
+    suite: str,
+    keys: tuple[str, str],
+) -> str:
+    """Two runs, neither of them a reference.
+
+    The screen this ADR was written to fix. `/compare?against=` shipped in
+    0.4.0 rendering `compare_page` for **any** pair a developer picked off the
+    list, so two candidates arrived under a heading asking *"Did it get
+    worse?"*, in a table with a column called *Reference*. That was the diff's
+    need served with the verdict's semantics; this is the answer to the
+    question that was actually being asked. (ADR 0008 §6)
+
+    Against the baseline the other page is still right and still used: a run
+    held against an approved reference *is* `compare()`'s question. The route
+    chooses on that and on nothing else.
+    """
+    difference = core_diff(left, right)
+    labels = diff_report.run_labels(
+        left.created_at, right.created_at, left_key=keys[0], right_key=keys[1]
+    )
+    title = phrase(locale, "diff.title", suite=suite)
+
+    heads = "".join(
+        f"<th>{escape(column)}</th>"
+        for column in (
+            phrase(locale, "diff.column.case"),
+            phrase(locale, "diff.column.check"),
+            phrase(locale, "diff.column.what"),
+        )
+    )
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{escape(check.case_id)}</code></td>"
+        f"<td><code>{escape(check.assertion)}</code></td>"
+        f"<td>{escape(diff_report.detail(check, locale=locale, labels=labels))}</td>"
+        "</tr>"
+        for check in _diff_order(difference)
+    )
+
+    runs = "".join(
+        f"<dt>{escape(label)}</dt>"
+        f"<dd><code>{escape(key)}</code> — {escape(run.environment)} — "
+        f"{escape(run.created_at)}</dd>"
+        for label, key, run in (
+            (labels[0], keys[0], left),
+            (labels[1], keys[1], right),
+        )
+    )
+    opening = "".join(
+        f"<p>{escape(line)}</p>\n"
+        for line in diff_report.header_lines(difference, locale=locale, labels=labels)
+    )
+    body = (
+        nav(locale, here="compare", suite=suite)
+        + f"<h1>{escape(title)}</h1>\n"
+        + f'<dl class="meta">{runs}</dl>\n'
+        + opening
+        + '<p class="verdict">'
+        + escape(diff_report.sentence(difference, locale=locale, labels=labels))
+        + "</p>\n"
+        + f"<h2>{escape(phrase(locale, 'diff.section.differ'))}</h2>\n"
+        + f"<table><thead><tr>{heads}</tr></thead><tbody>{rows}</tbody></table>\n"
+    )
+    return _document(title, locale, body, wide=True)
+
+
+def _diff_order(difference: Difference) -> Sequence[CheckDifference]:
+    """The differing checks, in the order the terminal lists them.
+
+    Only the differing ones: the agreeing checks are the count in the sentence
+    above, and sixty rows saying "these two agree" would bury the seven the
+    reader opened the page for.
+    """
+    order = {outcome: n for n, outcome in enumerate(diff_report.SUMMARY_OUTCOMES)}
+    return sorted(
+        (c for c in difference.checks if c.differs),
+        key=lambda c: (order[c.outcome], c.scope != "case", c.case_id, c.assertion),
+    )
 
 
 # --------------------------------------------------------------------------- #

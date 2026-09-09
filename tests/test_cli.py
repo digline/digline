@@ -117,6 +117,66 @@ def test_compare_exits_unjudged_when_a_case_cannot_run(repo: Path) -> None:
     assert "1 case could not be judged" in compared.stdout
 
 
+def test_the_exit_code_field_is_the_process_exit_code(repo: Path) -> None:
+    """The field and the number a shell sees are the same number.
+
+    Two surfaces return this object — `compare --json` and the MCP `compare`
+    tool — and only one of them can exit a process. If the field were computed
+    anywhere but `exit_code()` the two could disagree, and the disagreement
+    would show up as a pipeline that gated correctly and an agent that did not.
+    So it is checked against the thing it claims to be, over all three outcomes.
+    (ADR 0011 §4)
+    """
+    baseline_key = run_key(repo)
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+
+    def field_and_status(*, expected: int) -> None:
+        key = run_key(repo)
+        done = cli(
+            repo,
+            "compare",
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+            "--locale",
+            "en",
+            "--json",
+        )
+        assert done.returncode == expected, done.stdout
+        assert json.loads(done.stdout)["exit_code"] == done.returncode
+
+    field_and_status(expected=EXIT_OK)
+    write_suite(repo, fr_score="0.2")  # the judge now scores one case badly
+    field_and_status(expected=EXIT_WORSE)
+    write_suite(repo, extra=', Case(id="flaky")')
+    field_and_status(expected=EXIT_UNJUDGED)
+
+
+def test_the_diff_json_has_no_exit_code(repo: Path) -> None:
+    """`diff` gains nothing of the kind, and the absence is the same point as
+    the absent `worse`: a verdict exists only against an approved reference, and
+    neither side of a diff was approved by anybody. (ADR 0008 §1, ADR 0011 §4)"""
+    first = run_key(repo)
+    second = run_key(repo)
+    done = cli(
+        repo,
+        "diff",
+        "--suite",
+        "suite_qa.py",
+        first,
+        second,
+        "--locale",
+        "en",
+        "--json",
+        "full",
+    )
+    assert done.returncode == EXIT_OK
+    payload = json.dumps(json.loads(done.stdout))
+    assert "exit_code" not in payload
+    assert "worse" not in payload
+
+
 def test_compare_json_emits_the_headline_not_the_document(repo: Path) -> None:
     key = run_key(repo)
     cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
@@ -161,6 +221,14 @@ COMPARE_KEYS = {
     # unaffected, and one that wants to tell "nothing moved" from "what moved
     # was noise" has the count without parsing a sentence.
     "within_noise",
+    # Joined with ADR 0011 §4, same rule. It is the number AGENTS.md §6 calls
+    # the contract, and it is here because the MCP server returns this same
+    # object and has no process to exit — a caller left to derive it from
+    # `worse` and `unjudged` would have to know that a regression outranks an
+    # unjudged case, which is precisely what `exit_code()` exists to hold in one
+    # place. `test_the_exit_code_field_is_the_process_exit_code` pins the two
+    # together.
+    "exit_code",
     "counts",
     "reasons_available",
     "sentence",
@@ -564,6 +632,96 @@ def test_report_does_demand_a_locale(repo: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# The first run, before there is anything to compare it with (friction 3)
+# --------------------------------------------------------------------------- #
+
+
+def test_report_renders_a_run_that_has_no_baseline(repo: Path) -> None:
+    """The dead end this closes: `report` refused a run with no baseline and
+    said "run it, look at the result, then promote" — while being the only way
+    to look. A command that names looking as the prerequisite for looking is
+    the friction, not the documentation."""
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_OK, done.stderr
+    assert done.stdout.startswith("<!DOCTYPE html>")
+    assert "No reference to compare against" in done.stdout
+
+
+def test_a_run_with_no_baseline_is_never_reported_as_worse(repo: Path) -> None:
+    """`EXIT_WORSE` is a relation, and there is nothing here to be worse than.
+
+    The suite this runs is the one that scores badly on `capital-fr`, which
+    against a baseline would exit 1. Without one it exits 0: a low score is not
+    a regression, it is a measurement.
+    """
+    write_suite(repo, fr_score="0.2")
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_OK, done.stderr
+    assert done.returncode != EXIT_WORSE
+
+
+def test_a_case_that_could_not_be_judged_still_exits_two(repo: Path) -> None:
+    """The half of the contract that survives without a reference: a case the
+    suite could not judge is a fact about the harness, and a document that
+    reports one must not exit as though everything went fine."""
+    write_suite(repo, extra=', Case(id="flaky")')
+    key = run_key(repo)
+    done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
+    assert done.returncode == EXIT_UNJUDGED, done.stderr
+    # Three verdicts on one case: the section counts checks and the
+    # tally counts cases, and each says which.
+    assert "What could not be judged (3)" in done.stdout
+    assert "<li>cases not judged <b>1</b></li>" in done.stdout
+
+
+def test_the_document_becomes_comparative_once_a_baseline_exists(repo: Path) -> None:
+    """No flag decides this. The same command answers the question it can
+    answer, and says so when it cannot — the way `--redacted` is not what makes
+    a report redacted."""
+    key = run_key(repo)
+    before = cli(
+        repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
+    ).stdout
+    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    after = cli(
+        repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
+    ).stdout
+
+    assert "No reference to compare against" in before
+    assert "Did it get worse?" not in before
+    assert "No reference to compare against" not in after
+    assert "Did it get worse?" in after
+
+
+def test_compare_still_refuses_without_a_baseline(repo: Path) -> None:
+    """A comparison needs a reference; a document does not. `report` stopped
+    refusing and `compare` did not, which is the whole distinction."""
+    key = run_key(repo)
+    done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
+    assert done.returncode != EXIT_OK
+    assert "has no baseline" in done.stderr
+
+
+def test_a_baseless_report_can_still_be_redacted(repo: Path) -> None:
+    key = run_key(repo)
+    done = cli(
+        repo,
+        "report",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+        "--locale",
+        "en",
+        "--redacted",
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+    assert "judged: " not in done.stdout
+
+
+# --------------------------------------------------------------------------- #
 # --run latest
 # --------------------------------------------------------------------------- #
 
@@ -738,8 +896,8 @@ def test_only_the_suite_directory_gets_the_source_only_loader(
 ) -> None:
     """Scoped on purpose: a loader for every module would slow every import to
     protect files that do not change during an evaluation."""
-    from digline.cli.loader import SourceOnlyLoader
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import SourceOnlyLoader
+    from digline.host.loader import load_suite as _load_suite
 
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -782,8 +940,8 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
     """Only a file path needs the treatment: `package.module:attr` is already
     importable, and widening the path for it would be reaching into the
     caller's environment for no reason."""
-    from digline.cli.loader import UsageError as _UsageError
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import UsageError as _UsageError
+    from digline.host.loader import load_suite as _load_suite
 
     before = list(sys.path)
     with pytest.raises(_UsageError):
@@ -794,7 +952,7 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
 def test_loading_twice_does_not_grow_sys_path(tmp_path: Path) -> None:
     """Several suites in one directory, or one loaded twice, must not make
     `sys.path` accumulate copies of the same entry."""
-    from digline.cli.loader import load_suite as _load_suite
+    from digline.host.loader import load_suite as _load_suite
 
     write_suite(tmp_path)
     path = str(tmp_path.resolve())

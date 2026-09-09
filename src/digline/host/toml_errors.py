@@ -27,7 +27,7 @@ from __future__ import annotations
 import difflib
 from collections.abc import Iterable, Sequence
 
-from digline.cli.errors import UsageError
+from digline.host.errors import UsageError
 
 __all__ = [
     "code_only",

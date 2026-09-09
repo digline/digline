@@ -20,7 +20,7 @@ import tomllib
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from tests._site import nav_lists, require_site_config
@@ -307,6 +307,86 @@ def test_each_readme_opens_with_the_question_it_answers(name: str) -> None:
 # --------------------------------------------------------------------------- #
 # The LangChain path: in process, and free
 # --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# The classifier: the per-class table is the baseline, or it is decoration
+# --------------------------------------------------------------------------- #
+
+CLASSIFIER = ROOT / "examples" / "classifier"
+
+
+def classifier_baseline() -> dict[str, Any]:
+    return json.loads(
+        (
+            CLASSIFIER / ".digline" / "northwind" / "baselines" / "expense-triage.json"
+        ).read_text(encoding="utf-8")
+    )
+
+
+def readme_table() -> list[list[str]]:
+    """The one table in the classifier's README whose first column is a class.
+
+    Found by its header rather than by position, so inserting a paragraph
+    above it does not silently make this test read nothing.
+    """
+    lines = (CLASSIFIER / "README.md").read_text(encoding="utf-8").splitlines()
+    start = next(
+        i for i, line in enumerate(lines) if line.startswith("| Class | Cases |")
+    )
+    rows: list[list[str]] = []
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        rows.append([cell.strip().strip("`") for cell in line.strip("|").split("|")])
+    return rows
+
+
+def test_the_classifier_readme_table_is_the_promoted_baseline() -> None:
+    """A hand-written table beside a committed measurement rots, quietly and in
+    the direction that flatters. This is the third act of the example — the two
+    red rows are the whole point of it — so every figure in it is held to the
+    baseline the repository ships, number for number.
+    """
+    by_name = {a["assertion"]: a for a in classifier_baseline()["aggregate"]}
+    rows = readme_table()
+    assert len(rows) == 6, rows  # the whole run, then five classes
+
+    for label, cases, precision, accuracy in rows:
+        where = "" if label == "whole run" else f"[group={label}]"
+        for measure, written in (("precision", precision), ("accuracy", accuracy)):
+            recorded = by_name[measure + where]
+            assert f"{recorded['score']:.3f}" == written, f"{measure}{where}"
+            assert str(recorded["metadata"]["considered"]) == cases, f"{measure}{where}"
+
+
+def test_the_classifier_table_covers_every_class_its_cases_declare() -> None:
+    """A guard on the guard: a row quietly dropped from the README would leave
+    the test above passing over five figures instead of six."""
+    cases = json.loads((CLASSIFIER / "cases.json").read_text(encoding="utf-8"))
+    declared = {case["group"] for case in cases}
+    written = {row[0] for row in readme_table()} - {"whole run"}
+    assert written == declared
+
+
+def test_the_classifier_ships_the_red_rows_it_narrates() -> None:
+    """The example is only worth its README if the failure is really there. If
+    a change ever makes these green, the third act has to be rewritten rather
+    than the assertion relaxed — a demo that cannot fail is fixed decision 3
+    broken in the place people copy from.
+    """
+    by_name = {a["assertion"]: a for a in classifier_baseline()["aggregate"]}
+    failing = {name for name, a in by_name.items() if a["status"] == "fail"}
+    assert failing == {
+        "precision[group=tools]",
+        "precision[group=travel]",
+        "accuracy[group=tools]",
+        "accuracy[group=travel]",
+    }
+    # And the gate is green anyway, which is the combination the README and the
+    # rendered document both have to explain (ADR 0010 §10).
+    assert by_name["precision"]["status"] == "pass"
+    assert by_name["accuracy"]["status"] == "pass"
+
 
 LANGCHAIN = ROOT / "examples" / "langchain"
 

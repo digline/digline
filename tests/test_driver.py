@@ -11,6 +11,7 @@ from digline.core import (
     EvaluatorInputs,
     JudgeReply,
     LlmRubric,
+    Output,
     Regex,
     Run,
     Verdict,
@@ -268,6 +269,29 @@ def test_duplicate_case_ids_are_refused() -> None:
     second would silently replace the first."""
     with pytest.raises(ValueError, match="case id 'twice' twice"):
         a_suite(Case(id="twice"), Case(id="other"), Case(id="twice"))
+
+
+def test_an_empty_expected_is_refused() -> None:
+    """Two defensible behaviours composing into a check that cannot fail:
+    `levenshtein` scores an empty expected against an empty output as a perfect
+    1.0, and a case is free to leave `expected` unset. Written together they
+    are the vacuously green assertion fixed decision 3 forbids, so the case is
+    refused where it is declared.
+
+    Every empty `Output`, not only the string: an empty mapping and an empty
+    list of messages claim the same expectation of nothing.
+    """
+    empties: list[Output] = ["", {}, []]
+    for empty in empties:
+        with pytest.raises(ValueError, match="declares an empty expected"):
+            Case(id="one", expected=empty)
+
+
+def test_an_absent_expected_stays_legal() -> None:
+    """`None` is not an empty expectation, it is no expectation — the shape
+    every case that is judged by `contains` or a rubric has."""
+    assert Case(id="one").expected is None
+    assert Case(id="two", expected=None).expected is None
 
 
 def test_a_suite_without_assertions_is_refused() -> None:

@@ -88,6 +88,25 @@ reads them fails if it stops being met.
       importing a plugin. Scope was the assertions whose parameters are already
       data; a custom assertion, a custom target and a `Disclosure` stay Python,
       and the loader says so by name
+- [ ] An MCP server, `digline-mcp` (ADR 0011) — implemented on `digline-mcp`,
+      merges after 0.6.0 and is tagged on its own day. Six tools, read and
+      measurement only, and **`promote` absent by construction**: a refusal is a
+      conversation a model can argue with, an absence is not, so `AGENTS.md` §1
+      stops being a rule an agent is asked to follow. `run` takes a mandatory
+      `acknowledge_calls` that must match the preflight, so an agent cannot
+      spend a hundred model calls without having stated the number. It brought
+      two internal layers with it: `digline.host`, the part of the CLI that
+      touches the world, and `digline.wire`, the machine surface both front ends
+      render through
+- [ ] `Suite(artifacts=[...])` accepts a `str` where it means a `Path`, and
+      fails later and elsewhere: `AttributeError: 'str' object has no attribute
+      'is_absolute'`, raised inside `read_artifacts` at run time, naming neither
+      the suite nor the field. Coerce it in `Suite.__post_init__`, the way the
+      TOML loader already coerces by declared type — one rule, extended from the
+      data form to the Python constructor rather than invented twice. Where a
+      value cannot be coerced, refuse it **by field name** in the message, which
+      is the fallback the TOML errors already model. Found while writing a
+      fixture for ADR 0011's boundary gate
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
 - [x] An official container image, `ghcr.io/digline/digline`: the CLI and the
       three provider plugins, published by the release workflow on a `v*` tag.

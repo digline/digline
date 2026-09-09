@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "docker" / "Dockerfile"
 IMAGE_README = ROOT / "docker" / "README.md"
 WORKFLOW = ROOT / ".github" / "workflows" / "docker-publish.yml"
+CI = ROOT / ".github" / "workflows" / "ci.yml"
+SMOKE = ROOT / "docker" / "smoke.sh"
 
 #: The scope statement, which is the promise the image makes. Compared with the
 #: backticks taken out: the words are the contract, the Markdown around them is
@@ -64,6 +66,14 @@ def declared(pyproject: str) -> str:
 
 def workflow() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
+
+
+def ci() -> str:
+    return CI.read_text(encoding="utf-8")
+
+
+def smoke() -> str:
+    return SMOKE.read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #
@@ -146,21 +156,102 @@ def test_nothing_is_pushed_before_the_quickstart_has_run() -> None:
 def test_the_smoke_test_asserts_both_exit_codes() -> None:
     """`0` fine and `1` got worse. A smoke test that only asserts the image
     starts would pass on an image that answers every suite the same way."""
-    smoke = workflow().partition("\n  publish:")[0]
-    assert "digline run --suite suite.py" in smoke
-    assert "digline compare --suite suite.py --run latest" in smoke
+    text = smoke()
+    assert "digline run --suite suite.py" in text
+    assert "digline compare --suite suite.py --run latest" in text
     # The break, and the exit code it has to produce.
-    assert 'if [ "$status" -ne 1 ]' in smoke
+    assert 'if [ "$status" -ne 1 ]' in text
 
 
 def test_the_smoke_test_checks_the_write_path_on_a_mounted_volume() -> None:
     """Decision 2: `.digline/` lives in the user's repository. In the image
     that is a bind mount, written by a non-root user, and it is the one thing
     about this image that cannot be verified by reading it."""
-    smoke = workflow().partition("\n  publish:")[0]
-    assert '-v "$work:/work"' in smoke
-    assert "$work/.digline/northwind/baselines/support.json" in smoke
-    assert '! -user "$(id -u)"' in smoke
+    text = smoke()
+    assert '-v "$work:/work"' in text
+    assert "$work/.digline/northwind/baselines/support.json" in text
+    assert '! -user "$(id -u)"' in text
+
+
+def test_the_smoke_test_is_a_script_both_workflows_run() -> None:
+    """One smoke, two callers. `ci.yml` runs it on every change under
+    `docker/`, `docker-publish.yml` runs it before the push — and the second is
+    the one guarding a release, so it must not be the copy that fell behind.
+
+    What is checked is that neither workflow *inlines* it: a `docker run` of
+    the image spelled out in YAML is the copy starting.
+    """
+    assert SMOKE.is_file(), "docker/smoke.sh is gone"
+    # Each workflow's image job, not the whole file: `ci.yml` also runs the
+    # examples against PyPI, and those really do call `digline compare`.
+    jobs = {
+        "docker-publish.yml": workflow().partition("\n  publish:")[0],
+        "ci.yml": ci()
+        .partition("\n  image:")[2]
+        .partition("\n  examples-from-pypi:")[0],
+    }
+    for name, job in jobs.items():
+        assert job, f"{name} has no image job to read"
+        assert "docker/smoke.sh digline:smoke" in job, (
+            f"{name} does not run docker/smoke.sh; the smoke test belongs in "
+            "one file that both workflows call"
+        )
+        assert "digline compare --suite" not in job, (
+            f"{name} spells the quickstart out inline. That is the second copy "
+            "of docker/smoke.sh, and copies drift."
+        )
+
+
+def test_the_smoke_script_is_executable() -> None:
+    """Both workflows invoke it as a command, not as `bash smoke.sh`."""
+    assert SMOKE.stat().st_mode & 0o111, "docker/smoke.sh is not executable"
+
+
+def test_ci_builds_the_image_without_pushing_it() -> None:
+    """The gap this closes: the only build was the one that publishes, so the
+    first time a broken Dockerfile was noticed, the version it pins was already
+    spent on PyPI.
+
+    The job is gated on the paths that decide what the image *is*. The
+    Dockerfile installs digline from the index rather than from this tree, so a
+    change under `src/` cannot change the image being built here.
+    """
+    text = ci()
+    job = text.partition("\n  image:")[2].partition("\n  examples-from-pypi:")[0]
+    assert job, "ci.yml has no `image` job"
+    assert "load: true" in job, "the image is never loaded, so it cannot be run"
+    assert "push: true" not in job, "ci.yml must not push; that is the release's job"
+    assert "packages: write" not in ci(), (
+        "ci.yml grants write access to the registry, which it has no use for"
+    )
+    assert "docker/smoke.sh" in job
+
+
+def test_the_image_job_is_gated_on_what_the_image_is_made_of() -> None:
+    """A skipped job still reports, which a workflow-level `on: paths:` would
+    not — that leaves a required check waiting forever."""
+    text = ci()
+    assert "needs: image-touched" in text
+    assert "if: needs.image-touched.outputs.build == 'true'" in text
+    gate = text.partition("\n  image-touched:")[2].partition("\n  image:")[0]
+    # The pattern the job actually greps with, not the prose around it: a
+    # comment naming `docker/` would otherwise satisfy this while the filter
+    # matched something else entirely.
+    pattern = re.search(r"grep -qE '([^']+)'", gate)
+    assert pattern is not None, (
+        "the gate no longer decides with a `grep -qE '<pattern>'`; if it "
+        "decides some other way, read that instead of deleting this"
+    )
+    paths = pattern.group(1)
+    assert "docker/" in paths, f"the filter {paths!r} does not name docker/"
+    assert "docker-publish" in paths, (
+        f"the filter {paths!r} does not cover the publishing workflow, so a "
+        "change to the job that builds the release image would not build it"
+    )
+    assert "ci" in paths, (
+        f"the filter {paths!r} does not cover ci.yml, so an edit to this very "
+        "job would not run it"
+    )
 
 
 # --------------------------------------------------------------------------- #

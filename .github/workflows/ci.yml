@@ -104,6 +104,85 @@ jobs:
         working-directory: _site
         run: tools/check-sitemap.py site
 
+  image-touched:
+    name: Does this change the image?
+    # The docker job below is gated on this rather than on `on: paths:`, which
+    # would apply to the whole workflow. A job skipped by `if:` still reports,
+    # so a required check stays satisfiable; a workflow that never triggers
+    # leaves it waiting forever.
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The diff needs both ends. Ten megabytes of history, so the depth
+          # costs less than deciding what depth would have been enough.
+          fetch-depth: 0
+
+      - id: check
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # No base to diff against — a scheduled run, a dispatch, the first
+          # push to a branch. Build: the weekly one is there precisely to catch
+          # a base image or a dependency moving under an unchanged Dockerfile.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "no base commit to compare against; building"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+          echo "$changed"
+          # What the image is made of, and nothing else. The Dockerfile
+          # installs digline from PyPI rather than from this tree, so a change
+          # under `src/` cannot change the image — it changes the *next* one,
+          # which docker-publish.yml builds after the release.
+          if echo "$changed" | grep -qE '^(docker/|\.github/workflows/(ci|docker-publish)\.yml$)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "nothing under docker/ changed; skipping the image build"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    name: The image builds, and the quickstart runs inside it
+    # Everything docker-publish.yml does before it pushes, and nothing it does
+    # after: same context, same smoke script, no registry, no `packages:
+    # write`. What it buys is the order — the image was found broken *after*
+    # v0.5.0 was already on PyPI, because the only build was the one that
+    # publishes.
+    needs: image-touched
+    if: needs.image-touched.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build for this runner's architecture, load, do not push
+        # `load: true` and no `push:`. One architecture because this one has to
+        # be *run*: a multi-arch build produces a manifest list and `--load`
+        # cannot take one. arm64 is built once, at release, under emulation.
+        #
+        # No `cache-to`: a pull request writing the shared cache would let a
+        # branch decide what the release build starts from. Reading it is free
+        # and is most of the saving anyway.
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          load: true
+          tags: digline:smoke
+          cache-from: type=gha
+
+      - name: The front page's quickstart, on a mounted volume
+        # The same script the release runs, against an image built the same
+        # way. The version it installs is the released one — the Dockerfile
+        # pins it — so this asks "does the image work", not "does the source
+        # work"; the `gates` job above is what asks the second question.
+        run: docker/smoke.sh digline:smoke
+
   examples-from-pypi:
     name: The examples, against the published package
     runs-on: ubuntu-latest

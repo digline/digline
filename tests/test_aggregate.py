@@ -18,6 +18,7 @@ from digline.core import (
     CaseOutcome,
     Contains,
     Precision,
+    Ratio,
     Recall,
     Run,
     Score,
@@ -496,3 +497,65 @@ def test_f1_counts_the_exclusions_like_the_others() -> None:
     assert verdict.score.metadata["errored_excluded"] == 1
     assert verdict.score.metadata["considered"] == 7
     assert "1 could not be judged" in verdict.reason
+
+
+# --------------------------------------------------------------------------- #
+# The rounding boundary (friction 34)
+# --------------------------------------------------------------------------- #
+
+
+def test_an_aggregate_on_the_rounding_boundary_produces_a_verdict() -> None:
+    """The field reproduction: 14 of 21 against a threshold written as the
+    rounded two-thirds.
+
+    Unrounded the ratio is 0.6666666… and sits *below* 0.666667, so the
+    aggregate called it `fail`; `Verdict` stores the score rounded, sees
+    0.666667 >= 0.666667, and refuses the contradiction. The gate crashed
+    instead of gating.
+    """
+    cases = outcomes_with(tp=14, fp=0, tn=0, fn=7)
+    verdict = Accuracy(over=AGREES, threshold=0.666667, tolerance=0.0)(cases)
+    assert verdict.status == "pass"
+    assert verdict.score.score == 0.666667
+
+
+@pytest.mark.parametrize(
+    ("threshold", "status"),
+    [
+        # One ulp of FLOAT_PRECISION below the stored score: clears it.
+        (0.666666, "pass"),
+        # Exactly the stored score. Fails only against the unrounded ratio,
+        # which is the bug.
+        (0.666667, "pass"),
+        # One ulp above: the only one of the three that should fail.
+        (0.666668, "fail"),
+        # The same edge reached from the threshold side. `as_ratio` keeps
+        # these unrounded, so both of them are 0.666667 once stored and the
+        # comparison has to be made on the stored pair, not the given one.
+        ("2/3", "pass"),
+        (0.6666668, "pass"),
+    ],
+)
+def test_the_status_follows_the_stored_score_not_the_unrounded_one(
+    threshold: Ratio, status: str
+) -> None:
+    cases = outcomes_with(tp=14, fp=0, tn=0, fn=7)
+    verdict = Accuracy(over=AGREES, threshold=threshold, tolerance=0.0)(cases)
+    assert verdict.score.score == 0.666667
+    assert verdict.status == status
+
+
+def test_the_boundary_holds_for_every_aggregate() -> None:
+    """`_graded` is shared, so the guarantee holds for every metric built on
+    it, not only for the one the field hit."""
+    # Precision, recall and F1 all land on 14/21 here; accuracy reaches the
+    # same edge on the matrix the two tests above use.
+    cases = outcomes_with(tp=14, fp=7, tn=0, fn=7)
+    for metric in (
+        Precision(over=AGREES, threshold=0.666667, tolerance=0.0),
+        Recall(over=AGREES, threshold=0.666667, tolerance=0.0),
+        F1(over=AGREES, threshold=0.666667, tolerance=0.0),
+    ):
+        verdict = metric(cases)
+        assert verdict.score.score == 0.666667, metric.name
+        assert verdict.status == "pass", metric.name
