@@ -12,13 +12,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import pytest
 from tests._helpers import cli, git
 
 from digline.core import (
     Artifact,
+    Contains,
     Disclosure,
     Run,
     artifacts_sha,
@@ -27,7 +30,9 @@ from digline.core import (
     withhold_artifacts,
 )
 from digline.core.run import SCHEMA_VERSION, run_from_json, run_to_json
+from digline.host import read_artifacts
 from digline.report import artifact_lines, diff_lines, render_html
+from digline.run import Case, Suite
 from digline.store import FileResultStore
 
 SUITE = """\
@@ -138,6 +143,62 @@ def test_a_missing_artifact_is_refused_rather_than_recorded_as_absent(
     done = cli(project, "run", "--suite", "suite.py")
     assert done.returncode != 0
     assert "prompt.md" in done.stderr
+
+
+# --------------------------------------------------------------------------- #
+# What a declaration accepts
+# --------------------------------------------------------------------------- #
+
+
+def declaring(artifacts: object) -> Suite:
+    return Suite(
+        tenant="acme-bank",
+        environment="staging",
+        name="qa",
+        assertions=[Contains(needle="Rome")],
+        cases=[Case(id="capital-it")],
+        artifacts=cast("Sequence[Path]", artifacts),
+    )
+
+
+def test_a_str_is_the_path_it_meant(tmp_path: Path) -> None:
+    """`artifacts=["prompt.md"]` is what a reader writes, and it used to travel
+    as a `str` until `read_artifacts` asked it whether it was absolute."""
+    (tmp_path / "prompt.md").write_text("Answer with Rome.\n", encoding="utf-8")
+    suite = declaring(["prompt.md"])
+    assert suite.artifacts == (Path("prompt.md"),)
+    assert set(read_artifacts(suite, object(), tmp_path)) == {"prompt.md"}
+
+
+def test_the_two_forms_of_the_same_file_are_one_declaration() -> None:
+    """Coerced before the duplicate check, or the same prompt would be declared
+    twice under two spellings and stored under one key."""
+    with pytest.raises(ValueError, match="same artifact twice"):
+        declaring(["prompt.md", Path("prompt.md")])
+
+
+def test_what_cannot_be_a_path_is_refused_by_field_name() -> None:
+    """The fallback the loader's errors model: which suite, which field, what
+    was given. Refused at construction, where the mistake was written."""
+    with pytest.raises(ValueError) as raised:
+        declaring([Path("prompt.md"), 3])
+    message = str(raised.value)
+    assert "`artifacts`" in message and "qa" in message
+    assert "int" in message and "entry 1" in message
+
+
+def test_a_bare_string_is_not_a_list_of_one() -> None:
+    """A `str` is a `Sequence` — of characters — so this is the one wrong value
+    the rule would otherwise accept enthusiastically, as nine one-letter paths."""
+    with pytest.raises(ValueError, match="`artifacts`"):
+        declaring("prompt.md")
+
+
+def test_what_is_not_a_list_at_all_is_named_too() -> None:
+    """Or it would leave as a bare `TypeError` from the loop, which names the
+    field no better than the `AttributeError` this replaces."""
+    with pytest.raises(ValueError, match="`artifacts`"):
+        declaring(3)
 
 
 # --------------------------------------------------------------------------- #
