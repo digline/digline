@@ -90,6 +90,16 @@ jobs:
         # not have the version the Dockerfile pins yet. Building before it does
         # fails on `pip install digline==<version>` with nothing to retry.
         #
+        # Asked of the **simple index**, which is the file listing `pip` itself
+        # resolves from — not `/pypi/<name>/<version>/json`. On the first
+        # release that ran this step, that JSON endpoint answered 404 for the
+        # three plugins for minutes after their upload had returned 200 and
+        # after the simple index was already serving them. It said 200 for the
+        # core by luck rather than by rule, so this step passed; on another day
+        # it would have waited out the whole thirty minutes and failed a
+        # release whose packages were in fact there. Ask the source that
+        # decides whether the build can install.
+        #
         # The core only: the plugins are uploaded in the same job, and an index
         # that serves one serves the rest. Thirty minutes because the wait is
         # for a person to press a button, not for a CDN to catch up.
@@ -97,8 +107,11 @@ jobs:
           VERSION: ${{ steps.plan.outputs.version }}
         run: |
           set -euo pipefail
+          # The dots are escaped: a version must not match one that merely
+          # has other characters in those positions.
+          pattern="digline-${VERSION//./\\.}(-py3|\\.tar\\.gz)"
           deadline=$(( SECONDS + 1800 ))
-          until curl -sfo /dev/null "https://pypi.org/pypi/digline/$VERSION/json"; do
+          until curl -sf "https://pypi.org/simple/digline/" | grep -qE "$pattern"; do
             if [ "$SECONDS" -ge "$deadline" ]; then
               echo "digline $VERSION is still not on PyPI after 30 minutes;" \
                    "approve the pypi job in publish.yml, then re-run this one"

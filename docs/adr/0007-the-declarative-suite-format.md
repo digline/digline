@@ -5,6 +5,11 @@
   landed first and the code was written against it, the way
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) was
 - Date: 2026-09-03
+- Amended: 2026-09-08 — one factual correction, no decision revisited: the
+  body said the container image had run the cycle *since 0.4.0*. It ships
+  in 0.5.0, this ADR's own release, and existed only on a branch when this
+  was written. The argument is unchanged — the image closed the tooling
+  half and left the authoring half — so the date is simply dropped
 - Amended: 2026-09-03 — four corrections made *by* writing the code, none of
   them a decision taken twice. **§3** records that the model half of a
   coordinate is opaque and the split is on the first slash, because a Bedrock
@@ -44,8 +49,8 @@ interpret it.
 
 That is not what this ADR reverses. What it addresses is who is left outside.
 
-**The CI-gate reader has no Python.** Since 0.4.0 the official container image
-runs the whole cycle with nothing installed on the machine — but the suite it
+**The CI-gate reader has no Python.** The official container image runs the
+whole cycle with nothing installed on the machine — but the suite it
 mounts is still a `.py` file, so the last thing standing between a Java shop
 with an `HttpTarget` endpoint and a working gate is a language they do not
 write. The image completed the *tooling* half of "no Python anywhere" and left

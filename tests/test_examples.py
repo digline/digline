@@ -16,10 +16,11 @@ import socket
 import subprocess
 import sys
 import time
+import tomllib
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from tests._site import nav_lists, require_site_config
@@ -637,3 +638,101 @@ def test_every_example_has_a_page_in_the_site_nav() -> None:
         "If that path is a checkout of your own, it may simply be behind "
         "origin — the entry is added in digline/digline.dev, not here."
     )
+
+
+# --------------------------------------------------------------------------- #
+# The examples run against the release, not against the one before it
+# --------------------------------------------------------------------------- #
+
+
+def workspace_versions() -> dict[str, tuple[int, ...]]:
+    """Every package this repository publishes, and the version it declares.
+
+    The core and the three plugins, read where each one states it. `tomllib`
+    returns an untyped document, so the shape is cast at the two points that
+    read it rather than trusted throughout.
+    """
+    paths = [
+        ROOT / "pyproject.toml",
+        *sorted((ROOT / "packages").glob("*/pyproject.toml")),
+    ]
+    versions: dict[str, tuple[int, ...]] = {}
+    for path in paths:
+        with path.open("rb") as handle:
+            project = cast("dict[str, str]", tomllib.load(handle)["project"])
+        versions[project["name"]] = tuple(
+            int(part) for part in project["version"].split(".")
+        )
+    return versions
+
+
+def example_pins() -> list[tuple[str, str, str]]:
+    """Every example pin on a workspace package, as (example, package, specifier).
+
+    A dependency on anything this repository does not publish is not ours to
+    have an opinion about: `langchain` moves on its own schedule.
+    """
+    published = workspace_versions()
+    pins: list[tuple[str, str, str]] = []
+    for path in sorted((ROOT / "examples").glob("*/pyproject.toml")):
+        with path.open("rb") as handle:
+            document = tomllib.load(handle)
+        dependencies = cast("list[str]", document["project"].get("dependencies", []))
+        for dependency in dependencies:
+            match = re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)", dependency)
+            if match is not None and match.group(1) in published:
+                pins.append((path.parent.name, match.group(1), dependency))
+    return pins
+
+
+def bounds(specifier: str) -> list[tuple[str, tuple[int, ...]]]:
+    """`digline>=0.5,<0.6` -> [(">=", (0, 5)), ("<", (0, 6))]."""
+    return [
+        (operator, tuple(int(part) for part in version.split(".")))
+        for operator, version in re.findall(
+            r"(>=|<=|==|<|>)\s*([0-9][0-9.]*)", specifier
+        )
+    ]
+
+
+def admits(version: tuple[int, ...], operator: str, bound: tuple[int, ...]) -> bool:
+    """Does `version` satisfy this one clause?
+
+    Compared at the bound's own precision: a pin of `>=0.5` is a statement
+    about two components, and 0.5.0 satisfies it.
+    """
+    padded = version[: len(bound)]
+    return {
+        ">=": padded >= bound,
+        "<=": padded <= bound,
+        "==": padded == bound,
+        "<": padded < bound,
+        ">": padded > bound,
+    }[operator]
+
+
+def test_every_example_admits_the_versions_this_workspace_declares() -> None:
+    """An example capped below the release is tested against the release before it.
+
+    `examples-from-pypi` resolves each example from the real index, so a cap of
+    `<0.5` on a workspace at 0.5.0 does not fail: it installs 0.4.0 and passes,
+    green against the version nobody is shipping. That is what happened on the
+    0.5.0 release — six examples reported green having never seen it — and the
+    green is what made it invisible.
+
+    Every published package, not only the core: the plugin pins were raised by
+    hand in the same pass and nothing held them there, which is the same trap
+    one name over. The ritual in RELEASING.md raises the caps with the release;
+    this is what notices when it was not done.
+    """
+    published = workspace_versions()
+    for example, package, specifier in example_pins():
+        version = published[package]
+        for operator, bound in bounds(specifier):
+            assert admits(version, operator, bound), (
+                f"examples/{example}/pyproject.toml pins `{specifier}`, which "
+                f"excludes {package} {'.'.join(str(p) for p in version)} — the "
+                f"version {package} declares in this workspace. Raise the cap "
+                f"with the release, as RELEASING.md says, or the example is "
+                f"tested against the release before this one."
+            )

@@ -98,7 +98,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.3.0": "'extended in 0.3.0' — the same",
     },
     "docker/README.md": {
-        "0.3.1": "a deliberate example of building an image for another release",
+        "0.4.0": "a deliberate example of building an image for a release "
+        "that exists — it named 0.3.1 until that turned out never to have "
+        "shipped, which is the same class of claim this file gates",
         "0.28.1": "an httpx pin in an example Dockerfile, not a digline version",
         "2.2.3": "a pandas pin in the same example",
     },
