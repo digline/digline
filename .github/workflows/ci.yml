@@ -228,7 +228,12 @@ jobs:
         if: matrix.example == 'quickstart-toml'
         working-directory: examples/quickstart-toml
         run: |
-          uv run python stub.py &
+          # `python3`, not `uv run python`: stub.py is standard library only, and
+          # a backgrounded `uv run` outlives this step holding uv's cache lock,
+          # which deadlocks setup-uv's post-job `uv cache prune --ci` until it
+          # times out and fails the leg green work and all. The stub is somebody
+          # else's process; it does not want this project's environment.
+          python3 stub.py &
           for attempt in $(seq 1 20); do
             curl -sf -o /dev/null --head http://127.0.0.1:8730/answer && exit 0
             sleep 0.5

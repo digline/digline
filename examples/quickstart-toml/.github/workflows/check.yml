@@ -31,7 +31,10 @@ jobs:
       # `url` at a service that is already running.
       - name: Start the application under test
         run: |
-          uv run python stub.py &
+          # `python3` rather than `uv run python`: stub.py is standard library
+          # only, and a backgrounded `uv run` keeps uv's cache locked after this
+          # step ends, which fails the job in its cleanup.
+          python3 stub.py &
           for attempt in $(seq 1 20); do
             curl -sf -o /dev/null --head http://127.0.0.1:8730/answer && exit 0
             sleep 0.5
