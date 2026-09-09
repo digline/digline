@@ -73,12 +73,44 @@ on GitHub fail there**:
   `- <label>: product/examples/<name>.md`. Adding `docs/adr/<name>.md` needs
   the same line under `- Decisions:`, as `product/adr/<name>.md`.
 
-Both are gated now — by the `docs` job in `ci.yml`, which runs this same build
-on every push, and, for the nav entry specifically, by `tests/test_examples.py`
-and `tests/test_adr.py`, which name the page and the line to add.
+**A new page costs three lines there, not one**, and they are in three files:
+
+| Where | What | Fails as |
+|---|---|---|
+| `mkdocs.yml`, `nav:` | the entry | a `--strict` warning, so a failed build |
+| `tools/hooks/seo.py`, `PRODUCT` | the title and the `<meta name="description">` | a `PluginError` naming the page |
+| `tools/hooks/llms.py`, `DESCRIPTIONS` | what the page answers, for llms.txt | a `PluginError` naming the page |
+
+The last two are for pages under `product/` — everything copied out of this
+repository. A page written in `digline.dev` itself carries its description in
+its own front matter instead, and the same gate says so.
+
+`PRODUCT` is the newest of the three and the one most likely to be forgotten,
+because until it was gated a missing entry was silent: the hook fell back to the
+page's first paragraph and shipped it to Google as the description. That
+fallback is a net, not a decision.
+
+All of it is gated — by the `docs` job in `ci.yml`, which runs this same build
+on every push, and, for the nav entry specifically, by `tests/test_examples.py`,
+`tests/test_adr.py` and `tests/test_docs_pages.py`, which name the page and the
+line to add.
 So this block should already be green by the time you reach it. Run it anyway:
 the job checks `digline.dev`'s **default branch**, and what the release will
 actually build against is whatever that branch holds at dispatch time.
+
+### Queued for the next site push
+
+The three-line rule above has a first real batch, and the pages are held back
+deliberately: `digline.dev` is on its default branch and this documentation is
+not merged yet, so adding the entries early would fail the site build on pages
+that do not exist. They land together. This branch brings two of them —
+
+- `docs/diff.md` → `product/diff.md`, under `- Reference:`;
+- `docs/adr/0010-per-group-aggregates.md` → under `- Decisions:`;
+
+— and `tests/test_docs_pages.py` and `tests/test_adr.py` are red here for
+exactly that reason, which is the gate keeping the two repositories in step
+rather than a defect. Three lines each, per the table above.
 
 **A failure here is not a re-tag.** The site job is the last step of
 `publish.yml` and runs *after* PyPI, so a docs defect discovered at that point
