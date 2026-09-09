@@ -30,6 +30,13 @@ stale; and it is what makes a forward reference read itself back, since the day
 its version ships the entry becomes illegal and somebody has to say whether the
 sentence is now history or now wrong.
 
+The example READMEs are swept too, since the 0.6.0 audit. They had been outside
+it, which was backwards: an example is the page most likely to carry a version,
+because it is the one telling a reader what to install, and the class with the
+worst record for going stale unnoticed. What the sweep found there on its first
+run was five third-party pins, now registered — which is the point, since a
+number nobody classified is a number nobody is watching.
+
 Three trees are out of the sweep and stay out. `CHANGELOG.md` is dated history
 in every line, and `docs/adr/` is immutable once a decision is accepted:
 pinning either to the current release would be asking a record to change.
@@ -75,6 +82,11 @@ def swept() -> list[Path]:
     files += sorted(p for p in (ROOT / "src").rglob("*.py"))
     files += sorted(p for p in (ROOT / "docs").rglob("*.md") if "adr" not in p.parts)
     files += sorted((ROOT / ".claude").rglob("*.md"))
+    # The example READMEs. They were outside the sweep until the 0.6.0 audit,
+    # which is backwards: an example is the page most likely to name a version,
+    # because it is the one telling a reader what to install, and the class with
+    # the worst record for going stale unnoticed.
+    files += sorted((ROOT / "examples").glob("*/README.md"))
     return [path for path in files if path.is_file()]
 
 
@@ -112,6 +124,24 @@ RECORDED: dict[str, dict[str, str]] = {
     "SECURITY.md": {
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
         "key by name' — when the refusal landed",
+    },
+    "examples/external-app/README.md": {
+        "0.1.2": "'Needs digline 0.1.2 (HttpTarget)' — the release the feature "
+        "arrived in. A floor, so it cannot go stale; the cap in the example's "
+        "pyproject.toml is what decides what a reader installs",
+    },
+    "examples/langchain/README.md": {
+        "1.3.18": "the langchain version the example was run against, not a "
+        "digline one. Pinned to the example's own lock by "
+        "tests/test_examples.py, which is where a third-party version belongs",
+        "1.6.1": "langchain-core, beside it, held by the same test",
+    },
+    "examples/langchain4j/README.md": {
+        "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
+        "kind of floor",
+        "1.0.0": "langchain4j `1.0.0-beta2`, a Java dependency of the service "
+        "under test and not a digline version",
+        "1.0.1": "the langchain4j release beside it, same reason",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "
