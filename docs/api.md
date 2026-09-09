@@ -1086,10 +1086,10 @@ the built-in ones do:
 ```python
 from digline.core import meets, within, at_precision, STORAGE_STEP
 
-meets(0.7, 0.7)              # True  — a score meeting its threshold
-within(0.047619, 0.047619)   # True  — a delta within its tolerance
-at_precision(1 / 3)          # 0.333333
-STORAGE_STEP                 # 1e-06, one unit at storage precision
+meets(0.7, 0.7)  # True  — a score meeting its threshold
+within(0.047619, 0.047619)  # True  — a delta within its tolerance
+at_precision(1 / 3)  # 0.333333
+STORAGE_STEP  # 1e-06, one unit at storage precision
 ```
 
 Why it is stated once rather than at each call site, and what it cost to adopt,

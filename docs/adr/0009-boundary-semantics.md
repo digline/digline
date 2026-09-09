@@ -172,11 +172,14 @@ how the fourth site missed it. The rule gets one home:
 #: survives being written to a baseline and read back.
 STORAGE_STEP = 10.0**-FLOAT_PRECISION
 
+
 def at_precision(value: float) -> float:
     """A number as the document stores it. Every limit is compared here first."""
 
+
 def meets(value: float, limit: float) -> bool:
     """`value >= limit` at storage precision — the inclusive direction of §1."""
+
 
 def within(value: float, limit: float) -> bool:
     """`value <= limit` at storage precision — the same rule, other way round."""
@@ -255,7 +258,7 @@ The repair is not to round the budget comparison. It is to have one comparison:
 
 ```python
 score = budget_score_at_precision(measured, cap, self.threshold)
-met = meets(score, self.threshold)   # the same test `_graded` will make
+met = meets(score, self.threshold)  # the same test `_graded` will make
 ```
 
 `budget_score_at_precision` rounds the score for storage and then keeps it on
