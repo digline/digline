@@ -5,6 +5,18 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+- **Added:** `examples/operator/` — the reference assembly for the **operator
+  loop**: a suite watched on a schedule by an agent that re-runs within a
+  stopping rule declared in a file, tells a draw from a drift from a structural
+  flip, and opens an issue in your own repository when the answer deserves a
+  decision. The alert is a document in three layers — the wire's facts, a
+  deterministic dossier, and a judgment marked as the operator's opinion and
+  never as digline's verdict — and only the third needs a key. `promote` is
+  absent from the whole assembly, as it is from the MCP surface. Two real
+  alerts ship with it: the drift that escalates and the draw that deliberately
+  does not, both rebuilt from their committed cycle on every build. The design
+  it was built against is `examples/operator/DESIGN.md`.
+
 ## 0.6.0 — 2026-09-09
 
 digline 0.6.0, and **`digline-mcp` 0.1.0**, the first new package this

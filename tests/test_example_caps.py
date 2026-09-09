@@ -88,6 +88,7 @@ STANDALONE = (
     "langchain4j",
     "langchain",
     "quickstart-toml",
+    "operator",
 )
 
 

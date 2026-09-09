@@ -203,6 +203,7 @@ jobs:
             langchain4j,
             langchain,
             quickstart-toml,
+            operator,
           ]
     steps:
       - uses: actions/checkout@v5

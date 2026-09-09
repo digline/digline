@@ -216,7 +216,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 
 ## Examples
 
-Seven projects in [`examples/`](examples/), each answering a question somebody
+Eight projects in [`examples/`](examples/), each answering a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
@@ -228,6 +228,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My app is LangChain4j: what do I put in my repo?**](examples/langchain4j/) — the walkthrough: one endpoint, three files, the CI gate
 - [**My pipeline is LangChain: what changed when I upgraded it?**](examples/langchain/) — the chain called in process, `FakeListChatModel` in CI, one line to a real model
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
+- [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, an issue opened in your repo
 
 ## What digline is not
 

@@ -175,6 +175,7 @@ STANDALONE = (
     "langchain4j",
     "langchain",
     "quickstart-toml",
+    "operator",
 )
 
 #: The examples whose application has to be started from **outside** the suite,
