@@ -69,7 +69,12 @@ reads them fails if it stops being met.
       in the browser, but in *your* environment, because Digline has no server
       by design
 - [ ] The run/baseline JSON format documented as a **versioned public
-      contract**. The engine is Python; the contract is language-neutral
+      contract**. The engine is Python; the contract is language-neutral. Not
+      to be confused with what 0.6.0 shipped: `digline.wire` and
+      `OUTPUT_VERSION` are the contract for what digline *prints* — every
+      `--json` and every MCP response — and this item is about the documents it
+      *stores*, which are versioned by `SCHEMA_VERSION` and still described
+      nowhere a reader outside Python could use
 - [x] A LangChain example evaluated in process: the target is a function
       that invokes the chain, so there is no server and no HTTP, and the
       default path runs on a fake chat model — no key, no network, and CI runs
@@ -88,11 +93,12 @@ reads them fails if it stops being met.
       importing a plugin. Scope was the assertions whose parameters are already
       data; a custom assertion, a custom target and a `Disclosure` stay Python,
       and the loader says so by name
-- [ ] An MCP server, `digline-mcp` (ADR 0011) — implemented on `digline-mcp`,
-      merges after 0.6.0 and is tagged on its own day. Six tools, read and
-      measurement only, and **`promote` absent by construction**: a refusal is a
-      conversation a model can argue with, an absence is not, so `AGENTS.md` §1
-      stops being a rule an agent is asked to follow. `run` takes a mandatory
+- [x] An MCP server, `digline-mcp` (ADR 0011) — shipped in 0.6.0, which is
+      also its own 0.1.0 and the first package this workspace ever published
+      from scratch. Six tools, read and measurement only, and **`promote`
+      absent by construction**: a refusal is a conversation a model can argue
+      with, an absence is not, so `AGENTS.md` §1 stops being a rule an agent is
+      asked to follow. `run` takes a mandatory
       `acknowledge_calls` that must match the preflight, so an agent cannot
       spend a hundred model calls without having stated the number. It brought
       two internal layers with it: `digline.host`, the part of the CLI that

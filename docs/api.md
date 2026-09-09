@@ -32,9 +32,9 @@ Two more, for anything that drives digline rather than declares a suite.
 functions that build every `--json` and every MCP response. A script that loads
 a suite imports the first; nothing but a front end needs the second.
 
-**These moved in the release after 0.6.0.** `load_suite` and its neighbours used
-to live in `digline.cli.loader`, which was two layers wearing one name — the
-host, and the terminal. If you followed an earlier version of
+**These moved in 0.6.0.** `load_suite` and its neighbours used to live in
+`digline.cli.loader`, which was two layers wearing one name — the host, and the
+terminal. If you followed an earlier version of
 [the guide](guide.md), change `from digline.cli.loader import load_suite` to
 `from digline.host import load_suite`. (ADR 0011 §7)
 

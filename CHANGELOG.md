@@ -3,8 +3,48 @@
 What changed for you, three lines a version. The reasoning lives in
 [`docs/adr/`](docs/adr/); this says what to expect.
 
-## Unreleased — after 0.6.0
+## Unreleased
 
+## 0.6.0 — 2026-09-10
+
+digline 0.6.0, and **`digline-mcp` 0.1.0**, the first new package this
+workspace has published since `digline-bedrock`. The three provider plugins
+stay at 0.3.0: nothing in this release changes what a plugin has to do.
+
+```sh
+pip install digline          # 0.6.0
+pip install digline-mcp      # 0.1.0, the MCP server
+```
+
+The release has two halves. One is about **an agent**: `AGENTS.md` writes down
+the judgment digline deliberately does not encode, and `digline-mcp` turns it
+into a surface — six tools, read and measurement only, with `promote` absent
+rather than refused. The other is about **you**: `digline diff` answers *"should
+I switch?"* where `compare` answers *"did it get worse?"*, `by_group` splits an
+aggregate by class so an average stops hiding one that is broken, and `digline
+report` finally renders a run that has no baseline instead of sending its first
+reader to a dead end.
+
+**One breaking change**, and it is an import: `from digline.cli.loader import
+load_suite` is now `from digline.host import load_suite`. Only code that loads a
+suite programmatically is affected — writing a suite, and every CLI command, is
+unchanged. The bullet below says what else moved with it.
+
+Nothing in the stored documents moved. `SCHEMA_VERSION` stays at **9** and
+`OUTPUT_VERSION` stays at **1**: no run needs migrating, no baseline needs
+re-promoting, and a run recorded at 0.4.0 diffs against one recorded today with
+no ceremony.
+
+- **Added:** `AGENTS.md`, the operating layer digline deliberately does not
+  encode. The tool refuses what is unsafe and reports what it measured;
+  everything between those two — whether a red run is a regression or a
+  wobble, which run deserves to become the reference, when to stop re-running
+  and start reading — is judgment, and it stays with a person. Eight numbered
+  rules, the first of them that an agent never runs `promote` on its own
+  initiative: a baseline is an approved reference, not the most recent
+  measurement. The same content ships as a Claude Code skill in
+  `.claude/skills/operating-digline/`, and `tests/test_agents.py` fails if the
+  two drift apart.
 - **Added:** `digline-mcp`, the [MCP](https://modelcontextprotocol.io) server. A
   coding agent can read a digline result and measure a new one, and **cannot
   promote a baseline** — not because promotion is refused, but because there is
@@ -43,19 +83,6 @@ What changed for you, three lines a version. The reasoning lives in
   the terminal that parses arguments and prints. A second front end needs the
   first and not the second. `git_commit`, `utc_now_iso`, `load_target` and
   `read_artifacts` moved with it. (ADR 0011 §7)
-
-## 0.6.0 — unreleased
-
-- **Added:** `AGENTS.md`, the operating layer digline deliberately does not
-  encode. The tool refuses what is unsafe and reports what it measured;
-  everything between those two — whether a red run is a regression or a
-  wobble, which run deserves to become the reference, when to stop re-running
-  and start reading — is judgment, and it stays with a person. Eight numbered
-  rules, the first of them that an agent never runs `promote` on its own
-  initiative: a baseline is an approved reference, not the most recent
-  measurement. The same content ships as a Claude Code skill in
-  `.claude/skills/operating-digline/`, and `tests/test_agents.py` fails if the
-  two drift apart.
 - **Added:** `digline diff <run1> <run2>` — what differs between two runs,
   neither of them a baseline. It answers *"should I switch?"* where `compare`
   answers *"did it get worse?"*: prompt A against prompt B, one model against

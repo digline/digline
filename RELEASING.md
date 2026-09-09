@@ -163,12 +163,13 @@ an account.
 job to claim it is the same failure one step later: the tag builds nothing, and
 nobody notices until somebody tries to install the package.
 
-### `digline-mcp` is the first package this section is actually about
+### `digline-mcp` was the first package this section was ever about
 
-It was written after `digline-bedrock` and has never been exercised — every
-release since has been a version bump of packages that already existed on both
-indexes, so the section read as advice for a hypothetical. It is not
-hypothetical now. Before the **first** tag that carries `digline-mcp`:
+It was written after `digline-bedrock` and had never been exercised — every
+release until then was a version bump of packages that already existed on both
+indexes, so the section read as advice for a hypothetical. **v0.6.0 was the tag
+that exercised it**, and it is history now rather than a plan. What was done
+before that tag, in this order:
 
 1. pending publisher on **TestPyPI**, for `digline-mcp`;
 2. pending publisher on **PyPI**, for `digline-mcp`;
@@ -176,17 +177,17 @@ hypothetical now. Before the **first** tag that carries `digline-mcp`:
    --all-packages`, `select_unpublished.py` and both upload steps are
    glob-driven and pick a new package up on their own — the wiring that is
    *not* automatic is the post-publish check that installs from the index:
-   `pip install … digline digline-anthropic digline-openai digline-bedrock`
-   and the `import digline_anthropic, digline_openai, digline_bedrock`
-   beside it. A package missing from those two lines is published and never
-   verified, which is the failure that looks like success;
+   `pip install …` line and the `import …` line beside it. A package missing
+   from those two lines is published and never verified, which is the failure
+   that looks like success;
 4. only then the tag.
 
 The order matters and the first three are not reversible by a re-run: a spent
 version number stays spent.
 
-`digline-mcp` merges **after** 0.6.0 and is tagged on its own day — nothing
-about it rides that release, so 0.6.0 does not need any of the above.
+Read the four as the standing procedure, not as a record: the next package to
+be published from this workspace needs all of it again, and only step 3 leaves
+a trace in the repository that anyone would notice was missing.
 
 ## The one secret
 

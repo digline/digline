@@ -95,14 +95,23 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.2.0": "'v0.2.0 was tagged after a check that ran ruff' — what happened",
         "0.3.0": "'skipping it is what v0.3.0 cost' — the same",
         "0.4.0": "'a v0.4.0 rebuild sent an hour after the release' — the same",
-        "0.6.0": "'digline-mcp merges after 0.6.0' — a plan, not a claim about "
-        "what shipped. Re-read it when 0.6.0 is the current release",
+    },
+    "README.md": {
+        "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
+        "declarative format landed. The Status line above it is the live claim "
+        "and is pinned in LIVE",
     },
     "ROADMAP.md": {
+        "0.1.0": "digline-mcp's own debut version, not a digline one — the "
+        "line says the two shipped on the same tag",
         "0.2.0": "'shipped in 0.2.0' — when a decision landed",
         "0.3.0": "'extended in 0.3.0' — the same",
-        "0.6.0": "'digline-mcp merges after 0.6.0' — a plan, not a claim about "
-        "what shipped. Re-read it when 0.6.0 is the current release",
+        "0.5.0": "'shipped in 0.5.0', 'real from 0.5.0', and the image's tag "
+        "row — what landed in that release",
+    },
+    "SECURITY.md": {
+        "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
+        "key by name' — when the refusal landed",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "
