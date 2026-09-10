@@ -414,11 +414,11 @@ def _complete(self, prompt: str, system: str | None) -> Completion:
     return Completion(
         text=text_of(reply),
         usage=usage_of(reply),
-        finish=finish,          # "stop" | "length" | "tool_use" | "filtered" | "other"
-        finish_raw=raw,         # the provider's own word, verbatim
-        tools=("search",),      # names, in order — `None` if none were reported
-        model=reply.model,      # what the provider said answered
-        fingerprint=None,       # OpenAI's `system_fingerprint`, where there is one
+        finish=finish,  # "stop" | "length" | "tool_use" | "filtered" | "other"
+        finish_raw=raw,  # the provider's own word, verbatim
+        tools=("search",),  # names, in order — `None` if none were reported
+        model=reply.model,  # what the provider said answered
+        fingerprint=None,  # OpenAI's `system_fingerprint`, where there is one
     )
 ```
 
