@@ -139,6 +139,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "this file the two expected reds — five sentences about what happened "
         "on that release morning, timings and all. History, and the reason the "
         "'After the tag' section exists",
+        "0.7.2": "'Step 3 no longer exists, since 0.7.2' — the release that "
+        "replaced the hand-kept publish roster with one derived from dist/. "
+        "What the runbook no longer asks anyone to do, dated",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
@@ -168,6 +171,9 @@ RECORDED: dict[str, dict[str, str]] = {
     "SECURITY.md": {
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
         "key by name' — when the refusal landed",
+        "0.7.2": "'was fixed in 0.7.2' — the symlink escape, named so the "
+        "scope paragraph says which side of the line it fell on and when. A "
+        "fact about a shipped release, not a claim about this one",
     },
     "examples/external-app/README.md": {
         "0.1.2": "'Needs digline 0.1.2 (HttpTarget)' — the release the feature "
@@ -200,7 +206,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.3.0": "the plugin versions, pinned to their own pyproject files by "
+        "0.4.0": "the plugin versions, pinned to their own pyproject files by "
         "tests/test_docker.py",
     },
     "src/digline/report/pages.py": {
@@ -216,6 +222,19 @@ RECORDED: dict[str, dict[str, str]] = {
     "src/digline/core/diff.py": {
         "0.6.0": "'the unrounded subtraction was written here in 0.6.0' — the "
         "second site of the same defect, and why the record names call sites",
+    },
+    # The two comments the 0.7.2 security fixes left behind, in the same shape
+    # as the pair above: each names the release in which the hole it describes
+    # was closed, which is the whole point of the sentence.
+    "src/digline/store/file_store.py": {
+        "0.7.2": "'until 0.7.2 nothing did' — a checked name proved a segment "
+        "safe and never where it led. The release that closed it, said as "
+        "history beside the code that closes it",
+    },
+    "src/digline/targets/http.py": {
+        "0.7.2": "'Unguarded until 0.7.2' — the `InvalidURL` that escaped "
+        "`preflight`'s handler and reached stderr quoting the credential. "
+        "Same shape: the release the handler arrived in",
     },
 }
 

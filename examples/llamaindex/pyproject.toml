@@ -6,10 +6,10 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.7,<0.8",
+    "digline>=0.8,<0.9",
     # The judge behind `faithfulness` on the live path. A plugin is a target
     # *and* a judge (ADR 0004), so the SDK-and-JSON never enters `suite.py`.
-    "digline-anthropic>=0.3,<0.4",
+    "digline-anthropic>=0.4,<0.5",
     # `llama-index-core`, not the `llama-index` meta-package: a query engine
     # over local files needs the core and nothing else. The meta-package pulls
     # the OpenAI LLM and embedding bindings and the reader collection, none of

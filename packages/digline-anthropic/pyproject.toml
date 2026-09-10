@@ -1,6 +1,6 @@
 [project]
 name = "digline-anthropic"
-version = "0.3.0"
+version = "0.4.0"
 description = "Anthropic target and judges for digline: prompt file in, priced Response out."
 readme = "README.md"
 requires-python = ">=3.12"

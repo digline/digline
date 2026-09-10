@@ -578,7 +578,7 @@ wheels = [
 
 [[package]]
 name = "digline"
-version = "0.7.2"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -607,7 +607,7 @@ dev = [
 
 [[package]]
 name = "digline-anthropic"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/digline-anthropic" }
 dependencies = [
     { name = "anthropic" },
@@ -622,7 +622,7 @@ requires-dist = [
 
 [[package]]
 name = "digline-bedrock"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/digline-bedrock" }
 dependencies = [
     { name = "boto3" },
@@ -652,7 +652,7 @@ requires-dist = [
 
 [[package]]
 name = "digline-openai"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/digline-openai" }
 dependencies = [
     { name = "digline" },

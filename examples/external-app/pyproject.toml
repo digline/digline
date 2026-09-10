@@ -10,7 +10,7 @@ dependencies = [
     # schema 8, so anything older refuses it. The pin is not that minimum: the
     # release ritual moves every example onto the release, so it is the current
     # one, and the caps gate in tests/test_examples.py holds it there.
-    "digline>=0.7,<0.8",
+    "digline>=0.8,<0.9",
 ]
 
 [dependency-groups]

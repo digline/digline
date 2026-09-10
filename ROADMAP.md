@@ -21,7 +21,11 @@ Two things will never be on this roadmap:
 *Status: completed*
 
 Complete and stabilize the provider plugins under the plugin contract
-(ADR 0004: every plugin ships Target + Judge + ClaimJudge).
+(ADR 0004: every plugin ships Target + Judge + ClaimJudge). The contract itself
+widened in 0.8.0 — `_complete` returns a `Completion` rather than
+`(text, Usage)` — without reopening the track: the old pair stays accepted
+permanently, so a third-party plugin written against any earlier release is
+unaffected (ADR 0004 §6).
 
 - [x] `digline-anthropic`
 - [x] `digline-openai` (incl. OpenAI-compatible endpoints via `base_url`)
@@ -43,7 +47,11 @@ This track makes the verdict itself trustworthy.
       sampling parameters where the provider exposes them) in runs and
       baselines; `compare` highlights which parameters changed between the
       two (ADR 0005) — shipped in 0.2.0, extended in 0.3.0 to targets Digline
-      cannot import, which report theirs in the answer (ADR 0005 §8)
+      cannot import, which report theirs in the answer (ADR 0005 §8), and again
+      in 0.8.0 to what was **observed** rather than sent: `resolved_model` and,
+      where a provider names one, `fingerprint`, so an alias that rolled under
+      an unchanged suite is a named delta instead of an invisible one
+      (ADR 0005 §9)
 - [x] Repeated runs per case: score as a distribution, not a single sample —
       `Suite.samples` folds N calls per case, and since ADR 0006 the raw
       per-sample scores and the interval they span are recorded on the verdict
@@ -176,7 +184,9 @@ Everything below is a **hypothesis under validation**, not a commitment.
 - A production store (Postgres) alongside the file store
 - Agent trajectories with **readable reasoning**: not just which tools were
   called in which order, but a non-technical account of why — extending the
-  existing principle that reports must be legible to people who don't code
+  existing principle that reports must be legible to people who don't code.
+  The first half arrived offline in 0.8.0: a provider reports the tools it
+  called, and `ToolsCalled` asserts on them. The *why* is what stays here
 - Open question, deliberately undecided: a reactive mode ("is this specific
   output valid, right now?") as opposed to the retrospective one
 

@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.7,<0.8",
+    "digline>=0.8,<0.9",
     # The operator's own model, reached only by `judgment.py` and only with
     # DIGLINE_LIVE=1. The SDK directly rather than `digline-anthropic`: that
     # package ships a Target and a Judge, and this call is neither — it reads a

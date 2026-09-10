@@ -8,6 +8,44 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+
+## 0.8.0 — 2026-09-10
+
+digline 0.8.0, and **`digline-anthropic`, `digline-openai` and
+`digline-bedrock` 0.4.0** — the trio moves together because all three implement
+the widened contract this release is about. `digline-mcp` stays at 0.1.1:
+nothing in the server changed, and its floor already admitted this.
+
+```sh
+pip install digline                # 0.8.0
+pip install digline-anthropic      # 0.4.0
+pip install digline-openai         # 0.4.0
+pip install digline-bedrock        # 0.4.0
+```
+
+The release is **the record**: what a provider hands back stops being a pair of
+numbers and becomes a document of what happened. `_complete` widens from
+`(text, Usage)` to a `Completion`, so the judge **reads** the cause of an empty
+answer where the provider states one instead of inferring it from a token
+count; `ToolsCalled` makes *how* an answer was produced assertable for the first
+time, with an error — not a failure — when a provider contradicts itself; and
+every run records which model actually answered, so an alias that rolled is a
+named delta rather than an invisible one.
+
+**Third-party plugins are unaffected, by construction.** The old
+`(text, Usage)` pair is still accepted and always will be — the union is
+permanent, not a deprecation window — so a plugin written against any previous
+release keeps working untouched. That is why the floor moves only for the three
+plugins in this workspace, which reach for the new names.
+
+The observed identity is exactly as measured, and the sentence says so:
+observed on Anthropic (`claude-haiku-4-5` → `claude-haiku-4-5-20251001`);
+OpenAI carries the fields per SDK shape, unmeasured here; Bedrock returns no
+model id, by its own service model.
+
+**`SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1.** No document changes
+shape, nothing migrates, and no baseline is re-promoted.
+
 - **`_complete` returns a record — the oldest contract debt in the project.**
   A plugin's one method returned `(text, Usage)`, decided when the only question
   asked of a provider was what it said and what it cost. Since then `_no_text`

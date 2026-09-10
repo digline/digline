@@ -1,6 +1,6 @@
 [project]
 name = "digline-openai"
-version = "0.3.0"
+version = "0.4.0"
 description = "OpenAI target and judges for digline, at any OpenAI-compatible endpoint."
 readme = "README.md"
 requires-python = ">=3.12"

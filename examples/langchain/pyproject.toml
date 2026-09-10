@@ -6,10 +6,10 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.7,<0.8",
+    "digline>=0.8,<0.9",
     # The judge behind the rubric on the live path. A plugin is a target *and*
     # a judge (ADR 0004), so the SDK-and-JSON never enters `suite.py`.
-    "digline-anthropic>=0.3,<0.4",
+    "digline-anthropic>=0.4,<0.5",
     # A floor, not a pin: 1.3.18 is the version this was written and tested
     # against, and the ceiling is the major. The weekly run in `check.yml` is
     # what tells you a minor moved under the chain — which is the whole
