@@ -22,6 +22,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+
+# Aliased so `digline_mcp.server.version` does not read as something this
+# module exports.
+from importlib.metadata import version as _distribution_version
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +55,15 @@ from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
 
 __all__ = ["build_server", "main"]
+
+#: Read from the installed distribution rather than written here, for the same
+#: reason `digline.__version__` is: this is the version the server advertises to
+#: every client in its initialize response, and it is a number nobody looks at
+#: until it is wrong. Hand-written it also sat outside `test_versions.py`'s
+#: sweep, which reads `src/` and not `packages/` — so it was a copy that was
+#: neither derived nor gated. The sweep reaches here now too, and this line
+#: means it has nothing left to catch.
+__version__ = _distribution_version("digline-mcp")
 
 #: Every reading tool declares it. A hint and not enforcement — the enforcement
 #: is the absence of `promote` — but a client that surfaces these shows the user
@@ -141,7 +154,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
 
     server = MCPServer(
         name="digline",
-        version="0.1.1",
+        version=__version__,
         instructions=(
             "Read digline results and measure new ones. There is no tool that "
             "promotes a baseline: a baseline is an approved reference, and the "

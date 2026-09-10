@@ -88,6 +88,19 @@ def swept() -> list[Path]:
     ]
     files += [ROOT / "docker" / "README.md", ROOT / "docker" / "Dockerfile"]
     files += sorted(p for p in (ROOT / "src").rglob("*.py"))
+    # `packages/` too, since 0.7.1. It had been outside, and the gap was not
+    # theoretical: `digline_mcp` hand-wrote the version it advertises to every
+    # MCP client, and nothing here could see it — the same shape as the
+    # `__version__` drift at the top of this file, in the one tree the sweep
+    # did not read. Both are derived now, so this catches the next one instead
+    # of the last one. READMEs included: a package README tells a reader what
+    # to install, which is the class with the worst record for going stale.
+    # `src` and not the whole tree, for the same reason the root `tests/` is
+    # out: a test names versions for a living, and `test_perimeter.py` saying
+    # "until 0.1.1 nothing enforced this" is a sentence about history, not a
+    # claim that could go stale.
+    files += sorted(p for p in (ROOT / "packages").glob("*/src/**/*.py"))
+    files += sorted((ROOT / "packages").glob("*/README.md"))
     files += sorted(p for p in (ROOT / "docs").rglob("*.md") if "adr" not in p.parts)
     files += sorted((ROOT / ".claude").rglob("*.md"))
     # The example READMEs. They were outside the sweep until the 0.6.0 audit,
