@@ -28,6 +28,16 @@ dependencies = [
     "anthropic>=0.40",
 ]
 
+# The same storefront as `digline` itself: a plugin's PyPI page is where
+# somebody meets it first, so it points at the same site and the same repo
+# rather than being a page of no links at all.
+[project.urls]
+Homepage = "https://digline.dev/"
+Documentation = "https://digline.dev/product/guide/"
+Changelog = "https://digline.dev/product/changelog/"
+Repository = "https://github.com/digline/digline"
+Issues = "https://github.com/digline/digline/issues"
+
 # How digline finds this plugin by name, without importing it: fixed decision 6,
 # and ADR 0007 §3 is what finally needed it. The group name is part of the
 # plugin contract — see `digline.targets.registry`.

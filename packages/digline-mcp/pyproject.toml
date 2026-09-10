@@ -30,6 +30,16 @@ dependencies = [
     "mcp>=2.2,<3",
 ]
 
+# The same storefront as `digline` itself: a plugin's PyPI page is where
+# somebody meets it first, so it points at the same site and the same repo
+# rather than being a page of no links at all.
+[project.urls]
+Homepage = "https://digline.dev/"
+Documentation = "https://digline.dev/product/guide/"
+Changelog = "https://digline.dev/product/changelog/"
+Repository = "https://github.com/digline/digline"
+Issues = "https://github.com/digline/digline/issues"
+
 [project.scripts]
 digline-mcp = "digline_mcp.server:main"
 
