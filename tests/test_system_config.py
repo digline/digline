@@ -558,6 +558,96 @@ def test_a_base_url_is_withheld_and_not_dropped() -> None:
     assert "base_url" not in document["target_config"]["values"]
 
 
+def test_a_resolved_model_is_withheld_where_the_suite_named_an_endpoint() -> None:
+    """The correction the 0.8.0 delta-pass forced, in the direction that was
+    wrong: on a compatible endpoint the reply's model id is written by that
+    server, exactly like `fingerprint`, and travelled in clear beside a
+    `base_url` withheld for describing the very same thing (ADR 0005 §9,
+    amended)."""
+    run = a_run(
+        target={
+            "provider": "openai",
+            "model": "gpt-5",
+            "base_url": "https://gw.internal.acme.example/v1",
+            "resolved_model": "acme-legal-assistant-prod-eu-west-v3",
+            "fingerprint": "fp_deadbeef",
+        }
+    )
+    kept = redact(run)
+
+    assert kept.target_config.withheld == frozenset(
+        {"base_url", "fingerprint", "resolved_model"}
+    )
+    assert "resolved_model" not in kept.target_config.values
+    # On the document that actually travels, which is where it was reproduced.
+    document = json.dumps(json.loads(run_to_json(kept)))
+    assert "acme-legal-assistant-prod-eu-west-v3" not in document
+    assert "gw.internal.acme.example" not in document
+    assert "fp_deadbeef" not in document
+
+
+def test_a_resolved_model_travels_where_no_endpoint_was_named() -> None:
+    """The other half, and the reason this is a condition rather than a fourth
+    perimeter field. On a first-party endpoint the snapshot behind an alias is a
+    public product name, and withholding it would cost §9 the alias-rolled delta
+    it exists for while protecting nothing."""
+    run = a_run(
+        target={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "resolved_model": "claude-haiku-4-5-20251001",
+        }
+    )
+    kept = redact(run)
+
+    assert kept.target_config.values["resolved_model"] == "claude-haiku-4-5-20251001"
+    assert "resolved_model" not in kept.target_config.withheld
+    assert "claude-haiku-4-5-20251001" in run_to_json(kept)
+
+
+def test_redacting_twice_does_not_release_a_resolved_model() -> None:
+    """`redact()` promises it never widens. After one pass `base_url` is in
+    `withheld` rather than `values`, so a check that read only `values` would
+    conclude *first-party* on the second pass and let the model id through."""
+    run = a_run(
+        target={
+            "provider": "openai",
+            "model": "gpt-5",
+            "base_url": "https://gw.internal.acme.example/v1",
+            "resolved_model": "acme-legal-assistant-prod-eu-west-v3",
+        }
+    )
+    once = redact(run)
+    twice = redact(once)
+
+    assert "resolved_model" not in twice.target_config.values
+    assert "resolved_model" in twice.target_config.withheld
+    assert "acme-legal-assistant-prod-eu-west-v3" not in run_to_json(twice)
+
+
+def test_a_run_claiming_redaction_may_not_carry_an_endpoints_resolved_model() -> None:
+    """The flag is verified rather than believed for this field too — and the
+    validator has to read the *conditional* perimeter, because by the time it
+    runs `base_url` is withheld and no longer in `values`."""
+    with pytest.raises(ValueError, match="resolved_model"):
+        Run(
+            tenant="t",
+            environment="staging",
+            suite="qa",
+            config_hash="cfg",
+            created_at="2026-08-31T00:00:00Z",
+            target_config=SystemConfig(
+                values={
+                    "provider": "openai",
+                    "model": "gpt-5",
+                    "resolved_model": "acme-legal-assistant-prod-eu-west-v3",
+                },
+                withheld=frozenset({"base_url"}),
+            ),
+            redacted=True,
+        )
+
+
 def test_no_disclosure_releases_a_base_url() -> None:
     """One special field, one existing rule, no new mechanism: there is no
     `Disclosure` member for this, so the prudent default cannot be turned off

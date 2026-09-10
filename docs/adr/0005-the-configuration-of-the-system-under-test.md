@@ -5,6 +5,17 @@
 - Amended: 2026-09-01 — §8, HTTP targets. Added rather than a new ADR: it
   changes no decision above it, and reads as a correction to §6's aside about
   `HttpTarget` having no model
+- Amended: 2026-09-10 — **§9's perimeter rule corrects itself, the same day.**
+  The delta-pass run over 0.8.0's new surface before the announcement found
+  that §9 applied two different tests to two fields arriving in the **same
+  reply from the same server**: `fingerprint` was withheld because on a
+  compatible endpoint its value is chosen by software nobody here reviews, and
+  `resolved_model` travelled in clear as "a public product name". That last
+  claim holds only where no `base_url` was set. Reproduced on the document that
+  actually travels: with `base_url` withheld as perimeter,
+  `resolved_model = "acme-legal-assistant-prod-eu-west-v3"` went with it. The
+  rule is now **conditional on the fact redaction already uses**. No decision
+  above §9 moves. Ships in 0.8.1
 - Amended: 2026-09-10 — §9, the observed identity. Same test as §8: it widens
   §1 and §6 and overturns nothing. §3 above all is untouched, and that is what
   makes it an amendment rather than a new ADR — this is the record, never the
@@ -462,12 +473,52 @@ told no lie.
 
 §2's test is what the value describes.
 
-**`resolved_model` is a public product name and travels in clear**, exactly as
-`model` does. `claude-sonnet-5-20260115` carries nobody's data; it is a
-measurement of the system, which is what fixed decision 9 lets cross.
+**`resolved_model` travels in clear where no `base_url` was set, and is
+withheld where one was.** `claude-sonnet-5-20260115` carries nobody's data; it
+is a measurement of the system, which is what fixed decision 9 lets cross. But
+that is a fact about a *first-party* endpoint, and `base_url` is what tells the
+two apart.
 
-**`fingerprint` is withheld under redaction**, and this is the one genuinely
-new ruling here. On the official endpoint it is an opaque backend id and
+*Corrected 2026-09-10, hours after this section was written, by the
+release delta-pass `RELEASING.md` now requires over new surface. The paragraph
+above originally read "`resolved_model` is a public
+product name and travels in clear, exactly as `model` does" — flatly, with no
+condition — and the paragraph below then withheld `fingerprint` on the ground
+that a compatible endpoint's values "arrive from software nobody here reviews".
+Both fields arrive in the same reply from that same server. The test was right
+and was applied to only one of the two.*
+
+On a customer's own vLLM, Ollama or gateway, the `model` the reply names is
+whatever that server chose to put there: `acme-legal-assistant-prod-eu-west-v3`
+is a project codename, an environment and a region, and it travelled beside a
+`base_url` withheld for describing exactly that. So where `base_url` is set,
+`resolved_model` is in `fingerprint`'s trust category and gets `fingerprint`'s
+treatment.
+
+**The condition is the fact redaction already holds**, which is why this needs
+no new mechanism and no new `Disclosure` member: `base_url` present means a
+compatible endpoint, and the redaction is already looking at it. Present in
+`values` **or** in `withheld` — a run redacted twice must not widen on the
+second pass, and after the first pass `base_url` has moved.
+
+**The sent `model` keeps travelling, and the asymmetry is the point.** It is
+written in the suite, and the suite goes through a review — the same argument
+ADR 0003 §4 makes for opting artifacts in. The observed one is written by the
+server and nobody reviewed it. Two model names, two provenances, two answers.
+
+**Inside the perimeter it always travels.** World 1 is the developer, who sees
+everything; this is a boundary rule, not a storage rule, and an unredacted run
+records `resolved_model` whatever the endpoint. What is lost is narrow and
+worth stating: on a compatible endpoint world 2 stops seeing *which* snapshot
+answered and keeps seeing **that** it changed — the field is withheld, so
+`compare()` answers `unknown` rather than `same`, and the alias-rolled delta
+that §9 exists for still fires on a first-party endpoint, where it was the
+motivating case.
+
+**`fingerprint` is withheld under redaction.** *(This read "and this is the
+one genuinely new ruling here" until the correction above gave `resolved_model`
+the same treatment on the same ground. There are two, and they are one ruling
+applied twice.)* On the official endpoint it is an opaque backend id and
 harmless. But `base_url` makes one plugin cover every OpenAI-compatible server,
 and on a customer's own vLLM or Ollama the value of `system_fingerprint` is
 whatever *that server* chose to put there — a build path, a container tag, a

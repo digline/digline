@@ -9,6 +9,58 @@ notes under them are this file, verbatim.
 ## Unreleased
 
 
+## 0.8.1 — 2026-09-10
+
+digline 0.8.1. One security fix, **found by the release delta-pass over 0.8.0's
+own new surface, the same day** — hours after the tag and before the
+announcement round. The three plugins stay at 0.4.0 and `digline-mcp` at 0.1.1:
+the fix is in the core and every reader inherits it. `SCHEMA_VERSION` stays 9
+and `OUTPUT_VERSION` stays 1.
+
+```sh
+uv add --upgrade digline
+```
+
+- **Security:** a redacted run from an **OpenAI-compatible endpoint** no longer
+  carries the model id that endpoint reported. 0.8.0 recorded
+  `resolved_model` — what the provider said answered — and let it travel in
+  clear, on the ground that a model id is a public product name. That is true
+  of `claude-sonnet-5-20260115` and false of what a customer's own vLLM,
+  Ollama or gateway puts in the same field: `acme-legal-assistant-prod-eu-west-v3`
+  is a project codename, an environment and a region, and it travelled beside a
+  `base_url` withheld for describing exactly that.
+
+  It arrives in the **same reply from the same server** as `fingerprint`, which
+  0.8.0 withheld for precisely this reason — so the rule had been written once
+  and applied to one of the two fields. It is now conditional on the fact
+  redaction already holds: `resolved_model` travels in clear where no
+  `base_url` was set, and is withheld — key recorded, value discarded,
+  `compare()` answering `unknown` rather than `same` — where one was. **Inside
+  the perimeter nothing changes**: an unredacted run records it whatever the
+  endpoint, and the alias-rolled delta ADR 0005 §9 exists for still fires on a
+  first-party endpoint, which was its motivating case. The *sent* `model` keeps
+  travelling and is not affected: it is written in the suite, and the suite goes
+  through a review. (ADR 0005 §9, amended)
+
+  **One thing to know if you already have a redacted run from a compatible
+  endpoint.** Such a document claims a perimeter it does not keep, so it is now
+  **refused on read** rather than loaded — the same stance `run_from_json`
+  takes on a schema it cannot be trusted to interpret. The message says which
+  field is wrong and distinguishes the two readers: rebuild it with `redact()`
+  if you hold the original, and ask the sender again if it arrived from
+  elsewhere. Only runs written by 0.8.0, redacted, from an endpoint with a
+  `base_url` are affected — a window of hours.
+
+  No advisory was filed, and that is a judgement rather than an omission: a
+  server-chosen name in a feature that had been public for hours is what a
+  changelog line is for. The GHSA practice stays for shipped vulnerabilities
+  with real exposure.
+
+- The release runbook gains the standing rule the day earned: **a release that
+  adds surface gets a delta-pass over that surface before the announcement
+  round**, not after it.
+
+
 ## 0.8.0 — 2026-09-10
 
 digline 0.8.0, and **`digline-anthropic`, `digline-openai` and

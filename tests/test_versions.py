@@ -142,6 +142,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'Step 3 no longer exists, since 0.7.2' — the release that "
         "replaced the hand-kept publish roster with one derived from dist/. "
         "What the runbook no longer asks anyone to do, dated",
+        "0.8.0": "three sentences about the release that earned the delta-pass "
+        "section — the one whose new surface leaked a resolved model id, whose "
+        "finish_raw and ToolsCalled came back clean, and whose follow-on run "
+        "lost a propagation race on two legs. History, timings and all, like "
+        "the 0.7.1 entries above",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
@@ -161,6 +166,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "made Track B's exit gate hold, and 'Shipped in 0.7.0' on the item "
         "below it. Both name the release the work landed in; 0.7.1 is a "
         "security patch and closed neither",
+        "0.8.0": "three lines about what 0.8.0 landed — the plugin contract "
+        "widening on Track A, the observed identity on Track B, and the offline "
+        "half of Track D's trajectory item. 0.8.1 is a security patch and "
+        "landed none of them",
     },
     "docs/api.md": {
         "0.6.0": "'These moved in 0.6.0.' — the release that promoted "
@@ -235,6 +244,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'Unguarded until 0.7.2' — the `InvalidURL` that escaped "
         "`preflight`'s handler and reached stderr quoting the credential. "
         "Same shape: the release the handler arrived in",
+    },
+    "src/digline/core/run.py": {
+        "0.8.0": "'A run digline 0.8.0 wrote from a compatible endpoint' — the "
+        "one release whose redacted documents this refusal actually rejects, "
+        "named in the message's own comment so the next reader knows which "
+        "files are meant. History from the moment 0.8.1 shipped",
     },
 }
 

@@ -29,6 +29,7 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "ENDPOINT_PERIMETER_FIELDS",
     "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "identity_of",
@@ -91,6 +92,24 @@ def _num(value: float) -> float:
 #: a hostname. Software nobody here reviews, describing the client's perimeter.
 #: (ADR 0005 §9)
 PERIMETER_FIELDS = frozenset({"base_url", "fingerprint"})
+
+#: Withheld **only where the run went to an endpoint the suite named**, and in
+#: clear otherwise.
+#:
+#: `resolved_model` was unconditional in the other direction for one afternoon,
+#: on the ground that a model id is a public product name. That is true of
+#: `claude-sonnet-5-20260115` and false of what a customer's own vLLM or gateway
+#: puts in the same field: `acme-legal-assistant-prod-eu-west-v3` is a project
+#: codename, an environment and a region, and it travelled beside a `base_url`
+#: withheld for describing exactly that. It arrives in the *same reply from the
+#: same server* as `fingerprint`, so it is in `fingerprint`'s trust category
+#: whenever `fingerprint` is.
+#:
+#: The *sent* `model` is not in here and does not belong: it is written in the
+#: suite and the suite goes through a review, which is the argument ADR 0003 §4
+#: makes for opting artifacts in. Two model names, two provenances.
+#: (ADR 0005 §9, amended)
+ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"})
 
 #: The fields a provider **reported** rather than the target **sent**.
 #:
@@ -219,9 +238,28 @@ class SystemConfig:
         """
         return bool(self.values or self.withheld or self.identities)
 
+    @property
+    def _at_named_endpoint(self) -> bool:
+        """Whether this run went to an endpoint the suite named.
+
+        Read from `withheld` as well as `values`, because `base_url` is itself a
+        perimeter field: after one redaction it has moved, and a second pass that
+        looked only at `values` would conclude *first-party* and let
+        `resolved_model` through. `redact()` promises it never widens, and this
+        is where that promise is kept. (ADR 0005 §9, amended)
+        """
+        return "base_url" in self.values or "base_url" in self.withheld
+
+    def perimeter(self) -> frozenset[str]:
+        """The fields this configuration keeps back at a boundary."""
+        if not self._at_named_endpoint:
+            return PERIMETER_FIELDS
+        return PERIMETER_FIELDS | ENDPOINT_PERIMETER_FIELDS
+
     def redacted(self) -> SystemConfig:
         """The same configuration with the perimeter fields kept back."""
-        gone = {key for key in self.values if key in PERIMETER_FIELDS}
+        perimeter = self.perimeter()
+        gone = {key for key in self.values if key in perimeter}
         if not gone:
             return self
         return SystemConfig(
@@ -412,11 +450,26 @@ class Run:
             ("target_config", self.target_config),
             ("judge_config", self.judge_config),
         ):
-            leaked = sorted(set(config.values) & PERIMETER_FIELDS)
+            # `config.perimeter()` and not `PERIMETER_FIELDS`: on a compatible
+            # endpoint that set includes `resolved_model`, and by the time this
+            # runs `base_url` has moved to `withheld` — which is the half of
+            # `_at_named_endpoint` that makes the check see it.
+            leaked = sorted(set(config.values) & config.perimeter())
             if leaked:
+                # Two readers reach this, and only one of them can act on
+                # "build it with redact()". The other received the document and
+                # does not hold the original — for them the sentence that helps
+                # is which field is wrong and why the file is refused, so both
+                # are said. A run digline 0.8.0 wrote from a compatible endpoint
+                # is the one real instance: `resolved_model` travelled there and
+                # is withheld from 0.8.1 (ADR 0005 §9, amended).
                 raise ValueError(
                     f"Run.redacted is set but {what} still carries "
-                    f"{', '.join(leaked)}; build it with redact()"
+                    f"{', '.join(leaked)}: the document claims a perimeter it "
+                    "does not keep. If you hold the unredacted run, build it "
+                    "with redact(); if this arrived from elsewhere, it was "
+                    "written by a version whose perimeter was wider and the "
+                    "sender has to send it again"
                 )
         for verdict in self.aggregate:
             if verdict.reason != REDACTED:

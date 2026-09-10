@@ -273,6 +273,41 @@ bearing and neither is obvious:
 whole for that step to read.
 
 
+## After the green, before the announcement: the delta-pass
+
+**A release that adds surface gets an adversarial pass over that surface before
+anyone is told about it.** Not the whole threat model again — the *delta*: what
+this release made reachable that was not reachable before, and what a hostile
+value in each new field would do at each boundary it can cross.
+
+The rule is here because 0.8.0 earned it in hours. That release added three
+surfaces, and the pass over them found that `resolved_model` travelled in clear
+out of a redacted run from a compatible endpoint, beside a `base_url` withheld
+for describing the same thing. It was not an implementation slip — ADR 0005 §9
+had *decided* it that morning, applying two different tests to two fields
+arriving in the same reply — which is exactly the class of thing that survives
+code review and dies under an adversarial read. It shipped as 0.8.1 the same
+day, before the announcement round, which is the whole value of the ordering:
+after the announcement it would have been an advisory instead of a changelog
+line.
+
+Three questions per new field, and they are the ones that worked:
+
+- **Where does it cross?** The stored document, `--json` and MCP, the HTML
+  report, the terminal. A field is only as safe as its loosest boundary.
+- **Who wrote the value?** A first-party provider, or software the customer
+  runs and nobody here reviews. `base_url` being set is what tells them apart,
+  and it is a fact the code already holds.
+- **What does a hostile value do?** ANSI escapes at a terminal, markup in the
+  report, a forged newline in a sentence a reader trusts. `!r` and `escape()`
+  are the two answers; check that one of them is actually in the path.
+
+Reproduce on the artifact that travels — `run_to_json(redact(run))`, not the
+in-memory object — and write the regression test so it fails against the
+release you just cut. A pass that finds nothing is worth recording too: 0.8.0's
+`finish_raw` and `ToolsCalled` metadata both came back clean, and saying so
+stops the next reader re-auditing them.
+
 ## After the tag: what to watch, and what to ignore
 
 Three of these look like problems and are not, and the fourth is the one check
@@ -292,7 +327,12 @@ combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
 != 'pull_request'`, so pushing the lock commit does not run it; and the
 `workflow_run` run that follows the tag checks out **the tag's commit**, which by
 construction predates the lock regen. So that run's legs read the *old* version
-and that is not a failure. Run it by hand against `main` once the locks are in:
+and that is not a failure. On 0.8.0 two legs went red in that run for a second
+reason worth knowing apart from the first: not a stale lock but a **propagation
+race** — `rag` and `llamaindex` burned their six retries between 10:26:29 and
+10:27:29 while the index still served `<=0.7.2`, and the other seven won the
+same race by being scheduled seconds later. Same verdict either way: the
+dispatch against `main` is the run that counts. Run it by hand against `main` once the locks are in:
 
 ```sh
 gh workflow run ci.yml --ref main
