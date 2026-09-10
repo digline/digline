@@ -8,6 +8,17 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- `pytest-digline` no longer imports digline when no suite is named. A
+  `pytest11` entry point is loaded at pytest startup in **every** environment
+  where the package is installed, and importing the core at module level pulled
+  44 modules — the store, the driver, the report, the host, and `jsonschema`
+  behind the assertions — into pytest runs of projects that never use digline:
+  138 ms against 88 ms for a bare collection, a 50 ms tax on a command people
+  press hundreds of times a day. The imports moved inside the functions that
+  need them; a bare collection now imports **no** digline module and costs 8 ms.
+  ADR 0013 §8 says the plugin is inert when unconfigured, and inert has to mean
+  the startup too, not only the output. Found by the 0.9.0 delta-pass.
+
 
 ## 0.9.0 — 2026-09-10
 

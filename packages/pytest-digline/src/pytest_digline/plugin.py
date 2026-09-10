@@ -32,25 +32,31 @@ import sys
 from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from digline.core import AssertionDelta, Comparison, Verdict, compare
-from digline.host import (
-    UsageError,
-    git_commit,
-    load_suite,
-    load_target,
-    need_baseline,
-    read_artifacts,
-    read_run,
-    resolve_key,
-    utc_now_iso,
-)
-from digline.report import check_line, config_changes, headline
-from digline.run import Suite, execute, planned_calls
-from digline.store import FileResultStore
+if TYPE_CHECKING:
+    from digline.core import AssertionDelta, Comparison, Verdict
+    from digline.run import Suite
+    from digline.store import FileResultStore
+
+# **digline is imported inside the hooks, not here**, and the reason is
+# measured rather than tidy-minded.
+#
+# A `pytest11` entry point is loaded at pytest startup in *every* environment
+# where this package is installed, including projects that never name a suite.
+# Importing digline at module level pulled 44 modules — the core, the store,
+# the driver, the report, the host, and `jsonschema` behind the assertions —
+# into every one of those runs: 138 ms against 88 ms for a bare collection on
+# an unrelated project, a 50 ms tax on a command people press hundreds of times
+# a day. ADR 0013 §8 says this plugin is inert when no suite is named, and
+# inert has to mean the startup too, not only the output.
+#
+# So the imports live inside the four functions that actually reach for
+# them, all of which run only once a suite has been named. `from __future__
+# import annotations` makes every annotation in this file a string, so the
+# TYPE_CHECKING block above is all a type checker needs.
 
 __all__: list[str] = []
 
@@ -245,6 +251,8 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
     collect zero rows and let a green run mean "nothing to check". That is the
     vacuously green assertion fixed decision 3 refuses.
     """
+    from digline.host import UsageError
+
     root = Path(config.getoption("digline_root") or config.rootpath)
     try:
         return _opened(spec, root, run_first=bool(config.getoption("digline_run")))
@@ -253,6 +261,11 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
 
 
 def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
+    from digline.core import compare
+    from digline.host import load_suite, need_baseline, read_run, resolve_key
+    from digline.report import config_changes, headline
+    from digline.store import FileResultStore
+
     suite, loaded = load_suite(spec, root=root)
     path = _path_of(spec)
     store = FileResultStore(str(root))
@@ -294,6 +307,9 @@ def _measure(
     The clock and git are read here and passed down as values, so the run is a
     function of them rather than of when it happened to look.
     """
+    from digline.host import git_commit, load_target, read_artifacts, utc_now_iso
+    from digline.run import execute, planned_calls
+
     target = load_target(None, loaded, spec)
     plan = planned_calls(suite)
     print(f"digline: {plan.sentence()}", file=sys.stderr)
@@ -424,6 +440,8 @@ class Check(pytest.Item):
         sentence here instead would be a fourth prose rendering of one
         comparison, bound to the other three by nothing.
         """
+        from digline.report import check_line
+
         where = f"{self.delta.case_id or RUN_SCOPE} · {self.delta.assertion}"
         line = check_line(self.delta, locale=LOCALE, coincides=self.opened.coincides)
         parts = [f"digline: {where}", f"  {line}"]

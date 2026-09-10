@@ -10,6 +10,9 @@ variable in the experiment.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from pathlib import Path
+
 import pytest
 
 
@@ -68,3 +71,59 @@ def test_the_options_exist_and_default_to_doing_nothing(
 ) -> None:
     result = pytester.runpytest_subprocess("--help")
     result.stdout.fnmatch_lines(["*--digline-suite*", "*--digline-run*"])
+
+
+def test_naming_no_suite_does_not_import_digline_at_all(
+    pytester: pytest.Pytester,
+) -> None:
+    """Inert means the startup too, not only the output. (ADR 0013 §8)
+
+    A `pytest11` entry point is loaded at pytest startup in every environment
+    where this package is installed, including projects that never name a
+    suite. Importing digline at module level pulled 44 modules — the core, the
+    store, the driver, the report, the host, and `jsonschema` behind the
+    assertions — into every one of those runs, and measured 138 ms against
+    88 ms for a bare collection on an unrelated project. A command people press
+    hundreds of times a day is the wrong place to spend 50 ms on a tool they
+    are not using.
+
+    So the digline imports live inside the functions that need them, and this
+    is what holds them there. It runs in a subprocess because the process
+    running *these* tests has digline imported many times over.
+    """
+    pytester.makepyfile(
+        test_startup="""
+        import sys
+
+        def test_digline_is_not_imported():
+            leaked = sorted(m for m in sys.modules if m.startswith("digline"))
+            assert not leaked, (
+                f"pytest started and imported {leaked}. This plugin was not "
+                "asked to do anything: no --digline-suite, no digline_suites. "
+                "Move the import back inside the hook that needs it."
+            )
+        """
+    )
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1)
+
+
+def test_naming_a_suite_does_import_it(
+    pytester: pytest.Pytester,
+    baseline: Callable[[dict[str, str], dict[str, str]], Path],
+) -> None:
+    """The guard on the guard: laziness that never loads is not laziness."""
+    path = baseline(
+        {"alpha": "Acme, SATISFIED", "beta": "Acme, SATISFIED"},
+        {"alpha": "Acme, SATISFIED", "beta": "Acme, SATISFIED"},
+    )
+    pytester.makepyfile(
+        test_startup="""
+        import sys
+
+        def test_digline_is_imported():
+            assert any(m.startswith("digline") for m in sys.modules)
+        """
+    )
+    result = pytester.runpytest_subprocess("--digline-suite", str(path))
+    result.assert_outcomes(passed=5, skipped=1)
