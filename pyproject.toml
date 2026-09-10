@@ -32,10 +32,12 @@ dependencies = [
 ]
 
 # Every one of these has to resolve for somebody who is not us: a PyPI page of
-# 404s is worse than a PyPI page with three links. `digline.dev` is not live and
-# the frictions log lives in a separate private repository, so neither is here.
+# 404s is worse than a PyPI page with three links. The frictions log lives in a
+# separate private repository, so it is not here.
 [project.urls]
-Documentation = "https://github.com/digline/digline/blob/main/docs/api.md"
+Homepage = "https://digline.dev/"
+Documentation = "https://digline.dev/product/guide/"
+Changelog = "https://digline.dev/product/changelog/"
 Repository = "https://github.com/digline/digline"
 Issues = "https://github.com/digline/digline/issues"
 
