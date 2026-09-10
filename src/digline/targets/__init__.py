@@ -9,6 +9,13 @@ The same shape covers judging: `JudgeBase` is `ProviderTarget`'s twin, and a
 plugin ships both — a target and a judge (ADR 0004).
 """
 
+from digline.targets.completion import (
+    Completion,
+    CompletionResult,
+    ObservedIdentity,
+    as_completion,
+    finish_of,
+)
 from digline.targets.config import CONTRACT_FIELDS, declared_config, endpoint_host, sent
 from digline.targets.http import HttpTarget
 from digline.targets.judge import (
@@ -42,9 +49,12 @@ __all__ = [
     "GROUP",
     "SCORE_SYSTEM",
     "ClaimCountJudge",
+    "Completion",
+    "CompletionResult",
     "HttpTarget",
     "JudgeBase",
     "ModelPrice",
+    "ObservedIdentity",
     "PromptTemplate",
     "Provider",
     "ProviderNotFound",
@@ -53,8 +63,10 @@ __all__ = [
     "ScoreJudge",
     "UnknownModelError",
     "Usage",
+    "as_completion",
     "declared_config",
     "endpoint_host",
+    "finish_of",
     "installed",
     "loads_lenient",
     "render_value",

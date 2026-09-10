@@ -395,7 +395,7 @@ is left alone.
 |---|---|---|
 | `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003) |
 | `preflight(cases) -> None` | `execute()`, once, before the first call | raises naming **every** gap at once |
-| `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call **and after the last** | recorded as `Run.target_config` (ADR 0005). Asked twice so a malformed one fails before the suite is paid for, and a target that can only learn it by answering — `HttpTarget` — still records one |
+| `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call **and after the last** | recorded as `Run.target_config` (ADR 0005). Asked twice so a malformed one fails before the suite is paid for, and a target that can only learn it by answering — `HttpTarget`, or any plugin recording what the provider said answered — still records one |
 
 `ProviderTarget` implements all three. `preflight` checks that each case provides
 every variable its templates ask for, and that the model has a price — both are
@@ -403,6 +403,50 @@ cheaper to discover before the run than on case thirty-seven with thirty-six
 paid calls behind it. It happens in the driver rather than in `Suite`, so a
 script calling `execute()` directly is covered too, and so that a `Suite` stays
 a declaration that knows nothing about how its outputs are produced.
+
+### `_complete`: what a plugin returns
+
+One method, and it returns a **record**:
+
+```python
+def _complete(self, prompt: str, system: str | None) -> Completion:
+    reply = self._client().messages.create(**request)
+    return Completion(
+        text=text_of(reply),
+        usage=usage_of(reply),
+        finish=finish,          # "stop" | "length" | "tool_use" | "filtered" | "other"
+        finish_raw=raw,         # the provider's own word, verbatim
+        tools=("search",),      # names, in order — `None` if none were reported
+        model=reply.model,      # what the provider said answered
+        fingerprint=None,       # OpenAI's `system_fingerprint`, where there is one
+    )
+```
+
+Everything after `usage` defaults, so a provider that reports none of it writes
+`Completion(text, usage)`. **The old `(text, Usage)` pair is still accepted and
+always will be** — a plugin written before ADR 0004 §6 keeps working unchanged,
+and the pair is the honest return for a provider with nothing else to say.
+
+Three rules a plugin follows, because getting any of them wrong is a boundary
+mistake rather than a formatting one:
+
+- **`finish` is normalised, `finish_raw` is not.** The vocabulary is
+  `digline.core.Finish` and it is what an assertion is written against, so one
+  check works on every provider. Use `finish_of(word, TABLE)` for the
+  translation: a word the table does not know becomes `other`, **never `stop`**,
+  because calling an unrecognised ending "it finished normally" would turn a
+  truncated run green the day a provider adds a stop reason.
+- **`tools=None` and `tools=()` are different facts.** `()` is the model calling
+  nothing; `None` is nobody reporting. `ToolsCalled` errors on the second rather
+  than announcing that no tool was called.
+- **`model` is read out of the reply, never copied from the request.** Echoing
+  the requested id back would manufacture the one fact it exists to obtain, and
+  would do so identically whether or not the model had rolled underneath. A
+  provider that does not say records nothing — `Bedrock` Converse is the case.
+
+What is not asserted on is not recorded. `finish` and `tools` reach
+`Response.metadata`, which is **not persisted**: what reaches a run file is what
+an assertion measured out of it, through `Score.metadata`.
 
 ### `config`: what decided how the model answered
 
@@ -430,6 +474,15 @@ experiment. What it gives instead is the **named delta** — `temperature 0.3 �
 0.7` in the report, in the terminal and in `--json` — and, where a regression
 lands in the same comparison, the sentence *"this drop coincides with
 temperature 0.3 → 0.7"* beside it.
+
+Two of the recorded fields are **observed rather than sent**, and they come out
+of the record above: `resolved_model` — what the provider said answered, where
+the target sent an alias — and `fingerprint`. Absence means something different
+for them: not *we did not send it*, but *the provider did not say*. They are
+what catches a model that rolled under an alias nobody edited; a rotation part
+way through a run errors that case, while a rotated `fingerprint` simply goes
+absent. `fingerprint` is withheld under redaction, because on a custom
+`base_url` its value is written by a server nobody here reviews. (ADR 0005 §9)
 
 `JudgeBase` answers the same property, and a judge's is recorded separately as
 `Run.judge_config`: a judge that moved is a change of measuring *instrument*, so
@@ -479,6 +532,7 @@ something that must hold for all of them.
 | `PiiAbsent` | `patterns=ITALIAN_PII` | `1.0` | text |
 | `Faithfulness` | `judge` (`ClaimJudge`), **`threshold`**, **`tolerance`** | mandatory | text |
 | `FromAutoevals` | `scorer`, **`threshold`**, **`tolerance`** | mandatory | text |
+| `ToolsCalled` | **`expected`** (the tool names, in order) | `1.0` | all |
 
 In bold what **has no default and must be declared**. `LlmRubric` because an LLM
 judge is not reproducible; the budgets because cost and latency are noisy by

@@ -16,9 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from digline.core import Contains, Output
+from digline.core import Contains, Finish, Output
 from digline.run import Case, HasArtifacts, Preflight, Suite, execute
 from digline.targets import (
+    Completion,
     HttpTarget,
     ModelPrice,
     Pricing,
@@ -32,7 +33,13 @@ PRICES = Pricing({"m1": ModelPrice(3.0, 15.0, 0.30)})
 
 
 class FakeTarget(ProviderTarget):
-    """A `ProviderTarget` with the provider replaced by a canned answer."""
+    """A `ProviderTarget` with the provider replaced by a canned answer.
+
+    **Returns the pair**, and keeps returning it: that is the compatibility
+    guarantee of ADR 0004 §6 under test on every assertion in this file. A
+    plugin written before the record keeps working, and this fake not having to
+    change is how that is proved.
+    """
 
     def __init__(self, *args: object, reply: str = "ok", **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
@@ -42,6 +49,21 @@ class FakeTarget(ProviderTarget):
     def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
         self.seen.append((prompt, system))
         return self.reply, Usage(input_tokens=1000, output_tokens=200)
+
+
+class RecordTarget(ProviderTarget):
+    """The same, returning the record and whatever it was told to report."""
+
+    provider = "fake"
+
+    def __init__(
+        self, *args: object, replies: list[Completion], **kwargs: object
+    ) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.replies = list(replies)
+
+    def _complete(self, prompt: str, system: str | None) -> Completion:
+        return self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
 
 
 @pytest.fixture
@@ -633,3 +655,89 @@ def test_the_endpoint_is_still_named_when_there_is_no_credential() -> None:
     )
     with pytest.raises(ValueError, match="nothing answered at 127.0.0.1:1"):
         target.preflight([Case(id="one", vars={"question": "q"})])
+
+
+# --------------------------------------------------------------------------- #
+# The record, and the identity it carries (ADR 0004 §6, ADR 0005 §9)
+# --------------------------------------------------------------------------- #
+
+
+def a_case() -> Case:
+    return Case(id="c1", vars={"question": "q", "customer": "n"})
+
+
+def a_record(
+    *,
+    finish: Finish | None = None,
+    tools: tuple[str, ...] | None = None,
+    model: str | None = None,
+    fingerprint: str | None = None,
+) -> Completion:
+    return Completion(
+        text="ok",
+        usage=Usage(input_tokens=10, output_tokens=4),
+        finish=finish,
+        tools=tools,
+        model=model,
+        fingerprint=fingerprint,
+    )
+
+
+def recorder(prompt: Path, *replies: Completion) -> RecordTarget:
+    return RecordTarget(prompt, "m1", pricing=PRICES, replies=list(replies))
+
+
+def test_a_target_that_returns_the_pair_reports_no_trajectory(prompt: Path) -> None:
+    """The reading that keeps `ToolsCalled` honest: a plugin returning the pair
+    has not said the model called no tools, it has said nothing about them."""
+    response = FakeTarget(prompt, "m1", pricing=PRICES)(a_case())
+    assert "tools" not in response.metadata
+    assert "finish" not in response.metadata
+
+
+def test_the_trajectory_reaches_the_response_metadata(prompt: Path) -> None:
+    target = recorder(prompt, a_record(finish="tool_use", tools=("search",)))
+    response = target(a_case())
+    assert response.metadata["tools"] == ["search"]
+    assert response.metadata["finish"] == "tool_use"
+
+
+def test_the_observed_identity_is_empty_until_a_case_has_run(prompt: Path) -> None:
+    """Which is why `execute()` reads a target's configuration after the last
+    case as well as before the first."""
+    target = recorder(prompt, a_record(model="m1-20260101"))
+    assert "resolved_model" not in target.config
+    target(a_case())
+    assert target.config["resolved_model"] == "m1-20260101"
+
+
+def test_a_provider_that_names_no_model_records_none(prompt: Path) -> None:
+    """Bedrock Converse, every run. Absent rather than the requested id echoed
+    back, which would manufacture the fact the field exists to obtain."""
+    target = recorder(prompt, a_record(finish="stop"))
+    target(a_case())
+    assert "resolved_model" not in target.config
+    assert target.config["model"] == "m1"
+
+
+def test_a_model_that_rolled_part_way_through_raises_from_the_call(
+    prompt: Path,
+) -> None:
+    """Which is how the driver errors that one case (ADR 0005 §9). The run is
+    still written and every other case keeps its verdicts."""
+    target = recorder(
+        prompt, a_record(model="m1-20260101"), a_record(model="m1-20260301")
+    )
+    target(a_case())
+    with pytest.raises(ValueError, match="One run measures one system"):
+        target(a_case())
+
+
+def test_a_fingerprint_that_rolled_goes_absent_without_raising(prompt: Path) -> None:
+    target = recorder(
+        prompt, a_record(fingerprint="fp_1"), a_record(fingerprint="fp_2")
+    )
+    target(a_case())
+    assert target.config["fingerprint"] == "fp_1"
+    target(a_case())
+    assert "fingerprint" not in target.config

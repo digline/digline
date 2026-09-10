@@ -24,6 +24,8 @@ from digline_anthropic import AnthropicClaimJudge, AnthropicJudge
 class FakeBlock:
     text: str
     type: str = "text"
+    #: Every real `tool_use` block carries one.
+    name: str = ""
 
 
 @dataclass
@@ -38,6 +40,10 @@ class FakeUsage:
 class FakeReply:
     content: list[FakeBlock]
     usage: FakeUsage = field(default_factory=FakeUsage)
+    #: Always present on a real reply. `stop_reason` is what turns the judge's
+    #: silent-reply sentence from an inference into a reading (ADR 0004 §6).
+    stop_reason: str | None = "end_turn"
+    model: str = "claude-fake-1-20260101"
 
 
 class FakeMessages:
@@ -235,3 +241,36 @@ def test_a_real_judge_scores_and_is_priced() -> None:
     )
     assert 0.0 <= reply.score <= 1.0 and reply.reason
     assert judge.calls == 1 and judge.spent_usd > 0
+
+
+@pytest.mark.live
+@pytest.mark.skipif(
+    not LIVE or not sdk_installed(),
+    reason="needs ANTHROPIC_API_KEY, DIGLINE_LIVE=1 and the anthropic SDK",
+)
+def test_a_real_reply_says_which_model_answered() -> None:
+    """How strong the signal is, **measured** rather than assumed.
+
+    ADR 0005 §9 records `resolved_model` because an alias is a promise about a
+    family rather than the name of a system — but whether this API resolves the
+    alias or echoes it back is its behaviour on the day, not ours to state. The
+    same discipline as `CACHE_READS_ARE_INSIDE_INPUT_TOKENS`, which exists
+    because the cache convention was measured against the API instead of
+    inferred from the field names (friction 25).
+
+    So this asserts only what must be true — a reply names a model, and it is
+    the family that was asked for — and **prints what it got**, which is what
+    somebody reading a failed run in a year needs. If the API starts echoing the
+    alias, `resolved_model` equals `model`, the delta stops firing, and this
+    test is where that becomes visible instead of being inferred from a silence.
+    """
+    alias = "claude-haiku-4-5"
+    judge = AnthropicJudge(model=alias)
+    judge("Rubric:\nThe answer names a city.\n\nOutput to judge:\nRome, in Italy.")
+
+    resolved = judge.config.get("resolved_model")
+    print(f"\nasked for {alias!r}, the reply said {resolved!r}")
+    assert isinstance(resolved, str) and resolved.startswith(alias)
+    # No fingerprint on this API — that is OpenAI's half, and absent here is the
+    # honest record of a provider that names no backend build.
+    assert "fingerprint" not in judge.config

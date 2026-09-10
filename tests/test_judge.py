@@ -14,6 +14,7 @@ from digline.core import (
     ClaimJudge,
     EvaluatorInputs,
     Faithfulness,
+    Finish,
     Judge,
     LlmRubric,
 )
@@ -22,6 +23,8 @@ from digline.targets import (
     CLAIM_SYSTEM,
     SCORE_SYSTEM,
     ClaimCountJudge,
+    Completion,
+    CompletionResult,
     ModelPrice,
     Pricing,
     ScoreJudge,
@@ -33,21 +36,49 @@ PRICING = Pricing(per_model={"fake-1": ModelPrice(1.0, 2.0)})
 
 
 class Canned:
-    """The plugin half, with the provider replaced by a canned reply."""
+    """The plugin half, with the provider replaced by a canned reply.
 
-    def __init__(self, reply: str = "", *, usage: Usage | None = None) -> None:
+    **Returns the pair unless a `finish` is given**, and that is not laziness:
+    it is the compatibility guarantee of ADR 0004 §6 under test on every
+    assertion in this file. A plugin written before the record keeps working,
+    and the fakes not needing to change is how that is proved.
+
+    With a `finish` it returns the record, so the same tests can be asked for
+    both paths — the cause read off the provider, and the cause inferred from a
+    token count when the provider says nothing.
+    """
+
+    def __init__(
+        self,
+        reply: str = "",
+        *,
+        usage: Usage | None = None,
+        finish: Finish | None = None,
+        finish_raw: str | None = None,
+    ) -> None:
         self.reply = reply
         self.usage = usage or Usage(input_tokens=1_000_000, output_tokens=0)
+        # Declared rather than inferred: an attribute assigned from a
+        # `Literal` parameter widens to `str`, and the record will not take one.
+        self.finish: Finish | None = finish
+        self.finish_raw = finish_raw
         self.systems: list[str] = []
         self.prompts: list[str] = []
         self.raises: Exception | None = None
 
-    def _complete(self, system: str, prompt: str) -> tuple[str, Usage]:
+    def _complete(self, system: str, prompt: str) -> CompletionResult:
         self.systems.append(system)
         self.prompts.append(prompt)
         if self.raises is not None:
             raise self.raises
-        return self.reply, self.usage
+        if self.finish is None:
+            return self.reply, self.usage
+        return Completion(
+            text=self.reply,
+            usage=self.usage,
+            finish=self.finish,
+            finish_raw=self.finish_raw,
+        )
 
 
 class FakeScoreJudge(Canned, ScoreJudge):
@@ -55,17 +86,29 @@ class FakeScoreJudge(Canned, ScoreJudge):
     the one place where being explicit beats being clever."""
 
     def __init__(
-        self, reply: str = "", *, max_tokens: int = 100, usage: Usage | None = None
+        self,
+        reply: str = "",
+        *,
+        max_tokens: int = 100,
+        usage: Usage | None = None,
+        finish: Finish | None = None,
+        finish_raw: str | None = None,
     ) -> None:
-        Canned.__init__(self, reply, usage=usage)
+        Canned.__init__(self, reply, usage=usage, finish=finish, finish_raw=finish_raw)
         ScoreJudge.__init__(self, "fake-1", max_tokens=max_tokens, pricing=PRICING)
 
 
 class FakeClaimJudge(Canned, ClaimCountJudge):
     def __init__(
-        self, reply: str = "", *, max_tokens: int = 100, usage: Usage | None = None
+        self,
+        reply: str = "",
+        *,
+        max_tokens: int = 100,
+        usage: Usage | None = None,
+        finish: Finish | None = None,
+        finish_raw: str | None = None,
     ) -> None:
-        Canned.__init__(self, reply, usage=usage)
+        Canned.__init__(self, reply, usage=usage, finish=finish, finish_raw=finish_raw)
         ClaimCountJudge.__init__(self, "fake-1", max_tokens=max_tokens, pricing=PRICING)
 
 
@@ -407,3 +450,120 @@ def test_a_prefill_is_still_parsed_as_part_of_the_reply() -> None:
     reply = judge("p")
     assert reply.score == pytest.approx(0.8)
     assert reply.reason == "fine"
+
+
+# --------------------------------------------------------------------------- #
+# The cause is read, not guessed (ADR 0004 §6)
+# --------------------------------------------------------------------------- #
+#
+# The two tests above this section are the fallback under test: `Canned` returns
+# the pair, so the provider reported nothing and the sentence is the inference
+# it was. What follows is the same silent reply with a provider that spoke.
+
+
+@pytest.mark.parametrize("judge_class", [FakeScoreJudge, FakeClaimJudge])
+def test_a_reported_truncation_is_stated_rather_than_guessed_at(
+    judge_class: type[FakeScoreJudge] | type[FakeClaimJudge],
+) -> None:
+    judge = judge_class(
+        "",
+        max_tokens=64,
+        usage=Usage(input_tokens=10, output_tokens=64),
+        finish="length",
+        finish_raw="max_tokens",
+    )
+    with pytest.raises(ValueError) as raised:
+        judge("p")
+    message = str(raised.value)
+    assert "the provider reported 'max_tokens'" in message
+    assert "truncated before the first character" in message
+    # No hedging left: the run does not have to be told what this "likely" was.
+    assert "likely" not in message
+
+
+def test_a_tool_call_is_told_apart_from_a_truncation_at_the_same_token_count() -> None:
+    """The case that decides the whole widening. Both replies are empty, both
+    hit the cap, and the two need opposite fixes — so a token count cannot tell
+    them apart and the provider's own word can."""
+    at_the_cap = {"max_tokens": 64, "usage": Usage(input_tokens=10, output_tokens=64)}
+    truncated = FakeScoreJudge("", **at_the_cap, finish="length")  # type: ignore[arg-type]
+    called_a_tool = FakeScoreJudge("", **at_the_cap, finish="tool_use")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError) as first:
+        truncated("p")
+    with pytest.raises(ValueError) as second:
+        called_a_tool("p")
+
+    assert "raise max_tokens" in str(first.value)
+    assert "tool call" in str(second.value)
+    assert "raise max_tokens" not in str(second.value)
+
+
+def test_a_refusal_says_so() -> None:
+    judge = FakeScoreJudge(
+        "",
+        max_tokens=512,
+        usage=Usage(input_tokens=10, output_tokens=3),
+        finish="filtered",
+        finish_raw="refusal",
+    )
+    with pytest.raises(ValueError, match="refused or filtered"):
+        judge("p")
+
+
+def test_an_unrecognised_ending_keeps_the_providers_word() -> None:
+    """`other` is where a word we do not know goes, and the word goes with it:
+    it is what an operator searches the provider's documentation for."""
+    judge = FakeScoreJudge(
+        "",
+        max_tokens=512,
+        usage=Usage(input_tokens=10, output_tokens=3),
+        finish="other",
+        finish_raw="pause_turn",
+    )
+    with pytest.raises(ValueError) as raised:
+        judge("p")
+    assert "'pause_turn'" in str(raised.value)
+
+
+def test_a_reported_ending_does_not_change_the_status() -> None:
+    """A judge that returned no text did not judge, before and after. The
+    sentence moved; the verdict did not."""
+    judge = FakeScoreJudge(
+        "",
+        max_tokens=64,
+        usage=Usage(input_tokens=1, output_tokens=64),
+        finish="length",
+    )
+    verdict = LlmRubric(rubric="r", judge=judge, threshold=0.8, tolerance=0.05)(
+        EvaluatorInputs(output="anything")
+    )
+    assert verdict.status == "error"
+
+
+class NamedJudge(FakeScoreJudge):
+    """A fake that names its provider, so it declares a configuration at all.
+
+    `FakeScoreJudge` deliberately does not: a judge that names no instrument
+    records none (ADR 0005 §6), and most of this file has no opinion about the
+    configuration. This subclass is for the tests that do.
+    """
+
+    provider = "fake"
+
+
+def test_a_judge_that_names_no_provider_still_declares_nothing() -> None:
+    """The widening did not turn an empty record into half a one."""
+    assert dict(FakeScoreJudge('{"score": 1, "reason": "fine"}').config) == {}
+
+
+def test_the_judge_records_which_instrument_actually_graded() -> None:
+    """ADR 0005 §9 on the judge side: a judge's alias rolling is §4's reduced
+    comparability with nobody to notice it. Empty until the judge has been asked
+    something, which is why `execute()` reads `judge_config` after the last case
+    as well as before the first."""
+    judge = NamedJudge('{"score": 1, "reason": "fine"}', finish="stop")
+    assert "resolved_model" not in judge.config
+
+    judge.observed.see(Completion(text="", usage=judge.usage, model="fake-1-20260101"))
+    assert judge.config["resolved_model"] == "fake-1-20260101"

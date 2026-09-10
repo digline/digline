@@ -21,7 +21,13 @@ from pathlib import Path
 from typing import Any
 
 from digline.core import ConfigValue
-from digline.targets import Pricing, ProviderTarget, Usage, endpoint_host, sent
+from digline.targets import (
+    Completion,
+    Pricing,
+    ProviderTarget,
+    endpoint_host,
+    sent,
+)
 from digline_openai.client import OpenAIChat, TokenParam
 from digline_openai.pricing import OPENAI_PRICING
 
@@ -143,7 +149,7 @@ class OpenAITarget(ProviderTarget):
             f"base_url={self.chat.base_url!r})"
         )
 
-    def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
+    def _complete(self, prompt: str, system: str | None) -> Completion:
         messages: list[dict[str, Any]] = []
         if system is not None:
             messages.append({"role": "system", "content": system})

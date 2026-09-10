@@ -24,9 +24,15 @@ from collections.abc import Mapping
 from time import perf_counter
 from typing import Any, ClassVar, cast
 
-from digline.core import ClaimReply, ConfigValue, JudgeReply
+from digline.core import ClaimReply, ConfigValue, Finish, JudgeReply
+from digline.targets.completion import (
+    Completion,
+    CompletionResult,
+    ObservedIdentity,
+    as_completion,
+)
 from digline.targets.config import sent
-from digline.targets.pricing import Pricing, Usage
+from digline.targets.pricing import Pricing
 
 __all__ = [
     "CLAIM_SYSTEM",
@@ -148,30 +154,51 @@ def _matching_brace(text: str, start: int) -> int:
     return -1
 
 
-def _no_text(output_tokens: int, max_tokens: int) -> str:
-    """Why a judge that said nothing said nothing, as far as this can tell.
+#: What each ending means for a judge that returned nothing, in the vocabulary
+#: every plugin translates into (ADR 0004 §6). One sentence per outcome, because
+#: they need different actions: raising `max_tokens` fixes the first and nothing
+#: at all about the others.
+_WHY_SILENT: Mapping[Finish, str] = {
+    "length": "it was truncated before the first character — raise max_tokens",
+    "tool_use": "it answered with a tool call instead of the JSON object asked for",
+    "filtered": "the reply was refused or filtered, not written",
+    "stop": "it ended normally and said nothing, which is a prompt or a model "
+    "that will not answer in the shape asked for",
+    "other": "the provider ended the turn for a reason of its own",
+}
+
+
+def _no_text(reply: Completion, max_tokens: int) -> str:
+    """Why a judge that said nothing said nothing.
 
     **A judge that returned no text did not judge**, so the caller turns this
     into `error` — the same family as an unverifiable budget not being a budget
-    met. The status was already right before this existed: `loads_lenient("")`
-    raises and every judging assertion catches it. What was wrong was the
-    sentence, which said the reply held no JSON object — a *parser* fact, in a
-    document read by an operator who then goes looking for malformed JSON that
-    is not there.
+    met. The status was already right before this existed and is unchanged; what
+    was wrong was the sentence, which said the reply held no JSON object — a
+    *parser* fact, in a document read by an operator who then goes looking for
+    malformed JSON that is not there.
 
-    So the fact comes first and the cause second, and the cause is marked as
-    the inference it is. The two shapes it can take need different actions:
-    raising `max_tokens` fixes one and nothing about the other, which is a
-    prompt or a model that answered with a tool call.
+    Since ADR 0004 §6 the cause is **read** rather than inferred, and this is
+    the one case where the two disagree most: a model that answered with a tool
+    call and a model cut off at the cap look identical to a token count when the
+    cap was also reached, and they need opposite fixes.
 
-    What is *not* here is the provider's own `finish_reason` / `stop_reason`.
-    That would say which of the two it really was rather than which it looks
-    like, and it cannot reach this function: `_complete` returns `(text,
-    Usage)` and nothing else, in every plugin and in the abstract method. The
-    numbers below are what this layer holds, so they are what it may claim.
+    The inference below is kept word for word as the fallback, and it is not a
+    courtesy: a judge on a compatible endpoint that reports no finish reason is
+    the ordinary case, and this is the sentence that serves it. The numbers are
+    what this layer holds when the provider says nothing, so they are what it
+    may claim.
     """
-    counted = f"{output_tokens} of {max_tokens}"
-    if output_tokens >= max_tokens:
+    counted = f"{reply.usage.output_tokens} of {max_tokens}"
+    if reply.finish is not None:
+        # The provider's own word beside ours: `finish` decides the sentence,
+        # `finish_raw` is what an operator will search the provider's docs for.
+        said = reply.finish if reply.finish_raw is None else reply.finish_raw
+        return (
+            f"the judge returned no text: the provider reported {said!r} "
+            f"({counted} output tokens), so {_WHY_SILENT[reply.finish]}"
+        )
+    if reply.usage.output_tokens >= max_tokens:
         return (
             "the judge returned no text: output hit the max_tokens cap "
             f"({counted}) — likely truncated before the first character"
@@ -227,6 +254,13 @@ class JudgeBase(ABC):
         self.calls = 0
         self.spent_usd = 0.0
         self.latency_ms = 0.0
+        #: Which instrument actually graded, as the provider reported it. Empty
+        #: until the judge has been asked something, which is why `execute()`
+        #: reads `judge_config` after the last case as well as before the first
+        #: (ADR 0005 §9). A judge's alias rolling is §4's *reduced
+        #: comparability* with nobody to notice it, which is the strongest
+        #: version of the problem §9 exists for.
+        self.observed = ObservedIdentity(model)
 
     def _ask(self, prompt: str) -> Mapping[str, Any]:
         """One judging call: timed, priced, counted, parsed.
@@ -235,16 +269,19 @@ class JudgeBase(ABC):
         it at zero would be the undercount that reads as good news.
         """
         started = perf_counter()
-        text, usage = self._complete(self.system, prompt)
+        # Read through `as_completion`: a plugin may still return the pair, and
+        # always may (ADR 0004 §6).
+        reply = as_completion(self._complete(self.system, prompt))
         elapsed_ms = (perf_counter() - started) * 1000.0
         self.calls += 1
         self.latency_ms += elapsed_ms
-        self.spent_usd += self.pricing.cost(self.model, usage)
-        if not self._said_something(text):
-            raise ValueError(_no_text(usage.output_tokens, self.max_tokens))
+        self.spent_usd += self.pricing.cost(self.model, reply.usage)
+        self.observed.see(reply)
+        if not self._said_something(reply.text):
+            raise ValueError(_no_text(reply, self.max_tokens))
         # The whole text, prefill included: the prefill is part of the reply to
         # be parsed, it is only not part of what the *model* said.
-        return loads_lenient(text)
+        return loads_lenient(reply.text)
 
     @property
     def config(self) -> Mapping[str, ConfigValue]:
@@ -262,6 +299,7 @@ class JudgeBase(ABC):
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
+            **self.observed.values,
         )
 
     def preflight(self) -> None:
@@ -300,8 +338,12 @@ class JudgeBase(ABC):
         return bool(body.strip())
 
     @abstractmethod
-    def _complete(self, system: str, prompt: str) -> tuple[str, Usage]:
-        """Call the provider. The only thing a plugin has to write."""
+    def _complete(self, system: str, prompt: str) -> CompletionResult:
+        """Call the provider. The only thing a plugin has to write.
+
+        Return a `Completion`. The old `(text, Usage)` pair is still accepted
+        and always will be (ADR 0004 §6).
+        """
 
 
 def _number(data: Mapping[str, Any], key: str, kind: type[float] | type[int]) -> Any:

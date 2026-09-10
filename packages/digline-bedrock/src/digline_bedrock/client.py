@@ -28,20 +28,47 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from digline.targets import Pricing, Usage
+from digline.core import Finish
+from digline.targets import Completion, Pricing, Usage, finish_of
 
 __all__ = [
     "ACCOUNT_RE",
     "ARN_RE",
     "CACHE_READS_ARE_INSIDE_INPUT_TOKENS",
+    "FINISH",
     "BedrockCallFailed",
     "BedrockChat",
     "build_client",
+    "completion_of",
     "resolve_region",
     "scrub",
     "text_of",
+    "tools_of",
     "usage_of",
 ]
+
+#: Converse's `stopReason` in the vocabulary every plugin translates into (ADR
+#: 0004 §6). Read off botocore's own service model for `bedrock-runtime`, not
+#: recalled — the enum there is the contract.
+#:
+#: AWS adopted Anthropic's words and added four of its own, so this table is the
+#: Anthropic one plus the guardrail and malformed-output endings. A
+#: `malformed_tool_use` is **not** `tool_use`: the model tried to call a tool and
+#: did not produce a usable call, which is not the same event as calling one.
+#:
+#: A word this table does not know maps to `other`, never to `stop`. See
+#: `finish_of`.
+FINISH: dict[str, Finish] = {
+    "end_turn": "stop",
+    "stop_sequence": "stop",
+    "max_tokens": "length",
+    "model_context_window_exceeded": "length",
+    "tool_use": "tool_use",
+    "guardrail_intervened": "filtered",
+    "content_filtered": "filtered",
+    "malformed_model_output": "other",
+    "malformed_tool_use": "other",
+}
 
 #: Which convention Converse follows for cached input tokens. **Measured, not
 #: assumed** — against the API on 2026-08-28, in eu-south-1:
@@ -133,12 +160,12 @@ def resolve_region(client: Any) -> str:
     return str(region)
 
 
-def text_of(reply: Mapping[str, Any]) -> str:
-    """Only the text blocks of the assistant message.
+def _blocks(reply: Mapping[str, Any]) -> Sequence[Any]:
+    """The assistant message's content blocks, or a refusal to guess.
 
-    A Converse content block may be `toolUse` or `reasoningContent`, neither of
-    which has a `text` key. Joining them in would put a repr — or the model's
-    private reasoning — into the output the assertions read.
+    Shared by `text_of` and `tools_of` so that a reply this plugin cannot read
+    fails once, with one sentence, rather than differently depending on which
+    half asked.
     """
     output = reply.get("output")
     if not isinstance(output, Mapping):
@@ -148,11 +175,60 @@ def text_of(reply: Mapping[str, Any]) -> str:
     message = cast("Mapping[str, Any]", output).get("message")
     if not isinstance(message, Mapping):
         raise ValueError("the reply carries no `output.message`")
-    blocks: Sequence[Any] = cast("Mapping[str, Any]", message).get("content") or ()
+    return cast("Mapping[str, Any]", message).get("content") or ()
+
+
+def text_of(reply: Mapping[str, Any]) -> str:
+    """Only the text blocks of the assistant message.
+
+    A Converse content block may be `toolUse` or `reasoningContent`, neither of
+    which has a `text` key. Joining them in would put a repr — or the model's
+    private reasoning — into the output the assertions read. Since ADR 0004 §6
+    the `toolUse` blocks are not lost by being skipped here: `tools_of` reads
+    their names into the record, which is what makes a trajectory assertable.
+    """
     return "".join(
         str(cast("Mapping[str, Any]", block)["text"])
-        for block in blocks
+        for block in _blocks(reply)
         if isinstance(block, Mapping) and "text" in block
+    )
+
+
+def tools_of(reply: Mapping[str, Any]) -> tuple[str, ...]:
+    """The tools the model asked for, in the order it asked.
+
+    Never `None`: Converse always reports the assistant message's blocks, so an
+    empty tuple here is the model calling nothing rather than nobody reporting.
+    """
+    return tuple(
+        str(cast("Mapping[str, Any]", block["toolUse"]).get("name", ""))
+        for block in _blocks(reply)
+        if isinstance(block, Mapping) and "toolUse" in block
+    )
+
+
+def completion_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Completion:
+    """One Converse reply, as the record `_complete` returns (ADR 0004 §6).
+
+    **No `model`, and none invented.** Converse answers with `output`,
+    `stopReason`, `usage`, `metrics`, `additionalModelResponseFields`, `trace`,
+    `performanceConfig` and `serviceTier` — there is no model id anywhere in it,
+    resolved or otherwise, and no fingerprint either. So on the one provider
+    where an *inference profile* makes the gap widest, the record degrades to
+    nothing stated.
+
+    Copying the requested `modelId` in here would manufacture the single fact
+    ADR 0005 §9 exists to obtain, and would manufacture it identically whether
+    or not the profile had moved underneath. Absent is the honest answer and it
+    is the answer this returns.
+    """
+    finish, raw = finish_of(str(reply.get("stopReason") or "") or None, FINISH)
+    return Completion(
+        text=text_of(reply),
+        usage=usage_of(reply, model, pricing),
+        finish=finish,
+        finish_raw=raw,
+        tools=tools_of(reply),
     )
 
 
@@ -256,8 +332,8 @@ class BedrockChat:
         pricing: Pricing,
         temperature: float | None = None,
         additional_request_fields: Mapping[str, Any] | None = None,
-    ) -> tuple[str, Usage]:
-        """One Converse call: the text and what it cost in tokens."""
+    ) -> Completion:
+        """One Converse call, as the record `_complete` returns (ADR 0004 §6)."""
         inference: dict[str, Any] = {"maxTokens": max_tokens}
         if temperature is not None:
             inference["temperature"] = temperature
@@ -281,4 +357,4 @@ class BedrockChat:
             # naming. The original stays on `__cause__` for a debugger.
             raise BedrockCallFailed(f"{type(exc).__name__}: {scrub(str(exc))}") from exc
 
-        return text_of(reply), usage_of(reply, model, pricing)
+        return completion_of(reply, model, pricing)

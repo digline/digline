@@ -55,6 +55,7 @@ __all__ = [
     "NotContains",
     "PiiAbsent",
     "Regex",
+    "ToolsCalled",
     "budget_score",
     "budget_score_at_precision",
     "error_verdict",
@@ -973,6 +974,108 @@ class Faithfulness(AssertionBase):
                 "claims_supported": reply.supported,
             },
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ToolsCalled(AssertionBase):
+    """The tools the model called, in the order it called them.
+
+        ToolsCalled(expected=["search", "cite"])
+
+    The one assertion about *how the answer was produced* rather than what it
+    says. An agent that was supposed to look something up and answered from
+    memory is a regression every other assertion here is blind to: the answer
+    can be perfectly well-formed and still have been invented.
+
+    Read out of `inputs.metadata["response"]`, which is where a target's own
+    report of the call arrives. **Nothing is copied from there into the
+    `Score`** — this measures what it found and records the measurement, which
+    is the rule that keeps a mapper out of `Score.metadata` (see
+    `EvaluatorInputs`).
+
+    `expected` is **mandatory and has no default**. A trajectory assertion with
+    nothing to check would pass on every response, which is fixed decision 3's
+    vacuously green assertion.
+
+    The check is the sequence, in order, and binary. Not a set, not a ratio, not
+    "at least these" — each of those is a second semantics, and a reader who has
+    to look up which one is in force cannot read the verdict.
+    """
+
+    expected: Sequence[str]
+    name: str = "tools_called"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        # A trajectory does not read the output: it has nothing to reject on
+        # type, exactly like a budget.
+        reported = _reported(inputs)
+        found = reported.get("tools")
+        if found is None:
+            # **Absent is not empty.** A plain-function target, and a provider
+            # that says nothing about tools, both give nothing here — and
+            # nothing is indistinguishable from *the model called none*.
+            # Failing would report a finding nobody established; passing would
+            # do the same in the direction of good news. So: the third outcome,
+            # which is what ADR 0001 has it for.
+            return self._error(
+                "this target reports no tool calls, so what the model called is "
+                "not knowable: only a provider target on a provider that reports "
+                "them can be judged on its trajectory"
+            )
+        if not isinstance(found, list | tuple):
+            return self._error(
+                f"the target reported its tool calls as a {type(found).__name__}, "
+                "not a list of names: there is no trajectory to read"
+            )
+        called = tuple(str(name) for name in cast("Sequence[object]", found))
+
+        if reported.get("finish") == "tool_use" and not called:
+            # The provider contradicted itself: it ended the turn *because* the
+            # model called a tool and then named none. A compatible endpoint
+            # that emits the call as text is the common way to get here.
+            # Reporting "the model called nothing" would be repeating a claim
+            # the same reply denies.
+            return self._error(
+                "the provider reported that the turn ended on a tool call and "
+                "then named no tool: the trajectory cannot be read from a reply "
+                "that disagrees with itself"
+            )
+
+        want = tuple(self.expected)
+        ok = called == want
+        return self._graded(
+            1.0 if ok else 0.0,
+            f"called {_named(called)}, expected {_named(want)}",
+            # The count is a measurement and crosses a boundary on its own
+            # merit; the names are strings and do not (`travels()`). A suite
+            # that needs them in a redacted document declares them in
+            # `Disclosure.score_metadata`, exactly as it would a model name —
+            # and a reader without that disclosure still learns that three tools
+            # were called where two were expected.
+            metadata={"tool_calls": len(called), "called": list(called)},
+        )
+
+
+def _reported(inputs: EvaluatorInputs) -> Mapping[str, object]:
+    """What the target said about the call, or an empty mapping.
+
+    `metadata["response"]` is where a mapper puts a `Response`'s own metadata,
+    and it is `object` until something checks it — a mapper is written by whoever
+    holds one. The check is real; the cast is what puts the parameters back, the
+    same idiom the core already uses for a `json.loads` result.
+    """
+    found = inputs.metadata.get("response")
+    if not isinstance(found, Mapping):
+        return {}
+    return cast("Mapping[str, object]", found)
+
+
+def _named(names: Sequence[str]) -> str:
+    """`nothing`, or the names in order. Read inside a `reason`, so it reads."""
+    return ", ".join(repr(name) for name in names) if names else "nothing"
 
 
 def budget_score(measured: float, cap: float) -> float:

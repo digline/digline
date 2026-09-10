@@ -25,6 +25,7 @@ __all__ = [
     "ConfigValue",
     "Disclosure",
     "EvaluatorInputs",
+    "Finish",
     "JudgeReply",
     "Message",
     "Output",
@@ -102,6 +103,21 @@ NOTHING_EXTRA = Disclosure()
 # needed, and the right-hand side is not evaluated until something inspects it.
 type Status = Literal["pass", "fail", "error"]
 type OutputKind = Literal["text", "structured", "conversation"]
+
+#: How a model's turn ended, in one vocabulary across every provider.
+#:
+#: Declared here rather than in `digline.targets` because it is what an
+#: assertion is written against, and fixed decision 1 is that there is one
+#: assertion engine: a check that had to spell `"stop"` on one provider and
+#: `"end_turn"` on another would not be one check. The translation *into* this
+#: vocabulary is each plugin's job, since only the plugin knows whose words it
+#: is reading (ADR 0004 §6).
+#:
+#: `other` is where an unrecognised ending goes, and it is deliberately not
+#: `stop`: calling a word we do not know "it finished normally" is fixed
+#: decision 3's vacuously green assertion arriving through a different door.
+#: The provider's own word survives beside it, uninterpreted.
+type Finish = Literal["stop", "length", "tool_use", "filtered", "other"]
 
 #: What a target or a judge may declare about itself. Scalars only, and
 #: deliberately: the configuration of the system under test is diffed field by

@@ -217,7 +217,7 @@ built.
 | `usage` | `Usage` | as before |
 | `finish` | `Finish \| None` | how the turn ended, in one closed vocabulary |
 | `finish_raw` | `str \| None` | the provider's own word, verbatim and uninterpreted |
-| `tools` | `tuple[str, ...]` | the tools the model called, in the order it called them |
+| `tools` | `tuple[str, ...] \| None` | the tools the model called, in order — `None` where none were reported |
 | `model` | `str \| None` | what the provider said answered |
 | `fingerprint` | `str \| None` | the backend build, where a provider names one |
 
@@ -226,6 +226,10 @@ tuple's meaning is positional, and every plugin author would have had to
 count.** Everything after `usage` defaults, so a provider that can say none of
 it writes `Completion(text, usage)` and is done — which is not a hypothetical,
 it is `digline-bedrock` on two of the five.
+
+`tools` carries the absent/empty distinction on the same rule §1 of ADR 0005
+reads an unset parameter by: `()` is *the model called nothing*, `None` is
+*nobody reported*. They are different facts and only one of them is judgeable.
 
 The last two fields are passengers rather than cargo: what they are for is
 [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §9, and they are

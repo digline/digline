@@ -16,6 +16,7 @@ from typing import Literal
 
 from digline.core import (
     IDENTITY_FIELD,
+    OBSERVED_FIELDS,
     ArtifactDelta,
     AssertionDelta,
     CaseResult,
@@ -196,9 +197,16 @@ def _change(delta: ConfigDelta, locale: Locale) -> str:
         key = "added" if delta.outcome == "new" else "removed"
         label = delta.after if delta.outcome == "new" else delta.before
         return phrase(locale, f"config.judge.{key}", judge=fmt_value(label))
+    # `new` and `missing` say "not sent", which is true of a parameter and false
+    # of a field the *provider* reported: nobody sent a resolved model id, on
+    # either side. `changed` needs no variant — a value that moved reads the
+    # same however it was learnt. (ADR 0005 §9)
+    key = f"config.change.{delta.outcome}"
+    if delta.outcome != "changed" and delta.field in OBSERVED_FIELDS:
+        key += ".observed"
     return phrase(
         locale,
-        f"config.change.{delta.outcome}",
+        key,
         field=delta.field,
         before=fmt_value(delta.before),
         after=fmt_value(delta.after),

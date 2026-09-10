@@ -20,10 +20,10 @@ from typing import Any
 from digline.core import ConfigValue
 from digline.targets import (
     ClaimCountJudge,
+    Completion,
     JudgeBase,
     Pricing,
     ScoreJudge,
-    Usage,
     endpoint_host,
     sent,
 )
@@ -111,7 +111,7 @@ class _OpenAIJudge(JudgeBase):
             f"spent_usd={self.spent_usd:.6f})"
         )
 
-    def _complete(self, system: str, prompt: str) -> tuple[str, Usage]:
+    def _complete(self, system: str, prompt: str) -> Completion:
         return self.chat.complete(
             model=self.model,
             messages=[

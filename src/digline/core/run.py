@@ -29,6 +29,7 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "identity_of",
     "Artifact",
@@ -82,7 +83,23 @@ def _num(value: float) -> float:
 #: comparison across it answers `unknown`. Everything else here — a model id, a
 #: temperature, a token cap, a region — is a measurement of the system and
 #: travels in clear. (ADR 0005 §2)
-PERIMETER_FIELDS = frozenset({"base_url"})
+#:
+#: `fingerprint` joins it for the same argument one field over. On the official
+#: endpoint it is an opaque backend id and harmless; but `base_url` makes one
+#: plugin cover every OpenAI-compatible server, and on a customer's own vLLM the
+#: value is whatever *that server* wrote there — a build path, a container tag,
+#: a hostname. Software nobody here reviews, describing the client's perimeter.
+#: (ADR 0005 §9)
+PERIMETER_FIELDS = frozenset({"base_url", "fingerprint"})
+
+#: The fields a provider **reported** rather than the target **sent**.
+#:
+#: They are recorded and compared like any other, and this set exists for one
+#: reason: absence means something different for them, so the sentence a reader
+#: is owed is different. `config.change.new` says *"not sent for the
+#: reference"*, which is true of a temperature and false of a resolved model id
+#: — nobody sent that, on either side. (ADR 0005 §9)
+OBSERVED_FIELDS = frozenset({"resolved_model", "fingerprint"})
 
 
 def identity_of(provider: str, model: str) -> str:

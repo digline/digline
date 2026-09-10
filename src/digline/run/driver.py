@@ -278,9 +278,12 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
         try:
             response = target(case)
         except Exception as exc:  # noqa: BLE001 — a target that raises errors the case
-            # The failure cannot be handed to the assertions: they do not read
-            # `EvaluatorInputs.metadata`, and teaching them to would reopen the
-            # channel ADR 0002 closes. The driver builds the verdicts itself.
+            # The failure cannot be handed to the assertions. What they may read
+            # of `EvaluatorInputs.metadata` is what a *response* reported —
+            # `ToolsCalled` reads the trajectory out of it — and there is no
+            # response here; inventing one to carry a driver's diagnosis would
+            # reopen the channel ADR 0002 closes. The driver builds the verdicts
+            # itself.
             #
             # One failed call errors the whole case, sampled or not: a target
             # that cannot answer has not answered, and a partly-sampled case
@@ -391,7 +394,10 @@ def execute(
     # configuration is malformed must say so before the suite is paid for, not
     # after. The answer is discarded — it is asked for again below.
     target_config(target)
-    grading = judge_config(suite)
+    # And the judge's, for the same reason and discarded the same way: a judge
+    # that names no price or no instrument should say so before the suite is
+    # paid for. The answer recorded is the one taken after the last case.
+    judge_config(suite)
 
     results: Sequence[CaseResult] = tuple(
         _run_case(suite, target, mapper, case) for case in suite.cases
@@ -402,6 +408,12 @@ def execute(
     # response and there is nothing to read until a case has run (ADR 0005 §8).
     # A target that declares statically gives the same answer both times.
     declared = target_config(target)
+    # The judge is asked again too. Its observed identity — which instrument
+    # *actually* graded, as the provider reported it — does not exist until it
+    # has been asked something, and a judge whose alias rolled is ADR 0005 §4's
+    # reduced comparability with nobody to notice it. A judge that declares
+    # statically gives the same answer both times. (ADR 0005 §9)
+    grading = judge_config(suite)
     # Aggregates are computed here because they are *recorded data*: they belong
     # in the run, so they are born where the verdicts are. The core stays pure
     # and `compare()` and the report only read them.

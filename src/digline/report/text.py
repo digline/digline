@@ -144,6 +144,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "config.change.changed": "{field} {before} → {after}",
         "config.change.new": "{field} {after}, not sent for the reference",
         "config.change.missing": "{field} {before}, no longer sent",
+        # An observed field was never *sent* — not by this run and not by the
+        # reference — so the two sentences above would state something false
+        # about it. Which fields these are is `OBSERVED_FIELDS`. (ADR 0005 §9)
+        "config.change.new.observed": (
+            "{field} {after}, not reported for the reference"
+        ),
+        "config.change.missing.observed": "{field} {before}, no longer reported",
         "config.judge.added": "{judge} was added as a judge",
         "config.judge.removed": "{judge} no longer judges",
         "config.coincides": " This drop coincides with {changes}.",
@@ -573,6 +580,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "config.change.changed": "{field} {before} → {after}",
         "config.change.new": "{field} {after}, non inviato per il riferimento",
         "config.change.missing": "{field} {before}, non più inviato",
+        "config.change.new.observed": (
+            "{field} {after}, non riportato per il riferimento"
+        ),
+        "config.change.missing.observed": "{field} {before}, non più riportato",
         "config.judge.added": "{judge} è stato aggiunto come giudice",
         "config.judge.removed": "{judge} non giudica più",
         "config.coincides": " Questo calo coincide con {changes}.",

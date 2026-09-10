@@ -99,6 +99,11 @@ CONTRACT_FIELDS = frozenset(
         "json_mode",
     }
 )
+#: Deliberately **not** `resolved_model` or `fingerprint`. A plugin records them
+#: because it read them out of its own SDK's reply; this table governs the one
+#: boundary where the values arrive over HTTP from an application nobody here
+#: reviews, and ADR 0005 §9 leaves that widening until there is an application
+#: with one to report. Nothing checks a plugin's keys against this set.
 
 
 def declared_config(found: object, *, where: str) -> dict[str, ConfigValue]:

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from digline.core import ConfigValue
-from digline.targets import Pricing, ProviderTarget, Usage, sent
+from digline.targets import Completion, Pricing, ProviderTarget, sent
 from digline_bedrock.client import BedrockChat
 from digline_bedrock.pricing import bedrock_pricing
 
@@ -126,7 +126,7 @@ class BedrockTarget(ProviderTarget):
         ends up in a traceback, a pytest failure and a log line."""
         return f"{type(self).__name__}(model={self.model!r}, region={self.region!r})"
 
-    def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
+    def _complete(self, prompt: str, system: str | None) -> Completion:
         return self.chat.complete(
             model=self.model,
             prompt=prompt,

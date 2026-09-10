@@ -13,12 +13,13 @@ what lets the tests run with no SDK installed and no network at all.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from digline.core import ConfigValue
-from digline.targets import Pricing, ProviderTarget, Usage, sent
-from digline_anthropic.client import build_client, text_of, usage_of
+from digline.targets import Completion, Pricing, ProviderTarget, sent
+from digline_anthropic.client import build_client, completion_of
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
 __all__ = ["AnthropicTarget"]
@@ -93,7 +94,7 @@ class AnthropicTarget(ProviderTarget):
             self._injected = build_client()
         return self._injected
 
-    def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
+    def _complete(self, prompt: str, system: str | None) -> Completion:
         messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
         if self.prefill is not None:
             messages.append({"role": "assistant", "content": self.prefill})
@@ -107,8 +108,10 @@ class AnthropicTarget(ProviderTarget):
         if self.temperature is not None:
             request["temperature"] = self.temperature
 
-        reply = self._client().messages.create(**request)
-        text = text_of(reply)
-        if self.prefill is not None:
-            text = self.prefill + text
-        return text, usage_of(reply)
+        reply = completion_of(self._client().messages.create(**request))
+        if self.prefill is None:
+            return reply
+        # The reply *is* the prefill plus the completion, and a parser handed
+        # only the tail sees invalid JSON (friction 27). `replace` rather than a
+        # mutation because the record is frozen, which is what keeps it a value.
+        return replace(reply, text=self.prefill + reply.text)

@@ -119,6 +119,15 @@ INTRODUCED: dict[str, str] = {
     # `digline.cli` on the same move, so it answers the ImportError question
     # with the same number as the functions above it.
     "Loaded": "0.6.0",
+    # 0.8.0 — `_complete` returns a record (ADR 0004 §6), and the record carries
+    # the observed identity (ADR 0005 §9). Every provider plugin reaches for all
+    # three, which is why the trio's floors move together.
+    "Completion": "0.8.0",
+    "CompletionResult": "0.8.0",
+    "ObservedIdentity": "0.8.0",
+    "as_completion": "0.8.0",
+    "finish_of": "0.8.0",
+    "Finish": "0.8.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true
