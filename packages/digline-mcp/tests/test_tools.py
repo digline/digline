@@ -90,6 +90,27 @@ def test_a_suspended_case_is_not_counted(repo: Path) -> None:
     assert "2 calls to the target" in message
 
 
+def test_the_suite_module_is_executed_once_per_run(repo: Path) -> None:
+    """A suite is a `.py`, so loading it is running it.
+
+    `run` used to load the file twice — once for the suite, once for the module
+    the target comes from — which meant a suite that opens a connection or
+    seeds a fixture at import time did it twice for one tool call. The counter
+    lives on disk and not in a module global on purpose: every load builds a
+    fresh module object, so an in-module counter would read 1 no matter how
+    many times it ran.
+    """
+    tally = repo / "loads.txt"
+    write_suite(
+        repo,
+        extra="",
+        preamble=f"with open({str(tally)!r}, 'a', encoding='utf-8') as _f:\n"
+        "    _f.write('x')\n",
+    )
+    call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
+    assert tally.read_text(encoding="utf-8") == "x"
+
+
 # --------------------------------------------------------------------------- #
 # The shapes, against the CLI (ADR 0011 §4, §6)
 # --------------------------------------------------------------------------- #

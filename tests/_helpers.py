@@ -22,6 +22,7 @@ SUITE_SOURCE = """\
 from digline.core import Contains, CostBudget, Disclosure, JudgeReply, LlmRubric
 from digline.run import Case, Response, Suite
 
+%(preamble)s
 QUALITY = {"capital-fr": %(fr)s}
 
 
@@ -59,9 +60,19 @@ def target(case):
 """
 
 
-def write_suite(root: Path, *, fr_score: str = "1.0", extra: str = "") -> Path:
+def write_suite(
+    root: Path, *, fr_score: str = "1.0", extra: str = "", preamble: str = ""
+) -> Path:
+    """The shared suite, with two seams.
+
+    `extra` adds cases; `preamble` adds statements that run when the module is
+    imported, which is how a test observes how many times a loader executed it.
+    """
     path = root / "suite_qa.py"
-    path.write_text(SUITE_SOURCE % {"fr": fr_score, "extra": extra}, encoding="utf-8")
+    path.write_text(
+        SUITE_SOURCE % {"fr": fr_score, "extra": extra, "preamble": preamble},
+        encoding="utf-8",
+    )
     return path
 
 

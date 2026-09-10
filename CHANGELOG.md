@@ -65,6 +65,13 @@ uv add --upgrade digline digline-mcp
   see its artifacts renamed once, from `system.md` to `prompts/system.md`: it
   shows in the report's artifact section and **does not fail a run**, since an
   artifact change has never affected the exit code.
+- **Fixed:** `digline-mcp`'s `run` executes the suite module **once**. It loaded
+  the file twice — once for the suite, once for the module the target is read
+  from — so a suite that opens a connection or seeds a fixture at import time
+  did it twice for one tool call, and the second load silently replaced the
+  first. Not a security finding and it changes no output; it is the same defect
+  underneath the check above, which is why it travels with it. The five reading
+  tools always loaded once and are unchanged.
 
 
 ## 0.7.0 — 2026-09-09

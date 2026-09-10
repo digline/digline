@@ -21,6 +21,7 @@ them. (ADR 0011 §1)
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ from digline.core import Run
 from digline.core import compare as compare_runs
 from digline.core import diff as diff_runs
 from digline.host import (
+    Loaded,
     git_commit,
     load_suite,
     load_target,
@@ -64,6 +66,23 @@ MEASURES = ToolAnnotations(
     idempotent_hint=False,
     open_world_hint=True,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _Opened:
+    """A suite spec, resolved against the perimeter and loaded exactly once.
+
+    The three things a tool can need from a spec, kept together so that no
+    caller is tempted to recover one of them by loading the file again:
+    `loaded` is the `Loaded` — the suite, and the module `load_target` looks
+    in; `spec` is the verified form, the path that was actually loaded; `path`
+    is the file itself, whose directory is what a suite's declared artifacts
+    resolve against.
+    """
+
+    loaded: Loaded
+    spec: str
+    path: Path
 
 
 def build_server(root: str, tenant: str | None, environment: str | None) -> MCPServer:
@@ -131,9 +150,18 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     )
     store = FileResultStore(root)
 
-    def loaded(spec: str) -> Suite:
-        verified, _path = within_root(spec)
-        suite, _ = load_suite(verified, root=perimeter)
+    def opened(spec: str) -> _Opened:
+        """Resolve the spec and load it — **once**, whatever the caller needs.
+
+        A suite is a `.py` this server executes, so loading it twice ran the
+        user's module twice: two sets of import-time side effects for one tool
+        call. `run` used to take the suite from here and then load the file
+        again for the module, which is why this returns the whole `Loaded`
+        rather than only the `Suite`.
+        """
+        verified, path = within_root(spec)
+        form = load_suite(verified, root=perimeter)[1]
+        suite = form.suite
         if tenant is not None and tenant != suite.tenant:
             refuse(
                 f"--tenant {tenant!r} does not match the suite, which declares "
@@ -144,7 +172,11 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
                 f"--env {environment!r} does not match the suite, which declares "
                 f"{suite.environment!r}. The suite decides; this only verifies."
             )
-        return suite
+        return _Opened(loaded=form, spec=verified, path=path)
+
+    def loaded(spec: str) -> Suite:
+        """The suite alone, for the five tools that only read."""
+        return opened(spec).loaded.suite
 
     def named(suite: Suite, key: str) -> tuple[Run, str]:
         """A run by key or by `latest`. The note the scan produced is dropped
@@ -221,29 +253,30 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
 
     @translated
     def run(suite: str, acknowledge_calls: int | None = None) -> dict[str, Any]:
-        loaded_suite = loaded(suite)
+        # One `opened` for the whole tool: the plan below needs the suite and
+        # the target needs the module, and they come from the same load.
+        open_ = opened(suite)
+        loaded_suite = open_.loaded.suite
         plan = planned_calls(loaded_suite)
         _acknowledge(plan, acknowledge_calls)
 
-        # The clock and git are read here, once, and passed down as values —
-        # before the suite's module is imported, because importing writes
-        # __pycache__ and asking git afterwards would report a tree our own
-        # import had just dirtied.
+        # The clock and git are read here, once, and passed down as values, so
+        # the run is a function of them rather than of when it happened to look.
         commit = git_commit(Path(root))
         created_at = utc_now_iso()
-        # The verified path, not the raw spec: `read_artifacts` resolves the
-        # suite's declared files against this directory, and taking it from a
-        # string that may still carry a `:attribute` was how it could differ
-        # from the file that was actually loaded.
-        verified, path = within_root(suite)
-        _suite, module = load_suite(verified, root=perimeter)
-        target = load_target(None, module, verified)
+        # The verified spec and its path, not the raw one: `read_artifacts`
+        # resolves the suite's declared files against this directory, and
+        # taking it from a string that may still carry a `:attribute` was how
+        # it could differ from the file that was actually loaded.
+        target = load_target(None, open_.loaded, open_.spec)
         written = execute(
             loaded_suite,
             target,
             created_at=created_at,
             git_commit=commit,
-            artifacts=read_artifacts(loaded_suite, target, path.parent, root=perimeter),
+            artifacts=read_artifacts(
+                loaded_suite, target, open_.path.parent, root=perimeter
+            ),
         )
         return run_json(store.write_run(written), plan)
 
