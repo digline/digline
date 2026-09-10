@@ -153,6 +153,7 @@ git-ignored through a `.gitignore` digline writes for you.
 | `Faithfulness` | RAG: is the answer supported by the retrieved context |
 | `FromAutoevals` | you already have an `autoevals` scorer and want it under a baseline |
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
+| `ToolsCalled` | the target is an agent: which tools it called, in order — an answer produced without the lookup that should have produced it |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
 

@@ -8,6 +8,79 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **`_complete` returns a record — the oldest contract debt in the project.**
+  A plugin's one method returned `(text, Usage)`, decided when the only question
+  asked of a provider was what it said and what it cost. Since then `_no_text`
+  has been *inferring* why a judge produced nothing — "likely truncated", "a
+  non-text reply or a refusal" — from a token count against a cap, with a
+  docstring naming the pair as the reason it could do no better. All three
+  providers return the answer as a field.
+
+  So it returns a `Completion`: `text` and `usage` as before, plus `finish` in
+  one vocabulary across every provider, `finish_raw` (the provider's own word,
+  uninterpreted), `tools`, and what the provider said answered. The judge's
+  sentence now **reads** the cause where there is one, and falls back to today's
+  inference — word for word — where the provider says nothing, which is the
+  ordinary case on a compatible endpoint. A model cut off at the cap and one
+  that answered with a tool call are identical to a token count and need
+  opposite fixes; that is the case the widening is for. (ADR 0004 §6)
+
+  **The old pair is still accepted and always will be.** A third-party plugin
+  written against the previous contract keeps working, unchanged: the union is
+  permanent rather than a deprecation window, because the pair is the honest
+  return for a provider with nothing else to report. Every test double in this
+  repository still returns it, which is how that is proved.
+
+- **`ToolsCalled`.** The first assertion about *how* an answer was produced
+  rather than what it says. An agent that was supposed to look something up and
+  answered from memory produces a well-formed answer that happens to be
+  invented, and every other assertion was blind to it.
+
+  ```python
+  ToolsCalled(expected=["search", "cite"])
+  ```
+
+  It **errors** rather than failing when the target reports no trajectory — a
+  plain function, or a provider that names none — because "called nothing" would
+  be a finding nobody established. It errors too when a provider contradicts
+  itself, ending the turn on a tool call and then naming none, which is what a
+  compatible endpoint emitting the call as text looks like. The call *count*
+  crosses a boundary on its own merit; the tool *names* are strings and need a
+  `Disclosure`, exactly as a model name does.
+
+- **A run records which model actually answered.** `model="claude-sonnet-5"` is
+  an alias, and an alias is a promise about a family rather than the name of a
+  system: the provider decides which snapshot behind it answers, and rolls that
+  decision without anyone touching the suite, the prompt or a parameter. Runs
+  recorded the alias on Monday and the alias on Friday, `compare()` reported the
+  configuration unchanged, and a drop between the two sent a reviewer to the
+  prompt.
+
+  `target_config` and `judge_config` now also carry `resolved_model` and, where
+  a provider names one, `fingerprint` — **observed** rather than sent, so an
+  alias that rolled is a named delta and the *"this drop coincides with…"*
+  sentence fires beside the regression. Bedrock Converse returns no model id at
+  all, and the record says so rather than echoing the request back. A model that
+  rolls part way through a run errors that case, on the rule ADR 0005 §8 already
+  set for an endpoint that answers on two systems; a rotated `fingerprint` goes
+  absent instead, because a backend build changing does not mean a different
+  model answered. `fingerprint` is withheld under redaction, joining `base_url`:
+  on a custom endpoint its value is written by a server nobody here reviews.
+  (ADR 0005 §9)
+
+  A comparison against a baseline promoted before this says *"not reported for
+  the reference"*, not *"not sent"* — nobody sent a resolved model id, on either
+  side — in both locales. The existing sentences were not reworded.
+
+  **`SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1.** A new key inside
+  `target_config.values` is the same event as a plugin declaring a parameter it
+  did not declare before: no document changes shape, nothing migrates, and no
+  baseline is re-promoted.
+
+  The judge's configuration is now read after the last case as well as before
+  the first, so a judge whose alias rolled stops being the one instrument change
+  ADR 0005 §4 could not see.
+
 - **A ninth example: `examples/llamaindex`.** A LlamaIndex query engine — a real
   `VectorStoreIndex`, retriever, prompt template and `RetrieverQueryEngine` —
   queried in process, with **retrieval left running** rather than frozen. That

@@ -110,7 +110,7 @@ the report prints and what a comparison pairs on.
 
 **Per case:** `equals`, `contains`, `not_contains`, `affix`, `is_json`,
 `json_schema`, `length`, `levenshtein`, `regex`, `llm_rubric`, `faithfulness`,
-`pii_absent`, `cost_budget`, `latency_budget`, `repeated`.
+`pii_absent`, `tools_called`, `cost_budget`, `latency_budget`, `repeated`.
 
 **Per run:** `precision`, `recall`, `accuracy`, `f1`.
 

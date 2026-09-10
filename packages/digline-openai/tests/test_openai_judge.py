@@ -378,3 +378,37 @@ def test_a_real_judge_scores_and_is_priced() -> None:
     )
     assert 0.0 <= reply.score <= 1.0 and reply.reason
     assert judge.calls == 1 and judge.spent_usd > 0
+
+
+@pytest.mark.live
+@pytest.mark.skipif(
+    not LIVE or not sdk_installed(),
+    reason="needs OPENAI_API_KEY, DIGLINE_LIVE=1 and the openai SDK",
+)
+def test_a_real_reply_says_which_model_answered_and_on_which_backend() -> None:
+    """The measurement obligation of ADR 0005 §9, on the provider that has both
+    halves of the identity.
+
+    Asserted: the reply names a model, and it is the family that was asked for.
+    Printed: what it actually said, and whether a fingerprint came back at all —
+    because how strong this signal is, is the API's behaviour on the day rather
+    than something this repository may state from memory. The same discipline
+    that put `CACHE_READS_ARE_INSIDE_INPUT_TOKENS` behind a live test.
+    """
+    alias = "gpt-5-mini"
+    judge = OpenAIJudge(model=alias)
+    judge("Rubric:\nThe answer names a city.\n\nOutput to judge:\nRome, in Italy.")
+
+    config = judge.config
+    print(
+        f"\nasked for {alias!r}, the reply said {config.get('resolved_model')!r} "
+        f"on backend {config.get('fingerprint')!r}"
+    )
+    resolved = config.get("resolved_model")
+    assert isinstance(resolved, str) and resolved.startswith(alias)
+    # The fingerprint is not asserted present: the official endpoint has left it
+    # null on some models, and a test that failed for that would be reporting an
+    # outage of nothing. What it must never be is a value that is not a string.
+    assert config.get("fingerprint", "") is None or isinstance(
+        config.get("fingerprint", ""), str
+    )

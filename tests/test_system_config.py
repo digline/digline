@@ -38,7 +38,7 @@ from digline.core import (
     redact,
 )
 from digline.core.run import SCHEMA_VERSION, run_from_json, run_to_json
-from digline.report import config_lines, headline, render_html
+from digline.report import config_changes, config_lines, headline, render_html
 from digline.run import Case, Response, Suite, execute, judge_config, target_config
 from digline.store import FileResultStore, RunRef
 from digline.store.migrate import upgrade_document
@@ -911,3 +911,157 @@ def test_the_report_says_a_java_drop_coincided_with_the_model_change(
     assert config_lines(comparison, locale="en") == ("system · temperature 0.3 → 0.7",)
     document = render_html(comparison, now, before, locale="en")
     assert "coincides with temperature 0.3 → 0.7" in document
+
+
+# --------------------------------------------------------------------------- #
+# The observed identity (ADR 0005 §9)
+# --------------------------------------------------------------------------- #
+
+
+def observed_runs(
+    now_values: Mapping[str, ConfigValue],
+    before_values: Mapping[str, ConfigValue] | None = None,
+) -> tuple[Run, Run]:
+    """The same suite twice. The reference defaults to recording only what it
+    sent, which is every baseline promoted before this amendment."""
+    from digline.core import CaseResult
+
+    def run(created: str, score: float, values: Mapping[str, ConfigValue]) -> Run:
+        return Run(
+            tenant="acme-bank",
+            environment="staging",
+            suite="qa",
+            config_hash="cfg",
+            created_at=created,
+            results=(
+                CaseResult(case_id="capital-it", verdicts=(scored("quality", score),)),
+            ),
+            target_config=SystemConfig(values=dict(values)),
+        )
+
+    return (
+        run("2026-09-10T00:00:00Z", 0.2, now_values),
+        run("2026-09-09T00:00:00Z", 0.9, before_values or ANTHROPIC),
+    )
+
+
+def test_an_alias_that_rolled_is_a_named_delta() -> None:
+    """The sentence the amendment exists for. Nobody edited the suite, the
+    prompt or a parameter; the provider moved the model under the alias, and
+    before this the run said the configuration was unchanged."""
+    now, before = observed_runs(
+        {**ANTHROPIC, "resolved_model": "claude-x-20260301"},
+        {**ANTHROPIC, "resolved_model": "claude-x-20260115"},
+    )
+    comparison = compare(now, before)
+    assert comparison.target_config_changed
+    assert config_changes(comparison.target_config_deltas, "en") == (
+        "resolved_model claude-x-20260115 → claude-x-20260301"
+    )
+
+
+def test_a_reference_that_predates_the_record_is_not_told_it_did_not_send_one() -> None:
+    """`config.change.new` says *not sent for the reference*, which is true of a
+    temperature and false of a field the provider reported: nobody sent a
+    resolved model id, on either side. This is what every first comparison
+    against an existing baseline prints, so it is not a corner case."""
+    now, before = observed_runs({**ANTHROPIC, "resolved_model": "claude-x-20260301"})
+    changes = config_changes(compare(now, before).target_config_deltas, "en")
+    assert changes == "resolved_model claude-x-20260301, not reported for the reference"
+    assert "not sent" not in changes
+
+
+def test_a_parameter_still_says_not_sent() -> None:
+    """The existing sentence was not reworded to make room for the new one: a
+    pipeline matching on the English text keeps matching."""
+    now, before = observed_runs({**ANTHROPIC, "temperature": 0.7})
+    changes = config_changes(compare(now, before).target_config_deltas, "en")
+    assert changes == "temperature 0.7, not sent for the reference"
+
+
+def test_the_fingerprint_is_withheld_at_a_boundary() -> None:
+    """It joins `base_url` and for the same argument one field over: on a custom
+    endpoint its value is whatever that server wrote there, and the server is
+    software nobody here reviews."""
+    config = SystemConfig(
+        values={
+            **ANTHROPIC,
+            "resolved_model": "claude-x-20260301",
+            "fingerprint": "fp_1",
+        }
+    ).redacted()
+    assert "fingerprint" not in config.values
+    assert "fingerprint" in config.withheld
+    # A resolved model id is a public product name and travels in clear, exactly
+    # as `model` does. Withholding it would cost the feature and protect nothing.
+    assert config.values["resolved_model"] == "claude-x-20260301"
+
+
+def test_a_withheld_fingerprint_compares_as_unknown_rather_than_same() -> None:
+    """The ADR 0003 §5 rule, unchanged: with no value on one side, `same` would
+    be a guess wearing the clothes of a finding."""
+    now, before = observed_runs({**ANTHROPIC, "fingerprint": "fp_1"})
+    deltas = compare(redact(now), before).target_config_deltas
+    fingerprint = next(d for d in deltas if d.field == "fingerprint")
+    assert fingerprint.outcome == "unknown"
+    assert fingerprint.withheld
+
+
+class LearningJudge(ConfiguredJudge):
+    """A judge that only learns which instrument graded by being asked.
+
+    Which is every real one: a resolved model id arrives in the reply, so before
+    the first call there is nothing to record. Stands here for the plugin
+    behaviour that made ADR 0005 §9 move the driver's second read.
+    """
+
+    def __call__(self, prompt: str) -> JudgeReply:
+        self._config["resolved_model"] = "claude-haiku-4-5-20260301"
+        return JudgeReply(score=1.0, reason="fine")
+
+
+def test_the_judge_is_asked_after_the_last_case_as_well_as_before_the_first() -> None:
+    """Before this the driver read `judge_config` once, before any case, where a
+    judge has observed nothing — so the record would have been empty by
+    construction, on the side ADR 0005 §4 calls the louder one."""
+    judge = LearningJudge()
+    run = execute(
+        a_suite(
+            assertions=[
+                LlmRubric(rubric="answers?", judge=judge, threshold=0.7, tolerance=0.05)
+            ]
+        ),
+        lambda case: Response(output="Rome."),
+        created_at="2026-09-10T00:00:00Z",
+    )
+    assert run.judge_config.values["resolved_model"] == "claude-haiku-4-5-20260301"
+
+
+def test_the_early_read_still_happens_so_a_broken_judge_fails_first() -> None:
+    """The second read did not replace the first. What the early one buys is the
+    early failure, which is why ADR 0005 §8 kept it on the target side too."""
+
+    class RefusingJudge(ConfiguredJudge):
+        @property
+        def config(self) -> Mapping[str, ConfigValue]:
+            raise ValueError("this judge cannot say what it is")
+
+    with pytest.raises(ValueError, match="cannot say what it is"):
+        execute(
+            a_suite(
+                assertions=[
+                    LlmRubric(
+                        rubric="answers?",
+                        judge=RefusingJudge(),
+                        threshold=0.7,
+                        tolerance=0.05,
+                    )
+                ]
+            ),
+            _never_called,
+            created_at="2026-09-10T00:00:00Z",
+        )
+
+
+def _never_called(case: Case) -> Response:
+    raise AssertionError("the suite was paid for before the judge was checked")

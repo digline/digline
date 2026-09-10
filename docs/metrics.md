@@ -21,6 +21,7 @@ Do the cases carry a human mark (ground truth)?
     ├── a judgement that only words can state ..................... LlmRubric   → wrap in Repeated
     ├── supported by the retrieved context ........................ Faithfulness
     ├── no personal data on the way out ........................... PiiAbsent
+    ├── which tools it called on the way there .................... ToolsCalled
     └── a scorer you already own .................................. FromAutoevals
 Always, next to whichever you picked: CostBudget · LatencyBudget
 ```
@@ -409,6 +410,30 @@ LatencyBudget(max_ms=2000.0, tolerance=0.10)
 **Produces** a graded score plus `latency_ms`, `max_ms`, `ratio`.
 **Watch out** measure what you can control. If your target includes a network
 you do not own, tolerance is doing more work than the threshold.
+
+### `ToolsCalled`
+
+**Use it when** the target is an agent and the answer being right is not the
+whole question. A model that was supposed to look something up and answered
+from memory produces a well-formed answer that happens to be invented, and
+every other assertion here is blind to it.
+
+```python
+ToolsCalled(expected=["search", "cite"])
+```
+
+**Takes** **`expected`** — the tool names, in the order they should be called;
+`threshold=1.0`. All output kinds. Binary: the sequence matches or it does not.
+**Produces** `1.0` or `0.0`, plus `tool_calls` (the count) and `called` (the
+names). The count crosses a boundary on its own merit; the names are strings
+and need `Disclosure(score_metadata={"called"})` to travel in a redacted
+document.
+**Watch out** it needs a target that *reports* its tool calls — a provider
+plugin on a provider that names them. Anywhere else it is an **error**, not a
+failure: nobody reported, so what the model called is not knowable, and
+"called nothing" would be a finding nobody established. It errors too when a
+provider contradicts itself, ending the turn on a tool call and then naming
+none.
 
 ### `Repeated`
 

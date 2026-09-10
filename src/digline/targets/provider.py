@@ -21,8 +21,13 @@ from typing import ClassVar
 
 from digline.core import ConfigValue, Output
 from digline.run import Case, Response
+from digline.targets.completion import (
+    CompletionResult,
+    ObservedIdentity,
+    as_completion,
+)
 from digline.targets.config import sent
-from digline.targets.pricing import Pricing, Usage
+from digline.targets.pricing import Pricing
 from digline.targets.template import PromptTemplate
 
 __all__ = ["ProviderTarget"]
@@ -65,6 +70,11 @@ class ProviderTarget(ABC):
             self.system_template = PromptTemplate.from_text(system, name="system")
         self.model = model
         self.pricing = pricing
+        #: What the provider said answered, learned from the first reply that
+        #: says so and held to by every later one (ADR 0005 §9). Empty until a
+        #: case has run, which is why `execute()` reads a target's configuration
+        #: after the last case as well as before the first.
+        self.observed = ObservedIdentity(model)
 
     # -- what the driver and the CLI ask for -------------------------------- #
 
@@ -102,10 +112,17 @@ class ProviderTarget(ABC):
         outside the plugin's own signature, they are where an account-specific
         identifier ends up, and what is outside the contract is outside the
         record (ADR 0005 §1).
+
+        `resolved_model` and `fingerprint` are the exception to "declared by the
+        target itself": they are **observed**, read out of the reply rather than
+        sent into the request, and they are what catches an alias that rolled
+        under a suite nobody edited (ADR 0005 §9). Absent means the provider did
+        not say — which on Bedrock Converse is always, since its reply carries
+        no model id at all.
         """
         if not self.provider:
             return {}
-        return sent(provider=self.provider, model=self.model)
+        return sent(provider=self.provider, model=self.model, **self.observed.values)
 
     def preflight(self, cases: Sequence[Case]) -> None:
         """Refuse before the first call, not on case thirty-seven.
@@ -149,10 +166,15 @@ class ProviderTarget(ABC):
             else self.system_template.render(case.vars, case_id=case.id)
         )
         started = perf_counter()
-        text, usage = self._complete(prompt, system)
+        # Read through `as_completion` rather than unpacked, because a plugin
+        # may still return the pair and always may: the union is permanent, not
+        # a deprecation window (ADR 0004 §6).
+        reply = as_completion(self._complete(prompt, system))
         elapsed_ms = (perf_counter() - started) * 1000.0
+        usage = reply.usage
+        self.observed.see(reply)
         return Response(
-            output=self.parse(text),
+            output=self.parse(reply.text),
             input=prompt,
             cost_usd=self.pricing.cost(self.model, usage),
             latency_ms=elapsed_ms,
@@ -162,6 +184,10 @@ class ProviderTarget(ABC):
                 "output_tokens": usage.output_tokens,
                 "cache_read_tokens": usage.cache_read_tokens,
                 "cache_write_tokens": usage.cache_write_tokens,
+                # Only what the provider actually reported. `Response.metadata`
+                # is not persisted, so this costs nothing in any document: what
+                # reaches a run file is what an assertion measured out of it.
+                **reply.as_metadata(),
             },
         )
 
@@ -181,5 +207,11 @@ class ProviderTarget(ABC):
         return text
 
     @abstractmethod
-    def _complete(self, prompt: str, system: str | None) -> tuple[str, Usage]:
-        """Call the provider. The only thing a plugin has to write."""
+    def _complete(self, prompt: str, system: str | None) -> CompletionResult:
+        """Call the provider. The only thing a plugin has to write.
+
+        Return a `Completion`. The old `(text, Usage)` pair is still accepted
+        and always will be — a plugin written before ADR 0004 §6 keeps working,
+        and a provider with nothing to report beyond text and tokens keeps a
+        return that is honest for it.
+        """

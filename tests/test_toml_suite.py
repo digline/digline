@@ -15,6 +15,7 @@ moment.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -33,6 +34,8 @@ from digline.host.toml_suite import (
 )
 from digline.run import Suite
 from digline.targets import HttpTarget
+
+ROOT = Path(__file__).resolve().parents[1]
 
 SUITE = """
 [suite]
@@ -450,3 +453,23 @@ def test_a_real_coordinate_resolves_and_an_unpriced_model_fails_preflight(
 
     with pytest.raises(ValueError, match="has no price"):
         cast("Any", built).preflight(suite.cases)
+
+
+def test_the_documented_tokens_are_the_ones_the_loader_takes() -> None:
+    """A list in prose is a list that rots.
+
+    `docs/declarative.md` names every token a `suite.toml` may use, and it is
+    the only place a reader without the source can find them — so a token added
+    to the loader and not to the page is a feature nobody can reach, and a token
+    on the page that the loader does not take is an error somebody meets after
+    typing it. Neither is visible without this test: the loader is happy either
+    way.
+    """
+    page = (ROOT / "docs" / "declarative.md").read_text(encoding="utf-8")
+    documented = set(re.findall(r"`([a-z_0-9]+)`", page))
+    for token in (*ASSERTIONS, *AGGREGATES):
+        assert token in documented, (
+            f"`{token}` is a token the TOML loader takes and "
+            "docs/declarative.md does not name. A reader without the source has "
+            "no other list."
+        )

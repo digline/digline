@@ -20,15 +20,39 @@ from typing import Any
 
 
 @dataclass
+class FakeFunction:
+    name: str = "search"
+    #: A **string** on this API, not an object, and the SDK's own docstring
+    #: warns the model does not always generate valid JSON in it. That
+    #: disagreement with the other two providers is why the record carries tool
+    #: names and not arguments (ADR 0004 §6).
+    arguments: str = '{"q": "rome"}'
+
+
+@dataclass
+class FakeToolCall:
+    function: FakeFunction = field(default_factory=FakeFunction)
+    id: str = "call_1"
+    type: str = "function"
+
+
+@dataclass
 class FakeMessage:
     #: `None` is what the API returns when the model produced nothing — a
     #: refusal, or a cap hit before the first token.
     content: str | None = "Rome."
+    #: A refusal arrives **here**, and `finish_reason` stays `stop`. The one
+    #: place a plugin composes an answer rather than translating one.
+    refusal: str | None = None
+    #: Absent on a reply that called nothing *and* on a server with no tool
+    #: support at all — two different facts this API cannot tell apart.
+    tool_calls: list[FakeToolCall] | None = None
 
 
 @dataclass
 class FakeChoice:
     message: FakeMessage = field(default_factory=FakeMessage)
+    finish_reason: str | None = "stop"
 
 
 @dataclass
@@ -55,6 +79,11 @@ class FakeUsage:
 class FakeReply:
     choices: list[FakeChoice] = field(default_factory=lambda: [FakeChoice()])
     usage: FakeUsage | None = field(default_factory=FakeUsage)
+    #: What answered, and the backend it answered on. The first is the strong
+    #: signal of ADR 0005 §9 — the request carried an alias, this is what it
+    #: resolved to — and the second is this provider's half alone.
+    model: str = "gpt-fake-1-2026-01-01"
+    system_fingerprint: str | None = "fp_abc123"
 
 
 class FakeCompletions:

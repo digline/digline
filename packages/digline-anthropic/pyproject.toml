@@ -24,7 +24,7 @@ dependencies = [
     # 0.2.0, and `Provider`, which this plugin registers itself with, is
     # 0.5.0. `tests/test_plugin_floors.py` holds this number to the newest
     # core name the sources actually import.
-    "digline>=0.5.0",
+    "digline>=0.8.0",
     "anthropic>=0.40",
 ]
 

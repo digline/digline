@@ -34,6 +34,7 @@ from digline.core import (
     PiiAbsent,
     PiiPattern,
     Regex,
+    ToolsCalled,
     budget_score,
     levenshtein_distance,
 )
@@ -991,3 +992,79 @@ def test_a_fake_judge_can_read_the_output_without_reading_the_source() -> None:
     and `JUDGE_OUTPUT_LABEL` is exported so it does not have to be guessed."""
     for prompt in captured_prompts().values():
         assert prompt.split(JUDGE_OUTPUT_LABEL, 1)[1].strip() == "The answer."
+
+
+# --------------------------------------------------------------------------- #
+# ToolsCalled
+# --------------------------------------------------------------------------- #
+
+
+def trajectory(**reported: object) -> EvaluatorInputs:
+    """What a `ProviderTarget` puts in `Response.metadata`, through the mapper."""
+    return inputs(output="Rome.", metadata={"response": reported})
+
+
+def test_tools_called_passes_on_the_expected_sequence() -> None:
+    v = ToolsCalled(expected=["search", "cite"])(
+        trajectory(tools=["search", "cite"], finish="stop")
+    )
+    assert v.status == "pass"
+    assert v.score.metadata["tool_calls"] == 2
+
+
+def test_tools_called_fails_when_the_model_answered_from_memory() -> None:
+    """The regression every other assertion is blind to: the answer can be
+    perfectly well-formed and still have been invented."""
+    v = ToolsCalled(expected=["search"])(trajectory(tools=[], finish="stop"))
+    assert v.status == "fail"
+    assert "called nothing, expected 'search'" in v.reason
+
+
+def test_tools_called_fails_on_the_right_tools_in_the_wrong_order() -> None:
+    """A sequence, deliberately: citing before looking anything up is a
+    different trajectory from looking up and then citing."""
+    v = ToolsCalled(expected=["search", "cite"])(trajectory(tools=["cite", "search"]))
+    assert v.status == "fail"
+
+
+def test_a_target_that_reports_no_trajectory_errors_rather_than_judging() -> None:
+    """Absent is not empty. A plain function reports nothing, and nothing is
+    indistinguishable from *the model called none* — so neither green nor a
+    regression, which is what ADR 0001's third status is for."""
+    v = ToolsCalled(expected=["search"])(inputs(output="Rome."))
+    assert v.status == "error"
+    assert "not knowable" in v.reason
+
+
+def test_an_empty_trajectory_is_judged_and_a_missing_one_is_not() -> None:
+    """The pair that makes the distinction worth carrying: same assertion, same
+    expectation, two different statuses."""
+    assertion = ToolsCalled(expected=[])
+    assert assertion(trajectory(tools=[])).status == "pass"
+    assert assertion(inputs(output="x")).status == "error"
+
+
+def test_a_provider_that_contradicts_itself_errors() -> None:
+    """`finish=tool_use` with no tool named. A compatible endpoint that emits
+    the call as text gets here, and reporting "the model called nothing" would
+    repeat a claim the same reply denies."""
+    v = ToolsCalled(expected=["search"])(trajectory(tools=[], finish="tool_use"))
+    assert v.status == "error"
+    assert "disagrees with itself" in v.reason
+
+
+def test_a_trajectory_that_is_not_a_list_errors() -> None:
+    v = ToolsCalled(expected=["search"])(trajectory(tools="search"))
+    assert v.status == "error"
+    assert "not a list of names" in v.reason
+
+
+def test_the_count_travels_and_the_names_do_not() -> None:
+    """Fixed decision 9 through `travels()`: a count is a measurement, a tool
+    name is a string. A reader without a `Disclosure` still learns that two
+    tools were called where one was expected."""
+    from digline.core import travels
+
+    v = ToolsCalled(expected=["search"])(trajectory(tools=["search", "cite"]))
+    assert travels(v.score.metadata["tool_calls"])
+    assert not travels(v.score.metadata["called"])

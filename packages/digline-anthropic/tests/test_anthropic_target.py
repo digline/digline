@@ -25,6 +25,9 @@ from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
 class FakeBlock:
     text: str
     type: str = "text"
+    #: Every real `tool_use` block carries one. Here so the fake keeps the
+    #: shape the code reads rather than the subset an older test needed.
+    name: str = ""
 
 
 @dataclass
@@ -47,6 +50,11 @@ class FakeUsage:
 class FakeReply:
     content: list[FakeBlock]
     usage: FakeUsage = field(default_factory=FakeUsage)
+    #: What the API says ended the turn, and what it says answered. Both are
+    #: always present on a real reply, and the second is the point of ADR 0005
+    #: §9: the request carried an alias, the reply carries what it resolved to.
+    stop_reason: str | None = "end_turn"
+    model: str = "claude-fake-1-20260101"
 
 
 class FakeMessages:

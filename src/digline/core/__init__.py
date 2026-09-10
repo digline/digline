@@ -39,6 +39,7 @@ from digline.core.assertions import (
     NotContains,
     PiiAbsent,
     Regex,
+    ToolsCalled,
     budget_score,
     error_verdict,
     levenshtein_distance,
@@ -85,6 +86,7 @@ from digline.core.protocols import (
 )
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
 from digline.core.run import (
+    OBSERVED_FIELDS,
     PERIMETER_FIELDS,
     Artifact,
     CaseResult,
@@ -112,6 +114,7 @@ from digline.core.types import (
     ConfigValue,
     Disclosure,
     EvaluatorInputs,
+    Finish,
     JudgeReply,
     Message,
     Output,
@@ -131,6 +134,7 @@ __all__ = [
     "GROUP_MARKER",
     "IDENTITY_FIELD",
     "ITALIAN_PII",
+    "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "CONVERSATION_ONLY",
     "STRUCTURED_ONLY",
@@ -161,6 +165,7 @@ __all__ = [
     "ClaimReply",
     "Equals",
     "EvaluatorInputs",
+    "Finish",
     "Faithfulness",
     "FromAutoevals",
     "HasConfig",
@@ -188,6 +193,7 @@ __all__ = [
     "Recall",
     "Ratio",
     "Regex",
+    "ToolsCalled",
     "Repeated",
     "RunAssertion",
     "RunAssertionBase",

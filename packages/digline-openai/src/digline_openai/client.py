@@ -15,9 +15,38 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from digline.targets import Pricing, Usage
+from digline.core import Finish
+from digline.targets import Completion, Pricing, Usage, finish_of
 
-__all__ = ["NO_KEY", "OpenAIChat", "TokenParam", "build_client", "usage_of"]
+__all__ = [
+    "FINISH",
+    "NO_KEY",
+    "OpenAIChat",
+    "TokenParam",
+    "build_client",
+    "tools_of",
+    "usage_of",
+]
+
+#: OpenAI's `finish_reason` in the vocabulary every plugin translates into
+#: (ADR 0004 §6). Read off `openai.types.chat.chat_completion.Choice`.
+#:
+#: There is **no refusal value here**, and that is not an omission in this
+#: table: a refusal arrives one level down as `message.refusal` while
+#: `finish_reason` stays `stop`. `_finish_of` below is therefore the one place
+#: in this workspace where a plugin *composes* an answer rather than translating
+#: one, and ADR 0004 §6 declares it so that it is not discovered in the code.
+#:
+#: A word this table does not know maps to `other`, never to `stop` — a
+#: compatible endpoint inventing a finish reason must not turn a truncated run
+#: green. See `finish_of`.
+FINISH: dict[str, Finish] = {
+    "stop": "stop",
+    "length": "length",
+    "tool_calls": "tool_use",
+    "function_call": "tool_use",
+    "content_filter": "filtered",
+}
 
 #: Passed as the key when — and only when — a custom `base_url` is set and the
 #: SDK found nothing in the environment. Ollama and most self-hosted servers do
@@ -174,8 +203,8 @@ class OpenAIChat:
         response_format: Mapping[str, Any] | None = None,
         token_param: TokenParam = "auto",
         extra_body: Mapping[str, Any] | None = None,
-    ) -> tuple[str, Usage]:
-        """One chat completion: the text and what it cost in tokens.
+    ) -> Completion:
+        """One chat completion, as the record `_complete` returns (ADR 0004 §6).
 
         `response_format` is sent when asked for and **never required** (ADR
         0004 §4). A provider that rejects it — Ollama does, some vLLM builds do
@@ -211,19 +240,75 @@ class OpenAIChat:
             del request["response_format"]
             reply = self.client().chat.completions.create(**request)
 
-        return _text_of(reply), usage_of(reply, model, pricing)
+        choice = _first_choice(reply)
+        message: Any = getattr(choice, "message", None)
+        finish, raw = _finish_of(choice, message)
+        return Completion(
+            text=_text_of(message),
+            usage=usage_of(reply, model, pricing),
+            finish=finish,
+            finish_raw=raw,
+            tools=tools_of(message),
+            model=str(getattr(reply, "model", "")) or None,
+            fingerprint=str(getattr(reply, "system_fingerprint", "") or "") or None,
+        )
 
 
-def _text_of(reply: Any) -> str:
+def _first_choice(reply: Any) -> Any:
     choices: Any = getattr(reply, "choices", None) or []
     if not choices:
         raise ValueError(
             "the provider returned no choices: there is no output to judge or "
             "to assert on"
         )
-    message: Any = getattr(choices[0], "message", None)
+    return choices[0]
+
+
+def _text_of(message: Any) -> str:
     # `None` rather than missing when the model produced nothing — a refusal, or
     # a cap hit before the first token. Empty text is an output the assertions
     # can fail; an exception here would make it an `error` instead, which says
     # the run could not be judged rather than that the model said nothing.
     return str(getattr(message, "content", None) or "")
+
+
+def _finish_of(choice: Any, message: Any) -> tuple[Finish | None, str | None]:
+    """How the turn ended, with the refusal read out of the message.
+
+    The composition ADR 0004 §6 declares: this API reports a refusal as
+    `message.refusal` and leaves `finish_reason` at `stop`, so a run where the
+    model declined every case would otherwise record five green `stop`s. The
+    refusal wins, and `finish_raw` says `refusal` — which is the word to search
+    the provider's own documentation for.
+
+    It is deliberately the *only* thing read from outside `finish_reason`.
+    Anything more would be this layer deciding what a provider meant.
+    """
+    if getattr(message, "refusal", None):
+        return "filtered", "refusal"
+    return finish_of(getattr(choice, "finish_reason", None), FINISH)
+
+
+def tools_of(message: Any) -> tuple[str, ...] | None:
+    """The functions the model called, in order — or `None` if none were named.
+
+    `tool_calls` is absent on a reply that called nothing *and* on a compatible
+    server that does not implement tools at all, and the two are different
+    facts: one is the model calling nothing, the other is nobody reporting. This
+    API cannot tell them apart, so it reports the honest half — `None` — and
+    `ToolsCalled` errors rather than announcing that no tool was called.
+
+    The deprecated `function_call` is read too. It is one call rather than a
+    list, and a suite running against a server still speaking it should not be
+    told the model called nothing.
+    """
+    calls: Any = getattr(message, "tool_calls", None)
+    if calls:
+        return tuple(
+            str(getattr(getattr(call, "function", None), "name", "") or "")
+            for call in calls
+        )
+    single: Any = getattr(message, "function_call", None)
+    if single is not None:
+        return (str(getattr(single, "name", "") or ""),)
+    return None
