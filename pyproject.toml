@@ -99,6 +99,7 @@ testpaths = [
     "packages/digline-openai/tests",
     "packages/digline-bedrock/tests",
     "packages/digline-mcp/tests",
+    "packages/pytest-digline/tests",
 ]
 markers = [
     # Costs money and needs a key. Skipped unless the provider's key is set and
@@ -114,6 +115,7 @@ pythonpath = [
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
     "packages/digline-mcp/src",
+    "packages/pytest-digline/src",
 ]
 
 [tool.ruff]
@@ -126,6 +128,7 @@ src = [
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
     "packages/digline-mcp/src",
+    "packages/pytest-digline/src",
 ]
 
 [tool.ruff.lint]
@@ -147,6 +150,7 @@ extraPaths = [
     "packages/digline-openai/tests",
     "packages/digline-bedrock/tests",
     "packages/digline-mcp/src",
+    "packages/pytest-digline/src",
 ]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
