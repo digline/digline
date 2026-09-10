@@ -210,6 +210,29 @@ def test_get_run_resolves_latest_and_names_the_key(repo: Path) -> None:
     assert document["tenant"] == "acme-bank"
 
 
+def test_a_run_that_links_out_of_the_store_never_reaches_the_agent(
+    repo: Path,
+) -> None:
+    """This package holds no boundary of its own here: it reads through
+    `FileResultStore` like the CLI does, so the 0.7.2 store fix arrives without
+    a release of this package. The test says that out loud, because "it
+    inherits" is exactly the kind of claim that stops being true quietly."""
+    key = run_key(repo)
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    outside = repo.parent / "linked.json"
+    document = json.loads(stored.read_text(encoding="utf-8"))
+    document["environment"] = "exfiltrated"
+    outside.write_text(json.dumps(document), encoding="utf-8")
+    (stored.parent / "planted-key.json").symlink_to(outside)
+
+    message = refusal(
+        repo, "get_run", suite=str(repo / "suite_qa.py"), run="planted-key"
+    )
+    assert "exfiltrated" not in message
+    # And the ordinary key still answers, through the same store.
+    assert call(repo, "get_run", suite=str(repo / "suite_qa.py"), run=key)["key"] == key
+
+
 def test_get_baseline_refuses_before_there_is_one(repo: Path) -> None:
     """Not an error: the first round has no reference, and what it needs is a
     person. The one place `promote` appears on this surface is here, as

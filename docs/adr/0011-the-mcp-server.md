@@ -575,6 +575,30 @@ form, which resolves through `sys.path` and so names something this server
 cannot place inside the repository at all. The CLI still takes that form — a
 person's tool has no perimeter to keep.
 
+**And a suite inside the root is trusted, deliberately.** The check above is
+about *which file* the server may be pointed at. It is not a sandbox, and it
+does not try to be: a `suite.py` inside the repository is Python, and this
+server executes it. It may `sys.path.insert` a directory outside the root and
+import from it, open any file the process can open, and call anything it likes.
+The adversarial pass over the 0.7.1 fixes confirmed all of that works, on this
+surface and through the CLI, and it is written here so that the next person to
+confirm it reads a decision rather than a miss.
+
+The reasoning is the same one that put the perimeter on the *argument*. What
+arrives from a tool call is attacker-controlled in the way that matters — a
+model chose it, possibly because something in its context told it to — and the
+five reading tools are annotated `read_only_hint=True`, which is a client's
+licence to call them without asking a person. What is committed in the
+repository is not that: it is code somebody wrote, reviewed and merged, and it
+had to be trusted before digline ever ran it. A server that tried to confine it
+would be claiming a guarantee it cannot keep, and the honest version of that
+claim is this paragraph.
+
+So the boundary is: **the agent may not choose the file; the repository may not
+be confined.** If you need the second, the answer is an OS-level sandbox around
+the whole process — a container, a jail — and not a check inside a program the
+suite has already been imported into.
+
 **Multi-project is N named servers in the client's config**, not a registry in
 ours:
 

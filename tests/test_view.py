@@ -388,6 +388,28 @@ def test_a_run_key_cannot_climb_out_of_the_store(
     assert stored.exists() and '"schema_version"' in (repo / "outside.json").read_text()
 
 
+def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
+    served: tuple[str, str], repo: Path
+) -> None:
+    """The second half of the same door. 0.7.1 checked the run *name*; a link
+    planted under a legal name still reached out of the store, and this route
+    rendered what it found with a 200. (0.7.2, from the adversarial pass.)"""
+    base, key = served
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    outside = repo.parent / "linked.json"
+    document = json.loads(stored.read_text(encoding="utf-8"))
+    document["environment"] = "exfiltrated"
+    outside.write_text(json.dumps(document), encoding="utf-8")
+    (stored.parent / "planted-key.json").symlink_to(outside)
+
+    status, body = get(f"{base}compare?run=planted-key")
+    assert status == 400
+    assert "outside" in body
+    assert "exfiltrated" not in body
+    # The control, in the same server: a real key still renders.
+    assert get(f"{base}compare?run={key}")[0] == 200
+
+
 def post(url: str, data: str, *, origin: str | None) -> int:
     request = urllib.request.Request(
         url,

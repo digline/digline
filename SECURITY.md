@@ -83,3 +83,30 @@ What *is* in scope is digline mishandling what it is given — a credential
 leaking into a run, a payload crossing a boundary the suite did not open, a
 path escaping the working directory, a suite file causing execution nobody
 asked for.
+
+**A race against the filesystem is also out of scope, and this is the one place
+it is written down.** Every path digline checks is checked and then opened:
+`resolve()` says where a name leads, and the `open()` that follows is a second
+call. Between them the filesystem can change, and an attacker who can replace a
+file or a symlink *during a run* can have a checked path read a different file.
+We have reproduced it — swapping a symlink in a loop while runs executed won 4
+times in 30 — and we are not going to close it.
+
+The reason is the shape of the tool, not the difficulty of the fix. digline runs
+inside a repository you control, and the capability that race needs — writing to
+that repository while a run is in progress — is already the capability to edit
+`suite.py`, which is code and executes. A threat model where the attacker can
+win a millisecond race but not change the file digline is about to run is not a
+model of anything real.
+
+Two things make it visible rather than silent, and both are deliberate: the
+artifact is recorded under **the key it actually resolved to**, so a run that
+read `../outside/secret.txt` says exactly that in its artifact section and in
+every report built from it; and artifacts are hashed, so the same declared file
+reading differently between two runs shows up as a change rather than as
+nothing. A race that wins still leaves its name in the record.
+
+What is **not** out of scope, and was fixed in 0.7.2, is a path that escapes
+without any race at all — a symlink sitting in the store, checked once, read
+once, no timing involved. The line is whether digline can tell: it can see where
+a name leads at the moment it looks, and it is answerable for that.

@@ -12,18 +12,27 @@ flows, pass your own callable as the target — that is what the protocol is for
 
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from time import perf_counter
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from digline.core import ConfigValue, Output
 from digline.run import Case, Response
 from digline.targets.config import declared_config, endpoint_host
 
 __all__ = ["HttpTarget"]
+
+#: What `urlopen` can raise about an endpoint. `OSError` covers the network;
+#: `http.client.HTTPException` is where `InvalidURL` lives and is **not** an
+#: `OSError`; `ValueError` is what a malformed URL raises before any socket is
+#: opened. All three can quote the URL, which is why they are caught together
+#: and answered through `_spoken`.
+_ENDPOINT_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 
 def _dig(payload: object, path: str) -> object:
@@ -170,7 +179,26 @@ class HttpTarget:
         #: ADR 0005 §2 already reduced `base_url` to its host for exactly this
         #: reason; a target that took its endpoint under another name was not
         #: covered by that decision, only by the fact that nobody had looked.
-        self._spoken = endpoint_host(url) or url
+        spoken = endpoint_host(url)
+        if spoken is None:
+            # No `or url` fallback. That fallback is what made the reduction
+            # conditional on the URL being well formed — exactly the case where
+            # a person is most likely to have mistyped a secret into it.
+            raise ValueError(
+                "url names no host. An endpoint is recorded and spoken about "
+                "by host, so a value without one cannot be reduced to one, and "
+                "printing the value instead is what this refuses. Check the "
+                "url in the suite; it is not repeated here on purpose."
+            )
+        self._spoken = spoken
+        #: The literals this URL's own userinfo could put into somebody else's
+        #: error text. `urllib` quotes the authority back — `InvalidURL` says
+        #: `nonnumeric port: 'sk-live-…@gateway'` — so knowing the exact
+        #: secrets is what lets the text be kept and the credential removed.
+        parsed = urlsplit(url if "//" in url else f"//{url}")
+        self._userinfo = tuple(
+            part for part in (parsed.password, parsed.username) if part
+        )
         #: The declarative half (ADR 0007 §5): the payload's own shape, with
         #: leaves that name case fields. Kept as the table it was written as, so
         #: `repr` and a debugger show what the suite said.
@@ -239,6 +267,21 @@ class HttpTarget:
                 "each set-up as its own run"
             )
 
+    def _said(self, exc: BaseException) -> str:
+        """`urllib`'s own words, minus anything this URL's userinfo put in them.
+
+        The text is worth keeping — "connection refused" is the whole
+        diagnosis — but the exception may quote the endpoint back, and for
+        `https://user:secret@gateway/answer` the part it quotes is the
+        credential. Replacing the known literals is exact: the secret is not
+        guessed from the message, it is read from the URL this target was
+        built with.
+        """
+        said = str(exc)
+        for secret in self._userinfo:
+            said = said.replace(secret, "***")
+        return said
+
     def preflight(self, cases: Sequence[Case]) -> None:
         """Is anything listening?
 
@@ -254,11 +297,12 @@ class HttpTarget:
                 return
         except urllib.error.HTTPError:
             return
-        except OSError as exc:
+        except _ENDPOINT_ERRORS as exc:
             raise ValueError(
-                f"nothing answered at {self._spoken}: {exc}. The suite declares "
-                f"{len(cases)} case(s) and every one of them would fail the "
-                "same way — start the application, or point the target at it"
+                f"nothing answered at {self._spoken}: {self._said(exc)}. The "
+                f"suite declares {len(cases)} case(s) and every one of them "
+                "would fail the same way — start the application, or point the "
+                "target at it"
             ) from exc
 
     def _from_body(self, case: Case) -> Mapping[str, object]:
@@ -274,8 +318,17 @@ class HttpTarget:
         )
 
         started = perf_counter()
-        with urllib.request.urlopen(posted, timeout=self.timeout) as answer:
-            raw = answer.read().decode("utf-8")
+        try:
+            with urllib.request.urlopen(posted, timeout=self.timeout) as answer:
+                raw = answer.read().decode("utf-8")
+        except _ENDPOINT_ERRORS as exc:
+            # Unguarded until 0.7.2, which meant `http.client.InvalidURL` — not
+            # an `OSError`, so `preflight`'s handler never saw it either —
+            # reached stderr as a traceback with the authority it was quoting,
+            # credential and all.
+            raise ValueError(
+                f"{self._spoken} could not be called: {self._said(exc)}"
+            ) from exc
         elapsed_ms = (perf_counter() - started) * 1000.0
 
         try:

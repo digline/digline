@@ -8,6 +8,65 @@ What changed for you, three lines a version. The reasoning lives in
 Nothing yet.
 
 
+## 0.7.2 — 2026-09-10
+
+digline 0.7.2. Two more path-and-secrecy fixes, **found by our own adversarial
+pass over the four that shipped in 0.7.1** rather than by a report: we went back
+and tried to break them, and two of the four turned out to hold a door open
+somewhere else. `digline-mcp` stays at 0.1.1 — both fixes are in the core, and
+the server reads through the same store, which is now pinned by a test that says
+so. `SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1: no baseline is
+re-promoted.
+
+Each was reproduced before it was fixed and is pinned by a test that fails on
+0.7.1.
+
+```sh
+uv add --upgrade digline
+```
+
+- **Security:** an endpoint error can no longer carry the credential somebody
+  put in the URL. 0.7.1 reduced `HttpTarget`'s `url` to its host in every
+  message **digline** writes; it did not cover the messages `urllib` writes, and
+  urllib quotes the authority back. `https://svc:sk-live-…@gateway/answer` — a
+  URL with userinfo and no explicit port — raised
+  `http.client.InvalidURL: nonnumeric port: 'sk-live-…@gateway'` as an
+  **unhandled traceback**, to stderr and in CI to a build log. Two reasons it
+  got through: `InvalidURL` is an `HTTPException` and not an `OSError`, so
+  `preflight`'s handler never saw it, and `__call__` had no handler at all. Both
+  call sites now catch it, and the exception's own text is kept — "connection
+  refused" is the whole diagnosis on the ordinary bad day — with the literal
+  userinfo of *this* URL removed from it, which is exact rather than a guess.
+  The `endpoint_host(url) or url` fallback is gone: a value with no host is
+  refused when the target is built, because that fallback made the reduction
+  conditional on the URL being well formed, which is the case where a mistyped
+  secret is most likely. `endpoint_host` itself now answers `None` for a value
+  that is not a host — it used to return the whole lowercased string, so a
+  malformed `base_url` was recorded as a "host" with spaces in it.
+- **Security:** a run or baseline that **links out of the store** is refused.
+  0.7.1 checked the run key like the other two path segments, which closed
+  `?run=../../../../elsewhere`. That proved the *name* was one safe segment; it
+  could not prove where the name led. A symlink placed inside `.digline/` under
+  a perfectly legal key — `planted-key.json -> ../../../../outside/evil.json` —
+  passed every check, and `digline view` answered **200** with the outside
+  document rendered, `digline compare --run` reported on it, and the MCP
+  `get_run` returned it to an agent. Reads now verify where the path resolves,
+  for runs and for baselines, and `scan_runs` counts a linked-out file
+  unreadable rather than opening it. A `.digline` that is *itself* a symlink — a
+  store on another volume — still works: both sides are resolved, so what is
+  refused is leaving the store, not reaching it by a link.
+- **Documented:** two decisions the pass made explicit rather than changed. A
+  **race** between the check and the read is out of scope, and `SECURITY.md` now
+  says so and why — the capability it needs, writing to the repository mid-run,
+  is already the capability to edit `suite.py`, which is code; and a run records
+  the key its artifact *actually resolved to*, so a race that wins still leaves
+  its name in the record. And **a suite inside the root is trusted**: the MCP
+  perimeter decides which file the agent may name, not what that file may then
+  do, and [ADR 0011 §8](https://digline.dev/product/adr/0011-the-mcp-server/)
+  now says that in as many words, so the next person to confirm it reads a
+  decision rather than a miss.
+
+
 ## 0.7.1 — 2026-09-10
 
 digline 0.7.1 and digline-mcp 0.1.1: a security pass, and nothing else. Four

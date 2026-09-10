@@ -135,6 +135,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "worth reading rather than the run's green",
         "0.7.0": "'six of eight legs installed 0.7.0 and passed' — the run that "
         "showed why the index check needs exact pins",
+        "0.7.1": "the release that added the pypi-side index check and taught "
+        "this file the two expected reds — five sentences about what happened "
+        "on that release morning, timings and all. History, and the reason the "
+        "'After the tag' section exists",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "

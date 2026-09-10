@@ -95,6 +95,31 @@ class FileResultStore:
     def __init__(self, project_root: Path | str) -> None:
         self.root = Path(project_root).resolve() / STORE_DIRNAME
 
+    def _inside(self, path: Path, kind: str) -> Path:
+        """The file a checked name led to, verified to be inside the store.
+
+        `_check_name` proves a *name* is one safe segment. It cannot prove
+        where that name leads, and until 0.7.2 nothing did: a symlink placed
+        inside `.digline/` under a perfectly legal key —
+        `planted-key.json -> ../../../../outside/evil.json` — passed every
+        check, and `digline view`, `digline compare` and the MCP `get_run` all
+        read it and rendered what came back.
+
+        Both sides are resolved, so a `.digline` that is *itself* a symlink —
+        a store kept on another volume — stays legitimate: what is refused is
+        leaving the store, not reaching it by a link.
+        """
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root.resolve()):
+            raise ValueError(
+                f"the {kind} at {path.name} resolves to {resolved}, which is "
+                f"outside {self.root}. A name that passes the segment check can "
+                "still be a link out of the store, so the file it reaches is "
+                "checked too — the run documents digline reads are the ones it "
+                "wrote, inside the perimeter that owns them."
+            )
+        return resolved
+
     def tenant_dir(self, tenant: str) -> Path:
         return self.root / _check_name(tenant, "tenant")
 
@@ -182,8 +207,11 @@ class FileResultStore:
         unreadable: list[str] = []
         for path in sorted(directory.glob("*.json")):
             try:
-                raw = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+                # The same rule as `read_run`, and here it decides whether a
+                # file is *opened* at all: a linked-out run is counted
+                # unreadable rather than parsed.
+                raw = json.loads(self._inside(path, "run").read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError):
                 unreadable.append(path.name)
                 continue
             if not isinstance(raw, dict):
@@ -216,6 +244,7 @@ class FileResultStore:
         path = self.run_path(ref)
         if not path.exists():
             raise FileNotFoundError(f"run not found: {path}")
+        path = self._inside(path, "run")
         run = run_from_json(path.read_text(encoding="utf-8"))
         if run.tenant != ref.tenant:
             raise TenantMismatchError(
@@ -228,6 +257,7 @@ class FileResultStore:
         path = self.baseline_path(tenant, suite)
         if not path.exists():
             return None
+        path = self._inside(path, "baseline")
         run = run_from_json(path.read_text(encoding="utf-8"))
         if run.tenant != tenant:
             raise TenantMismatchError(
