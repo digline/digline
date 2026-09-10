@@ -9,6 +9,117 @@ notes under them are this file, verbatim.
 ## Unreleased
 
 
+## 0.9.0 — 2026-09-10
+
+**The adoption release.** digline 0.9.0 and **`pytest-digline` 0.1.0**, which
+is new. The three provider plugins stay at 0.4.0 and `digline-mcp` at 0.1.1:
+nothing in them changed and their floors already admit this.
+`SCHEMA_VERSION` stays 9 and `OUTPUT_VERSION` stays 1 — no stored document
+moves, no `--json` shape moves, and **no baseline needs re-promoting.**
+
+```sh
+uv add --upgrade digline
+uv add --dev pytest-digline        # 0.1.0, new
+```
+
+Two front ends, and neither of them is a new way to decide anything. The engine,
+the assertions, the comparison and the exit codes are unchanged; what this
+release adds is two more places to meet them — the test report a Python team
+already reads, and the pull request a reviewer is already looking at.
+
+### `pytest-digline` — the comparison as rows in pytest
+
+A pytest plugin that gates on the baseline committed in your repository, one row
+per **check**:
+
+```sh
+pytest --digline-suite eval/suite.py
+```
+
+```
+eval/suite.py::how-do-i-return::llm_rubric     FAILED
+eval/suite.py::beta::contains                  PASSED
+eval/suite.py::refund-status                   SKIPPED (the refund API is down, ticket 412)
+```
+
+- **One item per check** — one assertion on one case — because that is digline's
+  own unit of verdict. A row per *case* would fold several verdicts together
+  under a rule invented in a front end, and would have to choose which of a
+  simultaneous regression and error to show.
+- **Four states, and the fourth is the news.** Fine is a pass, worse is a
+  `FAILED`, could-not-be-judged is an `ERROR` — pytest's error state, because
+  an error is neither green nor a regression — and **a suspended case is a
+  `SKIPPED` carrying the reason the suite declared.** That last one is a state
+  the exit code cannot express: a suspension never fails, so on the CLI route it
+  disappears into `0` and nothing in the number says the run was smaller than
+  the suite.
+- **It compares and does not run**, by default and by construction: two
+  documents read off disk and a pure function, no provider call at all. pytest
+  is a command people run on a keystroke. `--digline-run` opts into producing a
+  run first, prints the planned call count before the first call, and **refuses
+  under `--collect-only`** — a command whose job is to list test names must
+  never be able to spend a hundred model calls.
+- **There is no promote surface.** Not refused — *absent*, the way it is absent
+  from `digline-mcp`, and a test in the package sweeps its own sources for the
+  name so it stays that way. A green test run is the likeliest place in this
+  product for a baseline to be promoted by accident.
+- **It is inert until you name a suite**: no rows, no header, no output.
+  Installing it changes nothing about a repository that has not asked for it.
+
+**What pytest cannot carry, said out loud:** the process exit code. `digline
+compare` exits `1` for a regression and `2` for a run it could not judge; a
+pytest run exits `1` for either. The distinction survives in the report — `F`
+and `E` are counted apart, `-rE` lists the errored rows, `--junit-xml` keeps
+them separate — and a job that needs `1` versus `2` runs `digline compare`.
+
+The reasoning is [ADR 0013](docs/adr/0013-the-pytest-plugin.md); the page is
+[`docs/pytest.md`](docs/pytest.md).
+
+### `digline/digline-action` — the gate on the pull request
+
+A GitHub Action, in its own repository because the Marketplace requires one.
+**Composite over the official image**, so the action's version and
+`ghcr.io/digline/digline` are released together:
+
+```yaml
+- uses: digline/digline-action@v1
+  with:
+    suite: eval/suite.py
+```
+
+- It comments the comparison on the pull request as **`digline compare`'s own
+  output, verbatim, in a fence** — not reassembled into a table, because the
+  sentence a reviewer reads has to be the sentence the HTML report shows and the
+  sentence the CLI prints.
+- It **exits with digline's code**, unchanged: `0`, `1`, `2` reach
+  `steps.<id>.outputs.exit-code`, so a later step can still tell a regression
+  from a run nobody could judge.
+- `image:` is an input, which is the point of the composite form. The official
+  image contains the CLI and the three plugins and nothing else — no dynamic
+  installs, ever — but `digline compare` loads your suite and your suite imports
+  your application, so a suite with dependencies of its own derives the image
+  and points the action at it. A docker action's image is a static string and
+  could not have offered that.
+- It comments on `1` and `2` always; `comment-on-success` is off by default,
+  because a comment on every green pull request is what teaches a reviewer to
+  scroll past them.
+
+### Also in this release
+
+- **`check_line` is public in `digline.report`.** The per-check sentence — *"dropped
+  from 0.910000 to 0.640000, below its threshold of 0.700000, and beyond the
+  0.880000–0.950000 this check measured across 5 samples"* — already filled the
+  report's "what happened" column and `compare`'s summary lines; it was private,
+  and `summary_lines` only ever emitted the whole list. Now a third front end
+  can print the report's own line instead of composing a fourth rendering of one
+  comparison. `summary_lines` is expressed over it, so they cannot drift.
+- **digline's PyPI page gains its links.** The `[project.urls]` block — homepage,
+  documentation, changelog, repository, issues — was added after 0.8.1 was
+  already uploaded, and a package's metadata only reaches the index with an
+  upload. This is that upload. The four plugin pages got theirs the same way and
+  will show them on their next release.
+
+
 ## 0.8.1 — 2026-09-10
 
 digline 0.8.1. One security fix, **found by the release delta-pass over 0.8.0's

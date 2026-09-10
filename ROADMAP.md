@@ -137,6 +137,30 @@ reader can see rather than from a residue nobody can.
       errors already model — so `artifacts = [3]` in a data suite stops loading
       quietly as the path `3`. Found while writing a fixture for ADR 0011's
       boundary gate
+- [x] **`pytest-digline`** (ADR 0013) — shipped in 0.9.0, and its own 0.1.0. The
+      comparison as rows in pytest's own report, **one per check** rather than
+      one per case, because the check is digline's unit of verdict and a case
+      can hold a regression and an error at once. It brought a state the exit
+      code cannot express: a suspended case is a `SKIPPED` carrying its reason,
+      where on the CLI route a suspension never fails and so disappears into
+      `0`. It **compares without running** by default — a gate people invoke on
+      a keystroke must not spend — and `--digline-run` refuses under
+      `--collect-only`. `promote` is **absent by construction**, as it is from
+      the MCP server, with an AST sweep over the package's own sources holding
+      it: a green test run is the likeliest place for a baseline to be promoted
+      by accident. It is inert until a suite is named, which is what lets it be
+      installed in this repository's own environment without becoming a
+      variable in the gates that judge it
+- [x] **A GitHub Action**, `digline/digline-action` — the gate on the pull
+      request, in its own repository because the Marketplace requires one.
+      Composite over `ghcr.io/digline/digline` so the action's version and the
+      image are released together, and so `image:` can be an **input**: the
+      official image installs nothing at runtime, but `compare` loads the suite
+      and a suite imports the application, so a suite with dependencies of its
+      own derives the image and points the action at it. A docker action's image
+      is a static string and could not have offered that. The comment carries
+      `digline compare`'s output verbatim, and the job exits with digline's own
+      code rather than a pass/fail of its own
 - [ ] README pass with fresh eyes: assume the reader arrived five minutes ago
 - [x] An official container image, `ghcr.io/digline/digline`: the CLI and the
       three provider plugins, published by the release workflow on a `v*` tag.

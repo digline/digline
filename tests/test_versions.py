@@ -135,6 +135,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "worth reading rather than the run's green",
         "0.7.0": "'six of eight legs installed 0.7.0 and passed' — the run that "
         "showed why the index check needs exact pins",
+        "0.8.1": "'It shipped as 0.8.1 the same day' — the release the "
+        "delta-pass rule was earned on, told as what happened. The rule is the "
+        "standing one; this number is the morning it came from",
         "0.7.1": "the release that added the pypi-side index check and taught "
         "this file the two expected reds — five sentences about what happened "
         "on that release morning, timings and all. History, and the reason the "
@@ -250,6 +253,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "one release whose redacted documents this refusal actually rejects, "
         "named in the message's own comment so the next reader knows which "
         "files are meant. History from the moment 0.8.1 shipped",
+        "0.8.1": "'is withheld from 0.8.1' — the release the withholding began "
+        "in, which is what tells a reader which stored documents the refusal "
+        "above is about. The same sentence as the entry beside it, from the "
+        "other end: one names the release that leaked, one the release that "
+        "stopped",
     },
 }
 
