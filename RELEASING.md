@@ -287,7 +287,7 @@ On 0.7.1 the failing build ran at 06:25:07 and the upload landed at 06:27:21.
 **Do not chase it, and do not re-tag for it** — check that the follow-on run is
 green instead.
 
-**The eight example legs need a dispatch after the lock regen.** Two things
+**The nine example legs need a dispatch after the lock regen.** Two things
 combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
 != 'pull_request'`, so pushing the lock commit does not run it; and the
 `workflow_run` run that follows the tag checks out **the tag's commit**, which by
@@ -298,10 +298,13 @@ and that is not a failure. Run it by hand against `main` once the locks are in:
 gh workflow run ci.yml --ref main
 ```
 
-Four examples carry a `uv.lock` pinning the exact version — `classifier`,
-`langchain`, `prompt-first`, `rag` — and the other four resolve at install time.
-Regenerate the four with `uv lock --upgrade-package digline` in each, commit, then
-dispatch. *(Worth trying next release: regenerate the locks **before** the tag.
+Five examples carry a `uv.lock` pinning the exact version — `classifier`,
+`langchain`, `llamaindex`, `prompt-first`, `rag` — and the other four resolve at
+install time. Regenerate the five with `uv lock --upgrade-package digline` in
+each, commit, then dispatch. Three of them — `langchain`, `llamaindex`,
+`prompt-first` — pin `digline-anthropic` as well, so the release that moves a
+plugin needs `--upgrade-package digline-anthropic` beside it or those locks come
+back naming a plugin version that is no longer current. *(Worth trying next release: regenerate the locks **before** the tag.
 They cannot resolve a version PyPI does not have yet, so it probably has to stay
 a post-tag commit — but if a lock can be written against the version about to
 ship, the dispatch stops being necessary.)*
