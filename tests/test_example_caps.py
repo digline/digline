@@ -90,6 +90,7 @@ STANDALONE = (
     "external-app",
     "langchain4j",
     "langchain",
+    "llamaindex",
     "quickstart-toml",
     "operator",
 )

@@ -1,0 +1,287 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "prompts/qa_template.txt": {
+      "sha": "1f0c1cb29871fbc180cf4e39521f643da5638a595571baf925aed387ee12eba0",
+      "text": "You are the help desk of a city bike hire scheme. Answer the rider's question\nusing only the passage below. If the passage does not answer it, say so rather\nthan filling the gap.\n\nTwo sentences at most. State no price, period or rule the passage does not\ncontain. End with a line naming the page you answered from, exactly:\n\nSource: <the source given below>\n\nPassage:\n---------------------\n{context_str}\n---------------------\nQuestion: {query_str}\nAnswer:\n"
+    }
+  },
+  "config_hash": "382ac1c801b55316",
+  "created_at": "2026-09-10T08:57:03.665530+00:00",
+  "environment": "staging",
+  "git_commit": "027438b532ca2ba4a8483a5d12804e8b43ab48e6-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "how-long-is-included",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "cites_a_page",
+          "assertion_id": "773e0062696a2629",
+          "metadata": {},
+          "reason": "pattern /\\nSource: (?:handbook/docking|handbook/faults|handbook/hire|handbook/membership)$/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "does_not_echo_the_prompt",
+          "assertion_id": "f8035ca9f7179e65",
+          "metadata": {},
+          "reason": "'Question:' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "says_something",
+          "assertion_id": "77b55245e304a875",
+          "metadata": {
+            "length": 163,
+            "minimum": 60,
+            "unit": "characters"
+          },
+          "reason": "163 characters, within bounds (at least 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 2,
+            "claims_total": 2
+          },
+          "reason": "2 of 2 claims appear in the page",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "brake-failed-mid-ride",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "cites_a_page",
+          "assertion_id": "773e0062696a2629",
+          "metadata": {},
+          "reason": "pattern /\\nSource: (?:handbook/docking|handbook/faults|handbook/hire|handbook/membership)$/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "does_not_echo_the_prompt",
+          "assertion_id": "f8035ca9f7179e65",
+          "metadata": {},
+          "reason": "'Question:' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "says_something",
+          "assertion_id": "77b55245e304a875",
+          "metadata": {
+            "length": 196,
+            "minimum": 60,
+            "unit": "characters"
+          },
+          "reason": "196 characters, within bounds (at least 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 2,
+            "claims_total": 2
+          },
+          "reason": "2 of 2 claims appear in the page",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "every-point-was-taken",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "cites_a_page",
+          "assertion_id": "773e0062696a2629",
+          "metadata": {},
+          "reason": "pattern /\\nSource: (?:handbook/docking|handbook/faults|handbook/hire|handbook/membership)$/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "does_not_echo_the_prompt",
+          "assertion_id": "f8035ca9f7179e65",
+          "metadata": {},
+          "reason": "'Question:' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "says_something",
+          "assertion_id": "77b55245e304a875",
+          "metadata": {
+            "length": 194,
+            "minimum": 60,
+            "unit": "characters"
+          },
+          "reason": "194 characters, within bounds (at least 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 2,
+            "claims_total": 2
+          },
+          "reason": "2 of 2 claims appear in the page",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "cancel-the-annual-pass",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "cites_a_page",
+          "assertion_id": "773e0062696a2629",
+          "metadata": {},
+          "reason": "pattern /\\nSource: (?:handbook/docking|handbook/faults|handbook/hire|handbook/membership)$/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "does_not_echo_the_prompt",
+          "assertion_id": "f8035ca9f7179e65",
+          "metadata": {},
+          "reason": "'Question:' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "says_something",
+          "assertion_id": "77b55245e304a875",
+          "metadata": {
+            "length": 197,
+            "minimum": 60,
+            "unit": "characters"
+          },
+          "reason": "197 characters, within bounds (at least 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 2,
+            "claims_total": 2
+          },
+          "reason": "2 of 2 claims appear in the page",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "case_id": "past-twenty-four-hours",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "cites_a_page",
+          "assertion_id": "773e0062696a2629",
+          "metadata": {},
+          "reason": "pattern /\\nSource: (?:handbook/docking|handbook/faults|handbook/hire|handbook/membership)$/ matched",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "does_not_echo_the_prompt",
+          "assertion_id": "f8035ca9f7179e65",
+          "metadata": {},
+          "reason": "'Question:' absent from the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "says_something",
+          "assertion_id": "77b55245e304a875",
+          "metadata": {
+            "length": 163,
+            "minimum": 60,
+            "unit": "characters"
+          },
+          "reason": "163 characters, within bounds (at least 60)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "faithfulness",
+          "assertion_id": "50e57c1831bfeaed",
+          "metadata": {
+            "claims_supported": 2,
+            "claims_total": 2
+          },
+          "reason": "2 of 2 claims appear in the page",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 0.8,
+          "tolerance": 0.1
+        }
+      ]
+    }
+  ],
+  "schema_version": 9,
+  "suite": "hire",
+  "target_config": {},
+  "tenant": "kestrel"
+}

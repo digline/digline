@@ -174,6 +174,7 @@ STANDALONE = (
     "external-app",
     "langchain4j",
     "langchain",
+    "llamaindex",
     "quickstart-toml",
     "operator",
 )
@@ -428,6 +429,75 @@ def test_the_langchain_example_states_the_version_it_was_tested_against() -> Non
         f"the README does not say it was tested against langchain "
         f"{floor.group(1)}, which is what pyproject.toml resolves"
     )
+
+
+LLAMAINDEX = ROOT / "examples" / "llamaindex"
+
+
+def test_the_llamaindex_example_runs_with_no_key_anywhere(tmp_path: Path) -> None:
+    """The same promise as the LangChain example, and the same way it rots: a
+    provider key happens to be exported on the machine where it was last tried,
+    the default path silently reaches a real model, and the failure surfaces on
+    a stranger's laptop.
+
+    Worth its own test rather than a parametrization, because this example fakes
+    two things and not one — the model *and* the embedding. An embedding that
+    quietly reached a real endpoint would be the subtler of the two escapes.
+    """
+    workdir = tmp_path / "llamaindex"
+    shutil.copytree(LLAMAINDEX, workdir)
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.endswith("_API_KEY") and k != "DIGLINE_LIVE"
+    }
+    ran = cli(workdir, "run", "--suite", "suite.py", env=env)
+    assert ran.returncode == EXIT_OK, ran.stderr
+    assert ran.stdout.strip()
+
+
+def test_the_llamaindex_example_states_the_version_it_was_tested_against() -> None:
+    """The LangChain lesson, applied from day one: a reader reproduces a run
+    from the version in the README, so it has to be the version the project
+    actually resolves. LlamaIndex moves faster than most, which is why the floor
+    is written down and gated rather than remembered."""
+    floor = re.search(
+        r'"llama-index-core>=([\d.]+),<[\d.]+"',
+        (LLAMAINDEX / "pyproject.toml").read_text(encoding="utf-8"),
+    )
+    assert floor is not None, (
+        "examples/llamaindex no longer pins a llama-index-core floor"
+    )
+    readme = (LLAMAINDEX / "README.md").read_text(encoding="utf-8")
+    assert f"llama-index-core {floor.group(1)}" in readme, (
+        f"the README does not say it was tested against llama-index-core "
+        f"{floor.group(1)}, which is what pyproject.toml resolves"
+    )
+
+
+def test_the_llamaindex_example_depends_on_the_core_not_the_meta_package() -> None:
+    """`llama-index` pulls the OpenAI LLM and embedding bindings and the reader
+    collection. None of them is called here, and one of them would make the
+    default path ask for a key — which is the promise the test above defends
+    from the other side. The minimal set was measured, not assumed."""
+    dependencies = (LLAMAINDEX / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"llama-index-core>=' in dependencies
+    assert '"llama-index>=' not in dependencies, (
+        "the meta-package brings bindings this example does not call, one of "
+        "which reaches a provider on import"
+    )
+
+
+def test_the_llamaindex_cases_declare_a_page_that_exists() -> None:
+    """Retrieval runs live here, so a case's context is the page that *ought*
+    to answer it rather than the one that did. A `source` naming no file would
+    make `faithfulness` grade against nothing — which is an error, not a pass,
+    but the reason would point at the wrong thing."""
+    pages = {f"handbook/{path.stem}" for path in (LLAMAINDEX / "handbook").glob("*.md")}
+    assert pages, "examples/llamaindex has no handbook to retrieve from"
+    cases = json.loads((LLAMAINDEX / "cases.json").read_text(encoding="utf-8"))
+    declared = {str(case["source"]) for case in cases}
+    assert declared <= pages, f"cases name pages that do not exist: {declared - pages}"
 
 
 def test_the_langchain_suite_declares_both_prompt_files() -> None:

@@ -1,0 +1,47 @@
+[project]
+name = "kestrel-hire-eval"
+version = "0.1.0"
+description = "Evaluating a LlamaIndex query engine in process, with digline."
+requires-python = ">=3.12"
+dependencies = [
+    # The published package, nothing local. This directory is meant to become
+    # its own repository: `cp -r` it anywhere and `uv sync` has to work.
+    "digline>=0.7,<0.8",
+    # The judge behind `faithfulness` on the live path. A plugin is a target
+    # *and* a judge (ADR 0004), so the SDK-and-JSON never enters `suite.py`.
+    "digline-anthropic>=0.3,<0.4",
+    # `llama-index-core`, not the `llama-index` meta-package: a query engine
+    # over local files needs the core and nothing else. The meta-package pulls
+    # the OpenAI LLM and embedding bindings and the reader collection, none of
+    # which this example calls — and one of which would make the default path
+    # ask for a key.
+    #
+    # A floor, not a pin: 0.14.24 is the version this was written and tested
+    # against, and the ceiling is the minor, because 0.x minors are where this
+    # project moves. The weekly run in `check.yml` is what tells you a patch
+    # moved under the engine — which is the question this example exists to
+    # answer, so pinning it exactly would be pinning the thing under test.
+    "llama-index-core>=0.14.24,<0.15",
+    # Only reached with DIGLINE_LIVE=1, and installed anyway so that switching
+    # paths is one environment variable rather than one variable and an
+    # install. It adds the `anthropic` SDK and nothing else.
+    "llama-index-llms-anthropic>=0.12,<0.13",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.uv]
+# An application, not a library: there is nothing here to build a wheel from.
+package = false
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["."]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"
