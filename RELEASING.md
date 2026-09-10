@@ -128,6 +128,21 @@ failure, not a runner quirk.
 |---|---|
 | `v0.1.3` | a **workspace** release, led by the core |
 | `digline-bedrock-v0.1.0` | a **single package**, on its own version line |
+| `pytest-digline-v0.1.1` | the same shape — the package need not be named `digline-*` |
+
+The named shape is **`<package>-v<version>`**, and the workflow's trigger has to
+say so. It used to say `digline-*-v*`, which was true for as long as every
+package was called `digline-something`. `pytest-digline` inverts the prefix —
+that is the convention a pytest plugin is discovered by — so its first tag,
+pushed on 2026-09-10, matched **neither** pattern and `publish.yml` never ran.
+A release that silently does nothing is worse than one that fails: there is no
+red to look at, no job to open, and the first sign is a package that never
+appears on the index. Nothing was spent; the pattern became `*-v[0-9]*` and the
+tag was deleted and re-pushed.
+
+**Check the run started.** After pushing any tag, confirm `publish` is actually
+queued before walking away — `gh run list --limit 3`. It is the one failure in
+this file that produces no signal of its own.
 
 Version numbers are per package and they collide: `digline-bedrock` at 0.1.0 has
 no `v0.1.0` left to take, because that tag released the core in its own first
@@ -140,6 +155,7 @@ Tags are annotated, with the released versions as the subject:
 ```sh
 git tag -a v0.1.3 -m "digline 0.1.3, digline-anthropic 0.1.1, digline-openai 0.1.0"
 git tag -a digline-bedrock-v0.1.0 -m "digline-bedrock 0.1.0"
+git tag -a pytest-digline-v0.1.1 -m "pytest-digline 0.1.1"
 git push origin <tag>
 ```
 
