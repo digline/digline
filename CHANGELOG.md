@@ -1,7 +1,10 @@
 # Changelog
 
-What changed for you, three lines a version. The reasoning lives in
-[`docs/adr/`](docs/adr/); this says what to expect.
+Each release tells its story here — what changed, what it means for a reader
+upgrading, and what deliberately did not move. The reasoning lives in
+[`docs/adr/`](docs/adr/); this says what to expect. For the one-line version,
+read the [release titles](https://github.com/digline/digline/releases) — the
+notes under them are this file, verbatim.
 
 ## Unreleased
 

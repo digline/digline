@@ -119,22 +119,21 @@ jobs:
 
       - name: Install from the index and run the quickstart
         run: |
+          # The roster is `dist/`, not a list somebody has to remember to
+          # edit. Unversioned here: TestPyPI resolves against a different set
+          # of uploads, so a pin would fail for a reason that says nothing
+          # about this release.
+          python .github/dist_manifest.py /tmp/manifest
           python -m venv /tmp/from-index
           for attempt in 1 2 3 4 5; do
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              digline digline-anthropic digline-openai digline-bedrock \
-              digline-mcp && break
+              -r /tmp/manifest/names.txt && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
-          # digline_mcp is not a provider plugin, but it is published from
-          # this workspace and this is the only step that proves an installed
-          # wheel imports at all.
-          /tmp/from-index/bin/python -c \
-            "import digline_anthropic, digline_openai, digline_bedrock; \
-             import digline_mcp; print('plugins and mcp ok')"
+          .github/verify_imports.sh /tmp/from-index/bin/python /tmp/manifest
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
@@ -189,50 +188,25 @@ jobs:
         #   0.7.0 and went green. `select_unpublished.py` copies rather than
         #   moves, so `dist/` is still whole here.
         run: |
-          python - <<'PY' > /tmp/pins.txt
-          import glob
-          import pathlib
-
-          # Same parse as `select_unpublished.py`: a wheel is
-          # `name-version-...`, and the name is normalised back from the
-          # underscores the build wrote.
-          seen = {}
-          for path in sorted(glob.glob("dist/*.whl")):
-              name, version = pathlib.Path(path).name.split("-")[:2]
-              seen[name.replace("_", "-").lower()] = version
-          print("\n".join(f"{n}=={v}" for n, v in sorted(seen.items())))
-          PY
-          echo "the index must serve:"; cat /tmp/pins.txt
-          # `pip install -r` on an empty file succeeds, so without this the
-          # whole step would pass having verified nothing — a vacuously green
-          # check, which is the one thing this repository refuses outright
-          # (fixed decision 3). Empty here means the glob found no wheel, which
-          # means `dist/` is not what this job thinks it is.
-          # `-s` is not enough: an empty join still writes a newline, so the
-          # file is one byte and reads as non-empty. Look for a requirement.
-          if ! grep -q '==' /tmp/pins.txt; then
-            echo "::error title=No wheels to verify::dist/*.whl matched nothing, so there is no version to hold the index to. This step cannot pass by finding nothing."
-            exit 1
-          fi
+          # Same roster as the TestPyPI step, and the same script refuses to
+          # write one from an empty `dist/` — a check that can pass by finding
+          # nothing is the vacuously green assertion decision 3 refuses.
+          python .github/dist_manifest.py /tmp/manifest
+          echo "the index must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in $(seq 1 10); do
             # A requirements file rather than a word-split variable: the pins
             # are one per line, so nothing here depends on how the shell
             # splits, and `-r` is what pip documents for a list this shape.
-            /tmp/from-index/bin/pip install --quiet --no-cache-dir -r /tmp/pins.txt && break
+            /tmp/from-index/bin/pip install --quiet --no-cache-dir -r /tmp/manifest/pins.txt && break
             if [ "$attempt" = 10 ]; then
-              echo "::error title=PyPI does not serve what this tag uploaded::$(tr '\n' ' ' < /tmp/pins.txt)— still unresolvable after ten tries over two and a half minutes. The upload itself succeeded, so this does NOT need a re-tag: re-run this job. If it fails again the index and the upload disagree, and that is worth reading before the next release. See RELEASING.md, 'What CI proves about each index'."
+              echo "::error title=PyPI does not serve what this tag uploaded::$(tr '\n' ' ' < /tmp/manifest/pins.txt)— still unresolvable after ten tries over two and a half minutes. The upload itself succeeded, so this does NOT need a re-tag: re-run this job. If it fails again the index and the upload disagree, and that is worth reading before the next release. See RELEASING.md, 'What CI proves about each index'."
               exit 1
             fi
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
-          # digline_mcp is not a provider plugin, but it is published from
-          # this workspace and this is the only step that proves an installed
-          # wheel imports at all.
-          /tmp/from-index/bin/python -c \
-            "import digline_anthropic, digline_openai, digline_bedrock; \
-             import digline_mcp; print('plugins and mcp ok')"
+          .github/verify_imports.sh /tmp/from-index/bin/python /tmp/manifest
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py

@@ -174,20 +174,29 @@ before that tag, in this order:
 1. pending publisher on **TestPyPI**, for `digline-mcp`;
 2. pending publisher on **PyPI**, for `digline-mcp`;
 3. the **two hardcoded lists** in `publish.yml` updated. Discovery, `uv build
-   --all-packages`, `select_unpublished.py` and both upload steps are
-   glob-driven and pick a new package up on their own — the wiring that is
-   *not* automatic is the post-publish check that installs from the index:
-   `pip install …` line and the `import …` line beside it. A package missing
-   from those two lines is published and never verified, which is the failure
-   that looks like success;
+   --all-packages`, `select_unpublished.py` and both upload steps were
+   glob-driven and picked a new package up on their own — the wiring that was
+   *not* automatic was the post-publish check that installs from the index:
+   the `pip install …` line and the `import …` line beside it. A package
+   missing from those two lines was published and never verified, which is the
+   failure that looks like success;
 4. only then the tag.
 
 The order matters and the first three are not reversible by a re-run: a spent
 version number stays spent.
 
-Read the four as the standing procedure, not as a record: the next package to
-be published from this workspace needs all of it again, and only step 3 leaves
-a trace in the repository that anyone would notice was missing.
+**Step 3 no longer exists, since 0.7.2.** `.github/dist_manifest.py` reads the
+roster out of `dist/` — the wheels this tag just built — and writes the three
+shapes the verification steps need: exact pins for the real index, unversioned
+names for TestPyPI, and module names for the import check, which
+`.github/verify_imports.sh` then imports one at a time. There is no list to
+edit, so there is no list to forget. Both scripts refuse to run on an empty
+roster rather than pass having checked nothing.
+
+So the standing procedure for the next new package is **the two pending
+publishers, then the tag**. Those are still settings in an account and still
+not reversible by a re-run, and they remain the part of this section that no
+amount of scripting can check for you.
 
 ## The one secret
 
