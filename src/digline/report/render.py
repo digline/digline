@@ -43,6 +43,7 @@ __all__ = [
     "Headline",
     "RunTally",
     "Section",
+    "check_line",
     "config_changes",
     "config_lines",
     "errored_verdicts",
@@ -496,8 +497,26 @@ def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> 
     return phrase(locale, f"fact.{key}.unchanged")
 
 
-def _detail(delta: AssertionDelta, locale: Locale, *, coincides: str = "") -> str:
-    """Compose the explanation from the structured facts.
+def check_line(delta: AssertionDelta, *, locale: Locale, coincides: str = "") -> str:
+    """What happened to one check, in one sentence, for a reader.
+
+    Public rather than new: this is the sentence that already filled the
+    report's "what happened" column and `compare`'s summary lines, given a name
+    so that a third front end can ask for it instead of composing its own. The
+    release it became public in is recorded once, in `test_plugin_floors.py`'s
+    `INTRODUCED`, which is where a floor is computed from — a second copy here
+    would be a version claim nothing gates.
+
+    `pytest-digline` prints it on a failing row (ADR 0013 §6), and the
+    alternative — a plugin building the sentence out of
+    `delta.current.score`, `delta.threshold` and the interval — would be a
+    fourth prose rendering of one comparison with nothing binding it to the
+    other three.
+
+    `locale` is keyword-only and mandatory, like every entry point of this
+    package: a document string has a recipient who did not choose English.
+
+    Compose the explanation from the structured facts.
 
     `coincides` is the sentence ADR 0005 exists for: where a drop and a
     configuration change land in the same comparison, the report says so beside
@@ -658,7 +677,7 @@ def summary_lines(
 ) -> Sequence[str]:
     """One line per regression and per unjudged check: what to fix, in order.
 
-    The third field is produced by the **same** `_detail()` that fills the
+    The third field is produced by the **same** `check_line()` that fills the
     report's "what happened" column, so a terminal and a document can never
     describe one delta in two ways. That is the same reason `Headline.sentence`
     exists: two renderings of one fact drift apart the moment they have two
@@ -688,7 +707,7 @@ def summary_lines(
                 # than opening the line with an empty field.
                 d.case_id if d.scope == "case" else phrase(locale, "scope.run"),
                 d.assertion,
-                _detail(d, locale, coincides=coincides),
+                check_line(d, locale=locale, coincides=coincides),
             )
         )
         for d in shown
@@ -776,7 +795,7 @@ def _row(
         "<tr>"
         f"<td><code>{escape(delta.case_id)}</code></td>"
         f"<td><code>{escape(delta.assertion)}</code></td>"
-        f"<td>{escape(_detail(delta, locale, coincides=coincides))}</td>"
+        f"<td>{escape(check_line(delta, locale=locale, coincides=coincides))}</td>"
         f"<td>{escape(reason)}</td>"
         "</tr>"
     )
