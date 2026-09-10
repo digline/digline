@@ -1,8 +1,8 @@
 # Releasing
 
 One workflow, `.github/workflows/publish.yml`, fires on a tag. What follows is
-the part that is not in the file, plus the four things that have already gone
-wrong once.
+the part that is not in the file, plus the things that have already gone wrong
+once.
 
 ## Before the tag: the changelog
 
@@ -231,6 +231,87 @@ for the release shape here and the build renders the tree **as the tag left
 it**, then reports success: every edit made since is simply absent, and nothing
 in the run says so. A `v0.4.0` rebuild sent an hour after the release would have
 served the ROADMAP the tag carried, not the one on `main`.
+
+## What CI proves about each index
+
+Both indexes are now checked the same way: upload, then **install what was just
+uploaded and run the quickstart against it**. The two steps are twins on purpose
+— if one grows a check, the other should.
+
+| Job | Index | Proves |
+|---|---|---|
+| `testpypi` | TestPyPI | the wheels are installable and the quickstart runs, *before* anything irreversible |
+| `pypi` | PyPI | the index a user actually installs from serves this tag's versions |
+
+The `pypi` half was missing until **0.7.1**. Every release before it verified
+TestPyPI and took PyPI on trust, which is the wrong way round: TestPyPI is the
+rehearsal and PyPI is the one somebody types. Two details in that step are load-
+bearing and neither is obvious:
+
+- **`--no-cache-dir`.** Minutes after the 0.7.1 upload, a warm pip cache still
+  answered `No matching distribution found for digline==0.7.1` while PyPI's JSON
+  API already served it. The cache is per runner and usually cold, so this is
+  insurance against the day it is not.
+- **Exact pins, read from `dist/`.** Without them a lagging index resolves the
+  *previous* release, every command below succeeds, and the step goes green
+  having proved nothing. That is not hypothetical: on the 0.7.1 release run the
+  examples job did exactly this, and six of eight legs installed 0.7.0 and
+  passed. The step also refuses to run when the glob matches no wheel, because a
+  check that can pass by finding nothing is the vacuously green assertion
+  `CLAUDE.md` decision 3 forbids.
+
+`select_unpublished.py` copies rather than moves, which is what leaves `dist/`
+whole for that step to read.
+
+
+## After the tag: what to watch, and what to ignore
+
+Three of these look like problems and are not, and the fourth is the one check
+worth doing by hand.
+
+**A red `ci` on the release commit is expected.** `docker/Dockerfile` pins
+`digline==<the version being released>`, and the push-triggered `ci` fires
+*before* the `pypi` job has uploaded it. So the image job fails with
+`No matching distribution found`, every time, on the commit the tag points at.
+It self-heals: the `workflow_run` `ci` that follows `publish` rebuilds it green.
+On 0.7.1 the failing build ran at 06:25:07 and the upload landed at 06:27:21.
+**Do not chase it, and do not re-tag for it** — check that the follow-on run is
+green instead.
+
+**The eight example legs need a dispatch after the lock regen.** Two things
+combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
+!= 'pull_request'`, so pushing the lock commit does not run it; and the
+`workflow_run` run that follows the tag checks out **the tag's commit**, which by
+construction predates the lock regen. So that run's legs read the *old* version
+and that is not a failure. Run it by hand against `main` once the locks are in:
+
+```sh
+gh workflow run ci.yml --ref main
+```
+
+Four examples carry a `uv.lock` pinning the exact version — `classifier`,
+`langchain`, `prompt-first`, `rag` — and the other four resolve at install time.
+Regenerate the four with `uv lock --upgrade-package digline` in each, commit, then
+dispatch. *(Worth trying next release: regenerate the locks **before** the tag.
+They cannot resolve a version PyPI does not have yet, so it probably has to stay
+a post-tag commit — but if a lock can be written against the version about to
+ship, the dispatch stops being necessary.)*
+
+**Whether the reviewer gate actually held is not visible in the run's green.**
+A fast approval passes through `waiting` in seconds — on 0.7.1 it was **16** —
+so any poll can miss it entirely, and a gate that fails open looks exactly the
+same from the outside. That matters because it *has* failed open once, on
+v0.5.0. The retrospective record is the one to read:
+
+```sh
+gh api repos/digline/digline/actions/runs/<run-id>/approvals
+```
+
+Expect `state: approved`, the approver's login, and `can_admins_bypass: false`
+on the `pypi` environment. `pending_deployments` only answers while the run is
+still sitting there; `approvals` answers afterwards, which is when you are
+asking.
+
 
 ## Two failures already paid for
 

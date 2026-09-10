@@ -169,6 +169,76 @@ jobs:
           packages-dir: to-publish/
           skip-existing: true
 
+      - name: Install from the index and run the quickstart
+        # The twin of the TestPyPI step above, and the only thing that proves
+        # the **real** index serves what this tag uploaded. It was missing
+        # until 0.7.1: every release before that verified TestPyPI and took
+        # PyPI on trust, so the one index a user actually installs from was the
+        # one nothing checked.
+        #
+        # Two differences from the twin, both paid for on 0.7.1:
+        #
+        # - **`--no-cache-dir`.** A warm pip cache answered "no matching
+        #   distribution" for minutes after the upload, while PyPI's JSON API
+        #   already served the version. The cache is per runner and usually
+        #   cold, so this is cheap insurance against the day it is not.
+        # - **Exact pins, read from `dist/`.** Without them a lagging index
+        #   resolves the *previous* release and every command below succeeds —
+        #   the step passes and has proved nothing. It is the same trap the
+        #   examples job hit that morning, where six of eight legs installed
+        #   0.7.0 and went green. `select_unpublished.py` copies rather than
+        #   moves, so `dist/` is still whole here.
+        run: |
+          python - <<'PY' > /tmp/pins.txt
+          import glob
+          import pathlib
+
+          # Same parse as `select_unpublished.py`: a wheel is
+          # `name-version-...`, and the name is normalised back from the
+          # underscores the build wrote.
+          seen = {}
+          for path in sorted(glob.glob("dist/*.whl")):
+              name, version = pathlib.Path(path).name.split("-")[:2]
+              seen[name.replace("_", "-").lower()] = version
+          print("\n".join(f"{n}=={v}" for n, v in sorted(seen.items())))
+          PY
+          echo "the index must serve:"; cat /tmp/pins.txt
+          # `pip install -r` on an empty file succeeds, so without this the
+          # whole step would pass having verified nothing — a vacuously green
+          # check, which is the one thing this repository refuses outright
+          # (fixed decision 3). Empty here means the glob found no wheel, which
+          # means `dist/` is not what this job thinks it is.
+          # `-s` is not enough: an empty join still writes a newline, so the
+          # file is one byte and reads as non-empty. Look for a requirement.
+          if ! grep -q '==' /tmp/pins.txt; then
+            echo "::error title=No wheels to verify::dist/*.whl matched nothing, so there is no version to hold the index to. This step cannot pass by finding nothing."
+            exit 1
+          fi
+          python -m venv /tmp/from-index
+          for attempt in $(seq 1 10); do
+            # A requirements file rather than a word-split variable: the pins
+            # are one per line, so nothing here depends on how the shell
+            # splits, and `-r` is what pip documents for a list this shape.
+            /tmp/from-index/bin/pip install --quiet --no-cache-dir -r /tmp/pins.txt && break
+            if [ "$attempt" = 10 ]; then
+              echo "::error title=PyPI does not serve what this tag uploaded::$(tr '\n' ' ' < /tmp/pins.txt)— still unresolvable after ten tries over two and a half minutes. The upload itself succeeded, so this does NOT need a re-tag: re-run this job. If it fails again the index and the upload disagree, and that is worth reading before the next release. See RELEASING.md, 'What CI proves about each index'."
+              exit 1
+            fi
+            echo "index not ready yet, retrying in 15s"; sleep 15
+          done
+          /tmp/from-index/bin/digline --help > /dev/null
+          # digline_mcp is not a provider plugin, but it is published from
+          # this workspace and this is the only step that proves an installed
+          # wheel imports at all.
+          /tmp/from-index/bin/python -c \
+            "import digline_anthropic, digline_openai, digline_bedrock; \
+             import digline_mcp; print('plugins and mcp ok')"
+          tar -xzf dist/digline-*.tar.gz -C /tmp
+          cd /tmp/digline-*/examples/quickstart
+          /tmp/from-index/bin/digline run --suite suite.py
+          /tmp/from-index/bin/digline promote --suite suite.py --run latest
+          /tmp/from-index/bin/digline compare --suite suite.py --run latest
+
   site:
     name: Rebuild digline.dev
     needs: pypi

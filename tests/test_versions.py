@@ -59,7 +59,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 #: Three components, not four: `127.0.0.1` is an address and `0.28.1` is a
 #: version, and the lookarounds are what tells them apart.
-VERSION = re.compile(r"(?<![\d.])\d+\.\d+\.\d+(?![\d.])")
+#:
+#: The trailing lookahead is `(?!\.?\d)` and not `(?![\d.])`, which was a hole:
+#: a version that **ends a sentence** was defeated by its own full stop, so
+#: "shipped in 0.5.0." was invisible to the sweep while "shipped in 0.5.0 ." was
+#: not. Three lines were hiding behind it, found while writing the release
+#: notes for 0.7.1. The rule it has to keep is only that a fourth component
+#: disqualifies — `.1` after `127.0.0` — and a dot followed by a non-digit is
+#: punctuation, not a component.
+VERSION = re.compile(r"(?<![\d.])\d+\.\d+\.\d+(?!\.?\d)")
 
 
 def current() -> str:
@@ -109,6 +117,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.2.0": "'v0.2.0 was tagged after a check that ran ruff' — what happened",
         "0.3.0": "'skipping it is what v0.3.0 cost' — the same",
         "0.4.0": "'a v0.4.0 rebuild sent an hour after the release' — the same",
+        "0.5.0": "'it has failed open once, on v0.5.0' — the release the "
+        "reviewer gate did not hold on, which is why the approvals endpoint is "
+        "worth reading rather than the run's green",
+        "0.7.0": "'six of eight legs installed 0.7.0 and passed' — the run that "
+        "showed why the index check needs exact pins",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
@@ -128,6 +141,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "made Track B's exit gate hold, and 'Shipped in 0.7.0' on the item "
         "below it. Both name the release the work landed in; 0.7.1 is a "
         "security patch and closed neither",
+    },
+    "docs/api.md": {
+        "0.6.0": "'These moved in 0.6.0.' — the release that promoted "
+        "`load_suite` and its neighbours out of `digline.cli` into "
+        "`digline.host`, said as history. Hidden from the sweep until the "
+        "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
