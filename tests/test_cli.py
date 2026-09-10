@@ -15,7 +15,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from tests._helpers import SUITE_SOURCE, cli, run_key, write_suite
+from tests._helpers import cli, run_key, suite_source, write_suite
 
 from digline.cli import (
     EXIT_OK,
@@ -564,7 +564,7 @@ def test_a_missing_suite_attribute_names_what_is_missing(repo: Path) -> None:
 
 
 def test_a_missing_target_attribute_names_what_is_missing(repo: Path) -> None:
-    source = SUITE_SOURCE % {"fr": "1.0", "extra": ""}
+    source = suite_source()
     (repo / "no_target.py").write_text(
         source.replace("def target(case):", "def _hidden(case):"), encoding="utf-8"
     )

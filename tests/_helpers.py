@@ -16,7 +16,7 @@ from pathlib import Path
 
 from digline.cli import EXIT_OK
 
-__all__ = ["SUITE_SOURCE", "cli", "git", "run_key", "write_suite"]
+__all__ = ["SUITE_SOURCE", "cli", "git", "run_key", "suite_source", "write_suite"]
 
 SUITE_SOURCE = """\
 from digline.core import Contains, CostBudget, Disclosure, JudgeReply, LlmRubric
@@ -60,17 +60,24 @@ def target(case):
 """
 
 
+def suite_source(*, fr_score: str = "1.0", extra: str = "", preamble: str = "") -> str:
+    """The shared suite as text, with every seam defaulted.
+
+    The one place `SUITE_SOURCE` is interpolated. A test that formatted the
+    template itself had to name every placeholder, so adding one broke it —
+    which is how `preamble` arrived. `extra` adds cases; `preamble` adds
+    statements that run when the module is imported, which is how a test
+    observes how many times a loader executed it.
+    """
+    return SUITE_SOURCE % {"fr": fr_score, "extra": extra, "preamble": preamble}
+
+
 def write_suite(
     root: Path, *, fr_score: str = "1.0", extra: str = "", preamble: str = ""
 ) -> Path:
-    """The shared suite, with two seams.
-
-    `extra` adds cases; `preamble` adds statements that run when the module is
-    imported, which is how a test observes how many times a loader executed it.
-    """
     path = root / "suite_qa.py"
     path.write_text(
-        SUITE_SOURCE % {"fr": fr_score, "extra": extra, "preamble": preamble},
+        suite_source(fr_score=fr_score, extra=extra, preamble=preamble),
         encoding="utf-8",
     )
     return path

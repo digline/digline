@@ -115,6 +115,10 @@ INTRODUCED: dict[str, str] = {
     "resolve_key": "0.6.0",
     "need_baseline": "0.6.0",
     "read_run": "0.6.0",
+    # Older still — the class dates to 0.5.0 and the TOML loader — but it left
+    # `digline.cli` on the same move, so it answers the ImportError question
+    # with the same number as the functions above it.
+    "Loaded": "0.6.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

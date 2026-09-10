@@ -141,7 +141,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
 
     server = MCPServer(
         name="digline",
-        version="0.1.0",
+        version="0.1.1",
         instructions=(
             "Read digline results and measure new ones. There is no tool that "
             "promotes a baseline: a baseline is an approved reference, and the "

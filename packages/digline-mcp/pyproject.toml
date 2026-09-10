@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"

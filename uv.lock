@@ -387,7 +387,7 @@ wheels = [
 
 [[package]]
 name = "digline"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -444,7 +444,7 @@ requires-dist = [
 
 [[package]]
 name = "digline-mcp"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/digline-mcp" }
 dependencies = [
     { name = "digline" },

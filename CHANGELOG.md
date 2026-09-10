@@ -5,6 +5,11 @@ What changed for you, three lines a version. The reasoning lives in
 
 ## Unreleased
 
+Nothing yet.
+
+
+## 0.7.1 — 2026-09-10
+
 digline 0.7.1 and digline-mcp 0.1.1: a security pass, and nothing else. Four
 findings from a review of digline's own surfaces — the tool mishandling what it
 is given, which is what `SECURITY.md` says is in scope. None of them is a

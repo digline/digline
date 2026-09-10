@@ -124,6 +124,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "row — what landed in that release",
         "0.6.0": "'what 0.6.0 shipped: digline.wire and OUTPUT_VERSION', and "
         "'an MCP server shipped in 0.6.0' — two lines about what landed then",
+        "0.7.0": "'0.7.0 closed the last gap underneath it' — which release "
+        "made Track B's exit gate hold, and 'Shipped in 0.7.0' on the item "
+        "below it. Both name the release the work landed in; 0.7.1 is a "
+        "security patch and closed neither",
     },
     "SECURITY.md": {
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
