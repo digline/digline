@@ -5,6 +5,10 @@
 - Amended: 2026-09-01 — §8, HTTP targets. Added rather than a new ADR: it
   changes no decision above it, and reads as a correction to §6's aside about
   `HttpTarget` having no model
+- Amended: 2026-09-10 — §9, the observed identity. Same test as §8: it widens
+  §1 and §6 and overturns nothing. §3 above all is untouched, and that is what
+  makes it an amendment rather than a new ADR — this is the record, never the
+  hash
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -380,6 +384,217 @@ with whatever `Judge` it holds, on this side, and `judge_config` collects it
 unchanged. An application that judges its own output is not a judge digline can
 record, and nothing here pretends otherwise.
 
+### 9. What the provider said answered
+
+*Amendment, 2026-09-10. Widens §1 and §6. §2, §3, §4, §5, §7 and §8 hold, and
+§3 above all: what follows is recorded beside `config_hash` and never inside
+it, so two runs across a model rotation stay comparable and promotable.*
+
+§1 records what the target **sent**. `model="claude-sonnet-5"` is an alias, and
+an alias is a promise about a family, not a name of a system: the provider
+decides which snapshot behind it answers, and rolls that decision on its own
+schedule without anyone touching the suite, the prompt or the parameters.
+
+So the run records `claude-sonnet-5` on Monday and `claude-sonnet-5` on Friday,
+`compare()` reports the configuration as unchanged, and a drop between the two
+sends a reviewer to the prompt. This is §Context's first consequence — *the
+report can say something true that reads as false* — one level down and harder
+to see, because here the sentence is not merely narrow, it is the sentence a
+reader would have written themselves from the same evidence.
+
+**The record admits what the provider observed, beside what the target sent.**
+
+| | |
+|---|---|
+| `resolved_model` | the model id the provider said answered |
+| `fingerprint` | the backend build, where a provider names one |
+
+Two rows added to §1's closed table, and nothing removed from it. They arrive
+through the reply, on the record ADR 0004 §6 widened `_complete` to return;
+they are that amendment's passengers, and this section is where they are
+unloaded.
+
+#### Observed is not sent, and absence means something else
+
+§1's rule is `sent()`: an unset parameter is **absent**, because *"we did not
+send it, the provider's own default applied"* is a different fact from *"we
+sent nothing for it"*, and only absence states the first one honestly.
+
+An observed field is absent for a different reason: **the provider did not
+say.** Both are honest absences and both stay absent — no `None`, no
+placeholder — but they are not the same fact, and one of the two is the whole
+answer for one of the three plugins. `sent()` therefore gains a sibling and not
+a flag, so that a plugin author reading either name knows which category they
+are in.
+
+The third column is the argument for keeping the distinction visible:
+
+| | Anthropic | OpenAI | Bedrock Converse |
+|---|---|---|---|
+| resolved model in the reply | `message.model` | `completion.model` | **nothing** |
+| backend build | — | `system_fingerprint` | **nothing** |
+
+Converse returns `output`, `stopReason`, `usage`, `metrics`,
+`additionalModelResponseFields`, `trace`, `performanceConfig` and
+`serviceTier`. There is no model id anywhere in it: the caller passed a
+`modelId` and the API does not echo one back, resolved or otherwise. So on
+Bedrock — where an **inference profile** is precisely a name that stands for a
+model chosen elsewhere, and where the gap is therefore widest — the record
+degrades to nothing stated, and nothing stated is what it records. **We do not
+fill the gap from the request.** Copying the requested `modelId` into
+`resolved_model` would manufacture the one fact this section exists to obtain,
+and it would manufacture it identically whether or not the profile had moved.
+
+**How strong the signal actually is has to be measured, not assumed.** Whether
+a given API echoes the alias back or resolves it to a snapshot is that API's
+behaviour on the day, and this repository already has the precedent and the
+machinery for finding out: `CACHE_READS_ARE_INSIDE_INPUT_TOKENS` is a constant
+that exists because the cache-token convention was *measured* against the API
+rather than inferred from the field names (friction 25), and it is re-measured
+by a `@pytest.mark.live` test that fails loudly if the answer changes. The two
+first-party plugins that can report an identity carry the same obligation: a
+live test that asserts the reply's model id against the alias that was sent,
+and says which it got. If an API turns out to echo the alias, `resolved_model`
+equals `model`, the delta stays silent, and the record has cost a field and
+told no lie.
+
+#### The perimeter rule, by type — and one field joins `PERIMETER_FIELDS`
+
+§2's test is what the value describes.
+
+**`resolved_model` is a public product name and travels in clear**, exactly as
+`model` does. `claude-sonnet-5-20260115` carries nobody's data; it is a
+measurement of the system, which is what fixed decision 9 lets cross.
+
+**`fingerprint` is withheld under redaction**, and this is the one genuinely
+new ruling here. On the official endpoint it is an opaque backend id and
+harmless. But `base_url` makes one plugin cover every OpenAI-compatible server,
+and on a customer's own vLLM or Ollama the value of `system_fingerprint` is
+whatever *that server* chose to put there — a build path, a container tag, a
+hostname. That is the argument §2 made for `base_url` word for word: it
+describes the client's perimeter rather than the model, and it arrives from
+software nobody here reviews.
+
+So it gets §2's existing treatment and no new mechanism: it joins
+`PERIMETER_FIELDS`, the value is discarded at a boundary, the key is recorded
+as **withheld rather than dropped**, and a comparison across it answers
+`unknown` rather than `same`. No new `Disclosure` member — the prudent default
+of ADR 0003 §4 is the answer here too, and an opt-in nobody has asked for is a
+widening nobody reviewed.
+
+The cost is stated rather than hidden: world 3 loses an opaque string that told
+them little on its own, and world 1 — the developer, who sees everything — keeps
+it. That is the right side to lose it on.
+
+#### Where it lands, and why no version moves
+
+`Run.target_config.values`, beside the sent parameters, in the record and not
+in the hash (§3, unchanged).
+
+**`SCHEMA_VERSION` does not move, and this is by construction rather than by
+luck.** `target_config` is serialised as an open mapping of scalars, so a new
+key inside `values` is the same event as a plugin declaring a `top_p` it did
+not declare before: no field is added to any document, no reader has to learn a
+shape, and `digline migrate` has nothing to do. A baseline promoted before this
+release needs no re-promotion. `OUTPUT_VERSION` does not move either, by its own
+existing rule: `--json` gains keys and a consumer that does not read them is
+unaffected.
+
+The rendering is free for the same reason: `config_deltas` iterates over the
+keys that are there, and `config_changes` prints field, before and after. The
+sentence §5 exists for arrives with no new code —
+
+> The system under test answered under a different configuration:
+> resolved_model claude-sonnet-5-20260115 → claude-sonnet-5-20260301.
+
+— and where a regression coincides with it, §5's *coincides* sentence names it
+next to the regression. That is the whole feature: an alias that rolled under a
+suite nobody edited is now a named delta a reviewer reads instead of a silence
+they cannot see past.
+
+#### One sentence has to change, because it says `sent`
+
+Two of the phrases §5 introduced are written for parameters that are sent:
+
+    config.change.new      {field} {after}, not sent for the reference
+    config.change.missing  {field} {before}, no longer sent
+
+Applied to an observed field they state something false. `resolved_model` was
+never *sent* — not by this run and not by the reference — and a reference
+promoted last month recorded no observed identity at all, so this is not a
+corner case: it is what every first comparison against an existing baseline
+will print.
+
+So the observed fields are a named set in the same file that already holds
+`PERIMETER_FIELDS`, and they get two phrases of their own in both locales —
+*"not reported for the reference"*, *"no longer reported"*. **The existing
+sentences are not reworded.** ADR 0005's own consequences noted the cost of
+changing report text a pipeline may match on; that cost is worth paying to give
+a word back (§5) and is not worth paying to avoid a second table entry.
+
+#### The judge is asked once, and once is too early
+
+§4 records the instrument, and the instrument has the *strongest* version of
+this problem: when a judge's alias rolls, the scale moves under a suite nobody
+edited, and §4's ruling is that a changed instrument makes the scores less
+comparable **regardless of what the target did**. An alias rotation is that
+event with nobody to notice it.
+
+But `execute()` asks `judge_config(suite)` **before the first case**, where a
+target's configuration is asked twice (§8) and a judge's is not. Before the
+first case a judge has observed nothing, so the record would be empty by
+construction.
+
+**So the judge is asked twice too, on §8's pattern and for §8's reason.** Read
+before the first case, so a malformed configuration still fails before the
+suite is paid for, and read again after the last, and the second answer is the
+one recorded. A judge that declares statically gives the same answer both
+times, so nothing about any existing plugin, fake or suite moves.
+
+One limitation, stated because §4 was written against exactly this shape: with
+two judges on one alias whose observations disagree, §4's merge rule drops the
+disagreeing scalar, so the record falls silent on the loudest possible event.
+That is §4's rule applied honestly — *any scalar the judges disagree on is
+absent rather than reconciled* — and the identity list still carries who
+graded. Making a disagreeing observation louder than a silent one is a change
+to §4's merge, and it needs a frictions entry before it needs a rule.
+
+#### Rotation: §8's rule, extended, and split by field
+
+§8 decided this event once already, for the target digline cannot import:
+
+> A plugin is constructed once and answers the same way all run. An endpoint
+> can answer case 1 on one model and case 7 on another, and §6 has no reading
+> under which that is one configuration.
+
+The premise's first half is now wrong. A plugin *is* constructed once, but what
+it observes is not its own — a provider can roll a model between case 1 and
+case N, and the plugin has no more control over that than an `HttpTarget` has
+over the application behind it. **The event §8 governs has arrived on the side
+§8 assumed was safe**, and two rules for one event is one too many.
+
+So §8's rule is extended, and split, because the two new fields are not the
+same kind of fact:
+
+- **`resolved_model` — first wins, and a later disagreement errors its own
+  case.** Word for word §8: the run is still written, the deltas are still
+  there, and the case that broke the premise is visible as an error rather than
+  absorbed. A model that changed under an alias mid-run is the system under
+  test changing mid-measurement, which is the thing §8 refuses to average away,
+  and a suite that wants to compare two systems runs two runs.
+- **`fingerprint` — a later disagreement records nothing.** The field is absent
+  from the run, under the observed-absence rule above: *the provider did not
+  give one answer for this run*. It does **not** error the case. OpenAI
+  documents `system_fingerprint` as changing whenever they change the backend
+  configuration, so erroring on it would paint runs red for an event with no
+  bearing on which model answered — the false red that teaches a team to stop
+  reading the colour.
+
+The asymmetry is not a softening of §8. It is §8's own question asked of each
+field: *does a change here mean a different system was measured?* For a model
+id it does. For a backend build it does not, and claiming it did would be the
+manufactured fact this ADR spends its length refusing.
+
 ## Consequences
 
 - A baseline is now self-contained evidence of the whole experiment: the
@@ -408,7 +623,43 @@ record, and nothing here pretends otherwise.
   English sentence rather than on `--json` has to be updated; the JSON keys did
   not move.
 
+- A baseline records not only which model was asked for but, where the provider
+  says so, which one answered. An alias that rolled under a suite nobody edited
+  becomes a named delta beside the score it coincides with, instead of a
+  silence a reviewer has to already suspect.
+- Nothing is re-promoted, nothing is migrated, and no version number moves. The
+  record was already a record of scalars, so admitting two more is the same
+  event as a plugin declaring a parameter it did not declare before.
+- Bedrock is honest about having nothing to say, and stays that way. The one
+  provider where an inference profile makes the gap widest is the one that
+  cannot close it, and the record says so rather than echoing the request back.
+- `fingerprint` is the second field redaction keeps back, joining `base_url` for
+  the same reason: on a custom endpoint its value is written by software nobody
+  here reviews.
+- The judge's configuration is read after the run as well as before it. No
+  existing plugin, fake or suite behaves differently, and a judge whose alias
+  rolls stops being the one instrument change §4 could not see.
+- `digline-anthropic` and `digline-openai` gain a live test each whose job is to
+  keep this section honest about how strong the signal is. If an API starts
+  echoing the alias, the test says so before a reader has to infer it from a
+  delta that never fires.
+
 ## Not decided here
+
+**Whether a rotated `resolved_model` should also fail the run**, as opposed to
+erroring the cases that observed the second one. It errors today, which is
+§8's answer, and §8's answer is enough until somebody's run says otherwise.
+
+**Recording the observed identity per case rather than per run.** It is the
+shape that would describe a rotation completely — every case says who answered
+it — and it is a `CaseResult` field, which is a `SCHEMA_VERSION` bump and a
+migration for a fact nothing reads yet. The run-level record plus an errored
+case says the same thing in the cases that matter, at no cost to any document.
+
+**A `resolved_model` for `HttpTarget`.** §8's closed key table refuses what it
+does not know, so an application cannot report one until the table says it may.
+Adding it there is a line in `CONTRACT_FIELDS` and a line here, and it should
+wait for an application that has one to report.
 
 **`prefill`.** Anthropic's assistant-prefill is text put in the model's mouth,
 so it is *prompt* — the thing under test rather than a parameter of the system
