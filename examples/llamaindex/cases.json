@@ -1,0 +1,27 @@
+[
+  {
+    "id": "how-long-is-included",
+    "question": "How many minutes of a hire are included in my pass?",
+    "source": "handbook/hire"
+  },
+  {
+    "id": "brake-failed-mid-ride",
+    "question": "A brake failed halfway along. Where should I leave the bike?",
+    "source": "handbook/faults"
+  },
+  {
+    "id": "every-point-was-taken",
+    "question": "I arrived and every point at the dock was taken. What now?",
+    "source": "handbook/docking"
+  },
+  {
+    "id": "cancel-the-annual-pass",
+    "question": "Can I cancel my annual pass and get the money back?",
+    "source": "handbook/membership"
+  },
+  {
+    "id": "past-twenty-four-hours",
+    "question": "What happens if a hire runs past twenty-four hours and the bike is never returned?",
+    "source": "handbook/hire"
+  }
+]

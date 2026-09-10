@@ -8,7 +8,22 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-Nothing yet.
+- **A ninth example: `examples/llamaindex`.** A LlamaIndex query engine — a real
+  `VectorStoreIndex`, retriever, prompt template and `RetrieverQueryEngine` —
+  queried in process, with **retrieval left running** rather than frozen. That
+  is the difference from `examples/rag`, which freezes the passages and measures
+  the generator: here each case declares the page that *ought* to answer it, so
+  `Faithfulness` goes red when an answer is fluent, correctly cited and
+  synthesised from the wrong page.
+
+  Keyless like `examples/langchain`, and for a harder reason. LlamaIndex's own
+  fakes cannot do it: `MockLLM` hands the prompt back verbatim, which would make
+  every grounded-fact check pass on the question rather than the answer, and
+  `MockEmbedding` returns one constant vector for every text, which is not
+  retrieval at all. So the example ships a `CustomLLM` keyed on the retrieved
+  page and a deterministic local embedding, and says plainly in its README what
+  each one does not test. The dependency is `llama-index-core`, not the
+  `llama-index` meta-package — no PyTorch, no model download, no key.
 
 
 ## 0.7.2 — 2026-09-10

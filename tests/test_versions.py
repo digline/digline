@@ -180,6 +180,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_examples.py, which is where a third-party version belongs",
         "1.6.1": "langchain-core, beside it, held by the same test",
     },
+    "examples/llamaindex/README.md": {
+        "0.14.24": "the llama-index-core version the example was run against, "
+        "not a digline one. Pinned to the example's own pyproject.toml by "
+        "tests/test_examples.py, which is where a third-party version belongs",
+    },
     "examples/langchain4j/README.md": {
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
         "kind of floor",
