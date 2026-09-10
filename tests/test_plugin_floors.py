@@ -128,6 +128,20 @@ INTRODUCED: dict[str, str] = {
     "as_completion": "0.8.0",
     "finish_of": "0.8.0",
     "Finish": "0.8.0",
+    # 0.9.0 — the per-delta sentence, promoted out of `render._detail` so a
+    # third front end can print the report's own line instead of composing a
+    # fourth one (ADR 0013 §6).
+    "check_line": "0.9.0",
+    # 0.1.0 — the comparison's own types, and the verdict inside them. Undated
+    # until `pytest-digline` arrived, for the reason the host names were:
+    # nothing outside `src/` imported them. Verified against the history, like
+    # every line here — all three land in `v0.1.0~7`.
+    "AssertionDelta": "0.1.0",
+    "Comparison": "0.1.0",
+    "Verdict": "0.1.0",
+    # 0.2.0 — the named configuration delta a row prints beside a drop
+    # (ADR 0005 §5).
+    "config_changes": "0.2.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true
