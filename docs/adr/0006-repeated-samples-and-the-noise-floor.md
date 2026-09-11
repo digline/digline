@@ -9,8 +9,8 @@
 - Amended: 2026-09-11 — §12 defines agreement over the *judged* samples: an
   errored sample counts against agreement, never for it. The behaviour it
   replaces was never decided by this ADR or any other; it was found while
-  documenting what each `min_agreement` floor can catch. Ships with the next
-  release
+  documenting what each `min_agreement` floor can catch, which §13 now
+  tabulates against the amended definition. Ships with the next release
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -374,6 +374,34 @@ written into the verdict, and migration derives nothing from it. A check that
 passed under an errored majority stays a pass in the run that recorded it. The
 same answers folded today are an `error`, and a comparison against that stored
 run reports exit 2, which is the truth about them.
+
+### 13. What each floor can catch *(amended 2026-09-11)*
+
+A declared floor should be honest about how far it reaches, so a reader chooses
+one knowing what it can and cannot catch. At five samples, under §12:
+
+| `min_agreement` | what it asks | where it binds |
+| --- | --- | --- |
+| `3/5` | any majority of the judged samples | only when an errored sample splits the vote — the floor that protects the mean from resting on too few judged samples |
+| `4/5` | strong consensus | on a genuine 3–2 split |
+| `5/5` | unanimity | on any split, and on any errored sample |
+
+The first row is the one that surprises. A pass/fail vote of five always has a
+side of at least three, so `3/5` never refuses a vote in which every sample was
+judged. It is not decorative, though. Its binding case is real: two pass, two
+fail and one that could not judge is `error` at `3/5`, and before §12 so was
+nothing with three errors in it. The general shape is the same at any `n`: the
+smallest majority (`2/3` at three samples) is met by every fully judged vote,
+and binds only through errors.
+
+The brief fixture sits on the second row. Its canonical case is a 3–2 split,
+which meets `3/5` at its edge and stays a real `fail` for `compare()` to read,
+and which `4/5` would have refused.
+
+No floor is refused at construction for reaching too little, and no verdict is
+annotated with how far its floor could reach. The first would forbid `3/5`,
+whose binding case is real. The second would add a line to every binary run
+that says nothing about that run. The table is where the reach is stated, once.
 
 ## Consequences
 

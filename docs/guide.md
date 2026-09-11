@@ -340,6 +340,23 @@ Note the last sentence of the headline. Sampling is part of the configuration,
 so the old baseline no longer describes the rules in force and has to be
 re-taken. That is trigger one of chapter 8, arriving early.
 
+**Choose the floor knowing what it can catch.** Only a judged verdict counts
+toward agreement. A sample that could not judge counts against it, never for
+it. So at five samples:
+
+| `min_agreement` | what it asks | where it binds |
+| --- | --- | --- |
+| `3/5` | any majority of the judged samples | only when an errored sample splits the vote — the floor that protects the mean from resting on too few judged samples |
+| `4/5` | strong consensus | on a genuine 3–2 split |
+| `5/5` | unanimity | on any split, and on any errored sample |
+
+A vote of five always has a side of at least three, so `3/5` never refuses a
+fully judged vote. That is its reach, not a defect. The same holds for `2/3`
+at three samples, the value above: it is met by every vote in which all three
+samples were judged. If what you want to catch is a judge that splits 3–2, the
+floor that catches it is `4/5`. The reasoning is
+[ADR 0006 §12–13](adr/0006-repeated-samples-and-the-noise-floor.md).
+
 ## 4. Measuring the tolerance, and when a check is not a gate
 
 The tolerance is the difference small enough to be noise. It is **measured**,

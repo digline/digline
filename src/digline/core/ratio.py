@@ -52,6 +52,21 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
     The check applies to every form, not only to floats: `"2/4"` is as
     unreachable with three samples as `0.67` is. What is refused is the *value*,
     not the notation.
+
+    A reachable value is accepted whatever it can catch, so here is what each
+    one can catch. Only a judged verdict counts toward agreement, and an errored
+    sample counts against it (ADR 0006 §12). At five samples:
+
+        3/5  any majority of the judged samples; binds only when an errored
+             sample splits the vote (the floor that protects the mean)
+        4/5  strong consensus; binds on a genuine 3-2 split
+        5/5  unanimity; binds on any split and on any errored sample
+
+    The smallest majority never refuses a fully judged vote, because two sides
+    of five always leave one with three. It is still not refused here: its
+    binding case is real. Below it, `2/5` or `1/5`, a floor lets a minority of
+    judged samples decide once the rest have errored. That is reachable and
+    accepted as well, because the value is the declaration. (ADR 0006 §13)
     """
     parsed = as_ratio(value, field=field)
     if not (0.0 < parsed <= 1.0):
