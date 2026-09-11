@@ -30,6 +30,18 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Digest updates only. The first run of this file proposed
+    # `python:3.12-slim` -> `python:3.14-slim`, which is not maintenance: the
+    # interpreter inside the official image is a promise, named in
+    # `docker/README.md` and held by `tests/test_docker.py`, and moving it is a
+    # decision with a changelog entry rather than a Monday pull request. What
+    # is wanted here is the *other* half — the same tag, rebuilt, when Debian
+    # ships a fix — and that arrives as a digest change.
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
     commit-message:
       prefix: "Bump"
 
