@@ -1,0 +1,50 @@
+name: codeql
+
+# The one check in this family that reads digline's own source rather than its
+# packaging. Everything else the security posture rests on — pinning, token
+# scopes, who may push — is about the supply chain around the code; this is
+# about the code.
+#
+# Python only. The Java under `examples/langchain4j` is two demo services that
+# are never published and never run against anything real; scanning them would
+# produce findings nobody can act on and would bury the ones that matter.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Monday 07:40 UTC, behind `ci.yml` at 07:00 and `scorecard.yml` at 07:20.
+    # The weekly run exists because the *queries* move even when the code does
+    # not: a rule written next month can find something in code written today.
+    - cron: "40 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyse the Python
+    runs-on: ubuntu-latest
+    permissions:
+      # Enumerated, and each one spent by a step below:
+      contents: read # checkout
+      security-events: write # the findings, written to code scanning
+      actions: read # CodeQL reads the run's own workflow metadata
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          languages: python
+          # `security-and-quality` rather than the default `security`: the
+          # default set is tuned for a service handling hostile input, and
+          # digline is a CLI whose threat model is written down in SECURITY.md.
+          # The wider set is what says something useful about a library.
+          queries: security-and-quality
+
+      # No build step. Python is interpreted, so CodeQL extracts it directly —
+      # `autobuild` would be a no-op with a chance of failing.
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          category: "/language:python"

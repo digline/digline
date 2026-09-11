@@ -89,7 +89,8 @@ importable from your suite with nothing else to configure.
 
 ## What is inside
 
-- `python:3.12-slim`
+- `python:3.12-slim`, pinned by digest, so every build of a given tag of
+  this image starts from the same base
 - `digline`, and the three provider plugins — `digline-anthropic`,
   `digline-openai`, `digline-bedrock` — installed from PyPI at build time, at
   the versions pinned in the `Dockerfile` beside this file

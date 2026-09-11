@@ -42,14 +42,14 @@ jobs:
       security-events: write # the SARIF upload, at the end
       id-token: write # publish_results signs what it sends to the public API
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           # Scorecard authenticates through its own token. Leaving the
           # checkout's credentials behind in `.git/config` would hand them to
           # every step after this one for no gain.
           persist-credentials: false
 
-      - uses: ossf/scorecard-action@v2.4.4
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         id: scorecard
         with:
           results_file: results.sarif
@@ -68,12 +68,12 @@ jobs:
       # The SARIF, kept as an artifact as well as uploaded. Code scanning shows
       # the findings; the file is what you read when you want the whole table at
       # a moment in time, including the checks that passed.
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: scorecard-sarif
           path: results.sarif
           retention-days: 5
 
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
           sarif_file: results.sarif

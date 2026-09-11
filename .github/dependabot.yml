@@ -1,0 +1,86 @@
+# The other half of pinning. A SHA pin is a promise that the build does not
+# change under you; on its own it is also a promise that it never gets a fix.
+# This is what keeps the pins fresh, so `Pinned-Dependencies` and
+# `Dependency-Update-Tool` are two halves of one decision rather than two
+# checkboxes.
+#
+# Everything is weekly and grouped: a bump that arrives as twelve pull requests
+# on a Monday is a bump nobody reads. `ci.yml` runs on `pull_request`, so each
+# of these arrives already gated by the same tests a human change is.
+version: 2
+updates:
+  # The workflows. Pinned by SHA with the tag in a comment beside it —
+  # Dependabot rewrites both, which is the only reason that comment stays true.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Bump"
+
+  # The base image, pinned by digest in `docker/Dockerfile`. This is the entry
+  # that turns that digest from a freeze into a pin: without it the image would
+  # sit on whatever Debian shipped the day it was written.
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "Bump"
+
+  # The workspace lock. `uv`, not `pip`: what is committed here is `uv.lock`,
+  # and the `pip` ecosystem cannot read one.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      workspace:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Bump"
+
+  # The examples that ship a lock. They are what a reader installs, so a stale
+  # one is a stale instruction — and they are also where every Python advisory
+  # against this repository has so far lived, none of it in digline itself.
+  - package-ecosystem: uv
+    directories:
+      - /examples/classifier
+      - /examples/langchain
+      - /examples/llamaindex
+      - /examples/prompt-first
+      - /examples/rag
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      examples:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Bump"
+
+  # The two Java services under `examples/langchain4j`. Sixty-three of the
+  # sixty-four advisories OpenSSF counts against this repository are transitive
+  # Maven dependencies of these two demos — nothing published to PyPI, and
+  # nothing in digline. This is the entry that keeps that true without anybody
+  # remembering to look.
+  - package-ecosystem: maven
+    directories:
+      - /examples/langchain4j/app-spring
+      - /examples/langchain4j/app-quarkus
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      langchain4j-example:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Bump"

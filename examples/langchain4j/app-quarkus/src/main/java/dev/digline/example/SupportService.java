@@ -2,7 +2,7 @@ package dev.digline.example;
 
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.TokenUsage;
@@ -16,13 +16,15 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 /**
  * The thing being evaluated: a system prompt and a model, behind one method.
  *
- * <p>Deliberately the same shape as app-spring's service of the same name. Two
- * differences, both invisible from outside. The model is injected here and
- * built in a constructor there, because the quarkus-langchain4j extension
- * configures it from {@code application.properties}. And the interface is
- * {@code ChatLanguageModel} rather than {@code ChatModel}: the extension
- * currently brings langchain4j 1.0.0-beta2, which is before the rename that
- * app-spring's 1.0.1 is after.
+ * <p>Deliberately the same shape as app-spring's service of the same name. One
+ * difference, invisible from outside: the model is injected here and built in a
+ * constructor there, because the quarkus-langchain4j extension configures it
+ * from {@code application.properties}.
+ *
+ * <p>There used to be a second difference — this service named the interface
+ * {@code ChatLanguageModel} because the extension brought a langchain4j from
+ * before that rename, while app-spring was already on {@code ChatModel}. The
+ * extension caught up, and the two now read the same.
  *
  * <p>Neither reaches the endpoint. That is the point of the pair: what digline
  * evaluates is the contract, and the contract does not know any of this.
@@ -43,7 +45,7 @@ public class SupportService {
 
     private static final double OUTPUT_PER_MTOK = 0.60;
 
-    @Inject ChatLanguageModel model;
+    @Inject ChatModel model;
 
     @ConfigProperty(name = "support.model")
     String modelName;

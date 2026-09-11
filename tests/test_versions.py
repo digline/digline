@@ -206,9 +206,6 @@ RECORDED: dict[str, dict[str, str]] = {
     "examples/langchain4j/README.md": {
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
         "kind of floor",
-        "1.0.0": "langchain4j `1.0.0-beta2`, a Java dependency of the service "
-        "under test and not a digline version",
-        "1.0.1": "the langchain4j release beside it, same reason",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "

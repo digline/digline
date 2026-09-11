@@ -8,6 +8,40 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+Nothing in the published packages changes. This is the repository's own security
+posture — the supply chain around the code, not the code — and it is recorded
+here because a reader checking how digline is built is entitled to the same
+evidence as one checking what it does.
+
+- **Security:** every workflow job now declares exactly the token it spends. A
+  job-level `permissions:` **replaces** the top-level block rather than adding
+  to it, so `publish.yml`'s two OIDC jobs had `contents` at none while running
+  `actions/checkout`, and worked only because this repository is public. Both
+  scopes are written out. The `site` job went the other way, to
+  `permissions: {}`: it has no checkout and authenticates to another repository
+  with a PAT, so it spends nothing from `GITHUB_TOKEN` — worth saying on the one
+  job holding a credential that can write somewhere else.
+- **Security:** every GitHub Action is pinned by commit SHA, with the tag in a
+  comment beside it, and `docker/Dockerfile`'s base image is pinned by digest.
+  A pin without an update tool is a freeze, so `.github/dependabot.yml` arrives
+  with it and watches all four ecosystems — actions, the image, the `uv` locks,
+  and the two Maven examples.
+- **Security:** CodeQL runs on every push and pull request, and weekly, because
+  the queries move even when the code does not. `security-and-quality`, not the
+  default set: digline is a CLI with a written threat model, and the wider set
+  is the one that says something useful about a library.
+- **Added:** `scorecard.yml` — the weekly OpenSSF Scorecard run, SARIF to code
+  scanning, results published so the number can be checked against its source
+  rather than against a picture.
+- **Fixed:** the two `examples/langchain4j` services carried 63 known-vulnerable
+  transitive dependencies between them — nothing in digline, nothing on PyPI,
+  but a demo that ships those is a demo teaching the wrong thing. Spring Boot
+  3.4.5 → 4.1.1 and Quarkus 3.20.1 → 3.39.3, both at **zero** advisories now,
+  measured against OSV on the resolved runtime trees. The Quarkus service loses
+  its `ChatLanguageModel`, which existed only because its extension lagged
+  langchain4j's rename; the two services now read the same, and the README
+  paragraph that explained the difference is gone.
+
 
 ## pytest-digline 0.1.1 — 2026-09-10
 
