@@ -1,0 +1,79 @@
+name: scorecard
+
+# OpenSSF Scorecard: the same twenty-odd checks anyone can run against this
+# repository from the outside, run here on a cadence so the answer is dated and
+# public rather than something you have to take on trust.
+#
+#     scorecard --repo=github.com/digline/digline --show-details
+#
+# It reads this repository through the GitHub API and writes a SARIF report to
+# code scanning, so a check that starts failing arrives as an alert rather than
+# as a number nobody looked at. `publish_results: true` also sends the score to
+# the public OpenSSF API — that is what makes the badge, and what lets a reader
+# check the number against the source rather than against a picture we render.
+#
+# This is the one workflow here that is *about* the workflows: most of what it
+# grades — token permissions, pinning, who may push to `main` — lives in the
+# other four files and in the repository's settings, not in this one.
+on:
+  # A change to who may push to `main` changes the answer to one of the checks,
+  # so it re-runs when that changes rather than waiting for Monday.
+  branch_protection_rule:
+  schedule:
+    # Monday, 07:20 UTC. Twenty past, not on the hour: `ci.yml`'s weekly run is
+    # at 07:00 and there is no reason for the two to queue behind each other.
+    - cron: "20 7 * * 1"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: Read this repository the way an outsider would
+    runs-on: ubuntu-latest
+    permissions:
+      # Enumerated because a job-level block replaces the top-level one, and
+      # every entry here is spent by a named step below:
+      contents: read # checkout
+      actions: read # Scorecard reads the workflow files through the API
+      security-events: write # the SARIF upload, at the end
+      id-token: write # publish_results signs what it sends to the public API
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Scorecard authenticates through its own token. Leaving the
+          # checkout's credentials behind in `.git/config` would hand them to
+          # every step after this one for no gain.
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@v2.4.4
+        id: scorecard
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # What makes the number checkable. It is also the condition for the
+          # badge: scorecard.dev serves the score it received here, so the badge
+          # in the README cannot say something this run did not.
+          #
+          # Nothing private goes out — the input is a public repository, and the
+          # output is the score and the per-check findings. It is the one
+          # deliberate exception to "no network call the user has not
+          # configured" (fixed decision 5), and it is about *this* repository,
+          # never about anybody who installs digline.
+          publish_results: true
+
+      # The SARIF, kept as an artifact as well as uploaded. Code scanning shows
+      # the findings; the file is what you read when you want the whole table at
+      # a moment in time, including the checks that passed.
+      - uses: actions/upload-artifact@v5
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

@@ -109,6 +109,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
+      # A job-level `permissions:` **replaces** the top-level block, it does not
+      # add to it. `id-token: write` on its own therefore left `contents` at
+      # none, and the checkout below went on working only because this
+      # repository is public and git can read it unauthenticated. Both scopes
+      # are written out, so nothing here rests on that staying true.
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v5
@@ -161,6 +167,8 @@ jobs:
     # for a person. A version number is spent the moment it is uploaded.
     environment: pypi
     permissions:
+      # Both, for the reason spelled out on `testpypi` above.
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v5
@@ -229,6 +237,11 @@ jobs:
   site:
     name: Rebuild digline.dev
     needs: pypi
+    # Nothing in this job uses `GITHUB_TOKEN`: there is no checkout, and the one
+    # step authenticates to *another* repository with a PAT. An empty block is
+    # the accurate grant, and it is worth writing on the one job in the file
+    # that holds a credential which can write somewhere else.
+    permissions: {}
     # Workspace releases only. The site describes what the core says — the
     # quickstart, the format, `docs/` — and a plugin release changes none of
     # it. When it does change (a page per provider, say), that arrives with a
