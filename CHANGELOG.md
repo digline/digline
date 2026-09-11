@@ -8,6 +8,30 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+## 0.10.0 — 2026-09-11
+
+**The honest ledger.** digline 0.10.0 and **`pytest-digline` 0.1.2**. The three
+provider plugins stay at 0.4.0 and `digline-mcp` at 0.1.1: nothing in them
+changed and their floors already admit this core.
+
+`SCHEMA_VERSION` moves to **10** — the first bump since 8 → 9, and the first one
+with a written rule for what a bump may carry. `OUTPUT_VERSION` stays 1: three
+keys join `compare --json`, and an added key leaves a consumer working.
+
+```sh
+uv add --upgrade digline
+uv add --dev --upgrade pytest-digline
+digline migrate --suite eval/suite.py       # first, before anything else
+```
+
+**Nothing needs re-promoting.** The migration invents nothing and `config_hash`
+does not move — the nine baselines committed under `examples/` changed by exactly
+one line each, which is what that promise looks like in a diff.
+
+Three things the run document can now say that it could not before: which digline
+wrote it, what the target actually answered, and which of its cases was watching
+the model rather than measuring it.
+
 - **Changed (storage):** `SCHEMA_VERSION` is **10**. A run document written by
   0.10.0 is refused by 0.9.0 and a 0.9.0 document is refused here, in both
   directions and by name, so `digline migrate` is the first thing to run after
@@ -90,8 +114,12 @@ notes under them are this file, verbatim.
   short: before the tag, ask whether anything new has arrived since the last
   one.
 
-- **Added:** `digline-openai` prices `gpt-6-astra`, read from the published
-  list on 2026-09-11 along with every other entry, which is unchanged. Short
+- **Added (in the repository, not on the index):** `digline-openai` prices
+  `gpt-6-astra`, read from the published
+  list on 2026-09-11 along with every other entry, which is unchanged. The
+  package stays at **0.4.0** and is not part of this tag, so the entry rides
+  `digline-openai`'s next release: packaging and a price list do not earn a
+  version of their own. Short
   context only, on the same terms as the GPT-5.6 entries: crossing 272K input
   tokens reprices the whole request and that meter is still not modeled here.
   Until this entry existed the model was refused at `preflight` rather than
@@ -167,6 +195,16 @@ notes under them are this file, verbatim.
   already written are untouched, but the new `dossier.py` cannot re-render a
   format-1 cycle (the example's own captured alerts were regenerated through
   the new path).
+
+- **The example reports were re-rendered** on the commit they name, against the
+  migrated baselines, so `Code version` is a hash a reader can check out. Seven
+  of the nine had been carrying `-dirty`. **Two still do, by design**, and the
+  sentence beside the hash is the reason: `prompt-first`'s report is the
+  comparison after a line was added to a prompt the example deliberately does not
+  ship, and `classifier`'s is a narrated comparison at five samples — the README
+  walks through the wobble that run recorded, and a fresh sampled run does not
+  reproduce it. Re-rendering either would replace a document the prose explains
+  with one it does not.
 
 Everything below is the repository's own security posture — the supply chain
 around the code, not the code. **No published package changes.** It is recorded
