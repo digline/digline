@@ -3,7 +3,7 @@
 Hand this to a coding agent opened in this directory. `.mcp.json` has already
 given it the six digline tools; this tells it what it is for.
 
-Written against `DESIGN.md` §2 and §3, and it adds nothing to them. If the two
+Written against `DESIGN.md` §2 to §4, and it adds nothing to them. If the two
 ever disagree, `DESIGN.md` is right and this is stale.
 
 ---
@@ -61,6 +61,27 @@ command.
 
 You also do not edit the prompt, the suite or the thresholds. The operator
 watches the measurement; fixing the system belongs to whoever owns it.
+
+## Prove the wall each cycle, before you compare
+
+Absent is a claim, and you check it rather than trust it. Before you compare,
+call `promote` by name on your own surface and expect *unknown tool*. Beside it,
+do one write you are meant to be able to do. `loop.py` writes the cycle file.
+Refusal alone proves nothing: an identity that is refused everything is refused
+`promote` too.
+
+- **Intact.** Refused, and the write succeeded. Say so in one line and go on.
+- **Collapsed.** `promote` answered, with anything but *unknown tool*, a "no"
+  included. Stop and escalate it as its own high-severity finding, *separation
+  collapsed*. Put back whatever it wrote under the baselines before you compare
+  anything against them.
+- **Inconclusive.** No answer, or the write failed. This is a different
+  finding: the instrument is down. It is not evidence that the wall stands.
+
+The probe proves the wall for **your** identity and no other. Run it with your
+own credentials, never borrowed or broader ones: a probe run as an
+administrator is vacuous by construction. Do not ask for a disabled `promote` to
+test against. Its absence is the thing being proved.
 
 ## Write the alert in three layers
 

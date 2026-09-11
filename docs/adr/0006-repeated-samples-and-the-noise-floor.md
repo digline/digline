@@ -6,6 +6,11 @@
   interval on a flip, and §10's example copy is replaced by the wording that
   shipped. Both are corrections made *by* writing the code: nothing above
   them changes, and neither was a decision taken twice
+- Amended: 2026-09-11 — §12 defines agreement over the *judged* samples: an
+  errored sample counts against agreement, never for it. The behaviour it
+  replaces was never decided by this ADR or any other; it was found while
+  documenting what each `min_agreement` floor can catch, which §13 now
+  tabulates against the amended definition. Ships with the next release
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -320,6 +325,83 @@ ADR.
 `Suite.config_hash()` already covers `samples` and `min_agreement`, so a suite
 that starts sampling already needs a deliberate re-promotion. Nothing new is
 required of the user for the noise floor to begin working.
+
+### 12. Agreement counts only the judged samples *(amended 2026-09-11)*
+
+**Only a judged status can be the majority.** Agreement is the size of the
+larger of the `pass` and `fail` sides, divided by *all* the samples. So an
+errored sample always counts against agreement, never for it: it sits in the
+denominator and can never be the side that agrees.
+
+Until this amendment, `error` could be the majority like any other status. The
+row that shows what that cost:
+
+| samples | floor | what it did | what it does |
+| --- | --- | --- | --- |
+| 4 errored, 1 pass | `4/5` | **pass** — four samples agreed they could not judge, and the verdict was the one sample that could | `error` — 1/5 of the samples agree |
+
+A floor of four in five was satisfied by four samples that said nothing, and the
+check passed on one vote. `3/5` let through more: three errors beside one pass
+and one fail passed at a mean of 0.5, a coin toss between two judged samples.
+That is fixed decision 3's failure exactly. The floor was declared, it could
+never refuse, and the green it produced came from samples that could not judge.
+
+**No ADR decided the old behaviour.** §2 settled the scalar, §5 the floor that
+`compare()` reads, and `min_agreement` itself predates this ADR, which used it
+without restating it. `_agreement` counted statuses, `error` was a status, and
+nobody had asked what an errored majority meant until a table of what each
+floor can catch was being written, and the code would not support the row for
+`3/5`. That table is written against this definition, which is why it waited
+for the amendment rather than documenting the behaviour it replaces.
+
+What does **not** move:
+
+- **A run with no errored sample produces the same bytes.** The majority of a
+  pass/fail vote is the same number under both definitions, so the classifier,
+  the brief fixtures and the 144-case scout run of 2026-09-11 — zero errored
+  samples among them — fold exactly as they did.
+- **The brief fixture reads as it did.** Its canonical case, `[1, 1, 0, 0, 0]`,
+  is a 3–2 split: agreement 0.60, which meets `3/5` at its edge and stays a
+  real `fail`, and which `4/5` refuses as `error`. Neither answer changes.
+- **All samples errored** is still the separate path it was, with the
+  samples' own causes under the summary: that branch runs before agreement is
+  consulted.
+- **The scalar** (§2) is the mean of the judged scores, as before. What changed
+  is whether the verdict is allowed to exist, not what it says when it is.
+
+A stored run keeps what it recorded: agreement is computed at fold time and
+written into the verdict, and migration derives nothing from it. A check that
+passed under an errored majority stays a pass in the run that recorded it. The
+same answers folded today are an `error`, and a comparison against that stored
+run reports exit 2, which is the truth about them.
+
+### 13. What each floor can catch *(amended 2026-09-11)*
+
+A declared floor should be honest about how far it reaches, so a reader chooses
+one knowing what it can and cannot catch. At five samples, under §12:
+
+| `min_agreement` | what it asks | where it binds |
+| --- | --- | --- |
+| `3/5` | any majority of the judged samples | only when an errored sample splits the vote — the floor that protects the mean from resting on too few judged samples |
+| `4/5` | strong consensus | on a genuine 3–2 split |
+| `5/5` | unanimity | on any split, and on any errored sample |
+
+The first row is the one that surprises. A pass/fail vote of five always has a
+side of at least three, so `3/5` never refuses a vote in which every sample was
+judged. It is not decorative, though. Its binding case is real: two pass, two
+fail and one that could not judge is `error` at `3/5`, and before §12 so was
+nothing with three errors in it. The general shape is the same at any `n`: the
+smallest majority (`2/3` at three samples) is met by every fully judged vote,
+and binds only through errors.
+
+The brief fixture sits on the second row. Its canonical case is a 3–2 split,
+which meets `3/5` at its edge and stays a real `fail` for `compare()` to read,
+and which `4/5` would have refused.
+
+No floor is refused at construction for reaching too little, and no verdict is
+annotated with how far its floor could reach. The first would forbid `3/5`,
+whose binding case is real. The second would add a line to every binary run
+that says nothing about that run. The table is where the reach is stated, once.
 
 ## Consequences
 

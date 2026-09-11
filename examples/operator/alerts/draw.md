@@ -12,8 +12,8 @@ Machine truth, from `digline explain --json`: the fact list digline renders its 
 
 | run | seed | exit | unjudged | within noise |
 | --- | ---: | ---: | -------: | -----------: |
-| `2026-09-11T06-15-41-638965-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
-| `2026-09-11T06-15-41-834128-00-00-4d2ac7a7f606b8de` | 1 | 0 | 0 | 0 |
+| `2026-09-11T15-51-33-080351-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
+| `2026-09-11T15-51-33-290015-00-00-4d2ac7a7f606b8de` | 1 | 0 | 0 | 0 |
 
 Exit `0`: nothing got worse. `1`: something did. `2`: the run could not be judged. That is digline's contract, AGENTS.md §6.
 
@@ -21,17 +21,19 @@ Suite `suite.py`, output version 1. The suite itself did not change. Underneath 
 
 ## 2. The dossier
 
+Before comparing anything, proved the wall: `promote`, called by name on the operator's own MCP surface, came back *unknown tool*, and beside it the cycle file — a write the operator owns — succeeded. **Intact**, for the identity that ran this cycle.
+
 Ran the suite once and re-ran it 1 time(s). The stopping rule was `max_reruns = 2`, declared in `operator.toml` before anything ran.
 
 Spend: 6 calls to the target across 2 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
 
-**Run `2026-09-11T06-15-41-638965-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
+**Run `2026-09-11T15-51-33-080351-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval (a flip is a regression whatever the noise said) |
 
-**Run `2026-09-11T06-15-41-834128-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
+**Run `2026-09-11T15-51-33-290015-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |

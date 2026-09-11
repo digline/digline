@@ -777,6 +777,12 @@ oscillating between 0.80 and 0.88 is noisy and harmless; one oscillating between
 apart. The `spread` (max − min) is reported alongside for anyone who wants the
 other view.
 
+Only a *judged* verdict — `pass` or `fail` — can be the majority. An errored
+sample counts against agreement and never for it: four samples that could not
+judge do not "agree", and the fifth does not get to decide the check alone
+([ADR 0006 §12](adr/0006-repeated-samples-and-the-noise-floor.md)). With no
+errored sample this is the same number it always was.
+
 Below `min_agreement` the outcome is **`error`, not `fail`**: a judgement that
 does not repeat is not a failure, it is a judgement that could not be given —
 and it means a suite that is too noisy cannot be promoted to reference.

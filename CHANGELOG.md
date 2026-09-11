@@ -17,6 +17,63 @@ declared cost an empty leg file per attempt and answered in a `ValueError`.
 call made, which is what ADR 0017 §6 promises for every other input on that
 list.
 
+**The operator proves the wall each cycle.** `examples/operator/loop.py` used
+to trust that `promote` is absent from its surface. Now it checks, before it
+compares anything, with two operations under its own credentials. It calls
+`promote` by name on the MCP server and expects *unknown tool*. Beside that, it
+writes its own cycle file. Refusal alone proves nothing: an identity refused
+everything is refused `promote` too.
+
+The outcome uses digline's own trichotomy:
+
+- **intact** is one log line;
+- **collapsed** is any answer but *unknown tool*, a refusal included, because on
+  that surface the wall is the absence. It opens a high-severity issue, and
+  anything written under the baselines is rolled back before the comparison
+  reads them;
+- **inconclusive** is a different issue: the instrument is down.
+
+`cycle.json` carries the probe, and `cycle_format` goes to 3. The two captured
+alerts were regenerated with it: the same scores, new run keys, and a probe line
+in layer 2.
+
+The probe proves the wall only for the identity that ran it. The push probe a
+deployment runs against its own protected branch is documented in `DESIGN.md`,
+not exercised: an example has no protected remote. `AGENTS.md` and the skill
+carry the rule in one line, and `test_agents.py` holds it word for word in both.
+Nothing in `src/` or in `digline-mcp` moved. Its `promote` is still absent, and
+no disabled one was added to test against.
+
+**`docs/rejudge.md` says how to tell whether a run recorded its answers.** Look
+at the data, because no field restates it. A case that recorded carries a
+`responses` list with an `output` per sample. A redacted document keeps one
+`{"withheld": true}` per sample, so the count survives. A run that recorded
+nothing has no `responses` key.
+
+**An errored sample counts against agreement, never for it.** This was found
+while writing documentation the code refused to support. The documentation was
+a table of what each `min_agreement` floor can catch, and the code would not
+make its `3/5` row true.
+
+Until now `error` could be the majority of a sampled check like any other
+status. Four samples that could not judge beside one pass therefore met a floor
+of `4/5`, and the check passed on the single vote that was judged. At `3/5`,
+three errors beside one pass and one fail passed at a mean of 0.5. No ADR ever
+decided that. ADR 0006 §12 now decides the opposite: only `pass` and `fail` can
+be the majority, and an errored sample sits in the denominator and never in the
+numerator. Those votes are now `error`, and the reason says which side an error
+counts on.
+
+A vote with no errored sample agrees exactly as it did, so no run without one
+moves. That covers the classifier, the brief fixtures, and the 144-case scout
+run of 2026-09-11. A stored run keeps what it recorded. The same answers folded
+under this release are an `error`.
+
+§13 is the table that started it, in the guide and in `as_agreement` too. At
+five samples, `3/5` binds only when an errored sample splits the vote, `4/5`
+binds on a genuine 3–2 split, and `5/5` is unanimity. Nothing is refused for
+reaching too little, so a floor is chosen knowing its reach.
+
 ## 0.11.0 — 2026-09-11
 
 **The journal.** digline **0.11.0**, alone: the three provider plugins stay at

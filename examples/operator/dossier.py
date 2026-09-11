@@ -162,6 +162,50 @@ def _fact(cycle: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _wall(cycle: Mapping[str, Any]) -> str:
+    """The probe, first because it ran first: one write that must be refused
+    beside one that must succeed. A cycle written before the probe existed
+    says so — an absence is stated, never faked."""
+    probe = cast("Mapping[str, Any] | None", cycle.get("probe"))
+    if probe is None:
+        return "The wall was not probed: this cycle predates the probe."
+    if probe["wall"] == "intact":
+        return (
+            "Before comparing anything, proved the wall: `promote`, called by "
+            "name on the operator's own MCP surface, came back *unknown tool*, "
+            "and beside it the cycle file — a write the operator owns — "
+            "succeeded. **Intact**, for the identity that ran this cycle."
+        )
+    if probe["wall"] == "collapsed":
+        return (
+            "**The separation collapsed.** `promote`, called by name on the "
+            "operator's MCP surface, answered — and on that surface the wall is "
+            "the absence, so an answer of any kind is a collapse. "
+            + (
+                "What it wrote under the baselines was rolled back before the "
+                "comparison below read them."
+                if probe["rolled_back"]
+                else "Nothing under the baselines changed."
+            )
+        )
+    return (
+        "**The probe was inconclusive: the instrument, not the wall.** "
+        + (
+            "The MCP server gave no answer to a call to `promote`, and silence "
+            "is not a refusal."
+            if probe["negative"] == "unobserved"
+            else "`promote` came back *unknown tool*, but the cycle file beside "
+            "it could not be written, and a refusal alone proves nothing."
+        )
+        + " Nothing is known about the wall this cycle."
+    )
+
+
+def _collapsed(cycle: Mapping[str, Any]) -> bool:
+    probe = cast("Mapping[str, Any] | None", cycle.get("probe"))
+    return probe is not None and probe["wall"] == "collapsed"
+
+
 def _dossier(cycle: Mapping[str, Any]) -> list[str]:
     """Layer 2. What the operator did and saw — deterministic, no model."""
     rule = cast("Mapping[str, Any]", cycle["stopping_rule"])
@@ -171,6 +215,8 @@ def _dossier(cycle: Mapping[str, Any]) -> list[str]:
 
     lines = [
         "## 2. The dossier",
+        "",
+        _wall(cycle),
         "",
         f"Ran the suite once and re-ran it {reruns} time(s). The stopping rule "
         f"was `max_reruns = {rule['max_reruns']}`, declared in `operator.toml` "
@@ -282,9 +328,16 @@ def alert_body(cycle: Mapping[str, Any], *, judgment: str | None) -> str:
         "",
         "---",
         "",
-        "No baseline was promoted, and none can be: `promote` is absent from "
-        "the operator's surface by construction. A baseline is an approved "
-        "reference, and the approval is a person's.",
+        (
+            "`promote` answered on the operator's surface this cycle, where "
+            "the design says there is nothing to answer. A baseline is an "
+            "approved reference, and the approval is a person's: until the "
+            "surface is repaired, that is a rule again rather than a fact."
+            if _collapsed(cycle)
+            else "No baseline was promoted, and none can be: `promote` is "
+            "absent from the operator's surface by construction. A baseline is "
+            "an approved reference, and the approval is a person's."
+        ),
     ]
     return "\n".join(lines) + "\n"
 

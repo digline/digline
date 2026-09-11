@@ -34,6 +34,9 @@ decided anything.
 Anything that lands there arrives in someone's diff, and it must arrive
 because they put it there.
 
+**The operator proves the wall each cycle:** one write that must be refused
+beside one that must succeed; refusal alone proves nothing.
+
 ## 2. Never promote the first green run
 
 Promote from the middle of several, never from the first one that goes green.

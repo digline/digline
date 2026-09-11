@@ -53,9 +53,10 @@ jobs:
           OPERATOR_SCENARIO: ${{ inputs.scenario || 'steady' }}
         run: |
           uv run python loop.py --config operator.toml --out cycle.json
-          # Lifted out of the document so the escalation step can branch on it:
-          # a workflow `if:` cannot read a file.
+          # Lifted out of the document so the escalation steps can branch on
+          # them: a workflow `if:` cannot read a file.
           echo "escalate=$(jq -r .escalate cycle.json)" >> "$GITHUB_OUTPUT"
+          echo "wall=$(jq -r .probe.wall cycle.json)" >> "$GITHUB_OUTPUT"
 
       # ------------------------------------------------------------------ #
       # Layer 3. The only layer a model writes, and the only step that needs
@@ -105,5 +106,38 @@ jobs:
         run: |
           gh issue create \
             --title "digline operator: $(jq -r .verdict cycle.json) on $(jq -r .suite cycle.json)" \
+            --body-file alert.md \
+            --label "$(jq -r '.escalation.labels | join(",")' cycle.json)"
+
+      # ------------------------------------------------------------------ #
+      # The wall. `loop.py` proved it before comparing: one write that must be
+      # refused beside one that must succeed. Two outcomes wake somebody, and
+      # they are two different issues because they are two different findings:
+      # a collapse is the operator able to approve its own reference; an
+      # inconclusive probe is the instrument down, and says nothing about the
+      # wall either way. Same switch as above, so a fork's first week stays
+      # quiet — the alert in the job summary says it regardless.
+      # ------------------------------------------------------------------ #
+      - name: The separation collapsed
+        if: >-
+          steps.cycle.outputs.wall == 'collapsed' &&
+          (vars.OPERATOR_ESCALATE == 'true' || inputs.escalate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "digline operator: separation collapsed on $(jq -r .suite cycle.json) (high severity)" \
+            --body-file alert.md \
+            --label "$(jq -r '.escalation.labels | join(",")' cycle.json)"
+
+      - name: The probe was inconclusive
+        if: >-
+          steps.cycle.outputs.wall == 'inconclusive' &&
+          (vars.OPERATOR_ESCALATE == 'true' || inputs.escalate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "digline operator: the wall probe is down on $(jq -r .suite cycle.json) — the instrument, not the wall" \
             --body-file alert.md \
             --label "$(jq -r '.escalation.labels | join(",")' cycle.json)"
