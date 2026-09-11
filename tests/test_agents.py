@@ -82,6 +82,16 @@ PROBE_LINE = (
 )
 
 
+#: The credential rule beside it, held the same way. The two copies phrase the
+#: sentence around it differently — `AGENTS.md` carries the whole taxonomy, the
+#: skill the line an agent needs when it is holding the token — so the gate is
+#: on the two clauses that carry the rule, not on the paragraph.
+CREDENTIAL_CLAUSES = (
+    "The operator's credential must exclude the surface that configures its own wall",
+    "an agent that can rewrite its fence has a reminder, not a fence.",
+)
+
+
 def test_both_files_say_the_operator_proves_the_wall() -> None:
     """Rule 1 says `promote` is absent; this line says the absence is checked
     rather than trusted, and that a refusal alone does not check it. An agent
@@ -94,6 +104,10 @@ def test_both_files_say_the_operator_proves_the_wall() -> None:
     for path in (AGENTS, SKILL):
         text = " ".join(path.read_text(encoding="utf-8").split())
         rule_one = text.split("## 1. ", 1)[1].split("## 2. ", 1)[0]
+        for clause in CREDENTIAL_CLAUSES:
+            assert clause in rule_one, (
+                f"{path.relative_to(ROOT)} no longer says, in rule 1: {clause!r}"
+            )
         assert PROBE_LINE in rule_one, (
             f"{path.relative_to(ROOT)} no longer says, word for word: "
             f"{PROBE_LINE!r}. Both copies carry it, in rule 1."

@@ -109,6 +109,35 @@ credentials must be the narrow ones, and the probe is what enforces
 that. Run the push probe below with an admin's token and it reports a
 collapse every cycle, which is exactly what it should report.
 
+**What makes it a wall at all.** A wall lives outside the constrained
+identity's configuration surface. Measured against that identity, a
+protection comes in three rungs:
+
+- **a preference**, which the identity can bypass. Our ruleset's admin
+  bypass is one;
+- **a latch**, which the identity must first reconfigure to cross.
+  `enforce_admins` is the classic form: the admin can still turn it
+  off, but the change is an auditable event rather than a quiet push;
+- **a constraint**, which the platform enforces against everyone. You
+  cannot approve your own pull request, whoever you are.
+
+So the operator's credential must exclude the surface that configures
+its own wall. On GitHub that means no administration scope. An agent
+that can rewrite its fence has a reminder, not a fence.
+
+The honest note for a single-maintainer repository: measured against
+the owner, nearly every repository-level wall is a preference with an
+audit trail, because the owner holds the surface that configures all
+of them. Only the platform's absolutes are constraints. That is what
+the [security page](/product/security/)'s declared zeros already say:
+a review requirement one person satisfies by approving themselves
+would be theater. None of this is a defect to fix. It is what the wall
+is for. It exists for the operator's narrow identity, not for the
+person who holds the keys.
+
+The probe proves the wall for the identity that ran it. This taxonomy
+says which identities the wall exists for at all.
+
 The MCP probe covers the interactive surface. The scheduled loop has a
 shell, and the CLI it drives *has* `promote`. What keeps a baseline
 from landing there is the token: `contents: read` cannot push. That
