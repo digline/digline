@@ -8,6 +8,7 @@ same file that runs — the document cannot drift from the code it shows.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -20,6 +21,7 @@ import tomllib
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from types import ModuleType
 from typing import Any, cast
 
 import pytest
@@ -685,6 +687,14 @@ def test_the_operator_classifies_each_scenario(operator: Path, scenario: str) ->
     )
     assert cycle["escalate"] is want_escalate
     assert cycle["budget"]["spent"] <= cycle["budget"]["max_target_calls"]
+    # Against the real server, every scenario: the wall is a fact about the
+    # surface and not about how the system under test is doing this week.
+    assert cycle["probe"] == {
+        "wall": "intact",
+        "negative": "refused",
+        "positive": True,
+        "rolled_back": False,
+    }, cycle["probe"]
 
 
 @pytest.mark.parametrize("name", CAPTURED)
@@ -775,14 +785,135 @@ def test_the_operator_cannot_reach_promote() -> None:
     # they do not do it. What is looked for is the *call* — `promote` as a
     # quoted argument, which is the only shape it could reach the CLI in.
     called = re.compile(r"""['"]promote['"]""")
+    # One exception, and it is the opposite of a call: the probe names the tool
+    # to the MCP server expecting to be told there is no such thing. It may be
+    # written exactly once, as that constant — and the constant may never reach
+    # `digline(...)`, the helper that shells out to the CLI, where it exists.
+    probe = 'ABSENT_TOOL = "promote"'
     for name in ("loop.py", "dossier.py", "judgment.py"):
         source = (OPERATOR / name).read_text(encoding="utf-8")
+        if name == "loop.py":
+            assert source.count(probe) == 1, "the probe names the tool once"
+            source = source.replace(probe, "")
+            assert not re.search(r"digline\([^)]*ABSENT_TOOL", source), (
+                "the probe's tool name reaches the CLI: the probe asks the MCP "
+                "surface, where `promote` is absent, and never the CLI"
+            )
         assert not called.search(source), (
             f"examples/operator/{name} passes 'promote' to something: a "
             "baseline is an approved reference and the approval is a person's"
         )
     for workflow in sorted((OPERATOR / ".github" / "workflows").glob("*.yml")):
         assert "digline promote" not in workflow.read_text(encoding="utf-8"), workflow
+
+
+def operator_loop() -> ModuleType:
+    """`loop.py`, imported, for the probe's two outcomes a real run never shows.
+
+    Registered in `sys.modules` before it executes: `dataclass` looks its own
+    module up there, and a module loaded from a path is otherwise nowhere.
+    """
+    spec = importlib.util.spec_from_file_location("operator_loop", OPERATOR / "loop.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: A deployment whose surface grew the tool it must not have — the thing the
+#: probe exists to catch. It lives here, in a test, and never in `digline-mcp`:
+#: the server's `promote` is absent, and a disabled one added "to test it" would
+#: be the very policy the absence replaces.
+STAND_IN = """
+import sys
+from pathlib import Path
+
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+
+mode, root = sys.argv[1], Path(sys.argv[2])
+baselines = root / ".digline" / "northwind" / "baselines"
+
+
+def promote() -> str:
+    if mode == "refusing":
+        raise ToolError("a baseline is approved by a person")
+    (baselines / "support.json").write_text("{}", encoding="utf-8")
+    (baselines / "smuggled.json").write_text("{}", encoding="utf-8")
+    return "promoted"
+
+
+server = MCPServer(name="stand-in")
+server.add_tool(promote, name="promote")
+server.run(transport="stdio")
+"""
+
+
+@pytest.mark.parametrize("mode", ["allowing", "refusing"])
+def test_the_probe_calls_a_wall_that_answered_collapsed(
+    operator: Path, mode: str
+) -> None:
+    """Any answer but "unknown tool" is a collapse — a refusal included.
+
+    On this surface the wall *is* the absence. A `promote` that says no is a
+    policy where the design put nothing to ask, and a policy is what a future
+    release can relax. So the probe fails toward a false alarm and never toward
+    a false all-clear: a server that learnt to word "unknown" differently would
+    read as collapsed, loudly, rather than as intact.
+    """
+    loop = operator_loop()
+    before = {
+        path.name: path.read_bytes()
+        for path in (operator / ".digline" / "northwind" / "baselines").iterdir()
+    }
+    (operator / "stand_in.py").write_text(STAND_IN, encoding="utf-8")
+    server = (sys.executable, str(operator / "stand_in.py"), mode, str(operator))
+
+    found = loop.probe(operator, operator / "cycle.json", server)
+
+    assert found.wall == "collapsed"
+    assert found.negative == "reached"
+    assert found.rolled_back is (mode == "allowing")
+    # Before the comparison could read it: the approved reference is the one a
+    # person signed, byte for byte, and nothing the collapse wrote survives.
+    after = {
+        path.name: path.read_bytes()
+        for path in (operator / ".digline" / "northwind" / "baselines").iterdir()
+    }
+    assert after == before
+
+
+def test_the_probe_is_inconclusive_when_nothing_answers(operator: Path) -> None:
+    """No server, no answer — and no answer is not a refusal. A probe that read
+    silence as a wall standing would stay green the day its instrument died."""
+    loop = operator_loop()
+    silent = (sys.executable, "-c", "raise SystemExit(0)")
+
+    found = loop.probe(operator, operator / "cycle.json", silent)
+
+    assert (found.negative, found.positive, found.wall) == (
+        "unobserved",
+        True,
+        "inconclusive",
+    )
+
+
+def test_the_probe_is_inconclusive_when_the_positive_fails(operator: Path) -> None:
+    """Refused, and unable to write its own cycle file: the refusal proves
+    nothing. An identity that is refused everything is refused `promote` too,
+    and that is the instrument down, not the wall standing."""
+    loop = operator_loop()
+    unwritable = operator / "cycle.json"
+    unwritable.mkdir()
+
+    found = loop.probe(operator, unwritable, loop.surface(operator))
+
+    assert (found.negative, found.positive, found.wall) == (
+        "refused",
+        False,
+        "inconclusive",
+    )
 
 
 def test_the_operator_mcp_config_points_at_this_example() -> None:

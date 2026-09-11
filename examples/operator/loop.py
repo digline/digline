@@ -10,31 +10,37 @@ it writes the same `cycle.json` twice.
 
 The classification is the judgment `AGENTS.md` writes down, and nothing beyond
 it. It cannot promote a baseline and it cannot edit a prompt: it watches the
-measurement, and the alert is the handover to whoever repairs the system.
+measurement, and the alert is the handover to whoever repairs the system. And it
+does not take the first of those on trust: before it compares anything, it
+proves it cannot promote — see "The probe" below.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TextIO, cast
 
 from digline.host import load_suite
 from digline.run import planned_calls
+from mcp import ClientSession, MCPError, StdioServerParameters, stdio_client
+from mcp.types import TextContent
 
 #: The shape of `cycle.json`, so a consumer can tell when it moved. The same
 #: idea as digline's own `output_version`, and separate from it: this is the
 #: example's file, not the tool's. 2 since each run carries `explain --json`
-#: where it carried `compare --json full`.
-CYCLE_FORMAT = 2
+#: where it carried `compare --json full`; 3 since the cycle carries the probe.
+CYCLE_FORMAT = 3
 
 #: What one cycle concluded. A `Literal` rather than an enum because these
 #: strings land in a markdown document and in a test assertion, and a plain
@@ -232,6 +238,142 @@ def observe(config: Config, *, seed: int, root: Path) -> Observation:
 
 
 # --------------------------------------------------------------------------- #
+# The probe: the wall, proved each cycle rather than trusted on its paperwork
+# --------------------------------------------------------------------------- #
+
+#: The tool the operator's surface must not have. This is the one place the loop
+#: names it, and it names it to the MCP server, expecting to hear that there is
+#: no such thing: absence verified at the wire, not read out of a config file.
+ABSENT_TOOL = "promote"
+
+#: What the SDK answers for a name the server does not have — and the text of
+#: the specification's own example of that error. The one answer that counts
+#: as refused.
+UNKNOWN = f"Unknown tool: {ABSENT_TOOL}"
+
+PROBE_TIMEOUT = 60
+
+#: What the call to the absent tool came back as. `refused` is `UNKNOWN` and
+#: nothing else. `reached` is any other answer from the server — a success, and
+#: also a refusal: on this surface the wall *is* the absence, and a `promote`
+#: that says no is a policy where the design put nothing to ask. `unobserved`
+#: is no answer at all, which is about the instrument and not the wall.
+Negative = Literal["refused", "reached", "unobserved"]
+
+#: digline's own trichotomy, applied to the wall instead of a check: it held,
+#: it did not, or it could not be judged — and the third is not the first.
+Wall = Literal["intact", "collapsed", "inconclusive"]
+
+
+@dataclass(frozen=True)
+class Probe:
+    """One write that must be refused, beside one that must succeed.
+
+    The positive half is what makes the negative mean anything. Refusal alone
+    proves nothing: an operator with a broken token, a full disk or a dead
+    server is refused everything, and would read that as a wall standing.
+
+    It proves the wall **for the identity that ran it** and for no other. The
+    loop runs with the operator's own environment, which is the point: a probe
+    run with an administrator's credentials is vacuous by construction.
+    """
+
+    negative: Negative
+    #: The cycle file, written — an operation the loop owns and must be able to
+    #: do.
+    positive: bool
+    #: Whether anything under `.digline/*/baselines/` differed after the
+    #: negative, and was put back before the comparison could read it.
+    rolled_back: bool
+
+    @property
+    def wall(self) -> Wall:
+        if self.negative == "reached":
+            return "collapsed"
+        if self.negative == "refused" and self.positive:
+            return "intact"
+        return "inconclusive"
+
+
+def surface(root: Path) -> tuple[str, ...]:
+    """The server `.mcp.json` starts, started the way `digline()` starts the
+    CLI: from this interpreter, so it needs nothing on PATH."""
+    return (sys.executable, "-m", "digline_mcp", "--root", str(root))
+
+
+def _ask_for_the_absent_tool(server: Sequence[str]) -> Negative:
+    async def ask(log: TextIO) -> Negative:
+        params = StdioServerParameters(
+            command=server[0], args=[*server[1:]], env=dict(os.environ)
+        )
+        async with asyncio.timeout(PROBE_TIMEOUT):
+            async with (
+                stdio_client(params, errlog=log) as (read, write),
+                ClientSession(read, write) as session,
+            ):
+                await session.initialize()
+                # No arguments: a tool that exists and wants some answers with
+                # a validation error, and that is still an answer — `reached`.
+                try:
+                    answer = await session.call_tool(ABSENT_TOOL, {})
+                except MCPError as error:  # the specification's shape for it
+                    said = error.message
+                else:  # the SDK's shape for it: a result flagged as an error
+                    if not answer.is_error:
+                        return "reached"
+                    said = "".join(
+                        b.text for b in answer.content if isinstance(b, TextContent)
+                    )
+                return "refused" if said == UNKNOWN else "reached"
+
+    # The server logs every refusal it makes, so on an intact wall its stderr
+    # would put a line saying the tool call failed into a green job's log. Kept,
+    # and shown only when there was no answer — the one time it diagnoses
+    # anything.
+    with tempfile.TemporaryFile("w+", encoding="utf-8") as log:
+        try:
+            return asyncio.run(ask(log))
+        except Exception:  # noqa: BLE001 - no answer at all is the finding
+            log.seek(0)
+            sys.stderr.write(log.read())
+            return "unobserved"
+
+
+def _baselines(root: Path) -> dict[Path, bytes]:
+    return {
+        path: path.read_bytes()
+        for path in root.glob(".digline/*/baselines/**/*")
+        if path.is_file()
+    }
+
+
+def probe(root: Path, out: Path, server: Sequence[str]) -> Probe:
+    """Run both halves, and undo whatever the negative managed to write.
+
+    Before the comparison, so that a wall which let a baseline through is
+    rolled back before anything is measured against it: comparing with a
+    reference the operator could have written is the same vacuous green as
+    promoting before comparing in CI.
+    """
+    before = _baselines(root)
+    negative = _ask_for_the_absent_tool(server)
+    try:
+        # Claimed now, written in full when the cycle ends.
+        out.write_text("", encoding="utf-8")
+        positive = True
+    except OSError:
+        positive = False
+    after = _baselines(root)
+    for path in after.keys() - before.keys():
+        path.unlink()
+    for path, data in before.items():
+        if after.get(path) != data:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+    return Probe(negative, positive, rolled_back=after != before)
+
+
+# --------------------------------------------------------------------------- #
 # The cycle
 # --------------------------------------------------------------------------- #
 
@@ -299,10 +441,16 @@ def cycle(config: Config, *, root: Path) -> Cycle:
     )
 
 
-def cycle_json(config: Config, done: Cycle) -> dict[str, Any]:
+def cycle_json(config: Config, done: Cycle, wall: Probe) -> dict[str, Any]:
     """`cycle.json`: layer 1 verbatim, plus the record layer 2 is written from."""
     return {
         "cycle_format": CYCLE_FORMAT,
+        "probe": {
+            "wall": wall.wall,
+            "negative": wall.negative,
+            "positive": wall.positive,
+            "rolled_back": wall.rolled_back,
+        },
         "suite": config.suite,
         "cadence": config.cadence,
         "stopping_rule": {
@@ -342,8 +490,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     config = load_config(args.config)
     check_cadence(config, root / ".github" / "workflows" / "operator.yml")
 
+    wall = probe(root, Path(args.out), surface(root))
+    print(
+        f"wall {wall.wall}: {ABSENT_TOOL!r} {wall.negative} at the MCP wire, "
+        f"cycle file {'written' if wall.positive else 'NOT written'}"
+        + (", baselines rolled back" if wall.rolled_back else "")
+    )
+
     done = cycle(config, root=root)
-    document = cycle_json(config, done)
+    document = cycle_json(config, done, wall)
     Path(args.out).write_text(
         json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

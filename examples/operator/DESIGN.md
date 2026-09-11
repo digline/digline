@@ -67,6 +67,70 @@ watches the measurement; it does not repair the system. Fixing a
 prompt belongs to your engineer or your coding agent — and the alert
 is the handover between the two.
 
+## The wall, proved each cycle
+
+*(Added 2026-09-11. From a thread on r/AI_Agents the same day — "a
+wall I've never tested is a wall I'm trusting on its paperwork" —
+with the positive-control half added in review.)*
+
+An absent `promote` is a claim, and a claim nobody checks is
+paperwork. So before it compares anything, the operator proves the
+wall with two operations under its own credentials:
+
+- **One that must be refused.** It calls a tool named `promote`, by
+  name, on its own MCP surface, and expects the protocol's
+  *unknown tool* error. Absence is verified at the wire, not read out
+  of a config file. There is no disabled `promote` on the server to
+  aim at: that would be the policy the absence replaces.
+- **One that must succeed.** It writes its own cycle file, an
+  operation it already owns. **Refusal alone proves nothing**: an
+  identity with a dead token or a full disk is refused everything,
+  `promote` included, and would read that as a wall standing.
+
+The outcome is digline's own trichotomy, applied to the wall instead
+of a check. **Intact** (refused, and the write succeeded) is one log
+line. **Collapsed** (the negative got any answer but *unknown tool*)
+opens a high-severity issue, *separation collapsed*, and whatever it
+wrote under the baselines is rolled back before the comparison reads
+them. On this surface the wall is the absence, so a `promote` that
+answers "no" is still a collapse. **Inconclusive** (no answer, or the
+write failed beside the refusal) opens a different issue: the
+instrument is down. Like an errored verdict, it is not a pass. The
+probe's only failure mode is a false alarm. A server that learnt to
+say "unknown" in other words would read as collapsed, loudly, and
+never as intact.
+
+**It proves the wall for the identity that ran it, and no other.**
+A probe run with an administrator's credentials is vacuous by
+construction. Our own repository is the honest example: its `main`
+ruleset lets repository admins bypass it, so a push probe run with the
+maintainer's token proves only that admins can push. The operator's
+credentials must be the narrow ones, and the probe is what enforces
+that. Run the push probe below with an admin's token and it reports a
+collapse every cycle, which is exactly what it should report.
+
+The MCP probe covers the interactive surface. The scheduled loop has a
+shell, and the CLI it drives *has* `promote`. What keeps a baseline
+from landing there is the token: `contents: read` cannot push. That
+wall is the deployment's own to probe. It is **documented, not
+exercised** in the example, because an example has no protected
+remote. The pattern is to push a marked commit that touches the
+baselines and expect the push to be refused:
+
+```sh
+probe=".digline/$TENANT/baselines/operator-probe"
+echo "operator probe: this push must be refused" > "$probe"
+git add -f "$probe" && git commit -qm "operator probe: must be refused"
+if git push -q origin HEAD:main; then
+  # collapsed: open the high-severity issue, then take it back
+  git revert --no-edit HEAD && git push -q origin HEAD:main
+fi
+```
+
+A push rather than a real `promote`: if it passes, it is a marked
+commit anyone recognizes and a revert undoes, not a baseline that
+looks approved.
+
 ## Where it lives, and what travels
 
 **In your perimeter, with your keys.** A container beside your

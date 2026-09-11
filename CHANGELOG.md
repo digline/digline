@@ -17,6 +17,33 @@ declared cost an empty leg file per attempt and answered in a `ValueError`.
 call made, which is what ADR 0017 §6 promises for every other input on that
 list.
 
+**The operator proves the wall each cycle.** `examples/operator/loop.py` used
+to trust that `promote` is absent from its surface. Now it checks, before it
+compares anything, with two operations under its own credentials. It calls
+`promote` by name on the MCP server and expects *unknown tool*. Beside that, it
+writes its own cycle file. Refusal alone proves nothing: an identity refused
+everything is refused `promote` too.
+
+The outcome uses digline's own trichotomy:
+
+- **intact** is one log line;
+- **collapsed** is any answer but *unknown tool*, a refusal included, because on
+  that surface the wall is the absence. It opens a high-severity issue, and
+  anything written under the baselines is rolled back before the comparison
+  reads them;
+- **inconclusive** is a different issue: the instrument is down.
+
+`cycle.json` carries the probe, and `cycle_format` goes to 3. The two captured
+alerts were regenerated with it: the same scores, new run keys, and a probe line
+in layer 2.
+
+The probe proves the wall only for the identity that ran it. The push probe a
+deployment runs against its own protected branch is documented in `DESIGN.md`,
+not exercised: an example has no protected remote. `AGENTS.md` and the skill
+carry the rule in one line, and `test_agents.py` holds it word for word in both.
+Nothing in `src/` or in `digline-mcp` moved. Its `promote` is still absent, and
+no disabled one was added to test against.
+
 ## 0.11.0 — 2026-09-11
 
 **The journal.** digline **0.11.0**, alone: the three provider plugins stay at

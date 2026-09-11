@@ -12,7 +12,7 @@ your own repository. It runs with no API key.
     suite.py        four cases, six checks — the quickstart's shape, deliberately
     fake.py         the system under test and the judge, both stand-ins
     operator.toml   cadence, stopping rule, budget, escalation — a file, not a vibe
-    loop.py         run, re-run within the rule, classify
+    loop.py         prove the wall, run, re-run within the rule, classify
     dossier.py      the cycle, rendered as the three-layer alert
     judgment.py     layer 3, the only part a model writes — opt-in
     alerts/         two real alerts this loop produced
@@ -32,9 +32,9 @@ decided in `operator.toml` before anything ran — and it comes back green. The
 verdict is **draw**, and nobody is woken. `alerts/draw.md` is that document,
 captured; its second layer is the argument in four lines:
 
-    Run …638965 (seed 0, exit 1)
+    Run …080351 (seed 0, exit 1)
     | is-it-waterproof  | llm_rubric | regressed | 0.9104 | 0.5279 | no interval
-    Run …834128 (seed 1, exit 0)
+    Run …290015 (seed 1, exit 0)
     | how-do-i-return   | llm_rubric | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples
     | is-it-waterproof  | llm_rubric | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples
     | where-is-my-order | llm_rubric | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples
@@ -84,6 +84,13 @@ It cannot promote a baseline. Not "is told not to" — **cannot**: the MCP
 surface has no such tool, and there is nothing in this directory that shells out
 to one. A baseline is an approved reference and the approval is a person's.
 
+That absence is proved, not trusted. Before it compares anything, each cycle,
+`loop.py` calls `promote` by name on that surface and expects *unknown tool*.
+Beside it, it does one write it must be able to do: its own cycle file. Refusal
+alone proves nothing. Intact is one log line. A collapse and an inconclusive
+probe are two different issues. `DESIGN.md` has the three outcomes, and the push
+probe a deployment runs against its own protected branch.
+
 And it does not repair anything. The operator watches the measurement; fixing
 the prompt belongs to your engineer or your coding agent, and the alert is the
 handover between the two.
@@ -127,6 +134,10 @@ Fork the directory. Then, in order:
   promote the run whose per-case profile is closest to typical. Never the first
   green one.
 - **Change the cadence**, in `operator.toml` and in the workflow, together.
+- **Give the operator narrow credentials, and probe them.** The probe proves the
+  wall for the identity that ran it and no other, so a loop run with an admin's
+  token proves nothing. Add the push probe from `DESIGN.md` against your own
+  protected branch: the example cannot exercise it, because it has no remote.
 - **Turn escalation on** when you trust what it is telling you: set the
   repository variable `OPERATOR_ESCALATE` to `true`. Until then the alert is
   written to the job summary and uploaded as an artifact on every cycle, and no

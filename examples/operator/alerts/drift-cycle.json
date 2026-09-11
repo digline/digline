@@ -6,7 +6,7 @@
     "stopped_the_loop": false
   },
   "cadence": "0 6 * * 1",
-  "cycle_format": 2,
+  "cycle_format": 3,
   "escalate": true,
   "escalation": {
     "dry_run": true,
@@ -14,6 +14,12 @@
       "digline",
       "operator"
     ]
+  },
+  "probe": {
+    "negative": "refused",
+    "positive": true,
+    "rolled_back": false,
+    "wall": "intact"
   },
   "reproduced": [
     [
@@ -91,7 +97,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T06-15-42-145385-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-11T15-51-34-360976-00-00-4d2ac7a7f606b8de",
       "seed": 0,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     },
@@ -194,7 +200,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T06-15-42-337456-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-11T15-51-34-570863-00-00-4d2ac7a7f606b8de",
       "seed": 1,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     },
@@ -297,7 +303,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T06-15-42-527716-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-11T15-51-34-778730-00-00-4d2ac7a7f606b8de",
       "seed": 2,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     }

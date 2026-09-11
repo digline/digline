@@ -72,6 +72,34 @@ def test_the_skill_and_agents_md_carry_the_same_rules() -> None:
     )
 
 
+#: The one line of the playbook that is not a heading and still has to be in
+#: both copies, word for word. It belongs to rule 1 — `promote` is absent from
+#: the operator's surface — and it is what stops that absence being paperwork:
+#: `examples/operator/loop.py` is the probe it describes.
+PROBE_LINE = (
+    "**The operator proves the wall each cycle:** one write that must be refused "
+    "beside one that must succeed; refusal alone proves nothing."
+)
+
+
+def test_both_files_say_the_operator_proves_the_wall() -> None:
+    """Rule 1 says `promote` is absent; this line says the absence is checked
+    rather than trusted, and that a refusal alone does not check it. An agent
+    that read only one copy would know the wall and not the probe — and would
+    report "refused" as "standing", which is the mistake the line exists for.
+
+    Compared with the files' line breaks folded, so rewrapping the paragraph is
+    not drift and rewording it is.
+    """
+    for path in (AGENTS, SKILL):
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        rule_one = text.split("## 1. ", 1)[1].split("## 2. ", 1)[0]
+        assert PROBE_LINE in rule_one, (
+            f"{path.relative_to(ROOT)} no longer says, word for word: "
+            f"{PROBE_LINE!r}. Both copies carry it, in rule 1."
+        )
+
+
 def test_the_skill_declares_its_frontmatter() -> None:
     """A skill with no `name` and no `description` is never loaded.
 

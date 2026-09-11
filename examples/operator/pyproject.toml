@@ -16,6 +16,11 @@ dependencies = [
     # in this directory gets the six reading tools — and no `promote`, because
     # there is no such tool to have.
     "digline-mcp>=0.1,<0.2",
+    # The client half of the same protocol, for `loop.py`'s probe: it calls
+    # `promote` by name on that server each cycle and expects to be told there
+    # is no such tool. Named here rather than reached through `digline-mcp`,
+    # because this file imports it; the bounds are the ones that package holds.
+    "mcp>=2.2,<3",
 ]
 
 [dependency-groups]
