@@ -43,7 +43,8 @@ TOTAL_COST_KEY = "total_cost_usd"
 
 
 def _agreement(statuses: Sequence[Status]) -> float:
-    """The fraction of samples that reached the same verdict as the majority.
+    """The fraction of *all* the samples that reached the majority judged
+    verdict.
 
     **This is the definition, and it was chosen over the alternatives.** Not the
     variance of the scores, nor the width of the spread, because agreement
@@ -55,12 +56,18 @@ def _agreement(statuses: Sequence[Status]) -> float:
     agreement tells the two apart. The spread is reported alongside for whoever
     wants the other view.
 
-    Ties break on the status name so the result is deterministic. A tie means
-    agreement of at most one half, which any sensible `min_agreement` rejects.
+    **Only `pass` and `fail` can be the majority.** An errored sample is in the
+    denominator and never in the numerator: it counts against agreement, never
+    for it. Counted like the other two, four samples that could not judge would
+    "agree" and let the fifth decide the check alone — which is what happened
+    until ADR 0006 §12, and which no decision had ever chosen. With no errored
+    sample the two definitions are the same number.
+
+    Only the size of the majority matters, not which side it is, so a tie needs
+    no breaking.
     """
-    counts = Counter(statuses)
-    _status, hits = max(counts.items(), key=lambda kv: (kv[1], kv[0]))
-    return hits / len(statuses)
+    judged = Counter(status for status in statuses if status != "error")
+    return max(judged.values(), default=0) / len(statuses)
 
 
 def _numeric(verdicts: Sequence[Verdict], key: str) -> list[float]:
@@ -167,7 +174,9 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     - below `min_agreement` the outcome is **`error`**, not `fail`. A judgement
       that does not repeat is not a failure, it is a judgement that could not be
       given — which is what the third state is for, and it means a suite too
-      noisy to trust cannot be promoted to a baseline;
+      noisy to trust cannot be promoted to a baseline. An errored sample counts
+      against agreement, never for it (ADR 0006 §12), so samples that could not
+      judge never outvote the ones that did;
     - with **no** sample judged at all the outcome is `error` too, and the
       reason carries the samples' own cause under the summary — see
       `_all_errored`. Folding must not cost the reader the diagnosis it folded.
@@ -217,10 +226,21 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     # rejected two-of-three as "did not agree: 0.67 ... below the required
     # 0.67". The guard and the gate are one comparison now.
     if not meets(agreement, min_agreement):
+        # Said only when it applies, so a vote with no errored sample keeps the
+        # sentence it always had. Where it applies it is the sentence a reader
+        # needs: four errors in the scores and "0.20 agree" read as a bug
+        # unless something says which side an error counts on.
+        errored = len(verdicts) - len(scores)
+        against = (
+            f"; {errored} of {len(verdicts)} could not be judged, and an errored "
+            "sample counts against agreement, never for it"
+            if errored
+            else ""
+        )
         return failed(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "
-            f"(scores: {_rendered(verdicts)})"
+            f"(scores: {_rendered(verdicts)}){against}"
         )
 
     # Rounded *before* the status is decided, because `Verdict` rounds the

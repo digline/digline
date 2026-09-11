@@ -215,6 +215,99 @@ def test_a_narrow_spread_across_the_threshold_does_not_agree() -> None:
     assert "did not agree" in combined.reason
 
 
+#: ADR 0006 §12's table, one row per vote: the statuses, the agreement the
+#: amended definition gives them, and the outcome at a floor of `3/5` and of
+#: `4/5`. The last three rows are the ones that used to pass — the errors were
+#: the "majority" — and the fifth is the amendment's motivating row: four
+#: samples that could not judge satisfied `4/5`, and the one that could decided
+#: the check alone.
+AGREEMENT_ROWS = {
+    "3 pass, 2 fail": (("pass",) * 3 + ("fail",) * 2, 0.6, "pass", "error"),
+    "2 pass, 2 fail, 1 error": (
+        ("pass", "pass", "fail", "fail", "error"),
+        0.4,
+        "error",
+        "error",
+    ),
+    "3 error, 2 pass": (("error",) * 3 + ("pass",) * 2, 0.4, "error", "error"),
+    "3 error, 1 pass, 1 fail": (
+        ("error",) * 3 + ("pass", "fail"),
+        0.2,
+        "error",
+        "error",
+    ),
+    "4 error, 1 pass": (("error",) * 4 + ("pass",), 0.2, "error", "error"),
+}
+
+SCORE_FOR = {"pass": 1.0, "fail": 0.0, "error": None}
+
+
+def voted(statuses: tuple[str, ...]) -> list[Verdict]:
+    """A binary vote at the threshold the brief's shape uses, one half — so a
+    mean of 3/5 passes, as the table says."""
+    return [verdict(SCORE_FOR[status], threshold=0.5) for status in statuses]
+
+
+@pytest.mark.parametrize("row", sorted(AGREEMENT_ROWS))
+def test_an_errored_sample_counts_against_agreement_never_for_it(row: str) -> None:
+    statuses, agreement, at_three, at_four = AGREEMENT_ROWS[row]
+
+    three = combine_samples(voted(statuses), min_agreement=0.6)
+    four = combine_samples(voted(statuses), min_agreement=0.8)
+
+    assert (three.status, four.status) == (at_three, at_four)
+    if three.status != "error":
+        assert three.score.metadata["agreement"] == pytest.approx(agreement)
+    else:
+        assert f"{agreement:.2f} of them share" in three.reason
+
+
+def test_an_errored_majority_never_decides_the_check() -> None:
+    """The motivating row, said as the property it breaks: under the old
+    definition a vote whose errors outnumbered every judged side could still
+    return pass or fail, decided by the minority that was judged. No floor
+    allows that now — because no judged side outnumbers the errors, none can
+    reach the floor the errors used to reach for it."""
+    for errors in range(3, 5):
+        for judged in (("pass",), ("pass", "fail"), ("fail",)):
+            statuses = ("error",) * errors + judged
+            if len(statuses) > 5:
+                continue
+            for floor in (0.6, 0.8):
+                combined = combine_samples(voted(statuses), min_agreement=floor)
+                assert combined.status == "error", (statuses, floor)
+
+
+def test_the_reason_says_which_side_an_error_counts_on() -> None:
+    combined = combine_samples(voted(("error",) * 4 + ("pass",)), min_agreement=0.8)
+    assert "4 of 5 could not be judged" in combined.reason
+    assert "counts against agreement, never for it" in combined.reason
+
+
+def test_a_vote_with_no_error_keeps_the_reason_it_always_had() -> None:
+    combined = combine_samples(voted(("pass",) * 3 + ("fail",) * 2), min_agreement=0.8)
+    assert combined.reason == (
+        "the samples did not agree: 0.60 of them share the majority verdict, "
+        "below the required 0.80 (scores: 1.000000, 1.000000, 1.000000, "
+        "0.000000, 0.000000)"
+    )
+
+
+def test_a_clean_vote_agrees_exactly_as_it_did() -> None:
+    """Byte identity for every run with no errored sample: over every pass/fail
+    vote of two to six samples, the amended agreement is the old one —
+    the largest status count over the samples, errors eligible — so no stored
+    run, baseline or measured threshold without an error moves."""
+    from collections import Counter
+    from itertools import product
+
+    for n in range(2, 7):
+        for statuses in product(("pass", "fail"), repeat=n):
+            old = max(Counter(statuses).values()) / n
+            combined = combine_samples(voted(statuses), min_agreement=0.5)
+            assert combined.score.metadata["agreement"] == old, statuses
+
+
 def test_the_recorded_metadata_is_all_numbers() -> None:
     combined = combine_samples(
         [verdict(0.90), verdict(0.80), verdict(0.85)], min_agreement=0.6

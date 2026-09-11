@@ -661,6 +661,64 @@ def test_migration_gives_the_wobbling_case_its_interval() -> None:
     assert verdict.score.score == 0.4
 
 
+def _votes(recorded: Verdict) -> list[Verdict]:
+    """A recorded folded verdict, taken apart into the samples it was folded
+    from. Only faithful where no sample errored — an errored one leaves nothing
+    in `samples` — which the test that uses it asserts first."""
+    assert recorded.score.samples, "an unsampled verdict has no votes to re-fold"
+    return [
+        sample(score, threshold=recorded.threshold, name=recorded.score.name)
+        for score in recorded.score.samples
+    ]
+
+
+def test_the_brief_fixtures_fold_exactly_as_they_were_recorded() -> None:
+    """ADR 0006 §12's byte-identity promise, on the real runs: neither fixture
+    has an errored sample, so the amended agreement re-folds every sampled
+    verdict in both to the status, score and agreement it recorded."""
+    folded = 0
+    for name in (BASELINE, CRIED_WOLF):
+        for case in brief_run(name).results:
+            for recorded in case.verdicts:
+                if not recorded.score.samples:  # unsampled: nothing to re-fold
+                    continue
+                assert recorded.score.metadata["errored_samples"] == 0
+                again = combine_samples(_votes(recorded), min_agreement=0.6)
+                assert (
+                    again.status,
+                    again.score.score,
+                    again.score.metadata["agreement"],
+                ) == (
+                    recorded.status,
+                    recorded.score.score,
+                    recorded.score.metadata["agreement"],
+                ), (name, case.case_id, recorded.score.name)
+                folded += 1
+    # A guard on the guard: two runs of twenty-one cases, three sampled checks
+    # each. An empty loop would prove nothing and pass.
+    assert folded == 2 * 21 * 3
+
+
+def test_the_brief_split_meets_three_in_five_at_its_edge_and_four_refuses_it() -> None:
+    """The canonical 3–2 split, and where each floor binds on it. `3/5` is met
+    exactly — agreement 0.60 — so the case stays a real `fail` that `compare()`
+    gets to read, which is the story ADR 0006 is about. `4/5` refuses the same
+    vote as `error`: a genuine 3–2 split is what it exists to catch. Both answers
+    are the ones the old definition gave, because nothing here errored."""
+    recorded = next(
+        v
+        for case in brief_run(CRIED_WOLF).results
+        if case.case_id == WOBBLED
+        for v in case.verdicts
+        if v.score.name == AGREES
+    )
+    at_three = combine_samples(_votes(recorded), min_agreement=0.6)
+    at_four = combine_samples(_votes(recorded), min_agreement=0.8)
+
+    assert (at_three.status, at_three.score.metadata["agreement"]) == ("fail", 0.6)
+    assert at_four.status == "error"
+
+
 def _untoleranced(run: Run) -> Run:
     """The same run with every declared tolerance set to zero.
 
