@@ -11,6 +11,12 @@ know which of them answered, and do not change when you swap one for the other.
 That is the claim this example is making: **the framework is not the contract;
 the endpoint is.**
 
+Tested against **Spring Boot 4.1.x** and **Quarkus 3.39.x**, on a JDK 21 —
+built, started, and answering on `/evaluate`. `java-example.yml` in CI proves
+only that both services *compile*: neither ships a test, so the boot-and-answer
+half was verified by hand and the floor above is the version pair it was
+verified at.
+
 `stub.py` answers the same shape without a JVM, so everything below runs with no
 Java and no API key.
 
