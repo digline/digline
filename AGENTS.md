@@ -35,6 +35,14 @@ because they put it there.
 **The operator proves the wall each cycle:** one write that must be refused
 beside one that must succeed; refusal alone proves nothing.
 
+A wall lives outside the constrained identity's configuration surface. Three
+rungs: a protection the identity can bypass is a preference; one it must first
+reconfigure to cross (`enforce_admins` — the change is an auditable event) is a
+latch; one the platform enforces against everyone (you cannot approve your own
+PR) is a constraint. The operator's credential must exclude the surface that
+configures its own wall — an agent that can rewrite its fence has a reminder,
+not a fence.
+
 ## 2. Never promote the first green run
 
 Promote from the middle of several, never from the first one that goes green.

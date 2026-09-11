@@ -37,6 +37,11 @@ because they put it there.
 **The operator proves the wall each cycle:** one write that must be refused
 beside one that must succeed; refusal alone proves nothing.
 
+The operator's credential must exclude the surface that configures its own
+wall — on GitHub, administration scope, so the token that runs the probe cannot
+edit the ruleset it is probing: an agent that can rewrite its fence has a
+reminder, not a fence.
+
 ## 2. Never promote the first green run
 
 Promote from the middle of several, never from the first one that goes green.
