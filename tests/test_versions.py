@@ -252,6 +252,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "`preflight`'s handler and reached stderr quoting the credential. "
         "Same shape: the release the handler arrived in",
     },
+    # Same shape again, from the other side: the release whose diagnosis the
+    # fold was throwing away, named where the fold now keeps it.
+    "src/digline/core/sampling.py": {
+        "0.8.0": "'since 0.8.0 a mute judge says which ending the provider "
+        "declared' — the release the sentence arrived in, said beside the code "
+        "that stopped replacing it. History, not a claim about now",
+    },
     "src/digline/core/run.py": {
         "0.8.0": "'A run digline 0.8.0 wrote from a compatible endpoint' — the "
         "one release whose redacted documents this refusal actually rejects, "

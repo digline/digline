@@ -32,6 +32,31 @@ notes under them are this file, verbatim.
   changed** — and a target that sends no token cap gets a sentence that claims
   none, rather than one about a cap nobody set.
 
+- **Fixed:** a repeated check whose samples all errored now says *why* none of
+  them could be judged. The fold replaced every sample's reason with *"no
+  sample could be judged over 3 attempts"*, and that sentence was the whole of
+  what reached the run file: the cause 0.8.0 taught a mute judge to report
+  never survived sampling, so the one place a noisy judge is actually used —
+  `Repeated`, and `Suite.samples` with it — was the one place its diagnosis was
+  dropped.
+
+  The summary stays, because it is true and it is what decides the status, and
+  it now carries the cause under it: *"no sample could be judged over 3
+  attempts: the judge returned no text: the provider reported 'max_tokens'
+  (512 of 512 output tokens), so it was truncated before the first character —
+  raise max_tokens"*. Where the samples died of different things the
+  distribution is named rather than the dominant one — *"...for 2 different
+  reasons — 2 of 3: …; 1 of 3: …"* — because a cause that appeared once is
+  exactly the one worth seeing: the check is not flaky in one way, it is
+  failing in two. The partial case, where some samples were judged, is
+  untouched.
+
+  **No document changed shape.** The wire and the report render whatever
+  `reason` says, and what moved is what `reason` says. Worth knowing where it
+  does *not* arrive: `digline explain` carries no reason by decision (ADR 0012
+  §4), so an operator reading the fact list still sees *"could not be judged"*
+  and finds the cause in the run file or in a complete report.
+
 - **`examples/operator/`: `cycle.json` moves from format 1 to 2**, because the
   dossier now reads `digline explain --json`'s fact list instead of `compare
   --json full` — a forked loop writes format 2 on its next run and alerts
