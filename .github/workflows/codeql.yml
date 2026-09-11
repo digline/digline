@@ -37,14 +37,19 @@ jobs:
       - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
           languages: python
-          # The plain `security` suite. `security-and-quality` was tried first,
-          # on the argument that the wider set says more about a library — what
-          # it actually said was 74 quality findings, 19 of them a single
-          # extractor limitation reading PEP 695 `type` aliases in `__all__` as
-          # undefined exports. A list nobody can read is a list where a real
-          # alert arrives as noise, and the quality half is already covered by
-          # gates that fail the build: ruff (F401, F822) and pyright strict.
-          queries: security
+          # No `queries:` here, on purpose: the **default** suite is the plain
+          # security one, and there is no pack named `security` to ask for by
+          # name — `queries: security` fails the run with "Query pack security
+          # cannot be found". The named alternatives all widen it
+          # (`security-extended`, `security-and-quality`).
+          #
+          # `security-and-quality` was tried first, on the argument that the
+          # wider set says more about a library. What it said was 74 quality
+          # findings, 19 of them a single extractor limitation reading PEP 695
+          # `type` aliases in `__all__` as undefined exports. A list nobody can
+          # read is a list where a real alert arrives as noise, and the quality
+          # half is already gated by checks that fail the build: ruff (F401,
+          # F822) and pyright strict.
 
       # No build step. Python is interpreted, so CodeQL extracts it directly —
       # `autobuild` would be a no-op with a chance of failing.
