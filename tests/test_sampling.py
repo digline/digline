@@ -4,6 +4,7 @@ anything to a suite that does not ask for them.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -24,17 +25,24 @@ from digline.core import (
     run_to_json,
 )
 from digline.run import Case, Response, Suite, default_mapper, execute
+from digline.targets import Completion, ModelPrice, Pricing, ScoreJudge, Usage
 
 CREATED = "2026-01-01T00:00:00+00:00"
 
 
-def verdict(score: float | None, *, threshold: float = 0.7, name: str = "rubric"):
+def verdict(
+    score: float | None,
+    *,
+    threshold: float = 0.7,
+    name: str = "rubric",
+    reason: str = "could not judge",
+):
     if score is None:
         return Verdict(
             score=Score(name=name, score=None),
             threshold=threshold,
             status="error",
-            reason="could not judge",
+            reason=reason,
             assertion_id=f"id-{name}",
         )
     return Verdict(
@@ -320,6 +328,130 @@ def test_when_every_sample_errors_the_result_says_so() -> None:
     combined = combine_samples([verdict(None), verdict(None)], min_agreement=0.5)
     assert combined.status == "error"
     assert "no sample could be judged" in combined.reason
+
+
+# --------------------------------------------------------------------------- #
+# ...and says what the samples said (the twin of the target's mute reply)
+# --------------------------------------------------------------------------- #
+#
+# The summary sentence is true and stays. What it must not do is *replace* the
+# cause: since 0.8.0 a mute judge names the ending the provider declared and
+# what to do about it, and a `Repeated` check was the one place that sentence
+# never reached the run file.
+
+
+def test_one_shared_cause_is_named_under_the_summary() -> None:
+    mute = "the judge returned no text: output hit the max_tokens cap (512 of 512)"
+    combined = combine_samples(
+        [verdict(None, reason=mute) for _ in range(3)], min_agreement=0.5
+    )
+    assert combined.reason == f"no sample could be judged over 3 attempts: {mute}"
+
+
+def test_causes_that_differ_are_reported_as_a_distribution() -> None:
+    """The dominant one alone would hide the cause that appeared once — which is
+    the one worth seeing, because the check is not flaky in one way, it is
+    failing in two."""
+    combined = combine_samples(
+        [
+            verdict(None, reason="hit the cap"),
+            verdict(None, reason="was filtered"),
+            verdict(None, reason="hit the cap"),
+        ],
+        min_agreement=0.5,
+    )
+    assert combined.reason == (
+        "no sample could be judged over 3 attempts, for 2 different reasons — "
+        "2 of 3: hit the cap; 1 of 3: was filtered"
+    )
+
+
+def test_the_partial_case_is_untouched() -> None:
+    """Some samples were judged, so there is a mean and the fold reports it.
+    Nothing here changed, and the errored sample is counted where it always
+    was."""
+    combined = combine_samples(
+        [verdict(0.9), verdict(None, reason="hit the cap"), verdict(0.9)],
+        min_agreement=0.5,
+    )
+    assert combined.status == "pass"
+    assert combined.reason == "mean of 3 samples (0.900000, error, 0.900000)"
+    assert combined.score.metadata["errored_samples"] == 1
+
+
+def test_a_sample_with_nothing_to_say_leaves_the_summary_alone() -> None:
+    """`Verdict.reason` is mandatory, so an empty one cannot exist — but a
+    blank one can, and a third-party assertion is where it would come from. The
+    summary is still the truth, and a dangling colon is not."""
+    combined = combine_samples(
+        [verdict(None, reason="   "), verdict(None, reason=" ")], min_agreement=0.5
+    )
+    assert combined.reason == "no sample could be judged over 2 attempts"
+
+
+class MuteJudge(ScoreJudge):
+    """The adaptive grader that spent its whole budget thinking and said
+    nothing.
+
+    The real base rather than a callable that raises a copy of the sentence: the
+    claim under test is that *the 0.8.0 sentence* survives the fold, and a
+    hand-written imitation of it would keep passing after the real one moved.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "fake-1",
+            max_tokens=512,
+            pricing=Pricing(per_model={"fake-1": ModelPrice(1.0, 2.0)}),
+        )
+
+    def _complete(self, system: str, prompt: str) -> Completion:
+        return Completion(
+            text="",
+            usage=Usage(input_tokens=10, output_tokens=512),
+            finish="length",
+        )
+
+
+def test_a_repeated_check_carries_the_judges_own_diagnosis() -> None:
+    """End to end, which is the claim that matters: `Repeated` around a mute
+    judge reaches the run document naming the ending and the fix."""
+    combined = Repeated(
+        inner=LlmRubric(rubric="ok?", judge=MuteJudge(), threshold=0.7, tolerance=0.05),
+        samples=3,
+        min_agreement="2/3",
+    )(EvaluatorInputs(output="Rome"))
+
+    assert combined.status == "error"
+    assert combined.score.score is None
+    assert "no sample could be judged over 3 attempts" in combined.reason
+    assert "the judge returned no text" in combined.reason
+    assert "raise max_tokens" in combined.reason
+
+
+def test_the_document_renders_the_reason_it_is_given() -> None:
+    """No output change is expected from any of this: the wire and the report
+    render whatever `reason` says, and what moved is what `reason` says."""
+    suite = Suite(
+        tenant="acme",
+        environment="dev",
+        name="qa",
+        assertions=[
+            Repeated(
+                inner=LlmRubric(
+                    rubric="ok?", judge=MuteJudge(), threshold=0.7, tolerance=0.05
+                ),
+                samples=2,
+                min_agreement="2/2",
+            )
+        ],
+        cases=[Case(id="one")],
+    )
+    run = execute(suite, steady_target, created_at=CREATED)
+    document = json.loads(run_to_json(run))
+    (case,) = document["results"]
+    (check,) = case["verdicts"]
+    assert "raise max_tokens" in check["reason"]
 
 
 # --------------------------------------------------------------------------- #

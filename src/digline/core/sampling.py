@@ -108,6 +108,42 @@ def _folded_metadata(verdicts: Sequence[Verdict]) -> Mapping[str, object]:
     return folded
 
 
+def _all_errored(verdicts: Sequence[Verdict]) -> str:
+    """The summary sentence, carrying the cause the samples themselves gave.
+
+    "No sample could be judged over 3 attempts" is true and worth saying — it is
+    the fact that decides the status — but on its own it *replaced* what each
+    sample had reported, and what each sample had reported was the whole
+    diagnosis: since 0.8.0 a mute judge says which ending the provider declared
+    and what to do about it, and a `Repeated` check was the one place that
+    sentence never reached the run file.
+
+    **Grouped on the sentence, not on a cause code**, because the samples give
+    sentences and a cause code would be a second vocabulary to keep in step. Two
+    samples truncated at the same cap produce the same string and count as one
+    reason; two truncated at different token counts do not, and saying so twice
+    is more honest than a grouping that pretends to know they are the same.
+
+    **The distribution, not the dominant one.** With a handful of samples the
+    whole of it fits in a sentence, and "2 of 3 hit the cap, 1 of 3 was filtered"
+    is the shape an operator acts on: the one it hides — a cause that appeared
+    once — is exactly the one worth seeing, because the run is not flaky in one
+    way, it is failing in two. Most common first, and ties keep the order the
+    samples came in, so the sentence is deterministic for a given run.
+    """
+    attempts = len(verdicts)
+    summary = f"no sample could be judged over {attempts} attempts"
+    causes = Counter(v.reason.strip() for v in verdicts if v.reason.strip())
+    if not causes:
+        return summary
+    if len(causes) == 1:
+        return f"{summary}: {next(iter(causes))}"
+    spread = "; ".join(
+        f"{count} of {attempts}: {cause}" for cause, count in causes.most_common()
+    )
+    return f"{summary}, for {len(causes)} different reasons — {spread}"
+
+
 def _rendered(verdicts: Sequence[Verdict]) -> str:
     return ", ".join(
         "error" if v.score.score is None else f"{v.score.score:.6f}" for v in verdicts
@@ -131,7 +167,10 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     - below `min_agreement` the outcome is **`error`**, not `fail`. A judgement
       that does not repeat is not a failure, it is a judgement that could not be
       given — which is what the third state is for, and it means a suite too
-      noisy to trust cannot be promoted to a baseline.
+      noisy to trust cannot be promoted to a baseline;
+    - with **no** sample judged at all the outcome is `error` too, and the
+      reason carries the samples' own cause under the summary — see
+      `_all_errored`. Folding must not cost the reader the diagnosis it folded.
 
     Metadata carries `samples`, `agreement`, `spread`, `errored_samples` and the
     raw `scores`. All numbers, so all of it crosses a boundary: the software
@@ -170,7 +209,7 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         )
 
     if not scores:
-        return failed(f"no sample could be judged over {len(verdicts)} attempts")
+        return failed(_all_errored(verdicts))
     # Rounded on both sides, like every other limit (ADR 0009 §1 and §7). The
     # reachability guard in `as_agreement` already judged this value at storage
     # precision, and comparing raw quotients here made the two disagree: with

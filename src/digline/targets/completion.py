@@ -21,11 +21,14 @@ from digline.core import Finish
 from digline.targets.pricing import Usage
 
 __all__ = [
+    "WHY_SILENT",
     "Completion",
     "CompletionResult",
     "ObservedIdentity",
     "as_completion",
     "finish_of",
+    "no_text_reason",
+    "said_something",
 ]
 
 
@@ -138,6 +141,96 @@ def finish_of(
     if not word:
         return None, None
     return table.get(word, "other"), word
+
+
+#: Why a reply that said nothing said nothing, per ending, in the vocabulary
+#: every plugin translates into (ADR 0004 §6). One sentence per outcome, because
+#: they need different actions: raising `max_tokens` fixes the first and nothing
+#: at all about the others.
+#:
+#: Written for either side of ADR 0004 — the target under test and the judge
+#: grading one both go mute the same way — so the sentences say "text" rather
+#: than naming a shape. `JudgeBase` passes its own table for the one entry where
+#: the two really do differ: a judge was asked for a JSON object, and saying so
+#: is the difference between a cause and a category.
+WHY_SILENT: Mapping[Finish, str] = {
+    "length": "it was truncated before the first character — raise max_tokens",
+    "tool_use": "it answered with a tool call instead of text",
+    "filtered": "the reply was refused or filtered, not written",
+    "stop": "it ended normally and said nothing, which is a prompt or a model "
+    "that will not answer in the shape asked for",
+    "other": "the provider ended the turn for a reason of its own",
+}
+
+
+def said_something(text: str, prefill: str | None = None) -> bool:
+    """Whether the *model* contributed anything, past what we wrote for it.
+
+    A plugin may open the assistant turn for the model — Anthropic prefills `{`
+    so the reply is a JSON object whether or not the model felt like opening
+    one — and prepends that prefill back before returning, which is right for
+    parsing and wrong for this question: a model that produced nothing comes
+    back as `"{"`, and `"{"` is not empty. Without this, the provider most
+    likely to be prefilling would be the one provider the check never fired for.
+
+    One implementation and two callers, like `ObservedIdentity` above: the
+    target path and the judge path ask the same question of the same field, and
+    a second copy of it would be the one that fell behind.
+    """
+    body = text
+    if prefill and body.startswith(prefill):
+        body = body[len(prefill) :]
+    return bool(body.strip())
+
+
+def no_text_reason(
+    reply: Completion,
+    *,
+    subject: str,
+    max_tokens: int | None = None,
+    why: Mapping[Finish, str] = WHY_SILENT,
+) -> str:
+    """Why a reply that said nothing said nothing, as a sentence.
+
+    Since ADR 0004 §6 the cause is **read** rather than inferred, and this is
+    the one case where the two disagree most: a model that answered with a tool
+    call and a model cut off at the cap look identical to a token count when the
+    cap was also reached, and they need opposite fixes.
+
+    The inference below is kept as the fallback, and it is not a courtesy: a
+    provider on a compatible endpoint that reports no finish reason is the
+    ordinary case, and this is the sentence that serves it. The numbers are what
+    this layer holds when the provider says nothing, so they are what it may
+    claim — and a caller that cannot name a cap (`max_tokens=None`) does not get
+    a sentence about one, because a cap nobody sent is not a cap the reply hit.
+    """
+    counted = (
+        f"{reply.usage.output_tokens}"
+        if max_tokens is None
+        else f"{reply.usage.output_tokens} of {max_tokens}"
+    )
+    if reply.finish is not None:
+        # The provider's own word beside ours: `finish` decides the sentence,
+        # `finish_raw` is what an operator will search the provider's docs for.
+        said = reply.finish if reply.finish_raw is None else reply.finish_raw
+        return (
+            f"{subject} returned no text: the provider reported {said!r} "
+            f"({counted} output tokens), so {why[reply.finish]}"
+        )
+    if max_tokens is None:
+        return (
+            f"{subject} returned no text ({counted} output tokens) and the "
+            "provider reported no reason — a non-text reply or a refusal"
+        )
+    if reply.usage.output_tokens >= max_tokens:
+        return (
+            f"{subject} returned no text: output hit the max_tokens cap "
+            f"({counted}) — likely truncated before the first character"
+        )
+    return (
+        f"{subject} returned no text with output well under the cap "
+        f"({counted}) — a non-text reply or a refusal"
+    )
 
 
 class ObservedIdentity:

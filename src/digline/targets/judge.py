@@ -26,10 +26,13 @@ from typing import Any, ClassVar, cast
 
 from digline.core import ClaimReply, ConfigValue, Finish, JudgeReply
 from digline.targets.completion import (
+    WHY_SILENT,
     Completion,
     CompletionResult,
     ObservedIdentity,
     as_completion,
+    no_text_reason,
+    said_something,
 )
 from digline.targets.config import sent
 from digline.targets.pricing import Pricing
@@ -154,17 +157,14 @@ def _matching_brace(text: str, start: int) -> int:
     return -1
 
 
-#: What each ending means for a judge that returned nothing, in the vocabulary
-#: every plugin translates into (ADR 0004 §6). One sentence per outcome, because
-#: they need different actions: raising `max_tokens` fixes the first and nothing
-#: at all about the others.
-_WHY_SILENT: Mapping[Finish, str] = {
-    "length": "it was truncated before the first character — raise max_tokens",
+#: What each ending means **for a judge**, which is `WHY_SILENT` with one
+#: sentence of its own. A judge was asked for a JSON object and a target was
+#: asked for nothing in particular, and that is the whole of the difference: the
+#: table is shared so a new ending is written once, and the entry where the two
+#: readers need different words is the entry that is overridden.
+_WHY_JUDGE_SILENT: Mapping[Finish, str] = {
+    **WHY_SILENT,
     "tool_use": "it answered with a tool call instead of the JSON object asked for",
-    "filtered": "the reply was refused or filtered, not written",
-    "stop": "it ended normally and said nothing, which is a prompt or a model "
-    "that will not answer in the shape asked for",
-    "other": "the provider ended the turn for a reason of its own",
 }
 
 
@@ -178,34 +178,16 @@ def _no_text(reply: Completion, max_tokens: int) -> str:
     *parser* fact, in a document read by an operator who then goes looking for
     malformed JSON that is not there.
 
-    Since ADR 0004 §6 the cause is **read** rather than inferred, and this is
-    the one case where the two disagree most: a model that answered with a tool
-    call and a model cut off at the cap look identical to a token count when the
-    cap was also reached, and they need opposite fixes.
-
-    The inference below is kept word for word as the fallback, and it is not a
-    courtesy: a judge on a compatible endpoint that reports no finish reason is
-    the ordinary case, and this is the sentence that serves it. The numbers are
-    what this layer holds when the provider says nothing, so they are what it
-    may claim.
+    The sentence itself is built by `no_text_reason`, which `ProviderTarget`
+    also calls: a target that goes mute goes mute for the same five reasons, and
+    the cause a judge reports and the cause a target reports had no business
+    being two implementations. What is left here is the subject and the table.
     """
-    counted = f"{reply.usage.output_tokens} of {max_tokens}"
-    if reply.finish is not None:
-        # The provider's own word beside ours: `finish` decides the sentence,
-        # `finish_raw` is what an operator will search the provider's docs for.
-        said = reply.finish if reply.finish_raw is None else reply.finish_raw
-        return (
-            f"the judge returned no text: the provider reported {said!r} "
-            f"({counted} output tokens), so {_WHY_SILENT[reply.finish]}"
-        )
-    if reply.usage.output_tokens >= max_tokens:
-        return (
-            "the judge returned no text: output hit the max_tokens cap "
-            f"({counted}) — likely truncated before the first character"
-        )
-    return (
-        "the judge returned no text with output well under the cap "
-        f"({counted}) — a non-text reply or a refusal"
+    return no_text_reason(
+        reply,
+        subject="the judge",
+        max_tokens=max_tokens,
+        why=_WHY_JUDGE_SILENT,
     )
 
 
@@ -319,23 +301,14 @@ class JudgeBase(ABC):
     def _said_something(self, text: str) -> bool:
         """Whether the *model* contributed anything, past what we wrote for it.
 
-        A plugin may open the assistant turn for the model — Anthropic's judge
-        prefills `{` so the reply is a JSON object whether or not the model
-        felt like opening one. `_complete` prepends that prefill back before
-        returning, which is right for parsing and wrong for this question: a
-        model that produced nothing comes back as `"{"`, and `"{"` is not
-        empty. Without this, the provider most likely to be judging here would
-        be the one provider the check never fired for.
-
         Read off `self.prefill` because that is the name the plugin already
         uses; declared on `JudgeBase` so it is a contract rather than a
         coincidence. A judge that does not prefill leaves it `None` and this is
-        a `strip()`.
+        a `strip()`. The rule itself is `said_something`, shared with the target
+        path, which prefills for the same reason and would otherwise have to ask
+        the question a second way.
         """
-        body = text
-        if self.prefill and body.startswith(self.prefill):
-            body = body[len(self.prefill) :]
-        return bool(body.strip())
+        return said_something(text, self.prefill)
 
     @abstractmethod
     def _complete(self, system: str, prompt: str) -> CompletionResult:

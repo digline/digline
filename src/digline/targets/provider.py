@@ -22,9 +22,12 @@ from typing import ClassVar
 from digline.core import ConfigValue, Output
 from digline.run import Case, Response
 from digline.targets.completion import (
+    Completion,
     CompletionResult,
     ObservedIdentity,
     as_completion,
+    no_text_reason,
+    said_something,
 )
 from digline.targets.config import sent
 from digline.targets.pricing import Pricing
@@ -47,6 +50,13 @@ class ProviderTarget(ABC):
     #: with no provider beside it would be a record nobody can act on, and
     #: absent is a fact while half a record is a puzzle. (ADR 0005 §1)
     provider: ClassVar[str] = ""
+
+    #: What the plugin wrote into the assistant turn before the model spoke, if
+    #: it did — `AnthropicTarget` prefills `{` and prepends it back, exactly as
+    #: its judge does. Declared here for the same reason it is declared on
+    #: `JudgeBase`: a reply that is only the prefill is a model that said
+    #: nothing, however non-empty the string looks.
+    prefill: str | None = None
 
     def __init__(
         self,
@@ -174,7 +184,7 @@ class ProviderTarget(ABC):
         usage = reply.usage
         self.observed.see(reply)
         return Response(
-            output=self.parse(reply.text),
+            output=self._parsed(reply),
             input=prompt,
             cost_usd=self.pricing.cost(self.model, usage),
             latency_ms=elapsed_ms,
@@ -190,6 +200,58 @@ class ProviderTarget(ABC):
                 **reply.as_metadata(),
             },
         )
+
+    def _token_cap(self) -> int | None:
+        """The cap the plugin sent, where it sends one — for the sentence a mute
+        reply gets when the provider reported no ending.
+
+        Read off `self.max_tokens`, which is the name all three published
+        plugins already use, so none of them changes to be diagnosed. Asked for
+        with `getattr` rather than declared as an attribute here on purpose: an
+        `int | None` on the base **widens** the `int` each plugin assigns, and
+        every `complete(max_tokens=self.max_tokens)` downstream stops
+        type-checking — the base would be taking a promise away from the
+        subclass to make its own sentence nicer.
+
+        A target that sends no cap returns `None` and gets a sentence that
+        claims none, which is the same rule the record itself runs on: what
+        nobody sent is not recorded as a default.
+        """
+        cap = getattr(self, "max_tokens", None)
+        return cap if isinstance(cap, int) else None
+
+    def _parsed(self, reply: Completion) -> Output:
+        """`parse`, with the provider's own diagnosis kept when there was
+        nothing to parse.
+
+        An empty completion is a legal **output**: the assertions get to fail it
+        and that is unchanged, which is why this is not a check before `parse`
+        but a reading of the failure after it. What was not legal was the
+        sentence a suite with a real `parse` got — a mute reply died as
+        `JSONDecodeError: Expecting value: line 1 column 1`, and the finish the
+        provider had just declared was discarded at the exact moment somebody
+        wanted it.
+
+        `JudgeBase._no_text` is the twin: a judge asked for a JSON object errors
+        on a mute reply before parsing, because nothing else it could do would
+        be a judgement. A target is asked for whatever the suite judges, so it
+        is the suite's own `parse` that decides whether mute is fatal — and when
+        it is, the cause it reports is the read one (ADR 0004 §6), not the
+        parser's.
+
+        The parse failure is kept as `__cause__` rather than dropped: it is the
+        second question a reader asks, and the first one is now answered.
+        """
+        try:
+            return self.parse(reply.text)
+        except Exception as exc:  # noqa: BLE001 — re-raised, either as is or read
+            if said_something(reply.text, self.prefill):
+                raise
+            raise ValueError(
+                no_text_reason(
+                    reply, subject="the target", max_tokens=self._token_cap()
+                )
+            ) from exc
 
     def parse(self, text: str) -> Output:
         """What the assertions will judge. The reply itself, unless you say so.
