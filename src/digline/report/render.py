@@ -243,6 +243,37 @@ def config_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
     return tuple(lines)
 
 
+#: Every C0 control character, `DEL`, and the C1 block — including `\n`, `\r`
+#: and `\t`, because `visible()` renders **one line** and a newline inside a
+#: value is a line somebody else wrote.
+_CONTROL = {
+    code: f"\\x{code:02x}" for code in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))
+}
+
+
+def visible(text: str) -> str:
+    """`text` with every control character shown rather than obeyed.
+
+    A stored document is not trusted text: `<tenant>/baselines/` is committed and
+    reviewed in a pull request, and a judge's `reason` quotes what a model
+    answered. `\x1b[2K\r` erases the line being printed and lets what follows
+    read as digline's own output while the exit code says otherwise — which is
+    the one trick a reading cannot catch, because the reading is what it forges.
+
+    Shown and not stripped: a value that carried an escape is a value somebody
+    should look at, and `\x1b` is four printable characters that cannot move a
+    cursor. Language is untouched — this neutralises control characters, not
+    accents, arrows or em dashes.
+
+    It lives here, in the layer that renders for people, because **both** front
+    ends need it: `digline.cli` wraps it in `say()`, and `pytest-digline` puts
+    digline's sentences into pytest's report. A front end may not import another
+    one, so a helper only one of them could reach would be a rule the other has
+    to reinvent. (0.10.1, from the release delta-pass)
+    """
+    return text.translate(_CONTROL)
+
+
 def fmt_score(value: float) -> str:
     """Numbers keep the dot in every locale: two reports of one run must stay
     comparable line by line."""

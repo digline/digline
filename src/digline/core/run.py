@@ -1159,10 +1159,25 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
     return payload
 
 
+#: The three branches `Output` has, as the document may spell them. Read from a
+#: document rather than trusted from it, like every other field here: a `kind`
+#: nothing checked reached `restore_output` and failed there, one layer from the
+#: name of the field that was wrong — an errored case where the honest answer is
+#: a refusal that says `kind`. (0.10.1, from the release delta-pass)
+_OUTPUT_KINDS: frozenset[str] = frozenset({"text", "structured", "conversation"})
+
+
 def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
     """Straight into the value, which does the checking — `_config_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it."""
     kind = raw.get("kind")
+    if kind is not None and str(kind) not in _OUTPUT_KINDS:
+        raise ValueError(
+            f"recorded response: 'kind' is {str(kind)!r}, which is not one of "
+            f"{', '.join(sorted(_OUTPUT_KINDS))}. The kind says which branch of "
+            "Output the text came from, and a replay that guessed would judge a "
+            "different thing from the one that was measured"
+        )
     cost = raw.get("cost_usd")
     latency = raw.get("latency_ms")
     try:

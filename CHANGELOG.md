@@ -8,6 +8,68 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+## 0.10.1 — 2026-09-11
+
+**The delta-pass patch.** digline 0.10.1 and **`pytest-digline` 0.1.3**. The three
+provider plugins stay at 0.4.0 and `digline-mcp` at 0.1.1. `SCHEMA_VERSION` stays
+**10** and `OUTPUT_VERSION` stays 1: no stored document moves, no `--json` shape
+moves, **no baseline needs re-promoting**.
+
+```sh
+uv add --upgrade digline
+uv add --dev --upgrade pytest-digline
+```
+
+Both findings from 0.10.0's release delta-pass, closed the same day. The pass is
+the standing rule: a release that adds surface gets an adversarial read **before**
+any announcement, and 0.10.0 added the most sensitive surface this product has —
+the model's own answers, recorded in a run file.
+
+### Security: a document could rewrite the terminal reading it
+
+**Found by the release delta-pass, before any announcement. No advisory**, by the
+line `SECURITY.md` draws: an advisory is for a vulnerability that shipped with
+real exposure, and a `Security` entry for one the process caught. Nothing here
+crosses a privilege boundary, nothing is disclosed, and the **exit code — the
+contract — was never affected.** What was affected is the sentence beside it.
+
+Strings read out of a stored document reached a terminal unsanitised, so ANSI
+escapes in them could erase the line being printed and forge one that reads as
+digline's own output — *"digline: Nothing got worse."* — while the exit code said
+`1`. Escape injection is precisely what defeats a reading, and a reading is what
+a review of a committed baseline is.
+
+**The class predates 0.10.0.** `digline list` has printed `environment` and
+`git_commit` straight from the document since 0.1.x; 0.10.0 added
+`digline_version` to the same class, in the installed-behind warning, which is
+how the pass found it. So the fix is **at the sink and not on a field**: every
+sentence the CLI prints now goes through `say()`, and every control character in
+it is *shown* (`\x1b`, four printable characters) rather than obeyed. `emit()` is
+the named exception for the two things that are documents rather than sentences —
+`--json`, where `json.dumps` has already escaped everything, and the HTML report,
+whose values are HTML-escaped where they are rendered. A test per sink, with the
+forgery planted in a different field each time.
+
+**`pytest-digline` had the same class and a shorter fuse**, which the pass only
+established by trying it: the plugin prints `Verdict.reason` into pytest's report,
+and a reason is *a judge quoting what a model answered*. No hostile document is
+needed there — only an answer with `\x1b[2K\r` in it. Fixed the same way, with
+the same function: `report.visible()` lives in `digline.report` because both front
+ends need it and a front end may not import another one. That is why the plugin
+moves to 0.1.3 with a floor of `digline>=0.10.1`.
+
+What was checked and is **not** affected: every HTML surface, every `--json`
+surface, the MCP responses, and the exit codes.
+
+### Fixed: a recorded response's `kind` is validated where it is read
+
+A forged `kind` — `"../../etc/passwd"` — parsed, and failed later inside
+`restore_output` as a `JSONDecodeError` that the driver reported as an *errored*
+case. Every sibling field in that document is checked on the way in; this one was
+cast. It now refuses at load, naming the field and the three branches `Output`
+has. Found by the same pass, and low: an error is neither green nor a regression,
+so nothing was ever reported as passing.
+
 ## 0.10.0 — 2026-09-11
 
 **The honest ledger.** digline 0.10.0 and **`pytest-digline` 0.1.2**. The three

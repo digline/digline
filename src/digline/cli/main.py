@@ -33,6 +33,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from digline import __version__
+from digline.cli.output import emit, say
 from digline.cli.view import serve
 from digline.core import (
     Run,
@@ -162,7 +163,7 @@ def _resolve(store: FileResultStore, suite: Suite, key: str) -> str:
     """
     resolved = resolve_key(store, suite, key)
     if resolved.note:
-        print(f"note: {resolved.note}", file=sys.stderr)
+        say(f"note: {resolved.note}", err=True)
     return resolved.key
 
 
@@ -180,7 +181,7 @@ def _warn_if_ahead(*runs: Run | None) -> None:
     """
     note = ahead_note(run.digline_version for run in runs if run is not None)
     if note:
-        print(f"warning: {note}", file=sys.stderr)
+        say(f"warning: {note}", err=True)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -201,7 +202,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
     plan = planned_calls(suite)
-    print(f"digline: {plan.sentence()}", file=sys.stderr)
+    say(f"digline: {plan.sentence()}", err=True)
 
     run = execute(
         suite,
@@ -216,11 +217,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     ref = store.write_run(run)
 
     if args.json:
-        print(json.dumps(run_json(ref, plan)))
+        emit(json.dumps(run_json(ref, plan)))
     else:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
-        print(ref.key)
+        say(ref.key)
     return EXIT_OK
 
 
@@ -245,7 +246,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     _warn_if_ahead(source)
 
     plan = planned_calls(suite)
-    print(f"digline: {plan.sentence(replayed=True)}", file=sys.stderr)
+    say(f"digline: {plan.sentence(replayed=True)}", err=True)
 
     try:
         run = rejudge(
@@ -261,9 +262,9 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
 
     ref = store.write_run(run)
     if args.json:
-        print(json.dumps(run_json(ref, plan)))
+        emit(json.dumps(run_json(ref, plan)))
     else:
-        print(ref.key)
+        say(ref.key)
     return EXIT_OK
 
 
@@ -283,10 +284,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     if args.json:
         payload = compare_json(comparison, head, full=args.json == "full")
-        print(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
+        emit(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
-    print(head.sentence)
+    say(head.sentence)
     # What was under test, before what it did: a prompt that moved changes how
     # every line below it reads, and learning that afterwards is learning it too
     # late. The tally only — the diff is in the report, one command away.
@@ -297,18 +298,18 @@ def cmd_compare(args: argparse.Namespace) -> int:
     # report for. (ADR 0005 §5)
     moved = (*moved, *config_lines(comparison, locale=args.locale))
     if moved:
-        print()
+        say()
         for line in moved:
-            print(f"  {line}")
+            say(f"  {line}")
     # Then *which* ones. "1 check got worse" without naming it sends the reader
     # to open an HTML file to learn a fact that fits on one line.
     lines = summary_lines(
         comparison, run, baseline, locale=args.locale, limit=SUMMARY_LIMIT
     )
     if lines:
-        print()
+        say()
         for line in lines:
-            print(line)
+            say(line)
     return exit_code(head)
 
 
@@ -341,7 +342,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
     sentence = diff_report.sentence(difference, locale=args.locale, labels=labels)
 
     if args.json:
-        print(
+        emit(
             json.dumps(
                 diff_json(
                     difference,
@@ -364,25 +365,25 @@ def cmd_diff(args: argparse.Namespace) -> int:
     # columns is not one. The key is dropped where the label already is the key.
     for key, label, run in ((left_key, labels[0], left), (right_key, labels[1], right)):
         stamp = "" if label == key else f"  {key}"
-        print(f"{label}{stamp}  {run.environment}")
+        say(f"{label}{stamp}  {run.environment}")
 
     # What differs about the systems, before what it did to the scores.
     opening = diff_report.header_lines(difference, locale=args.locale, labels=labels)
     if opening:
-        print()
+        say()
         for line in opening:
-            print(f"  {line}")
+            say(f"  {line}")
 
-    print()
-    print(sentence)
+    say()
+    say(sentence)
 
     lines = diff_report.summary_lines(
         difference, locale=args.locale, labels=labels, limit=SUMMARY_LIMIT
     )
     if lines:
-        print()
+        say()
         for line in lines:
-            print(line)
+            say(line)
     return EXIT_OK
 
 
@@ -412,30 +413,32 @@ def cmd_list(args: argparse.Namespace) -> int:
     rows.sort(key=lambda run: run.created_at, reverse=True)
 
     if not rows:
-        print(f"no runs for suite {suite.name!r} in tenant {suite.tenant!r}")
+        say(f"no runs for suite {suite.name!r} in tenant {suite.tenant!r}")
         if listing.skipped or listing.unreadable:
-            print(listing.note())
+            say(listing.note())
             for line in listing.advice():
-                print(line)
+                say(line)
         return EXIT_OK
 
-    print(f"  {'KEY':<49}  {'CREATED':<33}  {'ENV':<12}  {'COMMIT':<14}  CASES")
+    say(f"  {'KEY':<49}  {'CREATED':<33}  {'ENV':<12}  {'COMMIT':<14}  CASES")
     for run in rows:
         key = store.key_for(run)
         mark = "*" if key == baseline_key else " "
-        print(
+        say(
             f"{mark} {key:<49}  {run.created_at:<33}  {run.environment:<12}  "
             f"{_short_commit(run.git_commit):<14}  {len(run.results)}"
         )
     if baseline_key is not None:
-        print("\n* = current baseline")
+        say()
+        say("* = current baseline")
     if listing.skipped or listing.unreadable:
         # Below the table, because it is about what is *not* in it. Never
         # silent: a listing that quietly drops history reads exactly like a
         # listing of a shorter history.
-        print(f"\n{listing.note()}")
+        say()
+        say(listing.note())
         for line in listing.advice():
-            print(line)
+            say(line)
     _warn_if_ahead(*rows)
     return EXIT_OK
 
@@ -452,7 +455,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
     )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards.
-    print(f"{promoted.suite} baseline set to {key}")
+    say(f"{promoted.suite} baseline set to {key}")
     return EXIT_OK
 
 
@@ -471,21 +474,22 @@ def cmd_migrate(args: argparse.Namespace) -> int:
         paths.append(baseline_path)
 
     if not paths:
-        print(f"nothing stored for suite {suite.name!r} in tenant {suite.tenant!r}")
+        say(f"nothing stored for suite {suite.name!r} in tenant {suite.tenant!r}")
         return EXIT_OK
 
     report = migrate_paths(tuple(paths), dry_run=args.dry_run)
     verb = "would migrate" if args.dry_run else "migrated"
     for path, came_from in report.migrated:
-        print(f"{verb} {Path(path).name} from schema {came_from}")
-    print(
+        say(f"{verb} {Path(path).name} from schema {came_from}")
+    say(
         f"{len(report.migrated)} {verb}, {report.already_current} already current, "
         f"{len(report.refused)} refused"
     )
     for path, why in report.refused:
         # The refusal is the interesting output, so it goes to stderr where a
         # script will see it even when stdout is being read for the counts.
-        print(f"\nrefused {Path(path).name}: {why}", file=sys.stderr)
+        say("", err=True)
+        say(f"refused {Path(path).name}: {why}", err=True)
     return EXIT_OK if report.ok else EXIT_USAGE
 
 
@@ -532,7 +536,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
         scope = "comparison"
 
     if args.json:
-        print(
+        emit(
             json.dumps(
                 explain_json(reading, scope=scope, exit_code=code),
                 sort_keys=True,
@@ -543,7 +547,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
         return code
 
     for line in explain_text(reading, locale=args.locale):
-        print(line)
+        say(line)
     return code
 
 
@@ -595,7 +599,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     if args.out:
         Path(args.out).write_text(document, encoding="utf-8")
     else:
-        print(document, end="")
+        emit(document)
     return exit_code(
         headline(compare(run, baseline), run, baseline, locale=args.locale)
     )
@@ -620,7 +624,7 @@ def _report_single(run: Run, suite: Suite, args: argparse.Namespace) -> int:
     if args.out:
         Path(args.out).write_text(document, encoding="utf-8")
     else:
-        print(document, end="")
+        emit(document)
     return EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
 
 
@@ -806,7 +810,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except UsageError as exc:
-        print(f"digline: {exc}", file=sys.stderr)
+        say(f"digline: {exc}", err=True)
         return EXIT_USAGE
     except (
         ValueError,
@@ -818,7 +822,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ) as exc:
         # Refusals from the core and the store — a crossed perimeter, a moved
         # configuration, a run that could not judge. They are the user's to fix.
-        print(f"digline: {type(exc).__name__}: {exc}", file=sys.stderr)
+        say(f"digline: {type(exc).__name__}: {exc}", err=True)
         return EXIT_USAGE
 
 

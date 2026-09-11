@@ -440,14 +440,25 @@ class Check(pytest.Item):
         sentence here instead would be a fourth prose rendering of one
         comparison, bound to the other three by nothing.
         """
-        from digline.report import check_line
+        from digline.report import check_line, visible
 
         where = f"{self.delta.case_id or RUN_SCOPE} · {self.delta.assertion}"
         line = check_line(self.delta, locale=LOCALE, coincides=self.opened.coincides)
         parts = [f"digline: {where}", f"  {line}"]
         if self.opened.reasons_available and (reason := _reason(self.delta)):
             parts.append(f"  reason: {reason}")
-        return "\n".join(parts)
+        # Every line of this lands in a terminal, and every line of it is built
+        # from a stored document — a case id, an assertion name, and a judge's
+        # `reason`, which quotes what a **model** answered. That last one is the
+        # shortest path in the product from somebody else's text to a
+        # developer's screen: no hostile document is needed, only an answer with
+        # `\x1b[2K\r` in it, and the forged line reads as digline's own.
+        # `report.visible()` is the same rule the CLI applies at its own sink.
+        # Per part, not over the join: these three lines are *ours*, and the
+        # newlines between them are layout. A newline inside one of them is a
+        # line somebody else wrote, and `visible()` shows it as one.
+        # (0.10.1, from the release delta-pass)
+        return "\n".join(visible(part) for part in parts)
 
 
 class Suspended(pytest.Item):
@@ -462,7 +473,11 @@ class Suspended(pytest.Item):
         self.reason = reason
 
     def runtest(self) -> None:
-        pytest.skip(self.reason)
+        # The stated reason is a developer's sentence out of the run document,
+        # and it reaches a terminal through pytest's SKIPPED line. (0.10.1)
+        from digline.report import visible
+
+        pytest.skip(visible(self.reason))
 
     def reportinfo(self) -> tuple[Path, int | None, str]:
         return self.path, None, self.name
@@ -584,6 +599,11 @@ def pytest_terminal_summary(
     sentences = config.stash.get(HEADLINES, none)
     if not sentences:
         return
+    from digline.report import visible
+
     terminalreporter.write_sep("=", "digline")
     for sentence in sentences:
-        terminalreporter.write_line(sentence)
+        # Sanitised at the sink like every other line this plugin writes: the
+        # sentence is built from a stored document — configuration values, an
+        # artifact tally, a canary's case id. (0.10.1)
+        terminalreporter.write_line(visible(sentence))
