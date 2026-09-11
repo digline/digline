@@ -307,6 +307,21 @@ def test_free_with_no_model_is_refused() -> None:
 
 
 def test_the_price_list_says_when_it_was_read() -> None:
+    """What this sentinel guards, and what it does not.
+
+    It guards the prices of the entries the list already carries: that they
+    were read on a stated day, and that the day is still recorded when one of
+    them is corrected. It does **not** know that a new family exists upstream.
+    Nothing here watches the provider's catalogue, and nothing should — that
+    would be a network call the user did not configure (fixed decision 5).
+
+    A new model reaches us the slow way, through a dependency bump: the SDK
+    starts declaring the id, somebody reads the published prices, and the entry
+    is added by hand. Until then an unpriced model is refused at `preflight`
+    rather than guessed at, which is the honest failure and the one fixed
+    decision 3 asks for. The boundary is stated here so the next reader does
+    not mistake a green sentinel for a current catalogue.
+    """
     assert PRICES_READ_ON.count("-") == 2
     assert OPENAI_PRICING.knows("gpt-5") and OPENAI_PRICING.knows("gpt-5-mini")
     assert isinstance(OPENAI_PRICING, Pricing)

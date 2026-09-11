@@ -1,6 +1,6 @@
 """OpenAI list prices, in USD per million tokens.
 
-    Read from openai.com/api/pricing on 2026-08-28.
+    Read from openai.com/api/pricing on 2026-09-11.
 
 That date is the first line of this file on purpose. A price list is a fact
 about a day, and the only honest thing a copy of one can carry is when it was
@@ -12,9 +12,10 @@ not wait for one.
 prompt token at a discount and — unlike Anthropic — counts it *inside*
 `prompt_tokens`. `digline_openai.client` subtracts it before building the
 `Usage`, so the two token counts here are disjoint and nothing is billed twice.
-There is no charge for *writing* a cache, which is why every entry leaves
-`cache_write_per_mtok` at `None`: `None` means "this provider has no such tier"
-and makes a non-zero count raise, where a `0.0` would price it at nothing.
+Through GPT-5 there is no charge for *writing* a cache, which is why those
+entries leave `cache_write_per_mtok` at `None`: `None` means "this provider has
+no such tier" and makes a non-zero count raise, where a `0.0` would price it at
+nothing. From GPT-5.6 on the tier exists, and those entries carry its rate.
 
 **This list is the official endpoint's.** Point `base_url` at Azure, OpenRouter,
 Groq or vLLM and the prices are somebody else's: pass your own `pricing=`, or
@@ -28,7 +29,7 @@ from digline.targets import ModelPrice, Pricing
 __all__ = ["OPENAI_PRICING", "PRICES_READ_ON", "free"]
 
 #: When the figures below were copied. Kept as data so a test can read it.
-PRICES_READ_ON = "2026-08-28"
+PRICES_READ_ON = "2026-09-11"
 
 OPENAI_PRICING = Pricing(
     per_model={
@@ -118,6 +119,16 @@ OPENAI_PRICING = Pricing(
             output_per_mtok=1.20,
             cache_read_per_mtok=0.02,
             cache_write_per_mtok=0.25,
+        ),
+        # GPT-6 — short-context prices, on the same terms as GPT-5.6 above.
+        # Crossing 272K input tokens reprices the whole request (input and both
+        # cache rates double, output goes to 1.5x) and that meter is not
+        # modeled here. One id today: the SDK declares no mini or nano.
+        "gpt-6-astra": ModelPrice(
+            input_per_mtok=10.0,
+            output_per_mtok=50.0,
+            cache_read_per_mtok=1.0,
+            cache_write_per_mtok=12.50,
         ),
     }
 )

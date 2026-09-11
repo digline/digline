@@ -8,6 +8,17 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Added:** `digline-openai` prices `gpt-6-astra`, read from the published
+  list on 2026-09-11 along with every other entry, which is unchanged. Short
+  context only, on the same terms as the GPT-5.6 entries: crossing 272K input
+  tokens reprices the whole request and that meter is still not modeled here.
+  Until this entry existed the model was refused at `preflight` rather than
+  guessed at — the honest failure, and the one fixed decision 3 asks for. The
+  price sentinel never knew the family had shipped and is not meant to: it
+  guards the prices of entries the list already carries, and its docstring now
+  says so, because watching a provider's catalogue would be a network call
+  nobody configured (fixed decision 5).
+
 - **Fixed:** `digline-mcp` and `pytest-digline` now ship `py.typed`. Both
   classified themselves `Typing :: Typed` and neither carried the marker PEP
   561 says makes it true, so a consumer importing either one from the wheel got
