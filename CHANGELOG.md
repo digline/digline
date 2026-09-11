@@ -33,6 +33,10 @@ evidence as one checking what it does.
 - **Added:** `scorecard.yml` — the weekly OpenSSF Scorecard run, SARIF to code
   scanning, results published so the number can be checked against its source
   rather than against a picture.
+- **Added:** `SECURITY.md` says when a finding becomes a published advisory and
+  when it is a changelog entry instead. The line is exposure: an advisory for a
+  vulnerability that shipped, a `Security` entry for one our own process caught
+  before it could reach anybody. The delta-pass rule is written down beside it.
 - **Fixed:** the two `examples/langchain4j` services carried 63 known-vulnerable
   transitive dependencies between them — nothing in digline, nothing on PyPI,
   but a demo that ships those is a demo teaching the wrong thing. Spring Boot
