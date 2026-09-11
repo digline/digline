@@ -50,6 +50,30 @@ at the data, because no field restates it. A case that recorded carries a
 `{"withheld": true}` per sample, so the count survives. A run that recorded
 nothing has no `responses` key.
 
+**An errored sample counts against agreement, never for it.** This was found
+while writing documentation the code refused to support. The documentation was
+a table of what each `min_agreement` floor can catch, and the code would not
+make its `3/5` row true.
+
+Until now `error` could be the majority of a sampled check like any other
+status. Four samples that could not judge beside one pass therefore met a floor
+of `4/5`, and the check passed on the single vote that was judged. At `3/5`,
+three errors beside one pass and one fail passed at a mean of 0.5. No ADR ever
+decided that. ADR 0006 §12 now decides the opposite: only `pass` and `fail` can
+be the majority, and an errored sample sits in the denominator and never in the
+numerator. Those votes are now `error`, and the reason says which side an error
+counts on.
+
+A vote with no errored sample agrees exactly as it did, so no run without one
+moves. That covers the classifier, the brief fixtures, and the 144-case scout
+run of 2026-09-11. A stored run keeps what it recorded. The same answers folded
+under this release are an `error`.
+
+§13 is the table that started it, in the guide and in `as_agreement` too. At
+five samples, `3/5` binds only when an errored sample splits the vote, `4/5`
+binds on a genuine 3–2 split, and `5/5` is unanimity. Nothing is refused for
+reaching too little, so a floor is chosen knowing its reach.
+
 ## 0.11.0 — 2026-09-11
 
 **The journal.** digline **0.11.0**, alone: the three provider plugins stay at
