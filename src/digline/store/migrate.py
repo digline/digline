@@ -124,6 +124,32 @@ def _add_sample_interval(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_ten(raw: dict[str, Any]) -> dict[str, Any]:
+    """9 -> 10. Three passengers, three absences the old document justifies.
+
+    Named for the version rather than for a field, because it is the first bump
+    no single field can name (ADR 0014 §2). And it is the first step that
+    **writes nothing**, which is not laziness but the shape of the three
+    defaults:
+
+    `digline_version` is left absent, and absent is the only honest value: a
+    document rewritten by this release was not *produced* by it, and stamping it
+    would be the invention `_add_configs` already refuses about the model that
+    answered — a plausible fact nothing established.
+
+    `responses` is left absent because a run from last month recorded no answers
+    and none are recoverable. `canary` is left absent because the document omits
+    it when false, and a case written before the idea existed was not one.
+
+    So every key this version would add means exactly what its absence already
+    means, and adding them would churn every committed baseline in the world to
+    say nothing. The step exists to be *present* — a version with no entry in
+    `_STEPS` is one whose bump was not additive, and that statement about 9 would
+    be false.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -132,6 +158,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     6: _add_artifacts,
     7: _add_configs,
     8: _add_sample_interval,
+    9: _add_schema_ten,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

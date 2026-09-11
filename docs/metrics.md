@@ -153,10 +153,10 @@ latency_budget     0.800  pass   latency_ms, max_ms, ratio
 contains           1.000  pass   samples, agreement, spread, errored_samples, scores
 
 aggregate          score  status  metadata keys
-precision          0.500  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded
-recall             0.667  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded
-accuracy           0.500  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded
-f1                 0.571  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded
+precision          0.500  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
+recall             0.667  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
+accuracy           0.500  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
+f1                 0.571  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
 ```
 
 Two things to read off that table. `starts_with` and `contains` appear where
@@ -552,6 +552,24 @@ one: it says a class moved, never which of the two halves moved it. Read
 ---
 
 ---
+
+## What is left out of a denominator
+
+Four exclusions, and every one of them is counted in the verdict's metadata so
+that a number can be reconciled with the case file:
+
+| | |
+|---|---|
+| `suspended_excluded` | somebody set the case aside; it never ran |
+| `errored_excluded` | the check could not be judged |
+| `unlabelled_excluded` | the case carries no human mark to count against |
+| `canary_excluded` | the case watches the model rather than measuring it — see [`api.md`](api.md#casecanary-watching-the-model-instead-of-measuring-it) |
+
+`suspended_excluded` is the one figure here that can be improved by doing
+*less* work, which is why it is never printed on its own. The clause naming the
+canary appears only when there is one: rendered always, it would have rewritten
+the recorded reason of every aggregate verdict in every baseline already
+committed.
 
 ## Targets
 

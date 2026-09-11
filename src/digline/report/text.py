@@ -62,6 +62,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "header.redacted": "Contents omitted",
         "header.redacted.value": "This report was produced from redacted data.",
+        # Named in the header rather than only in the sentence: a reader who
+        # scrolls past the first screen must still be able to see that the
+        # answers came from a stored run, and which one.
+        "header.rejudged": "Answers replayed from",
+        # The evidence block: shown only where the document carries it, which
+        # is never at a boundary (ADR 0015 §4).
+        "answers.title": "What the system answered",
+        "answers.note": (
+            "Recorded because this suite asked for it. It stays in this "
+            "repository: a document produced for anyone outside it carries the "
+            "verdicts and not the answers."
+        ),
+        "answers.column.case": "Case",
+        "answers.column.input": "Question",
+        "answers.column.output": "Answer",
         # The third state of the answer block: a run with no approved
         # reference. Not a verdict and not an empty box — the fact, stated.
         "noreference.title": "No reference to compare against",
@@ -108,6 +123,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} files under test changed since the reference."
         ),
+        "fact.rejudged": (
+            "The answers in this run were replayed from a stored run, not "
+            "measured: the target was not asked anything."
+        ),
+        # *Likely*, and the word is chosen: the canary observes behaviour and
+        # cannot read a model id, so a suite whose canary moved because the
+        # shared prompt was edited has told the truth about a change with the
+        # wrong cause. The report states the observation and stops short of the
+        # diagnosis. (ADR 0016 §7)
+        "fact.canary.one": (
+            "The model under this alias likely changed: the canary {case} "
+            "moved from {before} to {after}{beyond}."
+        ),
+        "fact.canary.many": (
+            "The model under this alias likely changed: {count} canary checks "
+            "moved, including {case} from {before} to {after}{beyond}."
+        ),
+        "fact.canary.beyond": ", beyond the noise of this check ({interval})",
         "fact.target_config.changed": (
             "The system under test answered under a different configuration: {changes}."
         ),
@@ -394,6 +427,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The instrument that graded is not the one that graded the "
             "reference, so every difference below is measured on two scales."
         ),
+        "explain.tally.rejudged": (
+            "The answers judged here were replayed from a stored run: the "
+            "target was not asked anything, so what these numbers measure is "
+            "the judging."
+        ),
+        "explain.tally.canary": (
+            "A canary check moved. It is counted in no aggregate, and what its "
+            "movement is about is which model answered rather than how well it "
+            "answered."
+        ),
         "explain.setting.target.changed": (
             "The system under test answered with {name} {after}; the reference "
             "answered with {before}."
@@ -502,6 +545,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "header.redacted": "Contenuti omessi",
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
+        "header.rejudged": "Risposte riascoltate da",
+        "answers.title": "Che cosa ha risposto il sistema",
+        "answers.note": (
+            "Registrate perché questa suite lo ha chiesto. Restano in questo "
+            "repository: un documento prodotto per chi sta fuori porta i "
+            "verdetti, non le risposte."
+        ),
+        "answers.column.case": "Caso",
+        "answers.column.input": "Domanda",
+        "answers.column.output": "Risposta",
         "noreference.title": "Nessun riferimento con cui confrontare",
         "noreference.sentence": (
             "Questa è l'esecuzione così come è stata misurata. Se sia "
@@ -541,6 +594,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} file in prova sono cambiati rispetto al riferimento."
         ),
+        "fact.rejudged": (
+            "Le risposte di questa esecuzione sono state riascoltate da una "
+            "esecuzione archiviata, non misurate: al sistema in prova non è "
+            "stato chiesto nulla."
+        ),
+        "fact.canary.one": (
+            "Il modello dietro questo alias è probabilmente cambiato: la "
+            "sentinella {case} si è mossa da {before} a {after}{beyond}."
+        ),
+        "fact.canary.many": (
+            "Il modello dietro questo alias è probabilmente cambiato: {count} "
+            "controlli sentinella si sono mossi, fra cui {case} da {before} a "
+            "{after}{beyond}."
+        ),
+        "fact.canary.beyond": ", oltre il rumore di questo controllo ({interval})",
         "fact.target_config.changed": (
             "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
         ),
@@ -840,6 +908,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.comparability": (
             "Lo strumento che ha valutato non è quello che ha valutato il "
             "riferimento: ogni differenza qui sotto è misurata su due scale."
+        ),
+        "explain.tally.rejudged": (
+            "Le risposte giudicate qui sono state riascoltate da una "
+            "esecuzione archiviata: al sistema sotto esame non è stato chiesto "
+            "nulla, quindi questi numeri misurano il modo di giudicare."
+        ),
+        "explain.tally.canary": (
+            "Un controllo sentinella si è mosso. Non entra in nessun "
+            "aggregato, e ciò di cui il suo movimento parla è quale modello "
+            "abbia risposto, non quanto bene."
         ),
         "explain.setting.target.changed": (
             "Il sistema sotto esame ha risposto con {name} {after}; il "

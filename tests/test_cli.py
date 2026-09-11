@@ -229,6 +229,16 @@ COMPARE_KEYS = {
     # place. `test_the_exit_code_field_is_the_process_exit_code` pins the two
     # together.
     "exit_code",
+    # Joined with ADR 0015 §8, same rule again. A pipeline that never looks at
+    # it is unaffected; one that does learns the thing no other key on this list
+    # can say — that the answers under these numbers were replayed from a
+    # stored run rather than measured, so what moved is the judging.
+    "rejudged",
+    # Joined with ADR 0016 §8, and it is the first addition that can change the
+    # **exit code** of a run: a canary that moved exits 1 with no regression
+    # anywhere. Only for a suite that declares a canary, which none did before
+    # this release, so no existing consumer sees a number it did not see before.
+    "canary_moved",
     "counts",
     "reasons_available",
     "sentence",

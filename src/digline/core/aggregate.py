@@ -56,11 +56,16 @@ class CaseOutcome:
 
     `verdict` is `None` when the case was suspended, so there is nothing to
     count and the case is excluded rather than guessed at.
+
+    `canary` is the other exclusion, and a different kind: the case ran and was
+    judged, and its verdict is a real one — it is simply not evidence about the
+    population this aggregate measures. (ADR 0016 §2)
     """
 
     case_id: str
     label: Label | None
     verdict: Verdict | None
+    canary: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +84,10 @@ class Matrix:
     suspended_excluded: int = 0
     errored_excluded: int = 0
     unlabelled_excluded: int = 0
+    #: Cases that watched the model instead of measuring it. Counted rather than
+    #: dropped in silence: a figure whose denominator cannot be reconciled with
+    #: the case file is a figure nobody can check. (ADR 0016 §3)
+    canary_excluded: int = 0
 
     @property
     def considered(self) -> int:
@@ -101,14 +110,21 @@ class Matrix:
             "suspended_excluded": self.suspended_excluded,
             "errored_excluded": self.errored_excluded,
             "unlabelled_excluded": self.unlabelled_excluded,
+            "canary_excluded": self.canary_excluded,
         }
 
 
 def build_matrix(outcomes: Sequence[CaseOutcome]) -> Matrix:
     tp = fp = tn = fn = 0
-    suspended = errored = unlabelled = 0
+    suspended = errored = unlabelled = canary = 0
     for outcome in outcomes:
-        if outcome.verdict is None:
+        # Before every other branch, and before the label check in particular: a
+        # canary carries no label and is exempt from needing one, so testing it
+        # later would count it as unlabelled and file a design decision under an
+        # accident. (ADR 0016 §2)
+        if outcome.canary:
+            canary += 1
+        elif outcome.verdict is None:
             suspended += 1
         elif outcome.verdict.status == "error":
             errored += 1
@@ -123,7 +139,7 @@ def build_matrix(outcomes: Sequence[CaseOutcome]) -> Matrix:
             tn += 1
         else:
             fp += 1
-    return Matrix(tp, fp, tn, fn, suspended, errored, unlabelled)
+    return Matrix(tp, fp, tn, fn, suspended, errored, unlabelled, canary)
 
 
 class RunAssertion(Protocol):
@@ -267,11 +283,18 @@ class RunAssertionBase:
         """
         # Worded without a noun so it reads at every count: "1 counted" rather
         # than "1 cases counted".
-        return (
+        text = (
             f"{matrix.considered} counted, "
             f"{matrix.suspended_excluded} suspended, "
             f"{matrix.errored_excluded} could not be judged"
         )
+        # Silent at zero, and that is not only tidiness: rendered always, this
+        # clause would rewrite the recorded `reason` of every aggregate verdict
+        # in every committed baseline, in every suite that has no canary at all.
+        # (ADR 0016 §3)
+        if matrix.canary_excluded:
+            text += f", {matrix.canary_excluded} canary"
+        return text
 
     def _ratio(
         self, numerator: int, denominator: int, label: str, matrix: Matrix
@@ -556,7 +579,17 @@ def per_sample_outcomes(
     counts = {
         len(outcome.verdict.score.samples)
         for outcome in outcomes
-        if outcome.verdict is not None and outcome.verdict.status != "error"
+        # A canary is left out of the length check as well as out of the matrix,
+        # and this is the trap the flag would otherwise walk into: a canary
+        # sampled differently from the rest would silently delete the noise
+        # interval of **every aggregate in the run**, and the loss would look
+        # exactly like a suite that had not been sampled. It passes through to
+        # `build_matrix`, which excludes it anyway — the treatment suspended and
+        # errored cases already get here, for the same reason: they are not in
+        # the count being aligned. (ADR 0016 §4)
+        if outcome.verdict is not None
+        and outcome.verdict.status != "error"
+        and not outcome.canary
     }
     if len(counts) != 1:
         return ()
@@ -566,7 +599,9 @@ def per_sample_outcomes(
     return tuple(
         tuple(
             outcome
-            if outcome.verdict is None or not outcome.verdict.score.sampled
+            if outcome.verdict is None
+            or outcome.canary
+            or not outcome.verdict.score.sampled
             else CaseOutcome(
                 case_id=outcome.case_id,
                 label=outcome.label,

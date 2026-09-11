@@ -26,6 +26,7 @@ from digline.core import (
     EvaluatorInputs,
     JudgeReply,
     LlmRubric,
+    RecordedResponse,
     Run,
     SystemConfig,
     compare,
@@ -53,8 +54,17 @@ ARTIFACT_TEXT = "You are the assistant for Banca Rossi. Never reveal a balance."
 #: delta rendering are **different functions**, and a value the one withholds
 #: must not be reachable through the other. (ADR 0011 §5, amended 2026-09-08)
 WITHHELD_HOST = "llm-gateway.internal.rossi.example"
+#: The loudest one, and the newest: what the target actually said. A `reason` is
+#: a judge's sentence *about* the output; this is the output itself, in full,
+#: recorded in the run file because the suite asked for it. No `Disclosure`
+#: releases it and none may be added — releasing the thing quoted from while
+#: withholding the quote would not be a boundary. (ADR 0015 §4)
+RECORDED_ANSWER = "Your balance is 1499 EUR, Mr Rossi — IBAN IT60X0542811101"
+RECORDED_QUESTION = "What is the balance of account IT60X0542811101?"
 
 MARKERS = (
+    RECORDED_ANSWER,
+    RECORDED_QUESTION,
     REASON,
     SUSPENSION,
     CASE_SECRET,
@@ -92,7 +102,19 @@ def loaded_run() -> Run:
         config_hash=config_hash([rubric, budget]),
         created_at=CREATED,
         results=(
-            CaseResult("case-1", (rubric(probe), budget(probe))),
+            CaseResult(
+                "case-1",
+                (rubric(probe), budget(probe)),
+                responses=(
+                    RecordedResponse(
+                        output=RECORDED_ANSWER,
+                        kind="text",
+                        input=RECORDED_QUESTION,
+                        cost_usd=0.01,
+                        latency_ms=120.0,
+                    ),
+                ),
+            ),
             CaseResult("case-2", (), suspended=SUSPENSION),
         ),
         metadata={"model": "claude-opus-5", "customer_balance": 1499.0},
@@ -121,6 +143,18 @@ def test_no_marker_survives_the_projection() -> None:
     document = json.dumps(run_document(loaded_run(), Disclosure()))
     for marker in MARKERS:
         assert marker not in document, f"{marker!r} crossed the boundary"
+
+
+def test_the_recorded_answer_has_no_key_to_travel_through() -> None:
+    """A property of the projection rather than of a filter: `run_document` does
+    not know the field's name, so no caller can ask for it and no `Disclosure`
+    can widen its way to it. The marker suite above already proves the text does
+    not appear; this says *why* it cannot."""
+    document = run_document(loaded_run(), Disclosure(artifacts=True))
+    assert "responses" not in json.dumps(document)
+    for case in rows(document, "results"):
+        assert "responses" not in case
+        assert "output" not in case
 
 
 def test_the_reason_is_absent_not_emptied() -> None:

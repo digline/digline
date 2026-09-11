@@ -7,7 +7,7 @@ dependencies = [
     # 0.1.2 is where a score landing exactly on its threshold inside `Repeated`
     # stopped producing `error` instead of `pass`, and this judge returns
     # exactly 0.7. The pin is the current release, not that minimum.
-    "digline>=0.9,<0.10",
+    "digline>=0.9,<0.11",
     "digline-anthropic>=0.4,<0.5",
 ]
 

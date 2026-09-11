@@ -220,7 +220,7 @@
       "verdicts": []
     }
   ],
-  "schema_version": 9,
+  "schema_version": 10,
   "suite": "support",
   "target_config": {
     "values": {

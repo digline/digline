@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, cast
 
 from digline.core.aggregate import RunAssertion
@@ -20,28 +20,38 @@ from digline.core.types import (
     REDACTED,
     ConfigValue,
     Disclosure,
+    Message,
+    Output,
+    OutputKind,
     Score,
     Status,
     Verdict,
     at_precision,
     canonical,
+    output_kind,
     travels,
 )
 
 __all__ = [
     "ENDPOINT_PERIMETER_FIELDS",
+    "MAX_RECORDED_CHARS",
     "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "identity_of",
     "Artifact",
     "CaseResult",
+    "RecordedResponse",
     "Run",
     "SystemConfig",
     "artifacts_sha",
     "config_hash",
+    "record_output",
     "redact",
+    "release_tuple",
+    "restore_output",
     "run_from_json",
     "run_to_json",
+    "without_responses",
 ]
 
 # 2: `assertion_id` joined the verdict — `compare()` pairs on it, so a file
@@ -70,11 +80,51 @@ __all__ = [
 #    them and is byte for byte the file it was, and a run that already sampled
 #    carries `metadata["scores"]`, from which the migration *derives* them
 #    rather than inventing them. So no baseline needs re-promoting. (ADR 0006)
-SCHEMA_VERSION = 9
+# 10: three passengers at once, which is what ADR 0014 §1's passenger rule
+#    exists to make legitimate rather than convenient. `Run.digline_version` —
+#    the document saying what wrote it (ADR 0014 §3); `CaseResult.responses` —
+#    the target's answers, recorded only where the suite asked for them and
+#    never crossing a boundary (ADR 0015); `CaseResult.canary` — the case that
+#    watches the model instead of measuring it (ADR 0016). Additive three times
+#    over: every one of them has a value the old document already justifies —
+#    not recorded, none recorded, not a canary — so nothing is invented and no
+#    baseline needs re-promoting.
+SCHEMA_VERSION = 10
 
 
 def _num(value: float) -> float:
     return at_precision(value)
+
+
+def release_tuple(version: str) -> tuple[int, ...]:
+    """The numeric release segment of a version, for comparing two of them.
+
+    `"0.10.0"` -> `(0, 10, 0)`, and that example is the whole reason this
+    function exists rather than a `<` between two strings: `"0.10.0" < "0.9.0"`
+    is true lexically, so a string comparison would have stopped warning at
+    exactly the release after the one that introduced it (ADR 0014 §4).
+
+    Everything after the release segment is ignored — `1.2.0rc1`, `1.2.0.post1`
+    and `1.2.0` all read as `(1, 2, 0)`. A pre-release is not far enough from
+    its release to justify a second rule, and `packaging` is not a runtime
+    dependency of digline: the core has one, and this is not where it takes
+    another.
+
+    Empty for anything that does not begin with a number, which is what an
+    unrecorded version is: `()` compares less than every real release, so an
+    absent value can never be read as *ahead*.
+    """
+    parts: list[int] = []
+    for chunk in version.split("."):
+        digits = ""
+        for char in chunk:
+            if not char.isdigit():
+                break
+            digits += char
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
 
 
 #: The one recorded field that describes the client's own perimeter rather than
@@ -329,6 +379,150 @@ def artifacts_sha(artifacts: Mapping[str, Artifact]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
+#: The ceiling for one recorded field, in characters, and the rule is
+#: **whole or nothing**: a response over it records neither its output nor its
+#: input, and says so.
+#:
+#: Truncation is the option that looks kindest and is worst. A clipped answer
+#: re-judged produces a score that looks like every other score — a plausible
+#: number measured on evidence the document does not admit is partial.
+#: `MAX_FAILURE_CHARS` clips a *reason* because a reason is a sentence for a
+#: person and half a sentence still informs them; this is evidence for a re-run,
+#: and half of it is not evidence. (ADR 0015 §3)
+MAX_RECORDED_CHARS = 65_536
+
+
+def record_output(output: Output) -> tuple[str, OutputKind]:
+    """One answer as the document stores it, and which branch it came from.
+
+    Text stays text — a model's reply is the common case and a reader opening a
+    run file should find it readable rather than JSON-escaped. The other two
+    branches become canonical JSON, so the same answer always produces the same
+    bytes and a run file stays deterministic.
+
+    `kind` is recorded beside it because the text alone cannot say: `"[]"` is a
+    structured answer, a conversation with no turns, or a model that literally
+    replied with two brackets, and a replay that guessed would grade a different
+    thing from the one that was measured.
+    """
+    kind = output_kind(output)
+    if kind is None:  # pragma: no cover - the driver only ever holds an Output
+        raise ValueError("record_output was given something that is not an Output")
+    if kind == "text":
+        return cast(str, output), kind
+    return (
+        json.dumps(
+            canonical(output), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ),
+        kind,
+    )
+
+
+def restore_output(text: str, kind: OutputKind) -> Output:
+    """`record_output` read backwards, for a replay.
+
+    The inverse has to exist here rather than in the driver: what a document
+    means is this module's business, and a second reader of these bytes would be
+    a second answer to what they say.
+    """
+    if kind == "text":
+        return text
+    raw = json.loads(text)
+    if kind == "structured":
+        return cast(Mapping[str, object], raw)
+    return tuple(
+        Message(role=str(turn["role"]), content=str(turn["content"]))
+        for turn in cast(Sequence[Mapping[str, Any]], raw)
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedResponse:
+    """One answer the target gave, kept where it was born.
+
+    Recorded only where the suite asked for it — `Suite.record_responses` — and
+    **never crossing a boundary**: `redact()` drops it and `digline.wire` does
+    not know its name. The target's output is the end company's data by
+    construction, and `Verdict.reason` is already redacted *because the judge
+    quotes it*. Releasing the thing quoted from while withholding the quote
+    would not be a boundary. (ADR 0015 §4)
+
+    `input` is the rendered prompt and is not an extra: the prompt is built
+    inside the target, so a stored answer with no stored question cannot be
+    re-judged by any assertion that reads the input — which is most of the ones
+    that call a model.
+
+    `cost_usd` and `latency_ms` ride along for a reason that is easy to discover
+    too late: a suite holding a `CostBudget` re-judged without them does not fail
+    that check, it **errors** it, turning a declared gate into a row nobody
+    gated on.
+
+    Two absences, and they are different facts a reader is owed:
+    `withheld` is redaction, `oversize` is the recorder refusing a field over
+    `MAX_RECORDED_CHARS`.
+    """
+
+    output: str | None = None
+    kind: OutputKind | None = None
+    input: str | None = None
+    cost_usd: float | None = None
+    latency_ms: float | None = None
+    withheld: bool = False
+    oversize: bool = False
+
+    def __post_init__(self) -> None:
+        if self.withheld and self.oversize:
+            raise ValueError(
+                "RecordedResponse declares itself both withheld and oversize: "
+                "they are two different absences and a reader cannot be told "
+                "both"
+            )
+        if self.withheld and any(
+            value is not None
+            for value in (
+                self.output,
+                self.kind,
+                self.input,
+                self.cost_usd,
+                self.latency_ms,
+            )
+        ):
+            raise ValueError(
+                "RecordedResponse declares itself withheld but still carries "
+                "what redaction removes: the flag would announce a guarantee "
+                "nothing provides"
+            )
+        if self.oversize and (self.output is not None or self.input is not None):
+            raise ValueError(
+                "RecordedResponse declares itself oversize but carries text: "
+                "over the ceiling the rule is whole or nothing, and a kept half "
+                "is the truncation that rule exists to refuse"
+            )
+        if self.withheld or self.oversize:
+            return
+        if self.output is None:
+            raise ValueError(
+                "RecordedResponse carries no output and does not say why: a "
+                "record of an answer nobody can read is not a record"
+            )
+        if self.kind is None:
+            raise ValueError(
+                "RecordedResponse carries an output without its kind: the text "
+                "alone cannot say which branch of Output it came from, and a "
+                "replay that guessed would judge a different thing"
+            )
+
+    @property
+    def replayable(self) -> bool:
+        """Whether this answer can be handed to the assertions again.
+
+        Derived, so nothing can claim it: a withheld or oversize response has no
+        text, and a replay built on one would be a weaker measurement wearing
+        the declared suite's name.
+        """
+        return self.output is not None and self.kind is not None
+
+
 @dataclass(frozen=True, slots=True)
 class CaseResult:
     """The verdicts produced for a single test case, or the reason there are
@@ -347,6 +541,16 @@ class CaseResult:
     case_id: str
     verdicts: Sequence[Verdict] = ()
     suspended: str | None = None
+    #: What the target answered, one entry per sample, in the order produced.
+    #: Empty unless the suite asked for them, and **never** on a boundary: this
+    #: is the payload in its most literal form. (ADR 0015 §1)
+    responses: Sequence[RecordedResponse] = ()
+    #: This case watched the model rather than measuring it. Recorded here and
+    #: not only on the `Case`, because every reader downstream — the aggregates,
+    #: the comparison, the report — meets the *run* and not the suite, and a
+    #: case whose exclusion could only be learnt from the suite would be a case
+    #: excluded invisibly. (ADR 0016 §1)
+    canary: bool = False
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -363,6 +567,12 @@ class CaseResult:
             raise ValueError(
                 f"case {self.case_id!r} is suspended but carries verdicts: "
                 "suspension means it was not evaluated"
+            )
+        if self.responses:
+            raise ValueError(
+                f"case {self.case_id!r} is suspended but carries recorded "
+                "answers: a suspended case is never called, so there is nothing "
+                "it could have answered"
             )
 
 
@@ -421,6 +631,20 @@ class Run:
     #: statement than a target change and is reported as one. (ADR 0005 §4)
     judge_config: SystemConfig = field(default_factory=SystemConfig)
     redacted: bool = False
+    #: The digline that wrote this document, beside the `schema_version` that
+    #: says what shape it is. Stamped by `execute()`, never read from here: the
+    #: core touches no process-global state, and a `Run` built by hand records
+    #: nothing. `""` means **not recorded** — a migrated file, a document built
+    #: in a test — and is never read as version zero. It survives redaction: a
+    #: fact about the software house's own instrument, not about the end
+    #: company. (ADR 0014 §3)
+    digline_version: str = ""
+    #: The stored run whose recorded answers this run was judged from, when it
+    #: was judged from one. The declaration that keeps a replay from reading as
+    #: a fresh measurement — and what `promote_baseline` refuses on, because a
+    #: replay has no target variance and its interval would freeze a noise floor
+    #: measured without the noise. (ADR 0015 §6, §7)
+    rejudged_from: str | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -490,6 +714,19 @@ class Run:
                         f"Run.redacted is set but the verdict for "
                         f"{verdict.score.name!r} on case {case.case_id!r} still "
                         "carries a reason; build it with redact()"
+                    )
+            # The loudest one, checked the same way. A recorded answer is the
+            # payload in its most literal form, and a document that claimed a
+            # perimeter while carrying one would announce the opposite of what
+            # it holds. (ADR 0015 §4)
+            for response in case.responses:
+                if not response.withheld:
+                    raise ValueError(
+                        f"Run.redacted is set but case {case.case_id!r} still "
+                        "carries a recorded answer from the target. That is the "
+                        "payload itself, not a sentence about it: build the "
+                        "document with redact(), which keeps the count and "
+                        "drops the text"
                     )
 
 
@@ -603,6 +840,19 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # The reason a case was set aside is payload for the same cause
                 # as a judge's reason: a developer writes it about real data.
                 suspended=None if case.suspended is None else REDACTED,
+                # The count survives and nothing else does. No `Disclosure`
+                # releases this and none may be added: *this run recorded its
+                # answers and kept them back* and *this run recorded none* are
+                # different facts, and only the first needs a marker to say so.
+                # (ADR 0015 §4)
+                responses=tuple(
+                    RecordedResponse(withheld=True) for _ in case.responses
+                ),
+                # Carried: *which* case watched the model is a fact about the
+                # suite's design, not about the end company's data, and a
+                # redacted document that lost it would report an exit code its
+                # own contents could not account for.
+                canary=case.canary,
             )
             for case in run.results
         ),
@@ -634,6 +884,35 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         target_config=run.target_config.redacted(),
         judge_config=run.judge_config.redacted(),
         redacted=True,
+        # Carried, not dropped. Which digline wrote a document is what makes a
+        # strange file supportable, and withholding it would buy no secrecy —
+        # it names our own instrument, never the end company. (ADR 0014 §3)
+        digline_version=run.digline_version,
+        # A run key — a timestamp and a config hash — so it carries no payload
+        # and travels. Withholding it would hide from a reader that the answers
+        # were replayed, which is the one thing this field exists to say.
+        rejudged_from=run.rejudged_from,
+    )
+
+
+def without_responses(run: Run) -> Run:
+    """The same run with the target's answers removed entirely.
+
+    What `promote_baseline` writes. `<tenant>/baselines/` is **committed**, so
+    promoting a run with recording on would put the model's answers into git as
+    a side effect of the most routine action in the product — in the repository
+    of a software house that may hold no right to keep that end company's data.
+
+    Removed rather than withheld, unlike redaction: a withheld marker says *this
+    document kept something back*, and a baseline kept nothing back — it is a
+    reference of verdicts and never had answers to keep. Nothing is lost either,
+    because a replay reads a stored **run**. (ADR 0015 §5)
+    """
+    if not any(case.responses for case in run.results):
+        return run
+    return replace(
+        run,
+        results=tuple(replace(case, responses=()) for case in run.results),
     )
 
 
@@ -734,6 +1013,13 @@ def run_to_dict(run: Run) -> dict[str, object]:
         },
         "target_config": _config_to_dict(run.target_config),
         "judge_config": _config_to_dict(run.judge_config),
+        # Absent rather than empty, like every other unrecorded thing in this
+        # document: `""` would be a value where there is none, and a migrated
+        # file is exactly the case that has none (ADR 0014 §2).
+        **({"digline_version": run.digline_version} if run.digline_version else {}),
+        # Absent on a run that measured, present on a replay. Absent is the
+        # ordinary case, so the ordinary document is unchanged. (ADR 0015 §6)
+        **({"rejudged_from": run.rejudged_from} if run.rejudged_from else {}),
     }
 
 
@@ -816,7 +1102,64 @@ def _case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     # The stated reason does not: it is payload, omitted rather than emptied.
     if case.suspended is not None and not redacted:
         payload["suspended_reason"] = case.suspended
+    # Absent unless the suite asked for them, which is what keeps a run file
+    # from a suite that did not opt in byte for byte the file it was before
+    # ADR 0015 existed.
+    if case.responses:
+        payload["responses"] = [_response_to_dict(r) for r in case.responses]
+    # Written only when true. Otherwise the flag would be added to every case of
+    # every committed baseline in the world to say what its absence already
+    # says, and a suite with no canary would stop producing the bytes it
+    # produced before. (ADR 0016 §9)
+    if case.canary:
+        payload["canary"] = True
     return payload
+
+
+def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
+    """Whatever the recorder kept, and nothing standing in for the rest.
+
+    Absent rather than emptied, like every other payload field in this document:
+    a withheld answer carries no text and no numbers, and the flag is what tells
+    a reader it was kept back rather than never recorded.
+    """
+    payload: dict[str, object] = {}
+    if response.withheld:
+        payload["withheld"] = True
+        return payload
+    if response.oversize:
+        payload["oversize"] = True
+    if response.output is not None:
+        payload["output"] = response.output
+    if response.kind is not None:
+        payload["kind"] = response.kind
+    if response.input is not None:
+        payload["input"] = response.input
+    if response.cost_usd is not None:
+        payload["cost_usd"] = _num(response.cost_usd)
+    if response.latency_ms is not None:
+        payload["latency_ms"] = _num(response.latency_ms)
+    return payload
+
+
+def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
+    """Straight into the value, which does the checking — `_config_from_dict`'s
+    rule, for the same reason: a document is written by whoever holds it."""
+    kind = raw.get("kind")
+    cost = raw.get("cost_usd")
+    latency = raw.get("latency_ms")
+    try:
+        return RecordedResponse(
+            output=None if raw.get("output") is None else str(raw["output"]),
+            kind=None if kind is None else cast(OutputKind, str(kind)),
+            input=None if raw.get("input") is None else str(raw["input"]),
+            cost_usd=None if cost is None else float(cost),
+            latency_ms=None if latency is None else float(latency),
+            withheld=bool(raw.get("withheld", False)),
+            oversize=bool(raw.get("oversize", False)),
+        )
+    except ValueError as exc:
+        raise ValueError(f"recorded response: {exc}") from exc
 
 
 def _case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
@@ -833,6 +1176,11 @@ def _case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
             for v in cast(Sequence[Mapping[str, Any]], raw.get("verdicts") or ())
         ),
         suspended=suspended,
+        responses=tuple(
+            _response_from_dict(r)
+            for r in cast(Sequence[Mapping[str, Any]], raw.get("responses") or ())
+        ),
+        canary=bool(raw.get("canary", False)),
     )
 
 
@@ -873,6 +1221,12 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         judge_config=_config_from_dict(
             cast(Mapping[str, Any], _required(raw, "judge_config", "run")),
             "judge_config",
+        ),
+        # Not `_required`: a document migrated from 9 carries none, and that
+        # absence is a fact rather than a malformed file (ADR 0014 §2).
+        digline_version=str(raw.get("digline_version") or ""),
+        rejudged_from=(
+            None if raw.get("rejudged_from") is None else str(raw["rejudged_from"])
         ),
     )
 

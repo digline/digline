@@ -60,6 +60,12 @@ stop at the signal. Never keep rolling until the answer looks right: with a
 stochastic judge, enough re-runs always produce a green one, and a stopping
 rule chosen after the fact measures your patience rather than the system.
 
+**A canary is the exception, and the only one.** A case flagged `canary=True`
+watches the model behind the alias rather than measuring quality, so a move on
+it is not a draw and re-running does not settle it: the second run asks the
+same alias the same thing. Read the headline — *the model under this alias
+likely changed* — and check what answered before touching the prompt.
+
 ## 4. A multi-flip is investigated, not retried
 
 Several cases flipping together in one run is a different event from one case
@@ -95,6 +101,12 @@ Never parse the prose headline in a script. It is a *document* sentence, it is
 localized, and it is written for the customer who reads the report. `--json`
 is the machine surface — `--json full` when you need the individual deltas —
 and `output_version` is there so a consumer can tell when the shape changed.
+
+`1` now has two causes and the headline says which: a check got worse, or a
+canary moved. They are separate fields — `worse` and `canary_moved` — because a
+canary that *improved* is a changed model too, and calling that "worse" would be
+a sentence nobody could reconcile with the number beside it.
+
 
 ## 7. Say what a hunt will cost before starting it
 

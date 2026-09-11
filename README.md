@@ -213,6 +213,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, or any check errored |
 | `digline report` | self-contained HTML for readers who do not read code; `--locale` mandatory, `--redacted` keeps the verdicts and drops the payload. With no baseline yet it renders the run on its own and says so, so the first run is readable before anything is promoted |
 | `digline explain` | the same facts read back at length, in prose: what ran, what moved, against which measured interval, what differed underneath. Compares when there is a baseline and reads the run alone when there is not. `--json` emits the fact list the prose is rendered from. It states, and never advises — [`docs/explain.md`](docs/explain.md) |
+| `digline rejudge` | judge a stored run's recorded answers again — a changed judge, rubric or threshold, over the same answers, at no cost to the target. The run it writes declares where the answers came from and cannot be promoted — [`docs/rejudge.md`](docs/rejudge.md) |
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
@@ -253,7 +254,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.9.0`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
+`0.10.0`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
 report — is complete, covered by tests, and used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. The API may
 still change before 1.0; the baseline format is versioned and migrates. The

@@ -6,12 +6,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from digline.core.run import Run
+from digline.core.run import SCHEMA_VERSION, Run
 
 __all__ = [
     "ConfigMismatchError",
     "ErroredRunError",
     "Listing",
+    "ReplayedRunError",
     "ResultStore",
     "RunRef",
     "TenantMismatchError",
@@ -31,6 +32,19 @@ class ErroredRunError(Exception):
     Promoting one would freeze a permanent red line that no reader could tell
     apart from a new failure — the remedy for a flaky case is to fix it or to
     remove it, not to enshrine it.
+    """
+
+
+class ReplayedRunError(Exception):
+    """Raised when promoting a run whose answers were replayed from another.
+
+    A replay has **zero target variance** by construction: the answers are
+    fixed, so the interval it records is the judge's wobble alone. Promoted, it
+    would become the reference every future real run is measured against — and
+    ADR 0006 §5 judges a movement against the *baseline's* interval, so every
+    ordinary wobble of the target would then read as a movement beyond the
+    noise. A replay promoted as a reference is a noise floor measured without
+    the noise. (ADR 0015 §7)
     """
 
 
@@ -96,6 +110,31 @@ class Listing:
             return ""
         return f"ignored: {', '.join(parts)}"
 
+    def advice(self) -> tuple[str, ...]:
+        """What to do about what was skipped, in the direction the numbers say.
+
+        Both sentences can be owed at once — a store holding runs from before an
+        upgrade *and* runs written by a colleague who is ahead — so this returns
+        what is true rather than the first thing that is.
+
+        The second sentence is the one that did not exist until schema 10. Until
+        then 9 was the ceiling of the world, so no released digline had ever met
+        a newer document, and the advice was unconditionally "run digline
+        migrate" — which, pointed backwards, tells a reader to do the one thing
+        nothing can do. `upgrade_document` has always refused in the right words;
+        the listing never reached it. (ADR 0014 §5)
+        """
+        lines: list[str] = []
+        if any(version < SCHEMA_VERSION for version in self.skipped):
+            lines.append("run `digline migrate` to bring them up to date")
+        if any(version > SCHEMA_VERSION for version in self.skipped):
+            lines.append(
+                "upgrade digline to read them: a newer document cannot be "
+                "rewritten backwards without discarding what the newer schema "
+                "added"
+            )
+        return tuple(lines)
+
 
 class ResultStore(Protocol):
     """Where runs and baselines live.
@@ -146,5 +185,12 @@ class ResultStore(Protocol):
            obtained under a configuration other than the one in force.
         3. `ErroredRunError` if any verdict in the run is in error — a baseline
            is an approved reference, and an error is not one.
+        4. `ReplayedRunError` if the run declares `rejudged_from` — the answers
+           must have been *measured*, or the interval promoted with them was
+           measured without the target in it (ADR 0015 §7).
+
+        What is written is `without_responses(run)`: a baseline is committed,
+        and a reference of verdicts has no business carrying the model's answers
+        into somebody's git history (ADR 0015 §5).
         """
         ...

@@ -25,11 +25,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from digline.core.run import SCHEMA_VERSION, Run, run_from_json, run_to_json
+from digline.core.run import (
+    SCHEMA_VERSION,
+    Run,
+    run_from_json,
+    run_to_json,
+    without_responses,
+)
 from digline.store.protocol import (
     ConfigMismatchError,
     ErroredRunError,
     Listing,
+    ReplayedRunError,
     RunRef,
     TenantMismatchError,
 )
@@ -277,6 +284,16 @@ class FileResultStore:
                 "obtained under a configuration other than the one in force"
             )
 
+        if run.rejudged_from is not None:
+            raise ReplayedRunError(
+                f"run {ref.key} was judged from the recorded answers of "
+                f"{run.rejudged_from}, not from the target. Promoting it would "
+                "make a reference out of a measurement the target never took "
+                "part in: its interval is the judge's wobble alone, and every "
+                "ordinary movement of the target would then read as beyond the "
+                "noise. Promote a run that measured"
+            )
+
         errored = sorted(
             {
                 case.case_id
@@ -295,5 +312,10 @@ class FileResultStore:
             )
 
         self.ensure_layout(run.tenant)
-        _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(run))
-        return run
+        # The answers do not go into git. `baselines/` is committed, and a
+        # baseline is an approved reference of verdicts — promoting a recorded
+        # run would put the model's output in somebody's history as a side
+        # effect of the most routine action in the product. (ADR 0015 §5)
+        reference = without_responses(run)
+        _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
+        return reference

@@ -14,7 +14,9 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from digline import __version__
 from digline.core import (
+    MAX_RECORDED_CHARS,
     Artifact,
     Assertion,
     CaseOutcome,
@@ -24,6 +26,7 @@ from digline.core import (
     HasConfig,
     Label,
     Output,
+    RecordedResponse,
     Run,
     RunAssertion,
     SystemConfig,
@@ -31,6 +34,7 @@ from digline.core import (
     combine_samples,
     error_verdict,
     identity_of,
+    record_output,
     with_noise_interval,
 )
 from digline.run.suite import Case, Suite
@@ -242,6 +246,33 @@ def default_mapper(response: Response, case: Case) -> EvaluatorInputs:
     )
 
 
+def recorded(response: Response) -> RecordedResponse:
+    """One answer as the document will hold it, or the reason it does not.
+
+    Whole or nothing, and the ceiling applies to `output` and `input` together:
+    they are what a re-judge needs *as a pair*, so keeping one of them would
+    store a question with no answer or an answer with no question. Over the
+    ceiling the entry records the measurements and says `oversize`, which is a
+    different absence from redaction's and is written as one. (ADR 0015 §3)
+    """
+    text, kind = record_output(response.output)
+    if len(text) > MAX_RECORDED_CHARS or (
+        response.input is not None and len(response.input) > MAX_RECORDED_CHARS
+    ):
+        return RecordedResponse(
+            oversize=True,
+            cost_usd=response.cost_usd,
+            latency_ms=response.latency_ms,
+        )
+    return RecordedResponse(
+        output=text,
+        kind=kind,
+        input=response.input,
+        cost_usd=response.cost_usd,
+        latency_ms=response.latency_ms,
+    )
+
+
 def _clip(text: str) -> str:
     return text if len(text) <= MAX_FAILURE_CHARS else text[:MAX_FAILURE_CHARS] + "…"
 
@@ -271,9 +302,18 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
         # The skip belongs to the driver, not to the core: an assertion is never
         # asked a question it then has to decline (ADR 0001). The run still
         # records the case, so the suspension is visible downstream.
-        return CaseResult(case_id=case.id, verdicts=(), suspended=case.suspended)
+        return CaseResult(
+            case_id=case.id,
+            verdicts=(),
+            suspended=case.suspended,
+            canary=case.canary,
+        )
 
     samples: list[EvaluatorInputs] = []
+    # Collected beside the mapped inputs rather than derived from them: what a
+    # re-judge replays is what the *target* answered, and `EvaluatorInputs` is
+    # already one mapper's reading of it. (ADR 0015 §1)
+    answers: list[RecordedResponse] = []
     for _ in range(suite.samples):
         try:
             response = target(case)
@@ -291,7 +331,11 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
             return CaseResult(
                 case_id=case.id,
                 verdicts=_failed(suite, f"target raised {type(exc).__name__}: {exc}"),
+                canary=case.canary,
             )
+
+        if suite.record_responses:
+            answers.append(recorded(response))
 
         try:
             samples.append(mapper(response, case))
@@ -299,6 +343,7 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
             return CaseResult(
                 case_id=case.id,
                 verdicts=_failed(suite, f"mapper raised {type(exc).__name__}: {exc}"),
+                canary=case.canary,
             )
 
     # With one sample `combine_samples` is the identity function, so this is
@@ -313,6 +358,8 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
             )
             for assertion in suite.assertions
         ),
+        responses=tuple(answers),
+        canary=case.canary,
     )
 
 
@@ -355,6 +402,10 @@ def _outcomes(
             case_id=result.case_id,
             label=labels.get(result.case_id),
             verdict=next((v for v in result.verdicts if v.score.name == over), None),
+            # Read off the *result* rather than the suite, because that is where
+            # every other reader of this fact will find it — a stored run has no
+            # suite beside it. (ADR 0016 §1)
+            canary=result.canary,
         )
         for result in counted
     )
@@ -445,4 +496,9 @@ def execute(
         # a `Run` and opens no files. What the suite *declares* is a list of
         # paths; turning those into bytes is the CLI's job. (ADR 0003)
         artifacts=dict(artifacts or {}),
+        # Stamped here and not in the core, which reads no process-global state.
+        # The driver is what produces a document, so the document's claim about
+        # its own provenance has one author — beside `created_at` and
+        # `git_commit`, which arrive for the same reason. (ADR 0014 §3)
+        digline_version=__version__,
     )

@@ -173,6 +173,8 @@ RECORDED: dict[str, dict[str, str]] = {
         "widening on Track A, the observed identity on Track B, and the offline "
         "half of Track D's trajectory item. 0.8.1 is a security patch and "
         "landed none of them",
+        "0.9.0": "'shipped in 0.9.0, and its own 0.1.0' — the release "
+        "pytest-digline arrived in, history from the moment 0.10.0 shipped",
     },
     "docs/api.md": {
         "0.6.0": "'These moved in 0.6.0.' — the release that promoted "
@@ -264,6 +266,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "one release whose redacted documents this refusal actually rejects, "
         "named in the message's own comment so the next reader knows which "
         "files are meant. History from the moment 0.8.1 shipped",
+        "0.9.0": '\'"0.10.0" < "0.9.0" is true lexically\' — `release_tuple`\'s '
+        "docstring, where the pair is the argument: the two releases between "
+        "which a string comparison of versions silently inverts. Naming them "
+        "is what makes the rule checkable, and the pair is history the moment "
+        "0.10.0 ships (ADR 0014 §4)",
+        "1.2.0": "'1.2.0rc1, 1.2.0.post1 and 1.2.0 all read as (1, 2, 0)' — not "
+        "a digline version at all. An illustration of what the parser ignores, "
+        "chosen far from any real release so nobody reads it as a claim",
         "0.8.1": "'is withheld from 0.8.1' — the release the withholding began "
         "in, which is what tells a reader which stored documents the refusal "
         "above is about. The same sentence as the entry beside it, from the "

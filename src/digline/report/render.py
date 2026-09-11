@@ -147,6 +147,17 @@ class Headline:
     #: the scores are less comparable than their difference suggests. Reported
     #: more strongly than a target change for exactly that reason.
     judge_config_changed: bool = False
+    #: The answers were replayed from a stored run rather than measured. The
+    #: ninth fact, and it qualifies every number above it: the target was not
+    #: asked anything, so what these scores measure is the judging. (ADR 0015 §8)
+    rejudged: bool = False
+    #: A case that watches the model moved. The tenth fact, and the one that is
+    #: **not** folded into `worse`: a canary that improved is a changed model
+    #: just as loudly as one that got worse, and saying "one check got worse"
+    #: about a check that got better would be the report telling a reader
+    #: something untrue in order to produce the right exit code. `exit_code()`
+    #: returns 1 for either. (ADR 0016 §5)
+    canary_moved: bool = False
     #: How many checks moved and were covered by the interval their baseline
     #: measured. The eighth fact, and the one that keeps the first honest: a run
     #: reported as clean because nothing moved and one reported as clean because
@@ -427,6 +438,19 @@ def headline(
                 locale, "fact.artifacts.many", count=len(changed_artifacts)
             )
 
+    # The canary speaks after what the system *declared* and before the judge,
+    # because it says what the system *did*: measured rather than declared, and
+    # the stronger of the two. The judge stays last — a moved scale makes even
+    # the canary's own numbers less comparable. (ADR 0016 §7)
+    canary_text = _canary_fact(comparison, locale)
+    # Before the configuration clause, because it qualifies what the numbers
+    # *are* rather than how the system was set up: a replay did not ask the
+    # target anything. The configuration clause still prints below it — it
+    # describes the system that produced the answers being judged, which is
+    # still true of them. (ADR 0015 §8)
+    rejudged_text = (
+        phrase(locale, "fact.rejudged") if run.rejudged_from is not None else ""
+    )
     # Same shape as the artifact clause, and silent for the same reason: most
     # runs before ADR 0005 recorded nothing, and a sentence that reassures about
     # a configuration nobody recorded is one the reader learns to skip.
@@ -455,6 +479,8 @@ def headline(
         artifacts_changed=bool(changed_artifacts),
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
+        rejudged=run.rejudged_from is not None,
+        canary_moved=comparison.canary_moved,
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
@@ -471,11 +497,46 @@ def headline(
                 suspended_text,
                 config_text,
                 artifact_text,
+                rejudged_text,
                 target_text,
+                canary_text,
                 judge_text,
             )
             if part
         ),
+    )
+
+
+def _canary_fact(comparison: Comparison, locale: Locale) -> str:
+    """The clause a moved canary earns, or nothing at all.
+
+    Silent when no canary moved — and silent when a suite declares none, which
+    is the same silence for the same reason as the artifact clause: a sentence
+    reassuring about a watch nobody set is one the reader learns to skip.
+
+    The first moved canary is named with its numbers, because a name and a pair
+    of scores is what a reader acts on; where several moved the count leads and
+    one is still named, so the sentence stays a sentence.
+    """
+    moved = comparison.moved_canaries
+    if not moved:
+        return ""
+    first = moved[0]
+    assert first.current is not None and first.baseline is not None
+    assert first.current.score.score is not None
+    assert first.baseline.score.score is not None
+    interval = _noise_interval(first, locale)
+    beyond = phrase(locale, "fact.canary.beyond", interval=interval) if interval else ""
+    where = first.case_id or first.assertion
+    key = "fact.canary.one" if len(moved) == 1 else "fact.canary.many"
+    return phrase(
+        locale,
+        key,
+        count=len(moved),
+        case=where,
+        before=fmt_score(first.baseline.score.score),
+        after=fmt_score(first.current.score.score),
+        beyond=beyond,
     )
 
 
@@ -949,6 +1010,8 @@ def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> st
         if commit.endswith(DIRTY_SUFFIX):
             commit += phrase(locale, "header.dirty")
         pairs.append(("header.commit", commit))
+    if run.rejudged_from is not None:
+        pairs.append(("header.rejudged", run.rejudged_from))
     if run.redacted or baseline.redacted:
         pairs.append(("header.redacted", phrase(locale, "header.redacted.value")))
     return "".join(
@@ -1286,6 +1349,8 @@ def _run_meta(run: Run, locale: Locale) -> str:
         if commit.endswith(DIRTY_SUFFIX):
             commit += phrase(locale, "header.dirty")
         pairs.append(("header.commit", commit))
+    if run.rejudged_from is not None:
+        pairs.append(("header.rejudged", run.rejudged_from))
     if run.redacted:
         pairs.append(("header.redacted", phrase(locale, "header.redacted.value")))
     return "".join(
@@ -1465,6 +1530,50 @@ def _run_section(
     return f"<details{open_attr}><summary>{title} ({count})</summary>{body}</details>"
 
 
+def _recorded_answers(run: Run, locale: Locale) -> str:
+    """What the target actually said, where the document is allowed to show it.
+
+    Rendered only from a complete run. A redacted one carries nothing but the
+    count — `redact()` removed the text, and no `Disclosure` can put it back —
+    so the rule needs no flag here: there is simply nothing to render, and the
+    section does not appear. (ADR 0015 §4, §8)
+
+    Collapsed by default and last, because it is evidence rather than a finding:
+    a reader opens it when a verdict surprises them.
+    """
+    rows: list[str] = []
+    for case in run.results:
+        for index, response in enumerate(case.responses, start=1):
+            if response.output is None:
+                continue
+            label = (
+                escape(case.case_id)
+                if len(case.responses) == 1
+                else f"{escape(case.case_id)} · {index}"
+            )
+            question = "" if response.input is None else response.input
+            rows.append(
+                "<tr>"
+                f"<td><code>{label}</code></td>"
+                f"<td><pre>{escape(question)}</pre></td>"
+                f"<td><pre>{escape(response.output)}</pre></td>"
+                "</tr>"
+            )
+    if not rows:
+        return ""
+    table = _table(
+        ("answers.column.case", "answers.column.input", "answers.column.output"),
+        rows,
+        locale,
+    )
+    title = escape(phrase(locale, "answers.title"))
+    return (
+        f"<details><summary>{title} ({len(rows)})</summary>"
+        f'<p class="empty">{escape(phrase(locale, "answers.note"))}</p>'
+        f"{table}</details>"
+    )
+
+
 def render_run_html(run: Run, *, locale: Locale) -> str:
     """One run, rendered on its own, because there is no reference yet.
 
@@ -1515,6 +1624,7 @@ def render_run_html(run: Run, *, locale: Locale) -> str:
         f"{_run_artifacts(run, locale)}\n"
         f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
+        f"{_recorded_answers(run, locale)}\n"
         "</body>\n"
         "</html>\n"
     )

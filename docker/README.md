@@ -17,12 +17,12 @@ gate.
 The repository is mounted; nothing of yours lives in the image:
 
 ```sh
-docker run -v $PWD:/work ghcr.io/digline/digline:0.9.0 compare --suite eval/suite.py
+docker run -v $PWD:/work ghcr.io/digline/digline:0.10.0 compare --suite eval/suite.py
 ```
 
 `WORKDIR` is `/work` and the entrypoint is `digline`, so every argument after
 the image name is the command line you would have typed locally — `run`,
-`compare`, `diff`, `promote`, `report`, `explain`, `list`,
+`compare`, `diff`, `promote`, `report`, `explain`, `rejudge`, `list`,
 `migrate`. The exit code is the answer: `0` fine, `1` got worse, `2` could not
 be judged.
 
@@ -34,7 +34,7 @@ written at all.
 The whole cycle, from a checkout of your own repository:
 
 ```sh
-digline() { docker run --rm -v "$PWD:/work" ghcr.io/digline/digline:0.9.0 "$@"; }
+digline() { docker run --rm -v "$PWD:/work" ghcr.io/digline/digline:0.10.0 "$@"; }
 
 digline run     --suite eval/suite.py
 digline promote --suite eval/suite.py --run latest
@@ -45,8 +45,8 @@ digline compare --suite eval/suite.py --run latest
 
 | Tag | |
 |---|---|
-| `0.9.0` | that version of digline, and the plugin versions it shipped with |
-| `0.9` | the newest patch on that minor |
+| `0.10.0` | that version of digline, and the plugin versions it shipped with |
+| `0.10` | the newest patch on that minor |
 | `latest` | the newest release |
 
 **Pin the exact version in CI.** A gate that silently changes what it runs is a
@@ -60,7 +60,7 @@ another uid — the ordinary case on Linux and in CI — the run cannot write
 `.digline/` and fails on the first write. Say who you are:
 
 ```sh
-docker run --user "$(id -u):$(id -g)" -v "$PWD:/work" ghcr.io/digline/digline:0.9.0 \
+docker run --user "$(id -u):$(id -g)" -v "$PWD:/work" ghcr.io/digline/digline:0.10.0 \
   run --suite eval/suite.py
 ```
 
@@ -75,7 +75,7 @@ Derive the image. Installing at build time is what keeps the promise above: the
 image you tested is the image the gate runs.
 
 ```dockerfile
-FROM ghcr.io/digline/digline:0.9.0
+FROM ghcr.io/digline/digline:0.10.0
 
 # The base image runs as uid 1000, which does not own the site-packages it
 # would be installing into.

@@ -63,6 +63,28 @@ This track makes the verdict itself trustworthy.
       index (§7). The observed min and max rather than a variance: five samples
       do not earn a distributional assumption, and a reader can check a min
       against the raw values printed beside it
+- [x] **The canary case** (ADR 0016) — an alias is a pointer and pointers roll.
+      `resolved_model` records what the provider *said* answered and is silent
+      on the providers that say nothing, so `Case(canary=True)` is the
+      behavioural half: a case that watches the model instead of measuring it.
+      It is counted in **no** aggregate — the exclusion is a figure in the
+      verdict's metadata, so a denominator stays reconcilable with the case
+      file — and if it **moves at all**, in either direction, the headline says
+      *the model under this alias likely changed* and the run exits `1`. A score
+      that is a fingerprint rather than a quality cannot ride `worse`, so it is
+      a fact of its own beside it. A suite that declares one must sample: at one
+      sample there is no noise to measure and every wobble would stop a release
+- [x] **Judging stored answers again** (ADR 0015) — `record_responses=True`
+      keeps what the target said, per case and per sample, beside the prompt
+      that produced it; `digline rejudge` replays those answers through the
+      current suite, so a changed judge, rubric or threshold is measurable at no
+      cost to the target. The field's usual answer to this is a response cache,
+      which hands back an old answer as though it were a new one; this declares
+      itself instead — in the document, in the headline, in `--json` — and the
+      run it writes **cannot be promoted**, because a replay has no target
+      variance and its interval would freeze a noise floor measured without the
+      noise. The answers never cross a boundary and `promote` strips them from
+      the reference
 
 **Exit gate:** a baseline comparison can state, honestly, whether an observed
 difference is signal or sampling noise. **Met** — the two runs in

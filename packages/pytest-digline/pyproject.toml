@@ -1,6 +1,6 @@
 [project]
 name = "pytest-digline"
-version = "0.1.1"
+version = "0.1.2"
 description = "Gate a pytest run on a digline comparison: one row per check, against the baseline committed in your repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -22,7 +22,12 @@ dependencies = [
     # per-delta sentence this package prints on a failing row (ADR 0013 §6).
     # Held there by `tests/test_plugin_floors.py`, which computes the floor
     # from the newest name these sources import rather than taking it on trust.
-    "digline>=0.9.0",
+    # 0.10.0 and not 0.9.0: the plugin reads `AssertionDelta.canary`, which is
+    # a *field* rather than an imported name — so `test_plugin_floors.py`, which
+    # tracks names, cannot see the dependency and this floor is the only thing
+    # that holds it. Against 0.9.0 the row rule would raise AttributeError on
+    # the first comparison. (ADR 0016 §8)
+    "digline>=0.10.0",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user
