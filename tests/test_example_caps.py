@@ -84,6 +84,7 @@ RELEASED: dict[str, int] = {
     # target's answers are recorded where the suite asks (ADR 0015), and a case
     # can watch the model instead of measuring it (ADR 0016).
     "0.10.0": 10,
+    "0.10.1": 10,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

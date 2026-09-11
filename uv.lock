@@ -579,7 +579,7 @@ wheels = [
 
 [[package]]
 name = "digline"
-version = "0.10.0"
+version = "0.10.1"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
@@ -2183,7 +2183,7 @@ wheels = [
 
 [[package]]
 name = "pytest-digline"
-version = "0.1.2"
+version = "0.1.3"
 source = { editable = "packages/pytest-digline" }
 dependencies = [
     { name = "digline" },

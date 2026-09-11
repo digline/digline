@@ -1,6 +1,6 @@
 [project]
 name = "pytest-digline"
-version = "0.1.2"
+version = "0.1.3"
 description = "Gate a pytest run on a digline comparison: one row per check, against the baseline committed in your repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,7 +27,12 @@ dependencies = [
     # tracks names, cannot see the dependency and this floor is the only thing
     # that holds it. Against 0.9.0 the row rule would raise AttributeError on
     # the first comparison. (ADR 0016 §8)
-    "digline>=0.10.0",
+    #
+    # 0.10.1 raises it again, and this time the gate can see why: the package
+    # imports `report.visible`, which arrived there. A judge's `reason` quotes
+    # what a model answered and this plugin prints it into a terminal, so the
+    # escaping is not optional here.
+    "digline>=0.10.1",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user

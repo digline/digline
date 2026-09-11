@@ -137,6 +137,10 @@ INTRODUCED: dict[str, str] = {
     # nothing outside `src/` imported them. Verified against the history, like
     # every line here — all three land in `v0.1.0~7`.
     "AssertionDelta": "0.1.0",
+    # 0.10.1 — the sanitiser both front ends share. The plugin prints a judge's
+    # `reason`, which quotes what a model answered, so it needs the same rule the
+    # CLI applies at its own sink (the 0.10.0 release delta-pass).
+    "visible": "0.10.1",
     "Comparison": "0.1.0",
     "Verdict": "0.1.0",
     # 0.2.0 — the named configuration delta a row prints beside a drop

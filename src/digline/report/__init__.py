@@ -46,6 +46,7 @@ from digline.report.render import (
     summary_lines,
     suspended_cases,
     unjudged_cases,
+    visible,
 )
 from digline.report.text import LOCALES, TEXT, Locale, phrase
 
@@ -95,4 +96,5 @@ __all__ = [
     "suspended_cases",
     "suspension_snippet",
     "unjudged_cases",
+    "visible",
 ]

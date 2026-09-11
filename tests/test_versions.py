@@ -176,6 +176,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.9.0": "'shipped in 0.9.0, and its own 0.1.0' — the release "
         "pytest-digline arrived in, history from the moment 0.10.0 shipped",
     },
+    "docs/rejudge.md": {
+        "0.10.0": "'Until 0.10.0 the only way to find out was to pay the "
+        "target' — the release `rejudge` arrived in, said as history on its own "
+        "page",
+    },
     "docs/api.md": {
         "0.6.0": "'These moved in 0.6.0.' — the release that promoted "
         "`load_suite` and its neighbours out of `digline.cli` into "
@@ -266,6 +271,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "one release whose redacted documents this refusal actually rejects, "
         "named in the message's own comment so the next reader knows which "
         "files are meant. History from the moment 0.8.1 shipped",
+        "0.10.0": "'\"0.10.0\" -> (0, 10, 0)' and the pair beside it — the two "
+        "releases between which a string comparison of versions silently "
+        "inverts, named in `release_tuple`'s docstring because naming them is "
+        "what makes the rule checkable. History from the moment 0.10.1 shipped",
         "0.9.0": '\'"0.10.0" < "0.9.0" is true lexically\' — `release_tuple`\'s '
         "docstring, where the pair is the argument: the two releases between "
         "which a string comparison of versions silently inverts. Naming them "
