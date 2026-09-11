@@ -8,6 +8,17 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Fixed:** `digline-mcp` and `pytest-digline` now ship `py.typed`. Both
+  classified themselves `Typing :: Typed` and neither carried the marker PEP
+  561 says makes it true, so a consumer importing either one from the wheel got
+  `reportMissingTypeStubs` under pyright — and, with `useLibraryCodeForTypes`
+  off, `Unknown` for every name it imported. `digline` itself and the three
+  provider plugins were unaffected and are unchanged. Verified the way the
+  defect had to be verified: in a scratch project against the built wheels,
+  where the annotations this repository resolves from source are not on the
+  path. `tests/test_packaging.py` now holds the classifier and the marker
+  together, in both directions.
+
 - **Fixed:** a target that returned no text now names the ending the provider
   declared, where the sentence used to come from the parser. An empty
   completion is still a legal *output* — the assertions get to fail it, and
