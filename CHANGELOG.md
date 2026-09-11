@@ -8,6 +8,72 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Changed (storage):** `SCHEMA_VERSION` is **10**. A run document written by
+  0.10.0 is refused by 0.9.0 and a 0.9.0 document is refused here, in both
+  directions and by name, so `digline migrate` is the first thing to run after
+  the upgrade — `AGENTS.md` §8's rule, unchanged. The step is **additive and
+  writes nothing**: all three of the fields this version adds mean what their
+  absence already means, so a migrated baseline keeps its `config_hash` byte for
+  byte and **nothing needs re-promoting**. The nine committed example baselines
+  moved by exactly one line each, which is what that promise looks like in a
+  diff. New: [ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md), the rule
+  for what a future bump may carry — a field rides only if it leaves
+  `config_hash` untouched, migrates without inventing, and does not widen what
+  travels.
+
+- **Added:** `Run.digline_version` — the document says what wrote it, beside the
+  `schema_version` that says what shape it is. Stamped by the driver; empty
+  means *not recorded*, which is what a migrated file honestly carries, and the
+  migration never stamps its own version on a document it only rewrote. When a
+  document turns out to have been written by a **newer** digline than the one
+  reading it, the CLI says so on stderr and the wire carries the fact. It is
+  never an exit code: the codes are a contract about the suite.
+
+- **Fixed:** the listing's advice about documents it stepped over now matches
+  the direction it found them in. It had been unconditionally *"run `digline
+  migrate`"*, which pointed backwards is advice to do the one thing nothing can
+  do — and could not be noticed until now, because until schema 10 no released
+  digline had ever met a document from a newer one.
+
+- **Added:** `Suite(record_responses=True)` records what the target answered —
+  per case, per sample, beside the rendered prompt that produced it and what the
+  call cost — and **`digline rejudge`** replays those answers through the current
+  suite. A changed judge, rubric or threshold, measured at no cost to the target.
+  Off by default, outside `config_hash`, and it is **not** a `Disclosure`: what
+  crosses a boundary and what is written inside the perimeter are two decisions.
+  The answers never travel — `redact()` drops them, `digline.wire` does not know
+  the field's name, and `digline promote` strips them from the reference, because
+  `baselines/` is committed. A re-judged run declares its source and **cannot be
+  promoted**: a replay has no target variance, so its interval would freeze a
+  noise floor measured without the noise — the fourth condition on promotion.
+  Whole or nothing at 65 536 characters per field: a clipped answer re-judged
+  produces a score that looks like every other score.
+  [ADR 0015](docs/adr/0015-the-recorded-output-and-the-declared-re-judge.md),
+  [`docs/rejudge.md`](docs/rejudge.md).
+
+- **Added:** `Case(canary=True)` — a case that watches the model behind the alias
+  instead of measuring quality. It is counted in **no** aggregate, and the
+  exclusion is a figure in the verdict's metadata so a denominator stays
+  reconcilable with the case file; it needs no label and may declare no group. If
+  it moves **at all** — worse or better, since its score is a fingerprint rather
+  than a quality — the headline says *the model under this alias likely changed*
+  and the run exits `1`, on a fact of its own rather than on `worse`. A suite
+  that declares one must sample at least twice: at one sample there is no noise
+  to measure, and a canary that fires on a wobble is a canary its owner learns to
+  ignore. Complementary to `resolved_model`, which is silent on the providers
+  that name nothing. [ADR 0016](docs/adr/0016-the-canary-case.md).
+
+- **Added (`pytest-digline` 0.1.2):** a canary that moved is a **FAILED** row,
+  including one whose outcome is `improved` — the one place the per-row mapping
+  cannot be read straight off `regressed`. Its floor rises to `digline>=0.10.0`,
+  because it reads a field rather than an imported name and the floors gate
+  tracks names.
+
+- **Unchanged:** `OUTPUT_VERSION` stays `1`. `rejudged`, `canary_moved` and the
+  per-delta `canary` are added keys, and an added key leaves a consumer working.
+  `canary_moved` is the first addition that can change an exit code, and only for
+  a suite that declares a canary — which no suite did before this release.
+
 - **Changed:** CodeQL now runs the **default** suite instead of
   `security-and-quality`. The earlier entry below argued the wider set says
   more about a library; what it said in practice was 74 quality findings, 19 of

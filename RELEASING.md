@@ -121,18 +121,21 @@ actually build against is whatever that branch holds at dispatch time.
 
 ### Queued for the next site push
 
-The three-line rule above has a first real batch, and the pages are held back
-deliberately: `digline.dev` is on its default branch and this documentation is
-not merged yet, so adding the entries early would fail the site build on pages
-that do not exist. They land together. Three, with this branch on the pile —
+The three-line rule above collects a batch per release, and the pages are held
+back deliberately: `digline.dev` is on its default branch and this documentation
+is not merged yet, so adding the entries early would fail the site build on
+pages that do not exist. They land together. Four, for the release-schema —
 
-- `docs/diff.md` → `product/diff.md`, under `- Reference:`;
-- `docs/adr/0010-per-group-aggregates.md` → under `- Decisions:`;
-- `docs/adr/0011-the-mcp-server.md` → under `- Decisions:`;
+- `docs/rejudge.md` → `product/rejudge.md`, under `- Reference:`;
+- `docs/adr/0014-what-may-ride-a-schema-bump.md` → under `- Decisions:`;
+- `docs/adr/0015-the-recorded-output-and-the-declared-re-judge.md` → under
+  `- Decisions:`;
+- `docs/adr/0016-the-canary-case.md` → under `- Decisions:`;
 
 — and `tests/test_docs_pages.py` and `tests/test_adr.py` are red here for
 exactly that reason, which is the gate keeping the two repositories in step
-rather than a defect. Three lines each, per the table above.
+rather than a defect. **Three lines each**, per the table above: twelve lines in
+three files.
 
 **A failure here is not a re-tag.** The site job is the last step of
 `publish.yml` and runs *after* PyPI, so a docs defect discovered at that point
