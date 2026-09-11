@@ -21,6 +21,7 @@ import os
 import re
 import tempfile
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -273,7 +274,9 @@ class FileResultStore:
             )
         return run
 
-    def promote_baseline(self, ref: RunRef, expected_config_hash: str) -> Run:
+    def promote_baseline(
+        self, ref: RunRef, expected_config_hash: str, *, promoted_at: str
+    ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant.
         run = self.read_run(ref)
         if run.config_hash != expected_config_hash:
@@ -316,6 +319,11 @@ class FileResultStore:
         # baseline is an approved reference of verdicts — promoting a recorded
         # run would put the model's output in somebody's history as a side
         # effect of the most routine action in the product. (ADR 0015 §5)
-        reference = without_responses(run)
+        # And the signature gets its own time. `created_at` is when the run was
+        # measured; a promotion happens once somebody has read it, commonly days
+        # later, and until now the document could not tell the two apart.
+        # Stamped from what the caller passed — the store reads no clock.
+        # (ADR 0014 §3)
+        reference = replace(without_responses(run), promoted_at=promoted_at)
         _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference

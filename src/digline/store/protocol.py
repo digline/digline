@@ -168,8 +168,19 @@ class ResultStore(Protocol):
         first round is not an error."""
         ...
 
-    def promote_baseline(self, ref: RunRef, expected_config_hash: str) -> Run:
+    def promote_baseline(
+        self, ref: RunRef, expected_config_hash: str, *, promoted_at: str
+    ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
+
+        `promoted_at` is **passed in and not read here**, for the reason
+        `created_at` is passed into `execute()`: the clock belongs to the layer
+        that touches the world, and a store that read it would make its own
+        output untestable and its own tests dependent on the hour they run at.
+        It is mandatory rather than defaulted so that a caller decides — a
+        default would make *not recorded* the ordinary outcome, which is the gap
+        the field exists to close. Empty is legal and means exactly that.
+        (ADR 0014 §3)
 
         Promotion is a deliberate act and never a side effect of running: that
         is what makes the baseline a committed, reviewable artifact rather than
@@ -188,6 +199,9 @@ class ResultStore(Protocol):
         4. `ReplayedRunError` if the run declares `rejudged_from` — the answers
            must have been *measured*, or the interval promoted with them was
            measured without the target in it (ADR 0015 §7).
+
+        What is written carries `promoted_at`: `created_at` says when the run was
+        measured, and this says when a person signed it off.
 
         What is written is `without_responses(run)`: a baseline is committed,
         and a reference of verdicts has no business carrying the model's answers

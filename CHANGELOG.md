@@ -53,6 +53,29 @@ the model rather than measuring it.
   reading it, the CLI says so on stderr and the wire carries the fact. It is
   never an exit code: the codes are a contract about the suite.
 
+- **Added:** `promote_baseline` stamps **`promoted_at`** on the baseline it
+  writes. `created_at` says when the run was *measured*; a promotion happens once
+  somebody has read it, which is commonly days later — `AGENTS.md` §2 is an
+  entire rule about not promoting the first green run — and until now the
+  reference carried no time of its own. It is one field and deliberately not a
+  ledger: a history of past promotions, and who made them, is a different
+  decision with its own retention and boundary questions. Absent on a run, absent
+  on a baseline promoted before this release, and never invented by the
+  migration: a plausible date on a human signature is exactly what it must not
+  write. The comparison's header names it beside the reference — *Reference
+  approved* — and `get_baseline` carries it over MCP.
+
+  **It is a `ResultStore` protocol change**: `promoted_at` is a mandatory
+  keyword, passed in rather than read, because the store may not touch the clock
+  — the rule `created_at` already follows — and a default would have made *not
+  recorded* the ordinary outcome, which is the gap the field closes.
+
+- **Fixed:** the view's promote button could return a 500 instead of a refusal
+  screen. It caught three of the store's refusals and `ReplayedRunError` had
+  joined them as the fourth, so promoting a re-judged run through the browser
+  would have raised where the CLI says why. Found while stamping the promotion
+  time through both front ends.
+
 - **Fixed:** the listing's advice about documents it stepped over now matches
   the direction it found them in. It had been unconditionally *"run `digline
   migrate`"*, which pointed backwards is advice to do the one thing nothing can

@@ -90,6 +90,13 @@ them here is the point of having the rule:
 | `digline_version` (§3) | the identity of the *tool*, and `Suite.config_hash()` never sees a run | `""`, meaning **not recorded** | a fact about the software house's own instrument; travels in clear |
 | the recorded output (ADR 0015) | a recording decision, and `Suite.disclosure` has never been in the hash either | absent — last month's answers are gone | payload, and **no `Disclosure` releases it** |
 | `canary` (ADR 0016) | case data, and cases are deliberately outside | `false` — a case that predates the idea was not one | a boolean the author wrote; travels |
+| `promoted_at` (§3) | a fact about the *promotion*, and the hash is the identity of the suite | absent — a baseline promoted before it existed recorded no time, and inventing one would date a signature nobody dated | a timestamp of our own process, like `digline_version`; travels |
+
+A fourth passenger boarded late, from a read-only analysis of the scout's
+history: `promote_baseline` overwrote the reference with the *run's*
+`created_at`, so the human signature had no time of its own. It passes all three
+conditions, so it rides — and §3 is where it is written down, beside the other
+field that describes the document rather than the measurement.
 
 One consequence of the first column is worth saying out loud rather than
 discovering: marking a case `canary` **does** change every aggregate's value,
@@ -114,6 +121,9 @@ omission:
 - `canary` → absent, which the document already reads as *not a canary*: the
   flag is written only when true, so a case that predates the idea of being one
   is not one without a key saying so.
+- `promoted_at` → absent, which is *not recorded* and never a date. A baseline
+  promoted last month was promoted at a time nobody wrote down, and the one
+  thing a migration must not do is put a plausible date on a human signature.
 
 Every key the step could add would therefore mean exactly what its absence
 already means, and adding them would churn every committed baseline in the world
@@ -155,6 +165,37 @@ test, a library caller who built one directly — and it is never read as
 It survives `redact()`. Everything in the field is a fact about the software
 house's own tooling, and a redacted document that could not say which digline
 wrote it would be harder to support for no gain in secrecy.
+
+**And `promoted_at`, by the same rule.** `promote_baseline` writes the run
+document as the reference, and until now that document carried one time:
+`created_at`, which is when the run was **measured**. A promotion happens once
+somebody has read the run — commonly days later, which is the whole of
+`AGENTS.md` §2 — and the reference could not say when. So the baseline gains
+`promoted_at`, stamped at write time, absent where it was not recorded.
+
+Minimal, and deliberately so: **one field**. Not a sequence, not a list of past
+promotions, not who promoted it. A history of the reference is a ledger, and a
+ledger is a decision with its own retention question, its own boundary question
+— a name is payload in a way a timestamp is not — and its own reason to exist.
+This field answers one question that has no answer today; the ledger can be
+written when something needs one.
+
+It is **passed in, not read** — `promote_baseline(..., promoted_at=…)`,
+mandatory and keyword-only. The store may not read the clock: `digline.host` and
+the front ends are the layers allowed to, which is why `created_at` is passed
+into `execute()` and why `utc_now_iso()` lives in the store as something callers
+use rather than something the store calls. Mandatory rather than defaulted
+because a default would make *not recorded* the ordinary outcome, which is the
+gap the field exists to close; empty stays legal and means exactly that. It is a
+`ResultStore` protocol change, which is the one thing this passenger costs beyond
+the bump itself.
+
+Two readers, because a field nothing reads is a field that drifts: the
+comparison's header names it beside the reference it belongs to — *Reference
+approved · 2026-09-11T09:14:02+00:00* — and `run_document` carries it, so
+`get_baseline` over MCP can answer the same question. It is not a `Comparison`
+outcome and gates nothing: when a reference was approved is a fact about the
+process, not about whether anything got worse.
 
 ### 4. The installed-behind warning, and the trap inside it
 
@@ -299,6 +340,12 @@ across the bump for every example suite in the repository, and a schema 9
 baseline migrated to 10 is asserted to promote against the current
 configuration without re-promotion. This is the test that makes §1's first
 condition real rather than intended.
+
+**The promotion stamps what it was given.** A promoted baseline carries the
+caller's `promoted_at` and a `created_at` that is still the run's; a migrated
+schema 9 baseline carries none; and the comparison's header shows it in both
+locales. The store is asserted to read no clock: promoting twice with the same
+argument produces the same bytes.
 
 **The version comparison.** `("0.10.0", "0.9.0")` is a parametrized case and it
 is the first one. Pre-release and post-release suffixes are asserted to be

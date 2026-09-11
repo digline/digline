@@ -444,7 +444,12 @@ def cmd_promote(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
     ref = RunRef(tenant=suite.tenant, suite=suite.name, key=key)
-    promoted = store.promote_baseline(ref, suite.config_hash())
+    # The clock is read here, in the layer allowed to read it, and handed down
+    # as a value — the rule `created_at` already follows. What it stamps is the
+    # human signature's own time: `created_at` says when the run was measured.
+    promoted = store.promote_baseline(
+        ref, suite.config_hash(), promoted_at=utc_now_iso()
+    )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards.
     print(f"{promoted.suite} baseline set to {key}")

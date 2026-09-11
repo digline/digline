@@ -328,7 +328,11 @@ def test_a_suite_too_noisy_to_trust_cannot_be_promoted(tmp_path: Path) -> None:
 
     store = FileResultStore(tmp_path)
     with pytest.raises(ErroredRunError, match="one"):
-        store.promote_baseline(store.write_run(run), suite.config_hash())
+        store.promote_baseline(
+            store.write_run(run),
+            suite.config_hash(),
+            promoted_at="2026-01-02T09:00:00+00:00",
+        )
 
 
 def test_when_every_sample_errors_the_result_says_so() -> None:

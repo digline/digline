@@ -144,6 +144,98 @@ def test_it_survives_redaction() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# the signature's own time
+# --------------------------------------------------------------------------- #
+
+PROMOTED = "2026-01-02T09:00:00+00:00"
+
+
+def test_promotion_stamps_the_time_it_was_given(tmp_path: Path) -> None:
+    """`created_at` is when the run was measured; this is when somebody signed it
+    off, and the two are days apart in the ordinary case."""
+    store = FileResultStore(tmp_path)
+    document = run(digline_version="0.10.0")
+    ref = store.write_run(document)
+
+    promoted = store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    assert promoted.promoted_at == PROMOTED
+    assert promoted.created_at == CREATED  # the measurement's own time, untouched
+    assert "promoted_at" in store.baseline_path("acme", "qa").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_the_store_reads_no_clock(tmp_path: Path) -> None:
+    """Promoting twice with the same argument produces the same bytes. A store
+    that reached for the clock itself would make its own output untestable —
+    which is why the caller stamps, as it does for `created_at`."""
+    store = FileResultStore(tmp_path)
+    document = run()
+    ref = store.write_run(document)
+    path = store.baseline_path("acme", "qa")
+
+    store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    first = path.read_text(encoding="utf-8")
+    store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    assert path.read_text(encoding="utf-8") == first
+
+
+def test_a_run_carries_no_promotion_time() -> None:
+    """Absent on a run, because a run has not been promoted — and absent rather
+    than empty, so the ordinary document is the one it always was."""
+    assert "promoted_at" not in json.loads(run_to_json(run()))
+
+
+def test_the_time_round_trips_and_survives_redaction() -> None:
+    from digline.core import redact
+
+    document = Run(
+        tenant="acme",
+        environment="staging",
+        suite="qa",
+        config_hash="0123456789abcdef",
+        created_at=CREATED,
+        results=(CaseResult("one", (verdict(),)),),
+        promoted_at=PROMOTED,
+    )
+    assert run_from_json(run_to_json(document)).promoted_at == PROMOTED
+    # A fact about our own process, not about the end company's data.
+    assert redact(document).promoted_at == PROMOTED
+
+
+@pytest.mark.parametrize("locale", ["en", "it"])
+def test_the_comparison_names_when_the_reference_was_approved(locale: str) -> None:
+    from digline.core import compare
+    from digline.report import render_html
+
+    baseline = Run(
+        tenant="acme",
+        environment="staging",
+        suite="qa",
+        config_hash="0123456789abcdef",
+        created_at=CREATED,
+        results=(CaseResult("one", (verdict(),)),),
+        promoted_at=PROMOTED,
+    )
+    current = run()
+    document = render_html(
+        compare(current, baseline),
+        current,
+        baseline,
+        locale=locale,  # type: ignore[arg-type]
+    )
+    assert PROMOTED in document
+
+
+def test_a_migrated_baseline_dates_no_signature() -> None:
+    """The one thing the migration must not do: put a plausible date on a human
+    signature nobody dated."""
+    upgraded = upgrade_document(nine())
+    assert "promoted_at" not in upgraded
+    assert run_from_json(json.dumps(upgraded)).promoted_at == ""
+
+
+# --------------------------------------------------------------------------- #
 # the migration invents nothing
 # --------------------------------------------------------------------------- #
 
@@ -191,7 +283,9 @@ def test_a_migrated_run_still_promotes_under_the_hash_it_carries(
     from digline.store.migrate import migrate_file
 
     assert migrate_file(path) == 9
-    promoted = store.promote_baseline(ref, document.config_hash)
+    promoted = store.promote_baseline(
+        ref, document.config_hash, promoted_at="2026-01-02T09:00:00+00:00"
+    )
     assert promoted.config_hash == document.config_hash
     assert promoted.digline_version == ""
 

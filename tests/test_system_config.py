@@ -316,7 +316,9 @@ def test_the_baseline_carries_the_configuration_that_produced_it(
     self-contained evidence rather than a column of numbers (ADR 0005 §3)."""
     store = FileResultStore(tmp_path)
     ref = store.write_run(a_run(target={**ANTHROPIC, "temperature": 0.3}))
-    promoted = store.promote_baseline(ref, "cfg")
+    promoted = store.promote_baseline(
+        ref, "cfg", promoted_at="2026-01-02T09:00:00+00:00"
+    )
     assert promoted.target_config.values["temperature"] == 0.3
 
     reread = store.read_baseline("acme-bank", "qa")

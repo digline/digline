@@ -31,8 +31,10 @@ from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
     FileResultStore,
+    ReplayedRunError,
     RunRef,
     TenantMismatchError,
+    utc_now_iso,
 )
 
 __all__ = ["ViewHandler", "serve"]
@@ -252,14 +254,17 @@ class ViewHandler(BaseHTTPRequestHandler):
 
         ref = RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=key)
         try:
-            self.store.promote_baseline(ref, self.suite.config_hash())
+            self.store.promote_baseline(
+                ref, self.suite.config_hash(), promoted_at=utc_now_iso()
+            )
         except (
             ConfigMismatchError,
             ErroredRunError,
+            ReplayedRunError,
             TenantMismatchError,
             FileNotFoundError,
         ) as exc:
-            # The same three refusals as the CLI, because it is the same call.
+            # The same four refusals as the CLI, because it is the same call.
             self._screen_runs(
                 locale, pages.phrase(locale, "view.promote.refused", why=str(exc))
             )

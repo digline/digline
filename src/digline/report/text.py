@@ -65,6 +65,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # Named in the header rather than only in the sentence: a reader who
         # scrolls past the first screen must still be able to see that the
         # answers came from a stored run, and which one.
+        "header.promoted": "Reference approved",
         "header.rejudged": "Answers replayed from",
         # The evidence block: shown only where the document carries it, which
         # is never at a boundary (ADR 0015 §4).
@@ -545,6 +546,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "header.redacted": "Contenuti omessi",
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
+        "header.promoted": "Riferimento approvato",
         "header.rejudged": "Risposte riascoltate da",
         "answers.title": "Che cosa ha risposto il sistema",
         "answers.note": (

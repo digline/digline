@@ -1010,6 +1010,12 @@ def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> st
         if commit.endswith(DIRTY_SUFFIX):
             commit += phrase(locale, "header.dirty")
         pairs.append(("header.commit", commit))
+    if baseline.promoted_at:
+        # Beside the reference's own line, because it is a fact about *that*
+        # document: when somebody read the run and signed it off, which is not
+        # when it was measured. Absent where it was not recorded — a baseline
+        # promoted before the field existed says nothing rather than guessing.
+        pairs.append(("header.promoted", baseline.promoted_at))
     if run.rejudged_from is not None:
         pairs.append(("header.rejudged", run.rejudged_from))
     if run.redacted or baseline.redacted:

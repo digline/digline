@@ -645,6 +645,16 @@ class Run:
     #: replay has no target variance and its interval would freeze a noise floor
     #: measured without the noise. (ADR 0015 §6, §7)
     rejudged_from: str | None = None
+    #: When this document was promoted to be the baseline, as the promoter
+    #: stamped it. Empty on a run — a run has not been promoted — and empty on a
+    #: baseline promoted before this field existed, which is *not recorded* and
+    #: never read as a date.
+    #:
+    #: `created_at` is when the run was **measured**; this is when a person
+    #: **signed it off**, and the two are days apart in the ordinary case. It is
+    #: passed in rather than read here for the reason `created_at` is: the core
+    #: touches no clock, and neither does the store. (ADR 0014 §3)
+    promoted_at: str = ""
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -892,6 +902,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # and travels. Withholding it would hide from a reader that the answers
         # were replayed, which is the one thing this field exists to say.
         rejudged_from=run.rejudged_from,
+        # When a person signed this off is a fact about our own process, not
+        # about the end company's data, so it travels like `digline_version`.
+        promoted_at=run.promoted_at,
     )
 
 
@@ -1020,6 +1033,10 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # Absent on a run that measured, present on a replay. Absent is the
         # ordinary case, so the ordinary document is unchanged. (ADR 0015 §6)
         **({"rejudged_from": run.rejudged_from} if run.rejudged_from else {}),
+        # Present only on a baseline, and only on one promoted by a caller that
+        # supplied the time. Absent is both "this is a run" and "nobody
+        # recorded it", and neither is a date. (ADR 0014 §3)
+        **({"promoted_at": run.promoted_at} if run.promoted_at else {}),
     }
 
 
@@ -1228,6 +1245,7 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         rejudged_from=(
             None if raw.get("rejudged_from") is None else str(raw["rejudged_from"])
         ),
+        promoted_at=str(raw.get("promoted_at") or ""),
     )
 
 

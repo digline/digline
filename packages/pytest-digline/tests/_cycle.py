@@ -36,5 +36,7 @@ def cycle(path: Path, root: Path, *, promote: bool) -> str:
     store = FileResultStore(str(root))
     ref = store.write_run(run)
     if promote:
-        store.promote_baseline(ref, suite.config_hash())
+        store.promote_baseline(
+            ref, suite.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+        )
     return ref.key

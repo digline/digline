@@ -164,6 +164,11 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
         # reaches a model's context traceable back to the release that wrote it.
         # (ADR 0014 §3)
         "digline_version": run.digline_version,
+        # On a baseline, when a person approved it — `created_at` is when it was
+        # measured. A fact about our own process, so it crosses; empty where it
+        # was not recorded, and on any document that is not a baseline.
+        # (ADR 0014 §3)
+        "promoted_at": run.promoted_at,
         "results": [
             {
                 "case_id": case.case_id,

@@ -81,7 +81,11 @@ def test_the_full_cycle(tmp_path: Path) -> None:
         Case(id="capital-it"), Case(id="capital-fr"), environment="production"
     )
     reference = execute(reference_suite, target_scoring(GOOD), created_at=BASELINE_AT)
-    store.promote_baseline(store.write_run(reference), reference_suite.config_hash())
+    store.promote_baseline(
+        store.write_run(reference),
+        reference_suite.config_hash(),
+        promoted_at="2026-01-02T09:00:00+00:00",
+    )
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
 
@@ -120,7 +124,11 @@ def test_the_cycle_leaves_only_what_belongs_in_the_repository(
     store = FileResultStore(tmp_path)
     suite = suite_of(Case(id="capital-it"), Case(id="capital-fr"))
     run = execute(suite, target_scoring(GOOD), created_at=BASELINE_AT)
-    store.promote_baseline(store.write_run(run), suite.config_hash())
+    store.promote_baseline(
+        store.write_run(run),
+        suite.config_hash(),
+        promoted_at="2026-01-02T09:00:00+00:00",
+    )
 
     written = {
         p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()
@@ -138,7 +146,11 @@ def test_a_run_that_could_not_judge_is_not_promotable(tmp_path: Path) -> None:
     suite = suite_of(Case(id="capital-it"), Case(id="flaky"))
     run = execute(suite, target_scoring(GOOD), created_at=RUN_AT)
     with pytest.raises(ErroredRunError, match="flaky"):
-        store.promote_baseline(store.write_run(run), suite.config_hash())
+        store.promote_baseline(
+            store.write_run(run),
+            suite.config_hash(),
+            promoted_at="2026-01-02T09:00:00+00:00",
+        )
 
 
 def test_suspending_the_flaky_case_makes_the_suite_promotable(
@@ -150,7 +162,11 @@ def test_suspending_the_flaky_case_makes_the_suite_promotable(
         Case(id="flaky", suspended="provider times out, ticket 412"),
     )
     run = execute(suite, target_scoring(GOOD), created_at=RUN_AT)
-    store.promote_baseline(store.write_run(run), suite.config_hash())
+    store.promote_baseline(
+        store.write_run(run),
+        suite.config_hash(),
+        promoted_at="2026-01-02T09:00:00+00:00",
+    )
 
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
@@ -167,7 +183,11 @@ def test_the_customer_can_send_the_verdict_without_the_data(
     store = FileResultStore(tmp_path)
     reference_suite = suite_of(Case(id="capital-it"), Case(id="capital-fr"))
     reference = execute(reference_suite, target_scoring(GOOD), created_at=BASELINE_AT)
-    store.promote_baseline(store.write_run(reference), reference_suite.config_hash())
+    store.promote_baseline(
+        store.write_run(reference),
+        reference_suite.config_hash(),
+        promoted_at="2026-01-02T09:00:00+00:00",
+    )
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
 

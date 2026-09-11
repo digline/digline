@@ -265,7 +265,9 @@ def test_promotion_writes_a_reference_without_the_answers(tmp_path: Path) -> Non
     run = execute(declared, answering("Mario Rossi lives in Rome"), created_at=CREATED)
     ref = store.write_run(run)
 
-    promoted = store.promote_baseline(ref, declared.config_hash())
+    promoted = store.promote_baseline(
+        ref, declared.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+    )
     assert all(case.responses == () for case in promoted.results)
     text = store.baseline_path("acme", "qa").read_text(encoding="utf-8")
     assert "Mario Rossi" not in text
@@ -403,7 +405,9 @@ def test_a_replay_may_not_become_the_baseline(tmp_path: Path) -> None:
     again = rejudge(declared, source, key="src-key", created_at=LATER)
     ref = store.write_run(again)
     with pytest.raises(ReplayedRunError, match="not from the target"):
-        store.promote_baseline(ref, declared.config_hash())
+        store.promote_baseline(
+            ref, declared.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+        )
 
 
 def test_the_announced_cost_says_the_target_is_not_called() -> None:
