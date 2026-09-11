@@ -12,10 +12,11 @@ That is the same opt-in every example in this repository uses, and it is why the
 loop is demonstrable by somebody who has no account anywhere.
 
 **What the model is shown is what already crossed the boundary.** `cycle.json`
-holds `compare --json` output: names, statuses, scores, thresholds, intervals.
+holds `explain --json` output: names, outcomes, scores, thresholds, intervals.
 It holds no judge `reason`, no case input, no suspension sentence — those are
-payload, and payload stays inside the perimeter it was measured in. Nothing in
-this file re-reads the run to enrich the prompt, and nothing may.
+payload, and the fact list has no field for any of them. Payload stays inside
+the perimeter it was measured in. Nothing in this file re-reads the run to
+enrich the prompt, and nothing may.
 """
 
 from __future__ import annotations

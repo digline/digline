@@ -8,15 +8,17 @@ The operator watches the measurement; it does not repair the system. Fixing this
 
 ## 1. The fact
 
-Machine truth, from `digline compare --json full`. Reproducible, and not prose.
+Machine truth, from `digline explain --json`: the fact list digline renders its own reading from. Reproducible, and not prose.
 
-| run | seed | exit | worse | unjudged | within noise |
-| --- | ---: | ---: | :---: | -------: | -----------: |
-| `2026-09-09T12-30-36-566864-00-00-4d2ac7a7f606b8de` | 0 | 1 | yes | 0 | 0 |
-| `2026-09-09T12-30-36-767709-00-00-4d2ac7a7f606b8de` | 1 | 1 | yes | 0 | 0 |
-| `2026-09-09T12-30-36-976448-00-00-4d2ac7a7f606b8de` | 2 | 1 | yes | 0 | 0 |
+| run | seed | exit | unjudged | within noise |
+| --- | ---: | ---: | -------: | -----------: |
+| `2026-09-11T06-15-42-145385-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
+| `2026-09-11T06-15-42-337456-00-00-4d2ac7a7f606b8de` | 1 | 1 | 0 | 0 |
+| `2026-09-11T06-15-42-527716-00-00-4d2ac7a7f606b8de` | 2 | 1 | 0 | 0 |
 
-Suite `suite.py`, output version 1. The configuration of the system under test did not change; the judge's configuration did not change; the suite itself did not change.
+Exit `0`: nothing got worse. `1`: something did. `2`: the run could not be judged. That is digline's contract, AGENTS.md §6.
+
+Suite `suite.py`, output version 1. The suite itself did not change. Underneath it, nothing differed: not the system under test, not the judge, not a file under test.
 
 ## 2. The dossier
 
@@ -24,26 +26,26 @@ Ran the suite once and re-ran it 2 time(s). The stopping rule was `max_reruns = 
 
 Spend: 9 calls to the target across 3 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
 
-**Run `2026-09-09T12-30-36-566864-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
+**Run `2026-09-11T06-15-42-145385-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval (a flip is a regression whatever the noise said) |
 
-**Run `2026-09-09T12-30-36-767709-00-00-4d2ac7a7f606b8de` (seed 1, exit 1)**
+**Run `2026-09-11T06-15-42-337456-00-00-4d2ac7a7f606b8de` (seed 1, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
-| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5750 | no interval (a flip is a regression whatever the noise said) |
+| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
 | `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples |
 
-**Run `2026-09-09T12-30-36-976448-00-00-4d2ac7a7f606b8de` (seed 2, exit 1)**
+**Run `2026-09-11T06-15-42-527716-00-00-4d2ac7a7f606b8de` (seed 2, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
-| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8973 | 0.8603–0.9221 across 3 samples |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5298 | no interval (a flip is a regression whatever the noise said) |
+| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8973 | 0.8603–0.9221 across 3 samples |
 | `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.8814 | 0.8700–0.9309 across 3 samples |
 
 Present in every run of this cycle: `is-it-waterproof` / `llm_rubric`.
