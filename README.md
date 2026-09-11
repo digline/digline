@@ -6,6 +6,7 @@
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/digline/digline/actions/workflows/ci.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14570/badge)](https://www.bestpractices.dev/projects/14570)
 
 Your prompt worked on Tuesday. On Thursday it works a little less — not enough
 to break, enough for a user to notice in two weeks. No ordinary test catches it,
