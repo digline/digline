@@ -30,6 +30,49 @@ What to expect:
 
 There is no bounty. There is a fast reply and a name in the record.
 
+## When a finding becomes an advisory
+
+Not every security fix is an advisory, and a project that publishes one for
+everything teaches its readers to skim them. The line here is **exposure**, and
+it is drawn in one place:
+
+- **A published advisory** — GitHub Security Advisory, with a CVE where one
+  applies — for a vulnerability that **shipped**: a released version, on an
+  index somebody could install from, that a user could be hurt by. Three exist
+  so far, all from the 0.7.1 and 0.7.2 pass:
+  [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
+  (high, `digline-mcp` executing a suite from anywhere on disk),
+  [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
+  (medium, reads outside the perimeter), and
+  [GHSA-xrvr-5x82-w7g7](https://github.com/digline/digline/security/advisories/GHSA-xrvr-5x82-w7g7)
+  (low, a credential in a target URL reaching stderr and a CI log).
+- **A `Security` entry in the changelog, and no advisory**, for a finding our own
+  process caught **before** it was exposed — the audit, the adversarial pass, the
+  release delta-pass. There is no version to warn anybody off, and an advisory
+  against a defect nobody could reach is noise in the one channel that must not
+  become noise. It is still written down, in full, where the fix is.
+
+The second category is not a lighter one. It is where the finding that never
+reached anybody goes, and the changelog says what it was rather than that
+something was hardened.
+
+## The delta-pass
+
+**A release that adds surface gets an adversarial pass over that surface before
+the announcement round.** Not before the tag — before anyone is told to
+upgrade. It is a standing rule, and `RELEASING.md` carries the procedure.
+
+Three questions per new field or new entry point: *where does it cross a
+boundary, who wrote the value, and what does a hostile value do there.*
+Reproduce on the artifact that actually travels, not on the code that builds it,
+and write the regression test so that it fails against the release just cut.
+
+It has paid twice. The pass over 0.7.1's four fixes found two more, shipped the
+same day as 0.7.2. The pass over 0.8.0 found `resolved_model` travelling in
+clear out of a redacted run — a boundary decided that morning and wrong by
+lunchtime — and 0.8.1 went out before the announcements. Neither became an
+advisory, by the rule above; both are in the changelog under `Security`.
+
 ## What the design already commits to
 
 None of this is a promise made by this file. Each line is a decision written

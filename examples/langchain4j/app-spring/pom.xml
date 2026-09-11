@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.5</version>
+    <version>4.1.1</version>
     <relativePath/>
   </parent>
 
@@ -19,7 +19,13 @@
 
   <properties>
     <java.version>21</java.version>
-    <langchain4j.version>1.0.1</langchain4j.version>
+    <langchain4j.version>1.20.0</langchain4j.version>
+    <!-- Ahead of what this Spring Boot manages. Three advisories against
+         Tomcat 11.0.24 are fixed in 11.0.25, and a demo that ships known-
+         vulnerable transitives is a demo teaching the wrong thing. Dependabot
+         watches this property like any other; it goes away when Spring Boot's
+         own managed version passes it. -->
+    <tomcat.version>11.0.25</tomcat.version>
   </properties>
 
   <dependencies>

@@ -11,6 +11,12 @@ know which of them answered, and do not change when you swap one for the other.
 That is the claim this example is making: **the framework is not the contract;
 the endpoint is.**
 
+Tested against **Spring Boot 4.1.x** and **Quarkus 3.39.x**, on a JDK 21 —
+built, started, and answering on `/evaluate`. `java-example.yml` in CI proves
+only that both services *compile*: neither ships a test, so the boot-and-answer
+half was verified by hand and the floor above is the version pair it was
+verified at.
+
 `stub.py` answers the same shape without a JVM, so everything below runs with no
 Java and no API key.
 
@@ -208,9 +214,9 @@ the guide (`docs/guide.md`), the chapter on judge noise.
 
 The two differ inside, and none of it reaches the endpoint: Spring builds the
 model in a constructor, Quarkus has the `quarkus-langchain4j` extension build it
-from `application.properties`; and the extension currently brings langchain4j
-`1.0.0-beta2`, where the interface is still `ChatLanguageModel`, against
-`1.0.1`'s `ChatModel` on the Spring side. Run the suite against either and the
-run file is the same document.
+from `application.properties`. They used to differ in a second way too — the
+extension lagged behind langchain4j's `ChatLanguageModel` → `ChatModel` rename,
+so each service named the interface its own dependency gave it — and they no
+longer do. Run the suite against either and the run file is the same document.
 
 Needs digline `0.3.0` (`config_path` on `HttpTarget`).

@@ -186,6 +186,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'was fixed in 0.7.2' — the symlink escape, named so the "
         "scope paragraph says which side of the line it fell on and when. A "
         "fact about a shipped release, not a claim about this one",
+        "0.7.1": "the release the three published advisories were cut against, "
+        "and the one whose four fixes the adversarial pass went back over. The "
+        "advisory policy has to name a version or it is describing nothing",
+        "0.8.0": "the release whose new surface the delta-pass read, in the "
+        "worked example of why that rule exists",
+        "0.8.1": "what went out before the announcements because that pass "
+        "found something. Same sentence, other end of it",
     },
     "examples/external-app/README.md": {
         "0.1.2": "'Needs digline 0.1.2 (HttpTarget)' — the release the feature "
@@ -206,9 +213,6 @@ RECORDED: dict[str, dict[str, str]] = {
     "examples/langchain4j/README.md": {
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
         "kind of floor",
-        "1.0.0": "langchain4j `1.0.0-beta2`, a Java dependency of the service "
-        "under test and not a digline version",
-        "1.0.1": "the langchain4j release beside it, same reason",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "

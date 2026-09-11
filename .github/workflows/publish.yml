@@ -35,8 +35,8 @@ jobs:
     name: Build and check every package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
 
       - name: Refuse a tag that names no package
         # A version on an index can never be reused, so a mistyped tag is the
@@ -98,7 +98,7 @@ jobs:
           /tmp/core/bin/pip install --quiet dist/digline-*.whl
           /tmp/core/bin/digline --help > /dev/null && echo "digline --help works"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: dist
           path: dist/
@@ -109,10 +109,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
+      # A job-level `permissions:` **replaces** the top-level block, it does not
+      # add to it. `id-token: write` on its own therefore left `contents` at
+      # none, and the checkout below went on working only because this
+      # repository is public and git can read it unauthenticated. Both scopes
+      # are written out, so nothing here rests on that staying true.
+      contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: dist
           path: dist/
@@ -124,7 +130,7 @@ jobs:
         run: python .github/select_unpublished.py
 
       - if: steps.select.outputs.count != '0'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: to-publish/
@@ -161,10 +167,12 @@ jobs:
     # for a person. A version number is spent the moment it is uploaded.
     environment: pypi
     permissions:
+      # Both, for the reason spelled out on `testpypi` above.
+      contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: dist
           path: dist/
@@ -176,7 +184,7 @@ jobs:
         run: python .github/select_unpublished.py
 
       - if: steps.select.outputs.count != '0'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: to-publish/
           skip-existing: true
@@ -229,6 +237,11 @@ jobs:
   site:
     name: Rebuild digline.dev
     needs: pypi
+    # Nothing in this job uses `GITHUB_TOKEN`: there is no checkout, and the one
+    # step authenticates to *another* repository with a PAT. An empty block is
+    # the accurate grant, and it is worth writing on the one job in the file
+    # that holds a credential which can write somewhere else.
+    permissions: {}
     # Workspace releases only. The site describes what the core says — the
     # quickstart, the format, `docs/` — and a plugin release changes none of
     # it. When it does change (a page per provider, say), that arrives with a
