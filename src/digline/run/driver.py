@@ -9,7 +9,7 @@ about the baseline would have two reasons to change.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -20,7 +20,9 @@ from digline.core import (
     Artifact,
     Assertion,
     CaseOutcome,
+    CaseProgress,
     CaseResult,
+    Cause,
     ConfigValue,
     EvaluatorInputs,
     HasConfig,
@@ -49,6 +51,7 @@ __all__ = [
     "default_mapper",
     "execute",
     "judge_config",
+    "judges",
     "target_config",
 ]
 
@@ -161,7 +164,7 @@ def judge_config(suite: Suite) -> SystemConfig:
     A judge that declares nothing — no `provider`, no `model` — is passed over
     the way a plain-function target is: what names no instrument records none.
     """
-    found = [dict(judge.config) for judge in _judges(suite.assertions)]
+    found = [dict(judge.config) for judge in judges(suite.assertions)]
     declared = [c for c in found if c.get("provider") and c.get("model")]
     if not declared:
         return SystemConfig()
@@ -187,8 +190,13 @@ def judge_config(suite: Suite) -> SystemConfig:
 _MISSING = object()
 
 
-def _judges(assertions: Sequence[object]) -> list[HasConfig]:
+def judges(assertions: Sequence[object]) -> list[HasConfig]:
     """Every configured judge an assertion holds, wrappers followed through.
+
+    Public because the host seeds each one's observed identity when a run is
+    resumed (ADR 0017 §7): the judge that graded the first leg has to meet the
+    second leg's first reply, or an alias that rolled between them would be
+    averaged away instead of raising.
 
     Read off the dataclass fields rather than from a fixed attribute name:
     `LlmRubric` calls it `judge` today and the next assertion that asks a model
@@ -297,16 +305,27 @@ def _judge(assertion: Assertion, inputs: EvaluatorInputs) -> Verdict:
         )
 
 
-def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseResult:
+def _run_case(
+    suite: Suite, target: Target, mapper: Mapper, case: Case
+) -> tuple[CaseResult, Cause]:
+    """The case, and which layer errored it.
+
+    The pair rather than the result alone because the journal records the cause
+    and the run document has no field for it (ADR 0017 §3). It is read once, by
+    the announcement before a resumed leg, and never acted on automatically.
+    """
     if case.suspended is not None:
         # The skip belongs to the driver, not to the core: an assertion is never
         # asked a question it then has to decline (ADR 0001). The run still
         # records the case, so the suspension is visible downstream.
-        return CaseResult(
-            case_id=case.id,
-            verdicts=(),
-            suspended=case.suspended,
-            canary=case.canary,
+        return (
+            CaseResult(
+                case_id=case.id,
+                verdicts=(),
+                suspended=case.suspended,
+                canary=case.canary,
+            ),
+            "",
         )
 
     samples: list[EvaluatorInputs] = []
@@ -328,10 +347,15 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
             # One failed call errors the whole case, sampled or not: a target
             # that cannot answer has not answered, and a partly-sampled case
             # would be a weaker measurement claiming to be the declared one.
-            return CaseResult(
-                case_id=case.id,
-                verdicts=_failed(suite, f"target raised {type(exc).__name__}: {exc}"),
-                canary=case.canary,
+            return (
+                CaseResult(
+                    case_id=case.id,
+                    verdicts=_failed(
+                        suite, f"target raised {type(exc).__name__}: {exc}"
+                    ),
+                    canary=case.canary,
+                ),
+                "target",
             )
 
         if suite.record_responses:
@@ -340,26 +364,39 @@ def _run_case(suite: Suite, target: Target, mapper: Mapper, case: Case) -> CaseR
         try:
             samples.append(mapper(response, case))
         except Exception as exc:  # noqa: BLE001 — same treatment, different diagnosis
-            return CaseResult(
-                case_id=case.id,
-                verdicts=_failed(suite, f"mapper raised {type(exc).__name__}: {exc}"),
-                canary=case.canary,
+            return (
+                CaseResult(
+                    case_id=case.id,
+                    verdicts=_failed(
+                        suite, f"mapper raised {type(exc).__name__}: {exc}"
+                    ),
+                    canary=case.canary,
+                ),
+                "mapper",
             )
 
     # With one sample `combine_samples` is the identity function, so this is
     # byte for byte what the driver produced before sampling existed.
     floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
-    return CaseResult(
-        case_id=case.id,
-        verdicts=tuple(
-            combine_samples(
-                [_judge(assertion, inputs) for inputs in samples],
-                min_agreement=floor,
-            )
-            for assertion in suite.assertions
+    verdicts = tuple(
+        combine_samples(
+            [_judge(assertion, inputs) for inputs in samples],
+            min_agreement=floor,
+        )
+        for assertion in suite.assertions
+    )
+    return (
+        CaseResult(
+            case_id=case.id,
+            verdicts=verdicts,
+            responses=tuple(answers),
+            canary=case.canary,
         ),
-        responses=tuple(answers),
-        canary=case.canary,
+        # An assertion that errored here answered about an answer that arrived:
+        # the target was paid and the judging is what failed, which is a
+        # different bill from the one above and a different thing to tell a
+        # reader about before retrying it.
+        "assertion" if any(v.status == "error" for v in verdicts) else "",
     )
 
 
@@ -420,6 +457,8 @@ def execute(
     git_commit: str | None = None,
     run_metadata: Mapping[str, object] | None = None,
     artifacts: Mapping[str, Artifact] | None = None,
+    done: Mapping[str, CaseResult] | None = None,
+    on_case: Callable[[CaseProgress], None] | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -435,6 +474,20 @@ def execute(
     `created_at` is passed in rather than read from the clock, so a run stays
     reproducible and the driver's tests stay deterministic; `store.utc_now_iso()`
     exists for callers who want now.
+
+    `done` maps `case_id` to a result somebody already holds — a journal, after
+    a killed run (ADR 0017 §4). Those cases are **not called**, and their
+    results are placed where the *suite* puts them rather than where the journal
+    does, so a resumed run's `results` are in the same order as an uninterrupted
+    one's. The driver still knows nothing about the store: what it receives is a
+    mapping of values.
+
+    `on_case` is called once per finished case, before the next one starts. It
+    is deliberately **not** wrapped: everything else here is contained — a
+    target that raises errors its case, a broken assertion errors its own line —
+    and the failure this one would hide is a recorder that stopped recording
+    while the run went on for another six hundred calls, which is the loss the
+    journal exists to end.
     """
     # Asked before anything is called. A target that can check itself against
     # the suite says so by having the method; the ones that cannot are plain
@@ -450,9 +503,41 @@ def execute(
     # paid for. The answer recorded is the one taken after the last case.
     judge_config(suite)
 
-    results: Sequence[CaseResult] = tuple(
-        _run_case(suite, target, mapper, case) for case in suite.cases
-    )
+    reuse = dict(done or {})
+    unknown = sorted(set(reuse) - {case.id for case in suite.cases})
+    if unknown:
+        # Refused here rather than in the caller, because it is an invariant of
+        # this function: a run assembled out of two suites would be a document
+        # naming one configuration over cases from another. A journal is
+        # refused earlier and by a wider rule (ADR 0017 §6); this catches the
+        # library caller who builds `done` by hand.
+        raise ValueError(
+            f"done names {len(unknown)} case(s) the suite does not declare "
+            f"({', '.join(unknown)}): a run may not be assembled out of two "
+            "case sets"
+        )
+
+    results: list[CaseResult] = []
+    for case in suite.cases:
+        if case.id in reuse:
+            results.append(reuse[case.id])
+            continue
+        result, cause = _run_case(suite, target, mapper, case)
+        results.append(result)
+        if on_case is not None:
+            # Asked per case rather than once at the end, because a recorder
+            # that kept only the verdicts would resume into the averaging ADR
+            # 0005 §8 refuses: the identity the provider reported has to be on
+            # disk before the crash. Both are property reads on objects this
+            # function already holds. (ADR 0017 §7)
+            on_case(
+                CaseProgress(
+                    result=result,
+                    observed_target=target_config(target),
+                    observed_judge=judge_config(suite),
+                    cause=cause,
+                )
+            )
     # And asked again, because a target may only be able to *learn* its
     # configuration by answering: the model call an `HttpTarget` evaluates
     # happens on the other side of HTTP, so the application reports it in the
@@ -484,7 +569,7 @@ def execute(
         config_hash=suite.config_hash(),
         created_at=created_at,
         git_commit=git_commit,
-        results=results,
+        results=tuple(results),
         aggregate=aggregate,
         metadata=dict(run_metadata or {}),
         # Asked of the target and of the judges, not passed in: unlike an

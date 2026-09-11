@@ -1111,6 +1111,90 @@ A claim is supported only if the context states it or entails it. Knowing it to
 be true from elsewhere does not make it supported.
 ```
 
+## The run that was killed
+
+A run is written once, at the end. That used to mean a suite killed part way
+through — a supervisor, a memory-pressure reaper, `Ctrl-C` — lost every call it
+had already paid for.
+
+digline now keeps a **journal** beside the run while it goes:
+
+    .digline/<tenant>/runs/<suite>/.pending/<run key>.<leg>.jsonl
+
+One record per **case**, written and `fsync`ed before the next case starts, in
+the same directory the runs live in and therefore covered by the same
+`.gitignore`. It holds exactly what the finished run file would hold and nothing
+more — a suite that does not record its answers does not journal them either —
+and it is **deleted the moment the run file exists**. A completed run looks
+exactly as it did before.
+
+To finish one:
+
+```console
+$ digline run --suite suite.py --resume
+digline: 112 of 144 cases × 5 samples = 560 calls to the target; 32 cases already judged
+2026-09-11T09-14-02-000000-00-00-81c684c28b62
+```
+
+With no key it takes the most recent unfinished run; `--resume KEY` names one.
+A plain `digline run` never resumes, and says on stderr that a journal is
+pending so the calls in it are not abandoned by accident.
+
+**A resumed run is not marked as one, because there is nothing to mark.** It
+carries the `created_at` of the run it finishes, writes the file that run was
+going to write, and states nothing that is untrue of either half. That is
+guaranteed by the refusals rather than assumed: a resume is refused, before the
+first call of the new leg, when any of these has moved since the run started —
+
+| | |
+|---|---|
+| `config_hash` | thresholds, tolerances, `samples`, `min_agreement`, the aggregates |
+| the cases | their ids, data, labels, groups and order |
+| the artifacts | the prompt is the thing under test, and it is digested |
+| `target_config`, `judge_config` | a different model, temperature or endpoint answered |
+| `record_responses` | the document would carry answers for half its cases |
+| `git_commit`, the digline version | the code around the suite, and the engine |
+
+Half a run under one prompt and half under another is not a run.
+
+**An alias that rolled between the halves errors, it is not averaged.** What the
+provider said answered is journalled as it is learnt and given back to the target
+and the judges on resume, so a model that changed across the seam raises on the
+first call of the new leg exactly as it would have on the next call of the old
+one: that case errors, the run is still written, and it exits 2 and cannot be
+promoted (ADR 0005 §8).
+
+**Errored cases are retried.** An errored verdict exits 2 and cannot be
+promoted, so a resume that kept them would finish a run nobody can use — the
+usual cause is a provider that stopped answering, not a suite that stopped
+meaning anything. `--keep-errors` keeps them as journalled.
+
+For a script that drives digline itself, the four steps are one call:
+
+```python
+from digline.host import measure, prepare
+
+prepared = prepare(
+    suite,
+    target,
+    now=utc_now_iso(),
+    git_commit=commit,
+    artifacts=artifacts,
+    resume=None,
+)
+print(prepared.plan.sentence())  # say what it will cost, first
+measured = measure(suite, target, store=store, prepared=prepared)
+print(measured.ref.key)
+```
+
+`prepare()` decides what the launch is and refuses a resume that would not be
+one; `measure()` opens the journal, runs, writes and deletes it. Underneath,
+`execute()` gained `done=` — results it must not call for — and `on_case=`, a
+callback per finished case. The driver still knows nothing about the store.
+
+The reasoning in full is
+[ADR 0017](adr/0017-the-journal-and-the-resumed-run.md).
+
 ## What `--json` promises
 
 `digline compare --json` and `digline run --json` print an object whose first

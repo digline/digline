@@ -3,20 +3,41 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from typing import Protocol
+from dataclasses import dataclass, field, replace
+from typing import Protocol, runtime_checkable
 
-from digline.core.run import SCHEMA_VERSION, Run
+from digline.core.run import (
+    SCHEMA_VERSION,
+    CaseProgress,
+    CaseResult,
+    Run,
+    SystemConfig,
+)
+from digline.core.types import Cause
 
 __all__ = [
+    "JOURNAL_VERSION",
     "ConfigMismatchError",
     "ErroredRunError",
+    "Journal",
+    "JournalBusyError",
+    "JournalHeader",
+    "JournalRefusedError",
     "Listing",
+    "Pending",
     "ReplayedRunError",
     "ResultStore",
     "RunRef",
+    "SupportsJournal",
     "TenantMismatchError",
 ]
+
+#: The journal's own format version, independent of `SCHEMA_VERSION` and
+#: deliberately so. A journal is a **format**, so it has a version; it is a
+#: *work file* and not a document, so it has no migration. A journal this
+#: digline cannot read is one it does not resume — it is left on disk, named,
+#: and the run it belongs to is started again. (ADR 0017 §2)
+JOURNAL_VERSION = 1
 
 
 class ConfigMismatchError(Exception):
@@ -45,6 +66,31 @@ class ReplayedRunError(Exception):
     ordinary wobble of the target would then read as a movement beyond the
     noise. A replay promoted as a reference is a noise floor measured without
     the noise. (ADR 0015 §7)
+    """
+
+
+class JournalRefusedError(Exception):
+    """Raised when a pending journal may not be resumed.
+
+    The rule it enforces is one sentence: **a resumed run may only be assembled
+    when every fact the run document asserts is true of both legs.** Half a run
+    under one prompt and half under another is not a run, and a document that
+    said otherwise would be wrong in the one file this product exists to make
+    trustworthy. (ADR 0017 §6)
+
+    Raised *before the first call of the new leg*, always, so a refused resume
+    costs nothing and leaves the journal exactly where it was.
+    """
+
+
+class JournalBusyError(JournalRefusedError):
+    """Raised when another process already holds the leg this one would write.
+
+    The whole of the concurrency story, and it needs no lock file: the leg is
+    created with `O_CREAT|O_EXCL`, so the loser of the race is told. A lock
+    would be the wrong instrument here — the process this feature exists for is
+    one that was *killed*, and a lock it could not release would block the very
+    rescue it was meant to protect. (ADR 0017 §5)
     """
 
 
@@ -206,5 +252,175 @@ class ResultStore(Protocol):
         What is written is `without_responses(run)`: a baseline is committed,
         and a reference of verdicts has no business carrying the model's answers
         into somebody's git history (ADR 0015 §5).
+        """
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class JournalHeader:
+    """Line 1 of every leg: what the run this journal belongs to claims to be.
+
+    Every field but `started_at` and `leg` is checked on resume, and the list is
+    not a collection of good ideas — it is **exactly the set of facts the run
+    document asserts**, plus the two that make the journal readable. That is
+    what makes the run document need no marker for having been resumed: a
+    document that asserts nothing untrue of either leg has nothing to declare.
+    (ADR 0017 §6, §10)
+
+    `created_at` is the run's birth and is carried unchanged by every leg — it
+    is what the finished run is stamped with and what its key is built from, so
+    a resumed run writes the file the killed run was always going to write.
+    `started_at` is this leg's own clock reading, which lives here and dies with
+    the journal.
+    """
+
+    tenant: str
+    environment: str
+    suite: str
+    config_hash: str
+    cases_digest: str
+    created_at: str
+    started_at: str
+    digline_version: str
+    record_responses: bool
+    git_commit: str | None = None
+    #: Declared path -> sha256, as `read_artifacts` found them. The digests
+    #: only: a journal holds no more of the thing under test than it needs to
+    #: know that it did not move.
+    artifacts: Mapping[str, str] = field(default_factory=dict[str, str])
+    #: What the target and the judges *declared* before the first call. The
+    #: observed half cannot be known at header time and is recorded as it
+    #: arrives, in its own record.
+    target_config: SystemConfig = field(default_factory=SystemConfig)
+    judge_config: SystemConfig = field(default_factory=SystemConfig)
+    journal_version: int = JOURNAL_VERSION
+    leg: int = 1
+
+    def differences(self, other: JournalHeader) -> tuple[str, ...]:
+        """Which asserted facts differ from `other`'s, in the order read.
+
+        A method on the value rather than a function in the store, because what
+        a resume may not change is a property of what a run claims — and the
+        day a field is added to `Run`, the question to ask is not *should this
+        be checked* but *does the document assert it*.
+        """
+        mine, theirs = (
+            replace(self, started_at="", leg=0),
+            replace(other, started_at="", leg=0),
+        )
+        return tuple(
+            name
+            for name in (
+                "journal_version",
+                "digline_version",
+                "tenant",
+                "environment",
+                "suite",
+                "config_hash",
+                "cases_digest",
+                "artifacts",
+                "target_config",
+                "judge_config",
+                "record_responses",
+                "git_commit",
+            )
+            if getattr(mine, name) != getattr(theirs, name)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Pending:
+    """A run that was started and never written, as the store found it.
+
+    `header` and the rest are absent when `refusal` is set: a journal this
+    digline cannot read still has to be *named* — it holds paid work, so it is
+    never deleted on a guess — and naming it is what this shape does.
+    """
+
+    key: str
+    header: JournalHeader | None = None
+    #: Why it cannot be resumed, or empty. Set for an unreadable journal, a
+    #: corrupt one, and one written by a digline that knows a format this one
+    #: does not.
+    refusal: str = ""
+    legs: int = 0
+    #: `case_id` -> the last result journalled for it. A case appears twice in a
+    #: journal only when it was retried, and the last record is the one that
+    #: counts: the file is append-only, so a retry adds a line rather than
+    #: editing one. (ADR 0017 §3)
+    done: Mapping[str, CaseResult] = field(default_factory=dict[str, CaseResult])
+    errored: frozenset[str] = frozenset()
+    #: `case_id` -> which layer errored it, for the cases that errored. Read by
+    #: the announcement before the new leg and by nothing else: digline never
+    #: selects what to re-pay for from it, because which of a user's failures
+    #: are worth money is the user's decision. (ADR 0017 §9)
+    causes: Mapping[str, Cause] = field(default_factory=dict[str, "Cause"])
+    #: What the provider *said* answered, as the earlier legs saw it. Seeded
+    #: back into the target and the judges before the new leg's first call, so
+    #: an alias that rolled across the seam raises instead of being averaged
+    #: away. (ADR 0017 §7)
+    observed_target: SystemConfig = field(default_factory=SystemConfig)
+    observed_judge: SystemConfig = field(default_factory=SystemConfig)
+    #: The run file already exists: the process was killed after `write_run` and
+    #: before the delete. Not resumable and not evidence of anything.
+    finished: bool = False
+
+
+class Journal(Protocol):
+    """A run being recorded as it goes.
+
+    Owned by the store, never by the driver: `execute()` is handed `append` as a
+    callback and learns nothing about where the record lands.
+    """
+
+    @property
+    def key(self) -> str:
+        """The key the finished run will be stored under. The journal is named
+        after it, so the run lands where the journal said it would."""
+        ...
+
+    @property
+    def leg(self) -> int: ...
+
+    def append(self, progress: CaseProgress) -> None:
+        """Record one finished case, durably, before the next one starts."""
+        ...
+
+    def complete(self) -> None:
+        """The run is written; delete every leg.
+
+        Named for what it means rather than for what it does. A journal that is
+        deleted for any other reason is paid work thrown away.
+        """
+        ...
+
+
+@runtime_checkable
+class SupportsJournal(Protocol):
+    """A store that can record a run as it goes.
+
+    A **separate protocol, asked for rather than required**, the way `Preflight`
+    is asked of a target. `ResultStore` is the contract every backend meets, and
+    the planned production store has no business being obliged to implement an
+    append-only file in a repository: a store that cannot journal is used
+    exactly as it is used today, and the front end says so once. (ADR 0017 §5)
+    """
+
+    def open_journal(self, header: JournalHeader) -> Journal:
+        """Begin a leg. Raises `JournalBusyError` if another process holds it."""
+        ...
+
+    def pending(self, tenant: str, suite: str) -> tuple[Pending, ...]:
+        """Every run of this suite that was started and never written."""
+        ...
+
+    def drop_pending(self, tenant: str, suite: str, key: str) -> None:
+        """Delete a journal without finishing it.
+
+        For the one case that has an answer: a journal whose run file already
+        exists, left by a kill between `write_run` and the delete. It is not
+        resumable and not evidence of anything, so the next `run` removes it and
+        says so. Never called on a journal that might still be finished — that
+        is paid work. (ADR 0017 §12)
         """
         ...

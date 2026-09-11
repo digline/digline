@@ -8,6 +8,64 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+**The run that survives being killed.** `SCHEMA_VERSION` stays **10** and
+`OUTPUT_VERSION` stays 1: no stored document moves, **no baseline needs
+re-promoting**, and a completed run is the file it has always been.
+
+### A killed run is finished, not paid for twice
+
+A run is written once, at the end, so a suite killed part way through — a
+supervisor, a memory-pressure reaper, a `Ctrl-C` — used to lose every call it
+had already paid for. Seven hundred calls of a 144-case suite, and nothing on
+disk.
+
+digline now keeps a **journal** beside the run as it goes, one record per case,
+`fsync`ed before the next case starts, under
+`.digline/<tenant>/runs/<suite>/.pending/` — the same directory the runs live
+in, covered by the same generated `.gitignore`, holding exactly what the
+finished run file would hold and nothing more. It is deleted the moment the run
+file exists.
+
+```sh
+digline run --suite eval/suite.py --resume
+# 112 of 144 cases × 5 samples = 560 calls to the target; 32 cases already judged
+```
+
+No key resumes the most recent unfinished run; `--resume KEY` names one. A plain
+`digline run` never resumes and says on stderr that a journal is pending, so
+paid calls are not abandoned by accident; `--resume` with nothing pending
+refuses rather than quietly starting a full run.
+
+**A resumed run carries no marker, because there is nothing to mark.** It keeps
+the `created_at` of the run it finishes, lands at that run's key, and is the
+document the kill prevented — byte for byte. What guarantees it is the refusal
+list: a resume stops, before the first call, when `config_hash`, the cases, the
+declared artifacts, `target_config`, `judge_config`, `record_responses`,
+`git_commit` or the digline version has moved. Half a run under one prompt and
+half under another is not a run.
+
+**An alias that rolled between the halves errors instead of being averaged.**
+What the provider said answered is journalled as it is learnt and given back to
+the target and the judges on resume, so a model that changed across the seam
+raises on the first call of the new leg exactly as it would have on the next
+call of the old one (ADR 0005 §8).
+
+**Errored cases are retried by default.** An errored verdict exits 2 and cannot
+be promoted, so the second loss this closes is the 529 that outlived the SDK's
+retries: the remedy stops being "run the other 143 cases again". `--keep-errors`
+keeps them as journalled.
+
+For scripts: `digline.host.prepare()` decides what a launch is and refuses a
+resume that would not be one; `digline.host.measure()` opens the journal, runs,
+writes and deletes it. `execute()` gained `done=` and `on_case=`, and still
+knows nothing about the store. `digline run --json` gained `resumed` and
+`reused` — facts about the launch, not about the run.
+
+The reasoning is [ADR 0017](docs/adr/0017-the-journal-and-the-resumed-run.md).
+The MCP `run` tool journals through the same host composition once
+`digline-mcp` is released against this digline; it gains no `resume` verb,
+which collides with its acknowledged call count rather than extending it.
+
 ## 0.10.1 — 2026-09-11
 
 **The delta-pass patch.** digline 0.10.1 and **`pytest-digline` 0.1.3**. The three

@@ -121,6 +121,12 @@ loud in your recommendation. A calibration of five runs over a hundred-call
 suite is five hundred model calls, and that is a decision for whoever pays for
 them.
 
+**A run that was killed has already been paid for.** If a run died part way —
+a supervisor, a reaper, a `Ctrl-C` — do not propose running the suite again:
+`digline run --suite … --resume` finishes it, calls only the cases nobody has
+an answer to, and announces that smaller figure the same way. Proposing a fresh
+run there is proposing to buy the same answers twice.
+
 ## 8. When upgrading digline itself, migrate before you promote
 
 Run `digline migrate` after the bump. A stored run written under an older
@@ -149,7 +155,10 @@ duplicate them, and from proposing something that will be refused anyway:
 - a run from another tenant cannot be compared or promoted — the perimeter is
   a directory, not a field;
 - a suspended case carries a mandatory reason, and the suspension is in the
-  headline and in the report until it is lifted.
+  headline and in the report until it is lifted;
+- a killed run is not resumed under a configuration that moved — a changed
+  prompt, case, threshold, model or commit refuses before the first call, and
+  says which one moved.
 
 ## Where the reasoning is
 

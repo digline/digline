@@ -12,6 +12,7 @@ plugin ships both — a target and a judge (ADR 0004).
 from digline.targets.completion import (
     Completion,
     CompletionResult,
+    HasObserved,
     ObservedIdentity,
     as_completion,
     finish_of,
@@ -54,6 +55,7 @@ __all__ = [
     "HttpTarget",
     "JudgeBase",
     "ModelPrice",
+    "HasObserved",
     "ObservedIdentity",
     "PromptTemplate",
     "Provider",

@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
-from digline.core import Finish
+from digline.core import ConfigValue, Finish
 from digline.targets.pricing import Usage
 
 __all__ = [
@@ -233,6 +234,20 @@ def no_text_reason(
     )
 
 
+@runtime_checkable
+class HasObserved(Protocol):
+    """Something that learned what answered, and can be told what already had.
+
+    Asked for rather than required, like `Preflight` on a target: what a plain
+    function observes is nothing, and nothing is what it needs seeded. Every
+    `ProviderTarget` and every `JudgeBase` satisfies it by holding an
+    `ObservedIdentity`, so a resumed run reaches every plugin without a plugin
+    release. (ADR 0017 §7)
+    """
+
+    observed: ObservedIdentity
+
+
 class ObservedIdentity:
     """What the provider said answered, held to one answer for the run.
 
@@ -267,6 +282,34 @@ class ObservedIdentity:
         self._model: str | None = None
         self._fingerprint: str | None = None
         self._rotated = False
+
+    def resume(self, values: Mapping[str, ConfigValue]) -> None:
+        """Take back what an earlier leg of this run observed.
+
+        A run killed half way is resumed by a new process, and the object that
+        held "the provider answered as X" died with the old one. Without this,
+        an alias that rolled between the two legs would be recorded as whatever
+        the second leg saw — the averaging ADR 0005 §8 refuses, arrived at by a
+        crash instead of by a call. Seeded, the roll raises on the first call of
+        the new leg exactly as it would have raised on the next call of the old
+        one, and the driver errors that one case while the run is still written.
+        (ADR 0017 §7)
+
+        Only what was actually observed is taken back; a leg that learnt nothing
+        seeds nothing. A `fingerprint` is seeded as *seen*, so a rotation across
+        the seam goes absent under the same rule it follows within one leg.
+        """
+        model = values.get("resolved_model")
+        if self._model is None and isinstance(model, str) and model:
+            self._model = model
+        fingerprint = values.get("fingerprint")
+        if (
+            self._fingerprint is None
+            and not self._rotated
+            and isinstance(fingerprint, str)
+            and fingerprint
+        ):
+            self._fingerprint = fingerprint
 
     def see(self, reply: Completion) -> None:
         """Take in one reply. Raises when the model id contradicts the run."""

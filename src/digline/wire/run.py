@@ -17,7 +17,9 @@ from digline.wire.contract import OUTPUT_VERSION
 __all__ = ["run_document", "run_json", "runs_json"]
 
 
-def run_json(ref: RunRef, plan: CallPlan) -> dict[str, object]:
+def run_json(
+    ref: RunRef, plan: CallPlan, *, resumed: bool = False
+) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
     `sentence` is `CallPlan.sentence()` — the line the CLI prints to stderr
@@ -25,6 +27,12 @@ def run_json(ref: RunRef, plan: CallPlan) -> dict[str, object]:
     an agent to say what a hunt cost; the acknowledged integer covers the calls
     to the target only, so the sentence is what carries the judge repeats a
     caller has to include when it reports the spend. (ADR 0011 §2, §4)
+
+    `resumed` and `reused` are facts about *this launch*, not about the run:
+    the stored document carries no marker for having been resumed, because a
+    resumed run asserts nothing untrue of either of its legs (ADR 0017 §10).
+    They are here because a pipeline that launched the resume is entitled to
+    know what its own call did, at the one moment the fact exists.
     """
     return {
         "output_version": OUTPUT_VERSION,
@@ -32,6 +40,8 @@ def run_json(ref: RunRef, plan: CallPlan) -> dict[str, object]:
         "tenant": ref.tenant,
         "suite": ref.suite,
         "sentence": plan.sentence(),
+        "resumed": resumed,
+        "reused": plan.reused,
     }
 
 

@@ -21,6 +21,7 @@ __all__ = [
     "NOTHING_EXTRA",
     "REDACTED",
     "STORAGE_STEP",
+    "Cause",
     "ClaimReply",
     "ConfigValue",
     "Disclosure",
@@ -103,6 +104,15 @@ NOTHING_EXTRA = Disclosure()
 # needed, and the right-hand side is not evaluated until something inspects it.
 type Status = Literal["pass", "fail", "error"]
 type OutputKind = Literal["text", "structured", "conversation"]
+
+#: Which layer produced a case's error, or `""` for a case that did not error.
+#:
+#: It exists for the journal and lives nowhere else: the run document has no
+#: field for it and gains none (ADR 0017 §10), and the only reader is the
+#: announcement before a resumed leg — so that somebody who sees `mapper` three
+#: resumes running learns that this failure is not the target's weather. digline
+#: never selects on it: what to re-pay for is the user's decision (ADR 0017 §9).
+type Cause = Literal["", "target", "mapper", "assertion"]
 
 #: How a model's turn ended, in one vocabulary across every provider.
 #:

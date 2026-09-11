@@ -14,6 +14,7 @@ from digline.run.driver import (
     default_mapper,
     execute,
     judge_config,
+    judges,
     target_config,
 )
 from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
@@ -34,6 +35,7 @@ __all__ = [
     "default_mapper",
     "execute",
     "judge_config",
+    "judges",
     "planned_calls",
     "rejudge",
     "replayable_cases",

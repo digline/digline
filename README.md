@@ -207,7 +207,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 
 | Command | |
 |---|---|
-| `digline run` | execute the suite, write the run, print its key |
+| `digline run` | execute the suite, write the run, print its key. A run killed part way through is finished with `--resume`, which re-pays for the cases nobody has an answer to and nothing else — [`docs/api.md`](docs/api.md#the-run-that-was-killed) |
 | `digline compare` | headline plus the lines that got worse; `--json`, `--json full` for CI |
 | `digline diff` | what differs between two runs, neither of them a baseline — for "should I switch?" rather than "did it get worse?". Always exits 0: it is a report, not a verdict — [`docs/diff.md`](docs/diff.md) |
 | `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, or any check errored |

@@ -33,6 +33,13 @@ from digline.host.loader import (
     load_suite,
     load_target,
 )
+from digline.host.measure import (
+    Measured,
+    Prepared,
+    measure,
+    prepare,
+    seed_observed,
+)
 from digline.host.resolve import (
     LATEST,
     Resolved,
@@ -50,15 +57,20 @@ __all__ = [
     "SUITE_SUFFIX",
     "TARGET_ATTR",
     "Loaded",
+    "Measured",
+    "Prepared",
     "SourceOnlyLoader",
     "UsageError",
     "git_commit",
     "load_suite",
     "load_target",
     "load_toml_suite",
+    "measure",
+    "prepare",
     "need_baseline",
     "read_artifacts",
     "read_run",
     "resolve_key",
+    "seed_observed",
     "utc_now_iso",
 ]

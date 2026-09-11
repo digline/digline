@@ -7,7 +7,9 @@ produce them, which is the `Target`'s business.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+import hashlib
+import json
+from collections.abc import Container, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import cast
@@ -21,6 +23,7 @@ from digline.core import (
     Output,
     Repeated,
     RunAssertion,
+    canonical,
     config_hash,
     expand_by_group,
 )
@@ -359,6 +362,30 @@ class Suite:
             run_assertions=self.run_assertions,
         )
 
+    def cases_digest(self) -> str:
+        """Fingerprint of the declared cases, in the order they are declared.
+
+        A **journal** field and nothing else (ADR 0017 §6). It is never written
+        to a run document, never crosses a boundary, and above all it never
+        joins `config_hash`: cases are deliberately outside the hash, and a
+        digest that crept into it would unpromote every baseline in the world
+        the first time somebody fixed a typo in a case.
+
+        What it answers is the one question `config_hash` cannot: a run killed
+        half way and resumed against an edited case file would be half a run
+        about one set of questions and half about another. Order is part of it,
+        because the order of the cases is the order of the results.
+
+        `canonical` rather than `repr`: the default `repr` of a plain object
+        embeds a memory address, so a digest built on it would differ between
+        two processes that declared the same suite — which is precisely the
+        comparison this exists for.
+        """
+        payload = json.dumps(
+            canonical(list(self.cases)), sort_keys=True, separators=(",", ":")
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
 
 def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
     """`artifacts=["prompt.md"]` is what a reader writes; `Sequence[Path]` is
@@ -417,9 +444,19 @@ class CallPlan:
     it.
     """
 
-    #: Cases that will actually be called: a suspended one is never asked.
+    #: Cases that will actually be called: a suspended one is never asked, and
+    #: neither is one a journal already holds a verdict for.
     cases: int
     samples: int
+    #: Cases a resumed run will **not** call because a journal already holds
+    #: them. Announced beside the bill rather than folded into it: the reader is
+    #: owed both figures, since the suite they declared has `cases + reused`
+    #: cases in it and a sentence that named only the smaller number would look
+    #: like a suite that had shrunk. (ADR 0017 §11)
+    reused: int = 0
+    #: Of the cases that *will* be called, how many are being paid for a second
+    #: time because they errored in an earlier leg.
+    retried: int = 0
     #: `(assertion name, how many times it repeats)` for every `Repeated` in the
     #: suite, sorted. Named rather than summed into one multiplier, because
     #: "each answer is judged 3 times" is only true of the assertion that says
@@ -450,10 +487,20 @@ class CallPlan:
                 "no call to the target"
             )
         else:
+            declared = self.cases + self.reused
+            scope = (
+                f"{self.cases} of {_count(declared, 'case')}"
+                if self.reused
+                else _count(self.cases, "case")
+            )
             text = (
-                f"{_count(self.cases, 'case')} × {_count(self.samples, 'sample')} = "
+                f"{scope} × {_count(self.samples, 'sample')} = "
                 f"{_count(self.target_calls, 'call')} to the target"
             )
+            if self.reused:
+                text += f"; {_count(self.reused, 'case')} already judged"
+            if self.retried:
+                text += f"; {_count(self.retried, 'case')} retried after an error"
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
         return text
@@ -493,16 +540,32 @@ def _repeats(assertions: Sequence[Assertion]) -> tuple[tuple[str, int], ...]:
     return tuple(sorted(found))
 
 
-def planned_calls(suite: Suite) -> CallPlan:
+def planned_calls(
+    suite: Suite, *, done: Container[str] = (), retried: int = 0
+) -> CallPlan:
     """How many calls `suite` is about to make. Pure, and declared-only.
 
     A suspended case is not counted because it is not called — the driver
     returns its `CaseResult` without touching the target — and announcing a
     number that includes it would be an announcement nobody could reconcile with
     the invoice.
+
+    `done` is the same subtraction for the same reason. A resumed run does not
+    call a case a journal already holds (ADR 0017 §4), so the old sentence would
+    announce a bill that never arrives — and the rule it would break is the one
+    that says the announced bill has to match the invoice (ADR 0016 §2).
+    `retried` is carried rather than derived: which errored cases are being paid
+    for again is the caller's decision, not this function's.
     """
+    called = [
+        case.id
+        for case in suite.cases
+        if case.suspended is None and case.id not in done
+    ]
     return CallPlan(
-        cases=sum(1 for case in suite.cases if case.suspended is None),
+        cases=len(called),
         samples=suite.samples,
         repeats=_repeats(suite.assertions),
+        reused=sum(1 for case in suite.cases if case.suspended is None) - len(called),
+        retried=retried,
     )

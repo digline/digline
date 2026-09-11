@@ -18,6 +18,7 @@ from digline.core.protocols import Assertion
 from digline.core.types import (
     NOTHING_EXTRA,
     REDACTED,
+    Cause,
     ConfigValue,
     Disclosure,
     Message,
@@ -43,8 +44,13 @@ __all__ = [
     "RecordedResponse",
     "Run",
     "SystemConfig",
+    "CaseProgress",
     "artifacts_sha",
+    "case_from_dict",
+    "case_to_dict",
+    "config_from_dict",
     "config_hash",
+    "config_to_dict",
     "record_output",
     "redact",
     "release_tuple",
@@ -577,6 +583,36 @@ class CaseResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CaseProgress:
+    """One case as the driver finished it, for whoever is recording as it goes.
+
+    Handed to `execute()`'s `on_case` callback and consumed by the journal
+    (ADR 0017 §4). It lives in the core rather than beside `execute()` for a
+    layering reason: the store may not import `digline.run`, so a value declared
+    in the driver would either invert the dependency or force the store to
+    accept an untyped object. It is a pure value made of core types, which is
+    what this package is for.
+
+    The observed configurations travel **with each case** rather than being
+    asked for once at the end, because a journal that recorded only the verdicts
+    would resume into the averaging ADR 0017 §7 exists to prevent: the identity
+    the provider reported has to have been written down *before* the crash.
+    Asking the target for it is a property read on an object the driver already
+    holds — it calls nothing and costs nothing.
+
+    `cause` names the layer that produced the error and is the one thing here
+    the run document has no field for. That asymmetry is deliberate: the journal
+    may hold what the document does not, precisely because it is deleted on
+    success.
+    """
+
+    result: CaseResult
+    observed_target: SystemConfig = field(default_factory=SystemConfig)
+    observed_judge: SystemConfig = field(default_factory=SystemConfig)
+    cause: Cause = ""
+
+
+@dataclass(frozen=True, slots=True)
 class Run:
     """One execution of the suite, with its anchors.
 
@@ -1016,7 +1052,7 @@ def run_to_dict(run: Run) -> dict[str, object]:
         "created_at": run.created_at,
         "git_commit": run.git_commit,
         "metadata": canonical(run.metadata),
-        "results": [_case_to_dict(case, redacted=run.redacted) for case in run.results],
+        "results": [case_to_dict(case, redacted=run.redacted) for case in run.results],
         "aggregate": [
             _verdict_to_dict(v, redacted=run.redacted) for v in run.aggregate
         ],
@@ -1024,8 +1060,8 @@ def run_to_dict(run: Run) -> dict[str, object]:
             path: _artifact_to_dict(item)
             for path, item in sorted(run.artifacts.items())
         },
-        "target_config": _config_to_dict(run.target_config),
-        "judge_config": _config_to_dict(run.judge_config),
+        "target_config": config_to_dict(run.target_config),
+        "judge_config": config_to_dict(run.judge_config),
         # Absent rather than empty, like every other unrecorded thing in this
         # document: `""` would be a value where there is none, and a migrated
         # file is exactly the case that has none (ADR 0014 §2).
@@ -1040,8 +1076,12 @@ def run_to_dict(run: Run) -> dict[str, object]:
     }
 
 
-def _config_to_dict(config: SystemConfig) -> dict[str, object]:
+def config_to_dict(config: SystemConfig) -> dict[str, object]:
     """Absent rather than emptied, like every other payload field.
+
+    Public alongside `case_to_dict`, and for the same reason: the journal
+    records the configuration a run declared and the identity it observed, and
+    it records them with the document's own serializer. (ADR 0017 §3)
 
     A configuration nobody declared is `{}` — which is what a run written before
     ADR 0005 gains on migration, and what a plain-function target records today.
@@ -1056,7 +1096,7 @@ def _config_to_dict(config: SystemConfig) -> dict[str, object]:
     return payload
 
 
-def _config_from_dict(raw: Mapping[str, Any], where: str) -> SystemConfig:
+def config_from_dict(raw: Mapping[str, Any], where: str) -> SystemConfig:
     """Straight into the value, which does the checking.
 
     A document is written by whoever holds it, not only by this code, so what
@@ -1109,7 +1149,14 @@ def _artifact_from_dict(raw: Mapping[str, Any], path: str) -> Artifact:
     )
 
 
-def _case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
+def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
+    """One case as the document holds it.
+
+    Public because the journal writes its case records with it (ADR 0017 §3).
+    Two serializers for one value is how a journal and a run file start to
+    disagree about a sampled verdict, and the disagreement would surface as a
+    resumed run whose reused half is subtly not what it would have been.
+    """
     payload: dict[str, object] = {
         "case_id": case.case_id,
         "suspended": case.suspended is not None,
@@ -1194,7 +1241,8 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
         raise ValueError(f"recorded response: {exc}") from exc
 
 
-def _case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
+def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
+    """The inverse, and public for the same reason: a journal is read back."""
     where = "case result"
     suspended: str | None = None
     if bool(_required(raw, "suspended", where)):
@@ -1234,7 +1282,7 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         # `git_commit` is the one optional field: a run produced outside a
         # repository legitimately has none.
         git_commit=None if raw.get("git_commit") is None else str(raw["git_commit"]),
-        results=tuple(_case_from_dict(case, redacted=redacted) for case in results),
+        results=tuple(case_from_dict(case, redacted=redacted) for case in results),
         aggregate=tuple(
             _verdict_from_dict(v, redacted=redacted)
             for v in cast(Sequence[Mapping[str, Any]], raw.get("aggregate") or ())
@@ -1246,11 +1294,11 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
                 Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
             ).items()
         },
-        target_config=_config_from_dict(
+        target_config=config_from_dict(
             cast(Mapping[str, Any], _required(raw, "target_config", "run")),
             "target_config",
         ),
-        judge_config=_config_from_dict(
+        judge_config=config_from_dict(
             cast(Mapping[str, Any], _required(raw, "judge_config", "run")),
             "judge_config",
         ),

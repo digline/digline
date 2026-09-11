@@ -222,17 +222,29 @@ written stops the run at the case it failed on, with every earlier case on disk.
 
     class Journal(Protocol):
         key: str
+        leg: int
         def append(self, progress: CaseProgress) -> None: ...
         def complete(self) -> None: ...   # the run is written; delete every leg
 
     @dataclass(frozen=True, slots=True)
     class Pending:
-        header: JournalHeader            # leg 1's: the birth certificate
+        key: str
+        header: JournalHeader | None     # leg 1's: the birth certificate
+        refusal: str                     # why it cannot be read, or empty
         legs: int
         done: Mapping[str, CaseResult]   # last record wins
         errored: frozenset[str]
+        causes: Mapping[str, Cause]      # for the errored ones, the layer
         observed_target: SystemConfig
         observed_judge: SystemConfig
+        finished: bool                   # the run file already exists
+
+`refusal` rather than an exception, because `pending()` is a **survey**: a
+journal this digline cannot read still has to be named — it holds paid work, so
+it is never deleted on a guess — and naming it is what that field does.
+`Listing` answers the same question the same way. The protocol carries one more
+method, `drop_pending`, for §12's single case: a journal whose run already
+exists.
 
 **A separate protocol, asked for rather than required**, the way `Preflight` and
 `HasArtifacts` are asked of a target. `ResultStore` is the persistence contract
@@ -418,9 +430,19 @@ intended behaviour.
 The four steps — open the journal, execute with `on_case`, write the run, delete
 the journal — become **one function in `digline.host`**:
 
-    def measure(suite, target, *, store, created_at, git_commit, artifacts,
-                run_metadata=None, resume: Pending | None = None,
-                retry_errors: bool = True) -> tuple[Run, CallPlan]
+    prepare(suite, target, *, now, git_commit, artifacts,
+            resume: Pending | None = None, retry_errors: bool = True) -> Prepared
+    measure(suite, target, *, store, prepared, run_metadata=None,
+            artifacts=None, mapper=default_mapper) -> Measured
+
+Two calls and not one, because a front end has to be able to **refuse and
+announce before the first call**: `prepare` decides what this launch is — which
+`created_at` it carries, which cases it will not call, which errored ones it is
+re-paying for — and raises `JournalRefusedError` if the resume would not be one,
+at no cost. `measure` then opens the journal, executes, writes the run and
+deletes the journal, and returns the stored `RunRef` beside the `Run` and the
+`CallPlan`: the journal may only be deleted once the run file exists, so the
+write is inside the composition rather than after it.
 
 `cmd_run` and the MCP `run` tool each call `execute()` and `write_run()`
 themselves today, which means journaling wired in two places would be journaling
@@ -428,6 +450,14 @@ that drifts in one of them. The host is the layer allowed to touch the world and
 the layer both front ends already sit on (ADR 0011 §7), so the composition
 belongs there and **the MCP tool gets the journal for free**: a killed
 MCP-launched run leaves a journal the CLI can finish.
+
+**The wiring ships in each front end's own release.** `digline.cli` moves onto
+`measure()` with this one. `digline-mcp` is a workspace package with a floor —
+`digline>=…` — and a floor cannot name a release that does not exist yet, so its
+call site moves in the `digline-mcp` release that follows this one, with its
+floor rising to the digline that carries `measure`. That is the shape ADR 0016
+§8 used for `pytest-digline` and it is the same constraint. Until then a
+killed MCP-launched run leaves no journal; a killed CLI one does.
 
 The **verb** is CLI-only in this release. `digline run --resume [KEY]` — no key
 means the most recent pending journal, and stderr names the others it passed

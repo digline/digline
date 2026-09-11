@@ -16,11 +16,13 @@ document merely describes.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
 import tempfile
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,21 +30,39 @@ from typing import cast
 
 from digline.core.run import (
     SCHEMA_VERSION,
+    CaseProgress,
+    CaseResult,
     Run,
+    SystemConfig,
+    case_from_dict,
+    case_to_dict,
+    config_from_dict,
+    config_to_dict,
     run_from_json,
     run_to_json,
     without_responses,
 )
+from digline.core.types import Cause
 from digline.store.protocol import (
+    JOURNAL_VERSION,
     ConfigMismatchError,
     ErroredRunError,
+    JournalBusyError,
+    JournalHeader,
     Listing,
+    Pending,
     ReplayedRunError,
     RunRef,
     TenantMismatchError,
 )
 
-__all__ = ["FileResultStore", "utc_now_iso"]
+__all__ = [
+    "PENDING_DIRNAME",
+    "FileJournal",
+    "FileResultStore",
+    "journal_key",
+    "utc_now_iso",
+]
 
 STORE_DIRNAME = ".digline"
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -327,3 +347,351 @@ class FileResultStore:
         reference = replace(without_responses(run), promoted_at=promoted_at)
         _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
+
+    # -- the journal ---------------------------------------------------------- #
+
+    def journal_dir(self, tenant: str, suite: str) -> Path:
+        return self.runs_dir(tenant) / _check_name(suite, "suite") / PENDING_DIRNAME
+
+    def open_journal(self, header: JournalHeader) -> FileJournal:
+        """Begin a leg of this run, and refuse if another process holds it.
+
+        The leg number is the first free one, taken with `O_CREAT|O_EXCL` and
+        **never retried**: a second resumer that found leg 2 taken and quietly
+        wrote leg 3 would call every case the first one has not finished yet, in
+        parallel and at the user's expense. Losing the race is a refusal.
+        """
+        self.ensure_layout(_check_name(header.tenant, "tenant"))
+        directory = self.journal_dir(header.tenant, header.suite)
+        directory.mkdir(parents=True, exist_ok=True)
+        key = _check_name(journal_key(header), "run")
+        legs = [leg for leg, _ in self._legs(directory, key)]
+        stamped = replace(header, leg=max(legs, default=0) + 1)
+        return FileJournal(directory / f"{key}.{stamped.leg}.jsonl", stamped)
+
+    def pending(self, tenant: str, suite: str) -> tuple[Pending, ...]:
+        """Every run of this suite that was started and never written.
+
+        Ordered by key, which is chronological because the key begins with the
+        slugged `created_at` of the run that started it.
+        """
+        directory = self.journal_dir(tenant, suite)
+        if not directory.is_dir():
+            return ()
+        grouped: dict[str, list[tuple[int, Path]]] = {}
+        foreign: list[Pending] = []
+        for path in sorted(directory.glob("*.jsonl")):
+            match = _LEG_RE.match(path.stem)
+            if match is None:
+                # Named, never deleted: this directory is digline's, but a file
+                # in it holds somebody's paid work until proven otherwise.
+                foreign.append(
+                    Pending(
+                        key=path.name,
+                        refusal=(
+                            f"{path.name} is not a journal leg: a leg is named "
+                            "<run key>.<leg>.jsonl"
+                        ),
+                    )
+                )
+                continue
+            grouped.setdefault(match["key"], []).append((int(match["leg"]), path))
+        found = [
+            self._read_journal(tenant, suite, key, sorted(legs))
+            for key, legs in sorted(grouped.items())
+        ]
+        return tuple(sorted([*found, *foreign], key=lambda item: item.key))
+
+    def drop_pending(self, tenant: str, suite: str, key: str) -> None:
+        """Remove every leg of one journal. See the protocol for when."""
+        directory = self.journal_dir(tenant, suite)
+        if not directory.is_dir():
+            return
+        for _, path in self._legs(directory, key):
+            self._inside(path, "journal").unlink(missing_ok=True)
+        with suppress(OSError):
+            directory.rmdir()
+
+    def _legs(self, directory: Path, key: str) -> list[tuple[int, Path]]:
+        legs: list[tuple[int, Path]] = []
+        for path in directory.glob(f"{glob.escape(key)}.*.jsonl"):
+            match = _LEG_RE.match(path.stem)
+            if match is not None and match["key"] == key:
+                legs.append((int(match["leg"]), path))
+        return sorted(legs)
+
+    def _read_journal(
+        self, tenant: str, suite: str, key: str, legs: Sequence[tuple[int, Path]]
+    ) -> Pending:
+        """One run's legs, in order, folded into what a resume needs.
+
+        A journal that cannot be read is **returned rather than raised**: the
+        caller is surveying, and a survey names what it could not use instead of
+        stopping at it — `Listing`'s rule, for the same reason.
+        """
+        header: JournalHeader | None = None
+        done: dict[str, CaseResult] = {}
+        causes: dict[str, str] = {}
+        observed_target = SystemConfig()
+        observed_judge = SystemConfig()
+
+        def refused(reason: str) -> Pending:
+            return Pending(key=key, refusal=reason, legs=len(legs))
+
+        for leg, path in legs:
+            try:
+                lines = (
+                    self._inside(path, "journal")
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
+            except (OSError, ValueError) as exc:
+                return refused(f"leg {leg} of {key} cannot be read: {exc}")
+            for index, line in enumerate(lines):
+                try:
+                    raw = cast(Mapping[str, object], json.loads(line))
+                except (ValueError, TypeError):
+                    if index == len(lines) - 1:
+                        # The line the kill interrupted. Every leg of a resumed
+                        # run ended in one, so this is expected at the end of
+                        # any of them — and only there. (ADR 0017 §3)
+                        break
+                    return refused(
+                        f"leg {leg} of {key} is corrupt at line {index + 1}: a "
+                        "journal may only be truncated at its last line, which "
+                        "is the one a kill interrupted"
+                    )
+                kind = raw.get("kind")
+                try:
+                    if kind == "header":
+                        parsed = _header_from_dict(raw)
+                        if parsed.journal_version != JOURNAL_VERSION:
+                            return refused(
+                                f"{key} was written in journal format "
+                                f"{parsed.journal_version} and this digline "
+                                f"reads {JOURNAL_VERSION}: a journal is a work "
+                                "file, not a document, so nothing migrates it. "
+                                "Upgrade digline to finish this run, or start "
+                                "it again"
+                            )
+                        if header is None:
+                            header = parsed
+                        elif parsed.differences(header):
+                            return refused(
+                                f"leg {leg} of {key} disagrees with leg 1 on "
+                                f"{', '.join(parsed.differences(header))}"
+                            )
+                    elif kind == "observed":
+                        observed_target = config_from_dict(
+                            cast(Mapping[str, object], raw.get("target_config") or {}),
+                            "target_config",
+                        )
+                        observed_judge = config_from_dict(
+                            cast(Mapping[str, object], raw.get("judge_config") or {}),
+                            "judge_config",
+                        )
+                    elif kind == "case":
+                        result = case_from_dict(
+                            cast(Mapping[str, object], raw["case"]), redacted=False
+                        )
+                        # Last record wins: a case appears twice only when it was
+                        # retried, and the file is append-only.
+                        done[result.case_id] = result
+                        causes[result.case_id] = str(raw.get("cause") or "")
+                    else:
+                        return refused(
+                            f"leg {leg} of {key} holds a record of kind "
+                            f"{kind!r} at line {index + 1}, which this digline "
+                            "does not know"
+                        )
+                except (KeyError, ValueError, TypeError) as exc:
+                    return refused(
+                        f"leg {leg} of {key} is malformed at line {index + 1}: {exc}"
+                    )
+        if header is None:
+            return refused(f"{key} has no header: the first line of leg 1 is one")
+        errored = frozenset(
+            case_id
+            for case_id, result in done.items()
+            if any(verdict.status == "error" for verdict in result.verdicts)
+        )
+        return Pending(
+            key=key,
+            header=header,
+            legs=len(legs),
+            done=done,
+            errored=errored,
+            causes={
+                case_id: cast(Cause, causes.get(case_id, "")) for case_id in errored
+            },
+            observed_target=observed_target,
+            observed_judge=observed_judge,
+            finished=self.run_path(
+                RunRef(tenant=tenant, suite=suite, key=key)
+            ).exists(),
+        )
+
+
+#: Where journals live: a dot-directory under the suite's runs, so the generated
+#: `.gitignore` already covers it (`*/runs/` ignores the directory and
+#: everything beneath it) and every `*.json` glob in this module steps over it.
+#: A journal is not a document: nothing lists it, compares it, migrates it or
+#: renders it. (ADR 0017 §2)
+PENDING_DIRNAME = ".pending"
+
+_LEG_RE = re.compile(r"^(?P<key>.+)\.(?P<leg>[0-9]+)$")
+
+
+def journal_key(header: JournalHeader) -> str:
+    """The key a journal — and therefore the run it becomes — is named after.
+
+    The same rule as `FileResultStore.key_for`, over the header instead of the
+    run, and that is the point: a resumed run keeps the original `created_at`
+    (ADR 0017 §8), so it is written to exactly the file the killed run was
+    always going to write.
+    """
+    return f"{_slug(header.created_at)}-{header.config_hash}"
+
+
+def _header_to_dict(header: JournalHeader) -> dict[str, object]:
+    return {
+        "kind": "header",
+        "journal_version": header.journal_version,
+        "leg": header.leg,
+        "tenant": header.tenant,
+        "environment": header.environment,
+        "suite": header.suite,
+        "config_hash": header.config_hash,
+        "cases_digest": header.cases_digest,
+        "created_at": header.created_at,
+        "started_at": header.started_at,
+        "digline_version": header.digline_version,
+        "record_responses": header.record_responses,
+        "git_commit": header.git_commit,
+        "artifacts": dict(sorted(header.artifacts.items())),
+        "target_config": config_to_dict(header.target_config),
+        "judge_config": config_to_dict(header.judge_config),
+    }
+
+
+def _header_from_dict(raw: Mapping[str, object]) -> JournalHeader:
+    commit = raw.get("git_commit")
+    return JournalHeader(
+        tenant=str(raw["tenant"]),
+        environment=str(raw["environment"]),
+        suite=str(raw["suite"]),
+        config_hash=str(raw["config_hash"]),
+        cases_digest=str(raw["cases_digest"]),
+        created_at=str(raw["created_at"]),
+        started_at=str(raw["started_at"]),
+        digline_version=str(raw["digline_version"]),
+        record_responses=bool(raw["record_responses"]),
+        git_commit=None if commit is None else str(commit),
+        artifacts={
+            str(path): str(sha)
+            for path, sha in cast(
+                Mapping[str, object], raw.get("artifacts") or {}
+            ).items()
+        },
+        target_config=config_from_dict(
+            cast(Mapping[str, object], raw.get("target_config") or {}), "target_config"
+        ),
+        judge_config=config_from_dict(
+            cast(Mapping[str, object], raw.get("judge_config") or {}), "judge_config"
+        ),
+        journal_version=int(cast(int, raw["journal_version"])),
+        leg=int(cast(int, raw["leg"])),
+    )
+
+
+def _line(payload: Mapping[str, object]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+class FileJournal:
+    """One leg of a run, appended to as the run goes.
+
+    Opened with `O_CREAT|O_EXCL`, which is the entire concurrency story: a
+    second process resuming the same run finds the leg taken and is refused by
+    name. No lock file — the process this exists for is one that was killed, and
+    a lock it could not release would block the rescue. (ADR 0017 §5)
+    """
+
+    def __init__(self, path: Path, header: JournalHeader) -> None:
+        self._path = path
+        self._header = header
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError as exc:
+            raise JournalBusyError(
+                f"leg {header.leg} of run {journal_key(header)} is already being "
+                f"written at {path}: another digline is resuming this run. Wait "
+                "for it, or look at what it is doing before starting a second "
+                "one — two processes resuming one run would both call the cases "
+                "neither has finished"
+            ) from exc
+        self._handle = os.fdopen(descriptor, "w", encoding="utf-8")
+        # Distinct from `SystemConfig()`, which is a legitimate observation:
+        # *nothing observed yet* must not compare equal to *observed nothing*,
+        # or the first case of a run that declares no configuration would write
+        # an observation record saying so.
+        self._seen: tuple[SystemConfig, SystemConfig] | None = None
+        self._write(_header_to_dict(header))
+
+    @property
+    def key(self) -> str:
+        return journal_key(self._header)
+
+    @property
+    def leg(self) -> int:
+        return self._header.leg
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def _write(self, payload: Mapping[str, object]) -> None:
+        """One record, on disk before this returns.
+
+        `flush` would survive a kill; `fsync` is here because the incident that
+        produced this feature was memory pressure on a whole machine, and the
+        syscall costs microseconds against a case that cost a network call. The
+        one thing this file may not do is be fast and empty. (ADR 0017 §3)
+        """
+        self._handle.write(_line(payload))
+        self._handle.flush()
+        os.fsync(self._handle.fileno())
+
+    def append(self, progress: CaseProgress) -> None:
+        observed = (progress.observed_target, progress.observed_judge)
+        if observed != self._seen:
+            # Written when it changes, which in an uninterrupted run means once:
+            # after the first case that revealed an identity. It is what a
+            # resume seeds the target from, so an alias that rolls across the
+            # seam raises instead of being averaged. (ADR 0017 §7)
+            self._seen = observed
+            self._write(
+                {
+                    "kind": "observed",
+                    "target_config": config_to_dict(progress.observed_target),
+                    "judge_config": config_to_dict(progress.observed_judge),
+                }
+            )
+        self._write(
+            {
+                "kind": "case",
+                "cause": progress.cause,
+                "case": case_to_dict(progress.result, redacted=False),
+            }
+        )
+
+    def complete(self) -> None:
+        """The run is written; every leg goes."""
+        self._handle.close()
+        directory = self._path.parent
+        for leg in sorted(directory.glob(f"{glob.escape(self.key)}.*.jsonl")):
+            leg.unlink(missing_ok=True)
+        # Only when nothing else is pending: another run of the same suite may
+        # be journalling right now.
+        with suppress(OSError):
+            directory.rmdir()

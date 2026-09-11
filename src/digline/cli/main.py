@@ -43,12 +43,15 @@ from digline.core import (
     withhold_artifacts,
 )
 from digline.host import (
+    LATEST,
     Loaded,
     UsageError,
     git_commit,
     load_suite,
     load_target,
+    measure,
     need_baseline,
+    prepare,
     read_artifacts,
     read_run,
     resolve_key,
@@ -66,11 +69,13 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.report import diff as diff_report
-from digline.run import ReplayError, Suite, execute, planned_calls, rejudge
+from digline.run import ReplayError, Suite, planned_calls, rejudge
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
     FileResultStore,
+    JournalRefusedError,
+    Pending,
     ReplayedRunError,
     RunRef,
     TenantMismatchError,
@@ -192,37 +197,133 @@ def cmd_run(args: argparse.Namespace) -> int:
     # `__pycache__`, so asking git afterwards would report a tree our own import
     # had just dirtied. The marker describes the repository as the user left it.
     commit = git_commit(Path(args.root))
-    created_at = utc_now_iso()
+    now = utc_now_iso()
 
     suite, loaded, store = _load(args)
     target = load_target(args.target, loaded, args.suite)
+    artifacts = read_artifacts(
+        suite, target, Path(args.suite).resolve().parent, root=Path(args.root)
+    )
+    resume = _resume(store, suite, args.resume)
+
+    try:
+        prepared = prepare(
+            suite,
+            target,
+            now=now,
+            git_commit=commit,
+            artifacts=artifacts,
+            resume=resume,
+            retry_errors=not args.keep_errors,
+        )
+    except JournalRefusedError as exc:
+        # A refused resume is a usage error and never a verdict: nothing was
+        # measured, so 1 and 2 would both be lies about a suite. (ADR 0017 §11)
+        raise UsageError(str(exc)) from exc
 
     # Announced before the first call, on stderr so a shell capturing the key
     # still captures only the key. Arithmetic over the declared suite: no
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
-    plan = planned_calls(suite)
-    say(f"digline: {plan.sentence()}", err=True)
+    say(f"digline: {prepared.plan.sentence()}", err=True)
+    if prepared.retrying:
+        say(f"digline: retrying {_retry_note(prepared.retrying)}", err=True)
 
-    run = execute(
+    measured = measure(
         suite,
         target,
-        created_at=created_at,
-        git_commit=commit,
+        store=store,
+        prepared=prepared,
         run_metadata=_meta(args.meta),
-        artifacts=read_artifacts(
-            suite, target, Path(args.suite).resolve().parent, root=Path(args.root)
-        ),
+        artifacts=artifacts,
     )
-    ref = store.write_run(run)
 
     if args.json:
-        emit(json.dumps(run_json(ref, plan)))
+        emit(
+            json.dumps(
+                run_json(measured.ref, measured.plan, resumed=resume is not None)
+            )
+        )
     else:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
-        say(ref.key)
+        say(measured.ref.key)
     return EXIT_OK
+
+
+def _retry_note(retrying: Mapping[str, str]) -> str:
+    """Which errored cases are being paid for again, and what errored them.
+
+    The cause is reported and never acted on: a `mapper` that raises will raise
+    again, and a reader who sees the same word three resumes running learns that
+    this one is not the target's weather. Deciding *for* them which failures are
+    worth money would be digline inventing a taxonomy of its own. (ADR 0017 §9)
+    """
+    counts: dict[str, int] = {}
+    for cause in retrying.values():
+        counts[cause or "unknown"] = counts.get(cause or "unknown", 0) + 1
+    named = ", ".join(f"{count} × {cause}" for cause, count in sorted(counts.items()))
+    return f"{len(retrying)} errored case(s): {named}"
+
+
+def _resume(
+    store: FileResultStore, suite: Suite, requested: str | None
+) -> Pending | None:
+    """The journal this launch continues, or `None`, with a word either way.
+
+    Four behaviours, and each one is a refusal to cost somebody money by
+    surprise (ADR 0017 §11):
+
+    - `--resume` with nothing pending **refuses**. Somebody who typed it
+      believed there was something to finish, and starting the whole suite
+      instead is a four-dollar misunderstanding.
+    - a plain `run` with a journal pending still runs, and says what would
+      finish it: silently abandoning paid calls is the same surprise pointed the
+      other way.
+    - a journal whose run file already exists is removed, with a line saying so.
+    - a journal that cannot be read is named and **left on disk**: it holds paid
+      work, and a file this digline does not understand is not one it may throw
+      away on a guess.
+    """
+    found = store.pending(suite.tenant, suite.name)
+    for item in found:
+        if item.finished:
+            store.drop_pending(suite.tenant, suite.name, item.key)
+            say(f"note: removed the journal of {item.key}, already written", err=True)
+    live = [item for item in found if not item.finished]
+
+    if requested is None:
+        for item in live:
+            say(
+                f"note: run {item.key} was started and never written "
+                f"({len(item.done)} case(s) journalled). Finish it with "
+                f"`digline run --suite … --resume {item.key}`",
+                err=True,
+            )
+        return None
+
+    usable = [item for item in live if not item.refusal]
+    for item in live:
+        if item.refusal:
+            say(f"note: {item.refusal}", err=True)
+    if requested == LATEST:
+        if not usable:
+            raise UsageError(
+                f"--resume: no run of {suite.name!r} was left unfinished in "
+                f"tenant {suite.tenant!r}. A resume finishes a killed run; it "
+                "does not start one, which is the whole of the difference "
+                "between paying for the rest of a suite and paying for all of it"
+            )
+        # Key order is chronological: it begins with the slugged `created_at`.
+        return usable[-1]
+    chosen = next((item for item in usable if item.key == requested), None)
+    if chosen is None:
+        known = ", ".join(item.key for item in usable) or "none"
+        raise UsageError(
+            f"--resume {requested!r}: no such unfinished run of {suite.name!r} "
+            f"(pending: {known})"
+        )
+    return chosen
 
 
 def cmd_rejudge(args: argparse.Namespace) -> int:
@@ -686,6 +787,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="repeatable; recorded in Run.metadata, payload unless disclosed",
     )
     run_p.add_argument("--json", action="store_true")
+    run_p.add_argument(
+        "--resume",
+        nargs="?",
+        const=LATEST,
+        metavar="KEY",
+        help=(
+            "finish a run that was started and never written; "
+            "no KEY means the most recent one"
+        ),
+    )
+    run_p.add_argument(
+        "--keep-errors",
+        action="store_true",
+        help="with --resume: keep journalled errors instead of retrying them",
+    )
     run_p.set_defaults(func=cmd_run)
 
     rej_p = subparsers.add_parser(
