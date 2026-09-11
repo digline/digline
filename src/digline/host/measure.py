@@ -109,8 +109,9 @@ def prepare(
     finishing and records this leg's start beside it. So the resumed run writes
     the file the killed run was always going to write.
 
-    Every refusal here happens **before the first call of the new leg**, which
-    is what makes a refused resume free.
+    Every refusal here happens **before the first call of the new leg** — and
+    before the journal is opened at all, which is the other half of the same
+    promise: a refused resume costs no call *and* leaves no file behind.
     """
     header = JournalHeader(
         tenant=suite.tenant,
@@ -147,6 +148,24 @@ def prepare(
             "those is a fact the run document states, and half a run under one "
             f"of them and half under another is not a run. Start a new run, or "
             "put back what moved"
+        )
+
+    ghosts = sorted(set(resume.done) - {case.id for case in suite.cases})
+    if ghosts:
+        # The last refusal, and the one the delta-pass over 0.11.0 found
+        # missing. `execute()` refuses the same thing — it is an invariant of
+        # the driver, and a library caller building `done` by hand meets it
+        # there (ADR 0017 §4) — but by then the journal has been opened and a
+        # leg written, so a refused resume cost a file and answered in a
+        # `ValueError`. Both halves of §6's promise are the point: refused
+        # *before the first call*, and the journal left exactly where it was.
+        raise JournalRefusedError(
+            f"run {resume.key} cannot be resumed: its journal holds a verdict "
+            f"for {len(ghosts)} case(s) the suite does not declare "
+            f"({', '.join(ghosts)}). The header agreed with this suite, so "
+            "the disagreement is in the records themselves — a journal edited "
+            "by hand, or one that is not the journal its header claims. A run "
+            "may not be assembled out of two case sets"
         )
 
     keep = dict(resume.done)

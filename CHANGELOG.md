@@ -8,6 +8,15 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+**A forged journal record is refused before the journal opens.** From 0.11.0's
+delta-pass. `execute()` has always refused a `done` naming a case the suite does
+not declare — it is an invariant of the driver — but on a resume that refusal
+arrived *after* `open_journal`, so a journal holding a record for a case nobody
+declared cost an empty leg file per attempt and answered in a `ValueError`.
+`prepare()` now refuses it by name, with the journal exactly as it was and no
+call made, which is what ADR 0017 §6 promises for every other input on that
+list.
+
 ## 0.11.0 — 2026-09-11
 
 **The journal.** digline **0.11.0**, alone: the three provider plugins stay at

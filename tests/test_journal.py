@@ -363,6 +363,46 @@ def _artifact(text: str) -> Artifact:
     return Artifact(sha=sha256(text.encode()).hexdigest(), text=text)
 
 
+def test_a_journalled_case_the_suite_does_not_declare_is_refused_before_anything(
+    tmp_path: Path,
+) -> None:
+    """The 0.11.0 delta-pass finding, as a regression.
+
+    `execute()` has always refused a `done` naming a case the suite does not
+    declare, and that refusal is correct — but it arrives after the journal has
+    been opened, so a forged record cost an empty leg file per attempt and
+    answered in a `ValueError`. Both halves of ADR 0017 §6 are asserted here:
+    the refusal is named and typed, and the journal is exactly as it was.
+    """
+    key = killed(tmp_path, a_suite(), Counting(die_at=3))
+    leg = legs(tmp_path, key)[0]
+    leg.write_text(
+        leg.read_text(encoding="utf-8")
+        + json.dumps(
+            {
+                "kind": "case",
+                "cause": "",
+                "case": {"case_id": "ghost", "suspended": False, "verdicts": []},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    before = [path.name for path in legs(tmp_path, key)]
+    target = Counting()
+
+    with pytest.raises(JournalRefusedError, match="ghost") as caught:
+        launch(tmp_path, a_suite(), target, resume_key=key)
+
+    assert "two case sets" in str(caught.value)
+    assert "ValueError" not in str(caught.value), "a refusal, not a type name"
+    assert target.calls == []
+    assert [path.name for path in legs(tmp_path, key)] == before, (
+        "a refused resume opens no journal: an empty leg per attempt is the "
+        "cost ADR 0017 §6 says a refusal does not have"
+    )
+
+
 def test_a_finished_journal_is_not_resumable(tmp_path: Path) -> None:
     """Killed between `write_run` and the delete: the run exists, so there is
     nothing to finish."""
