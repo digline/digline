@@ -56,6 +56,13 @@ __all__ = [
 #:    an MCP tool has no process to exit; it is on `compare --json` as well so
 #:    that the two surfaces cannot answer differently. `diff` gains nothing of
 #:    the kind and must not: it has no verdict to carry.
+#:
+#:    `rejudged` on the headline (ADR 0015 §8), `canary_moved` on the headline
+#:    and `canary` on each delta (ADR 0016 §8): the same rule a fourth time.
+#:    `canary_moved` is the first addition that can change the **exit code** of
+#:    a run — and only of a suite that declares a canary, which no suite did
+#:    before this release, so no existing consumer sees a number it did not see
+#:    before.
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0
@@ -73,16 +80,22 @@ EXIT_USAGE = 64
 def exit_code(head: Headline) -> int:
     """The one place a headline becomes a number.
 
-    Precedence is deliberate: **a regression outranks an unjudged case.** Both
-    need attention, but a regression is a statement about behaviour that got
-    worse, while an unjudged case is a statement about the harness. When both
-    are true the louder fact must be the one the pipeline reports, or a real
-    regression would hide behind a flaky provider.
+    Precedence is deliberate: **a regression, or a canary that moved, outranks
+    an unjudged case.** Both need attention, but a regression is a statement
+    about behaviour that got worse — and a moved canary a statement about
+    *which model* answered — while an unjudged case is a statement about the
+    harness. When both are true the louder fact must be the one the pipeline
+    reports, or a real regression would hide behind a flaky provider.
 
     A suspension never fails: it is a decision someone already made, not an
     outcome.
     """
-    if head.worse:
+    if head.worse or head.canary_moved:
+        # Two facts, one number. A canary that moved says the model behind the
+        # alias probably changed, which is a reason to stop whichever direction
+        # it moved in — and it is deliberately not folded into `worse`, so the
+        # headline can say what happened without saying something untrue about
+        # it. (ADR 0016 §5)
         return EXIT_WORSE
     if head.unjudged:
         return EXIT_UNJUDGED

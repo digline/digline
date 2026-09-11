@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from digline import __version__
 from digline.core import (
     CaseResult,
     Contains,
@@ -100,6 +101,12 @@ def test_a_suite_at_one_sample_produces_the_bytes_it_produced_before() -> None:
         suite="qa",
         config_hash=suite.config_hash(),
         created_at=CREATED,
+        # The one header the driver stamps and a hand-built `Run` does not
+        # (ADR 0014 §3). Written in rather than compared away, because what this
+        # test is about is the *fold*: everything below this line is what the
+        # driver produced before sampling existed, and the promise being kept is
+        # that it still is.
+        digline_version=__version__,
         results=tuple(
             CaseResult(
                 case.id,

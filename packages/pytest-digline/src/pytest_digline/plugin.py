@@ -404,13 +404,13 @@ class Check(pytest.Item):
         precedence per row: a check that both regressed and errored is reported
         as the regression, because that is the louder fact.
         """
-        if self.delta.outcome == "regressed":
+        if _failing(self.delta):
             return
         if _errored(self.delta.current):
             raise CouldNotJudge(self)
 
     def runtest(self) -> None:
-        if self.delta.outcome == "regressed":
+        if _failing(self.delta):
             raise GotWorse(self)
 
     def reportinfo(self) -> tuple[Path, int | None, str]:
@@ -487,6 +487,24 @@ class GotWorse(DiglineOutcome):
 
 class CouldNotJudge(DiglineOutcome):
     """A check the suite could not judge. Neither green nor a regression."""
+
+
+def _failing(delta: AssertionDelta) -> bool:
+    """Whether this row is the one that fails the report.
+
+    A regression, **or a canary that moved** — including one whose `Outcome` is
+    `improved`, which is the one place this mapping cannot be read straight off
+    `outcome == "regressed"`. A canary's score is a fingerprint rather than a
+    quality: it moved, so the model behind the alias probably changed, and that
+    is a reason to stop whichever way the number went.
+
+    The rule is `exit_code()`'s, per row instead of per run, and it is written
+    as one predicate so the two cannot drift: a front end that decided this for
+    itself would be a second answer to what fails a release. (ADR 0016 §5, §8)
+    """
+    if delta.outcome == "regressed":
+        return True
+    return delta.canary and delta.outcome == "improved"
 
 
 def _errored(verdict: Verdict | None) -> bool:

@@ -65,11 +65,12 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.report import diff as diff_report
-from digline.run import Suite, execute, planned_calls
+from digline.run import ReplayError, Suite, execute, planned_calls, rejudge
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
     FileResultStore,
+    ReplayedRunError,
     RunRef,
     TenantMismatchError,
     migrate_paths,
@@ -80,6 +81,7 @@ from digline.wire import (
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
+    ahead_note,
     compare_json,
     diff_json,
     exit_code,
@@ -164,6 +166,23 @@ def _resolve(store: FileResultStore, suite: Suite, key: str) -> str:
     return resolved.key
 
 
+def _warn_if_ahead(*runs: Run | None) -> None:
+    """Say so, once, when a document in hand came from a newer digline.
+
+    On stderr, where `_resolve`'s note already goes and for its reason: stdout
+    may be JSON or an HTML document, and a warning that broke a pipeline would
+    teach people to ignore warnings.
+
+    Once for the command rather than once per file: a run and its baseline are
+    two documents and one installation, and the same sentence twice is a
+    sentence that gets skimmed. Never an exit code — the codes are a contract
+    about the suite, and this is about the tool. (ADR 0014 §4)
+    """
+    note = ahead_note(run.digline_version for run in runs if run is not None)
+    if note:
+        print(f"warning: {note}", file=sys.stderr)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     # The clock and git are read here and nowhere else, then passed down as
     # plain values so everything below stays reproducible.
@@ -205,6 +224,49 @@ def cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_rejudge(args: argparse.Namespace) -> int:
+    """Judge a stored run's recorded answers again, and write a run that says so.
+
+    Sibling of `run`, not of `compare`: it *produces* a run and gates nothing —
+    the gate is `compare`, as it is for every other way of producing one
+    (ADR 0008 §2). What it prints on stdout is the key, so the shell habit is
+    unchanged:
+
+        KEY=$(digline rejudge --suite eval/suite.py --run latest)
+
+    The refusals come from `Replay` and arrive before the first judge is paid.
+    """
+    commit = git_commit(Path(args.root))
+    created_at = utc_now_iso()
+
+    suite, _loaded, store = _load(args)
+    key = _resolve(store, suite, args.run)
+    source = read_run(store, suite, key)
+    _warn_if_ahead(source)
+
+    plan = planned_calls(suite)
+    print(f"digline: {plan.sentence(replayed=True)}", file=sys.stderr)
+
+    try:
+        run = rejudge(
+            suite,
+            source,
+            key=key,
+            created_at=created_at,
+            git_commit=commit,
+            run_metadata=_meta(args.meta),
+        )
+    except ReplayError as exc:
+        raise UsageError(str(exc)) from exc
+
+    ref = store.write_run(run)
+    if args.json:
+        print(json.dumps(run_json(ref, plan)))
+    else:
+        print(ref.key)
+    return EXIT_OK
+
+
 #: How many regressions a terminal shows before pointing at the report. Not a
 #: silent cut: `summary_lines` says how many it left out.
 SUMMARY_LIMIT = 20
@@ -214,6 +276,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = read_run(store, suite, _resolve(store, suite, args.run))
     baseline = need_baseline(store, suite)
+    _warn_if_ahead(run, baseline)
 
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale=args.locale)
@@ -268,6 +331,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
         )
     left = read_run(store, suite, left_key)
     right = read_run(store, suite, right_key)
+    _warn_if_ahead(left, right)
 
     difference = diff(left, right)
     keys = (left_key, right_key)
@@ -351,7 +415,8 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"no runs for suite {suite.name!r} in tenant {suite.tenant!r}")
         if listing.skipped or listing.unreadable:
             print(listing.note())
-            print("run `digline migrate` to bring stored runs up to date")
+            for line in listing.advice():
+                print(line)
         return EXIT_OK
 
     print(f"  {'KEY':<49}  {'CREATED':<33}  {'ENV':<12}  {'COMMIT':<14}  CASES")
@@ -369,8 +434,9 @@ def cmd_list(args: argparse.Namespace) -> int:
         # silent: a listing that quietly drops history reads exactly like a
         # listing of a shorter history.
         print(f"\n{listing.note()}")
-        if listing.skipped:
-            print("run `digline migrate` to bring them up to date")
+        for line in listing.advice():
+            print(line)
+    _warn_if_ahead(*rows)
     return EXIT_OK
 
 
@@ -445,6 +511,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = read_run(store, suite, _resolve(store, suite, args.run))
     baseline = store.read_baseline(suite.tenant, suite.name)
+    _warn_if_ahead(run, baseline)
 
     if baseline is None:
         # `_report_single`'s rule, and for its reason: "worse" is a relation,
@@ -479,6 +546,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     run = read_run(store, suite, _resolve(store, suite, args.run))
     baseline = store.read_baseline(suite.tenant, suite.name)
+    _warn_if_ahead(run, baseline)
 
     if baseline is None:
         # Not a refusal, and this is the whole point of the command existing.
@@ -611,6 +679,22 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--json", action="store_true")
     run_p.set_defaults(func=cmd_run)
 
+    rej_p = subparsers.add_parser(
+        "rejudge",
+        help="judge a stored run's recorded answers again, declaring the source",
+    )
+    common(rej_p)
+    rej_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    rej_p.add_argument(
+        "--meta",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="repeatable; recorded in Run.metadata, payload unless disclosed",
+    )
+    rej_p.add_argument("--json", action="store_true")
+    rej_p.set_defaults(func=cmd_rejudge)
+
     cmp_p = subparsers.add_parser("compare", help="compare a run with the baseline")
     common(cmp_p)
     terminal_locale(cmp_p)
@@ -724,6 +808,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         FileNotFoundError,
         ConfigMismatchError,
         ErroredRunError,
+        ReplayedRunError,
         TenantMismatchError,
     ) as exc:
         # Refusals from the core and the store — a crossed perimeter, a moved

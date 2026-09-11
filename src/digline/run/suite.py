@@ -79,6 +79,15 @@ class Case:
     #: be a gate nobody declared, appearing and vanishing as cases were
     #: labelled. (ADR 0010 §1, §2)
     group: str | None = None
+    #: This case is here to watch the model, not to measure it.
+    #:
+    #: A declaration and nothing more: whether a fixed question with a
+    #: near-deterministic answer makes a good canary is the author's craft, and
+    #: an engine that tried to check it would be inventing a judgement nobody
+    #: asked for. What the flag changes is which denominators the case is in
+    #: (none) and what its movement means (the model behind the alias probably
+    #: changed, which is a reason to stop). (ADR 0016 §1)
+    canary: bool = False
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -109,6 +118,17 @@ class Case:
             raise ValueError(
                 f"case {self.id!r} declares an empty group: leave it unset to "
                 "put the case in no group"
+            )
+        if self.canary and self.group is not None:
+            # A canary is excluded from every aggregate, so a group it named
+            # would either count nothing or — where it is the only member —
+            # produce a per-group aggregate with an empty denominator, which is
+            # an `error` gate nobody declared, appearing because a case was
+            # flagged. (ADR 0016 §1)
+            raise ValueError(
+                f"case {self.id!r} is a canary and declares the group "
+                f"{self.group!r}: a canary is counted in no aggregate, so the "
+                "group would be a gate with nothing in it. Leave the group unset"
             )
 
 
@@ -161,6 +181,21 @@ class Suite:
     #: as the TOML loader already coerces by declared type; anything else is
     #: refused here, by field name, rather than at read time.
     artifacts: Sequence[Path] = ()
+    #: Whether the run records what the target answered, one entry per sample.
+    #:
+    #: Off by default and never inferred. It is **not** a member of `Disclosure`
+    #: and the distinction is the whole safety of the feature: `Disclosure`
+    #: governs what crosses a boundary, this governs what is written inside the
+    #: perimeter. Two verbs, two decisions — and a flag living in the type whose
+    #: every other member is a licence to send would read as the licence it is
+    #: not. Nothing recorded here ever crosses: `redact()` drops it and
+    #: `digline.wire` does not know its name.
+    #:
+    #: It does not enter `config_hash`, by the precedent one field up:
+    #: recording changes no score, pairs no verdict differently and moves no
+    #: bar, and `disclosure` has never been in the fingerprint either.
+    #: (ADR 0015 §2)
+    record_responses: bool = False
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -190,6 +225,21 @@ class Suite:
             raise ValueError(
                 f"suite {self.name!r} asks for {self.samples} samples: at least "
                 "one call per case is needed to judge anything"
+            )
+        if any(case.canary for case in self.cases) and self.samples < 2:
+            # The mirror image of the refusal below. There, a threshold on a
+            # noisy value that nobody chose would be a green light nobody gave;
+            # here, a canary with no measured interval turns every wobble into a
+            # stop — a red light nobody chose, and the one a team learns to
+            # ignore. The cost is stated rather than buried: `samples` is
+            # suite-wide, so a canary multiplies every case's calls.
+            # (ADR 0016 §6)
+            raise ValueError(
+                f"suite {self.name!r} declares a canary and samples "
+                f"{self.samples} time(s). A canary is read by whether it moved "
+                "beyond its own noise, and at one sample there is no noise to "
+                "measure: every wobble would stop a release. Set samples to at "
+                "least 2 (with min_agreement), or drop the canary flag"
             )
         if self.samples > 1 and self.min_agreement is None:
             raise ValueError(
@@ -284,7 +334,11 @@ class Suite:
 
         if not any(a.requires_label for a in self.run_assertions):
             return
-        unlabelled = sorted(c.id for c in self.cases if c.label is None)
+        # A canary is exempt: it is not in the population being measured, so a
+        # mark for it would be a mark nobody counts. (ADR 0016 §1)
+        unlabelled = sorted(
+            c.id for c in self.cases if c.label is None and not c.canary
+        )
         if unlabelled:
             raise ValueError(
                 f"suite {self.name!r} declares an aggregate that counts a "
@@ -376,16 +430,30 @@ class CallPlan:
     def target_calls(self) -> int:
         return self.cases * self.samples
 
-    def sentence(self) -> str:
+    def sentence(self, *, replayed: bool = False) -> str:
         """One line for a terminal, in English like every other runtime string.
 
         The report is the declared exception to that rule because it is a
         document with a recipient; this is a diagnostic on the way to a run.
+
+        `replayed` is the same announcement for a re-judge, and it exists
+        because the figure that surprises people is different there: the target
+        is not called at all, and what is about to be paid for is the judging.
+        A replay that printed the ordinary sentence would announce a bill that
+        never arrives. (ADR 0015 §6)
         """
-        text = (
-            f"{_count(self.cases, 'case')} × {_count(self.samples, 'sample')} = "
-            f"{_count(self.target_calls, 'call')} to the target"
-        )
+        if replayed:
+            text = (
+                f"{_count(self.cases, 'case')} × "
+                f"{_count(self.samples, 'recorded answer')} = "
+                f"{_count(self.target_calls, 'answer')} replayed; "
+                "no call to the target"
+            )
+        else:
+            text = (
+                f"{_count(self.cases, 'case')} × {_count(self.samples, 'sample')} = "
+                f"{_count(self.target_calls, 'call')} to the target"
+            )
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
         return text

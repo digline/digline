@@ -75,10 +75,19 @@ def runs_json(
                 "environment": run.environment,
                 "git_commit": run.git_commit,
                 "cases": len(run.results),
+                # Which digline wrote each one. A caller choosing between runs
+                # can see that one of them came from a release it does not have,
+                # which is the same fact the CLI prints on stderr. (ADR 0014 §3)
+                "digline_version": run.digline_version,
             }
             for key, run in ordered
         ],
         "note": listing.note(),
+        # What to do about what was left out, in the direction the versions say
+        # — a list, because a store can owe both sentences at once. Beside the
+        # note rather than inside it: the note is what happened, this is what
+        # follows from it. (ADR 0014 §5)
+        "advice": list(listing.advice()),
         "skipped": {str(version): n for version, n in sorted(listing.skipped.items())},
         "unreadable": len(listing.unreadable),
     }
@@ -150,6 +159,11 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
         "config_hash": run.config_hash,
         "created_at": run.created_at,
         "git_commit": run.git_commit,
+        # A fact about our own instrument, never about the end company, so it
+        # crosses like a measurement does. It is also what makes a document that
+        # reaches a model's context traceable back to the release that wrote it.
+        # (ADR 0014 §3)
+        "digline_version": run.digline_version,
         "results": [
             {
                 "case_id": case.case_id,

@@ -16,6 +16,7 @@ from digline.run.driver import (
     judge_config,
     target_config,
 )
+from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
 from digline.run.suite import CallPlan, Case, Suite, planned_calls
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "HasConfig",
     "Mapper",
     "Preflight",
+    "Replay",
+    "ReplayError",
     "Response",
     "Suite",
     "Target",
@@ -32,5 +35,7 @@ __all__ = [
     "execute",
     "judge_config",
     "planned_calls",
+    "rejudge",
+    "replayable_cases",
     "target_config",
 ]

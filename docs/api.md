@@ -135,6 +135,63 @@ test changed"* and stops — no diff, no digest, no path.
 `Disclosure(artifacts=True)` is what puts the diff back. Reasoning in
 [ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
+### `Suite.record_responses`: the answers, for judging them again
+
+Off by default. With `record_responses=True` the run records, per case and per
+sample, what the target answered, the rendered prompt that produced it, and what
+that call cost in money and in milliseconds:
+
+```python
+suite = Suite(..., record_responses=True)
+```
+
+That is what [`digline rejudge`](rejudge.md) replays: a changed judge, rubric or
+threshold, over the same answers, at no cost to the target.
+
+It is **not** a member of `Disclosure`, and the distinction is the safety of the
+feature. `Disclosure` governs what crosses a boundary; this governs what is
+written inside the perimeter. Nothing recorded here ever crosses: `redact()`
+drops it, `digline.wire` does not know the field's name, no `Disclosure`
+releases it and none can be added — a judge's `reason` is already withheld
+*because it quotes the output*, and releasing the thing quoted from while
+withholding the quote would not be a boundary. `digline promote` strips the
+answers too: `baselines/` is committed.
+
+It does not enter `config_hash`, so turning it on costs no baseline: recording
+changes no score, pairs no verdict differently and moves no bar.
+
+Whole or nothing, at 65 536 characters per field: over the ceiling the entry
+records neither the answer nor the prompt and says `oversize`, because a clipped
+answer re-judged produces a score that looks like every other score. Reasoning
+in [ADR 0015](adr/0015-the-recorded-output-and-the-declared-re-judge.md).
+
+### `Case.canary`: watching the model instead of measuring it
+
+An alias is a pointer, and pointers roll. `resolved_model` records what the
+provider *said* answered — and is silent on Bedrock, and on a customer's own
+gateway, where nobody says anything. A canary is the behavioural half of that
+answer:
+
+```python
+Case(id="alias-probe", canary=True, vars={"ask": "..."})
+```
+
+The case is called and judged like any other, and then:
+
+- it is in **no** aggregate — not precision, not recall, not a per-group
+  instance — and the reason names it: `accuracy 0.700000 = 14/20 (20 counted, 0
+  suspended, 0 could not be judged, 1 canary)`;
+- it needs no `label`, and may declare no `group`;
+- if it **moves at all** — worse or better, since its score is a fingerprint
+  rather than a quality — the headline says *the model under this alias likely
+  changed* and the run exits `1`, on `Headline.canary_moved` rather than on
+  `worse`;
+- a movement inside the baseline's own interval is not a move, which is why a
+  suite that declares a canary must declare `samples >= 2`: at one sample there
+  is no noise to measure and every wobble would stop a release.
+
+Reasoning in [ADR 0016](adr/0016-the-canary-case.md).
+
 ### `Case`
 
 | Field | Type | Default |

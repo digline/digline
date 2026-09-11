@@ -80,6 +80,10 @@ RELEASED: dict[str, int] = {
     "0.8.0": 9,
     "0.8.1": 9,
     "0.9.0": 9,
+    # 10 — the release-schema: the document says what wrote it (ADR 0014), the
+    # target's answers are recorded where the suite asks (ADR 0015), and a case
+    # can watch the model instead of measuring it (ADR 0016).
+    "0.10.0": 10,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

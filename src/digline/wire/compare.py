@@ -48,6 +48,10 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         "noise_min": delta.noise_min,
         "noise_max": delta.noise_max,
         "noise_samples": delta.noise_samples,
+        # Which row produced the exit code, when the headline says a canary
+        # moved. A pipeline that reads only the number sees no change in kind;
+        # one that wants to point at the check has the field. (ADR 0016 §8)
+        "canary": delta.canary,
     }
 
 

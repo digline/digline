@@ -92,6 +92,15 @@ type TallyKind = Literal[
     "within_noise",
     "suite_config",
     "comparability",
+    # The ninth, and an **amendment** to ADR 0012 §3 rather than an addition
+    # under it: that section closes this list. It earns its place by that
+    # section's own test — the report says it, and a reading that omitted it
+    # would describe a measurement where there was a replay. (ADR 0015 §8)
+    "rejudged",
+    # The tenth, the same amendment from the other record: a reading that
+    # omitted it would describe a run whose exit code it could not account for.
+    # (ADR 0016 §8)
+    "canary",
 ]
 
 
@@ -203,6 +212,9 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     """
     tally = run_tally(run)
     out: list[Fact] = [
+        # First, because it qualifies every count under it: these verdicts were
+        # produced from answers that were replayed, not measured.
+        *([TallyFact("rejudged", state=True)] if run.rejudged_from is not None else []),
         TallyFact("cases", count=tally.cases),
         TallyFact("checks", count=tally.checks),
         TallyFact("unjudged", count=tally.unjudged),
@@ -218,6 +230,11 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # The judge speaks only when it moved, as in the headline sentence. A judge
     # that did not is not news; one that did makes every number above it less
     # comparable than it looks.
+    # Silent unless one moved, like the judge clause above it and for the same
+    # reason: a canary that stayed put is not news, and a suite that declares
+    # none has nothing to say at all.
+    if comparison.canary_moved:
+        out.append(TallyFact("canary", state=True))
     if comparison.comparability_reduced:
         out.append(TallyFact("comparability", state=True))
     return out
@@ -509,6 +526,10 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, f"explain.tally.suite_config.{moved}")
         case "comparability":
             return phrase(locale, "explain.tally.comparability")
+        case "rejudged":
+            return phrase(locale, "explain.tally.rejudged")
+        case "canary":
+            return phrase(locale, "explain.tally.canary")
     assert_never(fact.kind)
 
 

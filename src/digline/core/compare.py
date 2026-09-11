@@ -132,6 +132,12 @@ class AssertionDelta:
     #: How many samples the interval was measured over, for the sentence the
     #: report prints: "0.85–0.95 across 5 samples".
     noise_samples: int = 0
+    #: This delta belongs to a case that watches the model rather than measuring
+    #: it. A fact beside the outcome, like `within_noise` and for the same
+    #: reason: `Outcome` gains no sixth member, and a reader who has learnt the
+    #: five does not have to learn a sixth. What it changes is what the movement
+    #: *means* — see `Comparison.canary_moved`. (ADR 0016 §5)
+    canary: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +185,36 @@ class Comparison:
     @property
     def judge_config_changed(self) -> bool:
         return _changed(self.judge_config_deltas)
+
+    @property
+    def canary_moved(self) -> bool:
+        """Whether a case that watches the model moved at all.
+
+        **Movement, not direction.** A canary that improved is a changed model
+        just as loudly as one that got worse: its score is a fingerprint, not a
+        quality. `errored` is not movement — that is a broken instrument, and it
+        is already `unjudged`; `new` and `missing` are not movement either — a
+        case was added or removed, which is an edit to the suite.
+
+        It is deliberately **not** folded into `worse`. Folding it would make the
+        headline say *one check got worse* about a check that got better, which
+        is the report telling a reader something untrue in order to produce the
+        right exit code. Two facts, one number: `exit_code()` returns 1 for
+        either. (ADR 0016 §5)
+        """
+        return any(
+            delta.canary and delta.outcome in ("regressed", "improved")
+            for delta in self.deltas
+        )
+
+    @property
+    def moved_canaries(self) -> Sequence[AssertionDelta]:
+        """The canary deltas that moved, for the sentence that names one."""
+        return tuple(
+            d
+            for d in self.deltas
+            if d.canary and d.outcome in ("regressed", "improved")
+        )
 
     @property
     def comparability_reduced(self) -> bool:
@@ -368,6 +404,15 @@ def compare(run: Run, baseline: Run) -> Comparison:
             f"baseline is {baseline.tenant!r}"
         )
     current, previous = index_verdicts(run), index_verdicts(baseline)
+    # Which cases watch the model, as **this run** declares it. The baseline is
+    # read only for a case that is no longer in the run at all, so that a flag
+    # flipped between the two is read from the side being judged. (ADR 0016 §1)
+    canaries = {case.case_id for case in run.results if case.canary}
+    canaries |= {
+        case.case_id
+        for case in baseline.results
+        if case.canary and case.case_id not in {c.case_id for c in run.results}
+    }
     deltas: list[AssertionDelta] = []
 
     for key in sorted(current.keys() | previous.keys()):
@@ -390,6 +435,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     None,
                     None,
                     "absent from the baseline",
+                    canary=case_id in canaries,
                 )
             )
             continue
@@ -404,6 +450,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     before,
                     None,
                     "present in the baseline but not in this run",
+                    canary=case_id in canaries,
                 )
             )
             continue
@@ -421,6 +468,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     before,
                     None,
                     f"assertion errored {side}: {culprit.reason}",
+                    canary=case_id in canaries,
                 )
             )
             continue
@@ -458,7 +506,15 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 why = f"outcome flipped from '{before.status}' to '{now.status}'"
             deltas.append(
                 AssertionDelta(
-                    case_id, assertion, outcome, scope, now, before, delta, why
+                    case_id,
+                    assertion,
+                    outcome,
+                    scope,
+                    now,
+                    before,
+                    delta,
+                    why,
+                    canary=case_id in canaries,
                 )
             )
             continue
@@ -509,6 +565,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_min=floor.low,
                 noise_max=floor.high,
                 noise_samples=floor.count,
+                canary=case_id in canaries,
             )
         )
 
