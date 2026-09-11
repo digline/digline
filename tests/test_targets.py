@@ -741,3 +741,217 @@ def test_a_fingerprint_that_rolled_goes_absent_without_raising(prompt: Path) -> 
     assert target.config["fingerprint"] == "fp_1"
     target(a_case())
     assert "fingerprint" not in target.config
+
+
+# --------------------------------------------------------------------------- #
+# A target that said nothing says why (the twin of `JudgeBase._no_text`)
+# --------------------------------------------------------------------------- #
+#
+# An empty completion is a legal *output* — the assertions get to fail it, and
+# that is unchanged. What was not legal was the sentence a suite judging a
+# *shape* got: the reply died inside `parse`, and the ending the provider had
+# just declared was thrown away at the moment it was worth most.
+
+
+class MuteTarget(RecordTarget):
+    """A target whose suite judges a shape, answered by a provider that said
+    nothing. The two halves of the case, in one fake."""
+
+    max_tokens = 512
+
+    def parse(self, text: str) -> Output:
+        parsed: Output = json.loads(text)
+        return parsed
+
+
+def a_mute_record(
+    *, finish: Finish | None = None, finish_raw: str | None = None, output: int = 512
+) -> Completion:
+    return Completion(
+        text="",
+        usage=Usage(input_tokens=10, output_tokens=output),
+        finish=finish,
+        finish_raw=finish_raw,
+    )
+
+
+@pytest.mark.parametrize(
+    ("finish", "expected"),
+    [
+        ("length", "truncated before the first character"),
+        ("tool_use", "tool call"),
+        ("filtered", "refused or filtered"),
+        ("stop", "ended normally and said nothing"),
+        ("other", "a reason of its own"),
+    ],
+)
+def test_a_mute_reply_reports_the_ending_the_provider_declared(
+    prompt: Path, finish: Finish, expected: str
+) -> None:
+    """Every entry of the vocabulary, because each one needs a different action
+    and a token count cannot tell them apart."""
+    target = MuteTarget(
+        prompt, "m1", pricing=PRICES, replies=[a_mute_record(finish=finish)]
+    )
+    with pytest.raises(ValueError) as raised:
+        target(a_case())
+    message = str(raised.value)
+    assert "the target returned no text" in message
+    assert expected in message
+    # The parser's sentence must not be the one that reaches the operator.
+    assert "Expecting value" not in message
+
+
+def test_the_providers_own_word_travels_with_the_reading(prompt: Path) -> None:
+    """`other` is where a word we do not know goes, and the word goes with it:
+    it is what an operator searches the provider's documentation for."""
+    target = MuteTarget(
+        prompt,
+        "m1",
+        pricing=PRICES,
+        replies=[a_mute_record(finish="other", finish_raw="pause_turn")],
+    )
+    with pytest.raises(ValueError, match="'pause_turn'"):
+        target(a_case())
+
+
+def test_a_mute_reply_with_no_ending_reported_falls_back_to_the_cap(
+    prompt: Path,
+) -> None:
+    """The ordinary case on a compatible endpoint. The inference is marked as
+    one, exactly as it is for a judge."""
+    target = MuteTarget(prompt, "m1", pricing=PRICES, replies=[a_mute_record()])
+    with pytest.raises(ValueError) as raised:
+        target(a_case())
+    assert "max_tokens cap (512 of 512)" in str(raised.value)
+    assert "likely truncated" in str(raised.value)
+
+
+def test_well_under_the_cap_says_so_instead(prompt: Path) -> None:
+    """Raising the cap would do nothing here, so the sentence must not suggest
+    it."""
+    target = MuteTarget(prompt, "m1", pricing=PRICES, replies=[a_mute_record(output=7)])
+    with pytest.raises(ValueError) as raised:
+        target(a_case())
+    assert "well under the cap (7 of 512)" in str(raised.value)
+    assert "max_tokens cap" not in str(raised.value)
+
+
+def test_a_target_that_sends_no_cap_claims_none(prompt: Path) -> None:
+    """`max_tokens` is the plugins' own name and not the base's contract. A
+    target that does not carry one gets a sentence that does not invent one."""
+
+    class Capless(MuteTarget):
+        max_tokens = None
+
+    target = Capless(prompt, "m1", pricing=PRICES, replies=[a_mute_record(output=7)])
+    with pytest.raises(ValueError) as raised:
+        target(a_case())
+    message = str(raised.value)
+    assert "(7 output tokens)" in message
+    assert "cap" not in message
+
+
+def test_a_reply_that_is_only_the_prefill_is_no_text_either(prompt: Path) -> None:
+    """The case that would have escaped, on the provider that prefills:
+    `AnthropicTarget` opens the assistant turn with `{` and prepends it back, so
+    a model that produced nothing arrives as `"{"` rather than as `""`."""
+    target = MuteTarget(
+        prompt,
+        "m1",
+        pricing=PRICES,
+        replies=[
+            Completion(
+                text="{",
+                usage=Usage(input_tokens=10, output_tokens=512),
+                finish="length",
+            )
+        ],
+    )
+    target.prefill = "{"
+    with pytest.raises(ValueError, match="the target returned no text"):
+        target(a_case())
+
+
+def test_a_reply_that_said_something_keeps_the_parsers_own_failure(
+    prompt: Path,
+) -> None:
+    """The reading is for a reply with nothing in it. A model that answered and
+    got the shape wrong is a different fault, and its own message is the useful
+    one."""
+    target = MuteTarget(
+        prompt,
+        "m1",
+        pricing=PRICES,
+        replies=[
+            Completion(text="not json", usage=Usage(input_tokens=1, output_tokens=3))
+        ],
+    )
+    with pytest.raises(json.JSONDecodeError):
+        target(a_case())
+
+
+def test_the_parse_failure_is_kept_underneath(prompt: Path) -> None:
+    """It is the second question a reader asks, and the first one is now
+    answered."""
+    target = MuteTarget(
+        prompt, "m1", pricing=PRICES, replies=[a_mute_record(finish="length")]
+    )
+    with pytest.raises(ValueError) as raised:
+        target(a_case())
+    assert isinstance(raised.value.__cause__, json.JSONDecodeError)
+
+
+def test_an_empty_reply_is_still_a_legal_output_by_default(prompt: Path) -> None:
+    """Unchanged, and deliberately: with the default `parse` an empty completion
+    is an output the assertions get to fail. The reading above exists for the
+    suite whose `parse` refuses it, not for every suite."""
+    target = RecordTarget(
+        prompt, "m1", pricing=PRICES, replies=[a_mute_record(finish="length")]
+    )
+    response = target(a_case())
+    assert response.output == ""
+    assert response.metadata["finish"] == "length"
+
+
+def test_the_cause_reaches_the_run_document(prompt: Path) -> None:
+    """End to end, which is the claim that matters: every assertion on the case
+    errors, and the reason names the ending rather than the parser."""
+    suite = Suite(
+        tenant="t",
+        environment="e",
+        name="s",
+        assertions=[Contains(needle="x")],
+        cases=[Case(id="c1", vars={"question": "q", "customer": "A"})],
+    )
+    target = MuteTarget(
+        prompt, "m1", pricing=PRICES, replies=[a_mute_record(finish="length")]
+    )
+    run = execute(suite, target, created_at="2026-08-27T10:00:00+00:00")
+    (case,) = run.results
+    (verdict,) = case.verdicts
+    assert verdict.status == "error"
+    assert "the target returned no text" in verdict.reason
+    assert "raise max_tokens" in verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("module", "name"),
+    [
+        ("digline_anthropic", "AnthropicTarget"),
+        ("digline_openai", "OpenAITarget"),
+        ("digline_bedrock", "BedrockTarget"),
+    ],
+)
+def test_every_plugin_inherits_the_reading(module: str, name: str) -> None:
+    """One implementation, like `ObservedIdentity`. A plugin that overrode the
+    call or the parse hook would be a provider whose mute replies are diagnosed
+    differently from the other two — which is the thing this is not."""
+    plugin = pytest.importorskip(module)
+    target_class = getattr(plugin, name)
+    assert issubclass(target_class, ProviderTarget)
+    for method in ("__call__", "_parsed", "_token_cap", "parse"):
+        assert getattr(target_class, method) is getattr(ProviderTarget, method), method
+    # The cap the sentence names is read off the plugin's own attribute, so the
+    # name has to be the one all three of them use.
+    assert "max_tokens" in target_class.__init__.__annotations__

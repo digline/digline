@@ -8,6 +8,30 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Fixed:** a target that returned no text now names the ending the provider
+  declared, where the sentence used to come from the parser. An empty
+  completion is still a legal *output* — the assertions get to fail it, and
+  that is unchanged — but a suite that judges a *shape* parses the reply first,
+  and a mute one died there as `JSONDecodeError: Expecting value: line 1 column
+  1`, throwing away the `finish` the provider had reported one line earlier.
+  `ProviderTarget` now reads that failure before letting it out: with nothing
+  in the reply the case errors with the sentence 0.8.0 wrote for a judge —
+  *"the target returned no text: the provider reported 'max_tokens' (512 of 512
+  output tokens), so it was truncated before the first character — raise
+  max_tokens"* — and the parser's own exception is kept underneath as its
+  cause. The concrete case is an adaptive model that spends its whole budget
+  thinking and ends at the cap with nothing written, which a token count cannot
+  tell apart from a tool call.
+
+  `JudgeBase._no_text` is the twin that already did this on the other side, and
+  the two are **one implementation** now: `no_text_reason` builds both
+  sentences, `said_something` is the check that sees past an assistant prefill
+  for both, and a judge keeps one sentence of its own because it asked for a
+  JSON object and a target asked for whatever the suite judges. All three
+  published plugins inherit the reading — **nothing under `packages/`
+  changed** — and a target that sends no token cap gets a sentence that claims
+  none, rather than one about a cap nobody set.
+
 - **`examples/operator/`: `cycle.json` moves from format 1 to 2**, because the
   dossier now reads `digline explain --json`'s fact list instead of `compare
   --json full` — a forked loop writes format 2 on its next run and alerts
