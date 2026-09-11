@@ -8,23 +8,32 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-**The run that survives being killed.** `SCHEMA_VERSION` stays **10** and
-`OUTPUT_VERSION` stays 1: no stored document moves, **no baseline needs
-re-promoting**, and a completed run is the file it has always been.
+## 0.11.0 — 2026-09-11
+
+**The journal.** digline **0.11.0**, alone: the three provider plugins stay at
+0.4.0, `digline-mcp` at 0.1.1 and `pytest-digline` at 0.1.3. `SCHEMA_VERSION`
+stays **10** and `OUTPUT_VERSION` stays 1 — no stored document moves, no
+`--json` shape moves, **no baseline needs re-promoting**, and a completed run is
+the file it has always been.
+
+```sh
+uv add --upgrade digline
+```
 
 ### A killed run is finished, not paid for twice
 
-A run is written once, at the end, so a suite killed part way through — a
-supervisor, a memory-pressure reaper, a `Ctrl-C` — used to lose every call it
-had already paid for. Seven hundred calls of a 144-case suite, and nothing on
-disk.
+A run is written once, at the end. A 144-case suite at five samples — 720 calls,
+about four dollars — was killed mid-flight by a supervisor outside digline, and
+everything went with it: seven hundred paid calls, a judged run that existed
+only as objects in a process, and nothing on disk.
 
-digline now keeps a **journal** beside the run as it goes, one record per case,
-`fsync`ed before the next case starts, under
-`.digline/<tenant>/runs/<suite>/.pending/` — the same directory the runs live
-in, covered by the same generated `.gitignore`, holding exactly what the
-finished run file would hold and nothing more. It is deleted the moment the run
-file exists.
+digline now keeps a **journal** beside the run as it goes. One record per case,
+flushed and `fsync`ed before the next case starts, under
+`.digline/<tenant>/runs/<suite>/.pending/<run key>.<leg>.jsonl` — the same
+directory the runs live in, covered by the same generated `.gitignore`, holding
+exactly what the finished run file would hold and nothing more. A suite that
+does not record its answers does not journal them either. It is deleted the
+moment the run file exists.
 
 ```sh
 digline run --suite eval/suite.py --resume
@@ -34,37 +43,73 @@ digline run --suite eval/suite.py --resume
 No key resumes the most recent unfinished run; `--resume KEY` names one. A plain
 `digline run` never resumes and says on stderr that a journal is pending, so
 paid calls are not abandoned by accident; `--resume` with nothing pending
-refuses rather than quietly starting a full run.
+refuses rather than quietly starting a full one.
+
+Each leg is a file of its own, created with `O_CREAT|O_EXCL`. That is the whole
+concurrency story and it needs no lock: a second process resuming the same run
+is refused by name, and the process this feature exists for is one that was
+*killed* — a lock it could not release would block the very rescue it was meant
+to protect.
 
 **A resumed run carries no marker, because there is nothing to mark.** It keeps
 the `created_at` of the run it finishes, lands at that run's key, and is the
-document the kill prevented — byte for byte. What guarantees it is the refusal
-list: a resume stops, before the first call, when `config_hash`, the cases, the
-declared artifacts, `target_config`, `judge_config`, `record_responses`,
-`git_commit` or the digline version has moved. Half a run under one prompt and
-half under another is not a run.
+document the kill prevented — byte for byte, which is asserted rather than
+hoped. What makes that legitimate is the refusal list: a resume stops, **before
+the first call of the new leg**, when `config_hash`, the cases, the declared
+artifacts, `target_config`, `judge_config`, `record_responses`, `git_commit` or
+the digline version has moved. That list is not a collection of good ideas — it
+is exactly the set of facts the run document asserts. Half a run under one
+prompt and half under another is not a run.
 
 **An alias that rolled between the halves errors instead of being averaged.**
 What the provider said answered is journalled as it is learnt and given back to
 the target and the judges on resume, so a model that changed across the seam
-raises on the first call of the new leg exactly as it would have on the next
-call of the old one (ADR 0005 §8).
+raises on the first call of the new leg exactly as it would have raised on the
+next call of the old one: that case errors, the run is still written, and it
+exits 2 and cannot be promoted (ADR 0005 §8).
 
-**Errored cases are retried by default.** An errored verdict exits 2 and cannot
-be promoted, so the second loss this closes is the 529 that outlived the SDK's
-retries: the remedy stops being "run the other 143 cases again". `--keep-errors`
-keeps them as journalled.
+**Errored cases are retried by default**, and that closes a second loss this
+release was not opened for. A target that raises at sample 4 of 5 errors its
+whole case — correctly, since a partly-sampled case would be a weaker
+measurement wearing the declared suite's name — and an errored verdict exits 2
+and cannot be promoted. So a 529 that outlived the SDK's own retries used to
+cost the price of the whole suite. The rule in the driver is unchanged; what
+changed is the remedy, which is now `--resume` re-paying for that one case.
+`--keep-errors` keeps them as journalled.
 
-For scripts: `digline.host.prepare()` decides what a launch is and refuses a
-resume that would not be one; `digline.host.measure()` opens the journal, runs,
-writes and deletes it. `execute()` gained `done=` and `on_case=`, and still
-knows nothing about the store. `digline run --json` gained `resumed` and
-`reused` — facts about the launch, not about the run.
+For a script that drives digline: `digline.host.prepare()` decides what a launch
+is and refuses a resume that would not be one, at no cost, before anything is
+called; `digline.host.measure()` opens the journal, runs, writes the run and
+deletes the journal. `execute()` gained `done=` and `on_case=` and still knows
+nothing about the store. `digline run --json` gained `resumed` and `reused` —
+facts about the launch, not about the run, which is why they are there and not
+in the document.
 
-The reasoning is [ADR 0017](docs/adr/0017-the-journal-and-the-resumed-run.md).
-The MCP `run` tool journals through the same host composition once
-`digline-mcp` is released against this digline; it gains no `resume` verb,
-which collides with its acknowledged call count rather than extending it.
+The reasoning in full is
+[ADR 0017](docs/adr/0017-the-journal-and-the-resumed-run.md).
+
+**The MCP `run` tool does not journal yet.** Both front ends will sit on the
+same host composition, but `digline-mcp` declares a floor — `digline>=…` — and a
+floor cannot name a release that does not exist yet, so its call site moves in
+the `digline-mcp` release that follows this one. It gains no `resume` verb
+either way: that collides with its acknowledged call count rather than extending
+it. A killed CLI run leaves a journal today; a killed MCP-launched one does not.
+
+### The examples' cap moved, and the floor did not
+
+Every example now reads `digline>=0.9,<0.12`. Nothing about the format required
+it — schema 10 documents are read the same either side of this release, so the
+floor stays where it was and no example migrates anything. What required it is
+arithmetic: a lock regenerated against 0.11.0 cannot resolve under `<0.11`.
+
+### Also
+
+A redaction gate had a flake worth naming, since it is the kind that fires on a
+release day and cannot be reproduced: a test asserting that `2500` had been
+removed from a report read a `created_at` stamped by the real clock, and the
+microseconds of `…T14:11:03.525004+00:00` contain those four digits. The
+timestamps now come out of the haystack first; every digit the run did not stamp
+is still asserted.
 
 ## 0.10.1 — 2026-09-11
 

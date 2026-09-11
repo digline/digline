@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.9,<0.11",
+    "digline>=0.9,<0.12",
     # The judge behind `faithfulness` on the live path. A plugin is a target
     # *and* a judge (ADR 0004), so the SDK-and-JSON never enters `suite.py`.
     "digline-anthropic>=0.4,<0.5",

@@ -85,6 +85,11 @@ RELEASED: dict[str, int] = {
     # can watch the model instead of measuring it (ADR 0016).
     "0.10.0": 10,
     "0.10.1": 10,
+    # Schema 10 still: the journal and the resumed run add no field to the
+    # document, which is ADR 0017 §10's own condition rather than a happy
+    # accident. What the release does cost the examples is the cap — a lock
+    # regenerated against 0.11.0 cannot resolve under `<0.11`.
+    "0.11.0": 10,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

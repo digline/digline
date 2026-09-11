@@ -288,6 +288,25 @@ RECORDED: dict[str, dict[str, str]] = {
         "above is about. The same sentence as the entry beside it, from the "
         "other end: one names the release that leaked, one the release that "
         "stopped",
+        "0.10.1": "'(0.10.1, from the release delta-pass)' — the release in "
+        "which an unchecked `kind` stopped reaching `restore_output`, said "
+        "beside the refusal that replaced it. History from the moment 0.11.0 "
+        "shipped",
+    },
+    # The other three sites the 0.10.0 delta-pass left a mark on, in the shape
+    # the 0.7.2 pair above established: the release is named beside the code
+    # that closes the finding, so a reader knows which stored documents and
+    # which terminals the sentence is about.
+    "src/digline/report/render.py": {
+        "0.10.1": "'(0.10.1, from the release delta-pass)' — the release the "
+        "control-character sanitiser arrived in, named beside it so the next "
+        "reader does not reinvent it one layer down",
+    },
+    "packages/pytest-digline/src/pytest_digline/plugin.py": {
+        "0.10.1": "'(0.10.1)' at three sites — the release in which the "
+        "plugin's own terminal output began going through the shared "
+        "sanitiser. One finding, three paths out of a document and into a "
+        "terminal, each named where it is closed",
     },
 }
 
