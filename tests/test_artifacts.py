@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -534,7 +535,14 @@ def test_report_redacted_is_the_path_that_has_to_be_right(project: Path) -> None
     )
     hidden = hidden_path.read_text(encoding="utf-8")
     assert REMOVED not in hidden and ADDED not in hidden
-    assert "2500" not in hidden and "1000" not in hidden
+    # The timestamps come out first, and that is not fastidiousness: this run
+    # was stamped by the real clock, and the microseconds of an ISO timestamp
+    # are four digits nobody chose — `…T14:11:03.525004+00:00` contains "2500".
+    # Left in, this gate reds once in a few thousand runs over a coincidence
+    # that says nothing about redaction, which is the worst way for a
+    # redaction test to fail: on a release day, and unreproducibly.
+    body = re.sub(r"\d{4}-\d{2}-\d{2}T[\d:.+-]+", "", hidden)
+    assert "2500" not in body and "1000" not in body
     assert "prompt.md" not in hidden
     # And still says how many, which is a measurement and travels.
     assert "1 file under test changed" in hidden
