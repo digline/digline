@@ -8,6 +8,22 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Changed:** CodeQL now runs the **default** suite instead of
+  `security-and-quality`. The earlier entry below argued the wider set says
+  more about a library; what it said in practice was 74 quality findings, 19 of
+  them a single extractor limitation — PEP 695 `type` aliases named in
+  `__all__` read as undefined exports. None of it was reachable by a fix,
+  because the quality half is already gated by checks that fail the build:
+  ruff (F401, F822) and pyright strict. A code-scanning list too long to read
+  is one where a real alert arrives as noise, which is the opposite of what the
+  scan is for. The suite is selected by *omitting* `queries:`, not by naming
+  it: there is no pack called `security`, and asking for one by that name fails
+  the run outright. The 74 are gone from the list, the 19 stand dismissed with
+  their reason, and what remains open is one real advisory waiting upstream.
+  `RELEASING.md` gains the step that only makes sense now that the list is
+  short: before the tag, ask whether anything new has arrived since the last
+  one.
+
 - **Added:** `digline-openai` prices `gpt-6-astra`, read from the published
   list on 2026-09-11 along with every other entry, which is unchanged. Short
   context only, on the same terms as the GPT-5.6 entries: crossing 272K input
