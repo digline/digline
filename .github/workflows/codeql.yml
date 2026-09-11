@@ -37,11 +37,14 @@ jobs:
       - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
           languages: python
-          # `security-and-quality` rather than the default `security`: the
-          # default set is tuned for a service handling hostile input, and
-          # digline is a CLI whose threat model is written down in SECURITY.md.
-          # The wider set is what says something useful about a library.
-          queries: security-and-quality
+          # The plain `security` suite. `security-and-quality` was tried first,
+          # on the argument that the wider set says more about a library — what
+          # it actually said was 74 quality findings, 19 of them a single
+          # extractor limitation reading PEP 695 `type` aliases in `__all__` as
+          # undefined exports. A list nobody can read is a list where a real
+          # alert arrives as noise, and the quality half is already covered by
+          # gates that fail the build: ruff (F401, F822) and pyright strict.
+          queries: security
 
       # No build step. Python is interpreted, so CodeQL extracts it directly —
       # `autobuild` would be a no-op with a chance of failing.

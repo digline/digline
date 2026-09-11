@@ -47,6 +47,27 @@ Two of these are easy to think you can skip, and both were the same mistake:
   describes a release that does not exist. Running `ruff` and `pytest` straight
   from a system Python never touches it.
 
+## Before the tag: the alert list
+
+One question, asked of the Code scanning tab: **new alerts since the last tag?**
+
+```sh
+gh api repos/digline/digline/code-scanning/alerts --paginate \
+  -q '.[] | select(.state == "open")
+      | "\(.created_at[:10])  \(.tool.name)  \(.rule.id)  \(.most_recent_instance.location.path // "-")"'
+```
+
+The list is meant to be short enough to read in one breath, and it is short on
+purpose: every alert that is not going to be acted on has been dismissed *with
+its reason written down*, so what stays open is what somebody still owes an
+answer for. Dismissing to make a number go down is how the list stops being
+worth reading; the reason is the part that keeps it honest, and it is the same
+candour the security page prints.
+
+An entry with a date after the last tag is the whole point of the step: judge
+it, then either fix it before tagging or dismiss it with a sentence. An entry
+older than the tag has already been judged — leave it.
+
 ## Before the tag: the site
 
 The gates above check this repository. This one checks the **other** one, and it
