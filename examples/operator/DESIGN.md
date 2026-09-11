@@ -80,7 +80,9 @@ the third:
 
 1. **The fact.** Machine truth from the wire: the `compare` or `diff`
    JSON, the exit code, the run keys. Versioned, reproducible, not
-   prose.
+   prose. *(Amended 2026-09-11: the dossier's engine has shipped as
+   [`digline explain --json`](/product/explain/), and the scheduled
+   loop renders layers 1 and 2 from its typed fact list.)*
 2. **The dossier.** Deterministic: what the operator did and saw.
    Re-ran twice, per the declared stopping rule; the intervals the
    samples spanned; which cases flipped; which configuration values

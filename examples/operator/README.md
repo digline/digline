@@ -32,9 +32,9 @@ decided in `operator.toml` before anything ran — and it comes back green. The
 verdict is **draw**, and nobody is woken. `alerts/draw.md` is that document,
 captured; its second layer is the argument in four lines:
 
-    Run …298678 (seed 0, exit 1)
+    Run …638965 (seed 0, exit 1)
     | is-it-waterproof  | llm_rubric | regressed | 0.9104 | 0.5279 | no interval
-    Run …505283 (seed 1, exit 0)
+    Run …834128 (seed 1, exit 0)
     | how-do-i-return   | llm_rubric | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples
     | is-it-waterproof  | llm_rubric | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples
     | where-is-my-order | llm_rubric | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples
@@ -59,8 +59,9 @@ is what the committed baseline was promoted from.
 
 ## The alert is a document in three layers
 
-1. **The fact** — the wire's own numbers, from `digline compare --json full`.
-   Run keys, exit codes, what moved. Reproducible, and not prose.
+1. **The fact** — the wire's own facts, from `digline explain --json`: the
+   typed list digline renders its own reading from. Run keys, exit codes, what
+   moved. Reproducible, and not prose.
 2. **The dossier** — deterministic: what the operator did and saw. How many
    re-runs, against which declared rule, what it spent, which checks moved and
    what interval their samples had spanned.

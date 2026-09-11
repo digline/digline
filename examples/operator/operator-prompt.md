@@ -81,7 +81,9 @@ that matters:
 
 `loop.py` and `dossier.py` beside you already build layers 1 and 2 without a
 model. Prefer them: run the loop, read `cycle.json`, and write layer 3. A layer
-2 you composed by hand is a layer 2 nobody can reproduce.
+2 you composed by hand is a layer 2 nobody can reproduce. *(Amended 2026-09-11:
+they render `digline explain --json`, the fact list digline's own reading is
+rendered from.)*
 
 ## Never do these
 

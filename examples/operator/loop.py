@@ -32,8 +32,9 @@ from digline.run import planned_calls
 
 #: The shape of `cycle.json`, so a consumer can tell when it moved. The same
 #: idea as digline's own `output_version`, and separate from it: this is the
-#: example's file, not the tool's.
-CYCLE_FORMAT = 1
+#: example's file, not the tool's. 2 since each run carries `explain --json`
+#: where it carried `compare --json full`.
+CYCLE_FORMAT = 2
 
 #: What one cycle concluded. A `Literal` rather than an enum because these
 #: strings land in a markdown document and in a test assertion, and a plain
@@ -64,26 +65,27 @@ class Config:
 class Observation:
     """One run of the suite, as the wire reports it.
 
-    `compare` is `digline compare --json full`, kept **verbatim**. It is layer
-    1 of the alert, and layer 1 is the machine truth: this file reads fields out
-    of it and never rewrites it.
+    `explain` is `digline explain --json`, kept **verbatim**: the fact list
+    digline renders its own reading from. It is layer 1 of the alert, and layer
+    1 is the machine truth: this file reads facts out of it and never rewrites
+    it.
     """
 
     key: str
     seed: int
     exit_code: int
     spend: str
-    compare: Mapping[str, Any]
+    explain: Mapping[str, Any]
 
     @property
     def regressions(self) -> frozenset[tuple[str, str]]:
-        """The `(case, check)` pairs that got worse. A run-scoped delta carries
-        an empty `case_id`, which is why `scope` is read rather than inferred
-        from the emptiness."""
+        """The `(case, check)` pairs that got worse. A run-scoped check carries
+        an empty `case_id`, the same convention as everywhere else on the
+        wire."""
         return frozenset(
-            (str(d["case_id"]), str(d["assertion"]))
-            for d in cast("Sequence[Mapping[str, Any]]", self.compare["deltas"])
-            if d["outcome"] == "regressed"
+            (str(f["case_id"]), str(f["assertion"]))
+            for f in cast("Sequence[Mapping[str, Any]]", self.explain["facts"])
+            if f["about"] == "check" and f["kind"] == "regressed"
         )
 
     @property
@@ -184,34 +186,48 @@ def digline(*args: str, seed: int, root: Path) -> subprocess.CompletedProcess[st
 
 
 def observe(config: Config, *, seed: int, root: Path) -> Observation:
-    """Run the suite once, then compare it with the baseline somebody signed."""
+    """Run the suite once, then read it against the baseline somebody signed.
+
+    `explain` rather than `compare`: it gates on the same comparison with the
+    same exit codes, and hands back the facts already typed — which checks
+    moved, against which interval, what differed underneath — so the dossier
+    renders them instead of re-deriving them.
+    """
     ran = digline("run", "--suite", config.suite, "--json", seed=seed, root=root)
     if ran.returncode != EXIT_OK:
         raise SystemExit(f"digline run failed:\n{ran.stderr}")
     written = cast("Mapping[str, Any]", json.loads(ran.stdout))
 
-    compared = digline(
-        "compare",
+    read = digline(
+        "explain",
         "--suite",
         config.suite,
         "--run",
         str(written["key"]),
         "--json",
-        "full",
         seed=seed,
         root=root,
     )
-    if compared.returncode not in (EXIT_OK, EXIT_WORSE, EXIT_UNJUDGED):
-        raise SystemExit(f"digline compare refused the request:\n{compared.stderr}")
+    if read.returncode not in (EXIT_OK, EXIT_WORSE, EXIT_UNJUDGED):
+        raise SystemExit(f"digline explain refused the request:\n{read.stderr}")
+    reading = cast("Mapping[str, Any]", json.loads(read.stdout))
+    if reading["scope"] != "comparison":
+        # Without a baseline `explain` reads the run alone, and alone it can
+        # never exit 1: "worse" is a relation. A loop that went on would
+        # report a clean week, every week, about a suite nobody had approved.
+        raise SystemExit(
+            f"{config.suite} has no baseline, so there is nothing to watch the "
+            "system against. Promote one — a person does, never this loop."
+        )
 
     return Observation(
         key=str(written["key"]),
         seed=seed,
-        exit_code=compared.returncode,
+        exit_code=read.returncode,
         # The sentence digline prints before the first call, which is the
         # figure `AGENTS.md` §7 asks an operator to report out loud.
         spend=str(written["sentence"]),
-        compare=cast("Mapping[str, Any]", json.loads(compared.stdout)),
+        explain=reading,
     )
 
 
@@ -309,7 +325,7 @@ def cycle_json(config: Config, done: Cycle) -> dict[str, Any]:
                 "seed": run.seed,
                 "exit_code": run.exit_code,
                 "spend": run.spend,
-                "compare": run.compare,
+                "explain": run.explain,
             }
             for run in done.runs
         ],

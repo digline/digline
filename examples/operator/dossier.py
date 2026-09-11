@@ -14,6 +14,10 @@ matters: layer 1 is machine truth, layer 2 is what the operator did, layer 3 is
 the only thing a model wrote and it is labelled as an opinion. When there is no
 layer 3 the heading is still printed, saying so. An absence is stated, never
 faked.
+
+Layers 1 and 2 are rendered from `digline explain --json`, which `loop.py`
+keeps verbatim for every run: the typed facts digline renders its own reading
+from. This file selects and lays them out; it derives none of them.
 """
 
 from __future__ import annotations
@@ -59,57 +63,101 @@ BECAUSE: Mapping[str, str] = {
 }
 
 
+#: Whose setting a `setting` fact names, in the words the dossier uses.
+OWNERS: Mapping[str, str] = {
+    "target": "the system under test",
+    "judge": "the judge",
+    "artifact": "a file under test",
+}
+
+
 def _runs(cycle: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
     return cast("Sequence[Mapping[str, Any]]", cycle["runs"])
 
 
-def _deltas(run: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
-    return cast("Sequence[Mapping[str, Any]]", run["compare"]["deltas"])
+def _facts(run: Mapping[str, Any], about: str) -> list[Mapping[str, Any]]:
+    """One of the three shapes in `explain --json`, in the wire's own order.
+    Discriminated on `about` first: two shapes have a kind called
+    `within_noise`, and they mean different things."""
+    facts = cast("Sequence[Mapping[str, Any]]", run["explain"]["facts"])
+    return [fact for fact in facts if fact["about"] == about]
 
 
-def _interval(delta: Mapping[str, Any]) -> str:
+def _tally(run: Mapping[str, Any], kind: str) -> Mapping[str, Any]:
+    """A run-level fact. `within_noise` is stated only when it is not zero,
+    so an absent one reads as a zero count."""
+    found = [f for f in _facts(run, "run") if f["kind"] == kind]
+    return found[0] if found else {"count": 0, "state": None}
+
+
+def _moved(run: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Every check that moved, worst first — `explain` already drew that line.
+
+    Its list holds the checks whose score moved, not only the ones that
+    changed outcome: a movement the floor absorbed is what makes the floor
+    readable, and a table of regressions alone would print the word "noise"
+    without ever showing any. A suspension names a case and no check, so it
+    has no row in a table of checks.
+    """
+    return [f for f in _facts(run, "check") if f["kind"] != "suspended"]
+
+
+def _interval(fact: Mapping[str, Any]) -> str:
     """The measured floor this check moved against, or why there is none.
 
-    On a **flip** — passing to failing — `compare` reports no interval at all:
-    a flip is a regression whatever the noise said, so the comparison never
-    consults the floor and never carries it. Said out loud rather than left as
-    an empty column, because the reader is entitled to know the difference
-    between "the interval was wide" and "there is no interval here".
+    On a **flip** — passing to failing — the comparison reports no interval at
+    all: a flip is a regression whatever the noise said, so the floor is never
+    consulted and never carried. Said out loud rather than left as an empty
+    column, because the reader is entitled to know the difference between "the
+    interval was wide" and "there is no interval here".
     """
-    low, high = delta["noise_min"], delta["noise_max"]
+    low, high = fact["noise_min"], fact["noise_max"]
     if low is None or high is None:
-        return "no interval (a flip is a regression whatever the noise said)"
-    return f"{low:.4f}–{high:.4f} across {delta['noise_samples']} samples"
+        if fact["kind"] == "regressed":
+            return "no interval (a flip is a regression whatever the noise said)"
+        return "no interval"
+    return f"{low:.4f}–{high:.4f} across {fact['noise_samples']} samples"
 
 
 def _fact(cycle: Mapping[str, Any]) -> list[str]:
-    """Layer 1. The wire's own numbers, named and not re-worded."""
+    """Layer 1. The wire's own facts, selected and not re-worded."""
     lines = [
         "## 1. The fact",
         "",
-        "Machine truth, from `digline compare --json full`. Reproducible, and "
-        "not prose.",
+        "Machine truth, from `digline explain --json`: the fact list digline "
+        "renders its own reading from. Reproducible, and not prose.",
         "",
-        "| run | seed | exit | worse | unjudged | within noise |",
-        "| --- | ---: | ---: | :---: | -------: | -----------: |",
+        "| run | seed | exit | unjudged | within noise |",
+        "| --- | ---: | ---: | -------: | -----------: |",
     ]
     for run in _runs(cycle):
-        head = cast("Mapping[str, Any]", run["compare"])
         lines.append(
             f"| `{run['key']}` | {run['seed']} | {run['exit_code']} | "
-            f"{'yes' if head['worse'] else 'no'} | {head['unjudged']} | "
-            f"{head['within_noise']} |"
+            f"{_tally(run, 'unjudged')['count']} | "
+            f"{_tally(run, 'within_noise')['count']} |"
         )
-    first = cast("Mapping[str, Any]", _runs(cycle)[0]["compare"])
+    first = _runs(cycle)[0]
+    changed = bool(_tally(first, "suite_config")["state"])
+    # `explain` states a setting only where it differs, so none stated is the
+    # fact "nothing did" rather than an absence of information.
+    settings = [
+        f"{OWNERS[s['kind']]} `{s['name']}` ({s['outcome']})"
+        for s in _facts(first, "setting")
+    ]
     lines += [
         "",
-        f"Suite `{cycle['suite']}`, output version {first['output_version']}. "
-        f"The configuration of the system under test "
-        f"{'**changed**' if first['target_config_changed'] else 'did not change'}"
-        f"; the judge's configuration "
-        f"{'**changed**' if first['judge_config_changed'] else 'did not change'}"
-        f"; the suite itself "
-        f"{'**changed**' if first['config_changed'] else 'did not change'}.",
+        "Exit `0`: nothing got worse. `1`: something did. `2`: the run could "
+        "not be judged. That is digline's contract, AGENTS.md §6.",
+        "",
+        f"Suite `{cycle['suite']}`, output version "
+        f"{first['explain']['output_version']}. The suite itself "
+        f"{'**changed**' if changed else 'did not change'}. Underneath it, "
+        + (
+            f"**differed**: {', '.join(settings)}."
+            if settings
+            else "nothing differed: not the system under test, not the judge, "
+            "not a file under test."
+        ),
     ]
     return lines
 
@@ -141,15 +189,7 @@ def _dossier(cycle: Mapping[str, Any]) -> list[str]:
         ]
 
     for run in runs:
-        # Every check whose score actually moved, not only the ones that
-        # changed outcome. A movement the floor absorbed is what makes the
-        # floor readable, and a table that showed only regressions would print
-        # the word "noise" without ever showing any.
-        moved = [
-            d
-            for d in _deltas(run)
-            if d["outcome"] != "unchanged" or d["before"] != d["after"]
-        ]
+        moved = _moved(run)
         lines += [
             "",
             f"**Run `{run['key']}` (seed {run['seed']}, exit {run['exit_code']})**",
@@ -163,15 +203,13 @@ def _dossier(cycle: Mapping[str, Any]) -> list[str]:
             "| case | check | outcome | before | after | measured floor |",
             "| ---- | ----- | ------- | -----: | ----: | -------------- |",
         ]
-        for delta in sorted(
-            moved, key=lambda d: (str(d["case_id"]), str(d["assertion"]))
-        ):
-            case = delta["case_id"] or "_(whole run)_"
-            before = "—" if delta["before"] is None else f"{delta['before']:.4f}"
-            after = "—" if delta["after"] is None else f"{delta['after']:.4f}"
+        for fact in moved:
+            case = f"`{fact['case_id']}`" if fact["case_id"] else "_(whole run)_"
+            before = "—" if fact["before"] is None else f"{fact['before']:.4f}"
+            after = "—" if fact["after"] is None else f"{fact['after']:.4f}"
             lines.append(
-                f"| `{case}` | `{delta['assertion']}` | {delta['outcome']} | "
-                f"{before} | {after} | {_interval(delta)} |"
+                f"| {case} | `{fact['assertion']}` | {fact['kind']} | "
+                f"{before} | {after} | {_interval(fact)} |"
             )
 
     repeated = cast("Sequence[Sequence[str]]", cycle["reproduced"])

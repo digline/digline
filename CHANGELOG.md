@@ -8,6 +8,12 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **`examples/operator/`: `cycle.json` moves from format 1 to 2**, because the
+  dossier now reads `digline explain --json`'s fact list instead of `compare
+  --json full` — a forked loop writes format 2 on its next run and alerts
+  already written are untouched, but the new `dossier.py` cannot re-render a
+  format-1 cycle (the example's own captured alerts were regenerated through
+  the new path).
 
 ## pytest-digline 0.1.1 — 2026-09-10
 
