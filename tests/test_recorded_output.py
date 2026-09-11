@@ -31,12 +31,14 @@ from digline.core import (
     run_to_json,
     without_responses,
 )
+from digline.report import headline, render_html
 from digline.run import (
     Case,
     Replay,
     ReplayError,
     Response,
     Suite,
+    Target,
     execute,
     planned_calls,
     rejudge,
@@ -47,7 +49,7 @@ CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
 
 
-def answering(text: str = "The capital is Rome.") -> object:
+def answering(text: str = "The capital is Rome.") -> Target:
     def target(case: Case) -> Response:
         return Response(
             output=text, input=f"capital of {case.id}?", cost_usd=0.01, latency_ms=12.0
@@ -299,7 +301,7 @@ def test_a_replay_scores_exactly_what_the_run_scored() -> None:
 
 def test_a_moved_bar_flips_the_verdict_without_asking_the_target() -> None:
     """And this is the feature: same answers, different rules, no spend."""
-    declared, source = recorded_run()
+    _, source = recorded_run()
     stricter = suite(
         record_responses=True,
         assertions=[Contains(needle="Paris")],
@@ -334,14 +336,13 @@ def test_a_replay_records_its_own_answers_again() -> None:
 
 
 def test_it_refuses_a_run_that_recorded_nothing() -> None:
-    declared = suite()
-    source = execute(declared, answering(), created_at=CREATED)
+    source = execute(suite(), answering(), created_at=CREATED)
     with pytest.raises(ReplayError, match="record_responses"):
         Replay(suite(record_responses=True), source)
 
 
 def test_it_refuses_a_case_that_was_not_in_the_stored_run() -> None:
-    declared, source = recorded_run()
+    _, source = recorded_run()
     grown = suite(
         record_responses=True, cases=[Case("one"), Case("two"), Case("three")]
     )
@@ -350,7 +351,7 @@ def test_it_refuses_a_case_that_was_not_in_the_stored_run() -> None:
 
 
 def test_it_refuses_a_different_sample_count() -> None:
-    declared, source = recorded_run()
+    _, source = recorded_run()
     sampled = suite(record_responses=True, samples=3, min_agreement="2/3")
     with pytest.raises(ReplayError, match="recorded 1 answer"):
         Replay(sampled, source)
@@ -384,7 +385,7 @@ def test_it_refuses_an_oversize_answer() -> None:
 
 
 def test_it_refuses_to_cross_a_perimeter() -> None:
-    declared, source = recorded_run()
+    _, source = recorded_run()
     other = suite(record_responses=True, tenant="other-customer")
     with pytest.raises(ReplayError, match="perimeter"):
         Replay(other, source)
@@ -457,7 +458,6 @@ def test_rejudge_refuses_a_run_with_no_answers_in_it(repo: Path) -> None:
 def test_the_report_says_the_answers_were_replayed(repo: Path) -> None:
     declared, source = recorded_run()
     again = rejudge(declared, source, key="src-key", created_at=LATER)
-    from digline.report import headline, render_html
 
     head = headline(
         __import__("digline").core.compare(again, source), again, source, locale="en"
