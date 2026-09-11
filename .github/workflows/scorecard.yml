@@ -42,7 +42,7 @@ jobs:
       security-events: write # the SARIF upload, at the end
       id-token: write # publish_results signs what it sends to the public API
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Scorecard authenticates through its own token. Leaving the
           # checkout's credentials behind in `.git/config` would hand them to
@@ -68,7 +68,7 @@ jobs:
       # The SARIF, kept as an artifact as well as uploaded. Code scanning shows
       # the findings; the file is what you read when you want the whole table at
       # a moment in time, including the checks that passed.
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: scorecard-sarif
           path: results.sarif
