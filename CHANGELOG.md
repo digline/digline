@@ -44,6 +44,12 @@ carry the rule in one line, and `test_agents.py` holds it word for word in both.
 Nothing in `src/` or in `digline-mcp` moved. Its `promote` is still absent, and
 no disabled one was added to test against.
 
+**`docs/rejudge.md` says how to tell whether a run recorded its answers.** Look
+at the data, because no field restates it. A case that recorded carries a
+`responses` list with an `output` per sample. A redacted document keeps one
+`{"withheld": true}` per sample, so the count survives. A run that recorded
+nothing has no `responses` key.
+
 ## 0.11.0 — 2026-09-11
 
 **The journal.** digline **0.11.0**, alone: the three provider plugins stay at

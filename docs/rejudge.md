@@ -38,6 +38,14 @@ prompt that produced it, and what that call cost in money and in milliseconds.
 The prompt is recorded because most assertions that call a model read it — a
 stored answer with no stored question cannot be judged again.
 
+To tell whether a stored run recorded, look at its cases. There is no flag
+restating what the data already shows: a case that recorded carries a
+`responses` list, one entry per sample, each with its `output`, and a run that
+recorded nothing has no `responses` key at all. A redacted document of a run
+that did record keeps one `{"withheld": true}` per sample, so the count
+survives. `{"oversize": true}` is an answer the recorder refused over the
+ceiling described below.
+
 ## Why not a cache
 
 The field's usual answer to this is a response cache: a hidden directory, keyed
