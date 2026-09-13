@@ -348,6 +348,29 @@ release you just cut. A pass that finds nothing is worth recording too: 0.8.0's
 `finish_raw` and `ToolsCalled` metadata both came back clean, and saying so
 stops the next reader re-auditing them.
 
+**When a finding earns a GHSA, the session creates the draft.** `SECURITY.md`
+draws the line between an advisory and a changelog entry; this says who does
+which half of the advisory. The session posts it to
+`repos/digline/digline/security-advisories` with the text the gate approved —
+summary, CWE, affected and patched ranges, the CVSS vector, and the body
+verbatim. **Publication stays a person's click** in the Security tab, for the
+reason the reviewer gate exists: an advisory is a public statement in the
+project's name, and the last step before it is public is somebody deciding to
+make it so.
+
+Two things the API will teach you the hard way otherwise. It **refuses
+`severity` and `cvss_vector_string` together** — send the vector, which is the
+richer fact, and let GitHub derive the class from it; then check the derived
+severity is the one the gate approved rather than assuming, because a vector
+that scores differently is a discrepancy to report and not to quietly accept.
+And a draft created this way carries no CVE: requesting one is part of the same
+click. If the token lacks `repository_advisories: write`, the fallback is the
+old one — hand the fields over for manual entry, which is a slower path to the
+same draft and no less correct.
+
+0.12.1's is the worked example: `GHSA-g25g-q7j3-jcgp`, drafted from the
+delta-pass over 0.12.0, `low` derived from a vector scoring 2.5.
+
 ## After the tag: what to watch, and what to ignore
 
 Three of these look like problems and are not, and the fourth is the one check

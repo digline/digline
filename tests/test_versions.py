@@ -128,6 +128,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
     "RELEASING.md": {
+        "0.12.0": "'the delta-pass over 0.12.0' — which release the worked "
+        "example of a drafted advisory came from, told as history. The number "
+        "dates the pass; without it the example cannot say when it happened",
         "0.1.0": "a worked example of the tag format, with invented numbers",
         "0.6.0": "'v0.6.0 was the tag that exercised it' — the release that "
         "first ran the new-package section, said as history rather than plan",
