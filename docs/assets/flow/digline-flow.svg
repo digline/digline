@@ -9,11 +9,8 @@
 <defs>
 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
 <path d="M40,0 H0 V40" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.05"/></pattern>
-<radialGradient id="vig" cx="50%" cy="45%" r="70%">
-<stop offset="0" stop-color="#1b2532"/><stop offset="1" stop-color="#161d27"/></radialGradient>
 <clipPath id="reach"><rect x="170" y="160" width="0" height="250"><animate attributeName="width" dur="24.0s" repeatCount="indefinite" calcMode="linear" values="0;0;185;185" keyTimes="0.00000;0.87500;0.91563;1.00000" /></rect></clipPath>
 </defs>
-<rect width="960" height="540" fill="url(#vig)"/>
 <rect width="960" height="540" fill="url(#grid)"/>
 <g transform="translate(0,-10)">
 
