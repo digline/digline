@@ -24,7 +24,6 @@ deliberate departures, both because a screen is not a document:
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from html import escape
 from typing import cast
 
 from digline.core import (
@@ -39,7 +38,7 @@ from digline.core import (
 from digline.core import diff as core_diff
 from digline.report import diff as diff_report
 from digline.report.history import CaseEntry, CaseHistory
-from digline.report.render import CSS, render_html
+from digline.report.render import CSS, escape, render_html
 from digline.report.text import LOCALES, MONTHS, Locale, phrase
 
 __all__ = [

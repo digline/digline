@@ -436,7 +436,9 @@ def record_output(output: Output) -> tuple[str, OutputKind]:
     )
 
 
-def record_trajectory(metadata: Mapping[str, object]) -> tuple[RecordedToolCall, ...]:
+def record_trajectory(
+    metadata: Mapping[str, object],
+) -> tuple[RecordedToolCall, ...] | None:
     """The trajectory a target reported, as the document will hold it.
 
     Reads `metadata["tool_calls"]`, which is where a target puts what the model
@@ -456,7 +458,8 @@ def record_trajectory(metadata: Mapping[str, object]) -> tuple[RecordedToolCall,
     """
     found = metadata.get("tool_calls")
     if found is None:
-        return ()
+        # The target said nothing about tools — not that the model called none.
+        return None
     if isinstance(found, str) or not isinstance(found, Sequence):
         raise ValueError(
             f"a target reported its tool calls as a {type(found).__name__}, not "
@@ -600,11 +603,16 @@ class RecordedResponse:
     cost_usd: float | None = None
     latency_ms: float | None = None
     #: What the model called on the way to this answer, in the order it called
-    #: it. `()` where the target reported none — the distinction between *nobody
-    #: reported* and *called none* lives on the live record, where `ToolsCalled`
-    #: reads it, and is carried across a replay by the metadata `Replay`
-    #: rebuilds rather than duplicated here. (ADR 0018 §1)
-    tool_calls: tuple[RecordedToolCall, ...] = ()
+    #: it.
+    #:
+    #: **`None` and `()` are different facts**, on the rule `Completion.tools`
+    #: already follows: `()` is a target saying *the model called nothing*, which
+    #: `ToolsCalled` scores; `None` is a target that said nothing about tools at
+    #: all, which it errors. ADR 0018 §1 kept only the tuple, on the ground that
+    #: the distinction lived on the live record — and the replay is exactly the
+    #: reader that needs it, so an honest zero-call run could be measured and
+    #: then not re-judged. Corrected in 0.12.1; see that ADR's dated note.
+    tool_calls: tuple[RecordedToolCall, ...] | None = None
     withheld: bool = False
     oversize: bool = False
 
@@ -616,7 +624,7 @@ class RecordedResponse:
                 "both"
             )
         if self.withheld and (
-            self.tool_calls
+            self.tool_calls is not None
             or any(
                 value is not None
                 for value in (
@@ -634,7 +642,9 @@ class RecordedResponse:
                 "nothing provides"
             )
         if self.oversize and (
-            self.output is not None or self.input is not None or self.tool_calls
+            self.output is not None
+            or self.input is not None
+            or self.tool_calls is not None
         ):
             raise ValueError(
                 "RecordedResponse declares itself oversize but carries text: "
@@ -664,6 +674,20 @@ class RecordedResponse:
         the declared suite's name.
         """
         return self.output is not None and self.kind is not None
+
+    @property
+    def replayable_trajectory(self) -> bool:
+        """Whether a trajectory assertion can be handed this answer again.
+
+        `()` qualifies and `None` does not, which is the whole of the fix: a
+        recorded *zero-call* answer is a measurement and replays as one, while
+        an answer from a target that never reported has nothing to replay and is
+        refused before `Replay` speaks. Without the refusal the rebuilt metadata
+        would have to invent `tools: []` — claiming the model called nothing
+        about a target that never said so, which is the vacuous green this
+        product refuses. (0.12.1)
+        """
+        return self.tool_calls is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1356,9 +1380,11 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
         payload["cost_usd"] = _num(response.cost_usd)
     if response.latency_ms is not None:
         payload["latency_ms"] = _num(response.latency_ms)
-    # Absent unless the target reported a trajectory, which keeps a run file
-    # from a suite whose target reports none byte for byte the file it was.
-    if response.tool_calls:
+    # Absent where the target said nothing about tools, `[]` where it said the
+    # model called none. A suite whose target reports no trajectory writes the
+    # file it wrote before this field existed; one whose agent answered without
+    # calling anything records that it did. (0.12.1)
+    if response.tool_calls is not None:
         payload["tool_calls"] = [_tool_call_to_dict(c) for c in response.tool_calls]
     return payload
 
@@ -1380,15 +1406,31 @@ def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     return payload
 
 
-def _tool_call_from_dict(raw: Mapping[str, Any]) -> RecordedToolCall:
+def _tool_call_from_dict(raw: object) -> RecordedToolCall:
     """Straight into the value, which does the checking — `_response_from_dict`'s
-    rule, for the same reason: a document is written by whoever holds it."""
-    status = raw.get("status")
+    rule, for the same reason: a document is written by whoever holds it.
+
+    The shape is checked before the fields are read. A `tool_calls` holding
+    anything but mappings — `["lookup"]`, `[5]`, a bare object — used to reach
+    `_required` and raise `AttributeError`, which is not a `ValueError` and so
+    escaped the CLI's handlers as a traceback. The writer refuses those same
+    shapes by name; the reader now does too. (0.12.1, from the release
+    delta-pass)
+    """
+    if not isinstance(raw, Mapping):
+        raise ValueError(
+            f"recorded tool call: expected a mapping with a 'tool' in it, got "
+            f"{type(raw).__name__}"
+        )
+    entry = cast("Mapping[str, Any]", raw)
+    status = entry.get("status")
     try:
         return RecordedToolCall(
-            tool=str(_required(raw, "tool", "recorded tool call")),
-            arguments=(None if raw.get("arguments") is None else str(raw["arguments"])),
-            result=None if raw.get("result") is None else str(raw["result"]),
+            tool=str(_required(entry, "tool", "recorded tool call")),
+            arguments=(
+                None if entry.get("arguments") is None else str(entry["arguments"])
+            ),
+            result=None if entry.get("result") is None else str(entry["result"]),
             status=cast(ToolStatus, "success" if status is None else str(status)),
         )
     except ValueError as exc:
@@ -1423,9 +1465,15 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             input=None if raw.get("input") is None else str(raw["input"]),
             cost_usd=None if cost is None else float(cost),
             latency_ms=None if latency is None else float(latency),
-            tool_calls=tuple(
-                _tool_call_from_dict(c)
-                for c in cast(Sequence[Mapping[str, Any]], raw.get("tool_calls") or ())
+            # Absent is `None` and `[]` is `()`: the two facts the document now
+            # keeps apart. `or ()` would have collapsed them again.
+            tool_calls=(
+                None
+                if raw.get("tool_calls") is None
+                else tuple(
+                    _tool_call_from_dict(c)
+                    for c in cast(Sequence[Mapping[str, Any]], raw["tool_calls"])
+                )
             ),
             withheld=bool(raw.get("withheld", False)),
             oversize=bool(raw.get("oversize", False)),

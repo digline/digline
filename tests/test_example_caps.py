@@ -95,6 +95,10 @@ RELEASED: dict[str, int] = {
     # and `resumed_at`, pre-vetted by ADR 0017 §11 and boarding the bump that
     # something else forced.
     "0.12.0": 11,
+    # Schema 11 still. 0.12.1 is the delta-pass patch: `tool_calls` gains a
+    # `None` that `[]` never occupied, which is additive on read — absent still
+    # means *not reported* in every document 0.12.0 wrote.
+    "0.12.1": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

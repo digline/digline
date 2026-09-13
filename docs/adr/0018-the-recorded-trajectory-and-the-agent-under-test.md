@@ -124,6 +124,28 @@ empty tuple too — the distinction *nobody reported* versus *called none* lives
 on `Completion.tools`, where `ToolsCalled` already reads it, and is not
 duplicated here. §4 is what carries it across a replay.
 
+> **Corrected 2026-09-13, in 0.12.1.** The paragraph above is wrong, and the
+> release delta-pass found it. `tool_calls` is now
+> `tuple[RecordedToolCall, ...] | None`, absent in the document where the target
+> said nothing and `[]` where it said the model called none.
+>
+> The error was in the last sentence. The distinction does live on
+> `Completion.tools` — and **the replay is exactly the reader that cannot see
+> it there**, because a `Replay` reads the document and never the live record.
+> Collapsing both facts into `()` meant `_reported_trajectory` had one shape for
+> two situations: rebuild `tools: []` and claim *the model called nothing* about
+> a target that never said so, or rebuild nothing and make a real zero-call
+> measurement unreadable. It did the second, so an honest run in which the agent
+> answered from memory scored `fail` when it was measured and was **refused**
+> when it was replayed — with a sentence saying the target reported none, which
+> was false of the one run it was describing.
+>
+> §4's fifth refusal now turns on `RecordedResponse.replayable_trajectory`
+> rather than on emptiness, so it refuses only the genuinely unreadable case and
+> does so *before* the metadata is rebuilt. No schema bump: `[]` is a shape
+> 0.12.0 never wrote, so absent still reads as *not reported* in every document
+> that already exists.
+
 ### 2. It rides `RecordedResponse`, because that is where the boundary already is
 
 Not a free-standing field on `CaseResult`, and not `Score.metadata`.

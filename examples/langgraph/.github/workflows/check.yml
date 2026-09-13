@@ -20,13 +20,19 @@ env:
   # non-optional dependency of `langchain-core`: it opens no socket with a clean
   # environment, and this pins that shut rather than relying on it.
   #
-  # Four names are live — the lookup searches the LANGSMITH and LANGCHAIN
-  # namespaces for TRACING_V2 and falls back to TRACING — and two of them are
-  # enough to settle it. They are set **here**, in the job environment, and not
-  # from inside Python: the lookup is cached on first read, so an assignment
-  # after the first langchain import is ignored.
-  LANGSMITH_TRACING: "false"
+  # Four names are live, and **all four are pinned**. The lookup takes the first
+  # non-empty of them in this order, so a subset settles it only against an
+  # environment where nothing else is set — the environment that needed no pin.
+  # Two used to be pinned here, and the two left free included the highest
+  # precedence one. (0.12.1, from the release delta-pass)
+  #
+  # They are set **here**, in the job environment, and not from inside Python:
+  # the lookup is cached on first read, so an assignment after the first
+  # langchain import is ignored.
+  LANGSMITH_TRACING_V2: "false"
   LANGCHAIN_TRACING_V2: "false"
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING: "false"
 
 jobs:
   cycle:

@@ -133,7 +133,12 @@ rely on that. `.github/workflows/check.yml` sets `LANGSMITH_TRACING=false` and
 
 They are set in the job environment and **not** from inside Python: the lookup
 is cached on first read, so assigning them after the first langchain import does
-nothing at all. Four names are live across two namespaces; two settle it.
+nothing at all. **Four names are live across two namespaces, and all four are
+pinned** — the lookup takes the first non-empty of `LANGSMITH_TRACING_V2`,
+`LANGCHAIN_TRACING_V2`, `LANGSMITH_TRACING`, `LANGCHAIN_TRACING`, so the
+highest-precedence name is the one that decides. Pinning a subset settles it
+only against an environment where nothing else is set, which is the environment
+that needed no pin.
 
 ## 5. The cycle
 

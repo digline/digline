@@ -39,6 +39,7 @@ from digline.report.render import (
     diff_lines,
     diff_tally,
     errored_verdicts,
+    escape,
     headline,
     render_html,
     render_run_html,
@@ -96,5 +97,6 @@ __all__ = [
     "suspended_cases",
     "suspension_snippet",
     "unjudged_cases",
+    "escape",
     "visible",
 ]

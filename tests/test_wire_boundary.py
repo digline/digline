@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any, cast
 
 from digline.core import (
@@ -33,9 +34,16 @@ from digline.core import (
     compare,
     config_hash,
 )
-from digline.report import facts
+from digline.core import diff as core_diff
+from digline.report import facts, headline
 from digline.store import Listing, RunRef
-from digline.wire import explain_json, run_document, runs_json
+from digline.wire import (
+    compare_json,
+    diff_json,
+    explain_json,
+    run_document,
+    runs_json,
+)
 
 CREATED = "2026-09-08T10:00:00+00:00"
 #: A real digest of the prompt below, so the test that says it must not travel
@@ -189,6 +197,68 @@ def test_the_recorded_trajectory_has_no_key_to_travel_through() -> None:
     assert "lookup_account" not in serialized
     for case in rows(document, "results"):
         assert "tool_calls" not in case
+
+
+def test_no_perimeter_field_crosses_through_a_comparison() -> None:
+    """The door 0.8.1 did not close, and the gap this suite did not cover.
+
+    0.8.1 withheld `resolved_model` on the *projection* when the run went to a
+    named endpoint. `config_deltas` read `.values` raw, so the same field walked
+    out of the **delta** instead — and the delta is what `compare --json full`
+    ships to CI and what the MCP server returns to a model. One server answered
+    two ways about one run: `get_run` withheld it, `compare` handed it over.
+
+    Driven through `compare_json` *and* `diff_json`, in both `--json` modes,
+    because that is exactly the surface the boundary suite never drove.
+    (0.12.1, from the release delta-pass)
+    """
+    run = loaded_run()
+    other = replace(run, created_at="2026-09-09T10:00:00+00:00")
+    head = headline(compare(run, other), run, other, locale="en")
+    difference = core_diff(run, other)
+
+    documents = [
+        json.dumps(compare_json(compare(run, other), head, full=True)),
+        json.dumps(compare_json(compare(run, other), head, full=False)),
+        json.dumps(
+            diff_json(
+                difference,
+                run,
+                other,
+                keys=("a", "b"),
+                labels=("a", "b"),
+                sentence="",
+                full=True,
+            )
+        ),
+    ]
+    for document in documents:
+        assert WITHHELD_HOST not in document, "the perimeter host crossed a delta"
+        for marker in MARKERS:
+            assert marker not in document, f"{marker!r} crossed a delta"
+
+
+def test_a_withheld_field_says_unknown_rather_than_same() -> None:
+    """The value goes and the *question* is answered honestly: a field nobody
+    can see did not "stay the same", it is not knowable from here — which is the
+    rule `config_deltas` already applied to a field redaction had taken, now
+    applied to one it is about to take."""
+    run = loaded_run()
+    deltas = compare(run, run).target_config_deltas
+    # `base_url` alone, because that is the perimeter field this fixture plants.
+    # Naming `fingerprint` here too would read as two fields covered and check
+    # one, which is the shape of a test that passes over nothing.
+    perimeter = [d for d in deltas if d.field == "base_url"]
+    assert len(perimeter) == 1, [d.field for d in deltas]
+    withheld = perimeter[0]
+    assert withheld.outcome == "unknown"
+    assert withheld.withheld is True
+    assert withheld.before is None and withheld.after is None
+    # And a measurement still travels, or the fix would have closed the door by
+    # bricking it up: a model id is what the reader came for.
+    named = {d.field: d for d in deltas}
+    assert named["model"].outcome == "same"
+    assert named["model"].after == "claude-opus-5"
 
 
 def test_the_reason_is_absent_not_emptied() -> None:

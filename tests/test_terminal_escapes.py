@@ -54,6 +54,38 @@ def clean(*streams: str) -> bool:
     return not any("\x1b" in s or "\x07" in s or "\r" in s for s in streams)
 
 
+def test_the_html_document_carries_no_control_character_to_a_terminal() -> None:
+    """`digline report` with no `--out` prints the document to stdout.
+
+    0.10.1 closed the escape sink at `say()` and left `emit()` out, on the
+    ground that the report's values are "already HTML-escaped where they are
+    rendered". They are — and `html.escape` covers `& < > " '`, which does
+    nothing whatever to `0x1b`. A judge's `reason` quotes what a model wrote,
+    so an erase-line sequence in an answer forged a line over the one above it
+    in a reader's terminal while the run was red.
+
+    The fix is in the escaping rather than in a tty check: C0, DEL and C1 become
+    numeric character references, so the bytes are terminal-safe and a browser
+    still resolves them to the inert characters the model actually sent. One
+    document, whether it is piped to a file or read on a screen.
+    (0.12.1, from the release delta-pass)
+    """
+    from digline.report import escape
+
+    forged = (
+        "the answer was poor.\x1b[31m\x1b[2K\rdigline: Nothing got worse."
+        "\x1b]8;;http://evil.example\x07CLICK\x1b]8;;\x07\x00"
+    )
+    shown = escape(forged)
+    assert clean(shown), shown
+    assert "\x00" not in shown
+    # Neutralised, not deleted: the document still says what the model said.
+    assert "&#x1b;" in shown and "&#x07;" in shown and "&#x00;" in shown
+    assert "digline: Nothing got worse." in shown
+    # And the ordinary HTML escaping is still doing its own job.
+    assert escape("<b>&</b>") == "&lt;b&gt;&amp;&lt;/b&gt;"
+
+
 # --------------------------------------------------------------------------- #
 # the function itself
 # --------------------------------------------------------------------------- #

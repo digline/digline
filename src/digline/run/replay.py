@@ -94,12 +94,28 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     `tool_calls` what `ToolCalledWith` reads; writing one without the other
     would answer one assertion and error the other over the same recording.
 
-    A response that recorded no trajectory writes neither, so the assertion
-    takes the branch that says so. That is the honest outcome, and it is why
-    `_check` refuses before the driver starts rather than leaving it to surface
-    one errored row at a time.
+    **`()` is not `None`, and collapsing them was a defect.** A recorded
+    response carrying no calls is a target that reported *the model called
+    nothing* — a real measurement, which `ToolsCalled` scores rather than
+    errors. Returning `{}` for it made the replay say *nobody reported*, so an
+    honest run in which the agent answered from memory could not be re-judged at
+    all: it scored `fail` when it was measured and was refused when it was
+    replayed. The distinction is the whole reason `Completion.tools` separates
+    the two, and the replay now preserves it — empty keys for an empty
+    trajectory, no keys only where the response is one `_check` has already
+    refused. (0.12.1, from the release delta-pass)
     """
-    if not answer.tool_calls:
+    # `None` reaches here only where the suite declares **no** trajectory
+    # assertion — `_check` refuses it otherwise, before a judge is paid. Nothing
+    # reads these keys on that path, so the honest answer is to write neither
+    # rather than to invent `tools: []` and claim the model called nothing about
+    # a target that never said so.
+    #
+    # An `assert` stood here for an hour and was wrong: it read the refusal as a
+    # universal invariant when the refusal is conditional on the suite, so every
+    # replay of a plain-function target died with `AssertionError`. The guard
+    # belongs where the fact is known, which is `_check`.
+    if answer.tool_calls is None:
         return {}
     return {
         "tools": [call.tool for call in answer.tool_calls],
@@ -189,12 +205,15 @@ def _check(suite: Suite, source: Run) -> None:
                 "measurement wearing the suite's name: set `samples` to what "
                 "was recorded, or produce a new run"
             )
-        if trajectory_checks and not any(r.tool_calls for r in stored.responses):
+        if trajectory_checks and not all(
+            r.replayable_trajectory for r in stored.responses
+        ):
             raise ReplayError(
-                f"case {case.id!r} recorded no tool calls, and this suite holds "
-                f"{trajectory_checks[0].name!r}, which judges the trajectory. "
-                "The run was produced before trajectories were recorded, or by "
-                "a target that reports none — so re-judging it would error that "
+                f"case {case.id!r} has a recorded answer from a target that "
+                f"reported no trajectory, and this suite holds "
+                f"{trajectory_checks[0].name!r}, which judges one. The run was "
+                "produced before trajectories were recorded, or by a target "
+                "that does not report them — so re-judging it would error that "
                 "check rather than measure it, which is a declared gate "
                 "becoming a row nobody gated on. Produce a new run with a "
                 "target that reports its trajectory"

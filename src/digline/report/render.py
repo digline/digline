@@ -11,7 +11,7 @@ from __future__ import annotations
 import difflib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from html import escape
+from html import escape as _html_escape
 from typing import Literal
 
 from digline.core import (
@@ -261,6 +261,40 @@ def config_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
 _CONTROL = {
     code: f"\\x{code:02x}" for code in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))
 }
+
+
+#: C0, DEL and C1 as numeric character references. Built once, like `_CONTROL`.
+_REFERENCES = {
+    code: f"&#x{code:02x};" for code in (*range(0x20), 0x7F, *range(0x80, 0xA0))
+}
+
+
+def escape(text: str) -> str:
+    """HTML-escape, and neutralise the control characters HTML does not.
+
+    `html.escape` covers `& < > " '` — the characters that change how a *browser*
+    reads a document. It does nothing to `0x1b`, and the report is not only read
+    by a browser: `digline report` with no `--out` prints it to stdout, where a
+    judge's `reason` quoting a model's answer can carry an erase-line sequence
+    and forge a line over the one above it. 0.10.1 closed that at `say()` and
+    `emit()` was left out on the ground that the values were "already
+    HTML-escaped where they are rendered" — true, and not the property that was
+    needed.
+
+    C0, DEL and C1 become **numeric character references**, which is the one
+    answer that serves both readers at once: the bytes on the wire are
+    `&#x1b;`, so nothing rewrites a terminal, and a browser resolves them back
+    to the inert characters they were, so the document still says what the model
+    said. No branch on whether stdout is a tty — a document that changes shape
+    depending on where it is piped is a document two readers cannot compare.
+
+    BiDi overrides are deliberately **not** touched here. They are not control
+    characters, they are legitimate text in languages this report is written
+    for, and neutralising them in a document rendered in Arabic or Hebrew would
+    corrupt the page. The terminal exposure they carry is `visible()`'s
+    question, not this one. (0.12.1, from the release delta-pass)
+    """
+    return _html_escape(text).translate(_REFERENCES)
 
 
 def visible(text: str) -> str:

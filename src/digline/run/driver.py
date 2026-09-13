@@ -272,7 +272,7 @@ def recorded(response: Response) -> RecordedResponse:
     if (
         len(text) > MAX_RECORDED_CHARS
         or (response.input is not None and len(response.input) > MAX_RECORDED_CHARS)
-        or trajectory_chars(calls) > MAX_RECORDED_CHARS
+        or trajectory_chars(calls or ()) > MAX_RECORDED_CHARS
     ):
         return RecordedResponse(
             oversize=True,

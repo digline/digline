@@ -481,10 +481,17 @@ def test_the_langgraph_example_states_the_versions_it_was_tested_against(
     )
 
 
-#: The two the lookup actually reads, out of the four live names: it searches
-#: the LANGSMITH and LANGCHAIN namespaces for TRACING_V2 and falls back to
-#: TRACING, and either of these settles it.
-TRACING_PINS = ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2")
+#: **All four**, in the order the lookup reads them: first non-empty wins, so
+#: the highest-precedence name decides and a pinned subset decides nothing.
+#: 0.12.0 pinned two of these and left `LANGSMITH_TRACING_V2` — the first one
+#: consulted — free to turn tracing back on. (0.12.1, from the release
+#: delta-pass)
+TRACING_PINS = (
+    "LANGSMITH_TRACING_V2",
+    "LANGCHAIN_TRACING_V2",
+    "LANGSMITH_TRACING",
+    "LANGCHAIN_TRACING",
+)
 
 
 @pytest.mark.parametrize("name", TRACING_PINS)

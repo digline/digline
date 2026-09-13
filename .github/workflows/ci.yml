@@ -252,9 +252,14 @@ jobs:
         # for the nine examples that never import langchain, and set for all ten
         # rather than conditionally: an `if` on the matrix value would be a
         # second place to forget the next framework example.
+        # All four, and the reason is the 0.12.1 delta-pass: the lookup takes
+        # the first non-empty of these in this order, so pinning a subset leaves
+        # the highest-precedence name free to turn it back on.
         env:
-          LANGSMITH_TRACING: "false"
+          LANGSMITH_TRACING_V2: "false"
           LANGCHAIN_TRACING_V2: "false"
+          LANGSMITH_TRACING: "false"
+          LANGCHAIN_TRACING: "false"
         # Against the baseline committed in the example, never a fresh one:
         # promoting first would compare a run with itself and pass whatever
         # happened. `prompt-first` and `rag` are shipped red on purpose — their

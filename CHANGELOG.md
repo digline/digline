@@ -10,6 +10,105 @@ notes under them are this file, verbatim.
 
 _Nothing yet._
 
+## 0.12.1 — 2026-09-13
+
+digline **0.12.1**, alone: the three provider plugins stay at 0.4.0,
+`digline-mcp` at 0.1.2 and `pytest-digline` at 0.1.3 — every fix here is in the
+core, and each of those readers inherits it. `SCHEMA_VERSION` stays **11** and
+`OUTPUT_VERSION` stays 1: no stored document moves, **no baseline needs
+re-promoting**.
+
+Two security fixes and three correctness ones, all five **found by the release
+delta-pass over 0.12.0's own new surface** — the standing rule in
+`RELEASING.md`, run before the announcement round rather than after it. The
+surface the pass was convened for came back clean: a tool call's name, its
+arguments and its result are printed at no sink at all, and no `Disclosure`
+reaches them. What it found instead was older than the release it was auditing.
+
+```sh
+uv add --upgrade digline
+```
+
+- **Security:** a **perimeter field no longer crosses a boundary inside a
+  comparison**. `base_url`, `fingerprint`, and `resolved_model` at a named
+  endpoint are withheld from a redacted document — 0.8.1 established that, for
+  the reason ADR 0005 §2 gives: a custom endpoint describes the *client's own
+  topology*, and `acme-legal-assistant.internal.bank.example` is a customer
+  name. `config_deltas()` read `SystemConfig.values` raw, so the same field
+  walked out of the **delta** instead of the projection.
+
+  The reach is what makes it worth a fix rather than a note. `compare --json`
+  ships these deltas to a CI log, and **`digline-mcp` returns the same object to
+  a model** — so one server answered two ways about one run: `get_run` reported
+  `withheld: ["base_url"]` while `compare` handed over the value. It travelled in
+  both `--json` modes, not only `full`. `config_json`'s own docstring asserted
+  the opposite ("a withheld field carries no value to print in the first
+  place"), true only when both runs had already been redacted, which is the
+  `report --redacted` path and not this one.
+
+  Both sides now go through `redacted()` **inside `config_deltas`**, so `diff()`
+  inherits it and the door closes once. It needed no new rule: reducing first
+  turns a perimeter field into a withheld one, and the existing rule 3 already
+  answers `unknown` for those — the value goes, the question is answered
+  honestly, and a model id still travels in clear because it is a measurement.
+  A marker is now driven through `compare_json` and `diff_json`, in both modes,
+  which is the surface the boundary suite had never driven.
+
+  Affected: **digline >= 0.6.0, < 0.12.1**, where a comparison or a diff is read
+  over MCP — or from `--json` — and `target_config` carries a perimeter field,
+  which means a target with an explicit `base_url`. Filed as a GitHub Security
+  Advisory, **Low**: it shipped, so the rule in `SECURITY.md` says advisory
+  rather than changelog line, and the exposure is a hostname to a reader who
+  already has the run.
+
+- **Security:** `digline report` **with no `--out` no longer puts a control
+  character on your terminal**. It prints the document to stdout, `emit()`
+  deliberately bypasses the sanitiser, and its reason said why: the values are
+  "already HTML-escaped where they are rendered". They are — and `html.escape`
+  covers `& < > " '`, which does nothing at all to `0x1b`. A judge's `reason`
+  quotes what a model wrote, so an answer carrying `\x1b[2K\r` forged a line
+  over the one above it: in the probe that found this, *"digline: Nothing got
+  worse."* appeared under a run that was red.
+
+  0.10.1 closed this class at `say()` and missed `emit()`. The fix is in the
+  escaping and not in a check for a tty: C0, DEL and C1 become **numeric
+  character references**, so the bytes are safe at a terminal and a browser
+  still resolves them to the inert characters the model actually sent. One
+  document, whether it is piped to a file or read on a screen. No advisory, by
+  `SECURITY.md`'s line — the class predates this release and the fix is
+  reported here, where it happened.
+
+- **Zero telemetry, pinned properly.** `examples/langgraph` pinned two of the
+  four names LangSmith consults and said so in three places. It reads the first
+  non-empty of `LANGSMITH_TRACING_V2`, `LANGCHAIN_TRACING_V2`,
+  `LANGSMITH_TRACING`, `LANGCHAIN_TRACING` — and the one left unpinned was the
+  *first* of them, so a single variable defeated both pins. All four are now set
+  in both workflows, the claim is corrected wherever it shipped, and the test
+  asserts four names in two files rather than two names in one.
+
+  The sharper half: this suite runs every example's whole cycle on each push
+  through a subprocess that **inherited the ambient environment**, and two
+  examples import `langsmith` transitively. Anyone who uses LangSmith has a
+  tracing variable and a key exported, so digline's own tests could ship runs to
+  a third party from a developer's machine — pins in two CI jobs, and neither
+  was the job that runs on every push. The fixture now scrubs those names.
+  Present since `examples/langchain`, not new here.
+
+- **Fixed: an honest zero-call run can be re-judged.** A target that reports *the
+  model called nothing* has measured something, and `ToolsCalled` scores it. The
+  record collapsed that into *nobody reported*, so such a run scored `fail` when
+  it was measured and was **refused** when it was replayed — with a sentence
+  saying the target reported none, which was false of the run it described.
+  `RecordedResponse.tool_calls` is now `tuple | None`: absent where nothing was
+  reported, `[]` where zero calls were. Additive on read — `[]` is a shape
+  0.12.0 never wrote — so no schema bump and no migration. ADR 0018 §1 carries a
+  dated correction rather than a silent edit.
+
+- **Fixed: a corrupt trajectory is refused by name.** A `tool_calls` holding
+  anything but mappings raised `AttributeError`, which is not a `ValueError` and
+  escaped the CLI's handlers as a traceback. The writer had always refused those
+  shapes in a sentence; the reader does now too.
+
 ## 0.12.0 — 2026-09-13
 
 **The agent under test.** digline **0.12.0** with **digline-mcp 0.1.2**: the

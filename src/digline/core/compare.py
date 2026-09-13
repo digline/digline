@@ -597,7 +597,25 @@ def config_deltas(now: SystemConfig, before: SystemConfig) -> tuple[ConfigDelta,
     3. **A field withheld on either side** is `unknown` too: redaction took the
        value, so whether it moved is not knowable from here — `same` would be a
        guess wearing the clothes of a finding (ADR 0003 §5).
+
+    **Both sides are reduced through `redacted()` first, and that is a boundary
+    rather than a courtesy.** A `Comparison` is not an inside-the-perimeter
+    value: `compare_json(full=True)` ships these deltas to a CI job, and the MCP
+    server returns the same object to a model. Reading `.values` raw meant the
+    perimeter fields — `base_url`, `fingerprint`, and `resolved_model` at a
+    named endpoint — travelled in clear through the delta while the very same
+    server's `get_run` correctly withheld them, so one field got two answers out
+    of one run. `config_json`'s docstring asserted the opposite ("a withheld
+    field carries no value to print in the first place"), which was true only
+    when both runs had already been redacted.
+
+    Doing it here rather than at the four call sites is what makes it hold:
+    `diff()` builds its deltas through this same function, so the door closes
+    once. And it needs no new rule — reducing first turns a perimeter field into
+    a withheld one, and rule 3 above already answers `unknown` for those.
+    (ADR 0005 §2; the 0.12.1 delta-pass)
     """
+    now, before = now.redacted(), before.redacted()
     if not now.recorded and not before.recorded:
         return ()
 

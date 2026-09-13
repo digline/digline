@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from tests._helpers import cli, run_key
@@ -30,6 +31,7 @@ from digline.core import (
     record_output,
     redact,
     restore_output,
+    run_from_json,
     run_to_json,
     without_responses,
 )
@@ -478,16 +480,43 @@ def test_it_refuses_a_suite_that_judges_a_trajectory_the_run_did_not_record() ->
     so a replay that produced one quietly would be the same gate-that-is-not-a-
     gate wearing a different hat. (ADR 0018 §4)"""
     source = execute(suite(record_responses=True), answering(), created_at=CREATED)
-    with pytest.raises(ReplayError, match="recorded no tool calls"):
+    with pytest.raises(ReplayError, match="reported no trajectory"):
         Replay(trajectory_suite(), source)
 
 
 def test_a_target_that_reports_no_trajectory_records_none() -> None:
     """Absent rather than empty, so a suite whose target says nothing about
-    tools writes the bytes it wrote before this field existed."""
+    tools writes the bytes it wrote before this field existed.
+
+    `None` and not `()`: a plain-function target said nothing about tools, which
+    is a different fact from an agent reporting that it called none — and the
+    replay is the reader that needs them apart. (0.12.1)
+    """
     source = execute(suite(record_responses=True), answering(), created_at=CREATED)
-    assert all(r.tool_calls == () for c in source.results for r in c.responses)
+    assert all(r.tool_calls is None for c in source.results for r in c.responses)
     assert "tool_calls" not in run_to_json(source)
+
+
+def test_a_target_that_reports_zero_calls_records_an_empty_trajectory() -> None:
+    """The other half, and the defect 0.12.1 closed: an agent that answered
+    without calling anything **measured** something, so it records `[]` and
+    re-judges to the verdict it was measured with — where 0.12.0 collapsed it
+    into *nobody reported* and refused the replay outright."""
+
+    def reported_none(case: Case) -> Response:
+        return Response(
+            output="The capital is Rome.",
+            input="capital?",
+            metadata={"tools": [], "tool_calls": []},
+        )
+
+    declared = suite(record_responses=True, assertions=[ToolsCalled(expected=["x"])])
+    source = execute(declared, reported_none, created_at=CREATED)
+    assert all(r.tool_calls == () for c in source.results for r in c.responses)
+    assert [v.status for c in source.results for v in c.verdicts] == ["fail", "fail"]
+
+    again = rejudge(declared, source, key="src-key", created_at=LATER)
+    assert [v.status for c in again.results for v in c.verdicts] == ["fail", "fail"]
 
 
 def test_promotion_strips_the_trajectory_with_the_answers() -> None:
@@ -504,8 +533,47 @@ def test_redaction_keeps_the_count_and_drops_every_argument() -> None:
     source = execute(trajectory_suite(), dispatching(), created_at=CREATED)
     hidden = redact(source)
     kept = [r for c in hidden.results for r in c.responses]
-    assert kept and all(r.withheld and r.tool_calls == () for r in kept)
+    assert kept and all(r.withheld and r.tool_calls is None for r in kept)
     assert "4711" not in run_to_json(hidden)
+
+
+@pytest.mark.parametrize(
+    "calls", [["lookup"], [5], {"tool": "lookup"}, "lookup"], ids=str
+)
+def test_a_corrupt_trajectory_is_refused_by_name(calls: object) -> None:
+    """A named refusal, not a traceback.
+
+    `tool_calls` holding anything but mappings reached `_required` and raised
+    `AttributeError`, which is not a `ValueError` and so escaped the CLI's
+    handlers — a user met a stack trace where every sibling field answers in a
+    sentence. The *writer* refused these same shapes by name all along; the
+    reader does now too. (0.12.1, from the release delta-pass)
+    """
+    document: dict[str, Any] = {
+        "schema_version": 11,
+        "tenant": "acme",
+        "environment": "staging",
+        "redacted": False,
+        "suite": "qa",
+        "config_hash": "h",
+        "created_at": CREATED,
+        "git_commit": None,
+        "metadata": {},
+        "aggregate": [],
+        "artifacts": {},
+        "target_config": {},
+        "judge_config": {},
+        "results": [
+            {
+                "case_id": "one",
+                "suspended": False,
+                "verdicts": [],
+                "responses": [{"output": "x", "kind": "text", "tool_calls": calls}],
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="expected a mapping with a 'tool' in it"):
+        run_from_json(json.dumps(document))
 
 
 def test_it_refuses_to_cross_a_perimeter() -> None:

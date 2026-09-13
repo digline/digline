@@ -20,6 +20,34 @@ from tests._helpers import git, write_suite
 from tests._providers import REGISTERED
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_tracing(  # pyright: ignore[reportUnusedFunction]
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fixed decision 5, held on the developer's machine and not only in CI.
+
+    Two examples import `langsmith` transitively, and this suite runs their
+    whole cycle on every push through a subprocess that inherits the ambient
+    environment. Anyone who uses LangSmith has a tracing variable and a key
+    exported, so our own tests could ship runs to a third party from their
+    machine — the pins live in two CI job environments, and neither is the leg
+    that runs on every push.
+
+    Here rather than in `test_examples.py` for this file's own reason: a fixture
+    belongs where pytest collects it without an import, and what it guards is
+    any test that shells out, not one module's. **Autouse**, because the tests
+    that need it are the ones that would never think to ask.
+
+    Scrubbed rather than set to `"false"`: the honest state for a test is that
+    the variable is absent, and a test asserting behaviour under `"false"` would
+    not notice a fifth name joining the lookup. (0.12.1, from the release
+    delta-pass)
+    """
+    for namespace in ("LANGSMITH", "LANGCHAIN"):
+        for flag in ("TRACING_V2", "TRACING", "API_KEY", "ENDPOINT"):
+            monkeypatch.delenv(f"{namespace}_{flag}", raising=False)
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     """A git repository with the standard suite committed in it."""
