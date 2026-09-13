@@ -5,6 +5,10 @@
   <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in an agentic flow" width="960">
 </picture>
 
+---
+
+<br>
+
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
