@@ -16,11 +16,13 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from statistics import fmean
+from typing import cast
 
 from digline.core.assertions import AssertionBase
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.types import (
+    STORAGE_STEP,
     EvaluatorInputs,
     OutputKind,
     Score,
@@ -28,9 +30,18 @@ from digline.core.types import (
     Verdict,
     at_precision,
     meets,
+    within,
 )
 
-__all__ = ["COST_KEY", "TOTAL_COST_KEY", "Repeated", "combine_samples"]
+__all__ = [
+    "COST_KEY",
+    "TOTAL_COST_KEY",
+    "Repeated",
+    "budget_exceedances",
+    "combine_samples",
+    "directions",
+    "on_the_line",
+]
 
 #: The one metadata key whose *total* across samples is reported.
 #:
@@ -207,9 +218,11 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     scores = [v.score.score for v in verdicts if v.score.score is not None]
     agreement = _agreement([v.status for v in verdicts])
 
-    def failed(reason: str) -> Verdict:
+    def failed(reason: str, metadata: Mapping[str, object] | None = None) -> Verdict:
         return Verdict(
-            score=Score(name=first.score.name, score=None),
+            score=Score(
+                name=first.score.name, score=None, metadata=dict(metadata or {})
+            ),
             threshold=first.threshold,
             tolerance=first.tolerance,
             status="error",
@@ -240,7 +253,19 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         return failed(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "
-            f"(scores: {_rendered(verdicts)}){against}"
+            f"(scores: {_rendered(verdicts)}){against}",
+            # The counts the fold has just computed, carried onto the verdict
+            # that refuses. Without them the one check a reader most needs
+            # explained — the one that errored *because* the samples disagreed —
+            # is the only one carrying nothing to explain it with, and `spread`
+            # cannot tell two directions from three. All numbers, so all of it
+            # crosses a boundary by `travels()`. (ADR 0018 §8)
+            metadata={
+                "samples": len(verdicts),
+                "agreement": agreement,
+                "errored_samples": errored,
+                "scores": list(scores),
+            },
         )
 
     # Rounded *before* the status is decided, because `Verdict` rounds the
@@ -282,6 +307,124 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         reason=f"mean of {len(verdicts)} samples ({_rendered(verdicts)})",
         assertion_id=first.assertion_id,
     )
+
+
+def _sample_scores(verdict: Verdict) -> tuple[float, ...]:
+    """The per-sample scores, wherever this verdict kept them.
+
+    A folded verdict that produced a score carries them on the `Score`, where
+    `compare()` reads them as a noise floor. One that **errored** has no score
+    and therefore no interval, so its samples live in `metadata["scores"]` —
+    the same numbers, in the one place a scoreless verdict can hold them.
+    """
+    if verdict.score.samples:
+        return verdict.score.samples
+    raw = verdict.score.metadata.get("scores")
+    if not isinstance(raw, list):
+        return ()
+    return tuple(
+        float(value)
+        for value in cast("list[object]", raw)
+        if isinstance(value, int | float) and not isinstance(value, bool)
+    )
+
+
+def _count(verdict: Verdict, key: str) -> int:
+    value = verdict.score.metadata.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def on_the_line(verdict: Verdict) -> bool:
+    """Whether the interval this check measured contains its own threshold.
+
+    A check that is *on the line* passed or failed by which samples happened to
+    be drawn: the band it measured covers the bar, so the same check asked
+    again could say the other thing. Reported as a fact of its own, **distinct
+    from passing and failing**, because a reader shown it as a clean pass has
+    been told something the measurement does not support.
+
+    It is not a third status and it moves no exit code — the exit codes are the
+    contract, and this is not a regression. What it is is the instrument
+    admitting that a verdict rests on the draw. (ADR 0018 §8)
+
+    An unsampled check is never on the line: with one sample there is no
+    interval, and silence is what *not known* sounds like.
+    """
+    score = verdict.score
+    if score.sample_min is None or score.sample_max is None:
+        return False
+    return within(score.sample_min, verdict.threshold) and meets(
+        score.sample_max, verdict.threshold
+    )
+
+
+def directions(verdict: Verdict) -> tuple[int, int, int]:
+    """`(passed, failed, errored)` across this check's samples.
+
+    ADR 0006 §13's vocabulary, counted. **Two directions is disagreement;
+    three is a judge that is not measuring one thing**, and `spread` — max
+    minus min — reports both as the same figure, which is why this exists
+    beside it rather than instead of it.
+
+    Its reason for being is the check that errors under the agreement floor:
+    *two passed, two failed and one could not be judged* is the sentence that
+    explains the refusal, and the refusal is the one verdict a reader cannot
+    read off a score. (ADR 0018 §8)
+    """
+    scores = _sample_scores(verdict)
+    passed = sum(1 for score in scores if meets(score, verdict.threshold))
+    return passed, len(scores) - passed, _count(verdict, "errored_samples")
+
+
+#: The two caps a budget declares, and the metadata key each records it under.
+_CAPS: Mapping[str, str] = {"max_usd": "cost_usd", "max_ms": "latency_ms"}
+
+
+def budget_exceedances(verdict: Verdict) -> tuple[int, int, float, bool] | None:
+    """`(over, judged, worst, pinned)` for a sampled budget, or `None`.
+
+    A ceiling declared **per call** and checked only on the fold is not the
+    ceiling the suite declared: the mean of five calls can sit under a cap that
+    three of them went over. This recovers the per-call answer from what the
+    document already carries, and needs no new measurement.
+
+    Two facts make that possible, and both are load-bearing.
+    `budget_score_at_precision` forces a sample's stored score onto the side of
+    the threshold that `within(measured, cap)` puts it on, so
+    `meets(sample, threshold)` **is** the within-cap test — the count is exact.
+    And the cap is a constant, so the fold's averaging leaves it untouched,
+    which is what lets the worst call be recovered by inverting the score:
+    `cap * (1 - s) / s`, at the smallest sample.
+
+    `pinned` is the one honest limit. That same clamp pins a sample within a
+    storage step of the cap onto the threshold, so its inverted figure would
+    read as *exactly at the cap* — a number the clamp chose rather than the
+    call. A caller that prints a figure must say *at the cap* instead.
+
+    `None` where the question does not arise: an unsampled check, a verdict
+    that is not a budget, or a cap that is not a positive number.
+    """
+    scores = _sample_scores(verdict)
+    if len(scores) < 2:
+        return None
+    cap = next(
+        (
+            float(found)
+            for key in _CAPS
+            if isinstance(found := verdict.score.metadata.get(key), int | float)
+            and not isinstance(found, bool)
+            and found > 0
+        ),
+        None,
+    )
+    if cap is None:
+        return None
+    over = sum(1 for score in scores if not meets(score, verdict.threshold))
+    if not over:
+        return None
+    worst = min(scores)
+    pinned = worst == at_precision(verdict.threshold - STORAGE_STEP)
+    return over, len(scores), at_precision(cap * (1.0 - worst) / worst), pinned
 
 
 @dataclass(frozen=True, slots=True)

@@ -202,6 +202,7 @@ jobs:
             external-app,
             langchain4j,
             langchain,
+            langgraph,
             llamaindex,
             quickstart-toml,
             operator,
@@ -244,6 +245,16 @@ jobs:
 
       - name: The cycle a reader would run
         working-directory: examples/${{ matrix.example }}
+        # Fixed decision 5, and the one place it could have been lost. Each
+        # example's own `check.yml` is inert inside this monorepo — the workflow
+        # that runs is this one — so the two pins `examples/langgraph` declares
+        # there would not be applied by the leg that actually runs it. Harmless
+        # for the nine examples that never import langchain, and set for all ten
+        # rather than conditionally: an `if` on the matrix value would be a
+        # second place to forget the next framework example.
+        env:
+          LANGSMITH_TRACING: "false"
+          LANGCHAIN_TRACING_V2: "false"
         # Against the baseline committed in the example, never a fresh one:
         # promoting first would compare a run with itself and pass whatever
         # happened. `prompt-first` and `rag` are shipped red on purpose — their

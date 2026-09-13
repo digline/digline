@@ -221,6 +221,11 @@ COMPARE_KEYS = {
     # unaffected, and one that wants to tell "nothing moved" from "what moved
     # was noise" has the count without parsing a sentence.
     "within_noise",
+    # Joined with ADR 0018 §8, same rule a fifth time. It answers a question
+    # none of the others can — not "did anything move" but "how firmly did the
+    # ones that did not move stay put" — and it changes no exit code, so a
+    # consumer that ignores it reads exactly the numbers it read before.
+    "on_the_line",
     # Joined with ADR 0011 §4, same rule. It is the number AGENTS.md §6 calls
     # the contract, and it is here because the MCP server returns this same
     # object and has no process to exit — a caller left to derive it from

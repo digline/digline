@@ -63,6 +63,13 @@ __all__ = [
 #:    a run — and only of a suite that declares a canary, which no suite did
 #:    before this release, so no existing consumer sees a number it did not see
 #:    before.
+#:
+#:    `on_the_line` on the headline (ADR 0018 §8): the same rule a fifth time,
+#:    and the quietest instance of it. It counts the checks whose measured band
+#:    covers their own threshold — a fact about how firmly this run answered,
+#:    not about how it compares — and unlike `canary_moved` it **cannot** move
+#:    an exit code, by that section's own ruling. A consumer that ignores it
+#:    parses the same numbers it parsed before.
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0

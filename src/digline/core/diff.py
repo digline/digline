@@ -209,6 +209,22 @@ class Difference:
         return sum(1 for c in self.checks if c.differs and c.measured_on_both)
 
     @property
+    def overlapping(self) -> int:
+        """Differing checks whose two intervals overlap, so neither run wins.
+
+        The population is `interval_pairs`, the same one `left_exceeds` answers
+        from the other side: where both runs measured an interval and the two
+        cover common ground, the difference is smaller than the wobble either
+        run showed and **no claim about it can be made**.
+
+        Counted here rather than assembled by a reader from the per-check rows,
+        because *how much of this comparison is undecidable* is a conclusion
+        about the comparison, and a conclusion that appears only in a detail is
+        one nobody arrives at. (ADR 0018 §8)
+        """
+        return sum(1 for c in self.checks if c.differs and c.intervals_overlap)
+
+    @property
     def left_exceeds(self) -> int:
         """Differences favouring the left run whose two intervals are disjoint.
 

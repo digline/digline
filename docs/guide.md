@@ -330,7 +330,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
 
 $ digline promote --suite support.py --run latest
 support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
@@ -949,7 +949,7 @@ $ digline run --suite support.py
 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 ```
 
 The suspension is in the headline, with its reason, and it travels into the
@@ -1160,7 +1160,7 @@ $ digline run --suite support.py
 2026-08-26T16-24-36-803385-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 1 check moved within noise. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 1 check moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 ```
 
 Two things are missing from that page, and only one of them is missing on
@@ -1409,7 +1409,7 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-184744-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 2 checks moved within noise. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
+Nothing got worse compared with the reference. 2 checks moved within noise. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
 
   app.py · +2 −2 lines
 ```

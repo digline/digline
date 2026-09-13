@@ -53,6 +53,7 @@ from digline.core import (
     Recall,
     Regex,
     Repeated,
+    ToolCalledWith,
     ToolsCalled,
 )
 from digline.core import (
@@ -98,6 +99,7 @@ ASSERTIONS: Mapping[str, type] = {
     "length": Length,
     "levenshtein": Levenshtein,
     "regex": Regex,
+    "tool_called_with": ToolCalledWith,
     "tools_called": ToolsCalled,
     "llm_rubric": LlmRubricAssertion,
     "faithfulness": Faithfulness,

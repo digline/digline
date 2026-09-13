@@ -40,7 +40,9 @@ from digline.host import (
     git_commit,
     load_suite,
     load_target,
+    measure,
     need_baseline,
+    prepare,
     read_artifacts,
     read_run,
     resolve_key,
@@ -48,7 +50,7 @@ from digline.host import (
 )
 from digline.report import diff as diff_report
 from digline.report import headline
-from digline.run import CallPlan, Suite, execute, planned_calls
+from digline.run import CallPlan, Suite
 from digline.store import FileResultStore
 from digline.wire import compare_json, diff_json, run_document, run_json, runs_json
 from digline_mcp.descriptions import DESCRIPTIONS
@@ -270,8 +272,6 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # the target needs the module, and they come from the same load.
         open_ = opened(suite)
         loaded_suite = open_.loaded.suite
-        plan = planned_calls(loaded_suite)
-        _acknowledge(plan, acknowledge_calls)
 
         # The clock and git are read here, once, and passed down as values, so
         # the run is a function of them rather than of when it happened to look.
@@ -282,16 +282,43 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # taking it from a string that may still carry a `:attribute` was how
         # it could differ from the file that was actually loaded.
         target = load_target(None, open_.loaded, open_.spec)
-        written = execute(
+        artifacts = read_artifacts(
+            loaded_suite, target, open_.path.parent, root=perimeter
+        )
+
+        # The composition the CLI already sits on, and that is the whole point
+        # of it being here: journalling is wired once in `digline.host` rather
+        # than once per front end, so a killed MCP-launched run now leaves a
+        # journal the CLI can finish. Wired here rather than with the release
+        # that built it because a floor cannot name a version that does not
+        # exist yet. (ADR 0017 §11)
+        #
+        # **`resume=None`, and no verb can make it anything else.** This surface
+        # gains no `resume` tool: it would be a second way to spend money
+        # without the acknowledged count, which is the one thing ADR 0011 §2
+        # refuses. One consequence is worth stating rather than discovering —
+        # every refusal `prepare` carries lives on the resume branch, so it
+        # cannot raise `JournalRefusedError` here, and `errors.TRANSLATED` needs
+        # nothing added for it.
+        prepared = prepare(
             loaded_suite,
             target,
-            created_at=created_at,
+            now=created_at,
             git_commit=commit,
-            artifacts=read_artifacts(
-                loaded_suite, target, open_.path.parent, root=perimeter
-            ),
+            artifacts=artifacts,
         )
-        return run_json(store.write_run(written), plan)
+        # Still before anything is opened or called, and still the same number:
+        # `prepare` plans the calls it is about to make, so the count a caller
+        # has to type back is read off the plan rather than computed twice.
+        _acknowledge(prepared.plan, acknowledge_calls)
+        measured = measure(
+            loaded_suite,
+            target,
+            store=store,
+            prepared=prepared,
+            artifacts=artifacts,
+        )
+        return run_json(measured.ref, measured.plan)
 
     # Registered here rather than through `@server.tool(...)` on each
     # definition. The decorator form leaves every tool a function that is

@@ -36,6 +36,7 @@ __all__ = [
     "TEXT_ONLY",
     "TEXT_OR_CONVERSATION",
     "TEXT_OR_STRUCTURED",
+    "ToolStatus",
     "Verdict",
     "at_precision",
     "canonical",
@@ -128,6 +129,16 @@ type Cause = Literal["", "target", "mapper", "assertion"]
 #: decision 3's vacuously green assertion arriving through a different door.
 #: The provider's own word survives beside it, uninterpreted.
 type Finish = Literal["stop", "length", "tool_use", "filtered", "other"]
+
+#: Whether a tool call did what it was asked, in one vocabulary across every
+#: agent framework — the same argument `Finish` is declared here for: there is
+#: one assertion engine, and a check that had to spell one framework's word on
+#: one target and another's elsewhere would not be one check.
+#:
+#: Two values and deliberately not three: *the tool was never called* is the
+#: absence of an entry, not a status on one, and giving it a word here would
+#: invite a trajectory that lists calls that never happened.
+type ToolStatus = Literal["success", "error"]
 
 #: What a target or a judge may declare about itself. Scalars only, and
 #: deliberately: the configuration of the system under test is diffed field by

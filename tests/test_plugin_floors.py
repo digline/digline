@@ -146,6 +146,12 @@ INTRODUCED: dict[str, str] = {
     # 0.2.0 — the named configuration delta a row prints beside a drop
     # (ADR 0005 §5).
     "config_changes": "0.2.0",
+    # 0.11.0 — the host composition both front ends sit on, so journalling is
+    # wired once rather than once per front end (ADR 0017 §11). Undated until
+    # now for the reason the other host names were: nothing outside `src/`
+    # imported them. `digline-mcp` 0.1.2 does, which is what dates them.
+    "prepare": "0.11.0",
+    "measure": "0.11.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

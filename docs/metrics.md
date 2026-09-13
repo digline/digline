@@ -22,6 +22,7 @@ Do the cases carry a human mark (ground truth)?
     ├── supported by the retrieved context ........................ Faithfulness
     ├── no personal data on the way out ........................... PiiAbsent
     ├── which tools it called on the way there .................... ToolsCalled
+    ├── and with what arguments ................................... ToolCalledWith
     └── a scorer you already own .................................. FromAutoevals
 Always, next to whichever you picked: CostBudget · LatencyBudget
 ```
@@ -434,6 +435,33 @@ failure: nobody reported, so what the model called is not knowable, and
 "called nothing" would be a finding nobody established. It errors too when a
 provider contradicts itself, ending the turn on a tool call and then naming
 none.
+
+### `ToolCalledWith`
+
+**Use it when** the trajectory is right and you need to know it asked the right
+question. An agent that called `lookup` with the wrong identifier called exactly
+the tools it was supposed to, in exactly the order it was supposed to, and
+answered about somebody else — which `ToolsCalled` cannot see and no assertion
+on the text can reach.
+
+```python
+ToolCalledWith(tool="lookup", arguments={"id": "4711"})
+```
+
+**Takes** **`tool`** — the name, and **`arguments`** — the mapping that must
+have been sent; `match="exact"` (the same set of keys) or `"subset"` (every
+declared key present and equal, others ignored); `threshold=1.0`. All output
+kinds. Binary.
+**Produces** `1.0` or `0.0`, plus `arguments_matched` and `arguments_expected`.
+Both are counts, so both cross a boundary on their own merit — **no argument
+value ever enters the verdict**, because an argument is the end company's data
+by construction and `Score.metadata` is projected onto the wire.
+**Watch out** it does not check the order: `ToolsCalled` owns that, and where
+the model called the same tool more than once, any one matching call satisfies
+this. Use `subset` when a framework adds keys of its own — under `exact` a
+`request_id` nobody declared is a failure. Arguments that do not decode are an
+**error**, not a failure, for the reason `json_schema` reports an undecodable
+output as one.
 
 ### `Repeated`
 

@@ -667,8 +667,17 @@ def test_the_generated_gitignore_already_covers_the_journal(tmp_path: Path) -> N
 def test_the_schema_did_not_move(tmp_path: Path) -> None:
     """ADR 0017's own condition. A resumed run carries no marker, so the
     document has exactly the keys it had — asserted as a set, so a field added
-    by accident fails here rather than in somebody's baseline."""
-    assert SCHEMA_VERSION == 10
+    by accident fails here rather than in somebody's baseline.
+
+    The constant moved to 11 under ADR 0018, and this test is unchanged in what
+    it asserts: that condition was never *the schema stands still forever*, it
+    was **the journal adds nothing to it**. `resumed_at` boards there as a
+    declared passenger of somebody else's bump (ADR 0018 §3), which is exactly
+    the shape ADR 0017 §11 wrote the brief for — so the key-set comparison below
+    is still the thing worth checking, and it still passes for the journal's own
+    reason.
+    """
+    assert SCHEMA_VERSION == 11
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

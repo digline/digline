@@ -118,6 +118,12 @@ RECORDED: dict[str, dict[str, str]] = {
     "AGENTS.md": {
         "0.4.0": "'the one case in 0.4.0' — the state of a shipped release",
     },
+    "src/digline/host/measure.py": {
+        "0.11.0": "'the delta-pass over 0.11.0 found it missing' — which "
+        "release's delta-pass earned the refusal, told as history. The refusal "
+        "is the code below it; the number dates the lesson and does not claim "
+        "what digline is at now",
+    },
     ".claude/skills/operating-digline/SKILL.md": {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
@@ -211,6 +217,18 @@ RECORDED: dict[str, dict[str, str]] = {
         "digline one. Pinned to the example's own lock by "
         "tests/test_examples.py, which is where a third-party version belongs",
         "1.6.1": "langchain-core, beside it, held by the same test",
+    },
+    "examples/langgraph/README.md": {
+        "1.2.11": "the langgraph version the example was run against, not a "
+        "digline one. Pinned to the example's own pyproject.toml by "
+        "tests/test_examples.py, which is where a third-party version belongs — "
+        "and named three times on purpose: once as what it was tested against, "
+        "once because what a raising tool does was measured on *that* version "
+        "and not assumed, and once in the floor the weekly run watches",
+        "1.4.0": "langchain, beside it, held by the same test. Two packages "
+        "rather than one because `create_agent` moved out of langgraph and into "
+        "langchain in v1, so a reader with only one of the two cannot "
+        "reproduce the run",
     },
     "examples/llamaindex/README.md": {
         "0.14.24": "the llama-index-core version the example was run against, "

@@ -71,7 +71,7 @@ A re-judged run says so, in the document, in the headline sentence, in
 | `config_hash` | the current suite's — the rules moving is the point |
 | `rejudged_from` | the key of the run the answers came from |
 
-## The four refusals
+## The five refusals
 
 Each one arrives before the first judge is paid, and each names what is missing.
 
@@ -88,6 +88,13 @@ Each one arrives before the first judge is paid, and each names what is missing.
    score that looks like every other score.
 4. **The sample count does not match.** A replay at one count over a run taken
    at another is a different measurement wearing the suite's name.
+5. **The suite judges a trajectory and the run recorded none.** `tools_called`
+   and `tool_called_with` read what the model called on the way to its answer,
+   and a run produced before trajectories were recorded — or by a target that
+   reports none — carries nothing for them to read. This one is a refusal rather
+   than an errored check on purpose: an errored check is a declared gate quietly
+   becoming a row nobody gated on, which is the thing recording the trajectory
+   was for. Produce a new run with a target that reports one.
 
 ## A replay is not promotable
 

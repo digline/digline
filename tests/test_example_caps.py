@@ -90,6 +90,11 @@ RELEASED: dict[str, int] = {
     # accident. What the release does cost the examples is the cap — a lock
     # regenerated against 0.11.0 cannot resolve under `<0.11`.
     "0.11.0": 10,
+    # 11 — the recorded trajectory (ADR 0018): the tool calls beside the answer
+    # they belong to, so a trajectory assertion is re-judged instead of errored,
+    # and `resumed_at`, pre-vetted by ADR 0017 §11 and boarding the bump that
+    # something else forced.
+    "0.12.0": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
@@ -103,6 +108,7 @@ STANDALONE = (
     "external-app",
     "langchain4j",
     "langchain",
+    "langgraph",
     "llamaindex",
     "quickstart-toml",
     "operator",

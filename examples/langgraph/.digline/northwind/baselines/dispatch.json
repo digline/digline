@@ -1,0 +1,256 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "prompts/system.txt": {
+      "sha": "c55abed7f6c270e5230100de09548b33c1a4ef6d24bbd927edd10e988190d5d9",
+      "text": "You are a dispatch desk for Northwind.\n\nLook an order up before you refund anything. Refund the shipping figure the\nlookup returned, never a figure the customer states: a customer who remembers\nthe charge wrongly is the ordinary case, and the lookup is what the business\nstands behind.\n\nAnswer in one sentence, naming the amount you refunded and the order it was\nrefunded against.\n"
+    }
+  },
+  "config_hash": "50f6e691ce7e15cb",
+  "created_at": "2026-09-13T09:10:05.244767+00:00",
+  "digline_version": "0.12.0",
+  "environment": "staging",
+  "git_commit": "94560671abeca4bbbe94a3109561d75df3d3a233-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "promoted_at": "2026-09-13T09:10:32.804322+00:00",
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "plain-request",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "5128b7e7105b4008",
+          "metadata": {
+            "called": [
+              "lookup",
+              "refund"
+            ],
+            "tool_calls": 2
+          },
+          "reason": "called 'lookup', 'refund', expected 'lookup', 'refund'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "cc18a6c7bb56771b",
+          "metadata": {
+            "arguments_expected": 1,
+            "arguments_matched": 1
+          },
+          "reason": "'lookup' was called with the 1 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "b8e17ba270d58e8e",
+          "metadata": {
+            "arguments_expected": 2,
+            "arguments_matched": 2
+          },
+          "reason": "'refund' was called with the 2 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "e6e75d1de2319109",
+          "metadata": {},
+          "reason": "'4.90' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "case_id": "polite-and-vague",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "5128b7e7105b4008",
+          "metadata": {
+            "called": [
+              "lookup",
+              "refund"
+            ],
+            "tool_calls": 2
+          },
+          "reason": "called 'lookup', 'refund', expected 'lookup', 'refund'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "cc18a6c7bb56771b",
+          "metadata": {
+            "arguments_expected": 1,
+            "arguments_matched": 1
+          },
+          "reason": "'lookup' was called with the 1 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "b8e17ba270d58e8e",
+          "metadata": {
+            "arguments_expected": 2,
+            "arguments_matched": 2
+          },
+          "reason": "'refund' was called with the 2 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "e6e75d1de2319109",
+          "metadata": {},
+          "reason": "'4.90' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "case_id": "decoy-number",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "5128b7e7105b4008",
+          "metadata": {
+            "called": [
+              "lookup",
+              "refund"
+            ],
+            "tool_calls": 2
+          },
+          "reason": "called 'lookup', 'refund', expected 'lookup', 'refund'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "cc18a6c7bb56771b",
+          "metadata": {
+            "arguments_expected": 1,
+            "arguments_matched": 1
+          },
+          "reason": "'lookup' was called with the 1 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "b8e17ba270d58e8e",
+          "metadata": {
+            "arguments_expected": 2,
+            "arguments_matched": 2
+          },
+          "reason": "'refund' was called with the 2 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "e6e75d1de2319109",
+          "metadata": {},
+          "reason": "'4.90' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "case_id": "amount-asserted-by-the-customer",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "5128b7e7105b4008",
+          "metadata": {
+            "called": [
+              "lookup",
+              "refund"
+            ],
+            "tool_calls": 2
+          },
+          "reason": "called 'lookup', 'refund', expected 'lookup', 'refund'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "cc18a6c7bb56771b",
+          "metadata": {
+            "arguments_expected": 1,
+            "arguments_matched": 1
+          },
+          "reason": "'lookup' was called with the 1 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "tool_called_with",
+          "assertion_id": "b8e17ba270d58e8e",
+          "metadata": {
+            "arguments_expected": 2,
+            "arguments_matched": 2
+          },
+          "reason": "'refund' was called with the 2 declared argument(s)",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "e6e75d1de2319109",
+          "metadata": {},
+          "reason": "'4.90' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    }
+  ],
+  "schema_version": 11,
+  "suite": "dispatch",
+  "target_config": {},
+  "tenant": "northwind"
+}

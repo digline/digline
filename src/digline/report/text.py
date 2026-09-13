@@ -128,6 +128,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The answers in this run were replayed from a stored run, not "
             "measured: the target was not asked anything."
         ),
+        "fact.on_the_line.one": (
+            "1 check is on the line: the band it measured covers its threshold."
+        ),
+        "fact.on_the_line.many": (
+            "{count} checks are on the line: the bands they measured cover "
+            "their thresholds."
+        ),
         # *Likely*, and the word is chosen: the canary observes behaviour and
         # cannot read a model id, so a suite whose canary moved because the
         # shared prompt was edited has told the truth about a change with the
@@ -262,6 +269,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.new.errored": ("New here, and the check could not run."),
         "detail.missing": "Present in the reference, not checked here.",
         "detail.errored": "The check could not run.",
+        "detail.three_way": (
+            " The samples went three ways: {passed} passed, {failed} failed, "
+            "{errored} could not be judged."
+        ),
+        "detail.exceedances": (
+            " {over} of {judged} calls went over the {cap} cap on their own, "
+            "the largest at {worst}."
+        ),
+        "detail.exceedances.pinned": (
+            " {over} of {judged} calls went over the {cap} cap on their own; "
+            "the largest sits at the cap."
+        ),
         "reason.unavailable": "Not included in this report.",
         "diff.title": "Two runs compared — {suite}",
         "diff.column.run": "Run",
@@ -303,6 +322,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "diff.breakdown.one_side.many": "{count} present in only one run",
         "diff.breakdown.errored.one": "1 could not be judged",
         "diff.breakdown.errored.many": "{count} could not be judged",
+        "diff.overlap.one": (
+            "1 difference sits inside both runs' observed intervals, so no "
+            "claim can be made about it."
+        ),
+        "diff.overlap.many": (
+            "{count} differences sit inside both runs' observed intervals, so "
+            "no claim can be made about them."
+        ),
         "diff.exceeds.one": (
             "1 of {run}'s advantages exceeds both runs' observed intervals."
         ),
@@ -425,8 +452,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The suite is unchanged from the reference."
         ),
         "explain.tally.comparability": (
-            "The instrument that graded is not the one that graded the "
-            "reference, so every difference below is measured on two scales."
+            "The judge changed: these scores are not comparable with the "
+            "reference. The instrument that graded is not the one that graded "
+            "the reference, so every difference below is measured on two "
+            "scales."
         ),
         "explain.tally.rejudged": (
             "The answers judged here were replayed from a stored run: the "
@@ -437,6 +466,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "A canary check moved. It is counted in no aggregate, and what its "
             "movement is about is which model answered rather than how well it "
             "answered."
+        ),
+        "explain.tally.on_the_line.one": (
+            "1 check measured a band that covers its own threshold, so which "
+            "side it landed on is a property of the samples that were drawn."
+        ),
+        "explain.tally.on_the_line.many": (
+            "{count} checks measured a band that covers their own threshold, so "
+            "which side they landed on is a property of the samples that were "
+            "drawn."
+        ),
+        "explain.check.on_the_line": (
+            " The band this run measured covers the threshold, so which side it "
+            "landed on is a property of the samples that were drawn."
         ),
         "explain.setting.target.changed": (
             "The system under test answered with {name} {after}; the reference "
@@ -601,6 +643,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "esecuzione archiviata, non misurate: al sistema in prova non è "
             "stato chiesto nulla."
         ),
+        "fact.on_the_line.one": (
+            "1 controllo è sul filo: la banda misurata copre la sua soglia."
+        ),
+        "fact.on_the_line.many": (
+            "{count} controlli sono sul filo: le bande misurate coprono le loro soglie."
+        ),
         "fact.canary.one": (
             "Il modello dietro questo alias è probabilmente cambiato: la "
             "sentinella {case} si è mossa da {before} a {after}{beyond}."
@@ -730,6 +778,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "detail.missing": "Presente nel riferimento, non controllato qui.",
         "detail.errored": "Il controllo non ha potuto essere eseguito.",
+        "detail.three_way": (
+            " I campioni sono andati in tre direzioni: {passed} superati, "
+            "{failed} falliti, {errored} non giudicabili."
+        ),
+        "detail.exceedances": (
+            " {over} chiamate su {judged} hanno superato da sole il tetto di "
+            "{cap}, la maggiore a {worst}."
+        ),
+        "detail.exceedances.pinned": (
+            " {over} chiamate su {judged} hanno superato da sole il tetto di "
+            "{cap}; la maggiore si ferma sul tetto."
+        ),
         "reason.unavailable": "Non inclusa in questo rapporto.",
         "diff.title": "Due esecuzioni a confronto — {suite}",
         "diff.column.run": "Esecuzione",
@@ -774,6 +834,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "diff.breakdown.one_side.many": ("{count} presenti in una sola esecuzione"),
         "diff.breakdown.errored.one": "1 non è stato possibile giudicarlo",
         "diff.breakdown.errored.many": ("{count} non è stato possibile giudicarli"),
+        "diff.overlap.one": (
+            "1 differenza ricade dentro gli intervalli osservati di entrambe "
+            "le esecuzioni: non se ne può affermare nulla."
+        ),
+        "diff.overlap.many": (
+            "{count} differenze ricadono dentro gli intervalli osservati di "
+            "entrambe le esecuzioni: non se ne può affermare nulla."
+        ),
         "diff.exceeds.one": (
             "1 dei vantaggi di {run} supera gli intervalli osservati di "
             "entrambe le esecuzioni."
@@ -908,8 +976,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "La suite è invariata rispetto al riferimento."
         ),
         "explain.tally.comparability": (
-            "Lo strumento che ha valutato non è quello che ha valutato il "
-            "riferimento: ogni differenza qui sotto è misurata su due scale."
+            "Il modo di giudicare è cambiato: questi punteggi non sono "
+            "confrontabili con il riferimento. Lo strumento che ha valutato non "
+            "è quello che ha valutato il riferimento, e ogni differenza qui "
+            "sotto è misurata su due scale."
         ),
         "explain.tally.rejudged": (
             "Le risposte giudicate qui sono state riascoltate da una "
@@ -920,6 +990,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un controllo sentinella si è mosso. Non entra in nessun "
             "aggregato, e ciò di cui il suo movimento parla è quale modello "
             "abbia risposto, non quanto bene."
+        ),
+        "explain.tally.on_the_line.one": (
+            "1 controllo ha misurato una banda che copre la propria soglia: da "
+            "quale lato sia caduto dipende dai campioni estratti."
+        ),
+        "explain.tally.on_the_line.many": (
+            "{count} controlli hanno misurato una banda che copre la propria "
+            "soglia: da quale lato siano caduti dipende dai campioni estratti."
+        ),
+        "explain.check.on_the_line": (
+            " La banda misurata da questa esecuzione copre la soglia: da quale "
+            "lato sia caduto dipende dai campioni estratti."
         ),
         "explain.setting.target.changed": (
             "Il sistema sotto esame ha risposto con {name} {after}; il "

@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,11 +17,19 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    # 0.6.0 is the release that first publishes `digline.wire` and
-    # `digline.host`, and `core.diff` with them. Held there by
-    # `tests/test_plugin_floors.py`, which computes the floor from the newest
-    # name these sources import rather than taking this number on trust.
-    "digline>=0.6.0",
+    # 0.11.0 is the release that first publishes `digline.host.prepare` and
+    # `measure` — the composition both front ends now sit on, so journalling is
+    # wired once rather than once per front end (ADR 0017 §11).
+    #
+    # Held by `tests/test_plugin_floors.py`, which computes the floor from the
+    # newest *name* these sources import — and raised **by hand as well**,
+    # because a name is only half of what a floor can owe. The other half is a
+    # field: `RecordedResponse.tool_calls` arrived in digline 0.12.0, and a
+    # names-based gate cannot see a widened field at all. That is the trap
+    # `pytest-digline`'s own floor comment records, and the reason this number
+    # is 0.11.0 rather than 0.12.0 is that nothing here reads that field — the
+    # gate was checked rather than trusted, and this says so.
+    "digline>=0.11.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

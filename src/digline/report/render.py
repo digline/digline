@@ -29,6 +29,9 @@ from digline.core import (
     Status,
     SystemConfig,
     Verdict,
+    budget_exceedances,
+    directions,
+    on_the_line,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -45,6 +48,7 @@ __all__ = [
     "Section",
     "check_line",
     "config_changes",
+    "on_the_line_count",
     "config_lines",
     "errored_verdicts",
     "fmt_value",
@@ -158,6 +162,14 @@ class Headline:
     #: something untrue in order to produce the right exit code. `exit_code()`
     #: returns 1 for either. (ADR 0016 §5)
     canary_moved: bool = False
+    #: How many of this run's checks measured a band that covers their own
+    #: threshold. The eleventh fact, and the one that is about **this**
+    #: measurement rather than about a distance from the reference: a check on
+    #: the line passed or failed by which samples were drawn, and a reader shown
+    #: it as a clean pass has been told more than was measured. It moves no exit
+    #: code — the exit codes are the contract and this is not a regression.
+    #: (ADR 0018 §8)
+    on_the_line: int = 0
     #: How many checks moved and were covered by the interval their baseline
     #: measured. The eighth fact, and the one that keeps the first honest: a run
     #: reported as clean because nothing moved and one reported as clean because
@@ -482,6 +494,20 @@ def headline(
     rejudged_text = (
         phrase(locale, "fact.rejudged") if run.rejudged_from is not None else ""
     )
+
+    # Silent at zero, like every other clause here. "0 checks are on the line"
+    # reads as a slot the renderer had to fill, and a suite at `samples=1`
+    # measures no band at all, so there is nothing to be on the line of.
+    on_line = on_the_line_count(run)
+    on_line_text = (
+        phrase(
+            locale,
+            f"fact.on_the_line.{'one' if on_line == 1 else 'many'}",
+            count=on_line,
+        )
+        if on_line
+        else ""
+    )
     # Same shape as the artifact clause, and silent for the same reason: most
     # runs before ADR 0005 recorded nothing, and a sentence that reassures about
     # a configuration nobody recorded is one the reader learns to skip.
@@ -501,6 +527,7 @@ def headline(
 
     return Headline(
         worse=regressed > 0,
+        on_the_line=on_line,
         within_noise=within_noise,
         unjudged=unjudged,
         suspended=suspended,
@@ -524,6 +551,11 @@ def headline(
                 # qualifies it: something did move, and it moved no further than
                 # the check moves by itself.
                 noise_text,
+                # And straight after that, for the same kind of reason one step
+                # further in: a check on the line did not merely move within its
+                # own noise, it *sits* on the bar, so which side it reports is a
+                # property of the draw. Both qualify the counts above them.
+                on_line_text,
                 unjudged_text,
                 suspended_text,
                 config_text,
@@ -642,7 +674,7 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     if delta.outcome == "missing":
         return phrase(locale, "detail.missing")
     if delta.outcome == "errored":
-        return phrase(locale, "detail.errored")
+        return phrase(locale, "detail.errored") + _three_way(now, locale)
 
     assert now is not None and before is not None
     assert now.score.score is not None and before.score.score is not None
@@ -670,17 +702,106 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     # than trailing it. (ADR 0006 §10)
     noise = _noise_interval(delta, locale)
 
+    over_budget = _exceedances(now, locale)
+
     if delta.within_noise:
-        return phrase(
-            locale, "detail.within_noise", before=was, now=is_now, noise=noise
+        return (
+            phrase(locale, "detail.within_noise", before=was, now=is_now, noise=noise)
+            + over_budget
         )
     if delta.outcome == "regressed":
         key = "detail.dropped.beyond_noise" if noise else "detail.dropped"
-        return phrase(locale, key, before=was, now=is_now, noise=noise)
+        return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
     if delta.outcome == "improved":
         key = "detail.rose.beyond_noise" if noise else "detail.rose"
-        return phrase(locale, key, before=was, now=is_now, noise=noise)
-    return phrase(locale, "detail.unchanged", now=is_now)
+        return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
+    return phrase(locale, "detail.unchanged", now=is_now) + over_budget
+
+
+def _three_way(verdict: Verdict | None, locale: Locale) -> str:
+    """Why a check that could not be judged could not be judged, where the
+    answer is that its samples went three ways.
+
+    Silent on two directions, which is ordinary disagreement and is what
+    `agreement` already reports. Three — some passed, some failed, and some
+    could not be judged at all — is a different statement: the check did not
+    merely wobble across its bar, the instrument answered in a vocabulary
+    wider than the bar has sides. `spread`, being max minus min, prints the
+    same figure for both. (ADR 0018 §8)
+    """
+    if verdict is None:
+        return ""
+    passed, failed, errored = directions(verdict)
+    if not (passed and failed and errored):
+        return ""
+    return phrase(
+        locale, "detail.three_way", passed=passed, failed=failed, errored=errored
+    )
+
+
+def _exceedances(verdict: Verdict, locale: Locale) -> str:
+    """The per-call truth behind a budget that passed on the fold.
+
+    A cap is declared **per call** and the fold judges the mean, so five calls
+    averaging under a ceiling can hide three that went over it. Silent unless
+    some did, and silent on an unsampled check, where there is one call and the
+    score already is the per-call answer.
+
+    The worst figure is recovered by inverting the score, which the clamp makes
+    exact everywhere except within a storage step of the cap — so where the
+    clamp chose the number, the sentence says *at the cap* instead of printing
+    it. (ADR 0018 §8)
+    """
+    found = budget_exceedances(verdict)
+    if found is None:
+        return ""
+    over, judged, worst, pinned = found
+    # Narrowed rather than cast: `Score.metadata` is a bag of `object` written
+    # by whoever measured it, and every other reader in this codebase checks
+    # what it found instead of asserting it. `budget_exceedances` only answers
+    # at all when one of these two is a positive number, so the fallback is
+    # unreachable — and it is a value rather than a raise for that reason.
+    declared = verdict.score.metadata
+    cap = next(
+        (
+            float(value)
+            for key_name in ("max_usd", "max_ms")
+            if isinstance(value := declared.get(key_name), int | float)
+            and not isinstance(value, bool)
+        ),
+        0.0,
+    )
+    key = "detail.exceedances.pinned" if pinned else "detail.exceedances"
+    return phrase(
+        locale,
+        key,
+        over=over,
+        judged=judged,
+        cap=fmt_score(cap),
+        worst=fmt_score(worst),
+    )
+
+
+def on_the_line_count(run: Run) -> int:
+    """How many of this run's checks measured a band covering their threshold.
+
+    Cases and aggregates alike: an aggregate sits on the line the same way a
+    per-case check does.
+
+    Defined here rather than in the reading, and read by both: `Headline`
+    carries the number the document prints and `_tallies` states the same one,
+    so the two cannot drift into disagreeing about how firm a run was. The
+    reading imports the report's arithmetic for the reason it imports
+    `SECTIONS` — one definition, two renderings. (ADR 0018 §8)
+    """
+    return sum(
+        1
+        for verdict in (
+            *(v for case in run.results for v in case.verdicts),
+            *run.aggregate,
+        )
+        if on_the_line(verdict)
+    )
 
 
 def _noise_interval(delta: AssertionDelta, locale: Locale) -> str:

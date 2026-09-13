@@ -150,6 +150,28 @@ def _add_schema_ten(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_eleven(raw: dict[str, Any]) -> dict[str, Any]:
+    """10 -> 11. Two passengers, two absences the old document already justifies.
+
+    The second step that **writes nothing**, and for the same reason the first
+    one did (ADR 0014 §2): every key it could add would mean exactly what its
+    absence already means.
+
+    `tool_calls` is left absent because a run recorded before this field kept no
+    trajectory and none is recoverable — the same sentence `responses` earned at
+    the previous bump. Writing `[]` would say *the target reported no calls*,
+    which is a measurement nobody made.
+
+    `resumed_at` is left absent because a run that predates the field was not
+    resumed as far as any document can say, and the one thing a migration must
+    not do is put a plausible time on a leg nobody recorded.
+
+    The step still has to **exist**: a version with no entry in `_STEPS` is one
+    whose bump was not additive, and that statement about 10 would be false.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -159,6 +181,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     7: _add_configs,
     8: _add_sample_interval,
     9: _add_schema_ten,
+    10: _add_schema_eleven,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

@@ -590,6 +590,7 @@ something that must hold for all of them.
 | `Faithfulness` | `judge` (`ClaimJudge`), **`threshold`**, **`tolerance`** | mandatory | text |
 | `FromAutoevals` | `scorer`, **`threshold`**, **`tolerance`** | mandatory | text |
 | `ToolsCalled` | **`expected`** (the tool names, in order) | `1.0` | all |
+| `ToolCalledWith` | **`tool`**, **`arguments`**, `match` (`exact` or `subset`) | `1.0` | all |
 
 In bold what **has no default and must be declared**. `LlmRubric` because an LLM
 judge is not reproducible; the budgets because cost and latency are noisy by

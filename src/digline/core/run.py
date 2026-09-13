@@ -26,6 +26,7 @@ from digline.core.types import (
     OutputKind,
     Score,
     Status,
+    ToolStatus,
     Verdict,
     at_precision,
     canonical,
@@ -42,6 +43,7 @@ __all__ = [
     "Artifact",
     "CaseResult",
     "RecordedResponse",
+    "RecordedToolCall",
     "Run",
     "SystemConfig",
     "CaseProgress",
@@ -52,6 +54,8 @@ __all__ = [
     "config_hash",
     "config_to_dict",
     "record_output",
+    "record_trajectory",
+    "trajectory_chars",
     "redact",
     "release_tuple",
     "restore_output",
@@ -95,7 +99,15 @@ __all__ = [
 #    over: every one of them has a value the old document already justifies —
 #    not recorded, none recorded, not a canary — so nothing is invented and no
 #    baseline needs re-promoting.
-SCHEMA_VERSION = 10
+# 11: two passengers, checked against ADR 0014 §1 in ADR 0018 §3.
+#    `RecordedResponse.tool_calls` — the trajectory beside the answer it belongs
+#    to, so a trajectory assertion can be re-judged instead of errored
+#    (ADR 0018 §1, §4); and `Run.resumed_at` — one entry per leg of a resumed
+#    run, pre-vetted by ADR 0017 §11 and boarding the first bump that something
+#    else forced. Additive both times: `()` for a run that recorded no
+#    trajectory and none is recoverable, absent for a run nobody resumed. So the
+#    step writes nothing and no baseline needs re-promoting.
+SCHEMA_VERSION = 11
 
 
 def _num(value: float) -> float:
@@ -424,6 +436,79 @@ def record_output(output: Output) -> tuple[str, OutputKind]:
     )
 
 
+def record_trajectory(metadata: Mapping[str, object]) -> tuple[RecordedToolCall, ...]:
+    """The trajectory a target reported, as the document will hold it.
+
+    Reads `metadata["tool_calls"]`, which is where a target puts what the model
+    called — the live record, beside `tools` and never inside it, so that
+    `ToolsCalled`'s reader keeps its type (ADR 0018 §6). `()` where the target
+    reported nothing, which is the ordinary case and records nothing.
+
+    **Strict about shape, and deliberately.** A malformed entry raises rather
+    than being skipped: a silently dropped call would produce a document that
+    understates the trajectory, and a run file that disagrees with the assertion
+    that judged it is worse than one that refuses to be written. The forgiving
+    reader is the *assertion*, which reports *nobody said* as an error a person
+    can act on.
+
+    `arguments` is canonicalised here, by `record_output`'s rule, so a mapping
+    and the same mapping in another key order produce the same bytes.
+    """
+    found = metadata.get("tool_calls")
+    if found is None:
+        return ()
+    if isinstance(found, str) or not isinstance(found, Sequence):
+        raise ValueError(
+            f"a target reported its tool calls as a {type(found).__name__}, not "
+            "a sequence of calls: there is no trajectory to record"
+        )
+    calls: list[RecordedToolCall] = []
+    for entry in cast("Sequence[object]", found):
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"a target reported a tool call as a {type(entry).__name__}, "
+                "not a mapping with a 'tool' in it"
+            )
+        item = cast("Mapping[str, object]", entry)
+        raw_status = item.get("status", "success")
+        calls.append(
+            RecordedToolCall(
+                tool=str(item.get("tool", "")),
+                arguments=_recorded_arguments(item.get("arguments")),
+                result=None if item.get("result") is None else str(item["result"]),
+                status=cast(ToolStatus, str(raw_status)),
+            )
+        )
+    return tuple(calls)
+
+
+def _recorded_arguments(value: object) -> str | None:
+    """Canonical JSON for a mapping, the text itself for a string, `None` for
+    nothing — which is *the target reported a call without them* and is not the
+    same fact as an empty object."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return json.dumps(
+        canonical(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+
+
+def trajectory_chars(calls: Sequence[RecordedToolCall]) -> int:
+    """How much text a trajectory would add to the record.
+
+    Counted against `MAX_RECORDED_CHARS` with `output` and `input`, because the
+    three are what a re-judge needs together: keeping the answer and dropping
+    the calls that produced it would store evidence the document does not admit
+    is partial. (ADR 0018 §1)
+    """
+    return sum(
+        len(call.tool) + len(call.arguments or "") + len(call.result or "")
+        for call in calls
+    )
+
+
 def restore_output(text: str, kind: OutputKind) -> Output:
     """`record_output` read backwards, for a replay.
 
@@ -440,6 +525,47 @@ def restore_output(text: str, kind: OutputKind) -> Output:
         Message(role=str(turn["role"]), content=str(turn["content"]))
         for turn in cast(Sequence[Mapping[str, Any]], raw)
     )
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedToolCall:
+    """One tool call the target reported, as the document holds it.
+
+    Recorded only inside `RecordedResponse`, which is what gives it every
+    boundary sentence it needs without inventing one: `redact()` drops the whole
+    response, `digline.wire` does not know its name, and `promote_baseline`
+    strips it. A tool argument is the end company's data by construction — a
+    `lookup` carries the identifier it looked up — so nothing here travels and
+    no `Disclosure` releases it. (ADR 0018 §2)
+
+    `arguments` is canonical JSON, by the rule `record_output` already follows,
+    so the same call always produces the same bytes and a run file stays
+    diffable. `None` is *the target reported a call without them*, which is a
+    different fact from an empty object and is not written as one.
+
+    `result` and `status` are recorded because a tool that ran and **failed** is
+    invisible to a names-only trajectory: the model called the right tool, the
+    call raised, and the agent answered from nothing. `status` is also the one
+    field here a fake cannot forge into vacuity — a tool that raises reports
+    `error` whether or not the model is real. (ADR 0018 §1)
+    """
+
+    tool: str
+    arguments: str | None = None
+    result: str | None = None
+    status: ToolStatus = "success"
+
+    def __post_init__(self) -> None:
+        if not self.tool:
+            raise ValueError(
+                "RecordedToolCall.tool must not be empty: a call to nothing is "
+                "not a call, and a trajectory reads by the names in it"
+            )
+        if self.status not in ("success", "error"):
+            raise ValueError(
+                f"RecordedToolCall.status must be 'success' or 'error', got "
+                f"{self.status!r}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -473,6 +599,12 @@ class RecordedResponse:
     input: str | None = None
     cost_usd: float | None = None
     latency_ms: float | None = None
+    #: What the model called on the way to this answer, in the order it called
+    #: it. `()` where the target reported none — the distinction between *nobody
+    #: reported* and *called none* lives on the live record, where `ToolsCalled`
+    #: reads it, and is carried across a replay by the metadata `Replay`
+    #: rebuilds rather than duplicated here. (ADR 0018 §1)
+    tool_calls: tuple[RecordedToolCall, ...] = ()
     withheld: bool = False
     oversize: bool = False
 
@@ -483,14 +615,17 @@ class RecordedResponse:
                 "they are two different absences and a reader cannot be told "
                 "both"
             )
-        if self.withheld and any(
-            value is not None
-            for value in (
-                self.output,
-                self.kind,
-                self.input,
-                self.cost_usd,
-                self.latency_ms,
+        if self.withheld and (
+            self.tool_calls
+            or any(
+                value is not None
+                for value in (
+                    self.output,
+                    self.kind,
+                    self.input,
+                    self.cost_usd,
+                    self.latency_ms,
+                )
             )
         ):
             raise ValueError(
@@ -498,7 +633,9 @@ class RecordedResponse:
                 "what redaction removes: the flag would announce a guarantee "
                 "nothing provides"
             )
-        if self.oversize and (self.output is not None or self.input is not None):
+        if self.oversize and (
+            self.output is not None or self.input is not None or self.tool_calls
+        ):
             raise ValueError(
                 "RecordedResponse declares itself oversize but carries text: "
                 "over the ceiling the rule is whole or nothing, and a kept half "
@@ -691,6 +828,16 @@ class Run:
     #: passed in rather than read here for the reason `created_at` is: the core
     #: touches no clock, and neither does the store. (ADR 0014 §3)
     promoted_at: str = ""
+    #: One entry per leg of a run that was resumed, in the order the legs ran.
+    #: `()` is a run nobody resumed, which is the ordinary case and is what a
+    #: document written before this field says by omitting it.
+    #:
+    #: A fact about the *process* and not about the suite, so it stays out of
+    #: `config_hash`; and a fact about the software house's own instrument, so
+    #: it survives `redact()` in clear, like `digline_version` and
+    #: `promoted_at`. Pre-vetted against the passenger rule by ADR 0017 §11 and
+    #: boarded by ADR 0018 §3, which is the bump that finally forced the move.
+    resumed_at: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -941,6 +1088,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # When a person signed this off is a fact about our own process, not
         # about the end company's data, so it travels like `digline_version`.
         promoted_at=run.promoted_at,
+        # And so is when it was resumed: the legs of our own instrument, never
+        # anything about what it measured. (ADR 0018 §3)
+        resumed_at=run.resumed_at,
     )
 
 
@@ -1073,6 +1223,9 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # supplied the time. Absent is both "this is a run" and "nobody
         # recorded it", and neither is a date. (ADR 0014 §3)
         **({"promoted_at": run.promoted_at} if run.promoted_at else {}),
+        # Absent on a run nobody resumed, which is almost every run. Absent is
+        # *not resumed*, and it is never an invented time. (ADR 0018 §3)
+        **({"resumed_at": list(run.resumed_at)} if run.resumed_at else {}),
     }
 
 
@@ -1203,7 +1356,43 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
         payload["cost_usd"] = _num(response.cost_usd)
     if response.latency_ms is not None:
         payload["latency_ms"] = _num(response.latency_ms)
+    # Absent unless the target reported a trajectory, which keeps a run file
+    # from a suite whose target reports none byte for byte the file it was.
+    if response.tool_calls:
+        payload["tool_calls"] = [_tool_call_to_dict(c) for c in response.tool_calls]
     return payload
+
+
+def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
+    """Absent rather than emptied, like every other payload field here.
+
+    `status` is written only when it is `error`: `success` is what its absence
+    already says, and writing it on every call of every recorded response would
+    be a key that repeats the ordinary case. (ADR 0018 §1)
+    """
+    payload: dict[str, object] = {"tool": call.tool}
+    if call.arguments is not None:
+        payload["arguments"] = call.arguments
+    if call.result is not None:
+        payload["result"] = call.result
+    if call.status != "success":
+        payload["status"] = call.status
+    return payload
+
+
+def _tool_call_from_dict(raw: Mapping[str, Any]) -> RecordedToolCall:
+    """Straight into the value, which does the checking — `_response_from_dict`'s
+    rule, for the same reason: a document is written by whoever holds it."""
+    status = raw.get("status")
+    try:
+        return RecordedToolCall(
+            tool=str(_required(raw, "tool", "recorded tool call")),
+            arguments=(None if raw.get("arguments") is None else str(raw["arguments"])),
+            result=None if raw.get("result") is None else str(raw["result"]),
+            status=cast(ToolStatus, "success" if status is None else str(status)),
+        )
+    except ValueError as exc:
+        raise ValueError(f"recorded tool call: {exc}") from exc
 
 
 #: The three branches `Output` has, as the document may spell them. Read from a
@@ -1234,6 +1423,10 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             input=None if raw.get("input") is None else str(raw["input"]),
             cost_usd=None if cost is None else float(cost),
             latency_ms=None if latency is None else float(latency),
+            tool_calls=tuple(
+                _tool_call_from_dict(c)
+                for c in cast(Sequence[Mapping[str, Any]], raw.get("tool_calls") or ())
+            ),
             withheld=bool(raw.get("withheld", False)),
             oversize=bool(raw.get("oversize", False)),
         )
@@ -1309,6 +1502,9 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
             None if raw.get("rejudged_from") is None else str(raw["rejudged_from"])
         ),
         promoted_at=str(raw.get("promoted_at") or ""),
+        resumed_at=tuple(
+            str(stamp) for stamp in cast(Sequence[Any], raw.get("resumed_at") or ())
+        ),
     )
 
 

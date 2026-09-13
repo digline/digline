@@ -40,6 +40,7 @@ from digline.core import (
     Verdict,
     combine_samples,
     compare,
+    on_the_line,
     per_sample_outcomes,
     redact,
     run_from_json,
@@ -51,6 +52,7 @@ from digline.report import headline, render_html
 from digline.report.text import LOCALES, Locale, phrase
 from digline.run import Case, Suite, planned_calls
 from digline.store.migrate import upgrade_document
+from digline.wire import EXIT_OK, exit_code
 
 CREATED = "2026-01-01T00:00:00+00:00"
 
@@ -79,6 +81,71 @@ def sample(score: float, *, threshold: float = 0.5, name: str = "check") -> Verd
 
 
 # -- §4: what a sampled score records ------------------------------------- #
+
+
+# --------------------------------------------------------------------------- #
+# On the line: measured, named, and gating nothing (ADR 0018 §8)
+# --------------------------------------------------------------------------- #
+
+
+def _folded(scores: Sequence[float], threshold: float = 0.5) -> Verdict:
+    return combine_samples(
+        [
+            Verdict(
+                score=Score(name="rubric", score=score),
+                threshold=threshold,
+                status="pass" if score >= threshold else "fail",
+                reason="sample",
+            )
+            for score in scores
+        ],
+        min_agreement=0.5,
+    )
+
+
+def test_a_band_that_covers_the_threshold_is_on_the_line() -> None:
+    """The verdict landed where it did because of which samples were drawn: the
+    same check asked again could say the other thing, and a reader shown it as a
+    clean pass has been told more than was measured."""
+    assert on_the_line(_folded([0.4, 0.6, 0.55])) is True
+
+
+def test_a_band_that_clears_the_threshold_is_not() -> None:
+    assert on_the_line(_folded([0.8, 0.9, 0.85])) is False
+
+
+def test_an_unsampled_check_is_never_on_the_line() -> None:
+    """With one sample there is no interval, and an absence is not a finding —
+    the same silence ADR 0006 §5 keeps about a noise floor nobody measured."""
+    alone = Verdict(
+        score=Score(name="rubric", score=0.5),
+        threshold=0.5,
+        status="pass",
+        reason="one sample",
+    )
+    assert on_the_line(alone) is False
+
+
+def test_being_on_the_line_moves_no_exit_code() -> None:
+    """It names a fact; it does not gate. The exit codes are the contract
+    (`AGENTS.md` §6) and a check that sits on its bar is not a regression — so a
+    run whose checks are all on the line exits exactly as it would have."""
+    straddling = _folded([0.4, 0.6, 0.55])
+    assert straddling.status == "pass"
+    run = Run(
+        tenant="acme",
+        environment="staging",
+        suite="qa",
+        config_hash="h",
+        created_at="2026-01-01T00:00:00+00:00",
+        results=(CaseResult("one", (straddling,)),),
+    )
+    head = headline(compare(run, run), run, run, locale="en")
+    assert head.on_the_line == 1
+    assert head.worse is False
+    assert exit_code(head) == EXIT_OK
+    # And it is said out loud rather than only counted.
+    assert "on the line" in head.sentence
 
 
 def test_a_single_sample_records_no_interval() -> None:

@@ -169,6 +169,13 @@ def sentence(difference: Difference, *, locale: Locale, labels: tuple[str, str])
     # report an absent measurement as a null result. (ADR 0008 §4)
     exceeds: list[str] = []
     if difference.interval_pairs:
+        # Overlap first, because it is the one that withdraws a claim rather
+        # than making one: a reader who has just been told "3 favour staging"
+        # is owed, in the same breath, that two of those three are inside both
+        # runs' wobble. Told afterwards, or only on the rows, it is a
+        # correction to a conclusion they have already drawn. (ADR 0018 §8)
+        if difference.overlapping:
+            exceeds.append(_plural(locale, "diff.overlap", difference.overlapping))
         for count, label in (
             (difference.left_exceeds, left),
             (difference.right_exceeds, right),

@@ -55,6 +55,7 @@ __all__ = [
     "NotContains",
     "PiiAbsent",
     "Regex",
+    "ToolCalledWith",
     "ToolsCalled",
     "budget_score",
     "budget_score_at_precision",
@@ -1056,6 +1057,169 @@ class ToolsCalled(AssertionBase):
             # and a reader without that disclosure still learns that three tools
             # were called where two were expected.
             metadata={"tool_calls": len(called), "called": list(called)},
+        )
+
+
+#: How closely a declared argument mapping has to match the one the model sent.
+type ArgumentMatch = Literal["exact", "subset"]
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCalledWith(AssertionBase):
+    """The arguments a tool was called with.
+
+        ToolCalledWith(tool="lookup", arguments={"id": "4711"})
+
+    The other half of a trajectory. `ToolsCalled` answers *which tools, in what
+    order*; this answers *with what*, and an agent that called the right tool
+    with the wrong argument is a regression the first one cannot see.
+
+    **`ToolsCalled` keeps the order and this assertion does not re-litigate
+    it.** A call to `tool` satisfies this check wherever it sits in the
+    trajectory, and where the model called the same tool more than once, any one
+    matching call is enough. Two assertions with two orderings would be the
+    second semantics `ToolsCalled` refuses, and a reader who has to look up
+    which one is in force cannot read the verdict.
+
+    `arguments` is **mandatory and has no default**: a matcher with nothing to
+    match passes on every trajectory, which is fixed decision 3's vacuously
+    green assertion.
+
+    `match="exact"` is equality after canonicalisation. `match="subset"`
+    requires every declared key to be present and equal and ignores the rest,
+    which is what a suite wants when a framework adds a `request_id` nobody
+    declared. One class with a parameter rather than two classes, on `Affix`'s
+    precedent: they differ by one comparison and every rule around them would
+    otherwise be written twice.
+
+    Nothing the model sent reaches `Score.metadata` — only how much of what was
+    declared matched. An argument is the end company's data by construction, and
+    the bag this writes into is the one projected onto the wire. (ADR 0018 §5)
+    """
+
+    tool: str
+    arguments: Mapping[str, object]
+    match: ArgumentMatch = "exact"
+    name: str = "tool_called_with"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __post_init__(self) -> None:
+        if not self.tool:
+            raise ValueError(
+                "ToolCalledWith.tool must not be empty: a check on a call to "
+                "nothing is a check on nothing"
+            )
+        if not self.arguments:
+            raise ValueError(
+                "ToolCalledWith.arguments must not be empty: a matcher with "
+                "nothing to match passes on every trajectory"
+            )
+        if self.match not in ("exact", "subset"):
+            raise ValueError(
+                f"ToolCalledWith.match must be 'exact' or 'subset', got {self.match!r}"
+            )
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        # A trajectory does not read the output, exactly like `ToolsCalled`.
+        reported = _reported(inputs)
+        found = reported.get("tool_calls")
+        if found is None:
+            # Absent is not empty, on `ToolsCalled`'s rule and for its reason: a
+            # target that reports no trajectory is not a model that called none.
+            return self._error(
+                "this target reports no tool calls with their arguments, so "
+                "what the model sent is not knowable: only a target that "
+                "reports its trajectory can be judged on it"
+            )
+        if isinstance(found, str) or not isinstance(found, list | tuple):
+            return self._error(
+                f"the target reported its tool calls as a {type(found).__name__}, "
+                "not a list of calls: there is no trajectory to read"
+            )
+
+        wanted = cast("Mapping[str, object]", canonical(dict(self.arguments)))
+        expected = len(wanted)
+        best = 0
+        seen = 0
+        ok = False
+        for entry in cast("Sequence[object]", found):
+            if not isinstance(entry, Mapping):
+                return self._error(
+                    f"the target reported a tool call as a {type(entry).__name__}, "
+                    "not a mapping: there is no trajectory to read"
+                )
+            call = cast("Mapping[str, object]", entry)
+            if str(call.get("tool", "")) != self.tool:
+                continue
+            seen += 1
+            sent = self._sent(call.get("arguments"))
+            if sent is None:
+                return self._error(
+                    f"the arguments of a call to {self.tool!r} are not decodable "
+                    "as JSON, so what the model sent cannot be compared with "
+                    "what was declared"
+                )
+            # How much of what was *declared* was matched. Reported as measured
+            # whatever the mode decides, so the number never has to be read
+            # against the mode to mean something.
+            matched = sum(
+                1 for key, value in wanted.items() if key in sent and sent[key] == value
+            )
+            best = max(best, matched)
+            if matched == expected and (
+                self.match == "subset" or set(sent) == set(wanted)
+            ):
+                ok = True
+
+        if seen == 0:
+            return self._graded(
+                0.0,
+                f"the model did not call {self.tool!r}",
+                metadata={"arguments_matched": 0, "arguments_expected": expected},
+            )
+        if ok:
+            why = f"{self.tool!r} was called with the {expected} declared argument(s)"
+        elif best == expected:
+            # Everything declared matched and the model sent more. Only `exact`
+            # can reach here, and saying which rule refused it is the difference
+            # between a verdict a reader can act on and one they have to guess at.
+            why = (
+                f"the closest of {seen} call(s) to {self.tool!r} matched all "
+                f"{expected} declared argument(s) and sent others besides: "
+                "'exact' asks for the same set"
+            )
+        else:
+            why = (
+                f"{best} of {expected} declared argument(s) matched on the "
+                f"closest of {seen} call(s) to {self.tool!r}"
+            )
+        return self._graded(
+            1.0 if ok else 0.0,
+            why,
+            metadata={"arguments_matched": best, "arguments_expected": expected},
+        )
+
+    def _sent(self, raw: object) -> Mapping[str, object] | None:
+        """What the model sent, canonicalised, or `None` if it cannot be read.
+
+        A string is decoded as JSON — which is the shape one of the three
+        providers hands back and its own SDK warns may not parse. `None` here
+        becomes an `error`, never a `fail`: an undecodable argument is a
+        different problem from a mismatched one, which is `JsonSchema`'s rule.
+        """
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError:
+                return None
+        if raw is None:
+            raw = {}
+        if not isinstance(raw, Mapping):
+            return None
+        return cast(
+            "Mapping[str, object]", canonical(dict(cast("Mapping[str, object]", raw)))
         )
 
 

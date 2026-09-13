@@ -1,6 +1,6 @@
 [project]
 name = "digline"
-version = "0.11.0"
+version = "0.12.0"
 description = "Regression testing for LLM output, against a baseline committed in your own repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -60,6 +60,10 @@ dev = [
     # depends on the core only, and the meta-package would put an OpenAI
     # binding in this environment that nothing here calls.
     "llama-index-core>=0.14.24,<0.15",
+    # Same reason again, for `examples/langgraph`. It brings `langchain` with
+    # it — `create_agent` moved there in v1 — and the pin above is satisfied by
+    # the version it wants, so the two examples share one resolution.
+    "langgraph>=1.2.11,<2",
 ]
 
 [tool.uv.workspace]

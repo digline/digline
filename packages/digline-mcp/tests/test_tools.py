@@ -17,6 +17,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
 from tests._helpers import cli, run_key, write_suite
 
+from digline.store import PENDING_DIRNAME
 from digline_mcp.server import build_server
 
 
@@ -109,6 +110,100 @@ def test_the_suite_module_is_executed_once_per_run(repo: Path) -> None:
     )
     call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
     assert tally.read_text(encoding="utf-8") == "x"
+
+
+# --------------------------------------------------------------------------- #
+# The journal, which this surface gets for free (ADR 0017 §11)
+# --------------------------------------------------------------------------- #
+
+#: Its own suite file rather than `write_suite`'s. The shared template puts
+#: `%(preamble)s` above its own `def target`, so a target defined through that
+#: seam is shadowed by the one below it — the seam is for import-time side
+#: effects, not for replacing the target. Two cases and one assertion is all
+#: this needs, and writing it here keeps the shared template honest about what
+#: it is for.
+#:
+#: `%s` is the body of the target: killed on the second case, or answering.
+SUITE_WITH = """\
+from digline.core import Contains
+from digline.run import Case, Response, Suite
+
+suite = Suite(
+    tenant="acme-bank",
+    environment="staging",
+    name="qa",
+    assertions=[Contains(needle="Rome")],
+    cases=[Case(id="capital-it"), Case(id="capital-fr")],
+)
+
+
+def target(case):
+%s
+    return Response(output="The capital is Rome.", input="What is the capital?")
+"""
+
+#: `SystemExit` and not an ordinary exception: the driver contains `Exception`
+#: and errors the case, which is what a provider timing out looks like. This is
+#: what a supervisor looks like.
+KILLS_ON_THE_SECOND = '    if case.id == "capital-fr":\n        raise SystemExit(9)'
+ANSWERS = "    pass"
+
+
+def write_agent_suite(root: Path, body: str) -> None:
+    (root / "suite_qa.py").write_text(SUITE_WITH % body, encoding="utf-8")
+
+
+def legs(root: Path) -> list[Path]:
+    pending = root / ".digline" / "acme-bank" / "runs" / "qa" / PENDING_DIRNAME
+    return sorted(pending.glob("*.jsonl"))
+
+
+def test_a_killed_run_from_this_surface_leaves_a_journal(repo: Path) -> None:
+    """The claim `digline-mcp` 0.1.2 is for, held rather than asserted.
+
+    Until this release the `run` tool called `execute()` and `write_run()`
+    itself, so journalling was wired in one front end and not the other: a
+    killed CLI run left a leg to finish and a killed MCP-launched one left
+    nothing at all. Moving onto `host.prepare()`/`measure()` is what closes
+    that, and this is what says it closed — the paid call for the first case is
+    on disk while the process was taken out during the second.
+    """
+    write_agent_suite(repo, KILLS_ON_THE_SECOND)
+    assert not legs(repo)
+
+    with pytest.raises(SystemExit):
+        call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
+
+    written = legs(repo)
+    assert len(written) == 1, written
+    lines = [json.loads(line) for line in written[0].read_text().splitlines()]
+    assert lines[0]["kind"] == "header"
+    assert [line["case"]["case_id"] for line in lines if line["kind"] == "case"] == [
+        "capital-it"
+    ]
+
+
+def test_the_cli_finishes_what_this_surface_started(repo: Path) -> None:
+    """The other half, and the sentence the changelog makes: *a journal the CLI
+    can finish*. One composition means the leg an MCP-launched run left is the
+    leg `--resume` reads — the two front ends write the same journal because
+    they are the same function underneath."""
+    write_agent_suite(repo, KILLS_ON_THE_SECOND)
+    with pytest.raises(SystemExit):
+        call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
+    assert legs(repo)
+
+    # A target that answers, so the second leg completes what the first paid
+    # for. Same tenant, environment, name, cases and assertions, so the header
+    # matches and the resume is admitted: what changed is the target's weather,
+    # which is the one thing a resume is allowed to survive.
+    write_agent_suite(repo, ANSWERS)
+    done = cli(repo, "run", "--suite", "suite_qa.py", "--resume")
+    assert done.returncode == 0, done.stderr
+    # The journal is gone because the run file exists: `complete()` deletes it
+    # only once there is something that replaces it.
+    assert not legs(repo)
+    assert done.stdout.strip()
 
 
 # --------------------------------------------------------------------------- #

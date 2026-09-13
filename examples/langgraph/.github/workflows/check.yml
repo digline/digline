@@ -1,0 +1,56 @@
+name: check
+
+# Inert while this lives inside the digline monorepo — the workflow that runs is
+# the one at the repository root. It is here so that the day this directory
+# becomes its own repository, the cycle is already wired.
+on:
+  push:
+  schedule:
+    # Monday, 06:00 UTC. `langgraph>=1.2.11,<2` and `langchain>=1.4.0,<2` mean a
+    # minor release lands under this agent without anybody merging anything —
+    # and the last one moved `create_agent` to a different package. The run
+    # nobody triggered is the one that notices.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  # Fixed decision 5, stated rather than assumed. `langsmith` is a hard,
+  # non-optional dependency of `langchain-core`: it opens no socket with a clean
+  # environment, and this pins that shut rather than relying on it.
+  #
+  # Four names are live — the lookup searches the LANGSMITH and LANGCHAIN
+  # namespaces for TRACING_V2 and falls back to TRACING — and two of them are
+  # enough to settle it. They are set **here**, in the job environment, and not
+  # from inside Python: the lookup is cached on first read, so an assignment
+  # after the first langchain import is ignored.
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+
+      # From PyPI, like any user: this checks the published package, not a
+      # checkout of it. No key is set anywhere in this job — the default path
+      # runs the graph on a scripted stand-in model, which is what makes an
+      # example about an agent runnable by somebody who has no account.
+      - run: uv sync
+
+      # The gate. `run` writes a run and prints its key; `compare` holds it
+      # against the baseline committed in this repository and exits non-zero if
+      # anything got worse. There is deliberately no `promote` here: promoting
+      # is the human decision that *this* is the new normal, made by someone
+      # reading the report and committing the result. A job that promotes before
+      # it compares compares a run with itself and passes by construction.
+      - name: Compare with the committed baseline
+        run: |
+          KEY=$(uv run digline run --suite suite.py)
+          uv run digline compare --suite suite.py --run "$KEY"
+
+      - run: uv run ruff check .
+      - run: uv run pyright

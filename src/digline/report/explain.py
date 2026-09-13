@@ -31,6 +31,7 @@ from digline.core import (
     Scope,
     SystemConfig,
     Verdict,
+    on_the_line,
 )
 from digline.report.render import (
     ABSENT,
@@ -40,6 +41,7 @@ from digline.report.render import (
     errored_verdicts,
     fmt_score,
     fmt_value,
+    on_the_line_count,
     run_tally,
 )
 from digline.report.text import Locale, phrase, strings
@@ -92,6 +94,11 @@ type TallyKind = Literal[
     "within_noise",
     "suite_config",
     "comparability",
+    # The eleventh, and the same amendment a third time. A check whose measured
+    # band covers its own threshold passed or failed by the draw, and a reading
+    # that omitted it would describe a verdict as settled that the measurement
+    # does not settle. It gates nothing. (ADR 0018 §8)
+    "on_the_line",
     # The ninth, and an **amendment** to ADR 0012 §3 rather than an addition
     # under it: that section closes this list. It earns its place by that
     # section's own test — the report says it, and a reading that omitted it
@@ -130,6 +137,11 @@ class CheckFact:
     #: "not known" sounds like: ADR 0006 §5 refuses to print a phrase about a
     #: measurement nobody took.
     noise: Noise = Noise()
+    #: The interval this check measured covers its own threshold, so the verdict
+    #: rests on which samples were drawn. Beside the kind rather than replacing
+    #: it — the check really did pass or fail, and this says how firmly.
+    #: (ADR 0018 §8)
+    on_the_line: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,6 +232,13 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         TallyFact("unjudged", count=tally.unjudged),
         TallyFact("suspended", count=tally.suspended),
     ]
+    # Read off this run's own verdicts, so it says the same thing alone and
+    # compared: being on the line is a fact about the measurement just taken,
+    # not about the distance to a reference.
+    on_line = on_the_line_count(run)
+    if on_line:
+        out.append(TallyFact("on_the_line", count=on_line))
+
     if comparison is None:
         return out
 
@@ -235,8 +254,20 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # none has nothing to say at all.
     if comparison.canary_moved:
         out.append(TallyFact("canary", state=True))
+    # **First of all, and before any number.** A judge that moved did not change
+    # what was measured, it changed the scale it was measured on — so every
+    # count above it is a count of differences read off two rulers, and a reader
+    # who meets that fact last has already believed them. `rejudged` won the
+    # same argument in the same words one field over ("it qualifies every count
+    # under it"), and this is the stronger case: a replay still measures
+    # something, a moved judge makes the comparison itself the wrong question.
+    #
+    # It is not a count and it gates nothing; what it does is put the caveat
+    # where a caveat works. This is a deliberate departure from `headline()`,
+    # which keeps the judge clause last because a sentence ends on its loudest
+    # term — a reading is a list, and a list is read from the top. (ADR 0018 §8)
     if comparison.comparability_reduced:
-        out.append(TallyFact("comparability", state=True))
+        out.insert(0, TallyFact("comparability", state=True))
     return out
 
 
@@ -378,6 +409,11 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
         delta=delta.delta,
         threshold=None if now is None else now.threshold,
         noise=Noise(delta.noise_min, delta.noise_max, delta.noise_samples),
+        # Read off *this run's* verdict, not the delta's interval: the noise
+        # above is the baseline's, because that is what a movement is judged
+        # against, while being on the line is a fact about the measurement this
+        # run just took. (ADR 0018 §8)
+        on_the_line=now is not None and on_the_line(now),
     )
 
 
@@ -398,6 +434,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             after=verdict.score.score,
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
+            on_the_line=on_the_line(verdict),
         )
         for case in run.results
         for verdict in case.verdicts
@@ -413,6 +450,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             after=verdict.score.score,
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
+            on_the_line=on_the_line(verdict),
         )
         for verdict in run.aggregate
         if verdict.status == "fail"
@@ -526,6 +564,12 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, f"explain.tally.suite_config.{moved}")
         case "comparability":
             return phrase(locale, "explain.tally.comparability")
+        case "on_the_line":
+            return phrase(
+                locale,
+                f"explain.tally.on_the_line.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
         case "rejudged":
             return phrase(locale, "explain.tally.rejudged")
         case "canary":
@@ -639,7 +683,12 @@ def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
                 now=now,
                 delta=moved,
             )
-            return said + _beyond(fact, locale) + _bar(fact, locale, compared=compared)
+            return (
+                said
+                + _beyond(fact, locale)
+                + _bar(fact, locale, compared=compared)
+                + _on_line(fact, locale)
+            )
         case "unchanged" | "within_noise":
             said = phrase(
                 locale,
@@ -648,7 +697,7 @@ def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
                 before=before,
                 now=now,
             )
-            return said + _bar(fact, locale, compared=compared)
+            return said + _bar(fact, locale, compared=compared) + _on_line(fact, locale)
         case "new":
             # No score, and the document is why: `detail.new` states that the
             # check is here and not in the reference, and states no number. A
@@ -661,10 +710,23 @@ def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
             return phrase(locale, "explain.check.errored", where=where)
         case "failing":
             said = phrase(locale, "explain.check.failing", where=where, now=now)
-            return said + _bar(fact, locale, compared=compared)
+            return said + _bar(fact, locale, compared=compared) + _on_line(fact, locale)
         case "suspended":
             return phrase(locale, "explain.check.suspended", case=fact.case_id)
     assert_never(fact.kind)
+
+
+def _on_line(fact: CheckFact, locale: Locale) -> str:
+    """The clause for a check whose band covers its threshold, or nothing.
+
+    It states **no number**, and that is the point rather than economy. In a
+    comparison `fact.noise` is the *baseline's* interval, because that is what a
+    movement is judged against, while being on the line is a fact about the band
+    this run just measured — so printing an interval here would put the wrong
+    one under a sentence about the right one. The fact is the finding; the
+    numbers are already on the row.
+    """
+    return phrase(locale, "explain.check.on_the_line") if fact.on_the_line else ""
 
 
 def _interval(noise: Noise, locale: Locale) -> str:

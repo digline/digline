@@ -25,6 +25,8 @@ from digline.core import (
     Message,
     RecordedResponse,
     Run,
+    ToolCalledWith,
+    ToolsCalled,
     record_output,
     redact,
     restore_output,
@@ -384,6 +386,126 @@ def test_it_refuses_an_oversize_answer() -> None:
     )
     with pytest.raises(ReplayError, match="over the size ceiling"):
         Replay(declared, holed)
+
+
+# --------------------------------------------------------------------------- #
+# The trajectory: the half of a replay that did not exist (ADR 0018 §4)
+# --------------------------------------------------------------------------- #
+
+
+def dispatching() -> Target:
+    """A target that reports what it called on the way to its answer."""
+
+    def target(case: Case) -> Response:
+        return Response(
+            output="Refunded 4.90 EUR.",
+            input=f"refund {case.id}?",
+            cost_usd=0.01,
+            latency_ms=12.0,
+            metadata={
+                "tools": ["lookup", "refund"],
+                "tool_calls": [
+                    {
+                        "tool": "lookup",
+                        "arguments": {"order_id": "4711"},
+                        "result": "shipping 4.90",
+                        "status": "success",
+                    },
+                    {
+                        "tool": "refund",
+                        "arguments": {"order_id": "4711", "amount_eur": 4.90},
+                        "result": "refunded",
+                        "status": "success",
+                    },
+                ],
+            },
+        )
+
+    return target
+
+
+def trajectory_suite(**extra: object) -> Suite:
+    declared: dict[str, object] = {
+        "record_responses": True,
+        "assertions": [
+            ToolsCalled(expected=["lookup", "refund"]),
+            ToolCalledWith(tool="lookup", arguments={"order_id": "4711"}),
+        ],
+    }
+    declared.update(extra)
+    return suite(**declared)
+
+
+def test_a_replayed_trajectory_scores_exactly_what_the_run_scored() -> None:
+    """The gate that silently was not one, closed.
+
+    Before ADR 0018 this was not a weaker measurement, it was **no** measurement:
+    `Replay` rebuilt a `Response` with no metadata, so every trajectory check
+    took its *nobody reported* branch and errored. A declared gate became a row
+    nobody gated on, which is the exact failure ADR 0015 §1 made the budgets
+    ride the record to avoid.
+    """
+    declared = trajectory_suite()
+    source = execute(declared, dispatching(), created_at=CREATED)
+    assert all(v.status == "pass" for case in source.results for v in case.verdicts), [
+        v.reason for case in source.results for v in case.verdicts
+    ]
+
+    again = rejudge(declared, source, key="src-key", created_at=LATER)
+    assert [v.status for c in again.results for v in c.verdicts] == [
+        v.status for c in source.results for v in c.verdicts
+    ]
+    assert all(v.status != "error" for c in again.results for v in c.verdicts)
+
+
+def test_a_moved_argument_flips_the_replay_without_asking_the_target() -> None:
+    """And this is the feature, for arguments as much as for thresholds: the
+    calls are fixed, the declaration moves, and nothing is paid."""
+    source = execute(trajectory_suite(), dispatching(), created_at=CREATED)
+    stricter = trajectory_suite(
+        assertions=[ToolCalledWith(tool="lookup", arguments={"order_id": "9999"})]
+    )
+    again = rejudge(stricter, source, key="src-key", created_at=LATER)
+    verdicts = [v for c in again.results for v in c.verdicts]
+    assert all(v.status == "fail" for v in verdicts), [v.reason for v in verdicts]
+    # Failed, not errored: the trajectory was there to be read and did not match.
+    assert all(v.score.metadata["arguments_matched"] == 0 for v in verdicts)
+
+
+def test_it_refuses_a_suite_that_judges_a_trajectory_the_run_did_not_record() -> None:
+    """The fifth refusal, and it is a refusal rather than an errored check on
+    purpose: an errored check *is* the defect this record was written to close,
+    so a replay that produced one quietly would be the same gate-that-is-not-a-
+    gate wearing a different hat. (ADR 0018 §4)"""
+    source = execute(suite(record_responses=True), answering(), created_at=CREATED)
+    with pytest.raises(ReplayError, match="recorded no tool calls"):
+        Replay(trajectory_suite(), source)
+
+
+def test_a_target_that_reports_no_trajectory_records_none() -> None:
+    """Absent rather than empty, so a suite whose target says nothing about
+    tools writes the bytes it wrote before this field existed."""
+    source = execute(suite(record_responses=True), answering(), created_at=CREATED)
+    assert all(r.tool_calls == () for c in source.results for r in c.responses)
+    assert "tool_calls" not in run_to_json(source)
+
+
+def test_promotion_strips_the_trajectory_with_the_answers() -> None:
+    """One rule, not two: the trajectory rides `RecordedResponse`, so the
+    committed reference loses it for the reason it loses the answer."""
+    source = execute(trajectory_suite(), dispatching(), created_at=CREATED)
+    assert any(r.tool_calls for c in source.results for r in c.responses)
+    reference = without_responses(source)
+    assert all(c.responses == () for c in reference.results)
+    assert "4711" not in run_to_json(reference)
+
+
+def test_redaction_keeps_the_count_and_drops_every_argument() -> None:
+    source = execute(trajectory_suite(), dispatching(), created_at=CREATED)
+    hidden = redact(source)
+    kept = [r for c in hidden.results for r in c.responses]
+    assert kept and all(r.withheld and r.tool_calls == () for r in kept)
+    assert "4711" not in run_to_json(hidden)
 
 
 def test_it_refuses_to_cross_a_perimeter() -> None:

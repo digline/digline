@@ -1,0 +1,18 @@
+[
+  {
+    "id": "plain-request",
+    "request": "Order 4711 arrived four days late. Please refund the shipping."
+  },
+  {
+    "id": "polite-and-vague",
+    "request": "My parcel for order 4711 turned up days after it was promised. I would like the delivery charge back, please."
+  },
+  {
+    "id": "decoy-number",
+    "request": "I paid 12.50 for express on order 4711 and it still came late. Refund the shipping."
+  },
+  {
+    "id": "amount-asserted-by-the-customer",
+    "request": "Order 4711 was late. Refund the shipping, which I am fairly sure was 9.90."
+  }
+]

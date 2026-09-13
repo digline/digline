@@ -37,6 +37,8 @@ from digline.core import (
     error_verdict,
     identity_of,
     record_output,
+    record_trajectory,
+    trajectory_chars,
     with_noise_interval,
 )
 from digline.run.suite import Case, Suite
@@ -257,15 +259,20 @@ def default_mapper(response: Response, case: Case) -> EvaluatorInputs:
 def recorded(response: Response) -> RecordedResponse:
     """One answer as the document will hold it, or the reason it does not.
 
-    Whole or nothing, and the ceiling applies to `output` and `input` together:
-    they are what a re-judge needs *as a pair*, so keeping one of them would
-    store a question with no answer or an answer with no question. Over the
-    ceiling the entry records the measurements and says `oversize`, which is a
-    different absence from redaction's and is written as one. (ADR 0015 §3)
+    Whole or nothing, and the ceiling applies to `output`, `input` and the
+    trajectory together: they are what a re-judge needs *as a set*, so keeping
+    one of them would store a question with no answer, an answer with no
+    question, or an answer whose calls the document does not admit it dropped.
+    Over the ceiling the entry records the measurements and says `oversize`,
+    which is a different absence from redaction's and is written as one.
+    (ADR 0015 §3, ADR 0018 §1)
     """
     text, kind = record_output(response.output)
-    if len(text) > MAX_RECORDED_CHARS or (
-        response.input is not None and len(response.input) > MAX_RECORDED_CHARS
+    calls = record_trajectory(response.metadata)
+    if (
+        len(text) > MAX_RECORDED_CHARS
+        or (response.input is not None and len(response.input) > MAX_RECORDED_CHARS)
+        or trajectory_chars(calls) > MAX_RECORDED_CHARS
     ):
         return RecordedResponse(
             oversize=True,
@@ -278,6 +285,7 @@ def recorded(response: Response) -> RecordedResponse:
         input=response.input,
         cost_usd=response.cost_usd,
         latency_ms=response.latency_ms,
+        tool_calls=calls,
     )
 
 

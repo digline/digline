@@ -8,6 +8,107 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.12.0 — 2026-09-13
+
+**The agent under test.** digline **0.12.0** with **digline-mcp 0.1.2**: the
+three provider plugins stay at 0.4.0 and `pytest-digline` at 0.1.3, neither
+needing a floor move. `SCHEMA_VERSION` moves to **11** and `OUTPUT_VERSION`
+stays 1 — every stored document has to be migrated, no `--json` shape breaks,
+and **no baseline needs re-promoting**, because nothing here touches
+`config_hash`.
+
+**The trajectory is recorded, and a gate that silently was not one becomes
+one.** `SCHEMA_VERSION` moves **10 → 11**, and the reason is not the feature it
+looks like. A suite holding `tools_called` could never be re-judged: `Replay`
+rebuilt a `Response` from the recorded answer, `RecordedResponse` had no field a
+trajectory could live in, so the assertion read an empty mapping, took its
+*nobody reported* branch and **errored**. That is precisely the failure ADR 0015
+§1 named when it made `cost_usd` and `latency_ms` ride the record — same defect,
+one door over, and nothing in the test suite paired the two to notice.
+
+So `RecordedResponse` gains `tool_calls`: the tool, its arguments as canonical
+JSON, what the tool returned, and whether it failed. It rides *there* rather
+than anywhere else because that structure is already payload by construction —
+`redact()` drops it whole, `digline.wire` does not know its name, and
+`promote_baseline` strips it — so a tool argument, which is the end company's
+data by construction, inherits every one of those sentences and adds no new
+mechanism. Recording stays behind `record_responses`, still off by default.
+`Replay` now hands the trajectory back, and a fifth refusal joins ADR 0015 §6's
+four: a suite that judges a trajectory over a run that recorded none is refused
+by name, before a judge is paid, rather than quietly erroring the check.
+
+**`ToolCalledWith`**, the assertion ADR 0004 said would have to bring the
+arguments with it. `ToolCalledWith(tool="lookup", arguments={"order_id": "4711"})`,
+with `match="exact"` or `"subset"`. `ToolsCalled` is untouched and still owns the
+order. Nothing the model sent reaches the verdict: the score metadata carries
+`arguments_matched` and `arguments_expected`, both counts, so nothing has to be
+declared and no reviewer has to notice that it should have been.
+
+**`resumed_at` rides as the second passenger**, pre-vetted by ADR 0017 §11 and
+waiting for a bump something else forced. Both passengers are checked against
+ADR 0014 §1 in ADR 0018 §3, the migration `10 → 11` writes nothing, and
+`_NON_ADDITIVE` gains no row.
+
+**What it costs you, in order.** Every stored document must be migrated —
+`digline migrate` per suite — and every example cap moved from `<0.12` to
+`<0.13`. No baseline needs re-promoting: none of this touches `config_hash`. A
+digline behind this one meets a schema 11 file and refuses it, correctly, saying
+to upgrade rather than to migrate.
+
+**Five lines the report has been missing.** A check whose measured band covers
+its own threshold is now **named** — it passed or failed by which samples were
+drawn, and a reader shown it as a clean pass has been told more than was
+measured. It carries a `Headline` field and gates nothing; the exit codes do not
+move. `explain` now **opens** with a judge that changed, before any number,
+instead of mentioning it last under the counts it invalidates. A diff says at its
+head how many differences sit inside both runs' intervals, so *no claim can be
+made* about them arrives with the counts rather than after them. A `cost_budget`
+that passes on the fold now says how many individual calls went over the cap and
+what the worst one was. And a check that errored because its samples disagreed
+says which three ways they went — two directions is disagreement, three is a
+judge that is not measuring one thing, and `spread` prints the same figure for
+both.
+
+**A tenth example: an agent under the gate.** `examples/langgraph/` puts a
+LangGraph agent with two tools under digline, judged on **what it did** — which
+tools, in what order, with which arguments — rather than on what it wrote. The
+tools execute for real and only the model is scripted, so no key and no network
+are needed; `create_agent` is the current entry point, since
+`langgraph.prebuilt.create_react_agent` is deprecated and goes away in v2. The
+target records a projection rather than the message list, because LangGraph
+mints `ToolMessage.id` as a uuid4 with no way to pin it and a baseline built on
+one would churn every run. `langsmith` is a hard dependency of `langchain-core`
+and the workflow pins its tracing off explicitly rather than trusting the
+default.
+
+**`digline-mcp` 0.1.2 moves onto the host composition, and gets the journal for
+free.** The `run` tool called `execute()` and `write_run()` itself, which meant
+journalling was wired in one front end and not the other — so a killed
+MCP-launched run left nothing to finish while a killed CLI one left a journal.
+It now sits on `host.prepare()` and `host.measure()`, the same pair the CLI
+sits on, which is what ADR 0017 §11 said would happen in the release *after* the
+one that built them: a floor cannot name a version that does not exist yet.
+
+It gains **no `resume` verb**, and that is a decision rather than an omission —
+resuming without the acknowledged call count would be a second way to spend
+money, which is the one thing ADR 0011 §2 refuses. One consequence falls out
+and is worth stating: with `resume=None` every refusal `prepare` carries lives
+on a branch this never takes, so the error translation needs nothing added.
+Its floor rises to `digline>=0.11.0` — raised by hand as well as held by the
+gate, because a names-based gate cannot see a widened *field*, which is the
+trap `pytest-digline`'s floor comment already records.
+
+**A check that trips the agreement floor now records four numbers it used to
+throw away.** Worth knowing if you diff run files: a verdict that errors because
+its samples disagreed carries `samples`, `agreement`, `errored_samples` and
+`scores` in its score metadata, where before it carried nothing at all. That is
+what lets the reading say *which three ways* the samples went, and it is the one
+check a reader most needs explained. All four are numbers, so all four cross a
+boundary on their own merit. A suite that never trips the floor writes the bytes
+it wrote before.
+
 **A forged journal record is refused before the journal opens.** From 0.11.0's
 delta-pass. `execute()` has always refused a `done` naming a case the suite does
 not declare — it is an invariant of the driver — but on a resume that refusal

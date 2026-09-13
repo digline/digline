@@ -27,6 +27,7 @@ from digline.core import (
     JudgeReply,
     LlmRubric,
     RecordedResponse,
+    RecordedToolCall,
     Run,
     SystemConfig,
     compare,
@@ -61,6 +62,13 @@ WITHHELD_HOST = "llm-gateway.internal.rossi.example"
 #: withholding the quote would not be a boundary. (ADR 0015 §4)
 RECORDED_ANSWER = "Your balance is 1499 EUR, Mr Rossi — IBAN IT60X0542811101"
 RECORDED_QUESTION = "What is the balance of account IT60X0542811101?"
+#: The newest one, and it is the end company's data in the most literal way the
+#: document has ever held it: not a sentence *about* the customer but the value
+#: the model looked them up by. An argument rides `RecordedResponse`, so it
+#: inherits that structure's boundary rather than needing one of its own — and
+#: this is what says so rather than the comment that claims it. (ADR 0018 §2)
+TOOL_ARGUMENT = "IT60X0542811101"
+TOOL_RESULT = "Mario Rossi, balance 1499 EUR"
 
 MARKERS = (
     RECORDED_ANSWER,
@@ -70,6 +78,8 @@ MARKERS = (
     CASE_SECRET,
     ARTIFACT_TEXT,
     WITHHELD_HOST,
+    TOOL_ARGUMENT,
+    TOOL_RESULT,
     "Rossi",
     "1499",
 )
@@ -112,6 +122,13 @@ def loaded_run() -> Run:
                         input=RECORDED_QUESTION,
                         cost_usd=0.01,
                         latency_ms=120.0,
+                        tool_calls=(
+                            RecordedToolCall(
+                                tool="lookup_account",
+                                arguments=f'{{"iban":"{TOOL_ARGUMENT}"}}',
+                                result=TOOL_RESULT,
+                            ),
+                        ),
                     ),
                 ),
             ),
@@ -155,6 +172,23 @@ def test_the_recorded_answer_has_no_key_to_travel_through() -> None:
     for case in rows(document, "results"):
         assert "responses" not in case
         assert "output" not in case
+
+
+def test_the_recorded_trajectory_has_no_key_to_travel_through() -> None:
+    """The same property as the recorded answer, one field deeper.
+
+    The trajectory rides *inside* `RecordedResponse`, so the projection that
+    does not know `responses` cannot know `tool_calls` either — there is no
+    second door to close and no `Disclosure` that could widen its way to one.
+    The marker suite proves the argument does not appear; this says why it
+    cannot. (ADR 0018 §2)
+    """
+    document = run_document(loaded_run(), Disclosure(artifacts=True))
+    serialized = json.dumps(document)
+    assert "tool_calls" not in serialized
+    assert "lookup_account" not in serialized
+    for case in rows(document, "results"):
+        assert "tool_calls" not in case
 
 
 def test_the_reason_is_absent_not_emptied() -> None:

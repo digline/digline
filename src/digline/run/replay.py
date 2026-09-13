@@ -21,7 +21,13 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from digline.core import RecordedResponse, Run, restore_output
+from digline.core import (
+    RecordedResponse,
+    Run,
+    ToolCalledWith,
+    ToolsCalled,
+    restore_output,
+)
 from digline.run.driver import Mapper, Response, default_mapper, execute
 from digline.run.suite import Case, Suite
 
@@ -70,15 +76,57 @@ class Replay:
             input=answer.input,
             cost_usd=answer.cost_usd,
             latency_ms=answer.latency_ms,
+            metadata=_reported_trajectory(answer),
         )
 
 
+def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
+    """What a trajectory assertion reads, rebuilt from what was recorded.
+
+    This is the half of a replay that did not exist, and its absence was not
+    cosmetic: `Response.metadata` was never reconstructed, so a replayed
+    `ToolsCalled` read an empty mapping, took its *nobody reported* branch and
+    returned **error** — a declared gate quietly becoming a row nobody gated on,
+    which is exactly what ADR 0015 §1 made `cost_usd` ride the record to avoid.
+    (ADR 0018 §4)
+
+    **Both keys or neither.** `tools` is what `ToolsCalled` reads and
+    `tool_calls` what `ToolCalledWith` reads; writing one without the other
+    would answer one assertion and error the other over the same recording.
+
+    A response that recorded no trajectory writes neither, so the assertion
+    takes the branch that says so. That is the honest outcome, and it is why
+    `_check` refuses before the driver starts rather than leaving it to surface
+    one errored row at a time.
+    """
+    if not answer.tool_calls:
+        return {}
+    return {
+        "tools": [call.tool for call in answer.tool_calls],
+        "tool_calls": [
+            {
+                "tool": call.tool,
+                "arguments": call.arguments,
+                "result": call.result,
+                "status": call.status,
+            }
+            for call in answer.tool_calls
+        ],
+    }
+
+
 def _check(suite: Suite, source: Run) -> None:
-    """The four refusals, in the order a reader meets them.
+    """The five refusals, in the order a reader meets them.
 
     Each one names what is missing, because each is a different mistake: a suite
     that never recorded, a suite that has since changed how many times it asks,
-    a document that kept its answers back, and a perimeter being crossed.
+    a document that kept its answers back, a perimeter being crossed, and a
+    suite that judges a trajectory over a run that recorded none.
+
+    The fifth is a refusal rather than an errored check on purpose: an errored
+    check *is* the defect ADR 0018 was written to close, so a replay that
+    produced one quietly would be the gate-that-is-not-a-gate wearing a
+    different hat. (ADR 0018 §4)
     """
     if source.tenant != suite.tenant:
         raise ReplayError(
@@ -86,6 +134,17 @@ def _check(suite: Suite, source: Run) -> None:
             f"suite is {suite.tenant!r}: a replay does not cross a perimeter, "
             "for the reason a comparison does not"
         )
+
+    # Which assertions would read a trajectory. Named types rather than a
+    # protocol because the two that read one are the two the core ships, and a
+    # third-party assertion that reads `metadata["tool_calls"]` is not
+    # discoverable from here — it gets the errored check, which is the outcome
+    # this refusal exists to spare the two that *are* knowable.
+    trajectory_checks = [
+        assertion
+        for assertion in suite.assertions
+        if isinstance(assertion, ToolsCalled | ToolCalledWith)
+    ]
 
     recorded = {case.case_id: case for case in source.results}
     if not any(case.responses for case in source.results):
@@ -129,6 +188,16 @@ def _check(suite: Suite, source: Run) -> None:
                 "one count over a run taken at another is a different "
                 "measurement wearing the suite's name: set `samples` to what "
                 "was recorded, or produce a new run"
+            )
+        if trajectory_checks and not any(r.tool_calls for r in stored.responses):
+            raise ReplayError(
+                f"case {case.id!r} recorded no tool calls, and this suite holds "
+                f"{trajectory_checks[0].name!r}, which judges the trajectory. "
+                "The run was produced before trajectories were recorded, or by "
+                "a target that reports none — so re-judging it would error that "
+                "check rather than measure it, which is a declared gate "
+                "becoming a row nobody gated on. Produce a new run with a "
+                "target that reports its trajectory"
             )
 
 

@@ -155,6 +155,7 @@ git-ignored through a `.gitignore` digline writes for you.
 | `FromAutoevals` | you already have an `autoevals` scorer and want it under a baseline |
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
 | `ToolsCalled` | the target is an agent: which tools it called, in order — an answer produced without the lookup that should have produced it |
+| `ToolCalledWith` | the other half of a trajectory: the arguments a tool was called with — the right tool asked the wrong question |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
 
@@ -220,7 +221,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 
 ## Examples
 
-Nine projects in [`examples/`](examples/), each answering a question somebody
+Ten projects in [`examples/`](examples/), each answering a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
@@ -231,6 +232,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My application is Java: can I use this?**](examples/external-app/) — `HttpTarget` against a service digline cannot import
 - [**My app is LangChain4j: what do I put in my repo?**](examples/langchain4j/) — the walkthrough: one endpoint, three files, the CI gate
 - [**My pipeline is LangChain: what changed when I upgraded it?**](examples/langchain/) — the chain called in process, `FakeListChatModel` in CI, one line to a real model
+- [**My agent calls the right tools, but with the right arguments?**](examples/langgraph/) — a LangGraph agent judged on its trajectory: `ToolsCalled` for the order, `ToolCalledWith` for the arguments, the tools real and the model scripted
 - [**My RAG is LlamaIndex: is it still answering from the right page?**](examples/llamaindex/) — a live query engine, retrieval measured by `Faithfulness` against the page each case declares
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
 - [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, an issue opened in your repo
@@ -254,7 +256,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.11.0`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
+`0.12.0`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
 report — is complete, covered by tests, and used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. The API may
 still change before 1.0; the baseline format is versioned and migrates. The

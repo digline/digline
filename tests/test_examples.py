@@ -176,6 +176,7 @@ STANDALONE = (
     "external-app",
     "langchain4j",
     "langchain",
+    "langgraph",
     "llamaindex",
     "quickstart-toml",
     "operator",
@@ -431,6 +432,103 @@ def test_the_langchain_example_states_the_version_it_was_tested_against() -> Non
         f"the README does not say it was tested against langchain "
         f"{floor.group(1)}, which is what pyproject.toml resolves"
     )
+
+
+LANGGRAPH = ROOT / "examples" / "langgraph"
+
+
+def test_the_langgraph_example_runs_with_no_key_anywhere(tmp_path: Path) -> None:
+    """The same promise as the other two framework examples, with one more
+    switch to strip.
+
+    `DISPATCH_NAIVE` is the example's own: it puts a careless reader in the
+    model's seat so the README can show what the checks catch. Left set in the
+    environment it would quietly change what the default path measures, which is
+    the same class of escape as a provider key happening to be exported.
+    """
+    workdir = tmp_path / "langgraph"
+    shutil.copytree(LANGGRAPH, workdir)
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.endswith("_API_KEY") and k not in ("DIGLINE_LIVE", "DISPATCH_NAIVE")
+    }
+    ran = cli(workdir, "run", "--suite", "suite.py", env=env)
+    assert ran.returncode == EXIT_OK, ran.stderr
+    assert ran.stdout.strip()
+
+
+@pytest.mark.parametrize("package", ["langgraph", "langchain"])
+def test_the_langgraph_example_states_the_versions_it_was_tested_against(
+    package: str,
+) -> None:
+    """A reader reproduces a run from the versions in the README, so they have to
+    be the versions the project actually resolves.
+
+    Both of them, because this example depends on both and they moved apart:
+    `create_agent` lives in `langchain` while the graph lives in `langgraph`, so
+    a reader who has the right one of the two still cannot reproduce the run.
+    """
+    floor = re.search(
+        rf'"{package}>=([\d.]+),<2"',
+        (LANGGRAPH / "pyproject.toml").read_text(encoding="utf-8"),
+    )
+    assert floor is not None, f"examples/langgraph no longer pins a {package} floor"
+    readme = (LANGGRAPH / "README.md").read_text(encoding="utf-8")
+    assert f"{package} {floor.group(1)}" in readme, (
+        f"the README does not say it was tested against {package} "
+        f"{floor.group(1)}, which is what pyproject.toml resolves"
+    )
+
+
+#: The two the lookup actually reads, out of the four live names: it searches
+#: the LANGSMITH and LANGCHAIN namespaces for TRACING_V2 and falls back to
+#: TRACING, and either of these settles it.
+TRACING_PINS = ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2")
+
+
+@pytest.mark.parametrize("name", TRACING_PINS)
+def test_the_langgraph_example_pins_tracing_off_where_it_runs(name: str) -> None:
+    """Fixed decision 5, gated rather than claimed.
+
+    `langsmith` is a hard, non-optional dependency of `langchain-core`. It opens
+    no socket with a clean environment — that was measured — but the README says
+    this example pins it shut anyway, and a promise about telemetry is the last
+    one that should rest on prose.
+
+    **Both places, because they are different runs.** The example's own
+    `check.yml` is what a reader gets when they copy the directory out; the
+    root `ci.yml` is what runs here, where that file is inert. A pin in one and
+    not the other is a pin that holds only where nobody was worried.
+    """
+    example = (LANGGRAPH / ".github" / "workflows" / "check.yml").read_text(
+        encoding="utf-8"
+    )
+    monorepo = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert f'{name}: "false"' in example, f"{name} is not pinned in the example"
+    assert f'{name}: "false"' in monorepo, f"{name} is not pinned in ci.yml"
+
+
+def test_the_langgraph_baseline_records_the_trajectory_checks() -> None:
+    """The example's whole claim, held to its own committed artifact.
+
+    This is the one example that gates on *how* the answer was produced, so a
+    baseline carrying only text checks would be the example quietly ceasing to
+    be about anything. Named checks rather than a count: a suite that swapped
+    `tool_called_with` for a second `contains` would keep the count and lose the
+    point.
+    """
+    baseline = json.loads(
+        (
+            LANGGRAPH / ".digline" / "northwind" / "baselines" / "dispatch.json"
+        ).read_text(encoding="utf-8")
+    )
+    named = {v["assertion"] for case in baseline["results"] for v in case["verdicts"]}
+    assert {"tools_called", "tool_called_with"} <= named, named
+    # And the prompt is the thing under test (ADR 0003): the agent reads it from
+    # the file the suite declares, so a run that recorded no artifact would mean
+    # the policy under test was inlined somewhere nothing diffs.
+    assert "prompts/system.txt" in baseline["artifacts"]
 
 
 LLAMAINDEX = ROOT / "examples" / "llamaindex"
