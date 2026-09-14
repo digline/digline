@@ -8,7 +8,45 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-_Nothing yet._
+- **`examples/operator/` gains a policy, a judgment seat and a decision
+  journal** — [ADR 0019](docs/adr/0019-the-reasoning-operator.md). The loop's
+  classification does not move: `draw`, `drift`, `structural` and
+  `system-error` are decided exactly as before, and four tests still hold them.
+  What is new is what happens after it. `decide.py` reads a `[policy]` table in
+  `operator.toml` and decides whether the classification wakes anybody, and a
+  decision that holds a cycle **names the clause that held it** — a reason that
+  cites no clause is the model's opinion, and there is no branch that produces
+  one. A clause may only narrow: it holds, it never wakes, and three floors
+  refuse it by name — a canary that moved, the stopping rule mid-cycle, a run
+  that could not be judged.
+
+  Every decision is appended to `.digline/<tenant>/decisions/<suite>.jsonl`,
+  gitignored and append-forever, holds most of all: a hold nobody records is
+  indistinguishable from a cycle that never ran. `answer.py` is where a person
+  says later whether they would have wanted waking. The probe grows a second
+  negative — can this identity write the policy it exercises, reported
+  `enforced`, `unenforced` or `inconclusive` rather than as a collapse, because
+  on an ordinary checkout it simply can — and a fourth check: the
+  `policy_digest` a cycle reports must be the digest of the policy on disk.
+  `AGENTS.md` and the `operating-digline` skill carry the rule in one paragraph:
+  a policy is approved in a diff, like a baseline, and never edited by what
+  exercises it.
+
+  **Nothing under `src/` changed.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
+  plugin floor, no baseline re-promoted, and a fork with no `[policy]` table
+  escalates exactly as it did.
+
+- **`examples/operator/`: `cycle.json` moves from format 3 to 4**, because a
+  cycle now carries the tenant, the `policy_digest` it was measured under and
+  the probe's policy wall — and `decide.py` refuses a cycle below 4 by name
+  rather than deciding about one on a guess. A forked loop writes format 4 on
+  its next run and alerts already written are untouched, but the new seat and
+  dossier cannot read a format-3 cycle. The decision arrives beside it as its
+  own file, `decision.json` at `DECISION_FORMAT` 1. The captured alerts were
+  regenerated through the new path, and a third joined them: `held` is the
+  **same cycle** as `drift`, decided under the policy, so the two documents
+  differ in nothing except what a declared policy did about an identical
+  measurement.
 
 ## 0.12.1 — 2026-09-13
 
