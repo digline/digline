@@ -1,0 +1,26 @@
+{
+  "clause": "flaky-waterproof",
+  "decision_format": 1,
+  "escalate": false,
+  "evaluated_at": "2026-09-14T23:30:00+00:00",
+  "facts": [
+    [
+      "is-it-waterproof",
+      "llm_rubric"
+    ]
+  ],
+  "floor": null,
+  "in_quiet_hours": true,
+  "policy": {
+    "digest": "6d9af176b03413da",
+    "name": "northwind-weekly",
+    "quiet_hours": {
+      "from": "22:00",
+      "to": "06:00",
+      "tz": "Europe/Rome"
+    }
+  },
+  "reason": "Held by `flaky-waterproof` (1 of 2 allowed): known to wobble on its own; a drift that outlasts two cycles is real.",
+  "verdict": "drift",
+  "verdict_escalates": true
+}

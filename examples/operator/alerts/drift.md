@@ -12,9 +12,9 @@ Machine truth, from `digline explain --json`: the fact list digline renders its 
 
 | run | seed | exit | unjudged | within noise |
 | --- | ---: | ---: | -------: | -----------: |
-| `2026-09-11T15-51-34-360976-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
-| `2026-09-11T15-51-34-570863-00-00-4d2ac7a7f606b8de` | 1 | 1 | 0 | 0 |
-| `2026-09-11T15-51-34-778730-00-00-4d2ac7a7f606b8de` | 2 | 1 | 0 | 0 |
+| `2026-09-14T12-08-18-576041-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
+| `2026-09-14T12-08-18-777336-00-00-4d2ac7a7f606b8de` | 1 | 1 | 0 | 0 |
+| `2026-09-14T12-08-18-977973-00-00-4d2ac7a7f606b8de` | 2 | 1 | 0 | 0 |
 
 Exit `0`: nothing got worse. `1`: something did. `2`: the run could not be judged. That is digline's contract, AGENTS.md §6.
 
@@ -24,17 +24,21 @@ Suite `suite.py`, output version 1. The suite itself did not change. Underneath 
 
 Before comparing anything, proved the wall: `promote`, called by name on the operator's own MCP surface, came back *unknown tool*, and beside it the cycle file — a write the operator owns — succeeded. **Intact**, for the identity that ran this cycle.
 
+**The policy wall is a latch, not a constraint, for this identity:** `operator.toml` is writable here. That is the honest answer on a checkout and on a repository whose owner holds every key — the wall a deployment relies on is the push, not the file mode, and it is protected by branch rules rather than by permissions. The digest this cycle reports is the digest of the policy on disk, so it was ruled by the policy it names.
+
+**No decision was recorded for this cycle.** The seat is where a declared policy decides whether a classification wakes anybody, and it did not run here — so what stands is the classification itself, which wakes somebody. An absence is stated, never faked.
+
 Ran the suite once and re-ran it 2 time(s). The stopping rule was `max_reruns = 2`, declared in `operator.toml` before anything ran.
 
 Spend: 9 calls to the target across 3 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
 
-**Run `2026-09-11T15-51-34-360976-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
+**Run `2026-09-14T12-08-18-576041-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval (a flip is a regression whatever the noise said) |
 
-**Run `2026-09-11T15-51-34-570863-00-00-4d2ac7a7f606b8de` (seed 1, exit 1)**
+**Run `2026-09-14T12-08-18-777336-00-00-4d2ac7a7f606b8de` (seed 1, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
@@ -42,7 +46,7 @@ Spend: 9 calls to the target across 3 run(s), against a declared cycle budget of
 | `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
 | `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples |
 
-**Run `2026-09-11T15-51-34-778730-00-00-4d2ac7a7f606b8de` (seed 2, exit 1)**
+**Run `2026-09-14T12-08-18-977973-00-00-4d2ac7a7f606b8de` (seed 2, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |

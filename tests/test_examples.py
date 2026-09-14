@@ -18,8 +18,9 @@ import subprocess
 import sys
 import time
 import tomllib
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
@@ -737,8 +738,18 @@ SCENARIOS = {
 }
 
 #: The alerts committed under `examples/operator/alerts/`, each with the cycle
-#: it was built from.
-CAPTURED = ("drift", "draw")
+#: it was built from and the decision, where one was recorded.
+#:
+#: `held` is deliberately the **same cycle** as `drift`: one document where no
+#: policy ran and one where a declared clause held what the classification
+#: would have escalated. Rebuilding both from one cycle is what makes the pair
+#: a comparison rather than two anecdotes — every number in them is identical
+#: and only the decision differs.
+CAPTURED: dict[str, tuple[str, str | None]] = {
+    "draw": ("draw-cycle.json", None),
+    "drift": ("drift-cycle.json", None),
+    "held": ("drift-cycle.json", "held-decision.json"),
+}
 
 
 def operator_script(
@@ -799,6 +810,14 @@ def test_the_operator_classifies_each_scenario(operator: Path, scenario: str) ->
         "negative": "refused",
         "positive": True,
         "rolled_back": False,
+        # The second wall, reported for what it is on a checkout rather than
+        # dressed up: `operator.toml` is writable here, which measured against
+        # this identity is a latch and not a constraint. A probe that called
+        # that a collapse would cry wolf on every machine it ran on.
+        "policy_wall": "unenforced",
+        # The fourth check: the digest this cycle reports is the digest of the
+        # policy on disk, so it was ruled by the policy it names.
+        "digest_matches": True,
     }, cycle["probe"]
 
 
@@ -815,21 +834,18 @@ def test_the_captured_alert_is_what_the_dossier_writes_today(
     no clock and no filesystem of its own. Rebuilding it needs no run, no
     target and no key.
     """
+    source, decision = CAPTURED[name]
     built = operator / "rebuilt.md"
-    done = operator_script(
-        operator,
-        "dossier.py",
-        "--cycle",
-        f"alerts/{name}-cycle.json",
-        "--out",
-        str(built),
-    )
+    args = ["--cycle", f"alerts/{source}"]
+    if decision is not None:
+        args += ["--decision", f"alerts/{decision}"]
+    done = operator_script(operator, "dossier.py", *args, "--out", str(built))
     assert done.returncode == EXIT_OK, done.stderr
     assert built.read_text(encoding="utf-8") == (
         OPERATOR / "alerts" / f"{name}.md"
     ).read_text(encoding="utf-8"), (
         f"examples/operator/alerts/{name}.md is not what dossier.py writes "
-        f"from alerts/{name}-cycle.json any more. Rebuild it and commit the "
+        f"from alerts/{source} any more. Rebuild it and commit the "
         "new one — the alert is the example's deliverable, not an illustration"
     )
 
@@ -845,6 +861,13 @@ def test_every_captured_alert_says_the_judgment_layer_did_not_run(name: str) -> 
     assert "**This layer was not run.**" in text
 
 
+def captured(name: str) -> dict[str, Any]:
+    return cast(
+        "dict[str, Any]",
+        json.loads((OPERATOR / "alerts" / name).read_text(encoding="utf-8")),
+    )
+
+
 def test_the_captured_alerts_cover_both_answers() -> None:
     """One that wakes somebody and one that deliberately does not.
 
@@ -852,13 +875,28 @@ def test_the_captured_alerts_cover_both_answers() -> None:
     that only ever escalates has not demonstrated absorbing anything, which is
     the job it exists to do.
     """
-    escalations = {
-        name: json.loads(
-            (OPERATOR / "alerts" / f"{name}-cycle.json").read_text(encoding="utf-8")
-        )["escalate"]
-        for name in CAPTURED
-    }
-    assert sorted(escalations.values()) == [False, True], escalations
+    assert captured("draw-cycle.json")["escalate"] is False
+    assert captured("drift-cycle.json")["escalate"] is True
+
+
+def test_the_held_alert_is_the_drift_a_declared_policy_absorbed() -> None:
+    """The pair that is the whole point of the seat.
+
+    The classification wakes somebody and the decision does not, from the
+    **same cycle** — so the two committed documents differ in nothing except
+    what a declared policy did about an identical measurement. And the hold
+    cites its clause, because a reason that cites no clause is an opinion.
+    """
+    decision = captured("held-decision.json")
+    assert decision["verdict_escalates"] is True, (
+        "the held alert has to be built from a cycle the classification would "
+        "have escalated, or it demonstrates nothing about the policy"
+    )
+    assert decision["escalate"] is False
+    assert decision["clause"], "a hold with no clause is an opinion"
+    assert decision["floor"] is None
+    # The same cycle, so the comparison between the two documents is exact.
+    assert CAPTURED["held"][0] == CAPTURED["drift"][0]
 
 
 def test_the_operator_config_agrees_with_the_workflow_about_the_cadence() -> None:
@@ -895,7 +933,19 @@ def test_the_operator_cannot_reach_promote() -> None:
     # written exactly once, as that constant — and the constant may never reach
     # `digline(...)`, the helper that shells out to the CLI, where it exists.
     probe = 'ABSENT_TOOL = "promote"'
-    for name in ("loop.py", "dossier.py", "judgment.py"):
+    # Every module in the directory, and the list grows with the directory:
+    # the gate is about what the assembly can reach, so a file added to it
+    # without being added here would be the one place the absence stopped
+    # being checked — which is exactly how it would stop being true.
+    for name in (
+        "loop.py",
+        "dossier.py",
+        "judgment.py",
+        "decide.py",
+        "policy.py",
+        "journal.py",
+        "answer.py",
+    ):
         source = (OPERATOR / name).read_text(encoding="utf-8")
         if name == "loop.py":
             assert source.count(probe) == 1, "the probe names the tool once"
@@ -915,15 +965,14 @@ def test_the_operator_cannot_reach_promote() -> None:
 def operator_loop() -> ModuleType:
     """`loop.py`, imported, for the probe's two outcomes a real run never shows.
 
-    Registered in `sys.modules` before it executes: `dataclass` looks its own
-    module up there, and a module loaded from a path is otherwise nowhere.
+    Through the same loader every other module here goes through, and that is
+    the whole of the change: `loop.py` imports `policy` by name now, so a
+    module executed from a path with nothing beside it on `sys.path` resolves
+    its own siblings nowhere. That is a `ModuleNotFoundError` in a test and
+    never in the directory a fork actually runs it from — the kind of failure
+    that says more about the loader than about the code under it.
     """
-    spec = importlib.util.spec_from_file_location("operator_loop", OPERATOR / "loop.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return operator_module("loop")
 
 
 #: A deployment whose surface grew the tool it must not have — the thing the
@@ -1019,6 +1068,268 @@ def test_the_probe_is_inconclusive_when_the_positive_fails(operator: Path) -> No
         False,
         "inconclusive",
     )
+
+
+def operator_module(name: str) -> ModuleType:
+    """One of the example's own modules, imported from its directory.
+
+    The directory goes on `sys.path` because these modules import each other by
+    name — `decide.py` reads `policy` and `journal` — which is exactly how they
+    resolve when a fork runs them from inside the directory.
+    """
+    if str(OPERATOR) not in sys.path:
+        sys.path.insert(0, str(OPERATOR))
+    spec = importlib.util.spec_from_file_location(name, OPERATOR / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def a_cycle(
+    verdict: str,
+    *,
+    escalate: bool,
+    regressed: Sequence[tuple[str, str]] = (),
+    run_facts: Sequence[dict[str, Any]] = (),
+    digest: str = "abc123",
+    exit_code: int = 1,
+) -> dict[str, Any]:
+    """The smallest cycle the seat will read. Hand-built on purpose: the floors
+    are about cycles a real scenario cannot produce here — this suite declares
+    no canary and its target never fails — and a floor that could only be
+    reached by a scenario nobody can run is a floor nothing tests."""
+    checks = [
+        {
+            "about": "check",
+            "kind": "regressed",
+            "case_id": case,
+            "assertion": assertion,
+            "assertion_id": f"id-{assertion}",
+        }
+        for case, assertion in regressed
+    ]
+    return {
+        "cycle_format": 4,
+        "tenant": "northwind",
+        "suite": "suite.py",
+        "verdict": verdict,
+        "escalate": escalate,
+        "reproduced": [list(pair) for pair in regressed],
+        "policy": {"name": "northwind-weekly", "digest": digest},
+        "runs": [
+            {
+                "key": "2026-09-14T00-00-00-000000-00-00-deadbeef",
+                "seed": 0,
+                "exit_code": exit_code,
+                "spend": "",
+                "explain": {"facts": [*run_facts, *checks]},
+            }
+        ],
+    }
+
+
+def test_the_policy_digest_is_taken_over_the_parsed_table() -> None:
+    """Reflowing a comment must not move an identity; changing a number must.
+
+    Both halves, because only the pair says what the digest is *of*. A digest
+    over the file's bytes would churn on every edit that changed nothing, and a
+    cycle would report a policy change nobody made.
+    """
+    policy = operator_module("policy")
+    text = (OPERATOR / "operator.toml").read_text(encoding="utf-8")
+    table = cast("dict[str, Any]", tomllib.loads(text)["policy"])
+    first = cast("str", policy.digest_of(table))
+
+    commented = tomllib.loads(text + "\n# a comment changes nothing\n")["policy"]
+    assert policy.digest_of(commented) == first
+
+    moved = cast("dict[str, Any]", json.loads(json.dumps(table)))
+    moved["hold"][0]["max_cycles"] = 99
+    assert policy.digest_of(moved) != first, (
+        "a clause that allows a different number of cycles is a different "
+        "policy, and a cycle has to be able to say which one ruled it"
+    )
+
+
+@pytest.mark.parametrize("key", ["vars", "output", "reason", "artifact"])
+def test_a_clause_may_not_name_the_contents_of_a_case(key: str) -> None:
+    """Identifiers yes, contents no — refused at load, not at use.
+
+    Whatever a clause may name is written into the decision journal on every
+    cycle, so the boundary has to hold on the file a person writes rather than
+    on the code that reads it.
+    """
+    policy = operator_module("policy")
+    document = {
+        "policy": {
+            "name": "p",
+            "hold": [{"name": "c", "because": "b", "case": "x", key: "v"}],
+        }
+    }
+    with pytest.raises(cast("type[Exception]", policy.PolicyError)) as caught:
+        policy.load_policy(document)
+    assert key in str(caught.value)
+    assert "identifiers" in str(caught.value), caught.value
+
+
+@pytest.mark.parametrize(
+    "key", ["max_reruns", "structural_flip_cases", "max_target_calls"]
+)
+def test_a_clause_may_not_reach_the_stopping_rule(key: str) -> None:
+    """The policy narrows and never widens, so the keys that would widen it are
+    refused by name rather than quietly ignored."""
+    policy = operator_module("policy")
+    document = {
+        "policy": {
+            "name": "p",
+            "hold": [{"name": "c", "because": "b", "case": "x", key: 9}],
+        }
+    }
+    with pytest.raises(cast("type[Exception]", policy.PolicyError)) as caught:
+        policy.load_policy(document)
+    assert "narrow" in str(caught.value), caught.value
+
+
+def test_a_cycle_with_no_policy_escalates_exactly_as_the_verdict_says() -> None:
+    """The seat added a decision; it did not move the classifier. A fork with
+    no `[policy]` table behaves as the loop behaved before any of this."""
+    decide = operator_module("decide")
+    for verdict, escalate in (("drift", True), ("draw", False)):
+        found = cast(
+            "dict[str, Any]",
+            decide.decide(
+                a_cycle(verdict, escalate=escalate, regressed=[("c", "llm_rubric")]),
+                None,
+                on_disk="",
+                records=[],
+                now=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+            ),
+        )
+        assert found["escalate"] is escalate
+        assert found["clause"] is None
+
+
+@pytest.mark.parametrize(
+    ("name", "cycle_kwargs", "floor"),
+    [
+        (
+            "a canary that moved",
+            {"run_facts": [{"about": "run", "kind": "canary", "state": True}]},
+            "canary",
+        ),
+        ("a run that could not be judged", {"exit_code": 2}, "unjudged"),
+    ],
+)
+def test_no_clause_may_lower_a_floor(
+    name: str, cycle_kwargs: dict[str, Any], floor: str
+) -> None:
+    """The two floors a cycle can carry, each refusing a clause that covers
+    everything else about it.
+
+    The clause below matches the regression exactly, so the only reason the
+    cycle escalates is the floor — which is what makes this a test of the floor
+    rather than of the matching.
+    """
+    decide = operator_module("decide")
+    policy = operator_module("policy")
+    verdict = "system-error" if floor == "unjudged" else "drift"
+    loaded = policy.load_policy(
+        {
+            "policy": {
+                "name": "p",
+                "hold": [{"name": "covers-it", "because": "b", "case": "c"}],
+            }
+        }
+    )
+    found = cast(
+        "dict[str, Any]",
+        decide.decide(
+            a_cycle(
+                verdict,
+                escalate=True,
+                regressed=[("c", "llm_rubric")],
+                digest=loaded.digest,
+                **cycle_kwargs,
+            ),
+            loaded,
+            on_disk=loaded.digest,
+            records=[],
+            now=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        ),
+    )
+    assert found["escalate"] is True, f"{name} was held, and it may never be"
+    assert found["floor"] == floor
+    assert found["clause"] is None
+
+
+def test_a_policy_that_moved_under_the_cycle_cannot_hold_it() -> None:
+    """The fourth check, from the decision's side.
+
+    A hold taken under a policy nobody can produce is not a hold, so a digest
+    that disagrees with the file on disk refuses before any clause is read.
+    """
+    decide = operator_module("decide")
+    policy = operator_module("policy")
+    loaded = policy.load_policy(
+        {
+            "policy": {
+                "name": "p",
+                "hold": [{"name": "covers-it", "because": "b", "case": "c"}],
+            }
+        }
+    )
+    found = cast(
+        "dict[str, Any]",
+        decide.decide(
+            a_cycle(
+                "drift", escalate=True, regressed=[("c", "llm_rubric")], digest="x"
+            ),
+            loaded,
+            on_disk="a-different-digest",
+            records=[],
+            now=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        ),
+    )
+    assert found["escalate"] is True
+    assert found["floor"] == "policy-moved"
+
+
+def test_a_hold_is_one_clauses_responsibility() -> None:
+    """A clause naming one case does not absorb a run in which three flipped.
+
+    The strict reading, and the one that keeps a narrow clause from covering a
+    regression nobody looked at. It is why the `structural` scenario still
+    wakes somebody with the shipped policy in force.
+    """
+    decide = operator_module("decide")
+    policy = operator_module("policy")
+    loaded = policy.load_policy(
+        {
+            "policy": {
+                "name": "p",
+                "hold": [{"name": "one-case", "because": "b", "case": "a"}],
+            }
+        }
+    )
+    found = cast(
+        "dict[str, Any]",
+        decide.decide(
+            a_cycle(
+                "structural",
+                escalate=True,
+                regressed=[("a", "llm_rubric"), ("b", "llm_rubric")],
+                digest=loaded.digest,
+            ),
+            loaded,
+            on_disk=loaded.digest,
+            records=[],
+            now=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        ),
+    )
+    assert found["escalate"] is True
+    assert found["clause"] is None
 
 
 def test_the_operator_mcp_config_points_at_this_example() -> None:

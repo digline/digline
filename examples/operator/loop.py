@@ -36,11 +36,16 @@ from digline.run import planned_calls
 from mcp import ClientSession, MCPError, StdioServerParameters, stdio_client
 from mcp.types import TextContent
 
+from policy import Policy, digest_of, load_policy
+
 #: The shape of `cycle.json`, so a consumer can tell when it moved. The same
 #: idea as digline's own `output_version`, and separate from it: this is the
 #: example's file, not the tool's. 2 since each run carries `explain --json`
-#: where it carried `compare --json full`; 3 since the cycle carries the probe.
-CYCLE_FORMAT = 3
+#: where it carried `compare --json full`; 3 since the cycle carries the probe;
+#: 4 since it carries the tenant and the identity of the policy that ruled it —
+#: which is what `decide.py` takes a decision under, and what the probe's
+#: fourth check compares against the file on disk.
+CYCLE_FORMAT = 4
 
 #: What one cycle concluded. A `Literal` rather than an enum because these
 #: strings land in a markdown document and in a test assertion, and a plain
@@ -115,6 +120,10 @@ class Cycle:
     #: prints it: a loop that stopped early for a reason other than the signal
     #: has to say so, or the classification reads stronger than the evidence.
     budget_stopped: bool = False
+    #: The perimeter this cycle belongs to, read off the suite. It is a
+    #: directory everywhere else in digline, and it is what says where the
+    #: decision journal lives.
+    tenant: str = ""
 
 
 # --------------------------------------------------------------------------- #
@@ -136,6 +145,24 @@ def load_config(path: Path) -> Config:
         dry_run=bool(document["escalation"]["dry_run"]),
         labels=tuple(str(label) for label in document["escalation"]["labels"]),
     )
+
+
+def read_policy(path: Path) -> Policy | None:
+    """The `[policy]` table, parsed from the same file `load_config` reads.
+
+    Parsed here rather than handed down from `load_config`, and the digest is
+    taken over the parsed document by the one function `decide.py` also calls:
+    a second spelling of the digest is how a cycle comes to report a policy it
+    did not apply, which is the failure the fourth check exists to catch.
+    """
+    with path.open("rb") as handle:
+        document = cast("Mapping[str, Any]", tomllib.load(handle))
+    policy = load_policy(document)
+    # Asserted rather than assumed: the two have to agree, and they are built
+    # by the same call on the same table.
+    if policy is not None and policy.digest != digest_of(document["policy"]):
+        raise SystemExit("the policy digest is not stable over its own table")
+    return policy
 
 
 CRON = re.compile(r"^\s*-\s*cron:\s*[\"'](?P<cron>[^\"']+)[\"']", re.MULTILINE)
@@ -264,6 +291,21 @@ Negative = Literal["refused", "reached", "unobserved"]
 #: it did not, or it could not be judged — and the third is not the first.
 Wall = Literal["intact", "collapsed", "inconclusive"]
 
+#: The second wall, and it is a different kind of thing from the first. The
+#: operator reads `operator.toml` and never writes it — but on a developer's
+#: checkout that file is plainly writable, and reporting *collapsed* every time
+#: somebody runs the example would be a probe that cried wolf on its own
+#: machine.
+#:
+#: So it is reported for what it is. `enforced` is a wall this identity cannot
+#: cross. `unenforced` is the honest answer on a checkout and on a repository
+#: whose owner holds every key: measured against that identity the protection
+#: is a **latch**, not a constraint, and DESIGN.md's three rungs already say so
+#: out loud. The real wall in a deployment is the push — branch protection and
+#: CODEOWNERS on this path — which an example with no protected remote can
+#: document and cannot exercise, exactly as it documents the push probe.
+PolicyWall = Literal["enforced", "unenforced", "inconclusive"]
+
 
 @dataclass(frozen=True)
 class Probe:
@@ -282,9 +324,19 @@ class Probe:
     #: The cycle file, written — an operation the loop owns and must be able to
     #: do.
     positive: bool
-    #: Whether anything under `.digline/*/baselines/` differed after the
-    #: negative, and was put back before the comparison could read it.
+    #: Whether anything under `.digline/*/baselines/` or `operator.toml`
+    #: differed after the negatives, and was put back before the comparison
+    #: could read it.
     rolled_back: bool
+    #: The second negative: whether this identity can write the policy it
+    #: reads. Reported beside the first rather than folded into it — the two
+    #: are different kinds of wall, and an absent tool is not a file mode.
+    policy_wall: PolicyWall = "inconclusive"
+    #: The fourth check: whether the digest this cycle reports is the digest of
+    #: the policy actually on disk. `None` where there is no policy to check.
+    #: A cycle that named a policy nobody can produce would be worse than a
+    #: cycle that named none.
+    digest_matches: bool | None = None
 
     @property
     def wall(self) -> Wall:
@@ -347,22 +399,70 @@ def _baselines(root: Path) -> dict[Path, bytes]:
     }
 
 
-def probe(root: Path, out: Path, server: Sequence[str]) -> Probe:
-    """Run both halves, and undo whatever the negative managed to write.
+def _can_write(path: Path) -> PolicyWall:
+    """Whether this identity could write `path`, established by trying.
+
+    Opened for **append and closed without writing**, so the test costs the
+    file nothing: it is a question about permission, and the answer is not
+    worth mutating the policy to learn. Read out of the filesystem rather than
+    out of a configuration key, which is the same move the first negative makes
+    at the MCP wire.
+    """
+    try:
+        with path.open("a", encoding="utf-8"):
+            return "unenforced"
+    except PermissionError:
+        return "enforced"
+    except OSError:
+        return "inconclusive"
+
+
+def probe(
+    root: Path,
+    out: Path,
+    server: Sequence[str],
+    *,
+    config: Path | None = None,
+    expected_digest: str = "",
+) -> Probe:
+    """Run every half, and undo whatever a negative managed to write.
 
     Before the comparison, so that a wall which let a baseline through is
     rolled back before anything is measured against it: comparing with a
     reference the operator could have written is the same vacuous green as
     promoting before comparing in CI.
+
+    Four questions, and the last one is new in kind. Three ask whether a wall
+    stands; the fourth asks whether the **record is honest** — whether the
+    digest this cycle is about to report describes the policy that actually
+    ruled it. Without it, a policy swapped between the read and the write would
+    produce a cycle naming a policy nobody applied, which is worse than a cycle
+    naming none.
     """
     before = _baselines(root)
+    kept = None if config is None or not config.is_file() else config.read_bytes()
+
     negative = _ask_for_the_absent_tool(server)
+    policy_wall: PolicyWall = "inconclusive" if config is None else _can_write(config)
     try:
         # Claimed now, written in full when the cycle ends.
         out.write_text("", encoding="utf-8")
         positive = True
     except OSError:
         positive = False
+
+    # The fourth check, against the file as it stands *now* rather than as it
+    # was parsed: the two differ exactly when somebody moved it underneath.
+    matches: bool | None = None
+    if config is not None and expected_digest:
+        try:
+            with config.open("rb") as handle:
+                document = cast("Mapping[str, Any]", tomllib.load(handle))
+            found = load_policy(document)
+            matches = found is not None and found.digest == expected_digest
+        except (OSError, ValueError):
+            matches = False
+
     after = _baselines(root)
     for path in after.keys() - before.keys():
         path.unlink()
@@ -370,7 +470,18 @@ def probe(root: Path, out: Path, server: Sequence[str]) -> Probe:
         if after.get(path) != data:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    return Probe(negative, positive, rolled_back=after != before)
+    moved = after != before
+    if kept is not None and config is not None and config.read_bytes() != kept:
+        config.write_bytes(kept)
+        moved = True
+
+    return Probe(
+        negative,
+        positive,
+        rolled_back=moved,
+        policy_wall=policy_wall,
+        digest_matches=matches,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -407,13 +518,32 @@ def cycle(config: Config, *, root: Path) -> Cycle:
     runs = [first]
 
     if first.exit_code == EXIT_UNJUDGED:
-        return Cycle(tuple(runs), "system-error", True, frozenset(), plan.target_calls)
+        return Cycle(
+            tuple(runs),
+            "system-error",
+            True,
+            frozenset(),
+            plan.target_calls,
+            tenant=suite.tenant,
+        )
     if first.exit_code == EXIT_OK:
-        return Cycle(tuple(runs), "clean", False, frozenset(), plan.target_calls)
+        return Cycle(
+            tuple(runs),
+            "clean",
+            False,
+            frozenset(),
+            plan.target_calls,
+            tenant=suite.tenant,
+        )
 
     if len(first.cases_regressed) >= config.structural_flip_cases:
         return Cycle(
-            tuple(runs), "structural", True, first.regressions, plan.target_calls
+            tuple(runs),
+            "structural",
+            True,
+            first.regressions,
+            plan.target_calls,
+            tenant=suite.tenant,
         )
 
     reproduced = first.regressions
@@ -438,18 +568,37 @@ def cycle(config: Config, *, root: Path) -> Cycle:
         reproduced,
         plan.target_calls,
         budget_stopped=budget_stopped,
+        tenant=suite.tenant,
     )
 
 
-def cycle_json(config: Config, done: Cycle, wall: Probe) -> dict[str, Any]:
-    """`cycle.json`: layer 1 verbatim, plus the record layer 2 is written from."""
+def cycle_json(
+    config: Config, done: Cycle, wall: Probe, policy: Policy | None = None
+) -> dict[str, Any]:
+    """`cycle.json`: layer 1 verbatim, plus the record layer 2 is written from.
+
+    `escalate` is what the **classification** alone concludes, and it keeps
+    that meaning: the decision is a separate file, taken by `decide.py` under a
+    policy, and a reader comparing the two is reading the whole point — what
+    the measurement said, and what somebody's declared rules did about it.
+    """
     return {
         "cycle_format": CYCLE_FORMAT,
+        "tenant": done.tenant,
+        # The identity a decision is taken under, never in `config_hash` and
+        # never in a run document: a policy judges the measurement, it does not
+        # change what was measured.
+        "policy": {
+            "name": None if policy is None else policy.name,
+            "digest": "" if policy is None else policy.digest,
+        },
         "probe": {
             "wall": wall.wall,
             "negative": wall.negative,
             "positive": wall.positive,
             "rolled_back": wall.rolled_back,
+            "policy_wall": wall.policy_wall,
+            "digest_matches": wall.digest_matches,
         },
         "suite": config.suite,
         "cadence": config.cadence,
@@ -489,16 +638,33 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = Path(args.config).resolve().parent
     config = load_config(args.config)
     check_cadence(config, root / ".github" / "workflows" / "operator.yml")
+    policy = read_policy(args.config)
 
-    wall = probe(root, Path(args.out), surface(root))
+    wall = probe(
+        root,
+        Path(args.out),
+        surface(root),
+        config=Path(args.config),
+        expected_digest="" if policy is None else policy.digest,
+    )
     print(
         f"wall {wall.wall}: {ABSENT_TOOL!r} {wall.negative} at the MCP wire, "
         f"cycle file {'written' if wall.positive else 'NOT written'}"
         + (", baselines rolled back" if wall.rolled_back else "")
     )
+    print(
+        f"policy wall {wall.policy_wall}: {args.config} is "
+        + ("not writable" if wall.policy_wall == "enforced" else "writable")
+        + " by this identity"
+        + (
+            ""
+            if wall.digest_matches is None
+            else f", digest {'matches' if wall.digest_matches else 'DOES NOT match'}"
+        )
+    )
 
     done = cycle(config, root=root)
-    document = cycle_json(config, done, wall)
+    document = cycle_json(config, done, wall, policy)
     Path(args.out).write_text(
         json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

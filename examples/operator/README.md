@@ -11,11 +11,15 @@ your own repository. It runs with no API key.
 
     suite.py        four cases, six checks — the quickstart's shape, deliberately
     fake.py         the system under test and the judge, both stand-ins
-    operator.toml   cadence, stopping rule, budget, escalation — a file, not a vibe
-    loop.py         prove the wall, run, re-run within the rule, classify
+    operator.toml   cadence, stopping rule, budget, escalation, policy — a file
+    policy.py       the policy, read and validated; refuses what it may not name
+    loop.py         prove the walls, run, re-run within the rule, classify
+    decide.py       the seat: does this classification wake anybody, and why
+    journal.py      the decision journal — every hold and every escalation
+    answer.py       the label loop: would you have wanted to be woken?
     dossier.py      the cycle, rendered as the three-layer alert
     judgment.py     layer 3, the only part a model writes — opt-in
-    alerts/         two real alerts this loop produced
+    alerts/         three real alerts this loop produced
 
 The suite is not the point. The loop is.
 
@@ -112,6 +116,42 @@ before spending anything, which is the only moment a budget means something.
 The cadence is stated in both places because GitHub reads `schedule:` from the
 YAML and nothing else. `loop.py` fails loudly when the two disagree, so the
 field a reader is most likely to edit cannot quietly become decoration.
+
+## The policy is a file too, and the operator never writes it
+
+The loop classifies. It does not decide who is woken — that is `decide.py`,
+reading the `[policy]` table in `operator.toml`:
+
+    [[policy.hold]]
+    name = "flaky-waterproof"
+    case = "is-it-waterproof"
+    assertion = "llm_rubric"
+    max_cycles = 2
+    because = "known to wobble on its own; a drift that outlasts two cycles is real"
+
+Three properties are the whole design.
+
+**A clause holds; no clause wakes.** The policy may only narrow. A new reason to
+wake somebody is a new classification, in `loop.py`, where a test can hold it —
+and three floors no clause may ever lower: a canary that moved, the stopping
+rule mid-cycle, and a run that could not be judged. Each is reported by name
+when it forbids a hold.
+
+**A hold is one clause's responsibility.** One clause has to account for
+everything that would have woken you, or the escalation stands. That is why the
+`structural` scenario still escalates with the clause above in force: three
+cases flipped and the clause names one.
+
+**The decision cites the clause.** A reason that cites no clause is an opinion;
+a reason that cites one is the policy being exercised. Every decision is
+journaled under `.digline/northwind/decisions/` — gitignored, append-forever,
+holds and escalations alike, because a hold nobody records is indistinguishable
+from a cycle that never ran. `answer.py` is where you say, later, whether you
+would have wanted waking; that answer is what turns the journal into history
+worth measuring.
+
+The operator reads this file and never writes it, and the probe checks that
+each cycle rather than trusting it — see below.
 
 ## The interactive path
 

@@ -55,10 +55,10 @@ a conclusion, say that instead of manufacturing one. Do not restate the tables.
 Do not open with a heading."""
 
 
-def build_prompt(cycle: dict[str, Any]) -> str:
+def build_prompt(cycle: dict[str, Any], decision: dict[str, Any] | None = None) -> str:
     return (
         f"The operator's deterministic classification is: {cycle['verdict']}.\n\n"
-        f"{evidence(cycle)}"
+        f"{evidence(cycle, decision)}"
     )
 
 
@@ -80,6 +80,7 @@ def ask(prompt: str) -> str:  # pragma: no cover - needs a key
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycle", default="cycle.json", type=Path)
+    parser.add_argument("--decision", type=Path, help="the seat, when it ran")
     parser.add_argument("--out", default="judgment.md", type=Path)
     args = parser.parse_args(argv)
 
@@ -92,7 +93,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     cycle = cast(
         "dict[str, Any]", json.loads(Path(args.cycle).read_text(encoding="utf-8"))
     )
-    Path(args.out).write_text(ask(build_prompt(cycle)), encoding="utf-8")
+    decision: dict[str, Any] | None = None
+    if args.decision is not None and Path(args.decision).is_file():
+        decision = cast(
+            "dict[str, Any]",
+            json.loads(Path(args.decision).read_text(encoding="utf-8")),
+        )
+    Path(args.out).write_text(ask(build_prompt(cycle, decision)), encoding="utf-8")
     return 0
 
 
