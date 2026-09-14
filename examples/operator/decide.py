@@ -147,8 +147,16 @@ def decide(
     on_disk: str,
     records: Sequence[Mapping[str, Any]],
     now: datetime,
+    streak_known: bool = True,
 ) -> dict[str, Any]:
-    """The seat. A cycle and a policy in, a decision out — and no model."""
+    """The seat. A cycle and a policy in, a decision out — and no model.
+
+    `streak_known` is False when the journal *should* hold earlier cycles and
+    could not be produced — a hosted runner whose restore failed. `records` is
+    then empty for a reason that is not "nothing happened", and a clause with
+    `max_cycles` cannot count against it: an empty history read as a streak of
+    zero would let that clause hold forever, one cycle at a time.
+    """
     verdict = str(cycle["verdict"])
     proposed = bool(cycle["escalate"])
     wanted = escalating(cycle)
@@ -231,6 +239,14 @@ def decide(
             for case, assertion, assertion_id in wanted
         ):
             continue
+        if clause.max_cycles is not None and not streak_known:
+            decision["reason"] = (
+                f"`{clause.name}` allows {clause.max_cycles} cycle(s), and its "
+                "streak is unknown: the decision journal could not be restored, "
+                "so this cycle cannot be shown to be within it. A streak nobody "
+                "can count is not a streak of zero, so this one wakes somebody."
+            )
+            return decision
         held = holds_in_a_row(records, clause.name)
         if clause.max_cycles is not None and held >= clause.max_cycles:
             decision["reason"] = (
@@ -291,6 +307,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="ISO-8601, for a reproducible decision; defaults to the clock",
     )
+    parser.add_argument(
+        "--streak-unknown",
+        action="store_true",
+        help=(
+            "the journal of earlier cycles could not be restored, so no "
+            "clause's streak is known and none with max_cycles may hold"
+        ),
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.config).resolve().parent
@@ -320,7 +344,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         datetime.now(UTC) if args.now is None else datetime.fromisoformat(str(args.now))
     )
 
-    decision = decide(cycle, policy, on_disk=on_disk, records=records, now=now)
+    decision = decide(
+        cycle,
+        policy,
+        on_disk=on_disk,
+        records=records,
+        now=now,
+        streak_known=not args.streak_unknown,
+    )
     Path(args.out).write_text(
         json.dumps(decision, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

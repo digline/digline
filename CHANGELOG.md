@@ -48,6 +48,18 @@ notes under them are this file, verbatim.
   differ in nothing except what a declared policy did about an identical
   measurement.
 
+- **Fixed:** the operator example's workflow **lost the decision journal between
+  cycles**, which switched `max_cycles` off without a word. The journal is
+  gitignored and a hosted runner starts empty, so every scheduled cycle read an
+  empty history, every streak counted from zero, and a clause allowing two
+  cycles held the tenth. The workflow now carries the journal as an artifact,
+  restored from the newest one uploaded rather than from the last green run. A
+  journal that exists and cannot be restored is **not** an empty one:
+  `decide.py --streak-unknown` says so, and a clause with `max_cycles` does not
+  hold on a streak nobody can count. Found by the ledger's reconnaissance, in
+  the example as published; the dogfood had already carried the journal, and
+  swallowed a failed restore the same way.
+
 ## 0.12.1 — 2026-09-13
 
 digline **0.12.1**, alone: the three provider plugins stay at 0.4.0,

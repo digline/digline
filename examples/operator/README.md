@@ -150,6 +150,12 @@ from a cycle that never ran. `answer.py` is where you say, later, whether you
 would have wanted waking; that answer is what turns the journal into history
 worth measuring.
 
+**A streak nobody can count is not zero.** On a hosted runner the ignored
+journal dies with the job, so the workflow carries it from one cycle to the
+next as an artifact. When a journal exists and cannot be restored, `decide.py`
+is run with `--streak-unknown`, and a clause with `max_cycles` does not hold:
+an empty history read as zero would let it hold forever, one cycle at a time.
+
 The operator reads this file and never writes it, and the probe checks that
 each cycle rather than trusting it — see below.
 

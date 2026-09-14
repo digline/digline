@@ -1332,6 +1332,67 @@ def test_a_hold_is_one_clauses_responsibility() -> None:
     assert found["clause"] is None
 
 
+@pytest.mark.parametrize(("max_cycles", "holds"), [(2, False), (None, True)])
+def test_an_unknown_streak_is_not_a_streak_of_zero(
+    max_cycles: int | None, holds: bool
+) -> None:
+    """A journal that could not be restored is not an empty history.
+
+    Read as zero, a clause with `max_cycles` would hold every cycle on a hosted
+    runner whose journal is lost, which is the stopping rule switched off in
+    silence. A clause that counts nothing needs no streak and still holds —
+    the case that proves the refusal is scoped to counting, not to the policy.
+    """
+    decide = operator_module("decide")
+    policy = operator_module("policy")
+    clause: dict[str, Any] = {"name": "counts", "because": "b", "case": "c"}
+    if max_cycles is not None:
+        clause["max_cycles"] = max_cycles
+    loaded = policy.load_policy({"policy": {"name": "p", "hold": [clause]}})
+    cycle = a_cycle(
+        "drift", escalate=True, regressed=[("c", "llm_rubric")], digest=loaded.digest
+    )
+
+    def decided(*, streak_known: bool) -> dict[str, Any]:
+        return cast(
+            "dict[str, Any]",
+            decide.decide(
+                cycle,
+                loaded,
+                on_disk=loaded.digest,
+                records=[],
+                now=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+                streak_known=streak_known,
+            ),
+        )
+
+    unknown = decided(streak_known=False)
+    assert unknown["escalate"] is not holds
+    if not holds:
+        assert unknown["clause"] is None
+        assert "streak is unknown" in unknown["reason"], unknown["reason"]
+    # The same cycle with a known, empty journal holds: the pair is what shows
+    # the unknown streak, and nothing else, decided it.
+    assert decided(streak_known=True)["escalate"] is False
+
+
+def test_the_operator_workflow_carries_the_journal_between_cycles() -> None:
+    """Upload, restore, and say so when the restore fails.
+
+    The ignored journal does not survive a hosted job. A workflow that forgot
+    either half would count every streak from zero, and one that swallowed a
+    failed restore (`|| echo`) would do the same while printing that it had
+    noticed.
+    """
+    workflow = (OPERATOR / ".github" / "workflows" / "operator.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.count("name: decision-journal") == 1, "the upload"
+    assert "--name decision-journal" in workflow, "the restore"
+    assert "--streak-unknown" in workflow
+    assert "|| echo" not in workflow
+
+
 def test_the_operator_mcp_config_points_at_this_example() -> None:
     """The interactive path: somebody opens a coding agent in this directory
     and the operator's surface is already there. A server pointed one directory

@@ -33,6 +33,14 @@ on:
 permissions:
   contents: read
   issues: write
+  # To fetch the previous cycle's decision journal (below).
+  actions: read
+
+# One cycle at a time. A second one started while the first is still running
+# would read a journal the first has not written yet.
+concurrency:
+  group: operator
+  cancel-in-progress: false
 
 jobs:
   watch:
@@ -41,6 +49,42 @@ jobs:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
+
+      # ------------------------------------------------------------------ #
+      # The journal. It is gitignored and a hosted runner starts empty, so
+      # without this every cycle reads an empty journal and `max_cycles` can
+      # never count past one — a clause holds forever, one cycle at a time.
+      #
+      # Carried as an artifact, not in the cache, which evicts entries unused
+      # for seven days: exactly the cadence. Taken from the newest journal
+      # uploaded rather than from the last green run, because a cycle that
+      # decided and then failed to open an issue is a red run holding the
+      # newest journal there is.
+      #
+      # Three outcomes, and only one of them is a streak of zero: no cycle has
+      # ever uploaded a journal. One that exists and cannot be restored is an
+      # **unknown** streak, and the seat is told so rather than handed an empty
+      # file. The limit, stated: a journal past GitHub's retention is listed as
+      # expired for a while and then deleted, and a silence longer than that
+      # reads as a first cycle.
+      # ------------------------------------------------------------------ #
+      - name: Restore the decision journal
+        id: journal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          newest=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=decision-journal&per_page=100" \
+            --jq '[.artifacts[]] | sort_by(.created_at) | last // empty | "\(.workflow_run.id) \(.expired)"')
+          if [ -z "$newest" ]; then
+            echo "no cycle has written a journal yet: starting it"
+            echo "streak=first" >> "$GITHUB_OUTPUT"
+          elif [ "${newest#* }" = "true" ] || ! gh run download "${newest%% *}" \
+              --name decision-journal --dir .digline/northwind/decisions; then
+            echo "::warning::the decision journal of run ${newest%% *} could not be restored: every clause's streak is unknown"
+            echo "streak=unknown" >> "$GITHUB_OUTPUT"
+          else
+            echo "streak=restored" >> "$GITHUB_OUTPUT"
+          fi
 
       # ------------------------------------------------------------------ #
       # Layers 1 and 2. No key, no model, no network beyond the target.
@@ -69,9 +113,14 @@ jobs:
       # ------------------------------------------------------------------ #
       - name: Decide
         id: decide
+        env:
+          # Through the environment, not interpolated into the script.
+          STREAK: ${{ steps.journal.outputs.streak }}
         run: |
+          unknown=""
+          if [ "$STREAK" = "unknown" ]; then unknown="--streak-unknown"; fi
           uv run python decide.py --cycle cycle.json --config operator.toml \
-            --out decision.json
+            --out decision.json $unknown
           echo "escalate=$(jq -r .escalate decision.json)" >> "$GITHUB_OUTPUT"
 
       # ------------------------------------------------------------------ #
@@ -111,6 +160,16 @@ jobs:
             alert.md
             cycle.json
             decision.json
+
+      # What the next cycle restores. Uploaded whenever the seat wrote to it,
+      # whatever happens after: a journal that lost its newest line is the
+      # defect the restore step above exists to prevent.
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.decide.outcome == 'success'
+        with:
+          name: decision-journal
+          path: .digline/northwind/decisions/
+          if-no-files-found: error
 
       # ------------------------------------------------------------------ #
       # Escalation. Off by default: a loop that opened an issue the day you
