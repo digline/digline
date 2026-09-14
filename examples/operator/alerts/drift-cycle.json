@@ -6,7 +6,7 @@
     "stopped_the_loop": false
   },
   "cadence": "0 6 * * 1",
-  "cycle_format": 3,
+  "cycle_format": 4,
   "escalate": true,
   "escalation": {
     "dry_run": true,
@@ -15,8 +15,14 @@
       "operator"
     ]
   },
+  "policy": {
+    "digest": "6d9af176b03413da",
+    "name": "northwind-weekly"
+  },
   "probe": {
+    "digest_matches": true,
     "negative": "refused",
+    "policy_wall": "unenforced",
     "positive": true,
     "rolled_back": false,
     "wall": "intact"
@@ -97,7 +103,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T15-51-34-360976-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-14T12-08-18-576041-00-00-4d2ac7a7f606b8de",
       "seed": 0,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     },
@@ -200,7 +206,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T15-51-34-570863-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-14T12-08-18-777336-00-00-4d2ac7a7f606b8de",
       "seed": 1,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     },
@@ -303,7 +309,7 @@
         "output_version": 1,
         "scope": "comparison"
       },
-      "key": "2026-09-11T15-51-34-778730-00-00-4d2ac7a7f606b8de",
+      "key": "2026-09-14T12-08-18-977973-00-00-4d2ac7a7f606b8de",
       "seed": 2,
       "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     }
@@ -313,5 +319,6 @@
     "structural_flip_cases": 2
   },
   "suite": "suite.py",
+  "tenant": "northwind",
   "verdict": "drift"
 }

@@ -57,3 +57,43 @@ labels = ["digline", "operator"]
 # stated, never faked.
 enabled_when = "DIGLINE_LIVE=1"
 model = "claude-haiku-4-5"
+
+# --------------------------------------------------------------------------- #
+# The policy: when a classified cycle is allowed not to wake anybody.
+#
+# The loop classifies — draw, drift, structural, system error — and that does
+# not move: it is deterministic, reproducible and tested. What the policy
+# decides is the question the classification cannot answer on its own, which is
+# whether this particular drift, this week, is worth a person's evening.
+#
+# It may only **narrow**. A clause holds; no clause wakes. A new reason to wake
+# somebody is a new classification, in loop.py, where a test can hold it — and
+# three floors no clause may ever lower: a canary that moved, the stopping rule
+# mid-cycle, and a run that could not be judged.
+#
+# The operator reads this file and never writes it. That is proved each cycle
+# rather than trusted: see "the policy wall" in loop.py.
+# --------------------------------------------------------------------------- #
+[policy]
+# What a cycle reports having been ruled by. The digest beside it is taken over
+# the parsed table, so reflowing a comment moves nothing and changing a number
+# moves it.
+name = "northwind-weekly"
+
+# Recorded on every decision whether or not a clause uses it: a decision that
+# turns on the hour is reviewable only if the hour it turned on is written
+# down. A clause that declares `during = "quiet_hours"` applies only inside it.
+quiet_hours = { from = "22:00", to = "06:00", tz = "Europe/Rome" }
+
+# The one case in this suite that wobbles on its own. Two cycles of it are
+# absorbed; the third wakes somebody, because a dip that is still there a
+# fortnight later has stopped being a dip.
+#
+# `because` is for whoever reads the diff, and nothing parses it. The clause is
+# cited by `name` in every decision it rules.
+[[policy.hold]]
+name = "flaky-waterproof"
+case = "is-it-waterproof"
+assertion = "llm_rubric"
+max_cycles = 2
+because = "known to wobble on its own; a drift that outlasts two cycles is real"

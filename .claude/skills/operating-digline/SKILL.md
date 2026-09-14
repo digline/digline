@@ -37,6 +37,12 @@ because they put it there.
 **The operator proves the wall each cycle:** one write that must be refused
 beside one that must succeed; refusal alone proves nothing.
 
+**An escalation policy is approved the same way, and exercised the same way.**
+Where the rules for waking a human are written down as data, an agent reads
+them and never edits them: the policy is approved in a diff, like a baseline,
+and a cycle reports the digest of the one that ruled it — so a hold taken under
+a policy nobody can produce is not a hold.
+
 The operator's credential must exclude the surface that configures its own
 wall — on GitHub, administration scope, so the token that runs the probe cannot
 edit the ruleset it is probing: an agent that can rewrite its fence has a

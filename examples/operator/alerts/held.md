@@ -1,6 +1,6 @@
-# digline operator: draw
+# digline operator: drift
 
-**One check dipped and did not repeat. Treated as noise.** No escalation. AGENTS.md §3: a dip that does not recur on re-run is sampling noise — documented here, and that is the whole of it.
+**A drop repeated past the declared stopping rule.** The classification would have woken somebody — AGENTS.md §3: a dip that recurs is drift — and a declared policy held it. The decision and the clause it cites are in the dossier below.
 
 Suite `suite.py`, cadence `0 6 * * 1`, escalating: no.
 
@@ -12,8 +12,9 @@ Machine truth, from `digline explain --json`: the fact list digline renders its 
 
 | run | seed | exit | unjudged | within noise |
 | --- | ---: | ---: | -------: | -----------: |
-| `2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
-| `2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de` | 1 | 0 | 0 | 0 |
+| `2026-09-14T12-08-18-576041-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
+| `2026-09-14T12-08-18-777336-00-00-4d2ac7a7f606b8de` | 1 | 1 | 0 | 0 |
+| `2026-09-14T12-08-18-977973-00-00-4d2ac7a7f606b8de` | 2 | 1 | 0 | 0 |
 
 Exit `0`: nothing got worse. `1`: something did. `2`: the run could not be judged. That is digline's contract, AGENTS.md §6.
 
@@ -25,33 +26,45 @@ Before comparing anything, proved the wall: `promote`, called by name on the ope
 
 **The policy wall is a latch, not a constraint, for this identity:** `operator.toml` is writable here. That is the honest answer on a checkout and on a repository whose owner holds every key — the wall a deployment relies on is the push, not the file mode, and it is protected by branch rules rather than by permissions. The digest this cycle reports is the digest of the policy on disk, so it was ruled by the policy it names.
 
-**No decision was recorded for this cycle.** The seat is where a declared policy decides whether a classification wakes anybody, and it did not run here — so what stands is the classification itself, which wakes nobody. An absence is stated, never faked.
+**Decision: hold**, under policy `northwind-weekly` (`6d9af176b03413da`). Held by `flaky-waterproof` (1 of 2 allowed): known to wobble on its own; a drift that outlasts two cycles is real.
 
-Ran the suite once and re-ran it 1 time(s). The stopping rule was `max_reruns = 2`, declared in `operator.toml` before anything ran.
+The clause is cited by name — `flaky-waterproof` — because a reason that cites no clause is an opinion, and one that cites a clause is the policy being exercised.
 
-Spend: 6 calls to the target across 2 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
+Decided at 2026-09-14T23:30:00+00:00, which is inside the declared quiet window 22:00–06:00 Europe/Rome. The window is recorded because a decision that turns on the hour is reviewable only if the hour is written down.
 
-**Run `2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
+Ran the suite once and re-ran it 2 time(s). The stopping rule was `max_reruns = 2`, declared in `operator.toml` before anything ran.
+
+Spend: 9 calls to the target across 3 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
+
+**Run `2026-09-14T12-08-18-576041-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
 | `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval (a flip is a regression whatever the noise said) |
 
-**Run `2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
+**Run `2026-09-14T12-08-18-777336-00-00-4d2ac7a7f606b8de` (seed 1, exit 1)**
 
 | case | check | outcome | before | after | measured floor |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
+| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5750 | no interval (a flip is a regression whatever the noise said) |
 | `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
-| `is-it-waterproof` | `llm_rubric` | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples |
 | `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples |
 
-No regression was present in every run of this cycle.
+**Run `2026-09-14T12-08-18-977973-00-00-4d2ac7a7f606b8de` (seed 2, exit 1)**
+
+| case | check | outcome | before | after | measured floor |
+| ---- | ----- | ------- | -----: | ----: | -------------- |
+| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5298 | no interval (a flip is a regression whatever the noise said) |
+| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8973 | 0.8603–0.9221 across 3 samples |
+| `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.8814 | 0.8700–0.9309 across 3 samples |
+
+Present in every run of this cycle: `is-it-waterproof` / `llm_rubric`.
 
 ## 3. The judgment
 
 **This layer was not run.** It is the only part of this document that a model writes, and it is an explicit opt-in: the key was not configured for this cycle. Layers 1 and 2 above are complete and were produced without one.
 
-What stands in its place is the deterministic classification, **draw**, and the rule it came from — both stated at the top of this document. Neither is an opinion; that is the difference.
+What stands in its place is the deterministic classification, **drift**, and the rule it came from — both stated at the top of this document. Neither is an opinion; that is the difference.
 
 ---
 

@@ -55,8 +55,24 @@ jobs:
           uv run python loop.py --config operator.toml --out cycle.json
           # Lifted out of the document so the escalation steps can branch on
           # them: a workflow `if:` cannot read a file.
-          echo "escalate=$(jq -r .escalate cycle.json)" >> "$GITHUB_OUTPUT"
           echo "wall=$(jq -r .probe.wall cycle.json)" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------ #
+      # The seat. The classification above says what the measurement did;
+      # this says whether it wakes anybody, under the policy declared in
+      # `operator.toml`. Deterministic and key-free: a cycle and a policy in,
+      # a decision out — which is what lets anyone holding both re-derive it.
+      #
+      # `escalate` is read from **here** and not from the cycle, and that is
+      # the whole change: the classification proposes, the declared policy
+      # decides, and the two are allowed to disagree in public.
+      # ------------------------------------------------------------------ #
+      - name: Decide
+        id: decide
+        run: |
+          uv run python decide.py --cycle cycle.json --config operator.toml \
+            --out decision.json
+          echo "escalate=$(jq -r .escalate decision.json)" >> "$GITHUB_OUTPUT"
 
       # ------------------------------------------------------------------ #
       # Layer 3. The only layer a model writes, and the only step that needs
@@ -70,14 +86,18 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DIGLINE_LIVE: "1"
-        run: uv run python judgment.py --cycle cycle.json --out judgment.md
+        run: |
+          uv run python judgment.py --cycle cycle.json \
+            --decision decision.json --out judgment.md
 
       - name: Build the alert
         run: |
           if [ -f judgment.md ]; then
-            uv run python dossier.py --cycle cycle.json --judgment judgment.md --out alert.md
+            uv run python dossier.py --cycle cycle.json --decision decision.json \
+              --judgment judgment.md --out alert.md
           else
-            uv run python dossier.py --cycle cycle.json --out alert.md
+            uv run python dossier.py --cycle cycle.json --decision decision.json \
+              --out alert.md
           fi
           cat alert.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -90,6 +110,7 @@ jobs:
           path: |
             alert.md
             cycle.json
+            decision.json
 
       # ------------------------------------------------------------------ #
       # Escalation. Off by default: a loop that opened an issue the day you
@@ -99,7 +120,7 @@ jobs:
       # ------------------------------------------------------------------ #
       - name: Open an issue
         if: >-
-          fromJSON(steps.cycle.outputs.escalate || 'false') &&
+          fromJSON(steps.decide.outputs.escalate || 'false') &&
           (vars.OPERATOR_ESCALATE == 'true' || inputs.escalate)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

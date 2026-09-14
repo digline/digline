@@ -62,6 +62,33 @@ BECAUSE: Mapping[str, str] = {
     ),
 }
 
+#: The second line when a declared policy held a classification that would have
+#: woken somebody.
+#:
+#: `BECAUSE` **asserts an outcome** — it opens with "Escalated." — so printing
+#: it above a line reading *escalating: no* would make the document contradict
+#: itself three lines apart. That is the arithmetically-correct-and-
+#: rhetorically-false shape ADR 0008 refused for `diff`, and it is no more
+#: acceptable here. The rule is still cited; what changes is that it is cited
+#: in the conditional, because the conditional is what happened.
+#:
+#: Two entries and not five. `clean` and `draw` propose no escalation, so there
+#: is nothing for a policy to hold; `system-error` is a floor no clause may
+#: lower. Anything absent falls back to `BECAUSE`, which is then true.
+HELD: Mapping[str, str] = {
+    "drift": (
+        "The classification would have woken somebody — AGENTS.md §3: a dip "
+        "that recurs is drift — and a declared policy held it. The decision "
+        "and the clause it cites are in the dossier below."
+    ),
+    "structural": (
+        "The classification would have woken somebody without a re-run — "
+        "AGENTS.md §4: several cases flipping together is investigated and "
+        "never retried — and a declared policy held it. The decision and the "
+        "clause it cites are in the dossier below."
+    ),
+}
+
 
 #: Whose setting a `setting` fact names, in the words the dossier uses.
 OWNERS: Mapping[str, str] = {
@@ -201,22 +228,140 @@ def _wall(cycle: Mapping[str, Any]) -> str:
     )
 
 
+def _policy_wall(cycle: Mapping[str, Any]) -> str:
+    """The second negative and the fourth check, in one sentence each.
+
+    Reported beside the first wall rather than folded into it: an absent tool
+    and a file mode are different kinds of protection, and a reader is owed
+    which one is being described.
+    """
+    probe = cast("Mapping[str, Any] | None", cycle.get("probe"))
+    if probe is None or "policy_wall" not in probe:
+        return ""
+    matched = probe.get("digest_matches")
+    fourth = (
+        ""
+        if matched is None
+        else (
+            " The digest this cycle reports is the digest of the policy on "
+            "disk, so it was ruled by the policy it names."
+            if matched
+            else " **The digest this cycle reports is not the digest of the "
+            "policy on disk**, so the policy moved between the run and this "
+            "document: no hold taken under it can be reproduced."
+        )
+    )
+    if probe["policy_wall"] == "enforced":
+        return (
+            "The policy wall held: `operator.toml` is not writable by the "
+            "identity that ran this cycle, so the operator reads its policy "
+            "and cannot edit it." + fourth
+        )
+    if probe["policy_wall"] == "unenforced":
+        return (
+            "**The policy wall is a latch, not a constraint, for this "
+            "identity:** `operator.toml` is writable here. That is the honest "
+            "answer on a checkout and on a repository whose owner holds every "
+            "key — the wall a deployment relies on is the push, not the file "
+            "mode, and it is protected by branch rules rather than by "
+            "permissions." + fourth
+        )
+    return (
+        "Whether the policy is writable by this identity could not be "
+        "established, so nothing is known about the second wall this cycle." + fourth
+    )
+
+
+def _decision(
+    cycle: Mapping[str, Any], decision: Mapping[str, Any] | None
+) -> list[str]:
+    """Why somebody was woken, or why nobody was.
+
+    Layer 2 and not layer 3: the seat is deterministic given a cycle and a
+    policy, so this is a record of what was decided rather than an opinion
+    about it. A model interprets this below; it does not produce it.
+    """
+    proposed = bool(cycle["escalate"])
+    if decision is None:
+        return [
+            "",
+            "**No decision was recorded for this cycle.** The seat is where a "
+            "declared policy decides whether a classification wakes anybody, "
+            "and it did not run here — so what stands is the classification "
+            "itself, which "
+            + ("wakes somebody" if proposed else "wakes nobody")
+            + ". An absence is stated, never faked.",
+        ]
+
+    policy = cast("Mapping[str, Any] | None", decision["policy"])
+    named = (
+        "under no policy"
+        if policy is None
+        else f"under policy `{policy['name']}` (`{policy['digest']}`)"
+    )
+    lines = [
+        "",
+        f"**Decision: {'escalate' if decision['escalate'] else 'hold'}**, "
+        f"{named}. {decision['reason']}",
+    ]
+    if decision["clause"] is not None:
+        lines.append("")
+        lines.append(
+            f"The clause is cited by name — `{decision['clause']}` — because a "
+            "reason that cites no clause is an opinion, and one that cites a "
+            "clause is the policy being exercised."
+        )
+    if decision["floor"] is not None:
+        lines.append("")
+        # `policy-moved` is **not** a floor and must not be described as one: it
+        # says no policy was in force to do the holding, which is a different
+        # fact from a clause having been forbidden. The two share a field
+        # because a reader asking *why was this not held* wants one answer;
+        # they do not share a sentence. `decide.py` owns the vocabulary — this
+        # renders it and never invents a member of it.
+        lines.append(
+            "No clause was consulted: the digest this cycle reports is not the "
+            "digest of the policy on disk, so there was no policy in force to "
+            "hold it."
+            if decision["floor"] == "policy-moved"
+            else f"No clause could have held this cycle: the "
+            f"`{decision['floor']}` floor is one the policy may never lower."
+        )
+    if decision["in_quiet_hours"] is not None and policy is not None:
+        window = cast("Mapping[str, Any]", policy["quiet_hours"])
+        inside = "inside" if decision["in_quiet_hours"] else "outside"
+        lines.append("")
+        lines.append(
+            f"Decided at {decision['evaluated_at']}, which is {inside} the "
+            f"declared quiet window {window['from']}–{window['to']} "
+            f"{window['tz']}. The window is recorded because a decision that "
+            "turns on the hour is reviewable only if the hour is written down."
+        )
+    return lines
+
+
 def _collapsed(cycle: Mapping[str, Any]) -> bool:
     probe = cast("Mapping[str, Any] | None", cycle.get("probe"))
     return probe is not None and probe["wall"] == "collapsed"
 
 
-def _dossier(cycle: Mapping[str, Any]) -> list[str]:
-    """Layer 2. What the operator did and saw — deterministic, no model."""
+def _dossier(
+    cycle: Mapping[str, Any], decision: Mapping[str, Any] | None = None
+) -> list[str]:
+    """Layer 2. What the operator did, saw and decided — deterministic, no
+    model."""
     rule = cast("Mapping[str, Any]", cycle["stopping_rule"])
     budget = cast("Mapping[str, Any]", cycle["budget"])
     runs = _runs(cycle)
     reruns = len(runs) - 1
 
+    second = _policy_wall(cycle)
     lines = [
         "## 2. The dossier",
         "",
         _wall(cycle),
+        *(["", second] if second else []),
+        *_decision(cycle, decision),
         "",
         f"Ran the suite once and re-ran it {reruns} time(s). The stopping rule "
         f"was `max_reruns = {rule['max_reruns']}`, declared in `operator.toml` "
@@ -294,24 +439,37 @@ def _judgment(cycle: Mapping[str, Any], judgment: str | None) -> list[str]:
     return lines
 
 
-def evidence(cycle: Mapping[str, Any]) -> str:
+def evidence(
+    cycle: Mapping[str, Any], decision: Mapping[str, Any] | None = None
+) -> str:
     """Layers 1 and 2 alone — the deterministic half of the document.
 
     Exported because `judgment.py` shows the model exactly this and nothing
     else. One rendering of the facts, so the layer that opines and the layer a
     human reads cannot come to be about two different runs.
     """
-    return "\n".join([*_fact(cycle), "", *_dossier(cycle)]) + "\n"
+    return "\n".join([*_fact(cycle), "", *_dossier(cycle, decision)]) + "\n"
 
 
-def alert_body(cycle: Mapping[str, Any], *, judgment: str | None) -> str:
+def alert_body(
+    cycle: Mapping[str, Any],
+    *,
+    decision: Mapping[str, Any] | None = None,
+    judgment: str | None = None,
+) -> str:
     """The whole document. `judgment` is layer 3, or `None` when it did not run."""
     verdict = str(cycle["verdict"])
-    escalate = bool(cycle["escalate"])
+    proposed = bool(cycle["escalate"])
+    escalate = proposed if decision is None else bool(decision["escalate"])
+    # The two can disagree, and the disagreement is the whole point of the
+    # seat: what the measurement concluded, and what somebody's declared rules
+    # did about it. Said in the opening line rather than left to be noticed.
+    held = proposed and not escalate
     lines = [
         f"# digline operator: {verdict}",
         "",
-        f"**{HEADLINES[verdict]}** {BECAUSE[verdict]}",
+        f"**{HEADLINES[verdict]}** "
+        + (HELD.get(verdict, BECAUSE[verdict]) if held else BECAUSE[verdict]),
         "",
         f"Suite `{cycle['suite']}`, cadence `{cycle['cadence']}`, "
         f"escalating: {'yes' if escalate else 'no'}.",
@@ -322,7 +480,7 @@ def alert_body(cycle: Mapping[str, Any], *, judgment: str | None) -> str:
         "",
         *_fact(cycle),
         "",
-        *_dossier(cycle),
+        *_dossier(cycle, decision),
         "",
         *_judgment(cycle, judgment),
         "",
@@ -345,6 +503,7 @@ def alert_body(cycle: Mapping[str, Any], *, judgment: str | None) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycle", default="cycle.json", type=Path)
+    parser.add_argument("--decision", type=Path, help="the seat, when it ran")
     parser.add_argument("--judgment", type=Path, help="layer 3, when it ran")
     parser.add_argument("--out", default="alert.md", type=Path)
     args = parser.parse_args(argv)
@@ -353,11 +512,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "Mapping[str, Any]",
         json.loads(Path(args.cycle).read_text(encoding="utf-8")),
     )
+    decision: Mapping[str, Any] | None = None
+    if args.decision is not None and Path(args.decision).is_file():
+        decision = cast(
+            "Mapping[str, Any]",
+            json.loads(Path(args.decision).read_text(encoding="utf-8")),
+        )
     judgment: str | None = None
     if args.judgment is not None and Path(args.judgment).is_file():
         judgment = Path(args.judgment).read_text(encoding="utf-8")
 
-    Path(args.out).write_text(alert_body(cycle, judgment=judgment), encoding="utf-8")
+    Path(args.out).write_text(
+        alert_body(cycle, decision=decision, judgment=judgment), encoding="utf-8"
+    )
     return 0
 
 

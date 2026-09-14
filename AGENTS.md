@@ -35,6 +35,12 @@ because they put it there.
 **The operator proves the wall each cycle:** one write that must be refused
 beside one that must succeed; refusal alone proves nothing.
 
+**An escalation policy is approved the same way, and exercised the same way.**
+Where the rules for waking a human are written down as data, an agent reads
+them and never edits them: the policy is approved in a diff, like a baseline,
+and a cycle reports the digest of the one that ruled it — so a hold taken under
+a policy nobody can produce is not a hold.
+
 A wall lives outside the constrained identity's configuration surface. Three
 rungs: a protection the identity can bypass is a preference; one it must first
 reconfigure to cross (`enforce_admins` — the change is an auditable event) is a
