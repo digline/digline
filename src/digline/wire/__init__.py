@@ -26,6 +26,7 @@ from digline.wire.contract import (
 )
 from digline.wire.diff import check_json, diff_json, interval_json
 from digline.wire.explain import explain_json, fact_json
+from digline.wire.log import log_json
 from digline.wire.run import run_document, run_json, runs_json
 from digline.wire.version import ahead_note, writer_ahead
 
@@ -45,6 +46,7 @@ __all__ = [
     "explain_json",
     "fact_json",
     "interval_json",
+    "log_json",
     "run_document",
     "run_json",
     "runs_json",

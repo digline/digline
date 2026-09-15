@@ -183,7 +183,7 @@ The reading is two value types, both frozen, both in `digline.report` beside
     IdentitySpan:
         side:          "target" | "judge"
         provider:      str
-        sent:          str | tuple[str, ...]     # a model, or the judges' identities
+        sent:          tuple[str, ...]           # one model, or the judges' identities
         answered:      str | None                # None exactly when `absence` is set
         absence:       AbsenceKind | None        # §3's rows 2–6
         first_seen:    str                       # created_at of the first run in the span
@@ -250,11 +250,12 @@ canary and a reading of the record never speculates.
 
 ### 6. The boundary: `redacted()` inside, and what it costs
 
-`log_json` builds every span from `SystemConfig.redacted()` of each run, inside
-the function, so the CLI's `--json`, the MCP tool and the terminal all read the
-same reduced configuration. It is the placement 0.12.1 used to close the door
-in `config_deltas`: one function, and the door closes once rather than once per
-front end.
+The fold builds every sighting from `SystemConfig.redacted()` of each run,
+before a span exists, so the CLI's `--json`, the MCP tool and the terminal all
+read the same reduced configuration. It is the placement 0.12.1 used to close
+the door in `config_deltas`, one step earlier: the reduction happens where the
+reading is made rather than where it is rendered, so no renderer — present or
+future — holds a value it would have to leave out.
 
 What travels: the provider, the sent model (written in the suite and reviewed
 with it, ADR 0005 §9 amended), the answering model where the endpoint is not a
@@ -276,9 +277,10 @@ written for providers that say nothing.
 
 ### 7. The first gap: aggregates in `runs_json`
 
-Each row of `runs_json` gains the run's aggregate verdicts, each carrying
-exactly the fields fixed decision 9 lets cross: `assertion`, `assertion_id`,
-`status`, `score`, `threshold`, `tolerance`.
+Each row of `runs_json` gains the run's aggregate verdicts under `aggregate`,
+each carrying exactly the fields fixed decision 9 lets cross: `name`,
+`assertion_id`, `status`, `score`, `threshold`, `tolerance` — named as
+`run_document` already names them, so a consumer reading both reads one shape.
 
 **No metadata**, so no `Disclosure` parameter joins the function's signature:
 the confusion counts are measured metadata and would cross, but they are one

@@ -22,7 +22,7 @@ docker run -v $PWD:/work ghcr.io/digline/digline:0.12.1 compare --suite eval/sui
 
 `WORKDIR` is `/work` and the entrypoint is `digline`, so every argument after
 the image name is the command line you would have typed locally — `run`,
-`compare`, `diff`, `promote`, `report`, `explain`, `rejudge`, `list`,
+`compare`, `diff`, `promote`, `report`, `explain`, `log`, `rejudge`, `list`,
 `migrate`. The exit code is the answer: `0` fine, `1` got worse, `2` could not
 be judged.
 
