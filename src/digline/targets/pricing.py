@@ -147,8 +147,9 @@ def free(*models: str) -> Pricing:
     Zero is the honest per-token price on hardware paid for by the hour, and it
     is still a decision: an unpriced model raises (fixed decision 3), so a zero
     has to be written down. Declared, so it enters `config_hash` like any other
-    declared price. The plugins' own `free()` delegate here from their next
-    releases; until then theirs build an undeclared list.
+    declared price. The OpenAI and Bedrock plugins' own `free()` delegate here;
+    a plugin released before that delegation builds an undeclared list instead,
+    and hashes differently from this one.
     """
     if not models:
         raise ValueError(

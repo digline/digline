@@ -17,11 +17,28 @@ just written the sanitising rule for a different surface.
 Two things deliberately do **not** go through it, and `emit()` is what says so
 out loud rather than leaving a bare `print` to be mistaken for an oversight:
 
-- **`--json`**, because `json.dumps` already escapes every control character,
-  and a second escaping would corrupt a document a program parses;
+- **`--json`**, because a program parses it and `visible()` would corrupt it.
+  **`json.dumps` does not escape DEL or C1.** It writes C0 as `\\u00XX`, and
+  under `ensure_ascii=False` — how every document here is built — it leaves
+  DEL (U+007F) and the C1 block (U+0080–U+009F) raw, and U+009B on its own opens
+  the same sequence ESC `[` does. So `emit()` escapes exactly those two ranges.
+  Until the 0.13.0 delta-pass this docstring said `json.dumps` escapes
+  *every* control character, and `log --json` printed a C1 CSI from a committed
+  register;
 - **the HTML report**, because it is a document rather than a sentence: its
-  values are already HTML-escaped where they are rendered, and stripping
-  characters out of it here would change the artifact a reader keeps.
+  values are HTML-escaped where they are rendered, and `report.escape()` writes
+  C0, DEL and C1 as character references, so it reaches `emit()` with none of
+  them raw.
+
+**The standing rule.** Every source of third-party text reaches a terminal
+through this module — `say()` for a sentence, `emit()` for a document — **by
+construction, not by memory**. It is enforced in one place:
+`tests/test_terminal_escapes.py::test_nothing_in_the_cli_prints_except_through_say_or_emit`,
+which refuses a `print` or a stream write anywhere in `digline.cli` outside this
+file. A new command, a new field or a new committed file is sanitised because
+it cannot reach a terminal any other way. The family has bitten three times,
+each at a door the rule was not yet written on: `say()` first, then the HTML
+`emit()`, then the JSON one.
 """
 
 from __future__ import annotations
@@ -31,6 +48,10 @@ import sys
 __all__ = ["emit", "say", "visible"]
 
 from digline.report import visible
+
+#: DEL and C1 as JSON `\\u00XX` escapes — the two ranges `json.dumps` leaves raw.
+#: C0 is not here because `json.dumps` has already escaped it.
+_UNESCAPED_BY_JSON = {code: f"\\u{code:04x}" for code in (0x7F, *range(0x80, 0xA0))}
 
 
 def say(text: str = "", *, err: bool = False) -> None:
@@ -44,10 +65,16 @@ def say(text: str = "", *, err: bool = False) -> None:
 
 
 def emit(document: str) -> None:
-    """Print a **document** — JSON or HTML — exactly as it was built.
+    """Print a **document** — JSON or HTML — with DEL and C1 escaped.
 
-    Separate from `say()` so that bypassing the sanitiser is a decision with a
-    name on it. See this module's docstring for why these two are safe without
-    it; anything else that reaches a terminal is a sentence and uses `say()`.
+    Separate from `say()` so that bypassing its sanitiser is a decision with a
+    name on it; anything else that reaches a terminal is a sentence and uses
+    `say()`. What `emit()` does instead changes nothing a reader parses: outside
+    a string literal JSON is ASCII, so a raw DEL or C1 can only be inside one,
+    where `\\u009b` is the same value; and an HTML document arrives with none of
+    them raw, because `report.escape()` already wrote them as references. At the
+    sink, so every `--json` command inherits it — including the next one.
+    (from the 0.13.0 delta-pass)
     """
-    print(document, end="" if document.endswith("\n") else "\n")
+    safe = document.translate(_UNESCAPED_BY_JSON)
+    print(safe, end="" if safe.endswith("\n") else "\n")

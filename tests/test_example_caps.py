@@ -105,6 +105,10 @@ RELEASED: dict[str, int] = {
     # price and the register add nothing to the run document's schema. What the
     # release costs the examples is the cap, as 0.11.0's did.
     "0.13.0": 11,
+    # Schema 11 still. 0.13.1 is the delta-pass patch, and the register it
+    # hardens is its own format beside the run document, not a field in it:
+    # a register line is refused where 0.13.0 misread it, and no run file moves.
+    "0.13.1": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

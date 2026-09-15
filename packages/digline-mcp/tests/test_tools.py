@@ -70,6 +70,35 @@ def test_log_is_the_cli_log_json(promoted: Path) -> None:
     assert "exit_code" not in answered
 
 
+def test_log_states_a_hostile_register_rather_than_raising(promoted: Path) -> None:
+    """The register is committed, so a pull request writes it. An `Infinity` in
+    one of its lines reached this tool as an `OverflowError` in 0.13.0 — a bug
+    report handed to an agent. It is a refused register now, which the reading
+    states and reads the runs past. (0.13.1)"""
+    key = run_key(promoted)
+    recorded = cli(
+        promoted,
+        "register",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+        "--disposition",
+        "rejected",
+    )
+    assert recorded.returncode == 0, recorded.stderr
+    path = promoted / ".digline" / "acme-bank" / "register" / "qa.jsonl"
+    entry = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    entry["outcome"]["regressed"] = "__DAMAGE__"
+    path.write_text(
+        json.dumps(entry).replace('"__DAMAGE__"', "Infinity") + "\n", encoding="utf-8"
+    )
+
+    answered = call(promoted, "log", suite=str(promoted / "suite_qa.py"))
+    assert answered["register_unreadable"] is True
+    assert answered["register"] == []
+
+
 def test_log_refuses_an_instant_without_a_zone(repo: Path) -> None:
     message = refusal(
         repo, "log", suite=str(repo / "suite_qa.py"), since="2026-09-14T08:00"
