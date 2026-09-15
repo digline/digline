@@ -126,7 +126,13 @@ the canary, which lives in `compare`.
 
 This is not a gate and carries no exit code. `runs` counts what is in this store:
 a history of 0 runs is not "no roll", and a span marked withheld cannot say
-whether the model changed behind a named endpoint."""
+whether the model changed behind a named endpoint.
+
+`register` is what people decided about comparisons — accepted, rejected or
+unsure, against which reference, with the exit code they were looking at. It is
+committed, so it is there even where no run is. There is no tool that records
+one: a disposition is a person's. Assemble the evidence and recommend; the human
+runs `digline register` and puts the reason in the commit message."""
 
 DESCRIPTIONS: dict[str, str] = {
     "list_runs": LIST_RUNS,

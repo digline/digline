@@ -63,6 +63,19 @@ notes under them are this file, verbatim.
   there on a clone that has no runs at all. The decision journal of ADR 0019
   stays the machine's memory, ignored by git; the register is the human's.
 
+- **`digline-mcp`: `explain` and `log` join the surface, which moves once from
+  six tools to eight** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md)
+  §9, amending ADR 0011 §1. `explain` is `digline explain --json` — the fact list
+  and the exit code, composed once in the host so the two front ends cannot read
+  one run differently — and it takes no locale, because the list ships no prose.
+  `log` is `digline log --json`, register included, and carries no exit code.
+  Neither writes, and nothing that writes joined them: `promote`, `migrate`,
+  `view`, `report` and the register's writer stay absent. The tools import names
+  that first ship in this digline, so they ship in the `digline-mcp` release that
+  follows it, with its floor raised to it: a floor cannot name a release that
+  does not exist yet, which is the shape ADR 0017 §11 gave `prepare` and
+  `measure`.
+
 - **`AGENTS.md` and the `operating-digline` skill: a disposition is a person's
   too.** Never recorded on an agent's own initiative, and never on a schedule.
 

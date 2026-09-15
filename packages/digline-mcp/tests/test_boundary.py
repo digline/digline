@@ -88,7 +88,21 @@ def loaded(tmp_path: Path) -> Path:
     git(tmp_path, "commit", "-qm", "initial")
     first = cli(tmp_path, "run", "--suite", "suite_qa.py").stdout.strip()
     cli(tmp_path, "promote", "--suite", "suite_qa.py", "--run", first)
-    cli(tmp_path, "run", "--suite", "suite_qa.py", "--meta", f"customer={RUN_META}")
+    second = cli(
+        tmp_path, "run", "--suite", "suite_qa.py", "--meta", f"customer={RUN_META}"
+    ).stdout.strip()
+    # A disposition in the register, so `log` crosses the boundary carrying one:
+    # the register is the one ledger the wire learns the name of (ADR 0021 §8).
+    cli(
+        tmp_path,
+        "register",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        second,
+        "--disposition",
+        "rejected",
+    )
     return tmp_path
 
 
@@ -175,4 +189,5 @@ def test_the_tools_still_answered(loaded: Path) -> None:
     assert '"favours_left"' in answers["diff"]
     assert '"facts"' in answers["explain"]
     assert '"spans"' in answers["log"]
+    assert '"disposition"' in answers["log"]
     assert "acknowledge_calls=" in answers["run"]

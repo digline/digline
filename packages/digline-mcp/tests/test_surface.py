@@ -44,14 +44,16 @@ def test_the_surface_is_exactly_eight_tools(tmp_path: Path) -> None:
     assert tool_names(str(tmp_path)) == TOOLS
 
 
-@pytest.mark.parametrize("absent", ["promote", "migrate", "view", "report"])
+@pytest.mark.parametrize("absent", ["promote", "migrate", "view", "report", "register"])
 def test_the_missing_tools_are_missing(absent: str, tmp_path: Path) -> None:
     """Named one at a time so a failure says which one came back.
 
     `promote` is the thesis: a baseline is an approved reference, it is written
     into a committed directory, and an agent that promotes dissolves the word —
-    the file still says `baseline` and nobody decided anything. The other three
-    are upgrade maintenance and two human-facing documents.
+    the file still says `baseline` and nobody decided anything. The next three
+    are upgrade maintenance and two human-facing documents. `register` is absent
+    for `promote`'s reason: it writes a committed file, and a disposition is by
+    definition a person's (ADR 0021 §2).
     """
     assert absent not in tool_names(str(tmp_path))
 
