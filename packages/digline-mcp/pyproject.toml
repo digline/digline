@@ -29,7 +29,13 @@ dependencies = [
     # `pytest-digline`'s own floor comment records, and the reason this number
     # is 0.11.0 rather than 0.12.0 is that nothing here reads that field — the
     # gate was checked rather than trusted, and this says so.
-    "digline>=0.11.0",
+    #
+    # 0.13.0, and by name this time: `explain` and `log` import `explained`,
+    # `history`, `instant` and `log_json`, which first ship in digline 0.13.0
+    # (ADR 0020 §8). Raised in the release after the one that built them, the
+    # shape ADR 0017 §11 gave `prepare` and `measure`: a floor cannot name a
+    # release that does not exist yet.
+    "digline>=0.13.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
