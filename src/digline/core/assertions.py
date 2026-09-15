@@ -1143,24 +1143,30 @@ class ToolCalledWith(AssertionBase):
         expected = len(wanted)
         best = 0
         seen = 0
+        unreadable = 0
         ok = False
         for entry in cast("Sequence[object]", found):
+            # **An unreadable call does not contaminate the others.** It is
+            # counted and stepped over; whether it matters is decided after
+            # every readable call has been judged, because a match elsewhere
+            # settles this check without it. (0.13.0 delta-pass)
             if not isinstance(entry, Mapping):
-                return self._error(
-                    f"the target reported a tool call as a {type(entry).__name__}, "
-                    "not a mapping: there is no trajectory to read"
-                )
-            call = cast("Mapping[str, object]", entry)
-            if str(call.get("tool", "")) != self.tool:
+                # Which tool it called is part of what cannot be read, so it
+                # may have been this one.
+                unreadable += 1
                 continue
-            seen += 1
+            call = cast("Mapping[str, object]", entry)
+            tool = call.get("tool")
+            if not isinstance(tool, str) or not tool:
+                unreadable += 1
+                continue
+            if tool != self.tool:
+                continue
             sent = self._sent(call.get("arguments"))
             if sent is None:
-                return self._error(
-                    f"the arguments of a call to {self.tool!r} are not decodable "
-                    "as JSON, so what the model sent cannot be compared with "
-                    "what was declared"
-                )
+                unreadable += 1
+                continue
+            seen += 1
             # How much of what was *declared* was matched. Reported as measured
             # whatever the mode decides, so the number never has to be read
             # against the mode to mean something.
@@ -1173,6 +1179,16 @@ class ToolCalledWith(AssertionBase):
             ):
                 ok = True
 
+        if unreadable and not ok:
+            # The only case an unreadable call decides: nothing readable
+            # matched, so the call this check needs may be the one that could
+            # not be read. A `fail` would report a finding nobody established.
+            return self._error(
+                f"{unreadable} reported call(s) could not be read — not a "
+                "mapping, no tool name, or arguments not decodable as JSON — and "
+                f"none of the {seen} readable call(s) to {self.tool!r} matched: "
+                "the call this check needs may be one that could not be read"
+            )
         if seen == 0:
             return self._graded(
                 0.0,
@@ -1206,8 +1222,10 @@ class ToolCalledWith(AssertionBase):
 
         A string is decoded as JSON — which is the shape one of the three
         providers hands back and its own SDK warns may not parse. `None` here
-        becomes an `error`, never a `fail`: an undecodable argument is a
-        different problem from a mismatched one, which is `JsonSchema`'s rule.
+        counts the call as unreadable, and never as a mismatch: an undecodable
+        argument is a different problem from a mismatched one, which is
+        `JsonSchema`'s rule. It becomes an `error` only when no readable call
+        matched.
         """
         if isinstance(raw, str):
             try:

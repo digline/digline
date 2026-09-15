@@ -34,6 +34,7 @@ from digline.core import (
     PiiAbsent,
     PiiPattern,
     Regex,
+    ToolCalledWith,
     ToolsCalled,
     budget_score,
     levenshtein_distance,
@@ -1068,3 +1069,50 @@ def test_the_count_travels_and_the_names_do_not() -> None:
     v = ToolsCalled(expected=["search"])(trajectory(tools=["search", "cite"]))
     assert travels(v.score.metadata["tool_calls"])
     assert not travels(v.score.metadata["called"])
+
+
+# --------------------------------------------------------------------------- #
+# ToolCalledWith — an unreadable call does not contaminate the others (0.13.1)
+# --------------------------------------------------------------------------- #
+
+LOOKUP_4711 = {"tool": "lookup", "arguments": {"order_id": "4711"}}
+LOOKUP_9999 = {"tool": "lookup", "arguments": {"order_id": "9999"}}
+#: What `digline-openai` 0.5.0 keeps when the model wrote arguments that are not
+#: JSON: the string itself, verbatim.
+LOOKUP_GARBLED = {"tool": "lookup", "arguments": "{not json"}
+
+
+def calls(*reported: object) -> EvaluatorInputs:
+    return trajectory(tool_calls=list(reported))
+
+
+def wants_4711() -> ToolCalledWith:
+    return ToolCalledWith(tool="lookup", arguments={"order_id": "4711"})
+
+
+@pytest.mark.parametrize("first", [True, False])
+def test_an_undecodable_call_does_not_hide_the_one_that_matched(first: bool) -> None:
+    """`any one matching call is enough`, whichever side of it the garbled call
+    sits. In 0.13.0 the garbled call errored the check in both orders."""
+    reported = (LOOKUP_GARBLED, LOOKUP_4711) if first else (LOOKUP_4711, LOOKUP_GARBLED)
+    v = wants_4711()(calls(*reported))
+    assert v.status == "pass", v.reason
+
+
+def test_a_call_that_is_not_a_mapping_does_not_hide_the_one_that_matched() -> None:
+    v = wants_4711()(calls("lookup(4711)", LOOKUP_4711))
+    assert v.status == "pass", v.reason
+
+
+def test_it_errors_when_the_call_it_needs_may_be_the_unreadable_one() -> None:
+    """No readable call matched and one could not be read — that one may be the
+    match. A `fail` would report a finding nobody established."""
+    v = wants_4711()(calls(LOOKUP_9999, LOOKUP_GARBLED))
+    assert v.status == "error"
+    assert "not decodable" in v.reason
+
+
+def test_an_unreadable_call_to_another_tool_changes_nothing() -> None:
+    garbled_refund = {"tool": "refund", "arguments": "{not json"}
+    assert wants_4711()(calls(LOOKUP_9999, garbled_refund)).status == "fail"
+    assert wants_4711()(calls(garbled_refund, LOOKUP_4711)).status == "pass"
