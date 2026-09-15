@@ -24,12 +24,13 @@ that goes through code review on someone else's laptop.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from digline.core import Finish
-from digline.targets import Completion, Pricing, Usage, finish_of
+from digline.core import Finish, canonical
+from digline.targets import Completion, Pricing, ToolCall, Usage, finish_of
 
 __all__ = [
     "ACCOUNT_RE",
@@ -43,6 +44,7 @@ __all__ = [
     "resolve_region",
     "scrub",
     "text_of",
+    "tool_calls_of",
     "tools_of",
     "usage_of",
 ]
@@ -207,6 +209,121 @@ def tools_of(reply: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
+def tool_calls_of(reply: Mapping[str, Any]) -> tuple[ToolCall, ...]:
+    """The calls with their arguments, and what Converse reports about each.
+
+    **A `toolUse` block** is a tool the application runs after the reply: its
+    status and result are both `not_reported`, never an invented `success`.
+
+    **A `toolUse` of type `server_tool_use`** may have its `toolResult` in the
+    same output, joined by `toolUseId`. Read from botocore's service model and
+    not yet from a real reply:
+
+    - `status: "error"` — recorded with the **error text** as the result. It is
+      the only diagnostic the call produces; Converse carries content where the
+      other two providers carry a code, and without it a failure would read as
+      an unexplained one. It rides under `MAX_RECORDED_CHARS` like everything
+      else in the entry.
+    - `status: "success"` — `result_absence="not_recorded"`: the payload is
+      bulk, and bulk is the criterion, not category.
+    - no `status` — AWS documents it for Nova and Claude 3 and 4 only, so the
+      status is `not_reported`, and the content, which cannot be told apart
+      from a payload, is `not_recorded`.
+
+    A server call with no result in the output reports neither. (ADR 0018 §1,
+    amended 2026-09-15)
+    """
+    blocks = _blocks(reply)
+    outcomes: dict[str, Mapping[str, Any]] = {}
+    for block in blocks:
+        if isinstance(block, Mapping):
+            found = cast("Mapping[str, Any]", block).get("toolResult")
+            if isinstance(found, Mapping):
+                result = cast("Mapping[str, Any]", found)
+                outcomes[str(result.get("toolUseId", ""))] = result
+    calls: list[ToolCall] = []
+    for block in blocks:
+        if not isinstance(block, Mapping) or "toolUse" not in block:
+            continue
+        use = cast("Mapping[str, Any]", cast("Mapping[str, Any]", block)["toolUse"])
+        name = str(use.get("name", ""))
+        arguments = _arguments(use.get("input"))
+        outcome = (
+            outcomes.get(str(use.get("toolUseId", "")))
+            if use.get("type") == "server_tool_use"
+            else None
+        )
+        if outcome is None:
+            calls.append(
+                ToolCall(
+                    tool=name,
+                    arguments=arguments,
+                    status="not_reported",
+                    result_absence="not_reported",
+                )
+            )
+        elif outcome.get("status") == "error":
+            text = _error_text(outcome)
+            calls.append(
+                ToolCall(
+                    tool=name,
+                    arguments=arguments,
+                    status="error",
+                    result=text,
+                    result_absence="not_reported" if text is None else None,
+                )
+            )
+        else:
+            calls.append(
+                ToolCall(
+                    tool=name,
+                    arguments=arguments,
+                    status=(
+                        "success"
+                        if outcome.get("status") == "success"
+                        else "not_reported"
+                    ),
+                    result_absence="not_recorded",
+                )
+            )
+    return tuple(calls)
+
+
+def _arguments(value: object) -> Mapping[str, object] | str | None:
+    """A Converse `Document` is any JSON value; an object passes through, and
+    anything else is written as canonical JSON rather than dropped."""
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        return cast("Mapping[str, object]", value)
+    return json.dumps(
+        canonical(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+
+
+def _error_text(outcome: Mapping[str, Any]) -> str | None:
+    """The error's own words: the `text` blocks, and `json` ones as canonical
+    JSON, in order. `None` where the provider said it failed and said nothing
+    more."""
+    parts: list[str] = []
+    for item in cast("Sequence[object]", outcome.get("content") or ()):
+        if not isinstance(item, Mapping):
+            continue
+        entry = cast("Mapping[str, Any]", item)
+        if isinstance(entry.get("text"), str):
+            parts.append(str(entry["text"]))
+        elif "json" in entry:
+            parts.append(
+                json.dumps(
+                    canonical(entry["json"]),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                )
+            )
+    return "\n".join(parts) or None
+
+
 def completion_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Completion:
     """One Converse reply, as the record `_complete` returns (ADR 0004 §6).
 
@@ -229,6 +346,7 @@ def completion_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Com
         finish=finish,
         finish_raw=raw,
         tools=tools_of(reply),
+        tool_calls=tool_calls_of(reply),
     )
 
 
