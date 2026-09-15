@@ -8,6 +8,64 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Added: `digline log`, which model answered, read down a suite's stored
+  runs** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md). For each side,
+  target and judge, the reading shows spans of the same sent model and the same
+  answering model, and the **rolls** between them. A roll is only one thing: the
+  same sent model, recorded answering as a different model. A changed sent model
+  is somebody editing the suite, and a roll across runs that recorded nothing
+  carries a window — the last run that recorded the old model, the first that
+  recorded the new one — and never a date inside it.
+
+  Real history is mostly absence, so the absences are named rather than
+  collapsed: *declared no configuration*, *several judges; no single answering
+  model*, *withheld at a named endpoint*, *no answering model was reported*, and
+  *not recorded* for a document that does not name the digline that wrote it —
+  which stays undated, because the dependency pin at its `git_commit` is a
+  second record read off a tree that was commonly dirty. Files the scan could
+  not read are counted. A replay is never counted as a sighting of the target,
+  because it asked the target nothing.
+
+  **The reading reads no score, and its types have no field for one**: a roll
+  is declared by the record and never deduced from numbers moving, which is the
+  canary's job in `compare`. The configuration is redacted inside the fold, so
+  the answering model behind a named endpoint reaches no rendering — and the
+  cost is stated: a roll there cannot be declared at all. `log` is **never a
+  gate**: it exits 0 whatever it finds. Checked against the dogfood's real
+  store, it says what that store can say: *No roll recorded*, over three
+  sightings and twelve runs that recorded nothing.
+
+- **`runs_json` carries each run's aggregate verdicts**, the column `digline
+  view`'s grid already shows — `name`, `assertion_id`, `status`, `score`,
+  `threshold` and `tolerance`, and nothing else a verdict carries. Its one
+  caller is the MCP `list_runs` tool, so the machine surface an agent reads is no
+  longer thinner than the one a person does. An added key: `OUTPUT_VERSION`
+  stays 1.
+
+- **Added: `digline register`, and the register it writes** —
+  [ADR 0021](docs/adr/0021-the-register.md). `compare` answers and then forgets;
+  a rejection lived only in whatever commit message mentioned it, and named no
+  run. `digline register --run KEY --disposition accepted|rejected|unsure`
+  records what a person decided about a comparison, as one line under
+  `.digline/<tenant>/register/<suite>.jsonl`, **committed like a baseline**.
+  The disposition is mandatory. The line carries the verdict the person was
+  looking at — computed by the gate's own comparison, with the digline that
+  computed it — as **counts and keys only**: no case id, no sentence, no free
+  text, no author. The reason goes in the message of the commit that adds the
+  line, which the run key in it now joins to its run.
+
+  The register is only ever appended to: a changed mind is a second line. An
+  incomplete last line is stated and never appended after; a corrupt line
+  anywhere else is refused by name and the file is left alone; the format has
+  its own version and no migration. A generated `.digline/.gitattributes` merges
+  it by union, so two branches that each record keep both lines. `digline log`
+  shows it beside the story of the alias — and because it is committed, it is
+  there on a clone that has no runs at all. The decision journal of ADR 0019
+  stays the machine's memory, ignored by git; the register is the human's.
+
+- **`AGENTS.md` and the `operating-digline` skill: a disposition is a person's
+  too.** Never recorded on an agent's own initiative, and never on a schedule.
+
 - **`examples/operator/` gains a policy, a judgment seat and a decision
   journal** — [ADR 0019](docs/adr/0019-the-reasoning-operator.md). The loop's
   classification does not move: `draw`, `drift`, `structural` and
