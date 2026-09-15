@@ -70,7 +70,11 @@ in the ADR that proposes the field, and the ADR says so in its own words:
    ever been in it. A field that entered it would unpromote every baseline on
    the day of the release, rename every stored run (the key is
    `{slug}-{config_hash}`), and print *the rules changed* over a run where no
-   rule changed.
+   rule changed. *(Amended 2026-09-15 by
+   [ADR 0022](0022-the-declared-price.md) §3: a price the suite declares for
+   its target joins them — a rate is the ruler a `CostBudget` reads cost on, as
+   a threshold is the bar a check is read against. A suite that declares none
+   hashes exactly as before.)*
 2. **It migrates additively, without inventing.** There has to be a value the
    old document already justifies: `false` for a flag that did not exist,
    `{}` for a record nobody kept, a derivation from something already written

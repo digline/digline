@@ -349,10 +349,15 @@ class Suite:
                 f"{', '.join(unlabelled)}"
             )
 
-    def config_hash(self) -> str:
+    def config_hash(self, *, pricing: str = "") -> str:
         """Fingerprint of the configuration — assertions, aggregates,
         thresholds, tolerances, and how many times each case is sampled. Not the
-        cases: they change on their own schedule."""
+        cases: they change on their own schedule.
+
+        `pricing` is the target's declared-price digest, passed in because the
+        target is not part of the suite (ADR 0022 §4). Every caller that computes
+        the hash reads it off the target it is using, and empty means nothing was
+        declared."""
         return config_hash(
             self.assertions,
             samples=self.samples,
@@ -360,6 +365,7 @@ class Suite:
                 None if self.min_agreement is None else float(self.min_agreement)
             ),
             run_assertions=self.run_assertions,
+            pricing=pricing,
         )
 
     def cases_digest(self) -> str:

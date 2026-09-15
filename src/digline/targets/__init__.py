@@ -14,6 +14,7 @@ from digline.targets.completion import (
     CompletionResult,
     HasObserved,
     ObservedIdentity,
+    ToolCall,
     as_completion,
     finish_of,
 )
@@ -32,6 +33,7 @@ from digline.targets.pricing import (
     Pricing,
     UnknownModelError,
     Usage,
+    free,
 )
 from digline.targets.provider import ProviderTarget
 from digline.targets.registry import (
@@ -63,12 +65,14 @@ __all__ = [
     "ProviderTarget",
     "Pricing",
     "ScoreJudge",
+    "ToolCall",
     "UnknownModelError",
     "Usage",
     "as_completion",
     "declared_config",
     "endpoint_host",
     "finish_of",
+    "free",
     "installed",
     "loads_lenient",
     "render_value",

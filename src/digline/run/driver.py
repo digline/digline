@@ -41,6 +41,7 @@ from digline.core import (
     trajectory_chars,
     with_noise_interval,
 )
+from digline.core.protocols import DeclaresPrice
 from digline.run.suite import Case, Suite
 
 __all__ = [
@@ -456,6 +457,16 @@ def _outcomes(
     )
 
 
+def price_digest_of(target: object) -> str:
+    """The declared-price digest a target contributes to `config_hash`, or `""`.
+
+    One function for every call site that computes the hash — `execute`, the
+    journal header, `promote`, `view`, `rejudge` — so none of them can come to
+    read a target's price differently. (ADR 0022 §4)
+    """
+    return target.price_digest if isinstance(target, DeclaresPrice) else ""
+
+
 def execute(
     suite: Suite,
     target: Target,
@@ -467,6 +478,7 @@ def execute(
     artifacts: Mapping[str, Artifact] | None = None,
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
+    pricing: str | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -574,7 +586,13 @@ def execute(
         tenant=suite.tenant,
         environment=suite.environment,
         suite=suite.name,
-        config_hash=suite.config_hash(),
+        # The declared price is read off the target, unless the caller already
+        # knows it: a replay's target is a wrapper around stored answers and
+        # declares nothing, so `rejudge` passes the real target's digest.
+        # (ADR 0022 §4)
+        config_hash=suite.config_hash(
+            pricing=price_digest_of(target) if pricing is None else pricing
+        ),
         created_at=created_at,
         git_commit=git_commit,
         results=tuple(results),

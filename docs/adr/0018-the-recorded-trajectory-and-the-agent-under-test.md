@@ -6,6 +6,13 @@
   [ADR 0016](0016-the-canary-case.md) and
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) were
 - Date: 2026-09-13
+- Amended: 2026-09-15 — §1, what a provider does not report. The plugin track
+  §"Not decided here" left open arrived, and met a status and a result the
+  providers do not report; §1 gains a status that names that absence, a
+  declared absence for the result, and the reading rule for both, and §6's
+  `Completion` widens. Added rather than a new ADR: it fills in fields §1
+  already declared and overturns nothing, which is the test ADR 0004's
+  amendment was added under
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);
   [ADR 0004](0004-every-plugin-is-a-target-and-a-judge.md) §6 ("the names, not
@@ -145,6 +152,109 @@ duplicated here. §4 is what carries it across a replay.
 > does so *before* the metadata is rebuilt. No schema bump: `[]` is a shape
 > 0.12.0 never wrote, so absent still reads as *not reported* in every document
 > that already exists.
+
+#### Amendment, 2026-09-15: what a provider does not report
+
+§1 was written against a plain-function target, which runs its tools itself and
+so knows how each one ended. A provider plugin does not. Read off the shipped
+SDKs — anthropic 1.5.0, openai 3.13.0, botocore 1.43.92 — not recalled:
+
+| | arguments | result | status |
+|---|---|---|---|
+| Anthropic `tool_use`, OpenAI `function` and `custom`, Bedrock `toolUse` | reported (an object; OpenAI's a string the model wrote) | **not in the reply** | **not in the reply** |
+| Anthropic `server_tool_use` | reported | a `*_tool_result` block in the same reply, joined by `tool_use_id` | an `*_error` content with the provider's `error_code`, or a result |
+| Bedrock `toolUse` of type `server_tool_use` | reported | a `toolResult` block the service model admits in the output | `toolResult.status`, which AWS documents for Nova and Claude 3 and 4 only |
+
+The first row is the ordinary case on all three, and it is structural: the
+plugin makes one call, the model asks for a tool, and the reply ends there. The
+tool runs afterwards, in the application, where no digline is watching. §1's
+`status` had two values and a default of `success`, so recording that call
+would have written *the tool succeeded* about a tool that had not yet run — the
+absence read as a fact, the defect this project found twice in the same week (a
+withheld answering model read as *the same configuration*, an echoed id read as
+an identity).
+
+**1. `ToolStatus` gains `"not_reported"`.** Its meaning, in one sentence: *the
+provider never reports a status for a client-side call; the call may have
+succeeded or failed, and the document does not know.* A plugin writes it
+explicitly for every call whose status its provider does not report. The
+document writes it explicitly too — absence keeps meaning `success`, which is
+what every 0.12 document already says with it — and nothing reads it as
+success: `status == "success"` remains the only reading of success.
+
+A plain-function target that leaves `status` out of `metadata["tool_calls"]`
+still records `success`. That is the contract it was given in 0.12.0, and
+changing the default would reinterpret every trajectory such a target has
+reported; a target that does not know writes `not_reported`, the way a plugin
+does.
+
+**2. The result's absence is declared, never inferred.**
+`RecordedToolCall.result_absence: Literal["not_reported", "not_recorded"] | None`
+says why `result` is empty, so a reader never has to tell *the tool returned
+nothing* from *nobody kept it* by looking at a `None`:
+
+- **`not_reported`** — the reply carries no result for this call: a client-side
+  tool, which runs after the reply.
+- **`not_recorded`** — the provider reported a result and digline did not keep
+  it: a server tool's successful payload. Search pages and encrypted code output
+  are bulky, and `MAX_RECORDED_CHARS` is whole-or-nothing, so recording the
+  payload would drop the model's own answer with it. The payload is the noise;
+  the compact signal is whether it failed, and that is kept.
+
+A server tool that **failed** records `status="error"` and, as `result`, the
+provider's `error_code` — a closed string the provider defines, which rides the
+trajectory's existing boundary (`redact()` drops it, `promote_baseline` strips
+it) with no new exception. Where the provider reports a failure with no code —
+Bedrock's `toolResult` carries content, not a code — the result is **the error
+text**, the only diagnostic that call produces. Without it a Bedrock failure
+would be indistinguishable from an unexplained one, while the other two
+providers hand over a code for exactly that purpose.
+
+**Bulk is the criterion, not category.** What is left out is left out because it
+is large, not because it is a tool's output: a success payload is noise, and
+recording it would drop the model's own answer with it; an error is signal, and
+short. An error text rides under the same `MAX_RECORDED_CHARS` ceiling as
+everything else in the entry, which already turns the pathological case into
+`oversize` rather than a clipped message.
+
+`result_absence` set means `result` is `None`, checked where the value is built.
+A `None` result without it keeps its 0.12 meaning: the target reported no result.
+
+**3. The reading rule.** An assertion may assert on what is recorded — the tool
+and its arguments — and never on a status or a result nobody reported. An
+assertion that asks about the status of a `not_reported` call, or about the
+result of a call with `result_absence` set, **errors, and never fails**, and
+says which absence it met: *the provider reports no status for a client-side
+call*, *the payload of a server tool is not recorded*. `ToolCalledWith` reads
+neither field today; it judges the tool and arguments of a `not_reported` call
+exactly as any other, and is tested doing so. The rule binds whichever parameter
+first reads them.
+
+**4. The passenger rule, answered again.**
+
+| | 1 — the hash | 2 — the migration | 3 — the boundary |
+|---|---|---|---|
+| `status: "not_reported"`, `result_absence` | untouched: recording changes no score | no step: no 0.12 document can contain either, and absent still reads `success` and `None`, as it meant | rides `RecordedResponse`, as §2 |
+
+**No schema bump**: a new value in an existing field and a new optional key,
+additive, over documents that cannot already hold them. The load-bearing part is
+the **old reader**, and it holds by name: 0.12.x builds `RecordedToolCall`
+through its own check, so a document carrying `not_reported` is refused with
+*recorded response: recorded tool call: RecordedToolCall.status must be
+'success' or 'error', got 'not_reported'* — never read as success. That refusal
+is tested in both directions: this reader reads 0.12 documents unchanged, and
+the 0.12.1 reader, taken from its tag where the history is present, refuses a
+document carrying the new value.
+
+The asymmetry, stated: 0.12.x ignores keys it does not know, so a server tool's
+**successful** call — `status="success"`, `result_absence="not_recorded"` —
+reads there as a success with no result. It loses the reason and invents
+nothing: the status is one the provider reported. The value that would be read
+as a fact that is not one is the value the old reader refuses.
+
+**5. `Completion` widens** (§6). `Completion.tool_calls` carries the live
+record beside `tools`, names in the same order, and `as_metadata()` puts it
+under its own key. A plugin that fills it raises its floor by hand, per §9.
 
 ### 2. It rides `RecordedResponse`, because that is where the boundary already is
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from digline.core import Finish
-from digline.targets import Completion, ObservedIdentity, Usage, as_completion
+from digline.targets import Completion, ObservedIdentity, ToolCall, Usage, as_completion
 
 USAGE = Usage(input_tokens=10, output_tokens=4)
 TABLE: dict[str, Finish] = {"end_turn": "stop", "max_tokens": "length"}
@@ -46,6 +46,60 @@ def test_the_pair_says_nothing_about_tools_rather_than_saying_none() -> None:
 def test_a_record_is_passed_through_unchanged() -> None:
     record = a_reply(finish="stop")
     assert as_completion(record) is record
+
+
+# --------------------------------------------------------------------------- #
+# The trajectory rides beside the names (ADR 0018 §6, amended 2026-09-15)
+# --------------------------------------------------------------------------- #
+
+ASKED = ToolCall(
+    tool="lookup",
+    arguments={"id": "4711"},
+    status="not_reported",
+    result_absence="not_reported",
+)
+
+
+def test_the_trajectory_reaches_the_metadata_beside_the_names() -> None:
+    found = a_reply(tools=("lookup",), tool_calls=(ASKED,)).as_metadata()
+    assert found["tools"] == ["lookup"]
+    assert found["tool_calls"] == [
+        {
+            "tool": "lookup",
+            "arguments": {"id": "4711"},
+            "result": None,
+            "status": "not_reported",
+            "result_absence": "not_reported",
+        }
+    ]
+
+
+def test_a_plugin_that_reports_no_trajectory_adds_no_key() -> None:
+    """A plugin written before the field names its tools and nothing more, and
+    that stays *not reported* to `ToolCalledWith` rather than becoming `[]`."""
+    assert "tool_calls" not in a_reply(tools=("lookup",)).as_metadata()
+
+
+@pytest.mark.parametrize("tools", [None, ("search",), ("lookup", "lookup")], ids=str)
+def test_the_trajectory_and_the_names_cannot_disagree(
+    tools: tuple[str, ...] | None,
+) -> None:
+    """Two readers of one reply: `ToolsCalled` reads the names and
+    `ToolCalledWith` the records, so a plugin whose lists differ would have them
+    judge two different trajectories."""
+    with pytest.raises(ValueError, match="same tools"):
+        a_reply(tools=tools, tool_calls=(ASKED,))
+
+
+def test_a_tool_call_cannot_carry_a_result_it_declares_absent() -> None:
+    with pytest.raises(ValueError, match="cannot be told both"):
+        ToolCall(
+            tool="lookup",
+            arguments=None,
+            status="success",
+            result="found",
+            result_absence="not_recorded",
+        )
 
 
 # --------------------------------------------------------------------------- #

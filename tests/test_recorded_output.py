@@ -12,7 +12,12 @@ measurement wearing the declared suite's name.
 
 from __future__ import annotations
 
+import io
 import json
+import os
+import subprocess
+import sys
+import tarfile
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +30,7 @@ from digline.core import (
     Contains,
     Message,
     RecordedResponse,
+    RecordedToolCall,
     Run,
     ToolCalledWith,
     ToolsCalled,
@@ -574,6 +580,188 @@ def test_a_corrupt_trajectory_is_refused_by_name(calls: object) -> None:
     }
     with pytest.raises(ValueError, match="expected a mapping with a 'tool' in it"):
         run_from_json(json.dumps(document))
+
+
+# --------------------------------------------------------------------------- #
+# What a provider does not report (ADR 0018 §1, amended 2026-09-15)
+# --------------------------------------------------------------------------- #
+
+
+def asking() -> Target:
+    """A target shaped like a provider plugin: the model asked for a tool and
+    the reply ends there, so neither its status nor its result is known."""
+
+    def target(case: Case) -> Response:
+        return Response(
+            output="Let me look that up.",
+            input=f"refund {case.id}?",
+            metadata={
+                "tools": ["lookup"],
+                "tool_calls": [
+                    {
+                        "tool": "lookup",
+                        "arguments": {"order_id": "4711"},
+                        "result": None,
+                        "status": "not_reported",
+                        "result_absence": "not_reported",
+                    }
+                ],
+            },
+        )
+
+    return target
+
+
+def recorded_calls(source: Run) -> list[dict[str, Any]]:
+    document = json.loads(run_to_json(source))
+    return [
+        call
+        for case in document["results"]
+        for response in case["responses"]
+        for call in response["tool_calls"]
+    ]
+
+
+def test_a_status_nobody_reported_is_written_as_such_and_never_as_success() -> None:
+    """`success` is what an absent `status` says, so `not_reported` has to be
+    written — and read back as itself."""
+    source = execute(
+        trajectory_suite(
+            assertions=[ToolCalledWith(tool="lookup", arguments={"order_id": "4711"})]
+        ),
+        asking(),
+        created_at=CREATED,
+    )
+    calls = recorded_calls(source)
+    assert calls and all(
+        call["status"] == "not_reported" and call["result_absence"] == "not_reported"
+        for call in calls
+    )
+    back = run_from_json(run_to_json(source))
+    assert all(
+        call.status == "not_reported" and call.result_absence == "not_reported"
+        for case in back.results
+        for response in case.responses
+        for call in response.tool_calls or ()
+    )
+
+
+def test_what_is_recorded_stays_assertable_when_the_status_was_not_reported() -> None:
+    """The tool and its arguments are recorded, so they are judged — measured
+    and replayed alike. Only a status or a result nobody reported may not be."""
+    declared = trajectory_suite(
+        assertions=[
+            ToolsCalled(expected=["lookup"]),
+            ToolCalledWith(tool="lookup", arguments={"order_id": "4711"}),
+        ]
+    )
+    source = execute(declared, asking(), created_at=CREATED)
+    assert all(v.status == "pass" for c in source.results for v in c.verdicts), [
+        v.reason for c in source.results for v in c.verdicts
+    ]
+    again = rejudge(declared, source, key="src-key", created_at=LATER)
+    assert all(v.status == "pass" for c in again.results for v in c.verdicts)
+
+
+def test_a_plain_target_that_leaves_status_out_still_records_success() -> None:
+    """Its 0.12.0 contract, unchanged: reinterpreting the default would rewrite
+    every trajectory such a target has reported."""
+
+    def ran_it(case: Case) -> Response:
+        return Response(
+            output="Refunded.",
+            input="refund?",
+            metadata={"tools": ["refund"], "tool_calls": [{"tool": "refund"}]},
+        )
+
+    source = execute(
+        suite(record_responses=True, assertions=[ToolsCalled(expected=["refund"])]),
+        ran_it,
+        created_at=CREATED,
+    )
+    assert all("status" not in call for call in recorded_calls(source))
+    back = run_from_json(run_to_json(source))
+    assert {
+        call.status
+        for case in back.results
+        for response in case.responses
+        for call in response.tool_calls or ()
+    } == {"success"}
+
+
+def test_a_result_and_its_declared_absence_are_refused_together() -> None:
+    with pytest.raises(ValueError, match="cannot be told both"):
+        RecordedToolCall(tool="search", result="pages", result_absence="not_recorded")
+
+
+def test_this_reader_reads_a_0_12_trajectory_unchanged() -> None:
+    """The first direction: every document 0.12 wrote means what it meant — an
+    absent status is `success`, and an absent `result_absence` is nothing."""
+    document = json.loads(
+        run_to_json(execute(trajectory_suite(), dispatching(), created_at=CREATED))
+    )
+    for case in document["results"]:
+        for response in case["responses"]:
+            response["tool_calls"] = [
+                {"tool": "lookup", "arguments": '{"order_id":"4711"}', "result": "ok"},
+                {"tool": "refund", "status": "error"},
+            ]
+    back = run_from_json(json.dumps(document))
+    calls = [
+        call
+        for case in back.results
+        for response in case.responses
+        for call in response.tool_calls or ()
+    ]
+    assert {(c.tool, c.status, c.result_absence) for c in calls} == {
+        ("lookup", "success", None),
+        ("refund", "error", None),
+    }
+
+
+def test_a_0_12_reader_refuses_not_reported_by_name(tmp_path: Path) -> None:
+    """The second direction, and the load-bearing one: no schema bump carries
+    `not_reported`, so what keeps an old reader from reading it as success is
+    that 0.12.1 refuses the value by name. Run against 0.12.1's own source, taken
+    from its tag; skipped where the tags are absent — CI checks out shallow —
+    as `test_example_caps.py` skips its own check against the history."""
+    root = Path(__file__).resolve().parents[1]
+    archive = subprocess.run(  # noqa: S603
+        ["git", "archive", "v0.12.1", "src"],  # noqa: S607
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if archive.returncode != 0:
+        pytest.skip("v0.12.1 is not in this checkout (shallow clone, no tags)")
+    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+        tar.extractall(tmp_path / "old", filter="data")
+
+    document = tmp_path / "run.json"
+    document.write_text(
+        run_to_json(execute(trajectory_suite(), asking(), created_at=CREATED)),
+        encoding="utf-8",
+    )
+    read = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-c",
+            "import sys, digline.core as c; print(c.__file__); "
+            "c.run_from_json(open(sys.argv[1], encoding='utf-8').read())",
+            str(document),
+        ],
+        env={**os.environ, "PYTHONPATH": str(tmp_path / "old" / "src")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # Proof the old source is what ran, not this checkout's editable install.
+    assert read.stdout.startswith(str(tmp_path / "old")), read.stdout
+    assert read.returncode != 0
+    assert (
+        "RecordedToolCall.status must be 'success' or 'error', got 'not_reported'"
+        in read.stderr
+    ), read.stderr
 
 
 def test_it_refuses_to_cross_a_perimeter() -> None:

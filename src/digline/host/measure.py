@@ -26,6 +26,7 @@ from digline.run import (
     judge_config,
     judges,
     planned_calls,
+    price_digest_of,
     target_config,
 )
 from digline.store import (
@@ -117,7 +118,9 @@ def prepare(
         tenant=suite.tenant,
         environment=suite.environment,
         suite=suite.name,
-        config_hash=suite.config_hash(),
+        # The same digest `execute()` stamps, or a resume would be refused for a
+        # rule that did not move. (ADR 0022 §4)
+        config_hash=suite.config_hash(pricing=price_digest_of(target)),
         cases_digest=suite.cases_digest(),
         created_at=now,
         started_at=now,

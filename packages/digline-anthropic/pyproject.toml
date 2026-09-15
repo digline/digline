@@ -24,7 +24,15 @@ dependencies = [
     # 0.2.0, and `Provider`, which this plugin registers itself with, is
     # 0.5.0. `tests/test_plugin_floors.py` holds this number to the newest
     # core name the sources actually import.
-    "digline>=0.8.0",
+    #
+    # 0.13.0, held by name — `ToolCall`, the record the trajectory is handed
+    # over in — and by hand, because a names gate cannot see the rest:
+    # `Completion.tool_calls` is a *field*, and a `ToolStatus` of
+    # `not_reported` a *value*; against 0.12.x the first raises TypeError and
+    # the second is refused by the run document's reader. No `free()` here to
+    # delegate: Anthropic hosts every model it serves. (ADR 0018 §1 and §9, the
+    # `pytest-digline` precedent)
+    "digline>=0.13.0",
     "anthropic>=0.40",
 ]
 

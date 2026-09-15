@@ -31,6 +31,7 @@ __all__ = [
     "Message",
     "Output",
     "OutputKind",
+    "ResultAbsence",
     "Score",
     "Status",
     "TEXT_ONLY",
@@ -135,10 +136,30 @@ type Finish = Literal["stop", "length", "tool_use", "filtered", "other"]
 #: one assertion engine, and a check that had to spell one framework's word on
 #: one target and another's elsewhere would not be one check.
 #:
-#: Two values and deliberately not three: *the tool was never called* is the
-#: absence of an entry, not a status on one, and giving it a word here would
-#: invite a trajectory that lists calls that never happened.
-type ToolStatus = Literal["success", "error"]
+#: *The tool was never called* is still the absence of an entry, not a status on
+#: one: giving it a word here would invite a trajectory that lists calls that
+#: never happened.
+#:
+#: `not_reported` is the third value, and it is not *unknown*: **the provider
+#: never reports a status for a client-side call; the call may have succeeded or
+#: failed, and the document does not know.** A provider plugin makes one call,
+#: the model asks for a tool, and the reply ends there — the tool runs later, in
+#: the application. Recording `success` there would be an absence read as a
+#: fact. It is never read as success. (ADR 0018 §1, amended 2026-09-15)
+type ToolStatus = Literal["success", "error", "not_reported"]
+
+#: Why a recorded tool call carries no `result`, where the writer knows why —
+#: so a reader never has to tell *the tool returned nothing* from *nobody kept
+#: it* by looking at a `None`.
+#:
+#: - `not_reported`: the reply carries no result for this call — a client-side
+#:   tool, which runs after the reply.
+#: - `not_recorded`: the provider reported a result and digline did not keep
+#:   it — a server tool's successful payload. **Bulk is the criterion, not
+#:   category**: a success payload is noise and would push the whole entry over
+#:   `MAX_RECORDED_CHARS`, dropping the model's own answer with it; an error is
+#:   signal, short, and is recorded. (ADR 0018 §1, amended 2026-09-15)
+type ResultAbsence = Literal["not_reported", "not_recorded"]
 
 #: What a target or a judge may declare about itself. Scalars only, and
 #: deliberately: the configuration of the system under test is diffed field by

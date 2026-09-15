@@ -24,6 +24,7 @@ from digline.core.types import (
     Message,
     Output,
     OutputKind,
+    ResultAbsence,
     Score,
     Status,
     ToolStatus,
@@ -177,7 +178,21 @@ PERIMETER_FIELDS = frozenset({"base_url", "fingerprint"})
 #: suite and the suite goes through a review, which is the argument ADR 0003 §4
 #: makes for opting artifacts in. Two model names, two provenances.
 #: (ADR 0005 §9, amended)
-ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"})
+#: The per-million rates a suite **declared** for its target's model, recorded in
+#: `target_config` beside `pricing = "declared"` (ADR 0022 §2).
+#:
+#: A negotiated rate is the customer's commercial fact, in `base_url`'s class,
+#: so at a named endpoint these are withheld exactly as `resolved_model` is. The
+#: withholding is a **latch, not a constraint**: the value never prints, but
+#: `config_hash` is computed from it and travels in clear beside inputs that all
+#: cross the boundary, so the hash narrows it. A rate that cannot afford to be
+#: narrowed belongs in a Python suite that prices without declaring, or at an
+#: unnamed endpoint. (ADR 0022 §6)
+DECLARED_PRICE_FIELDS = frozenset(
+    {"input_per_mtok", "output_per_mtok", "cache_read_per_mtok", "cache_write_per_mtok"}
+)
+
+ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"}) | DECLARED_PRICE_FIELDS
 
 #: The fields a provider **reported** rather than the target **sent**.
 #:
@@ -473,13 +488,24 @@ def record_trajectory(
                 "not a mapping with a 'tool' in it"
             )
         item = cast("Mapping[str, object]", entry)
+        # Defaulting to `success` is a plain-function target's contract from the
+        # day the trajectory arrived, and changing it would reinterpret every
+        # trajectory one has reported. A writer that does not know says
+        # `not_reported`, the way every provider plugin does. (ADR 0018 §1,
+        # amended 2026-09-15)
         raw_status = item.get("status", "success")
+        raw_absence = item.get("result_absence")
         calls.append(
             RecordedToolCall(
                 tool=str(item.get("tool", "")),
                 arguments=_recorded_arguments(item.get("arguments")),
                 result=None if item.get("result") is None else str(item["result"]),
                 status=cast(ToolStatus, str(raw_status)),
+                result_absence=(
+                    None
+                    if raw_absence is None
+                    else cast(ResultAbsence, str(raw_absence))
+                ),
             )
         )
     return tuple(calls)
@@ -551,12 +577,23 @@ class RecordedToolCall:
     call raised, and the agent answered from nothing. `status` is also the one
     field here a fake cannot forge into vacuity — a tool that raises reports
     `error` whether or not the model is real. (ADR 0018 §1)
+
+    **What a provider does not report is named, never defaulted.** A provider
+    plugin sees the model *ask* for a client-side tool and nothing after, so its
+    calls carry `status="not_reported"` and `result_absence="not_reported"`; a
+    server tool that succeeded carries `result_absence="not_recorded"`, because
+    its payload is bulk. An assertion may assert on the tool and its arguments,
+    and errors — never fails — on a status or a result nobody reported. (ADR
+    0018 §1, amended 2026-09-15)
     """
 
     tool: str
     arguments: str | None = None
     result: str | None = None
     status: ToolStatus = "success"
+    #: Why `result` is empty, where the writer knows. `None` keeps its 0.12
+    #: meaning: the target reported no result and said nothing about why.
+    result_absence: ResultAbsence | None = None
 
     def __post_init__(self) -> None:
         if not self.tool:
@@ -564,10 +601,23 @@ class RecordedToolCall:
                 "RecordedToolCall.tool must not be empty: a call to nothing is "
                 "not a call, and a trajectory reads by the names in it"
             )
-        if self.status not in ("success", "error"):
+        # The exact sentence 0.12.x raises for a value it does not know, kept
+        # so that the refusal an old reader gives a newer document and the one
+        # this reader gives a corrupt document read alike.
+        if self.status not in ("success", "error", "not_reported"):
             raise ValueError(
-                f"RecordedToolCall.status must be 'success' or 'error', got "
-                f"{self.status!r}"
+                f"RecordedToolCall.status must be 'success', 'error' or "
+                f"'not_reported', got {self.status!r}"
+            )
+        if self.result_absence not in (None, "not_reported", "not_recorded"):
+            raise ValueError(
+                "RecordedToolCall.result_absence must be 'not_reported' or "
+                f"'not_recorded', got {self.result_absence!r}"
+            )
+        if self.result_absence is not None and self.result is not None:
+            raise ValueError(
+                f"RecordedToolCall declares its result {self.result_absence} "
+                "and carries one: a reader cannot be told both"
             )
 
 
@@ -953,8 +1003,17 @@ def config_hash(
     samples: int = 1,
     min_agreement: float | None = None,
     run_assertions: Iterable[RunAssertion] = (),
+    pricing: str = "",
 ) -> str:
     """Fingerprint of the suite *configuration*.
+
+    `pricing` is the digest of a price the suite **declared** for its target,
+    or empty. It is here for the reason a threshold is: tokens are measured, but
+    a `CostBudget` judges dollars, and dollars are tokens read on a declared
+    rate — change the rate and the same run passes or fails against the same
+    bar. The price is the ruler, not the thing measured. Empty leaves the hash
+    byte-identical, so a suite that declares nothing hashes as it always did.
+    (ADR 0022 §3, §4)
 
     Built from each assertion's `identity` **plus its threshold and tolerance**,
     sorted so the result is independent of declaration order.
@@ -988,8 +1047,31 @@ def config_hash(
         (a.identity, _num(float(a.threshold)), _num(float(a.tolerance)))
         for a in run_assertions
     )
+    body: list[object] = [entries, samples, min_agreement, aggregates]
+    if pricing:
+        # Appended only when present: every suite that declares no price keeps
+        # the exact bytes, and so the exact hash and run keys, it had before.
+        body.append(pricing)
+    payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def pricing_digest(model: str, rates: Mapping[str, float | None]) -> str:
+    """The identity of one declared price, as `config_hash` takes it.
+
+    Over the model and its rates, canonically: two suites that declare the same
+    price for the same model get the same digest whichever form they are
+    written in (ADR 0007 §9). Unkeyed on purpose — ADR 0022 §6 weighed a salt
+    and refused it, and declares what that costs instead.
+    """
     payload = json.dumps(
-        [entries, samples, min_agreement, aggregates],
+        {
+            "model": model,
+            **{
+                name: None if value is None else _num(float(value))
+                for name, value in rates.items()
+            },
+        },
         sort_keys=True,
         separators=(",", ":"),
     )
@@ -1392,15 +1474,21 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
 def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     """Absent rather than emptied, like every other payload field here.
 
-    `status` is written only when it is `error`: `success` is what its absence
-    already says, and writing it on every call of every recorded response would
-    be a key that repeats the ordinary case. (ADR 0018 §1)
+    `status` is written only when it is not `success`: `success` is what its
+    absence already says, and writing it on every call of every recorded
+    response would be a key that repeats the ordinary case. (ADR 0018 §1)
+
+    `not_reported` is therefore always **written**, and that is load-bearing: a
+    0.12.x reader refuses the value by name rather than reading its absence as
+    success. (ADR 0018 §1, amended 2026-09-15)
     """
     payload: dict[str, object] = {"tool": call.tool}
     if call.arguments is not None:
         payload["arguments"] = call.arguments
     if call.result is not None:
         payload["result"] = call.result
+    if call.result_absence is not None:
+        payload["result_absence"] = call.result_absence
     if call.status != "success":
         payload["status"] = call.status
     return payload
@@ -1424,6 +1512,7 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
         )
     entry = cast("Mapping[str, Any]", raw)
     status = entry.get("status")
+    absence = entry.get("result_absence")
     try:
         return RecordedToolCall(
             tool=str(_required(entry, "tool", "recorded tool call")),
@@ -1432,6 +1521,9 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
             ),
             result=None if entry.get("result") is None else str(entry["result"]),
             status=cast(ToolStatus, "success" if status is None else str(status)),
+            result_absence=(
+                None if absence is None else cast(ResultAbsence, str(absence))
+            ),
         )
     except ValueError as exc:
         raise ValueError(f"recorded tool call: {exc}") from exc

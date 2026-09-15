@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from digline.core import ConfigValue, Finish
+from digline.core import ConfigValue, Finish, ResultAbsence, ToolStatus
 from digline.targets.pricing import Usage
 
 __all__ = [
@@ -26,11 +26,58 @@ __all__ = [
     "Completion",
     "CompletionResult",
     "ObservedIdentity",
+    "ToolCall",
     "as_completion",
     "finish_of",
     "no_text_reason",
     "said_something",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    """One tool call as the provider reported it, before the document holds it.
+
+    The live twin of `digline.core.RecordedToolCall`, and deliberately looser in
+    one place: `arguments` is what the provider handed over — an object on
+    Anthropic and Bedrock, and on OpenAI either the object its string decoded
+    to or the string itself when the model wrote something that is not one.
+    `record_trajectory` canonicalises it; this record does not pretend to.
+
+    **A plugin states what its provider does not report.** `status` has no
+    default here, unlike the document's: a plugin that has not decided what its
+    provider reports must not be able to write *success* by omission. A
+    client-side call is `status="not_reported"` with
+    `result_absence="not_reported"`, because the reply ends where the tool
+    would start. (ADR 0018 §1, amended 2026-09-15)
+    """
+
+    tool: str
+    arguments: Mapping[str, object] | str | None
+    status: ToolStatus
+    result: str | None = None
+    result_absence: ResultAbsence | None = None
+
+    def __post_init__(self) -> None:
+        if not self.tool:
+            raise ValueError(
+                "ToolCall.tool must not be empty: a call to nothing is not a call"
+            )
+        if self.result_absence is not None and self.result is not None:
+            raise ValueError(
+                f"ToolCall declares its result {self.result_absence} and carries "
+                "one: a reader cannot be told both"
+            )
+
+    def as_reported(self) -> dict[str, object]:
+        """The mapping `record_trajectory` and `ToolCalledWith` read."""
+        return {
+            "tool": self.tool,
+            "arguments": self.arguments,
+            "result": self.result,
+            "status": self.status,
+            "result_absence": self.result_absence,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,9 +109,11 @@ class Completion:
     #: your cap and the model's window being two different things to go and fix.
     #: Recorded, never interpreted, never asserted on.
     finish_raw: str | None = None
-    #: The tools the model called, in the order it called them. Names only: the
-    #: three providers disagree about what an argument *is*, and nothing reads
-    #: them yet. (ADR 0004 §6, "the names, not the arguments")
+    #: The tools the model called, in the order it called them. Names only, and
+    #: they stay names: `ToolsCalled` reads this key, and widening it into
+    #: records would make that assertion compare rendered mappings against
+    #: names — failing, not erroring. The arguments ride `tool_calls` below.
+    #: (ADR 0004 §6; ADR 0018 §6)
     #:
     #: **`None` and `()` are different facts**, on the same rule `sent()` reads
     #: an unset parameter by: `()` says the model called nothing, `None` says
@@ -80,6 +129,26 @@ class Completion:
     #: The backend build, where a provider names one. OpenAI's
     #: `system_fingerprint` and nobody else's.
     fingerprint: str | None = None
+    #: The trajectory, beside `tools` and never inside it: the same calls in the
+    #: same order, with what the provider reported about each. `None` where the
+    #: plugin reports no trajectory — a plugin written before this field, or a
+    #: provider that names its tools and nothing more. (ADR 0018 §6, amended
+    #: 2026-09-15)
+    tool_calls: tuple[ToolCall, ...] | None = None
+
+    def __post_init__(self) -> None:
+        # Two readers, one set of calls: `ToolsCalled` reads the names and
+        # `ToolCalledWith` the records, and a plugin whose two lists disagreed
+        # would have them judge different trajectories of the same reply.
+        if self.tool_calls is not None and (
+            self.tools is None
+            or tuple(call.tool for call in self.tool_calls) != self.tools
+        ):
+            raise ValueError(
+                "Completion.tool_calls must name the same tools as "
+                f"Completion.tools, in the same order: got {self.tools!r} and "
+                f"{tuple(call.tool for call in self.tool_calls)!r}"
+            )
 
     def as_metadata(self) -> Mapping[str, object]:
         """What a `Response` carries to the mapper, and so to an assertion.
@@ -97,6 +166,8 @@ class Completion:
             found["finish_raw"] = self.finish_raw
         if self.tools is not None:
             found["tools"] = list(self.tools)
+        if self.tool_calls is not None:
+            found["tool_calls"] = [call.as_reported() for call in self.tool_calls]
         if self.model is not None:
             found["resolved_model"] = self.model
         if self.fingerprint is not None:

@@ -19,7 +19,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import ClassVar
 
-from digline.core import ConfigValue, Output
+from digline.core import ConfigValue, Output, pricing_digest
 from digline.run import Case, Response
 from digline.targets.completion import (
     Completion,
@@ -132,7 +132,35 @@ class ProviderTarget(ABC):
         """
         if not self.provider:
             return {}
-        return sent(provider=self.provider, model=self.model, **self.observed.values)
+        return sent(
+            provider=self.provider,
+            model=self.model,
+            **self.observed.values,
+            **self._declared_price(),
+        )
+
+    def _declared_price(self) -> dict[str, ConfigValue]:
+        """`pricing = "declared"` and the rates, where the suite declared them.
+
+        Nothing where the price came from the plugin's own list: that list is
+        the plugin's default, and ADR 0005 §1 records what the suite sent and
+        declared rather than what it inherited. At a named endpoint the rates
+        are perimeter fields and redaction withholds them. (ADR 0022 §2, §6)
+        """
+        price = self.pricing.declared_price(self.model)
+        if price is None:
+            return {}
+        return {"pricing": "declared", **price.rates()}
+
+    @property
+    def price_digest(self) -> str:
+        """The declared price's contribution to `config_hash`, or `""`.
+
+        `DeclaresPrice`, answered here once for every plugin: a plugin that
+        subclasses this base gets it without a release. (ADR 0022 §4)
+        """
+        price = self.pricing.declared_price(self.model)
+        return "" if price is None else pricing_digest(self.model, price.rates())
 
     def preflight(self, cases: Sequence[Case]) -> None:
         """Refuse before the first call, not on case thirty-seven.

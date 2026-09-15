@@ -25,6 +25,7 @@ Groq or vLLM and the prices are somebody else's: pass your own `pricing=`, or
 from __future__ import annotations
 
 from digline.targets import ModelPrice, Pricing
+from digline.targets import free as declared_free
 
 __all__ = ["OPENAI_PRICING", "PRICES_READ_ON", "free"]
 
@@ -150,20 +151,11 @@ def free(*models: str) -> Pricing:
 
     A `LatencyBudget` still measures something real, and on your own hardware it
     is usually the budget you actually care about.
+
+    **A declaration**, and that moves a hash. This delegates to
+    `digline.targets.free`, so the zero enters `config_hash` like any declared
+    price and a Python suite hashes as its data-suite twin with four declared
+    zeros does. A suite that already called this gets a new hash on upgrade: its
+    baseline stays comparable and is no longer promotable. (ADR 0022 §2)
     """
-    if not models:
-        raise ValueError(
-            "free() needs at least one model name: an empty price list knows "
-            "nothing and every model would fail preflight"
-        )
-    return Pricing(
-        per_model={
-            model: ModelPrice(
-                input_per_mtok=0.0,
-                output_per_mtok=0.0,
-                cache_read_per_mtok=0.0,
-                cache_write_per_mtok=0.0,
-            )
-            for model in models
-        }
-    )
+    return declared_free(*models)

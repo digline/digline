@@ -70,6 +70,12 @@ __all__ = [
 #:    not about how it compares — and unlike `canary_moved` it **cannot** move
 #:    an exit code, by that section's own ruling. A consumer that ignores it
 #:    parses the same numbers it parsed before.
+#:
+#:    `target_echoed` on the headline (ADR 0020 §3, row 7): the same rule a sixth
+#:    time. The endpoint returned the requested id as the model that answered,
+#:    so what answered is not identified. A fact and not a verdict — it moves no
+#:    exit code — and never true behind a named endpoint, where the answering
+#:    model is withheld.
 OUTPUT_VERSION = 1
 
 EXIT_OK = 0

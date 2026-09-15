@@ -12,7 +12,7 @@ import importlib.util
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -28,6 +28,13 @@ class FakeBlock:
     #: Every real `tool_use` block carries one. Here so the fake keeps the
     #: shape the code reads rather than the subset an older test needed.
     name: str = ""
+    #: A `tool_use` or `server_tool_use` block's own id, and what the model sent.
+    id: str = ""
+    input: dict[str, object] | None = None
+    #: A `*_tool_result` block's link back to the call, and its content: a
+    #: typed error, or the payload.
+    tool_use_id: str = ""
+    content: object = None
 
 
 @dataclass
@@ -162,7 +169,7 @@ def test_blocks_that_are_not_text_are_skipped(prompt: Path) -> None:
     the output the assertions read."""
     target, client = a_target(prompt)
     client.messages.reply = FakeReply(
-        content=[FakeBlock("said", "text"), FakeBlock("ignored", "tool_use")]
+        content=[FakeBlock("said", "text"), FakeBlock("", "tool_use", name="lookup")]
     )
     assert target(Case(id="it", vars={"country": "Italy"})).output == "said"
 
@@ -334,3 +341,103 @@ def test_the_alias_and_the_dated_id_are_both_priced() -> None:
     assert ANTHROPIC_PRICING.cost(
         "claude-haiku-4-5", Usage(1_000_000, 0)
     ) == ANTHROPIC_PRICING.cost("claude-haiku-4-5-20251001", Usage(1_000_000, 0))
+
+
+# -- the trajectory (ADR 0018 §1, amended 2026-09-15) ----------------------------- #
+
+
+@dataclass
+class FakeToolError:
+    """A `*_tool_result_error` content: the provider's own closed code."""
+
+    error_code: str
+    type: str = "web_search_tool_result_error"
+
+
+def calls_in(prompt: Path, *blocks: FakeBlock) -> object:
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(content=list(blocks), stop_reason="tool_use")
+    return target(Case(id="it", vars={"country": "Italy"})).metadata["tool_calls"]
+
+
+def test_a_client_tool_call_names_what_this_api_does_not_report(prompt: Path) -> None:
+    """The model asked for `lookup` and the reply ends there: the tool runs in the
+    application, after. So the status is `not_reported` — never `success` — and
+    the arguments, which this API does report, are kept."""
+    assert calls_in(
+        prompt,
+        FakeBlock("", "tool_use", name="lookup", id="toolu_1", input={"id": "4711"}),
+    ) == [
+        {
+            "tool": "lookup",
+            "arguments": {"id": "4711"},
+            "result": None,
+            "status": "not_reported",
+            "result_absence": "not_reported",
+        }
+    ]
+
+
+def test_a_server_tool_that_succeeded_keeps_its_status_and_not_its_payload(
+    prompt: Path,
+) -> None:
+    """Anthropic ran it and said so in the same reply. The status is reported;
+    the search pages are bulk, and bulk would drop the model's own answer."""
+    (call,) = cast(
+        "list[dict[str, object]]",
+        calls_in(
+            prompt,
+            FakeBlock("", "server_tool_use", name="web_search", id="srv_1", input={}),
+            FakeBlock(
+                "",
+                "web_search_tool_result",
+                tool_use_id="srv_1",
+                content=[{"type": "web_search_result", "url": "https://x"}],
+            ),
+            FakeBlock("Rome."),
+        ),
+    )
+    assert call["status"] == "success"
+    assert call["result"] is None and call["result_absence"] == "not_recorded"
+
+
+def test_a_server_tool_that_failed_records_the_providers_error_code(
+    prompt: Path,
+) -> None:
+    (call,) = cast(
+        "list[dict[str, object]]",
+        calls_in(
+            prompt,
+            FakeBlock("", "server_tool_use", name="web_search", id="srv_1", input={}),
+            FakeBlock(
+                "",
+                "web_search_tool_result",
+                tool_use_id="srv_1",
+                content=FakeToolError("max_uses_exceeded"),
+            ),
+        ),
+    )
+    assert call["status"] == "error"
+    assert call["result"] == "max_uses_exceeded" and call["result_absence"] is None
+
+
+def test_a_server_tool_with_no_result_in_the_reply_reports_neither(
+    prompt: Path,
+) -> None:
+    """A turn paused mid-search: the call is there and its outcome is not."""
+    (call,) = cast(
+        "list[dict[str, object]]",
+        calls_in(
+            prompt,
+            FakeBlock("", "server_tool_use", name="web_search", id="srv_1", input={}),
+        ),
+    )
+    assert call["status"] == "not_reported"
+    assert call["result_absence"] == "not_reported"
+
+
+def test_a_reply_that_called_nothing_reports_an_empty_trajectory(prompt: Path) -> None:
+    """`[]` and not absent: this API always says what the turn contained."""
+    target, _client = a_target(prompt)
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.metadata["tools"] == [] and response.metadata["tool_calls"] == []

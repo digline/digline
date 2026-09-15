@@ -240,6 +240,9 @@ ABSENT = [
     ),
     ("not_reported", config(), "0.13.0", "target"),
     ("not_recorded", config(), "", "target"),
+    # Row 7: the endpoint echoed the requested id. `config()`'s default model is
+    # `claude-haiku-4-5`, so this is the literal echo. (ADR 0020 §3)
+    ("echoed", config(resolved="claude-haiku-4-5"), "0.13.0", "target"),
 ]
 
 
@@ -486,7 +489,9 @@ def test_the_dogfood_shape_reads_as_the_record_says() -> None:
     assert [(s.sent, s.answered, s.absence, s.runs) for s in target_spans(log)] == [
         (("claude-haiku-4-5",), None, "not_recorded", 8),
         (("claude-sonnet-5",), None, "not_recorded", 4),
-        (("claude-sonnet-5",), "claude-sonnet-5", None, 3),
+        # All four recorded answering models in the dogfood's store are the
+        # requested id: 12 not recorded, 3 echoed, zero verified. (ADR 0020 §10)
+        (("claude-sonnet-5",), None, "echoed", 3),
     ]
     assert log.rolls == ()
     assert len(log.replays) == 1

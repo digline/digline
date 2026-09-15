@@ -284,8 +284,50 @@ names — `prompt_file`, `system`, `system_file`, `temperature`, `max_tokens`,
 accept. `model` is not among them: it is the coordinate's second half, and
 writing it twice would give one fact two places to be wrong.
 
-`client` and `pricing` are not configuration either — they are where a test
-injects a stand-in, and a data file has nothing to put there.
+`client` is not configuration either — it is where a test injects a stand-in,
+and a data file has nothing to put there.
+
+#### What the endpoint charges: `[target.pricing]`
+
+A plugin prices calls from its provider's own list. Pointed at an
+OpenAI-compatible aggregator, a corporate gateway or a model you host, that list
+is somebody else's prices, and a `CostBudget` over it measures a cost your calls
+never incurred. Declare what the endpoint actually charges:
+
+```toml
+[target]
+type = "provider"
+provider = "openai/gpt-5.6-sol"
+base_url = "https://api.aggregator.example/v1"
+prompt_file = "prompt.md"
+
+  [target.pricing]
+  input_per_mtok = 1.10
+  output_per_mtok = 4.40
+  cache_read_per_mtok = 0.11     # optional: absent means no cached tier
+  cache_write_per_mtok = 1.375   # optional
+```
+
+USD per million tokens. The declared price replaces the plugin's entry for this
+model, and the run records `pricing = "declared"` beside the rates. A model you
+host is four zeros, written down — a zero nobody wrote would be a budget that
+cannot fail. An `http` target reads its cost out of the response and refuses the
+table.
+
+**A declared price is part of the suite's identity.** It enters `config_hash`,
+because the rate is the ruler a `CostBudget` reads cost on: declaring one, or
+changing one, makes the baseline comparable and no longer promotable, and the
+comparison says the rules changed.
+
+**At a named endpoint the rates are withheld** — a negotiated rate is the
+customer's commercial fact — and the withholding has a limit worth stating
+exactly:
+
+> **Withholding a declared rate is a latch, not a constraint** — the value never
+> prints, but the hash narrows it; a rate you cannot afford to narrow belongs in
+> a Python suite, or at an unnamed endpoint.
+
+[ADR 0022](adr/0022-the-declared-price.md) is the reasoning.
 
 ## What it cannot say
 

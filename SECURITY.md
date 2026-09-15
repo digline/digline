@@ -97,6 +97,15 @@ trust this summary.
   a run by accident. It is also the one field redaction holds back, because a
   host describes the client's own topology
   ([ADR 0005 §2](docs/adr/0005-the-configuration-of-the-system-under-test.md)).
+- **A declared price is withheld at a named endpoint, and that is declared
+  for what it is.** A negotiated rate is the customer's commercial fact, not a
+  credential, so it never prints in a redacted document, a `--json`, an MCP
+  response or `digline log`. But the suite's `config_hash` is computed from it
+  and travels in clear:
+  **withholding a declared rate is a latch, not a constraint** — the value never
+  prints, but the hash narrows it; a rate you cannot afford to narrow belongs in
+  a Python suite, or at an unnamed endpoint
+  ([ADR 0022 §6](docs/adr/0022-the-declared-price.md)).
 - **The payload stays where it is born; the verdict travels.** What crosses a
   boundary is a name, a status, a score, a threshold — not the prompt, not the
   output, not the reason, and not an artifact unless the suite declared a

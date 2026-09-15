@@ -16,7 +16,31 @@ from digline.core.types import (
     Verdict,
 )
 
-__all__ = ["Assertion", "AsyncJudge", "ClaimJudge", "HasConfig", "Judge"]
+__all__ = [
+    "Assertion",
+    "AsyncJudge",
+    "ClaimJudge",
+    "DeclaresPrice",
+    "HasConfig",
+    "Judge",
+]
+
+
+@runtime_checkable
+class DeclaresPrice(Protocol):
+    """A target whose price for its own model can enter the suite's identity.
+
+    Asked for, never required, like `HasConfig`: a plain function or an
+    `HttpTarget` declares no price and contributes nothing to `config_hash`.
+    `price_digest` is empty unless the price was **declared** by the suite —
+    a plugin's shipped list is the plugin's, and a plugin release must not
+    unpromote a baseline. (ADR 0022 §3, §4)
+    """
+
+    @property
+    def price_digest(self) -> str:
+        """The digest of the declared price, or `""` when none was declared."""
+        ...
 
 
 @runtime_checkable

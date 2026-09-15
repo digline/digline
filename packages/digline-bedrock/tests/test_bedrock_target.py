@@ -14,7 +14,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from _bedrock_fakes import FakeClient, converse_reply
@@ -516,6 +516,129 @@ def test_text_of_and_usage_of_read_a_dict_not_an_object() -> None:
     assert text_of(reply) == "Rome."
     usage = usage_of(reply, SONNET, bedrock_pricing("eu-west-1"))
     assert usage.output_tokens == 7 and usage.cache_read_tokens == 40
+
+
+# -- the trajectory (ADR 0018 §1, amended 2026-09-15) ------------------ #
+
+
+def calls_in(
+    prompt: Path, client: FakeClient, *blocks: dict[str, Any]
+) -> list[dict[str, object]]:
+    reply = converse_reply("")
+    reply["output"]["message"]["content"] = list(blocks)
+    reply["stopReason"] = "tool_use"
+    client.reply = reply
+    return cast(
+        "list[dict[str, object]]",
+        a_target(prompt, client)(a_case()).metadata["tool_calls"],
+    )
+
+
+def server_use(**extra: object) -> dict[str, Any]:
+    return {
+        "toolUse": {
+            "toolUseId": "srv_1",
+            "name": "web_grounding",
+            "input": {},
+            "type": "server_tool_use",
+            **extra,
+        }
+    }
+
+
+def test_a_client_tool_call_names_what_converse_does_not_report(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The model asked, and the reply ends there: the tool runs in the
+    application. `not_reported`, never an invented `success`."""
+    assert calls_in(
+        prompt,
+        client,
+        {"toolUse": {"toolUseId": "t1", "name": "lookup", "input": {"id": "4711"}}},
+    ) == [
+        {
+            "tool": "lookup",
+            "arguments": {"id": "4711"},
+            "result": None,
+            "status": "not_reported",
+            "result_absence": "not_reported",
+        }
+    ]
+
+
+def test_a_server_tool_that_succeeded_keeps_its_status_and_not_its_payload(
+    prompt: Path, client: FakeClient
+) -> None:
+    (call,) = calls_in(
+        prompt,
+        client,
+        server_use(),
+        {
+            "toolResult": {
+                "toolUseId": "srv_1",
+                "status": "success",
+                "content": [{"text": "pages and pages"}],
+            }
+        },
+    )
+    assert call["status"] == "success"
+    assert call["result"] is None and call["result_absence"] == "not_recorded"
+
+
+def test_a_server_tool_that_failed_records_its_error_text(
+    prompt: Path, client: FakeClient
+) -> None:
+    """Converse carries words where the other two carry a code, and the words
+    are the only diagnostic the call produces: an error is signal, and short."""
+    (call,) = calls_in(
+        prompt,
+        client,
+        server_use(),
+        {
+            "toolResult": {
+                "toolUseId": "srv_1",
+                "status": "error",
+                "content": [{"text": "quota exceeded"}, {"json": {"b": 1, "a": 2}}],
+            }
+        },
+    )
+    assert call["status"] == "error"
+    assert call["result"] == 'quota exceeded\n{"a":2,"b":1}'
+    assert call["result_absence"] is None
+
+
+def test_a_server_result_with_no_status_reports_none(
+    prompt: Path, client: FakeClient
+) -> None:
+    """AWS documents `status` for Nova and Claude 3 and 4 only. Without it the
+    content cannot be told from a payload, so neither is claimed."""
+    (call,) = calls_in(
+        prompt,
+        client,
+        server_use(),
+        {"toolResult": {"toolUseId": "srv_1", "content": [{"text": "?"}]}},
+    )
+    assert call["status"] == "not_reported"
+    assert call["result_absence"] == "not_recorded"
+
+
+def test_a_tool_input_that_is_not_an_object_is_kept_as_canonical_json(
+    prompt: Path, client: FakeClient
+) -> None:
+    """A Converse `Document` is any JSON value; dropping a list would record a
+    call without the arguments it was sent with."""
+    (call,) = calls_in(
+        prompt,
+        client,
+        {"toolUse": {"toolUseId": "t1", "name": "batch", "input": [2, 1]}},
+    )
+    assert call["arguments"] == "[2,1]"
+
+
+def test_free_is_a_declared_price() -> None:
+    """Delegated to `digline.targets.free`, so the zero enters `config_hash`
+    and a Python suite hashes as its four-zeros data twin. (ADR 0022 §2)"""
+    assert free("my-imported-model").declared == frozenset({"my-imported-model"})
 
 
 # -- the one that spends money ----------------------------------------- #

@@ -8,6 +8,75 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Fixed:** `compare` and the report **no longer say "the same configuration"
+  over an answering model they withheld**. At a named endpoint — an
+  OpenAI-compatible aggregator, a corporate gateway, a self-hosted server
+  behind `base_url` — `resolved_model` is a perimeter field and is withheld
+  inside the comparison, so every declared field can match while the model
+  behind the endpoint changed. The headline read that as *"answered under the
+  same configuration as the reference"*: a withheld identity read as
+  confirmation. It now says *"the same declared configuration; what answered is
+  withheld, so whether the model changed is not known."* Nothing leaked, and
+  still nothing does — the value stays withheld and the sentence reveals nothing
+  about it; the report simply stops asserting what it does not know. Found by
+  the first external run of the TOML quickstart, against an OpenAI-compatible
+  aggregator.
+
+- **Added: `[target.pricing]`, what the endpoint actually charges** —
+  [ADR 0022](docs/adr/0022-the-declared-price.md). A data suite pointed at an
+  OpenAI-compatible aggregator, a corporate gateway or a self-hosted model
+  priced every call from the plugin's own list, so a `CostBudget` measured
+  somebody else's prices; `pricing` was refused as an object. Four per-million
+  rates under a provider target are data, and now declarable. The declared price
+  replaces the plugin's entry for the model, the run records
+  `pricing = "declared"` and the rates, and a Python suite declares the same way
+  with `override()`.
+
+  **A declared price enters `config_hash`**, because the rate is the ruler a
+  `CostBudget` reads cost on, not a property of the system: declaring or
+  changing one makes the baseline comparable and not promotable. A suite that
+  declares no price hashes exactly as before, and no stored run or baseline
+  moves. At a named endpoint the rates are withheld, and **that withholding is a
+  latch, not a constraint** — the value never prints, but the hash narrows it; a
+  rate you cannot afford to narrow belongs in a Python suite, or at an unnamed
+  endpoint.
+
+  One pair disagrees for a window, and it is named here so nobody finds it: a
+  Python suite that prices a hosted model with `digline_openai.free()` or
+  `digline_bedrock.free()` still hashes as it did, while its data-suite twin
+  with four declared zeros hashes with the declared price. The two forms agree
+  about that suite from `digline-openai` 0.5.0 and `digline-bedrock` 0.5.0,
+  whose `free()` delegates to `digline.targets.free`; with an older plugin the
+  window stays open. `digline-anthropic` has no `free()` to delegate. Closing it
+  moves that suite's hash once, so **re-promote when you upgrade** the plugin.
+
+- **Added: a provider's tool calls reach the record, and what the provider does
+  not report is named** — [ADR 0018](docs/adr/0018-the-recorded-trajectory-and-the-agent-under-test.md)
+  §1, amended. A provider plugin sees the model *ask* for a tool and nothing
+  after: the tool runs later, in the application. So `ToolStatus` gains
+  **`not_reported`** — *the provider never reports a status for a client-side
+  call; the call may have succeeded or failed, and the document does not
+  know* — and `RecordedToolCall.result_absence` says why a result is empty:
+  `not_reported` for a client-side call, `not_recorded` for a server tool's
+  successful payload, which is bulk. A failed server tool records its error.
+  An assertion may assert on the tool and its arguments, and never on a status
+  or a result nobody reported. `Completion` gains `tool_calls` beside `tools`,
+  built from `digline.targets.ToolCall`.
+
+  **No schema bump, and an old reader refuses rather than misreads.** 0.12.x
+  rejects a document carrying `not_reported` by name — *RecordedToolCall.status
+  must be 'success' or 'error', got 'not_reported'* — so read runs recorded with
+  the 0.5.0 plugins with this digline or newer. Every document 0.12 wrote reads
+  as it did, and a plain-function target that leaves `status` out still records
+  `success`.
+
+- **Fixed: `promote`, `view` and `rejudge` take `--target`.** `run --target`
+  could choose among a `suite.py`'s targets and `promote` could not, so a
+  multi-target suite could sign a run made against one system as the reference
+  for another, with nothing in the promotion saying which. The declared price
+  made it visible, because the hash now depends on the target; the flag has
+  `run`'s meaning, and a data suite, which has one target, refuses it.
+
 - **Added: `digline log`, which model answered, read down a suite's stored
   runs** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md). For each side,
   target and judge, the reading shows spans of the same sent model and the same
@@ -22,8 +91,13 @@ notes under them are this file, verbatim.
   model*, *withheld at a named endpoint*, *no answering model was reported*, and
   *not recorded* for a document that does not name the digline that wrote it —
   which stays undated, because the dependency pin at its `git_commit` is a
-  second record read off a tree that was commonly dirty. Files the scan could
-  not read are counted. A replay is never counted as a sighting of the target,
+  second record read off a tree that was commonly dirty — and *echoed*, where the
+  endpoint returned the requested id as the model that answered. That last one
+  is an absence disguised as a presence, stated as a fact and never as a
+  diagnosis: an honest provider may legitimately echo, and an echo cannot be one
+  side of a roll. Where what answered is not identified the reading says the
+  canary is the only instrument that sees behaviour. Files the scan could not
+  read are counted. A replay is never counted as a sighting of the target,
   because it asked the target nothing.
 
   **The reading reads no score, and its types have no field for one**: a roll
@@ -34,6 +108,16 @@ notes under them are this file, verbatim.
   gate**: it exits 0 whatever it finds. Checked against the dogfood's real
   store, it says what that store can say: *No roll recorded*, over three
   sightings and twelve runs that recorded nothing.
+
+- **`compare`, the report and `explain` say when an endpoint echoed the
+  requested id.** Where the run being compared recorded the id it sent as the
+  model that answered, the headline adds *"the endpoint returned the requested
+  id, `gpt-5.6-sol`, as the model that answered, so which model answered is not
+  identified; only a canary sees whether its behaviour changed"*, `compare
+  --json` carries `target_echoed`, and `explain` carries the tally `echoed` — the
+  fourth amendment to ADR 0012 §3's closed list. It moves no exit code. Behind a
+  named endpoint it is never said, because the answering model is withheld there
+  and *echoed* would disclose it. `OUTPUT_VERSION` stays 1.
 
 - **`runs_json` carries each run's aggregate verdicts**, the column `digline
   view`'s grid already shows — `name`, `assertion_id`, `status`, `score`,
@@ -117,6 +201,67 @@ notes under them are this file, verbatim.
   hold on a streak nobody can count. Found by the ledger's reconnaissance, in
   the example as published; the dogfood had already carried the journal, and
   swallowed a failed restore the same way.
+
+## digline-openai — Unreleased
+
+- **Added: the trajectory.** Every tool call reaches `Response.metadata` with
+  its arguments, so `ToolCalledWith` judges an OpenAI target. `function`
+  arguments are decoded when the model wrote a JSON object and kept verbatim
+  when it did not; a `custom` call's free-form input is kept as written. Chat
+  Completions returns what the model asked for and stops, so every call is
+  recorded `status="not_reported"` with its result `not_reported`.
+- **Fixed:** a `custom` tool call was recorded under the name `""` —
+  `function.name` was read on a call that has none.
+- **Changed: `free()` is a declared price.** It delegates to
+  `digline.targets.free`, so a Python suite hashes as its data-suite twin with
+  four declared zeros ([ADR 0022](docs/adr/0022-the-declared-price.md) §2). **A
+  suite that already used it gets a new `config_hash` on upgrade**: its baseline
+  stays comparable and is no longer promotable until a new one is signed.
+  **Re-promote when you upgrade**: run the suite once on the new plugin, read
+  the comparison, and promote that run as the reference.
+- **Added: `gpt-6-astra`**, priced from the list read on 2026-09-11 — in the
+  repository since digline 0.10.0, on the index for the first time.
+- **Known: cache writes are undercounted, in the good-news direction.** openai
+  3.13.0 reports `prompt_tokens_details.cache_write_tokens` and GPT-5.6 and
+  later bill them, but whether they sit inside `prompt_tokens` is **unmeasured**,
+  and each guess misprices. So the plugin still reports zero, and a call that
+  writes a cache costs more than the run says. `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`
+  is `None` until the live test that measures it — three calls, caching off as
+  the baseline — has been run; this is not fixed.
+- Requires `digline>=0.13.0`.
+
+## digline-anthropic — Unreleased
+
+- **Added: the trajectory.** Every `tool_use` and `server_tool_use` block
+  reaches `Response.metadata` with its input, so `ToolCalledWith` judges an
+  Anthropic target. A client-side call is recorded `status="not_reported"` —
+  the tool runs after the reply. A server tool's outcome is read from its result
+  block in the same reply: an error records `status="error"` and the provider's
+  `error_code`; a success records `status="success"` and its payload as
+  `not_recorded`, because search pages and code output would push the answer
+  over the recording ceiling with them.
+- No `free()`: Anthropic hosts every model it serves, so there is nothing to
+  delegate.
+- Requires `digline>=0.13.0`.
+
+## digline-bedrock — Unreleased
+
+- **Added: the trajectory.** Every `toolUse` block reaches `Response.metadata`
+  with its input (a non-object input as canonical JSON), so `ToolCalledWith`
+  judges a Bedrock target. A client-side call is recorded
+  `status="not_reported"`. A server tool with a `toolResult` in the output
+  records `error` with **the error text** — Converse carries words where the
+  other providers carry a code, and they are the only diagnostic — or `success`
+  with its payload `not_recorded`; without the `status` AWS documents for Nova
+  and Claude only, neither is claimed. Read from botocore's service model; not
+  yet checked against a real server-tool reply.
+- **Changed: `free()` is a declared price**, delegating to
+  `digline.targets.free`. **A suite that already used it gets a new
+  `config_hash` on upgrade**: its baseline stays comparable and is no longer
+  promotable until a new one is signed. **Re-promote when you upgrade**: run the
+  suite once on the new plugin, read the comparison, and promote that run as the
+  reference.
+- Requires `digline>=0.13.0`.
 
 ## 0.12.1 — 2026-09-13
 

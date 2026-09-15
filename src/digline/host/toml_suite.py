@@ -71,7 +71,21 @@ from digline.host.toml_errors import (
     unknown_type,
 )
 from digline.run import Case, Suite, Target
-from digline.targets import HttpTarget, ProviderNotFound, resolve, split_coordinate
+from digline.targets import (
+    HttpTarget,
+    ModelPrice,
+    Pricing,
+    ProviderNotFound,
+    resolve,
+    split_coordinate,
+)
+
+#: The rates a `[target.pricing]` table may declare: `ModelPrice`'s own fields,
+#: in its own unit. Input and output are required; an absent cache rate means
+#: the endpoint has no cached tier, which is not zero. (ADR 0022 §1)
+PRICE_KEYS = frozenset(
+    {"input_per_mtok", "output_per_mtok", "cache_read_per_mtok", "cache_write_per_mtok"}
+)
 
 __all__ = [
     "AGGREGATES",
@@ -499,6 +513,13 @@ def _http(
 ) -> Target:
     if "request" in arguments:
         raise computed_body(where)
+    if "pricing" in arguments:
+        raise UsageError(
+            f"{where}: an http target reads what a call cost out of the response "
+            "through `cost_path`, so there is nothing for a declared price to "
+            "multiply. Drop [target.pricing], or declare the price on a "
+            '`type = "provider"` target (ADR 0022 §1).'
+        )
     _refuse_credentials(arguments, where)
     # Checked here rather than left to the constructor: a `TypeError` about an
     # unexpected keyword argument is the bare Python error every other position
@@ -541,9 +562,20 @@ def _provider(
             f'"{provider_name}/<model>" and nothing else.'
         )
     _refuse_credentials(rest, where)
-    for injected in ("client", "pricing"):
-        if injected in rest:
-            raise object_parameter(injected, where=where, provider=provider_name)
+    if "client" in rest:
+        raise object_parameter("client", where=where, provider=provider_name)
+    # `pricing` used to be refused here with `client`, as an object. The object
+    # stays out; four per-million rates are declared numbers, and they come in
+    # (ADR 0007 §5 as amended, ADR 0022 §1).
+    declared = rest.pop("pricing", None)
+    price_list: Pricing | None = None
+    if declared is not None:
+        if "pricing" not in _accepted(provider.target):
+            raise UsageError(
+                f"{where}: {provider_name} takes no price, so [target.pricing] "
+                "has nothing to replace"
+            )
+        price_list = _declared_pricing(declared, provider.target, model, where)
     # Against what the plugin *names*, so a plugin with a `**kwargs` bucket
     # does not quietly swallow a misspelling. ADR 0007 §5 admits "only the
     # parameters the plugin already exposes as declarative configuration", and
@@ -557,11 +589,81 @@ def _provider(
     )
     try:
         settled = _resolve_paths(rest, provider.target, base, root, where)
+        if price_list is not None:
+            # Added after the key check and the path resolution, both of which
+            # read declarative values: the price list is an object built from
+            # declared numbers, and neither step has anything to say about it.
+            settled["pricing"] = price_list
         return provider.target(model=model, **cast("Any", settled))
     except (TypeError, ValueError) as exc:
         raise UsageError(
             f"{where}: {provider_name} refused this set-up: {exc}"
         ) from exc
+
+
+def _declared_pricing(
+    table: object, factory: object, model: str, where: str
+) -> Pricing:
+    """`[target.pricing]`, as the `Pricing` a suite.py would pass.
+
+    The plugin's own list, with this model's entry **overridden** — the same
+    call a Python suite makes, so the two forms carry an equal declared price
+    and hash equal (ADR 0007 §9, ADR 0022 §2). Numbers only, and each one is
+    checked here rather than left to a dataclass that would accept a string.
+    """
+    where = f"{where}.pricing"
+    if not isinstance(table, Mapping):
+        raise UsageError(
+            f"{where}: `pricing` is a table of per-million rates — "
+            "[target.pricing] with `input_per_mtok` and `output_per_mtok` — "
+            f"and {table!r} is not one. A Python `Pricing` object belongs in a "
+            "suite.py."
+        )
+    given = cast(Mapping[str, object], table)
+    _refuse_unknown(given, set(PRICE_KEYS), where, "rate")
+    rates: dict[str, float | None] = {}
+    for name in sorted(PRICE_KEYS):
+        value = given.get(name)
+        if value is None:
+            if name in ("input_per_mtok", "output_per_mtok"):
+                raise UsageError(
+                    f"{where}: `{name}` is missing. A price that cannot price "
+                    "every token a call uses is not a price, and a rate nobody "
+                    "wrote is not zero."
+                )
+            rates[name] = None
+            continue
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise UsageError(
+                f"{where}: `{name}` is {value!r}; a rate is a number of USD per "
+                "million tokens"
+            )
+        if value < 0:
+            raise UsageError(f"{where}: `{name}` is {value}; a rate is not negative")
+        rates[name] = float(value)
+    price = ModelPrice(
+        input_per_mtok=float(cast(float, rates["input_per_mtok"])),
+        output_per_mtok=float(cast(float, rates["output_per_mtok"])),
+        cache_read_per_mtok=rates["cache_read_per_mtok"],
+        cache_write_per_mtok=rates["cache_write_per_mtok"],
+    )
+    return _shipped_pricing(factory).override(model, price)
+
+
+def _shipped_pricing(factory: object) -> Pricing:
+    """The price list the plugin's target defaults to, or an empty one.
+
+    Read off the constructor's signature, because the loader already knows a
+    plugin only through what it names. A plugin whose default is not a
+    `Pricing` contributes nothing, and the declared entry is the whole list.
+    """
+    try:
+        signature = inspect.signature(cast("Any", factory))
+    except (TypeError, ValueError):  # pragma: no cover - a C-level callable
+        return Pricing(per_model={})
+    parameter = signature.parameters.get("pricing")
+    default = None if parameter is None else parameter.default
+    return default if isinstance(default, Pricing) else Pricing(per_model={})
 
 
 # --------------------------------------------------------------------------- #

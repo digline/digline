@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
-__all__ = ["ModelPrice", "Pricing", "Usage", "UnknownModelError"]
+__all__ = ["ModelPrice", "Pricing", "Usage", "UnknownModelError", "free"]
 
 
 class UnknownModelError(KeyError):
@@ -64,12 +64,32 @@ class ModelPrice:
     cache_read_per_mtok: float | None = None
     cache_write_per_mtok: float | None = None
 
+    def rates(self) -> dict[str, float | None]:
+        """The four rates by the names a data suite declares them under."""
+        return {
+            "input_per_mtok": self.input_per_mtok,
+            "output_per_mtok": self.output_per_mtok,
+            "cache_read_per_mtok": self.cache_read_per_mtok,
+            "cache_write_per_mtok": self.cache_write_per_mtok,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class Pricing:
     """A price list, and the one piece of arithmetic that uses it."""
 
     per_model: Mapping[str, ModelPrice]
+    #: The models whose price the **suite declared**, rather than inherited from
+    #: a plugin's shipped list. A declared price enters `config_hash` — it is the
+    #: ruler a `CostBudget` reads cost on — and a shipped one does not, because a
+    #: plugin release must not unpromote every baseline that uses it. Filled by
+    #: `override()` and `free()`; a `Pricing` built directly declares nothing,
+    #: which is how a Python suite prices without declaring. (ADR 0022 §2, §6)
+    declared: frozenset[str] = frozenset()
+
+    def declared_price(self, model: str) -> ModelPrice | None:
+        """The price the suite declared for `model`, or `None`."""
+        return self.per_model.get(model) if model in self.declared else None
 
     def knows(self, model: str) -> bool:
         return model in self.per_model
@@ -111,6 +131,34 @@ class Pricing:
 
         A price the user corrects is one argument in the suite, which is code
         and goes through a review — the same route as every other thing digline
-        will not decide on its own.
+        will not decide on its own. It is therefore a **declaration**, and the
+        model joins `declared`. (ADR 0022 §2)
         """
-        return replace(self, per_model={**self.per_model, model: price})
+        return replace(
+            self,
+            per_model={**self.per_model, model: price},
+            declared=self.declared | {model},
+        )
+
+
+def free(*models: str) -> Pricing:
+    """A declared price of zero, for models you host. (ADR 0022 §2)
+
+    Zero is the honest per-token price on hardware paid for by the hour, and it
+    is still a decision: an unpriced model raises (fixed decision 3), so a zero
+    has to be written down. Declared, so it enters `config_hash` like any other
+    declared price. The plugins' own `free()` delegate here from their next
+    releases; until then theirs build an undeclared list.
+    """
+    if not models:
+        raise ValueError(
+            "free() needs at least one model name: an empty price list knows "
+            "nothing and every model would fail preflight"
+        )
+    zero = ModelPrice(
+        input_per_mtok=0.0,
+        output_per_mtok=0.0,
+        cache_read_per_mtok=0.0,
+        cache_write_per_mtok=0.0,
+    )
+    return Pricing(per_model=dict.fromkeys(models, zero), declared=frozenset(models))
