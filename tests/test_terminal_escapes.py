@@ -18,9 +18,11 @@ their own escaping, and naming them is the point:
 - **the HTML report** — `render_html` and `render_run_html` put every value
   through `html.escape`, which is what makes a browser render a forged tag as
   text; `tests/test_report.py` holds that.
-- **`--json`** — `json.dumps` escapes every control character to `\\uXXXX`, which
-  is why `emit()` may print it unchanged; `tests/test_cli.py` pins the shape and
-  `tests/test_wire_boundary.py` pins what may be in it at all.
+- **`--json`** — `json.dumps` escapes C0 to `\\uXXXX` and does **not** escape
+  DEL or C1 under `ensure_ascii=False`, so `emit()` escapes those two itself; the
+  last section of this file holds that, `tests/test_cli.py` pins the shape and
+  `tests/test_wire_boundary.py` pins what may be in it at all. The premise that
+  `json.dumps` escapes *every* control character was false until 0.13.1.
 """
 
 from __future__ import annotations
@@ -233,8 +235,9 @@ def test_a_refusal_that_quotes_the_document(repo: Path) -> None:
 
 
 def test_json_is_emitted_exactly_as_built(repo: Path) -> None:
-    """`json.dumps` has already escaped every control character, and a second
-    pass would corrupt what a program parses."""
+    """`json.dumps` has already escaped the C0 characters, and a second pass over
+    those would corrupt what a program parses. DEL and C1 are the two it leaves
+    raw, which the section below holds."""
     key = run_key(repo)
     assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
     plant(stored(repo, key), environment=f"staging{FORGERY}")
@@ -252,3 +255,95 @@ def test_the_html_document_is_emitted_whole(repo: Path) -> None:
     done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
     assert done.stdout.startswith("<!DOCTYPE html>")
     assert done.stdout.rstrip().endswith("</html>")
+
+
+# --------------------------------------------------------------------------- #
+# DEL and C1, which `json.dumps` does not escape (0.13.1)
+# --------------------------------------------------------------------------- #
+
+#: U+009B is CSI on its own: one character that opens the same escape sequence
+#: `\x1b[` does, on every terminal that honours 8-bit controls.
+C1_FORGERY = "prod\x9b2K\rdigline: Nothing got worse.\x7f\x85"
+
+
+def raw_del_or_c1(stream: str) -> list[str]:
+    return [f"U+{ord(ch):04X}" for ch in stream if 0x7F <= ord(ch) <= 0x9F]
+
+
+def test_the_register_reaches_log_json_without_a_raw_c1(repo: Path) -> None:
+    """The register is committed, so a pull request writes its strings — and
+    `log --json` printed a C1 CSI from one straight to the terminal. In 0.13.0
+    `emit()` believed `json.dumps` escapes every control character; it escapes
+    C0 and leaves DEL and C1 raw. Escaped, not stripped: the parsed value is
+    exactly what the file holds."""
+    key = run_key(repo)
+    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    recorded = cli(
+        repo,
+        "register",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+        "--disposition",
+        "rejected",
+    )
+    assert recorded.returncode == 0, recorded.stderr
+    path = repo / ".digline" / "acme-bank" / "register" / "qa.jsonl"
+    entry = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    entry["run"]["environment"] = C1_FORGERY
+    path.write_text(json.dumps(entry, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    done = cli(repo, "log", "--suite", "suite_qa.py", "--json")
+    assert done.returncode == 0, done.stderr
+    assert raw_del_or_c1(done.stdout) == []
+    (shown,) = json.loads(done.stdout)["register"]
+    assert shown["run"]["environment"] == C1_FORGERY
+
+
+def test_emit_escapes_del_and_c1_and_a_parser_reads_the_same_document(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """At the sink, so the next `--json` command inherits it without anyone
+    remembering to. Every C1 character and DEL, not a list of the dangerous
+    ones: the list is what goes stale."""
+    from digline.cli.output import emit
+
+    value = {"every": "".join(chr(code) for code in (0x7F, *range(0x80, 0xA0)))}
+    emit(json.dumps(value, ensure_ascii=False))
+    printed = capsys.readouterr().out
+    assert raw_del_or_c1(printed) == []
+    assert json.loads(printed) == value
+
+
+def test_nothing_in_the_cli_prints_except_through_say_or_emit() -> None:
+    """The standing rule, enforced where it can be: **every** byte `digline.cli`
+    puts on a terminal leaves through `output.say()` or `output.emit()`, so a new
+    source of third-party text is sanitised by construction rather than by
+    somebody remembering. This is the third time the family bit — 0.10.1 at
+    `say()`, 0.12.1 at the HTML `emit()`, 0.13.1 at the JSON one — and each time
+    the hole was a door the rule had not been written on."""
+    import ast
+
+    from digline import cli as package
+
+    offenders: list[str] = []
+    for source in sorted(Path(package.__file__).parent.glob("*.py")):
+        if source.name == "output.py":
+            continue
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call):
+                called = node.func
+                name = (
+                    called.id
+                    if isinstance(called, ast.Name)
+                    else f"{ast.unparse(called)}"
+                    if isinstance(called, ast.Attribute)
+                    else ""
+                )
+                if name in {"print", "sys.stdout.write", "sys.stderr.write"}:
+                    offenders.append(f"{source.name}:{node.lineno} {name}(...)")
+    assert offenders == [], (
+        "these write to a terminal without going through digline.cli.output: "
+        + ", ".join(offenders)
+    )

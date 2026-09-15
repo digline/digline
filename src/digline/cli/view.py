@@ -19,12 +19,14 @@ Three properties are deliberate:
 from __future__ import annotations
 
 import html
+import sys
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from digline.cli.output import say
 from digline.report import Locale, case_history, pages
 from digline.run import Suite
 from digline.store import (
@@ -297,12 +299,15 @@ def serve(
         shown = f"http://{host}:{httpd.server_address[1]}/"
         # Flushed, and the *bound* port rather than the requested one: with
         # `--port 0` the operating system chooses, and a caller that cannot read
-        # which one would have to guess.
-        print(f"digline view on {shown} — ctrl-c to stop", flush=True)
+        # which one would have to guess. Through `say()` like every other line
+        # the CLI prints, so no door to a terminal is left unguarded
+        # (0.13.0 delta-pass).
+        say(f"digline view on {shown} — ctrl-c to stop")
+        sys.stdout.flush()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print()
+            say()
 
 
 def project_root(root: str | Path) -> Path:
