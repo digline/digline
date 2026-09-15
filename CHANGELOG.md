@@ -8,6 +8,76 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Security:** `log --json` **no longer puts a C1 control character on your
+  terminal**. The register is committed, so a pull request writes its strings,
+  and a `run.environment` holding U+009B — CSI on its own, the same sequence
+  ESC `[` opens — reached stdout raw. `emit()` printed every `--json` document
+  unescaped on a premise its own docstring stated: that `json.dumps` escapes
+  every control character. **It does not escape DEL or C1.** It writes C0 as
+  `\u00XX` and, under `ensure_ascii=False`, which is how every document here is
+  built, leaves U+007F and U+0080–U+009F as they came. `emit()` now escapes those
+  two ranges itself, at the sink, so every `--json` command inherits it; the
+  value a parser reads is unchanged.
+
+  The class predates this release — the premise was written in 0.10.1, beside
+  `say()` — and 0.13.0 added a source anyone with repository write access can
+  fill. That capability is, in `SECURITY.md`'s words, "already the capability to
+  edit `suite.py`, which is code and executes". So no advisory, by
+  `SECURITY.md`'s line, on the precedent of 0.10.1 and 0.12.1.
+
+  **It is the third time this family bit, so the rule is now standing rather
+  than remembered:** every source of third-party text reaches a terminal through
+  `digline.cli.output` — `say()` for a sentence, `emit()` for a document — **by
+  construction**. One test enforces it, and it is the one place to look:
+  `test_nothing_in_the_cli_prints_except_through_say_or_emit` refuses any
+  `print` or stream write in `digline.cli` outside that module. It found one on
+  its first run — `digline view`'s start-up line — which now goes through
+  `say()` too.
+
+- **Fixed: a committed register is read as the hostile document it is.**
+  `log`, `register` and the MCP `log` all read `.digline/<tenant>/register/`,
+  and anyone who lands a pull request writes it. Six ways a line could defeat
+  the reader in 0.13.0, each now **refused by name, with its line number, and
+  the file left untouched** — the way the journal and the run file refuse
+  theirs:
+
+  - `Infinity` in a count, or nesting deeper than a line holds, reached every
+    reader as a **traceback** (`OverflowError`, `RecursionError`) — to the MCP
+    client as a bug report;
+  - a wrong-typed field was **coerced into a different record**: `"worse":
+    "false"` read as *worse*, `2.9` regressions as 2, `"exit_code": true` as 1.
+    ADR 0021 §5 already said a line this digline cannot read is refused; the
+    reader had been converting instead. A refusal names the field and the kind
+    of value it held, never the value;
+  - a **duplicate key** resolved last-wins, so one line could say `accepted` and
+    `rejected` and be read as the second;
+  - an integer thousands of digits long, and a line starting with a
+    **byte-order mark**, read as a **torn tail** — which also made `register`
+    refuse to append, on a false reason. A mark is not a tear, and neither is a
+    line that parses into something no writer produces, so none of these is
+    forgiven on the last line either.
+
+  And one the tests found on the way: the reader split lines with
+  `str.splitlines()`, which also breaks at NEL (U+0085) and the Unicode line
+  and paragraph separators. The writer puts strings down raw, so **a register
+  digline itself wrote could read back as corrupt**. A register line ends at
+  `\n` and nowhere else. Where the register cannot be read, `log` still reads
+  the runs and says so, as before; `digline register` is where the named
+  refusal is printed.
+
+- **Fixed: one unreadable tool call no longer decides a check about another.**
+  `ToolCalledWith` errored as soon as *any* call to its tool had arguments that
+  were not JSON — even beside a call that matched, in either order — and a call
+  that was not a mapping errored the whole trajectory. `digline-openai` 0.5.0
+  keeps a non-JSON `function` argument verbatim, so a real provider reaches this.
+  An unreadable call — not a mapping, no tool name, or arguments that do not
+  decode — is now counted and stepped over: a match elsewhere passes the check,
+  and it errors only when nothing readable matched, because then the call it
+  needs may be the one that could not be read. The logic dates from 0.12.0.
+
+- **Docs:** `digline.targets.free`'s docstring no longer promises delegation
+  "from their next releases"; the OpenAI and Bedrock plugins have shipped it.
+
 ## digline-openai 0.5.0 — 2026-09-15
 
 - **Added: the trajectory.** Every tool call reaches `Response.metadata` with
