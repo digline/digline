@@ -69,20 +69,28 @@ notes under them are this file, verbatim.
   reference.
 - Requires `digline>=0.13.0`.
 
-## digline-mcp — Unreleased
+## digline-mcp 0.1.3 — 2026-09-15
 
-- **`digline-mcp`: `explain` and `log` join the surface, which moves once from
-  six tools to eight** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md)
-  §9, amending ADR 0011 §1. `explain` is `digline explain --json` — the fact list
-  and the exit code, composed once in the host so the two front ends cannot read
-  one run differently — and it takes no locale, because the list ships no prose.
+`digline-mcp` alone, on its own version line, one tag after the digline it
+imports from: digline stays at 0.13.0, the provider plugins at 0.4.0 and
+`pytest-digline` at 0.1.3.
+
+```sh
+uv add --upgrade digline-mcp
+```
+
+- **`explain` and `log` join the surface, which moves once from six tools to
+  eight** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md) §9, amending
+  ADR 0011 §1. `explain` is `digline explain --json` — the fact list and the
+  exit code, composed once in the host so the two front ends cannot read one
+  run differently — and it takes no locale, because the list ships no prose.
   `log` is `digline log --json`, register included, and carries no exit code.
   Neither writes, and nothing that writes joined them: `promote`, `migrate`,
-  `view`, `report` and the register's writer stay absent. The tools import names
-  that first ship in this digline, so they ship in the `digline-mcp` release that
-  follows it, with its floor raised to it: a floor cannot name a release that
-  does not exist yet, which is the shape ADR 0017 §11 gave `prepare` and
-  `measure`.
+  `view`, `report` and the register's writer stay absent.
+- **Requires `digline>=0.13.0`.** The two tools import names that first ship in
+  digline 0.13.0, so they ship in the release after it, with the floor raised
+  to it: a floor cannot name a release that does not exist yet, which is the
+  shape ADR 0017 §11 gave `prepare` and `measure`.
 
 ## 0.13.0 — 2026-09-15
 
