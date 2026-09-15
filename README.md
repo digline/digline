@@ -163,10 +163,15 @@ git-ignored through a `.gitignore` digline writes for you.
 | `Faithfulness` | RAG: is the answer supported by the retrieved context |
 | `FromAutoevals` | you already have an `autoevals` scorer and want it under a baseline |
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
-| `ToolsCalled` | the target is an agent: which tools it called, in order — an answer produced without the lookup that should have produced it |
+| `ToolsCalled` | the target is an agent — a function, or an OpenAI, Anthropic or Bedrock target, whose plugins record every tool call — which tools it called, in order: an answer produced without the lookup that should have produced it |
 | `ToolCalledWith` | the other half of a trajectory: the arguments a tool was called with — the right tool asked the wrong question |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
+
+A suite pointed at an OpenAI-compatible endpoint, a gateway or a self-hosted
+model declares what it actually charges — `[target.pricing]` in TOML,
+`override()` in Python — so a `CostBudget` reads your prices rather than the
+plugin's list.
 
 **Per run** — one verdict on the whole suite, the kind that goes in a contract:
 
@@ -189,8 +194,8 @@ One card each — parameters, typical values, what to watch out for — in
 
 ## How it thinks
 
-- **The judge is yours.** digline never calls a model API: you inject a
-  function, and in your tests you inject a deterministic one.
+- **The judge is yours.** The core never calls a model API: you inject a
+  function or a provider plugin's judge, and in your tests a deterministic one.
 - **Three states, not two** — `pass`, `fail`, `error`. An error is neither green
   nor a regression: it means *could not judge*, and a run containing one cannot
   become the baseline.
@@ -204,6 +209,11 @@ One card each — parameters, typical values, what to watch out for — in
   tool that cries wolf on its own measurement error teaches people to promote
   past it. It never rescues a flip, and it never invents an interval it does not
   have.
+- **An alias is a pointer, and pointers roll.** `compare` names the model the
+  provider said answered when it changes, `digline log` reads that down every
+  stored run, and a `Case(canary=True)` watches behaviour where the provider
+  says nothing: if it moves at all, the headline says the model under the alias
+  likely changed and the run exits `1`.
 - **Set the threshold where the system measurably is**, not where you want it:
   the gate protects against getting worse, and raising the bar is a visible
   change in a pull request.
@@ -230,6 +240,12 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
 
+The same comparison reaches an agent through [`digline-mcp`](docs/mcp.md) —
+eight tools that read and measure, and no `promote` to call — a test run through
+[`pytest-digline`](docs/pytest.md), one row per check, a pull request through
+[`digline/digline-action`](https://github.com/digline/digline-action), and CI
+without a Python toolchain through `ghcr.io/digline/digline`.
+
 ## Examples
 
 Ten projects in [`examples/`](examples/), each answering a question somebody
@@ -246,7 +262,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My agent calls the right tools, but with the right arguments?**](examples/langgraph/) — a LangGraph agent judged on its trajectory: `ToolsCalled` for the order, `ToolCalledWith` for the arguments, the tools real and the model scripted
 - [**My RAG is LlamaIndex: is it still answering from the right page?**](examples/llamaindex/) — a live query engine, retrieval measured by `Faithfulness` against the page each case declares
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
-- [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, an issue opened in your repo
+- [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, a declared policy that decides who is woken, and a probe proving each cycle that `promote` is still absent
 
 ## What digline is not
 
@@ -263,12 +279,15 @@ actually arrives with. Every one runs with no API key, carries its committed
 - **Not a funnel.** Two commitments, by design and for good: no hosted service
   that receives your payloads, and no data collection. The baseline lives in
   your repo; the runs happen on your machines. If digline ever grows paid
-  features, they will run inside your perimeter too.
+  features, they will run inside your perimeter too. How digline treats its own
+  attack surface — the published advisories and the delta-pass every minor
+  release gets — is in [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
-`0.13.1`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
-report — is complete, covered by tests, and used daily on a real project, and
+`0.13.1`, pre-1.0. The offline cycle — write the suite, run, compare, promote,
+report, and commit what a person decided — is complete, covered by tests, and
+used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. The API may
 still change before 1.0; the baseline format is versioned and migrates. The
 production store, the bridge from production failures back to committed cases,
@@ -291,7 +310,8 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/declarative.md`](docs/declarative.md) — the suite as data: the TOML
   format, key by key, what it deliberately cannot say, and how to move a suite
   between the two forms without losing its baseline
-- [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — the two commands with a surface of their own
+- [`docs/diff.md`](docs/diff.md) · [`docs/explain.md`](docs/explain.md) · [`docs/rejudge.md`](docs/rejudge.md) · [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — each command with a surface of its own
+- [`docs/mcp.md`](docs/mcp.md) · [`docs/pytest.md`](docs/pytest.md) — the two front ends that are not the CLI
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
