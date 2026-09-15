@@ -23,17 +23,27 @@ from typing import Any
 class FakeFunction:
     name: str = "search"
     #: A **string** on this API, not an object, and the SDK's own docstring
-    #: warns the model does not always generate valid JSON in it. That
-    #: disagreement with the other two providers is why the record carries tool
-    #: names and not arguments (ADR 0004 §6).
+    #: warns the model does not always generate valid JSON in it — which is why
+    #: the plugin decodes it when it is an object and keeps it verbatim when it
+    #: is not (ADR 0018 §1, amended 2026-09-15).
     arguments: str = '{"q": "rome"}'
+
+
+@dataclass
+class FakeCustom:
+    """A custom tool's call: a name and free-form text that is never JSON."""
+
+    name: str = "grammar"
+    input: str = "SELECT 1"
 
 
 @dataclass
 class FakeToolCall:
     function: FakeFunction = field(default_factory=FakeFunction)
     id: str = "call_1"
+    #: `function` or `custom`, the discriminator the SDK reads.
     type: str = "function"
+    custom: FakeCustom | None = None
 
 
 @dataclass
@@ -58,6 +68,9 @@ class FakeChoice:
 @dataclass
 class FakeDetails:
     cached_tokens: int = 0
+    #: Declared by openai 3.13.0; its convention is unmeasured, see
+    #: `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`.
+    cache_write_tokens: int = 0
 
 
 @dataclass

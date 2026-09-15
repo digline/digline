@@ -15,15 +15,18 @@ import sys
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from _openai_fakes import (
     FakeChoice,
     FakeClient,
+    FakeCustom,
     FakeDetails,
+    FakeFunction,
     FakeMessage,
     FakeReply,
+    FakeToolCall,
     FakeUsage,
 )
 
@@ -334,13 +337,13 @@ def test_the_alias_and_the_dated_id_are_both_priced() -> None:
     )
 
 
-def test_cache_writes_are_not_a_tier_this_provider_has(
+def test_cache_writes_are_not_a_tier_gpt_5_has(
     prompt: Path, client: FakeClient
 ) -> None:
     """`None` rather than `0.0` in the price list: a rate of zero would price a
-    counted token at nothing, where `None` makes it raise. Nothing counts them
-    here, and that is the point — the list does not claim a tier that does not
-    exist."""
+    counted token at nothing, where `None` makes it raise. Through GPT-5 the
+    list claims no cache-write tier; from GPT-5.6 it carries one, and the count
+    it would multiply is unmeasured — see the next test."""
     assert OPENAI_PRICING.per_model["gpt-5"].cache_write_per_mtok is None
     assert a_target(prompt, client)(a_case()).metadata["cache_write_tokens"] == 0
 
@@ -502,6 +505,128 @@ def test_usage_of_reads_what_it_is_given() -> None:
     )
 
 
+# -- cache writes: a known undercount, until measured ---------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("inside", "expected"),
+    [
+        # Unmeasured: the field is not read, so writes are undercounted.
+        (None, Usage(input_tokens=60, output_tokens=7, cache_read_tokens=40)),
+        # Measured inside: subtracted from the input, like cached reads.
+        (
+            True,
+            Usage(
+                input_tokens=30,
+                output_tokens=7,
+                cache_read_tokens=40,
+                cache_write_tokens=30,
+            ),
+        ),
+        # Measured beside: added, and the input is left alone.
+        (
+            False,
+            Usage(
+                input_tokens=60,
+                output_tokens=7,
+                cache_read_tokens=40,
+                cache_write_tokens=30,
+            ),
+        ),
+    ],
+    ids=["unmeasured", "inside", "beside"],
+)
+def test_cache_writes_follow_the_declared_convention_and_none_is_zero(
+    monkeypatch: pytest.MonkeyPatch, inside: bool | None, expected: Usage
+) -> None:
+    """The constant is `None` today, and that reads no cache writes — the stated
+    undercount. The two measured answers are held here too, so flipping it the
+    day the live test settles it is one line, not a rebuild."""
+    monkeypatch.setattr(
+        "digline_openai.client.CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS", inside
+    )
+    reply = FakeReply(
+        usage=FakeUsage(
+            prompt_tokens=100,
+            completion_tokens=7,
+            prompt_tokens_details=FakeDetails(cached_tokens=40, cache_write_tokens=30),
+        )
+    )
+    assert usage_of(reply, "gpt-5.6-luna", OPENAI_PRICING) == expected
+
+
+def test_the_convention_is_declared_unmeasured() -> None:
+    """Not a default to tidy away: `None` is the record that nobody has run the
+    measurement, and the changelog calls the result an undercount."""
+    from digline_openai.client import CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS
+
+    assert CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS is None
+
+
+# -- the trajectory (ADR 0018 §1, amended 2026-09-15) ----------------------------- #
+
+
+def calls_of(prompt: Path, client: FakeClient, *calls: FakeToolCall) -> object:
+    client.completions.reply = FakeReply(
+        choices=[FakeChoice(FakeMessage(None, tool_calls=list(calls)), "tool_calls")]
+    )
+    return a_target(prompt, client)(a_case()).metadata["tool_calls"]
+
+
+def test_a_function_call_is_decoded_and_names_what_this_api_does_not_report(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The model asked, and Chat Completions stops there: no result, no status.
+    Both are `not_reported`, never an invented `success`."""
+    assert calls_of(prompt, client, FakeToolCall()) == [
+        {
+            "tool": "search",
+            "arguments": {"q": "rome"},
+            "result": None,
+            "status": "not_reported",
+            "result_absence": "not_reported",
+        }
+    ]
+
+
+def test_arguments_that_are_not_an_object_are_kept_as_the_model_wrote_them(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The SDK warns the string may not be valid JSON. Kept verbatim, so
+    `ToolCalledWith` says *not decodable* instead of the plugin guessing."""
+    broken = FakeToolCall(FakeFunction(arguments='{"q": "rome"'))
+    (call,) = cast("list[dict[str, object]]", calls_of(prompt, client, broken))
+    assert call["arguments"] == '{"q": "rome"'
+
+
+def test_a_custom_tool_call_is_named_by_its_own_name(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The fix inside the feature: `function.name` read on a custom call recorded
+    it as `""`. Its input is free-form text and is never decoded."""
+    custom = FakeToolCall(
+        type="custom", custom=FakeCustom("grammar", '{"not": "json"}')
+    )
+    (call,) = cast("list[dict[str, object]]", calls_of(prompt, client, custom))
+    assert call["tool"] == "grammar"
+    assert call["arguments"] == '{"not": "json"}'
+
+
+def test_a_reply_that_reports_no_tool_calls_reports_no_trajectory(
+    prompt: Path, client: FakeClient
+) -> None:
+    """Absent, not empty: this API cannot tell *called nothing* from a server
+    with no tools at all, so it keeps saying nothing — as `tools` does."""
+    metadata = a_target(prompt, client)(a_case()).metadata
+    assert "tools" not in metadata and "tool_calls" not in metadata
+
+
+def test_free_is_a_declared_price() -> None:
+    """Delegated to `digline.targets.free`, so the zero enters `config_hash`
+    and a Python suite hashes as its four-zeros data twin. (ADR 0022 §2)"""
+    assert free("llama3.2").declared == frozenset({"llama3.2"})
+
+
 # -- the one that spends money ---------------------------------------------------- #
 
 
@@ -529,3 +654,103 @@ def test_a_real_call_answers_and_is_priced(prompt: Path) -> None:
     assert "Rome" in str(response.output)
     assert response.cost_usd is not None and response.cost_usd > 0
     assert response.latency_ms is not None and response.latency_ms > 0
+
+
+@pytest.mark.live
+@pytest.mark.skipif(
+    not LIVE or not sdk_installed(),
+    reason="needs OPENAI_API_KEY, DIGLINE_LIVE=1 and the openai SDK",
+)
+def test_cache_writes_say_which_convention_chat_completions_follows() -> None:
+    """**The measurement.** Run with `-s`: it prints the raw usage and the sums.
+
+        OPENAI_API_KEY=... DIGLINE_LIVE=1 \\
+          uv run pytest -m live packages/digline-openai -k cache_writes_say -s
+
+    Is `prompt_tokens_details.cache_write_tokens` counted **inside**
+    `prompt_tokens`, as `cached_tokens` is, or **beside** it? Field names do not
+    settle it; arithmetic against an independent count of the same prompt does.
+    Three calls, identical messages, `gpt-5.6-luna`:
+
+    0. caching **off** — `prompt_cache_options={"mode": "explicit"}` and no
+       breakpoint — so `prompt_tokens` is `N`, the prompt with no cache involved;
+    1. **cold**, implicit caching, a fresh prefix — writes the cache, `W`;
+    2. **warm**, the same request — reads it.
+
+    The verdict, on call 1:
+
+    - `prompt_tokens == N`        → **INSIDE**: subtract writes from the input;
+    - `prompt_tokens + W == N`    → **OUTSIDE**: add them beside it;
+    - anything else, `W == 0`, or a baseline that touched the cache →
+      **NOT SETTLED**, and nothing is decided: the constant stays `None`.
+
+    Two things the Bedrock measurement cost, and that this encodes. A prompt
+    under the minimum cacheable length is not cached and says nothing, hence
+    `* 600` — do not trim it. And a cache an earlier attempt warmed is read
+    without being written, hence the nonce in the prefix.
+
+    It asserts against `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`, so while that is
+    `None` a settled run fails **with the answer**, and after it is set a
+    provider that changes its mind fails here rather than in a bill.
+    """
+    import time
+
+    import openai
+
+    from digline_openai.client import CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS
+
+    client: Any = openai.OpenAI()
+    nonce = f"digline-{time.time_ns()}"
+    messages = [
+        {"role": "system", "content": f"[{nonce}] You are a careful assistant. " * 600},
+        {"role": "user", "content": "Say only: ok"},
+    ]
+
+    def usage(label: str, **extra: Any) -> dict[str, Any]:
+        reply = client.chat.completions.create(
+            model="gpt-5.6-luna",
+            messages=messages,
+            max_completion_tokens=64,
+            **extra,
+        )
+        found: dict[str, Any] = reply.usage.model_dump()
+        print(f"\n{label}: {found}")
+        return found
+
+    def detail(found: dict[str, Any], key: str) -> int:
+        details: dict[str, Any] = found.get("prompt_tokens_details") or {}
+        return int(details.get(key) or 0)
+
+    baseline = usage("0 caching off", prompt_cache_options={"mode": "explicit"})
+    cold = usage("1 cold")
+    warm = usage("2 warm")
+
+    n = int(baseline["prompt_tokens"])
+    p1, w1 = int(cold["prompt_tokens"]), detail(cold, "cache_write_tokens")
+    inside = p1 == n
+    beside = p1 + w1 == n
+    c1, c2 = detail(cold, "cached_tokens"), detail(warm, "cached_tokens")
+    print(
+        f"\nN={n}  call 1: prompt={p1} write={w1} cached={c1}"
+        f"  call 2: prompt={warm['prompt_tokens']} cached={c2}"
+        f"\n  prompt == N -> {inside}   prompt + write == N -> {beside}"
+    )
+
+    touched = detail(baseline, "cached_tokens") or detail(
+        baseline, "cache_write_tokens"
+    )
+    assert not touched, (
+        "NOT SETTLED: the caching-off baseline touched the cache, so N is not "
+        "independent"
+    )
+    assert w1 > 0, "NOT SETTLED: call 1 wrote nothing, so the question was not asked"
+    assert inside != beside, (
+        "NOT SETTLED: call 1 matches neither arrangement, or both — read the "
+        "printed numbers, and leave the constant at None"
+    )
+    assert inside == CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS, (
+        f"measured {'INSIDE' if inside else 'OUTSIDE'}: set "
+        f"CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS = {inside} in "
+        "digline_openai.client, with the date of this run in its comment, and "
+        "move the changelog's undercount to a fix"
+    )

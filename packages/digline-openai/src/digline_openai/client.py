@@ -12,21 +12,47 @@ tolerated, and why it is only reachable behind a custom `base_url`.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from digline.core import Finish
-from digline.targets import Completion, Pricing, Usage, finish_of
+from digline.targets import Completion, Pricing, ToolCall, Usage, finish_of
 
 __all__ = [
+    "CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS",
     "FINISH",
     "NO_KEY",
     "OpenAIChat",
     "TokenParam",
     "build_client",
+    "tool_calls_of",
     "tools_of",
     "usage_of",
 ]
+
+#: Whether `prompt_tokens_details.cache_write_tokens` is counted **inside**
+#: `prompt_tokens`, as `cached_tokens` is, or beside it. **Unmeasured**, and
+#: `None` says so: until it is a `bool`, `usage_of` reports no cache writes.
+#:
+#: The field exists — the SDK's `PromptTokensDetails` declares it, "the
+#: unadjusted number of prompt tokens written to cache" — and from GPT-5.6 the
+#: price list carries a
+#: cache-write rate. But its convention decides whether the tokens are
+#: subtracted from the input or added to it, and a guess is money in one
+#: direction or the other (friction 25). Reading it from the neighbouring field
+#: is the inference that friction was about. So a call that writes a cache is
+#: **undercounted today, in the good-news direction**: the written tokens are
+#: billed at the input rate if they sit inside `prompt_tokens`, and not at all if
+#: they sit beside it.
+#:
+#: What settles it is arithmetic, not field names — three calls with the same
+#: long prompt: caching off (`prompt_cache_options={"mode": "explicit"}` and no
+#: breakpoint) gives the prompt's size `N`; a cold call writes `W`; `prompt_tokens
+#: == N` there is **inside**, `prompt_tokens + W == N` is **beside**. The live
+#: test `test_cache_writes_say_which_convention_chat_completions_follows` is that
+#: measurement, one command, and fails with the answer until this is set.
+CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS: bool | None = None
 
 #: OpenAI's `finish_reason` in the vocabulary every plugin translates into
 #: (ADR 0004 §6). Read off `openai.types.chat.chat_completion.Choice`.
@@ -117,14 +143,25 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
     prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
     details = getattr(usage, "prompt_tokens_details", None)
     cached = int(getattr(details, "cached_tokens", 0) or 0)
+    written = _cache_writes(details)
+    inside = cached + (written if CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS else 0)
     return Usage(
-        input_tokens=max(prompt_tokens - cached, 0),
+        input_tokens=max(prompt_tokens - inside, 0),
         output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
         cache_read_tokens=cached,
-        # No cache-write charge on this API: there is nothing to count, which
-        # is why the price list leaves the rate at `None` rather than at zero.
-        cache_write_tokens=0,
+        cache_write_tokens=written,
     )
+
+
+def _cache_writes(details: Any) -> int:
+    if CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS is None:
+        # **A known undercount, not a tier this API lacks.** The SDK reports
+        # `cache_write_tokens` and it is not read, because whether it sits
+        # inside `prompt_tokens` is unmeasured and either guess misprices. What
+        # settles it: the three-call arithmetic with caching off as the
+        # baseline — see `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`.
+        return 0
+    return int(getattr(details, "cache_write_tokens", 0) or 0)
 
 
 def _is_free(model: str, pricing: Pricing) -> bool:
@@ -243,12 +280,14 @@ class OpenAIChat:
         choice = _first_choice(reply)
         message: Any = getattr(choice, "message", None)
         finish, raw = _finish_of(choice, message)
+        calls = tool_calls_of(message)
         return Completion(
             text=_text_of(message),
             usage=usage_of(reply, model, pricing),
             finish=finish,
             finish_raw=raw,
-            tools=tools_of(message),
+            tools=None if calls is None else tuple(call.tool for call in calls),
+            tool_calls=calls,
             model=str(getattr(reply, "model", "")) or None,
             fingerprint=str(getattr(reply, "system_fingerprint", "") or "") or None,
         )
@@ -301,14 +340,77 @@ def tools_of(message: Any) -> tuple[str, ...] | None:
     The deprecated `function_call` is read too. It is one call rather than a
     list, and a suite running against a server still speaking it should not be
     told the model called nothing.
+
+    The names of `tool_calls_of`, so the two cannot disagree.
+    """
+    calls = tool_calls_of(message)
+    return None if calls is None else tuple(call.tool for call in calls)
+
+
+def tool_calls_of(message: Any) -> tuple[ToolCall, ...] | None:
+    """The calls with their arguments, and nothing this API does not report.
+
+    Chat Completions hands back what the model **asked** for and stops: the
+    tool runs afterwards, in the application. So every call carries
+    `status="not_reported"` and `result_absence="not_reported"` — the call may
+    have succeeded or failed, and the reply cannot say. (ADR 0018 §1, amended
+    2026-09-15)
+
+    Two kinds, read by `type` as the SDK discriminates them:
+
+    - **`function`** — `arguments` is a string the model wrote as JSON, and the
+      SDK warns it is not always valid. Decoded to the object when it is one;
+      kept verbatim when it is not, so `ToolCalledWith` says *not decodable*
+      rather than the plugin deciding what the model meant.
+    - **`custom`** — `input` is free-form text by design, never JSON, and is
+      kept as written. Its name is `custom.name`: reading `function.name` here
+      recorded the call as `""`.
     """
     calls: Any = getattr(message, "tool_calls", None)
     if calls:
-        return tuple(
-            str(getattr(getattr(call, "function", None), "name", "") or "")
-            for call in calls
-        )
+        return tuple(_call_of(call) for call in calls)
     single: Any = getattr(message, "function_call", None)
     if single is not None:
-        return (str(getattr(single, "name", "") or ""),)
+        return (
+            _asked(
+                str(getattr(single, "name", "") or ""),
+                _decoded(getattr(single, "arguments", None)),
+            ),
+        )
     return None
+
+
+def _call_of(call: Any) -> ToolCall:
+    if getattr(call, "type", None) == "custom":
+        custom: Any = getattr(call, "custom", None)
+        text = getattr(custom, "input", None)
+        return _asked(
+            str(getattr(custom, "name", "") or ""),
+            text if isinstance(text, str) else None,
+        )
+    function: Any = getattr(call, "function", None)
+    return _asked(
+        str(getattr(function, "name", "") or ""),
+        _decoded(getattr(function, "arguments", None)),
+    )
+
+
+def _asked(name: str, arguments: Mapping[str, object] | str | None) -> ToolCall:
+    return ToolCall(
+        tool=name,
+        arguments=arguments,
+        status="not_reported",
+        result_absence="not_reported",
+    )
+
+
+def _decoded(text: object) -> Mapping[str, object] | str | None:
+    if not isinstance(text, str):
+        return None
+    try:
+        found: object = json.loads(text)
+    except ValueError:
+        return text
+    if isinstance(found, dict):
+        return cast("dict[str, object]", found)
+    return text
