@@ -177,7 +177,7 @@ def test_a_tool_use_block_is_not_part_of_the_reply(client: FakeClient) -> None:
     client.messages.reply = FakeReply(
         content=[
             FakeBlock('"score": 1, "reason": "fine"}', "text"),
-            FakeBlock("ignored", "tool_use"),
+            FakeBlock("", "tool_use", name="lookup"),
         ]
     )
     assert a_judge(client)("p").reason == "fine"

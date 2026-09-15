@@ -11,12 +11,21 @@ run with no SDK installed and no network at all.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 
 from digline.core import Finish
-from digline.targets import Completion, Usage, finish_of
+from digline.targets import Completion, ToolCall, Usage, finish_of
 
-__all__ = ["FINISH", "completion_of", "build_client", "text_of", "tools_of", "usage_of"]
+__all__ = [
+    "FINISH",
+    "completion_of",
+    "build_client",
+    "text_of",
+    "tool_calls_of",
+    "tools_of",
+    "usage_of",
+]
 
 #: Anthropic's `stop_reason` in the vocabulary every plugin translates into
 #: (ADR 0004 §6). Read off `anthropic.types.StopReason`, not recalled.
@@ -99,6 +108,89 @@ def tools_of(reply: Any) -> tuple[str, ...]:
     )
 
 
+def tool_calls_of(reply: Any) -> tuple[ToolCall, ...]:
+    """The calls with their arguments, and what this API reports about each.
+
+    **A `tool_use` block** is a tool the application runs after the reply, so
+    the reply carries neither its result nor its status: both are
+    `not_reported`, never an invented `success`.
+
+    **A `server_tool_use` block** is one Anthropic ran, and its outcome arrives
+    in the same reply as a `*_tool_result` block joined by `tool_use_id`. Its
+    content is either a typed `*_error`, recorded as `status="error"` with the
+    provider's own `error_code` as the result, or the payload, recorded as
+    `status="success"` with `result_absence="not_recorded"`. Bulk is the
+    criterion: search pages and encrypted code output would push the entry over
+    `MAX_RECORDED_CHARS` and drop the model's own answer; an error code is the
+    signal and is short. A server call with no result in the reply — a turn
+    paused mid-search — reports neither. (ADR 0018 §1, amended 2026-09-15)
+
+    Never `None`, for `tools_of`'s reason; the names are `tools_of`'s, in the
+    same order.
+    """
+    outcomes = {
+        str(getattr(block, "tool_use_id", "")): block
+        for block in reply.content
+        if str(getattr(block, "type", "")).endswith("_tool_result")
+    }
+    calls: list[ToolCall] = []
+    for block in reply.content:
+        kind = getattr(block, "type", "")
+        if kind not in ("tool_use", "server_tool_use"):
+            continue
+        name = str(block.name)
+        raw_input: object = getattr(block, "input", None)
+        arguments = (
+            cast("Mapping[str, object]", raw_input)
+            if isinstance(raw_input, Mapping)
+            else None
+        )
+        outcome = (
+            outcomes.get(str(getattr(block, "id", "")))
+            if kind == "server_tool_use"
+            else None
+        )
+        if outcome is None:
+            calls.append(
+                ToolCall(
+                    tool=name,
+                    arguments=arguments,
+                    status="not_reported",
+                    result_absence="not_reported",
+                )
+            )
+            continue
+        code = _error_code(outcome)
+        if code is None:
+            calls.append(
+                ToolCall(
+                    tool=name,
+                    arguments=arguments,
+                    status="success",
+                    result_absence="not_recorded",
+                )
+            )
+        else:
+            calls.append(
+                ToolCall(tool=name, arguments=arguments, status="error", result=code)
+            )
+    return tuple(calls)
+
+
+def _error_code(outcome: Any) -> str | None:
+    """The provider's own code, where the result block's content is an error.
+
+    Every error content in the SDK is typed `*_tool_result_error` (or
+    `*_tool_result_error_block`) and carries `error_code`; a successful one is a
+    result or a list of them. Read by the type word the SDK discriminates on.
+    """
+    content: Any = getattr(outcome, "content", None)
+    word = getattr(content, "type", None)
+    if not isinstance(word, str) or "_error" not in word:
+        return None
+    return str(getattr(content, "error_code", "") or word)
+
+
 def completion_of(reply: Any) -> Completion:
     """One reply, as the record `_complete` returns (ADR 0004 §6).
 
@@ -115,5 +207,6 @@ def completion_of(reply: Any) -> Completion:
         finish=finish,
         finish_raw=raw,
         tools=tools_of(reply),
+        tool_calls=tool_calls_of(reply),
         model=str(reply.model) if getattr(reply, "model", None) else None,
     )
