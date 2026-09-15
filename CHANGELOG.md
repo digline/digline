@@ -8,7 +8,7 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-## digline-openai — Unreleased
+## digline-openai 0.5.0 — 2026-09-15
 
 - **Added: the trajectory.** Every tool call reaches `Response.metadata` with
   its arguments, so `ToolCalledWith` judges an OpenAI target. `function`
@@ -36,7 +36,7 @@ notes under them are this file, verbatim.
   the baseline — has been run; this is not fixed.
 - Requires `digline>=0.13.0`.
 
-## digline-anthropic — Unreleased
+## digline-anthropic 0.5.0 — 2026-09-15
 
 - **Added: the trajectory.** Every `tool_use` and `server_tool_use` block
   reaches `Response.metadata` with its input, so `ToolCalledWith` judges an
@@ -50,7 +50,7 @@ notes under them are this file, verbatim.
   delegate.
 - Requires `digline>=0.13.0`.
 
-## digline-bedrock — Unreleased
+## digline-bedrock 0.5.0 — 2026-09-15
 
 - **Added: the trajectory.** Every `toolUse` block reaches `Response.metadata`
   with its input (a non-object input as canonical JSON), so `ToolCalledWith`

@@ -253,7 +253,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.4.0": "the plugin versions, pinned to their own pyproject files by "
+        "0.5.0": "the plugin versions, pinned to their own pyproject files by "
         "tests/test_docker.py",
     },
     "src/digline/report/pages.py": {

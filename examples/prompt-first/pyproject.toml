@@ -8,7 +8,7 @@ dependencies = [
     # stopped producing `error` instead of `pass`, and this judge returns
     # exactly 0.7. The pin is the current release, not that minimum.
     "digline>=0.9,<0.14",
-    "digline-anthropic>=0.4,<0.5",
+    "digline-anthropic>=0.4,<0.6",
 ]
 
 [dependency-groups]
