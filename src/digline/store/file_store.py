@@ -30,7 +30,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from digline.core.register import Disposition, RecordedOutcome, RegisterEntry
+from digline.core.register import (
+    DISPOSITIONS,
+    RecordedOutcome,
+    RegisterEntry,
+)
 from digline.core.run import (
     SCHEMA_VERSION,
     CaseProgress,
@@ -391,39 +395,75 @@ class FileResultStore:
         anywhere else is a corrupt register and is refused by name. Nothing here
         repairs anything — a committed record's bytes are not a command's to
         change. (ADR 0021 §5)
+
+        **A committed register is a hostile document**: anyone who lands a pull
+        request writes it, and `log`, `register` and the MCP `log` all read it.
+        So a line that parses into something no writer produces is refused by
+        name, wherever it sits — `Infinity`, an integer no count could be,
+        nesting, a duplicate key, a field of the wrong type, a byte-order mark.
+        None of those is a tear, so none of them is forgiven as one, and none of
+        them may reach a caller as anything but a `RegisterRefusedError`: a
+        traceback there is a bug report handed to whoever reads the log.
+        (0.13.0 delta-pass)
         """
         path = self.register_path(tenant, suite)
         if not path.exists():
             return Register()
-        lines = self._inside(path, "register").read_text(encoding="utf-8").splitlines()
+        data = self._inside(path, "register").read_bytes()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RegisterRefusedError(
+                f"{path} is not UTF-8 at byte {exc.start}: digline writes a "
+                "register as UTF-8, so these bytes are not one. It is a committed "
+                "record, so it is named rather than repaired — restore it from git"
+            ) from None
+        if text.startswith("﻿"):
+            raise RegisterRefusedError(
+                f"{path} line 1 begins with a byte-order mark, which digline never "
+                "writes: an editor saved the file. A mark is not a torn write, so "
+                "it is not forgiven as one — remove it in a commit of its own"
+            )
+        # `\n` and nothing else. `str.splitlines()` also breaks at NEL (U+0085)
+        # and the Unicode line and paragraph separators, which the writer puts
+        # down raw inside a string (`ensure_ascii=False`) — so it cut lines
+        # digline itself wrote, and read them back as corrupt. (0.13.0 delta-pass)
+        lines = text.split("\n")
+        if lines and not lines[-1]:
+            lines.pop()
         seen: set[str] = set()
         entries: list[RegisterEntry] = []
         torn = False
         for index, line in enumerate(lines):
             if not line.strip():
                 continue
+            number = index + 1
             try:
-                raw = json.loads(line)
+                raw = _parse_register_line(line)
+            except _MalformedLine as exc:
+                raise RegisterRefusedError(_malformed(path, number, str(exc))) from None
             except ValueError:
                 if index == len(lines) - 1:
                     torn = True
                     break
                 raise RegisterRefusedError(
-                    f"{path} is corrupt at line {index + 1}: a register may only "
+                    f"{path} is corrupt at line {number}: a register may only "
                     "be incomplete at its last line, which is the one an "
                     "interrupted write leaves. It is a committed record, so it is "
                     "named rather than repaired — restore the line from git"
                 ) from None
             if not isinstance(raw, dict):
                 raise RegisterRefusedError(
-                    f"{path} line {index + 1} is not a register entry"
+                    f"{path} line {number} is not a register entry"
                 )
             document = cast(Mapping[str, object], raw)
             version = document.get("register_version")
-            if version != REGISTER_VERSION:
+            # Exactly the integer: `True == 1` in Python, and a line claiming
+            # format `true` is not a line in format 1.
+            if type(version) is not int or version != REGISTER_VERSION:
                 raise RegisterRefusedError(
-                    f"{path} line {index + 1} is register format {version!r} and "
-                    f"this digline reads {REGISTER_VERSION}: a register is a "
+                    f"{path} line {number} is register format {repr(version)[:40]} "
+                    f"and this digline reads {REGISTER_VERSION}: a register is a "
                     "format, not a document, so nothing migrates it. Upgrade "
                     "digline to read it"
                 )
@@ -433,10 +473,8 @@ class FileResultStore:
             seen.add(line)
             try:
                 entries.append(_entry_from_dict(document))
-            except (KeyError, TypeError, ValueError) as exc:
-                raise RegisterRefusedError(
-                    f"{path} line {index + 1} is malformed: {exc}"
-                ) from exc
+            except _MalformedLine as exc:
+                raise RegisterRefusedError(_malformed(path, number, str(exc))) from None
         entries.sort(key=lambda entry: entry.recorded_at)
         return Register(entries=tuple(entries), torn=torn)
 
@@ -712,28 +750,174 @@ def _entry_to_dict(entry: RegisterEntry) -> dict[str, object]:
     }
 
 
+class _MalformedLine(Exception):
+    """A register line that parses into something no writer produces.
+
+    **Deliberately not a `ValueError`.** `read_register` forgives a `ValueError`
+    on the last line as a torn write, and nothing raised as this is a tear: an
+    `Infinity` on the last line is a hostile line, not an interrupted one.
+    """
+
+
+#: Wider than any count or exit code a register holds, and far short of the
+#: thousands of digits Python refuses to convert — which it refuses with a
+#: `ValueError`, so a line carrying them read as torn. (0.13.0 delta-pass)
+_MAX_DIGITS = 18
+
+
+def _refuse_constant(name: str) -> object:
+    raise _MalformedLine(f"{name} is not a value a register line can hold")
+
+
+def _bounded_int(digits: str) -> int:
+    length = len(digits.lstrip("-"))
+    if length > _MAX_DIGITS:
+        raise _MalformedLine(
+            f"it holds an integer of {length} digits, which is no count"
+        )
+    return int(digits)
+
+
+def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Last-wins is `json.loads`'s default, and it let one line say both
+    `accepted` and `rejected` and be read as whichever came second."""
+    found: dict[str, object] = {}
+    for key, value in pairs:
+        if key in found:
+            raise _MalformedLine(f"it has a duplicate key {key[:40]!r}")
+        found[key] = value
+    return found
+
+
+def _parse_register_line(line: str) -> object:
+    """`json.loads`, held to what a writer produces.
+
+    A `ValueError` still means the line does not parse — which is what a torn
+    tail is. Everything a hostile line can do *besides* not parsing raises
+    `_MalformedLine` instead, including the `RecursionError` deep nesting drives
+    the decoder into.
+    """
+    try:
+        return json.loads(
+            line,
+            parse_constant=_refuse_constant,
+            parse_int=_bounded_int,
+            object_pairs_hook=_no_duplicate_keys,
+        )
+    except RecursionError:
+        raise _MalformedLine("it is nested deeper than any register line") from None
+
+
+def _malformed(path: Path, number: int, reason: str) -> str:
+    return (
+        f"{path} line {number} is malformed: {reason}. It is a committed record, "
+        "so it is named rather than repaired — restore the line from git"
+    )
+
+
+_MISSING = object()
+
+
+def _kind(value: object) -> str:
+    """What a field held, in JSON's words, and never the value itself: a refusal
+    is printed, and the value is text a stranger wrote."""
+    if value is _MISSING:
+        return "nothing"
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "a boolean"
+    if isinstance(value, int):
+        return "a whole number"
+    if isinstance(value, float):
+        return "a decimal number"
+    if isinstance(value, str):
+        return "a string"
+    if isinstance(value, list):
+        return "a list"
+    return "an object"
+
+
+def _where(section: str, key: str) -> str:
+    return f"{section}.{key}" if section else key
+
+
+def _section(raw: Mapping[str, object], name: str) -> Mapping[str, object]:
+    found = raw.get(name, _MISSING)
+    if not isinstance(found, dict):
+        raise _MalformedLine(f"{name} must be an object, got {_kind(found)}")
+    return cast(Mapping[str, object], found)
+
+
+def _text(
+    fields: Mapping[str, object], key: str, section: str = "", *, optional: bool = False
+) -> str:
+    value = fields.get(key, _MISSING)
+    if optional and (value is _MISSING or value is None):
+        return ""
+    if not isinstance(value, str):
+        raise _MalformedLine(
+            f"{_where(section, key)} must be a string, got {_kind(value)}"
+        )
+    return value
+
+
+def _flag(fields: Mapping[str, object], key: str, section: str) -> bool:
+    value = fields.get(key, _MISSING)
+    if not isinstance(value, bool):
+        raise _MalformedLine(
+            f"{_where(section, key)} must be true or false, got {_kind(value)}"
+        )
+    return value
+
+
+def _whole(fields: Mapping[str, object], key: str, section: str = "") -> int:
+    value = fields.get(key, _MISSING)
+    # `bool` is an `int` in Python, and `true` is not a count.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _MalformedLine(
+            f"{_where(section, key)} must be a whole number, got {_kind(value)}"
+        )
+    return value
+
+
 def _entry_from_dict(raw: Mapping[str, object]) -> RegisterEntry:
-    run = cast(Mapping[str, object], raw["run"])
-    baseline = cast(Mapping[str, object], raw["baseline"])
-    outcome = cast(Mapping[str, object], raw["outcome"])
+    """A line held to the types `_entry_to_dict` writes: refused, never coerced.
+
+    `bool("false")` is `True` and `int(2.9)` is `2`, so a reader that converts
+    reads a different record than the bytes hold — which is the one thing a
+    committed record must never do, and what ADR 0021 §5 already said: a line
+    this digline cannot read is refused by name. (0.13.0 delta-pass)
+    """
+    run = _section(raw, "run")
+    baseline = _section(raw, "baseline")
+    outcome = _section(raw, "outcome")
+    disposition = raw.get("disposition", _MISSING)
+    if disposition not in DISPOSITIONS:
+        # A string is named as one and not quoted: the refusal is printed, and
+        # the value is text a stranger wrote.
+        got = "another string" if isinstance(disposition, str) else _kind(disposition)
+        raise _MalformedLine(
+            f"disposition must be one of {', '.join(DISPOSITIONS)}, got {got}"
+        )
     return RegisterEntry(
-        recorded_at=str(raw["recorded_at"]),
-        digline_version=str(raw.get("digline_version") or ""),
-        disposition=cast(Disposition, raw["disposition"]),
-        run_key=str(run["key"]),
-        run_created_at=str(run["created_at"]),
-        run_config_hash=str(run["config_hash"]),
-        run_environment=str(run["environment"]),
-        run_digline_version=str(run.get("digline_version") or ""),
-        run_rejudged=bool(run["rejudged"]),
-        baseline_key=str(baseline["key"]),
-        baseline_config_hash=str(baseline["config_hash"]),
-        baseline_promoted_at=str(baseline.get("promoted_at") or ""),
+        recorded_at=_text(raw, "recorded_at"),
+        digline_version=_text(raw, "digline_version", optional=True),
+        disposition=disposition,
+        run_key=_text(run, "key", "run"),
+        run_created_at=_text(run, "created_at", "run"),
+        run_config_hash=_text(run, "config_hash", "run"),
+        run_environment=_text(run, "environment", "run"),
+        run_digline_version=_text(run, "digline_version", "run", optional=True),
+        run_rejudged=_flag(run, "rejudged", "run"),
+        baseline_key=_text(baseline, "key", "baseline"),
+        baseline_config_hash=_text(baseline, "config_hash", "baseline"),
+        baseline_promoted_at=_text(baseline, "promoted_at", "baseline", optional=True),
         outcome=RecordedOutcome(
-            **{name: int(cast(int, outcome[name])) for name in _OUTCOME_FIELDS},
-            **{name: bool(outcome[name]) for name in _OUTCOME_FLAGS},
+            **{name: _whole(outcome, name, "outcome") for name in _OUTCOME_FIELDS},
+            **{name: _flag(outcome, name, "outcome") for name in _OUTCOME_FLAGS},
         ),
-        exit_code=int(cast(int, raw["exit_code"])),
+        exit_code=_whole(raw, "exit_code"),
     )
 
 

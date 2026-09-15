@@ -237,6 +237,219 @@ def test_an_unknown_format_is_refused_and_left(repo: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# §5 — a committed register is a hostile document (0.13.1)
+# --------------------------------------------------------------------------- #
+
+#: Spelt out rather than imported: the test says what a line holds, and a field
+#: renamed in the store has to be renamed here on purpose.
+COUNTS = (
+    "regressed",
+    "improved",
+    "unchanged",
+    "new",
+    "missing",
+    "errored",
+    "unjudged",
+    "suspended",
+    "within_noise",
+    "on_the_line",
+)
+FLAGS = (
+    "worse",
+    "canary_moved",
+    "config_changed",
+    "artifacts_changed",
+    "target_config_changed",
+    "judge_config_changed",
+    "rejudged",
+)
+DAMAGE = "__DAMAGE__"
+
+
+def valid_entry() -> dict[str, Any]:
+    """One well-formed line, so each case below damages exactly one thing."""
+    return {
+        "register_version": 1,
+        "recorded_at": "2026-09-15T10:00:00Z",
+        "digline_version": "0.13.0",
+        "disposition": "accepted",
+        "run": {
+            "key": "20260915T100000Z-abc",
+            "created_at": "2026-09-15T10:00:00Z",
+            "config_hash": "abc",
+            "environment": "prod",
+            "digline_version": "0.13.0",
+            "rejudged": False,
+        },
+        "baseline": {
+            "key": "20260914T100000Z-abc",
+            "config_hash": "abc",
+            "promoted_at": None,
+        },
+        "outcome": {**dict.fromkeys(COUNTS, 0), **dict.fromkeys(FLAGS, False)},
+        "exit_code": 0,
+    }
+
+
+def with_value(where: tuple[str, ...], value: object) -> str:
+    entry = valid_entry()
+    target = entry
+    for step in where[:-1]:
+        target = target[step]
+    target[where[-1]] = value
+    return json.dumps(entry)
+
+
+def with_raw(where: tuple[str, ...], raw: str) -> str:
+    """A value no `json.dumps` would write, spliced in as the text a hostile
+    commit would carry."""
+    return with_value(where, DAMAGE).replace(f'"{DAMAGE}"', raw)
+
+
+#: (the damaged line, what the refusal must name). Every one of these read as
+#: something before 0.13.1: a traceback, a torn tail, or — worst — a different
+#: record than the bytes say.
+HOSTILE = {
+    "infinity": (with_raw(("outcome", "regressed"), "Infinity"), "Infinity"),
+    "nan": (with_raw(("outcome", "regressed"), "NaN"), "NaN"),
+    "an integer too long to be a count": (
+        with_raw(("exit_code",), "9" * 5000),
+        "digits",
+    ),
+    "nesting deeper than a line holds": (
+        with_raw(("run", "environment"), "[" * 100_000 + "]" * 100_000),
+        "nested",
+    ),
+    "a duplicate key": (
+        json.dumps(valid_entry())[:-1] + ', "disposition": "rejected"}',
+        "duplicate key 'disposition'",
+    ),
+    "a flag written as a string": (
+        with_value(("outcome", "worse"), "false"),
+        "outcome.worse",
+    ),
+    "rejudged written as a string": (
+        with_value(("run", "rejudged"), "false"),
+        "run.rejudged",
+    ),
+    "a count written as a fraction": (
+        with_value(("outcome", "regressed"), 2.9),
+        "outcome.regressed",
+    ),
+    "an exit code written as a boolean": (
+        with_value(("exit_code",), True),
+        "exit_code",
+    ),
+    "a list where a key belongs": (
+        with_value(("run", "environment"), ["prod", {"b": 1}]),
+        "run.environment",
+    ),
+    "a disposition nobody can record": (
+        with_value(("disposition",), "maybe"),
+        "disposition",
+    ),
+}
+
+
+def refused_at(tmp_path: Path, text: str) -> tuple[str, bytes, bytes]:
+    store = FileResultStore(tmp_path)
+    path = store.register_path("acme-bank", "qa")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode("utf-8"))
+    before = path.read_bytes()
+    with pytest.raises(RegisterRefusedError) as refused:
+        store.read_register("acme-bank", "qa")
+    return str(refused.value), before, path.read_bytes()
+
+
+@pytest.mark.parametrize("case", sorted(HOSTILE))
+@pytest.mark.parametrize("place", ["the last line", "between two good lines"])
+def test_a_malformed_line_is_refused_by_name_wherever_it_sits(
+    tmp_path: Path, case: str, place: str
+) -> None:
+    """The last line included. A torn tail is forgiven because it is what an
+    interrupted write leaves; a line that parses into something no writer
+    produces is not a tear, and forgiving it would let a hostile commit hide the
+    register behind the one damage the reader excuses. (ADR 0021 §5)"""
+    line, named = HOSTILE[case]
+    good = json.dumps(valid_entry())
+    text, number = (
+        (f"{line}\n", 1)
+        if place == "the last line"
+        else (f"{good}\n{line}\n{good}\n", 2)
+    )
+    message, before, after = refused_at(tmp_path, text)
+    assert f"line {number}" in message, message
+    assert named in message, message
+    assert after == before
+
+
+@pytest.mark.parametrize("followed", [False, True])
+def test_a_byte_order_mark_is_named_and_is_not_a_tear(
+    tmp_path: Path, followed: bool
+) -> None:
+    """An editor that saves UTF-8 with a BOM leaves a whole, parseable line
+    behind it. Read as a torn tail it hid the register and then made `register`
+    refuse to append on a false reason."""
+    good = json.dumps(valid_entry())
+    text = f"﻿{good}\n" + (f"{good}\n" if followed else "")
+    message, before, after = refused_at(tmp_path, text)
+    assert "line 1" in message and "byte-order mark" in message, message
+    assert "incomplete" not in message
+    assert after == before
+
+
+@pytest.mark.parametrize("place", ["the last line", "between two good lines"])
+def test_a_line_break_inside_a_string_is_not_a_line_break(
+    tmp_path: Path, place: str
+) -> None:
+    """The writer puts a string down with `ensure_ascii=False`, so NEL (U+0085)
+    and the Unicode line separators reach the file raw. `str.splitlines()` cut a
+    line there, and a register digline itself wrote read back as corrupt — or,
+    as its last line, as torn. A register line ends at `\\n` and nowhere else."""
+    entry = valid_entry()
+    entry["run"]["environment"] = "staging\x85eu west \x1c"
+    line = json.dumps(entry, ensure_ascii=False)
+    good = json.dumps(valid_entry())
+    text = f"{line}\n" if place == "the last line" else f"{good}\n{line}\n{good}\n"
+    path = FileResultStore(tmp_path).register_path("acme-bank", "qa")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+    read = FileResultStore(tmp_path).read_register("acme-bank", "qa")
+    assert read.torn is False
+    environments = [e.run_environment for e in read.entries]
+    assert "staging\x85eu west \x1c" in environments
+
+
+def test_every_reader_refuses_a_hostile_register_by_name(repo: Path) -> None:
+    """`register` names the line and writes nothing; `log` still reads the runs
+    and says the register could not be read. Neither prints a traceback, which is
+    what an `Infinity` in a committed line produced in 0.13.0."""
+    promote_first(repo)
+    key = run_key(repo)
+    record(repo, key, "rejected")
+    (entry,) = entries(repo)
+    entry["outcome"]["regressed"] = DAMAGE
+    register_file(repo).write_text(
+        json.dumps(entry).replace(f'"{DAMAGE}"', "Infinity") + "\n", encoding="utf-8"
+    )
+    before = register_file(repo).read_bytes()
+
+    refused = record(repo, key, "accepted")
+    assert refused.returncode == EXIT_USAGE, refused.stderr
+    assert "Traceback" not in refused.stderr
+    assert "line 1" in refused.stderr and "Infinity" in refused.stderr
+
+    for extra in ((), ("--json",)):
+        shown = cli(repo, "log", "--suite", SUITE, *extra)
+        assert shown.returncode == EXIT_OK, shown.stderr
+        assert "Traceback" not in shown.stderr
+    assert json.loads(shown.stdout)["register_unreadable"] is True
+    assert register_file(repo).read_bytes() == before
+
+
+# --------------------------------------------------------------------------- #
 # §4 — committed, and two branches merge
 # --------------------------------------------------------------------------- #
 
