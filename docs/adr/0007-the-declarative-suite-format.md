@@ -329,6 +329,11 @@ credential does not appear in a file that gets committed, and ADR 0004 §5
 resolves keys through the SDK's own environment lookup precisely so that no
 digline object holds one.
 
+*Amended 2026-09-15 by [ADR 0022](0022-the-declared-price.md) §1: pricing as
+an object stays out of a data suite; pricing as declared per-million rates —
+`[target.pricing]`, four numbers under a provider target — comes in, because
+rates are data and no engine interprets them.*
+
 "Only the parameters the plugin exposes" is read strictly, including against a
 plugin that takes a `**kwargs` bucket: a bucket exposes nothing, and what it
 would buy is a plugin quietly accepting `temperture` — a setting written in the
