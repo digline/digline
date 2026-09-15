@@ -163,10 +163,15 @@ git-ignored through a `.gitignore` digline writes for you.
 | `Faithfulness` | RAG: is the answer supported by the retrieved context |
 | `FromAutoevals` | you already have an `autoevals` scorer and want it under a baseline |
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
-| `ToolsCalled` | the target is an agent: which tools it called, in order — an answer produced without the lookup that should have produced it |
+| `ToolsCalled` | the target is an agent — a function, or an OpenAI, Anthropic or Bedrock target, whose plugins record every tool call — which tools it called, in order: an answer produced without the lookup that should have produced it |
 | `ToolCalledWith` | the other half of a trajectory: the arguments a tool was called with — the right tool asked the wrong question |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
+
+A suite pointed at an OpenAI-compatible endpoint, a gateway or a self-hosted
+model declares what it actually charges — `[target.pricing]` in TOML,
+`override()` in Python — so a `CostBudget` reads your prices rather than the
+plugin's list.
 
 **Per run** — one verdict on the whole suite, the kind that goes in a contract:
 
@@ -204,6 +209,11 @@ One card each — parameters, typical values, what to watch out for — in
   tool that cries wolf on its own measurement error teaches people to promote
   past it. It never rescues a flip, and it never invents an interval it does not
   have.
+- **An alias is a pointer, and pointers roll.** `compare` names the model the
+  provider said answered when it changes, `digline log` reads that down every
+  stored run, and a `Case(canary=True)` watches behaviour where the provider
+  says nothing: if it moves at all, the headline says the model under the alias
+  likely changed and the run exits `1`.
 - **Set the threshold where the system measurably is**, not where you want it:
   the gate protects against getting worse, and raising the bar is a visible
   change in a pull request.
@@ -229,6 +239,12 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
+
+The same comparison reaches an agent through [`digline-mcp`](docs/mcp.md) —
+eight tools that read and measure, and no `promote` to call — a test run through
+[`pytest-digline`](docs/pytest.md), one row per check, a pull request through
+[`digline/digline-action`](https://github.com/digline/digline-action), and CI
+without a Python toolchain through `ghcr.io/digline/digline`.
 
 ## Examples
 
@@ -263,7 +279,9 @@ actually arrives with. Every one runs with no API key, carries its committed
 - **Not a funnel.** Two commitments, by design and for good: no hosted service
   that receives your payloads, and no data collection. The baseline lives in
   your repo; the runs happen on your machines. If digline ever grows paid
-  features, they will run inside your perimeter too.
+  features, they will run inside your perimeter too. How digline treats its own
+  attack surface — the published advisories and the delta-pass every minor
+  release gets — is in [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
@@ -293,6 +311,7 @@ Python 3.12+. One runtime dependency: `jsonschema`.
   format, key by key, what it deliberately cannot say, and how to move a suite
   between the two forms without losing its baseline
 - [`docs/diff.md`](docs/diff.md) · [`docs/explain.md`](docs/explain.md) · [`docs/rejudge.md`](docs/rejudge.md) · [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — each command with a surface of its own
+- [`docs/mcp.md`](docs/mcp.md) · [`docs/pytest.md`](docs/pytest.md) — the two front ends that are not the CLI
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 

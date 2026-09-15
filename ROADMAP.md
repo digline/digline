@@ -33,6 +33,9 @@ unaffected (ADR 0004 §6).
       seeding — unknown model/region fails preflight rather than guessing)
 - [x] Price sentinel in CI: compare hardcoded plugin prices against a public
       dataset and open an issue/PR with the diff when they drift
+- [x] **The declared price** (ADR 0022) — a data suite states what an
+      OpenAI-compatible endpoint, gateway or self-hosted model charges, and the
+      rate enters `config_hash`; shipped in 0.13.0
 
 **Exit gate:** three providers published, symmetric, and boring.
 
