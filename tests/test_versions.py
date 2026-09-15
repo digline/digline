@@ -187,6 +187,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "landed none of them",
         "0.9.0": "'shipped in 0.9.0, and its own 0.1.0' — the release "
         "pytest-digline arrived in, history from the moment 0.10.0 shipped",
+        "0.1.3": "digline-mcp's own version, not a digline one — the release "
+        "that moved its surface from six tools to eight",
+        "0.11.0": "'shipped in 0.11.0' — the release the resumed run landed in",
+        "0.12.0": "'since 0.12.0' — the release ToolCalledWith and the recorded "
+        "trajectory landed in, on Track D's trajectory item",
+        "0.13.0": "'shipped in 0.13.0' — the release log and the register landed in",
     },
     "docs/rejudge.md": {
         "0.10.0": "'Until 0.10.0 the only way to find out was to pay the "
@@ -205,7 +211,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'was fixed in 0.7.2' — the symlink escape, named so the "
         "scope paragraph says which side of the line it fell on and when. A "
         "fact about a shipped release, not a claim about this one",
-        "0.7.1": "the release the three published advisories were cut against, "
+        "0.12.0": "the release whose new surface the delta-pass read when it "
+        "found the fourth advisory — a fact about a shipped release",
+        "0.12.1": "the release that fixed the fourth advisory. Same sentence, "
+        "other end of it",
+        "0.7.1": "the release the first three published advisories were cut against, "
         "and the one whose four fixes the adversarial pass went back over. The "
         "advisory policy has to name a version or it is describing nothing",
         "0.8.0": "the release whose new surface the delta-pass read, in the "

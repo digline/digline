@@ -1,8 +1,8 @@
-# Digline Roadmap
+# digline roadmap
 
 This project moves by **tracks and gates, not dates**. Each track has an exit
 gate; some tracks cannot start until evidence from real usage opens them. That
-is deliberate: Digline's thesis is that quality regressions should be caught
+is deliberate: digline's thesis is that quality regressions should be caught
 by comparing against an approved, versioned baseline — and the roadmap itself
 follows the same discipline. Features ship when validated, not when scheduled.
 
@@ -11,7 +11,7 @@ Two things will never be on this roadmap:
 - **A hosted service that receives your payloads.** Prompts, outputs and the
   judge stay in your perimeter. Only verdicts and redacted runs are ever
   designed to travel.
-- **Usage data collection, ever.** Digline makes no network calls except the
+- **Usage data collection, ever.** digline makes no network calls except the
   ones your suite explicitly configures.
 
 ---
@@ -46,7 +46,7 @@ This track makes the verdict itself trustworthy.
 - [x] Record the configuration of the system under test (model, temperature,
       sampling parameters where the provider exposes them) in runs and
       baselines; `compare` highlights which parameters changed between the
-      two (ADR 0005) — shipped in 0.2.0, extended in 0.3.0 to targets Digline
+      two (ADR 0005) — shipped in 0.2.0, extended in 0.3.0 to targets digline
       cannot import, which report theirs in the answer (ADR 0005 §8), and again
       in 0.8.0 to what was **observed** rather than sent: `resolved_model` and,
       where a provider names one, `fingerprint`, so an alias that rolled under
@@ -85,6 +85,10 @@ This track makes the verdict itself trustworthy.
       variance and its interval would freeze a noise floor measured without the
       noise. The answers never cross a boundary and `promote` strips them from
       the reference
+- [x] **The reading across runs, and the register** (ADR 0020, 0021) —
+      `digline log` names each roll of an alias down the stored runs, and
+      `digline register` commits what a person decided about a comparison;
+      shipped in 0.13.0
 
 **Exit gate:** a baseline comparison can state, honestly, whether an observed
 difference is signal or sampling noise. **Met** — the two runs in
@@ -100,7 +104,7 @@ reader can see rather than from a residue nobody can.
 *Status: ongoing, low ceremony*
 
 - [ ] Try-without-installing: a Codespace on the examples repo — you test it
-      in the browser, but in *your* environment, because Digline has no server
+      in the browser, but in *your* environment, because digline has no server
       by design
 - [ ] The run/baseline JSON format documented as a **versioned public
       contract**. The engine is Python; the contract is language-neutral. Not
@@ -115,7 +119,7 @@ reader can see rather than from a residue nobody can.
       it (`examples/langchain/`)
 - [x] A LangChain4j example over `HttpTarget`: one endpoint reporting the
       answer, what the call cost, and which model answered under what settings
-      — so a run from a service Digline cannot import is as complete a document
+      — so a run from a service digline cannot import is as complete a document
       as one from a plugin (`examples/langchain4j/`, ADR 0005 §8)
 - [x] A declarative suite format, `digline run suite.toml` (ADR 0007) —
       shipped in 0.5.0. TOML rather than YAML:
@@ -129,7 +133,8 @@ reader can see rather than from a residue nobody can.
       and the loader says so by name
 - [x] An MCP server, `digline-mcp` (ADR 0011) — shipped in 0.6.0, which is
       also its own 0.1.0 and the first package this workspace ever published
-      from scratch. Six tools, read and measurement only, and **`promote`
+      from scratch. Six tools at 0.6.0, eight since digline-mcp 0.1.3 added
+      `explain` and `log` — read and measurement only, and **`promote`
       absent by construction**: a refusal is a conversation a model can argue
       with, an absence is not, so `AGENTS.md` §1 stops being a rule an agent is
       asked to follow. `run` takes a mandatory
@@ -193,6 +198,11 @@ reader can see rather than from a residue nobody can.
       in the container — and it writes as the calling user rather than as root,
       which the workflow checks on the filesystem before it pushes
       (`docker/README.md`)
+- [x] **A killed run is finished, not paid twice** (ADR 0017) —
+      `digline run --resume`, shipped in 0.11.0
+- [x] **The operator loop** (`examples/operator/`, ADR 0019) — a scheduled
+      re-run that tells draw from drift, holds a cycle only on a named policy
+      clause, and probes each cycle that `promote` is still absent
 
 This replaces *"a thin JVM emitter"*, which was on this list and was wrong. An
 emitter means the JVM side runs its own assertions and posts the verdicts, which
@@ -231,8 +241,9 @@ Everything below is a **hypothesis under validation**, not a commitment.
 - Agent trajectories with **readable reasoning**: not just which tools were
   called in which order, but a non-technical account of why — extending the
   existing principle that reports must be legible to people who don't code.
-  The first half arrived offline in 0.8.0: a provider reports the tools it
-  called, and `ToolsCalled` asserts on them. The *why* is what stays here
+  The first half has arrived offline: `ToolsCalled` for the order since 0.8.0,
+  `ToolCalledWith` and a re-judgeable recorded trajectory since 0.12.0, filled
+  by all three provider plugins since their 0.5.0; the *why* is what stays here
 - Open question, deliberately undecided: a reactive mode ("is this specific
   output valid, right now?") as opposed to the retrospective one
 

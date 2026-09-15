@@ -38,14 +38,17 @@ it is drawn in one place:
 
 - **A published advisory** — GitHub Security Advisory, with a CVE where one
   applies — for a vulnerability that **shipped**: a released version, on an
-  index somebody could install from, that a user could be hurt by. Three exist
-  so far, all from the 0.7.1 and 0.7.2 pass:
+  index somebody could install from, that a user could be hurt by. Four exist
+  so far: three from the 0.7.1 and 0.7.2 pass —
   [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
   (high, `digline-mcp` executing a suite from anywhere on disk),
   [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
   (medium, reads outside the perimeter), and
   [GHSA-xrvr-5x82-w7g7](https://github.com/digline/digline/security/advisories/GHSA-xrvr-5x82-w7g7)
-  (low, a credential in a target URL reaching stderr and a CI log).
+  (low, a credential in a target URL reaching stderr and a CI log) — and one
+  from the delta-pass over 0.12.0, fixed in 0.12.1,
+  [GHSA-g25g-q7j3-jcgp](https://github.com/digline/digline/security/advisories/GHSA-g25g-q7j3-jcgp)
+  (low, perimeter fields in comparison deltas).
 - **A `Security` entry in the changelog, and no advisory**, for a finding our own
   process caught **before** it was exposed — the audit, the adversarial pass, the
   release delta-pass. There is no version to warn anybody off, and an advisory

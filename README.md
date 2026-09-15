@@ -189,8 +189,8 @@ One card each — parameters, typical values, what to watch out for — in
 
 ## How it thinks
 
-- **The judge is yours.** digline never calls a model API: you inject a
-  function, and in your tests you inject a deterministic one.
+- **The judge is yours.** The core never calls a model API: you inject a
+  function or a provider plugin's judge, and in your tests a deterministic one.
 - **Three states, not two** — `pass`, `fail`, `error`. An error is neither green
   nor a regression: it means *could not judge*, and a run containing one cannot
   become the baseline.
@@ -246,7 +246,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My agent calls the right tools, but with the right arguments?**](examples/langgraph/) — a LangGraph agent judged on its trajectory: `ToolsCalled` for the order, `ToolCalledWith` for the arguments, the tools real and the model scripted
 - [**My RAG is LlamaIndex: is it still answering from the right page?**](examples/llamaindex/) — a live query engine, retrieval measured by `Faithfulness` against the page each case declares
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
-- [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, an issue opened in your repo
+- [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, a declared policy that decides who is woken, and a probe proving each cycle that `promote` is still absent
 
 ## What digline is not
 
@@ -267,8 +267,9 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.13.1`, pre-1.0. The offline cycle — write the suite, run, promote, compare,
-report — is complete, covered by tests, and used daily on a real project, and
+`0.13.1`, pre-1.0. The offline cycle — write the suite, run, compare, promote,
+report, and commit what a person decided — is complete, covered by tests, and
+used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. The API may
 still change before 1.0; the baseline format is versioned and migrates. The
 production store, the bridge from production failures back to committed cases,
@@ -291,7 +292,7 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/declarative.md`](docs/declarative.md) — the suite as data: the TOML
   format, key by key, what it deliberately cannot say, and how to move a suite
   between the two forms without losing its baseline
-- [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — the two commands with a surface of their own
+- [`docs/diff.md`](docs/diff.md) · [`docs/explain.md`](docs/explain.md) · [`docs/rejudge.md`](docs/rejudge.md) · [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — each command with a surface of its own
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
