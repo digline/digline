@@ -96,17 +96,23 @@ missing is the thesis.**
 
 ---
 
-## §1 — Six tools, and the ones that are absent
+## §1 — Eight tools, and the ones that are absent
 
-The server exposes exactly six tools:
+*Amended 2026-09-15 by [ADR 0020](0020-the-reading-across-runs.md) §9: the six
+tools chosen here became eight, once, for `explain` and `log` together. Neither
+writes, and the absent list below did not shrink.*
+
+The server exposes exactly eight tools:
 
 | tool | arguments | kind |
 |---|---|---|
 | `list_runs` | `suite` | read |
 | `get_run` | `suite`, `run` | read |
 | `get_baseline` | `suite` | read |
+| `log` | `suite`, `since`, `until` | read |
 | `compare` | `suite`, `run` | measurement |
 | `diff` | `suite`, `run1`, `run2` | measurement |
+| `explain` | `suite`, `run` | measurement |
 | `run` | `suite`, `acknowledge_calls` | measurement |
 
 Reads and measurement executions. Nothing else, and in particular nothing that
@@ -787,7 +793,8 @@ amendments named above.
 **The absence, which is the thesis:**
 
 1. `list_tools()` returns exactly six names, asserted as a set. Adding a
-   seventh fails until somebody edits this test, which is the point.
+   seventh fails until somebody edits this test, which is the point. *(Edited
+   once, by ADR 0020 §9, to eight names: a ninth now fails the same way.)*
 2. `promote`, `migrate`, `view` and `report` are not among them, asserted by
    name, so the failure says which one came back.
 3. No module in `packages/digline-mcp/src/` imports `promote_baseline`,

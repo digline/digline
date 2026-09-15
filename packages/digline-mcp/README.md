@@ -7,15 +7,17 @@ a baseline.
 
 Not because promotion is refused. Because there is no such tool.
 
-## The six tools
+## The eight tools
 
 | tool | what it does |
 |---|---|
 | `list_runs` | every stored run of a suite, newest first, with the baseline marked |
 | `get_run` | one stored run — the verdicts, never the payload |
 | `get_baseline` | the approved reference, same shape |
+| `log` | which model answered, read down the stored runs; never a gate |
 | `compare` | a run against the baseline: did it get worse? |
 | `diff` | two runs, neither of them a reference: should I switch? |
+| `explain` | one run read back as typed facts, with the exit code |
 | `run` | execute the suite, with the call count acknowledged first |
 
 `promote` is **absent by construction**, and so are `migrate`, `view` and

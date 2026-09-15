@@ -1,4 +1,4 @@
-"""The six tools, and the one that is missing.
+"""The eight tools, and the one that is missing.
 
 `promote` is not here. Not disabled, not permission-gated, not refused with a
 message: **absent by construction.** There is no function, no name in the tool

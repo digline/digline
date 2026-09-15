@@ -32,16 +32,21 @@ bug. An absence is not a conversation.
 
 The reasoning in full is [ADR 0011](adr/0011-the-mcp-server.md).
 
-## The six tools
+## The eight tools
 
 | tool | arguments | what it answers |
 |---|---|---|
-| `list_runs` | `suite` | which runs exist, newest first, baseline marked |
+| `list_runs` | `suite` | which runs exist, newest first, baseline marked, with each run's aggregates |
 | `get_run` | `suite`, `run` | what one run measured |
 | `get_baseline` | `suite` | what the approved reference measured |
+| `log` | `suite`, `since`, `until` | which model answered, down the stored runs — never a gate |
 | `compare` | `suite`, `run` | did it get worse? |
 | `diff` | `suite`, `run1`, `run2` | should I switch? |
+| `explain` | `suite`, `run` | the same run read back as typed facts, with the exit code |
 | `run` | `suite`, `acknowledge_calls` | measure it now |
+
+`explain` and `log` arrived together, so the surface moved once, from six to
+eight ([ADR 0020](adr/0020-the-reading-across-runs.md)). Neither writes.
 
 `promote`, `migrate`, `view` and `report` are absent. The first is the thesis;
 the second is upgrade maintenance somebody chose the moment for; the last two
