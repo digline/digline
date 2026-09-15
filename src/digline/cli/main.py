@@ -5,12 +5,13 @@ composes it. The clock and git are still read once per command and passed down
 as values; they are now read through `digline.host` so that a second front end
 reads them the same way rather than growing its own. (ADR 0011 §7)
 
-Eleven commands, each doing one thing, and nothing promoting as a side effect of
+Twelve commands, each doing one thing, and nothing promoting as a side effect of
 anything else: `run` writes a run and prints its key, `rejudge` judges stored
 answers again, `compare` reads and judges, `diff` reads two runs and judges
-neither, `promote` promotes, `report` renders, `explain` reads the same facts
-back at length, `log` reads which model answered down the runs, `migrate` brings
-stored documents up to the current schema, `list` and `view` show.
+neither, `promote` promotes, `register` records what a person decided about a
+comparison, `report` renders, `explain` reads the same facts back at length,
+`log` reads which model answered down the runs, `migrate` brings stored
+documents up to the current schema, `list` and `view` show.
 
 `compare` and `diff` are two commands and not one with a flag, because **the
 exit code is the contract**: `compare` gates and `diff` never does, and a user
@@ -37,6 +38,7 @@ from digline import __version__
 from digline.cli.output import emit, say
 from digline.cli.view import serve
 from digline.core import (
+    DISPOSITIONS,
     Run,
     compare,
     diff,
@@ -58,6 +60,7 @@ from digline.host import (
     prepare,
     read_artifacts,
     read_run,
+    record,
     resolve_key,
     utc_now_iso,
 )
@@ -565,6 +568,36 @@ def cmd_promote(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_register(args: argparse.Namespace) -> int:
+    """A person's disposition about a comparison, appended to the register.
+
+    The human's memory, beside the operator's journal, which is the machine's
+    (ADR 0021 §1). It writes one line into a committed file and exits 0 when it
+    did — like `promote`, and never with the comparison's code: the gate is
+    `compare`'s, and a recording command that failed a pipeline would be a
+    second gate on one fact.
+
+    The reason is not an argument. A note field is where somebody writes the
+    customer's name; the reason belongs in the message of the commit that adds
+    the line, which the entry's run key now lets anyone join to its run.
+    """
+    suite, _loaded, store = _load(args)
+    key = _resolve(store, suite, args.run)
+    # The clock, read here and handed down, as `promote` reads it.
+    entry, path = record(
+        store, suite, key, disposition=args.disposition, recorded_at=utc_now_iso()
+    )
+    shown = path
+    if path.is_relative_to(Path(args.root).resolve()):
+        shown = path.relative_to(Path(args.root).resolve())
+    say(
+        f"{suite.name}: recorded {entry.disposition} for {key} against the "
+        f"reference {entry.baseline_key}"
+    )
+    say(f"commit {shown} — the reason belongs in that commit's message")
+    return EXIT_OK
+
+
 def cmd_migrate(args: argparse.Namespace) -> int:
     """Bring the stored documents of this suite up to the current schema.
 
@@ -895,6 +928,20 @@ def build_parser() -> argparse.ArgumentParser:
     common(prom_p)
     prom_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
     prom_p.set_defaults(func=cmd_promote)
+
+    reg_p = subparsers.add_parser(
+        "register",
+        help="record a person's disposition about a comparison; commit the line",
+    )
+    common(reg_p)
+    reg_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    reg_p.add_argument(
+        "--disposition",
+        required=True,
+        choices=DISPOSITIONS,
+        help="what a person decided about this run's comparison; no default",
+    )
+    reg_p.set_defaults(func=cmd_register)
 
     view_p = subparsers.add_parser(
         "view", help="browse stored runs, compare any two, promote"

@@ -43,6 +43,13 @@ them and never edits them: the policy is approved in a diff, like a baseline,
 and a cycle reports the digest of the one that ruled it — so a hold taken under
 a policy nobody can produce is not a hold.
 
+**A disposition is a person's too.** `digline register` writes what somebody
+decided about a comparison — accepted, rejected or unsure — into a committed
+file under `.digline/<tenant>/register/`. It is the human's memory, beside the
+operator's journal, which is the machine's: never record one on your own
+initiative and never on a schedule. Recommend the disposition with the evidence
+for it; the reason belongs in the message of the commit the human makes.
+
 The operator's credential must exclude the surface that configures its own
 wall — on GitHub, administration scope, so the token that runs the probe cannot
 edit the ruleset it is probing: an agent that can rewrite its fence has a

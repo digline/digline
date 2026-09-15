@@ -41,6 +41,13 @@ them and never edits them: the policy is approved in a diff, like a baseline,
 and a cycle reports the digest of the one that ruled it — so a hold taken under
 a policy nobody can produce is not a hold.
 
+**A disposition is a person's too.** `digline register` writes what somebody
+decided about a comparison — accepted, rejected or unsure — into a committed
+file under `.digline/<tenant>/register/`. It is the human's memory, beside the
+operator's journal, which is the machine's: never record one on your own
+initiative and never on a schedule. Recommend the disposition with the evidence
+for it; the reason belongs in the message of the commit the human makes.
+
 A wall lives outside the constrained identity's configuration surface. Three
 rungs: a protection the identity can bypass is a preference; one it must first
 reconfigure to cross (`enforce_admins` — the change is an auditable event) is a

@@ -262,6 +262,12 @@ their own test; the contents are the customer's data. The reconnaissance for
 capture reached this from the other direction and flagged it as the question to
 settle before a pilot repeats it, and this is the settlement.
 
+*Amended 2026-09-15 ([ADR 0021](0021-the-register.md) §7): naming a case inside
+the tenant's own repository — a clause in `operator.toml`, a line in the ignored
+journal — is in-perimeter naming and is allowed; a content-derived identifier
+never crosses a ledger's travelling surface, and no register entry carries a
+case id at all.*
+
 ### 6. The policy is a narrowing instrument only
 
 **A clause may hold. A clause may not wake.**
@@ -357,6 +363,10 @@ The journal is not a document: it is never listed, compared, reported,
 explained, migrated or redacted, and `digline.wire` never learns its name. What
 it holds by §5 is identifiers, so there is nothing in it that redaction would
 have had to reach.
+
+*Amended 2026-09-15 ([ADR 0021](0021-the-register.md) §8), narrowly: the
+register enters the wire as one named exception. This journal is not that
+exception, and stays unknown to the wire, forever.*
 
 ### 9. The probe grows a second negative, and a fourth check
 

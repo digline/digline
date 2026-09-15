@@ -86,6 +86,12 @@ from digline.core.protocols import (
     Judge,
 )
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
+from digline.core.register import (
+    DISPOSITIONS,
+    Disposition,
+    RecordedOutcome,
+    RegisterEntry,
+)
 from digline.core.run import (
     MAX_RECORDED_CHARS,
     OBSERVED_FIELDS,
@@ -155,6 +161,10 @@ from digline.core.types import (
 
 __all__ = [
     "ALL_KINDS",
+    "DISPOSITIONS",
+    "Disposition",
+    "RecordedOutcome",
+    "RegisterEntry",
     "GROUP_MARKER",
     "IDENTITY_FIELD",
     "ITALIAN_PII",

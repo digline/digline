@@ -962,6 +962,26 @@ def test_the_operator_cannot_reach_promote() -> None:
         assert "digline promote" not in workflow.read_text(encoding="utf-8"), workflow
 
 
+def test_the_operator_never_records_a_disposition() -> None:
+    """ADR 0021 §4: absent from the MCP by construction, and from the CLI by the
+    act — a disposition is a person's, and the register is the human's memory.
+
+    The loop drives the CLI, where `digline register` exists, so the absence is
+    held the way `promote`'s is: no module passes the word to anything, and no
+    workflow names the command.
+    """
+    called = re.compile(r"""['"]register['"]""")
+    for source_path in sorted(OPERATOR.glob("*.py")):
+        source = source_path.read_text(encoding="utf-8")
+        assert not called.search(source), (
+            f"examples/operator/{source_path.name} passes 'register' to "
+            "something: a disposition is a person's decision, never a cycle's"
+        )
+    for workflow in sorted((OPERATOR / ".github" / "workflows").glob("*.yml")):
+        text = workflow.read_text(encoding="utf-8")
+        assert "digline register" not in text, workflow
+
+
 def operator_loop() -> ModuleType:
     """`loop.py`, imported, for the probe's two outcomes a real run never shows.
 

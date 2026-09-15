@@ -41,6 +41,7 @@ from digline.host.measure import (
     seed_observed,
 )
 from digline.host.reading import Explained, explained, history, instant
+from digline.host.register import entry_for, record
 from digline.host.resolve import (
     LATEST,
     Resolved,
@@ -63,6 +64,7 @@ __all__ = [
     "Prepared",
     "SourceOnlyLoader",
     "UsageError",
+    "entry_for",
     "explained",
     "git_commit",
     "history",
@@ -75,6 +77,7 @@ __all__ = [
     "need_baseline",
     "read_artifacts",
     "read_run",
+    "record",
     "resolve_key",
     "seed_observed",
     "utc_now_iso",

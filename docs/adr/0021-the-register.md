@@ -397,8 +397,12 @@ gate on one fact.
 
 Beyond a failing case for every new rule, which the conventions already require:
 
-**The disposition is mandatory.** `digline register` without `--disposition`
-exits 64 and writes nothing; each of the three values writes one line.
+**The disposition is mandatory.** `digline register` without `--disposition` is
+refused by the parser and writes nothing; each of the three values writes one
+line. *The refusal exits 2, not 64, and that is a finding rather than a choice:
+every missing required flag in the CLI exits with argparse's own 2 today, which
+collides with `EXIT_UNJUDGED`. One command exiting 64 alone would be a second
+convention; settling the collision for the whole CLI is in* Not decided here.
 
 **The entry's shape is a set.** A written line's keys, and the keys of its `run`,
 `baseline` and `outcome` blocks, are asserted as sets, so a field added by
@@ -440,6 +444,11 @@ suite that measures the operator is still the command ADR 0019 deferred.
 
 **A rotation marker's format** for the journal. §6 states the obligation; the
 example ships no rotation, and the marker arrives with the first one.
+
+**argparse's exit code.** A missing or invalid flag exits 2 in every command,
+which is `EXIT_UNJUDGED`'s number: a pipeline that typed `--disposition` wrong
+reads *the run could not be judged*. The fix is one parser for the whole CLI and
+it touches ADR 0008 §2's contract, so it is not made in passing here.
 
 **Requiring a register entry before a promotion.** The two gestures are kept
 apart in §2. Whether a team may make one a precondition of the other is a policy

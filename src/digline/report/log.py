@@ -30,7 +30,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from digline.core import Run, SystemConfig
+from digline.core import RegisterEntry, Run, SystemConfig
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -154,6 +154,12 @@ class IdentityLog:
     given. They are *in this store*: runs are ignored by fixed decision 2, so a
     hosted runner or a fresh clone reads none, and that is `runs == 0` rather
     than a history with no roll in it.
+
+    `register` is the story of the reference beside the story of the alias: the
+    dispositions a person recorded, in `recorded_at` order (ADR 0021 §8). It is
+    committed, so unlike the runs it is on every clone. An incomplete last line
+    and a register that could not be read at all are stated, never shown as an
+    empty register.
     """
 
     tenant: str
@@ -169,6 +175,9 @@ class IdentityLog:
     skipped: Mapping[int, int] = field(default_factory=dict[int, int])
     unreadable: int = 0
     reference: Reference | None = None
+    register: tuple[RegisterEntry, ...] = ()
+    register_torn: bool = False
+    register_unreadable: bool = False
 
 
 def sighting(config: SystemConfig, *, writer: str) -> Sighting:
@@ -303,6 +312,9 @@ def identity_log(
     skipped: Mapping[int, int] | None = None,
     unreadable: int = 0,
     baseline: tuple[str, Run] | None = None,
+    register: Sequence[RegisterEntry] = (),
+    register_torn: bool = False,
+    register_unreadable: bool = False,
 ) -> IdentityLog:
     """Fold `(key, run)` pairs into the reading, oldest first.
 
@@ -358,6 +370,19 @@ def identity_log(
         skipped=dict(skipped or {}),
         unreadable=unreadable,
         reference=reference,
+        # The same window, over the moment each disposition was recorded.
+        register=tuple(
+            sorted(
+                (
+                    entry
+                    for entry in register
+                    if _in_window(entry.recorded_at, since, until)
+                ),
+                key=lambda entry: entry.recorded_at,
+            )
+        ),
+        register_torn=register_torn,
+        register_unreadable=register_unreadable,
     )
 
 
@@ -494,4 +519,35 @@ def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
                     sighting=_sighting_text(getattr(reference, side), locale),
                 )
             )
+
+    # The story of the reference: what a person decided about each comparison,
+    # grouped under the reference it was judged against. A change of reference
+    # between two dispositions is said because both entries declare it; where
+    # nothing was recorded, nothing is inferred. (ADR 0021 §9)
+    lines.append("")
+    lines.append(phrase(locale, "log.register.heading"))
+    if log.register_unreadable:
+        lines.append(phrase(locale, "log.register.unreadable"))
+    elif not log.register:
+        lines.append(phrase(locale, "log.register.none"))
+    against: str | None = None
+    for entry in log.register:
+        if entry.baseline_key != against:
+            against = entry.baseline_key
+            lines.append(phrase(locale, "log.register.reference", run=against))
+        lines.append(
+            phrase(
+                locale,
+                "log.register.entry",
+                recorded_at=entry.recorded_at,
+                disposition=phrase(locale, f"log.disposition.{entry.disposition}"),
+                run=entry.run_key,
+                exit_code=entry.exit_code,
+                regressed=entry.outcome.regressed,
+                improved=entry.outcome.improved,
+                unjudged=entry.outcome.unjudged,
+            )
+        )
+    if log.register_torn:
+        lines.append(phrase(locale, "log.register.torn"))
     return tuple(lines)

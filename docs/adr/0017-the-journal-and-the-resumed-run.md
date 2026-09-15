@@ -123,7 +123,9 @@ question somebody would otherwise have to ask:
   this never goes out. `redact()` is a function on a `Run`; the journal holds
   no `Run` until the run is written. The wire does not learn its name, which is
   condition 3 of the passenger rule (ADR 0014 §1) answered by the file not being
-  a passenger at all.
+  a passenger at all. *(Amended 2026-09-15 by [ADR 0021](0021-the-register.md)
+  §8, narrowly: the register enters the wire as one named exception; this
+  journal stays unknown to it.)*
 - It is **deleted when the run file is written**, and §12 says what happens to
   one that outlives its run.
 

@@ -29,7 +29,7 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.run import Suite
-from digline.store import FileResultStore
+from digline.store import FileResultStore, Register, RegisterRefusedError
 from digline.wire import EXIT_OK, EXIT_UNJUDGED, exit_code
 
 __all__ = ["Explained", "explained", "history", "instant"]
@@ -79,10 +79,19 @@ def history(
 
     What the scan could not read is passed on as counts, so the reading can say
     *N runs were not read* instead of describing a shorter history.
+
+    The register rides along (ADR 0021 §8). A register that cannot be read is
+    not a reason to refuse the reading of the runs: it is passed on as a flag,
+    and the reading says so rather than showing an empty register.
     """
     listing = store.scan_runs(suite.tenant, suite.name)
     rows = [(ref.key, store.read_run(ref)) for ref in listing.runs]
     baseline = store.read_baseline(suite.tenant, suite.name)
+    try:
+        register = store.read_register(suite.tenant, suite.name)
+        register_unreadable = False
+    except RegisterRefusedError:
+        register, register_unreadable = Register(), True
     return identity_log(
         rows,
         tenant=suite.tenant,
@@ -92,6 +101,9 @@ def history(
         skipped=listing.skipped,
         unreadable=len(listing.unreadable),
         baseline=None if baseline is None else (store.key_for(baseline), baseline),
+        register=register.entries,
+        register_torn=register.torn,
+        register_unreadable=register_unreadable,
     )
 
 

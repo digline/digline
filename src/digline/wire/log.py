@@ -13,10 +13,17 @@ about the system, and has no reason to name a case.
 
 from __future__ import annotations
 
+from digline.core import RegisterEntry
 from digline.report.log import IdentityLog, IdentitySpan, Roll, Sighting
 from digline.wire.contract import OUTPUT_VERSION
 
-__all__ = ["log_json", "roll_json", "sighting_json", "span_json"]
+__all__ = [
+    "log_json",
+    "register_entry_json",
+    "roll_json",
+    "sighting_json",
+    "span_json",
+]
 
 
 def sighting_json(found: Sighting) -> dict[str, object]:
@@ -56,6 +63,56 @@ def roll_json(roll: Roll) -> dict[str, object]:
         "last_before": roll.last_before,
         "first_after": roll.first_after,
         "silent_between": roll.silent_between,
+    }
+
+
+def register_entry_json(entry: RegisterEntry) -> dict[str, object]:
+    """One recorded disposition, in the register's own shape without its format
+    number.
+
+    **The one named exception to "the wire never learns its name"** (ADR 0021
+    §8): the register enters the wire here, and only here, while the decision
+    journal and `.pending/` stay unknown to it. What crosses is what the value
+    can hold — counts and keys, by type — so there is nothing to leave out.
+    """
+    outcome = entry.outcome
+    return {
+        "recorded_at": entry.recorded_at,
+        "digline_version": entry.digline_version,
+        "disposition": entry.disposition,
+        "run": {
+            "key": entry.run_key,
+            "created_at": entry.run_created_at,
+            "config_hash": entry.run_config_hash,
+            "environment": entry.run_environment,
+            "digline_version": entry.run_digline_version,
+            "rejudged": entry.run_rejudged,
+        },
+        "baseline": {
+            "key": entry.baseline_key,
+            "config_hash": entry.baseline_config_hash,
+            "promoted_at": entry.baseline_promoted_at or None,
+        },
+        "outcome": {
+            "regressed": outcome.regressed,
+            "improved": outcome.improved,
+            "unchanged": outcome.unchanged,
+            "new": outcome.new,
+            "missing": outcome.missing,
+            "errored": outcome.errored,
+            "unjudged": outcome.unjudged,
+            "suspended": outcome.suspended,
+            "within_noise": outcome.within_noise,
+            "on_the_line": outcome.on_the_line,
+            "worse": outcome.worse,
+            "canary_moved": outcome.canary_moved,
+            "config_changed": outcome.config_changed,
+            "artifacts_changed": outcome.artifacts_changed,
+            "target_config_changed": outcome.target_config_changed,
+            "judge_config_changed": outcome.judge_config_changed,
+            "rejudged": outcome.rejudged,
+        },
+        "exit_code": entry.exit_code,
     }
 
 
@@ -100,4 +157,7 @@ def log_json(log: IdentityLog) -> dict[str, object]:
                 "judge": sighting_json(reference.judge),
             }
         ),
+        "register": [register_entry_json(entry) for entry in log.register],
+        "register_torn": log.register_torn,
+        "register_unreadable": log.register_unreadable,
     }

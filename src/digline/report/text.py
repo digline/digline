@@ -617,6 +617,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.reference.none": "No reference is approved for this suite.",
         "log.reference.side": "  {side}: {sighting}",
+        # The register's section of the same reading (ADR 0021 §8).
+        "log.register.heading": "Dispositions recorded",
+        "log.register.none": "  No disposition is recorded for this suite.",
+        "log.register.unreadable": (
+            "  The register could not be read, so no disposition is shown."
+        ),
+        "log.register.torn": (
+            "  The register's last line is incomplete and was not read."
+        ),
+        "log.register.reference": "  Against reference {run}:",
+        "log.register.entry": (
+            "    {recorded_at} · {disposition}: {run}, exit {exit_code} — "
+            "{regressed} worse, {improved} better, {unjudged} not judged"
+        ),
+        "log.disposition.accepted": "accepted",
+        "log.disposition.rejected": "rejected",
+        "log.disposition.unsure": "unsure",
     },
     "it": {
         "document.title": "Rapporto di valutazione — {suite}",
@@ -1196,6 +1213,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.reference.none": "Nessun riferimento approvato per questa suite.",
         "log.reference.side": "  {side}: {sighting}",
+        "log.register.heading": "Decisioni registrate",
+        "log.register.none": "  Nessuna decisione registrata per questa suite.",
+        "log.register.unreadable": (
+            "  Il registro non si è potuto leggere, quindi nessuna decisione è "
+            "mostrata."
+        ),
+        "log.register.torn": (
+            "  L'ultima riga del registro è incompleta e non è stata letta."
+        ),
+        "log.register.reference": "  Rispetto al riferimento {run}:",
+        "log.register.entry": (
+            "    {recorded_at} · {disposition}: {run}, uscita {exit_code} — "
+            "{regressed} peggiorati, {improved} migliorati, {unjudged} non valutati"
+        ),
+        "log.disposition.accepted": "accettata",
+        "log.disposition.rejected": "rifiutata",
+        "log.disposition.unsure": "incerta",
     },
 }
 
