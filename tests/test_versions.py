@@ -159,6 +159,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "finish_raw and ToolsCalled came back clean, and whose follow-on run "
         "lost a propagation race on two legs. History, timings and all, like "
         "the 0.7.1 entries above",
+        "0.12.1": "'0.12.1's is the worked example' — the release whose drafted "
+        "advisory shows the session posting a GHSA draft, told as history beside "
+        "the 0.12.0 entry that dates the pass it came from",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
@@ -313,6 +316,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "which an unchecked `kind` stopped reaching `restore_output`, said "
         "beside the refusal that replaced it. History from the moment 0.11.0 "
         "shipped",
+        "0.12.1": "four sites — 'Corrected in 0.12.1', '(0.12.1)' twice and "
+        "'(0.12.1, from the release delta-pass)' — the release in which `[]` "
+        "stopped collapsing into *not reported*, a corrupt trajectory began to "
+        "be refused by name, and a perimeter field stopped crossing inside a "
+        "comparison. Each named beside the code that closes it. History from "
+        "the moment 0.13.0 shipped",
     },
     # The other three sites the 0.10.0 delta-pass left a mark on, in the shape
     # the 0.7.2 pair above established: the release is named beside the code
@@ -322,6 +331,24 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.10.1": "'(0.10.1, from the release delta-pass)' — the release the "
         "control-character sanitiser arrived in, named beside it so the next "
         "reader does not reinvent it one layer down",
+        "0.12.1": "'(0.12.1, from the release delta-pass)' — the release in "
+        "which `emit()` stopped putting a control character on a terminal, "
+        "named beside the escaping that closed it",
+    },
+    # The 0.12.1 delta-pass, in the same shape: the release named where each
+    # finding is closed, history from the moment 0.13.0 shipped.
+    "src/digline/core/compare.py": {
+        "0.12.1": "'the 0.12.1 delta-pass' — the release in which "
+        "`config_deltas` began redacting both sides, so a perimeter field no "
+        "longer walks out of the delta (ADR 0005 §2)",
+    },
+    "src/digline/report/log.py": {
+        "0.12.1": "'the door 0.12.1 closed in `config_deltas`' — the reading "
+        "across runs saying which closed door it keeps closed by construction",
+    },
+    "src/digline/run/replay.py": {
+        "0.12.1": "'(0.12.1, from the release delta-pass)' — the release in "
+        "which a replay of an honest zero-call run stopped being refused",
     },
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
         "0.10.1": "'(0.10.1)' at three sites — the release in which the "

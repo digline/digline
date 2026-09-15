@@ -99,6 +99,12 @@ RELEASED: dict[str, int] = {
     # `None` that `[]` never occupied, which is additive on read — absent still
     # means *not reported* in every document 0.12.0 wrote.
     "0.12.1": 11,
+    # Schema 11 still: `not_reported` and `result_absence` are a value and a
+    # field no 0.12 document carries, so every one of those reads as it did —
+    # and 0.12.x refuses a document that carries them, by name. The declared
+    # price and the register add nothing to the run document's schema. What the
+    # release costs the examples is the cap, as 0.11.0's did.
+    "0.13.0": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

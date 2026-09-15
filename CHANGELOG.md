@@ -8,6 +8,116 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+## digline-openai — Unreleased
+
+- **Added: the trajectory.** Every tool call reaches `Response.metadata` with
+  its arguments, so `ToolCalledWith` judges an OpenAI target. `function`
+  arguments are decoded when the model wrote a JSON object and kept verbatim
+  when it did not; a `custom` call's free-form input is kept as written. Chat
+  Completions returns what the model asked for and stops, so every call is
+  recorded `status="not_reported"` with its result `not_reported`.
+- **Fixed:** a `custom` tool call was recorded under the name `""` —
+  `function.name` was read on a call that has none.
+- **Changed: `free()` is a declared price.** It delegates to
+  `digline.targets.free`, so a Python suite hashes as its data-suite twin with
+  four declared zeros ([ADR 0022](docs/adr/0022-the-declared-price.md) §2). **A
+  suite that already used it gets a new `config_hash` on upgrade**: its baseline
+  stays comparable and is no longer promotable until a new one is signed.
+  **Re-promote when you upgrade**: run the suite once on the new plugin, read
+  the comparison, and promote that run as the reference.
+- **Added: `gpt-6-astra`**, priced from the list read on 2026-09-11 — in the
+  repository since digline 0.10.0, on the index for the first time.
+- **Known: cache writes are undercounted, in the good-news direction.** openai
+  3.13.0 reports `prompt_tokens_details.cache_write_tokens` and GPT-5.6 and
+  later bill them, but whether they sit inside `prompt_tokens` is **unmeasured**,
+  and each guess misprices. So the plugin still reports zero, and a call that
+  writes a cache costs more than the run says. `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`
+  is `None` until the live test that measures it — three calls, caching off as
+  the baseline — has been run; this is not fixed.
+- Requires `digline>=0.13.0`.
+
+## digline-anthropic — Unreleased
+
+- **Added: the trajectory.** Every `tool_use` and `server_tool_use` block
+  reaches `Response.metadata` with its input, so `ToolCalledWith` judges an
+  Anthropic target. A client-side call is recorded `status="not_reported"` —
+  the tool runs after the reply. A server tool's outcome is read from its result
+  block in the same reply: an error records `status="error"` and the provider's
+  `error_code`; a success records `status="success"` and its payload as
+  `not_recorded`, because search pages and code output would push the answer
+  over the recording ceiling with them.
+- No `free()`: Anthropic hosts every model it serves, so there is nothing to
+  delegate.
+- Requires `digline>=0.13.0`.
+
+## digline-bedrock — Unreleased
+
+- **Added: the trajectory.** Every `toolUse` block reaches `Response.metadata`
+  with its input (a non-object input as canonical JSON), so `ToolCalledWith`
+  judges a Bedrock target. A client-side call is recorded
+  `status="not_reported"`. A server tool with a `toolResult` in the output
+  records `error` with **the error text** — Converse carries words where the
+  other providers carry a code, and they are the only diagnostic — or `success`
+  with its payload `not_recorded`; without the `status` AWS documents for Nova
+  and Claude only, neither is claimed. Read from botocore's service model; not
+  yet checked against a real server-tool reply.
+- **Changed: `free()` is a declared price**, delegating to
+  `digline.targets.free`. **A suite that already used it gets a new
+  `config_hash` on upgrade**: its baseline stays comparable and is no longer
+  promotable until a new one is signed. **Re-promote when you upgrade**: run the
+  suite once on the new plugin, read the comparison, and promote that run as the
+  reference.
+- Requires `digline>=0.13.0`.
+
+## 0.13.0 — 2026-09-15
+
+**The ledger.** digline **0.13.0**, alone on this tag: `digline-mcp` stays at
+0.1.2 and `pytest-digline` at 0.1.3, and the three provider plugins stay at
+0.4.0 here and follow in their own 0.5.0, which needs this release.
+`SCHEMA_VERSION` stays **11** and `OUTPUT_VERSION` stays 1 — no stored document
+moves, no `--json` shape breaks, and **no baseline needs re-promoting** unless
+you declare a price.
+
+Four strands, and they are one question asked of a run from four sides: what
+answered, what it cost, what it did, and what a person decided about it.
+
+- **The reading across runs, and the human's memory of a verdict.**
+  `digline log` ([ADR 0020](docs/adr/0020-the-reading-across-runs.md)) reads
+  which model answered down a suite's stored runs, and names each absence
+  rather than collapsing it. `digline register`
+  ([ADR 0021](docs/adr/0021-the-register.md)) keeps what a person decided about
+  a comparison, committed like a baseline — until now `compare` answered and
+  the decision lived in whatever commit message mentioned it.
+- **The declared price** ([ADR 0022](docs/adr/0022-the-declared-price.md)). A
+  data suite can now describe what an OpenAI-compatible endpoint, a gateway or
+  a self-hosted model actually charges, so a `CostBudget` stops measuring
+  somebody else's prices. The price enters `config_hash`, which is why
+  `promote`, `view` and `rejudge` now take `--target`: a multi-target suite
+  names what it signs.
+- **An echoed id is not a verified identity, and a withheld one is not a
+  match.** The seventh absence: an endpoint that returns the requested id as the
+  model that answered has identified nothing, and `compare`, the report,
+  `explain` and `log` say so. And a comparison no longer reads *the same
+  configuration* over an answering model it withheld.
+- **The trajectory, for anyone using the three SDKs.** 0.12.0 recorded a
+  trajectory only a plain-function target could fill. This release gives a
+  provider plugin the words for what it cannot see — `not_reported`,
+  `result_absence`, `digline.targets.ToolCall` — and the 0.5.0 plugins that
+  follow fill it for OpenAI, Anthropic and Bedrock.
+
+**What it costs you, in order.** Nothing, for a suite that declares no price.
+Declaring one moves `config_hash` once: the old baseline stays comparable, and
+the first run under the declared price is the one to read and promote. A Python
+suite priced with `digline_openai.free()` or `digline_bedrock.free()` moves once
+too — not on this upgrade, but on the plugin's 0.5.0, which is where the window
+named below closes. A document recorded with the 0.5.0 plugins can carry
+`not_reported`, which 0.12.x refuses by name: read it with this digline or
+newer. The examples' cap moves to `<0.14` and their floor does not.
+
+```sh
+uv add --upgrade digline
+```
+
 - **Fixed:** `compare` and the report **no longer say "the same configuration"
   over an answering model they withheld**. At a named endpoint — an
   OpenAI-compatible aggregator, a corporate gateway, a self-hosted server
@@ -201,67 +311,6 @@ notes under them are this file, verbatim.
   hold on a streak nobody can count. Found by the ledger's reconnaissance, in
   the example as published; the dogfood had already carried the journal, and
   swallowed a failed restore the same way.
-
-## digline-openai — Unreleased
-
-- **Added: the trajectory.** Every tool call reaches `Response.metadata` with
-  its arguments, so `ToolCalledWith` judges an OpenAI target. `function`
-  arguments are decoded when the model wrote a JSON object and kept verbatim
-  when it did not; a `custom` call's free-form input is kept as written. Chat
-  Completions returns what the model asked for and stops, so every call is
-  recorded `status="not_reported"` with its result `not_reported`.
-- **Fixed:** a `custom` tool call was recorded under the name `""` —
-  `function.name` was read on a call that has none.
-- **Changed: `free()` is a declared price.** It delegates to
-  `digline.targets.free`, so a Python suite hashes as its data-suite twin with
-  four declared zeros ([ADR 0022](docs/adr/0022-the-declared-price.md) §2). **A
-  suite that already used it gets a new `config_hash` on upgrade**: its baseline
-  stays comparable and is no longer promotable until a new one is signed.
-  **Re-promote when you upgrade**: run the suite once on the new plugin, read
-  the comparison, and promote that run as the reference.
-- **Added: `gpt-6-astra`**, priced from the list read on 2026-09-11 — in the
-  repository since digline 0.10.0, on the index for the first time.
-- **Known: cache writes are undercounted, in the good-news direction.** openai
-  3.13.0 reports `prompt_tokens_details.cache_write_tokens` and GPT-5.6 and
-  later bill them, but whether they sit inside `prompt_tokens` is **unmeasured**,
-  and each guess misprices. So the plugin still reports zero, and a call that
-  writes a cache costs more than the run says. `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`
-  is `None` until the live test that measures it — three calls, caching off as
-  the baseline — has been run; this is not fixed.
-- Requires `digline>=0.13.0`.
-
-## digline-anthropic — Unreleased
-
-- **Added: the trajectory.** Every `tool_use` and `server_tool_use` block
-  reaches `Response.metadata` with its input, so `ToolCalledWith` judges an
-  Anthropic target. A client-side call is recorded `status="not_reported"` —
-  the tool runs after the reply. A server tool's outcome is read from its result
-  block in the same reply: an error records `status="error"` and the provider's
-  `error_code`; a success records `status="success"` and its payload as
-  `not_recorded`, because search pages and code output would push the answer
-  over the recording ceiling with them.
-- No `free()`: Anthropic hosts every model it serves, so there is nothing to
-  delegate.
-- Requires `digline>=0.13.0`.
-
-## digline-bedrock — Unreleased
-
-- **Added: the trajectory.** Every `toolUse` block reaches `Response.metadata`
-  with its input (a non-object input as canonical JSON), so `ToolCalledWith`
-  judges a Bedrock target. A client-side call is recorded
-  `status="not_reported"`. A server tool with a `toolResult` in the output
-  records `error` with **the error text** — Converse carries words where the
-  other providers carry a code, and they are the only diagnostic — or `success`
-  with its payload `not_recorded`; without the `status` AWS documents for Nova
-  and Claude only, neither is claimed. Read from botocore's service model; not
-  yet checked against a real server-tool reply.
-- **Changed: `free()` is a declared price**, delegating to
-  `digline.targets.free`. **A suite that already used it gets a new
-  `config_hash` on upgrade**: its baseline stays comparable and is no longer
-  promotable until a new one is signed. **Re-promote when you upgrade**: run the
-  suite once on the new plugin, read the comparison, and promote that run as the
-  reference.
-- Requires `digline>=0.13.0`.
 
 ## 0.12.1 — 2026-09-13
 
