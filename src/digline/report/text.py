@@ -574,6 +574,66 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             " That is outside the interval its reference measured, {noise}."
         ),
         "explain.nothing": "Nothing in this group.",
+        # `digline log` (ADR 0020). The multi-run vocabulary is this reading's
+        # whole subject, so it is allowed here; advice is not, and neither is
+        # "likely", which belongs to the canary.
+        "log.heading": "{suite} · {count} run(s) read in this store, {first} to {last}",
+        "log.empty": "{suite} · no run read in this store, in this window.",
+        "log.window": "Window: {since} to {until}.",
+        "log.window.open": "…",
+        "log.not_read.schema": "{count} run(s) at schema {version} were not read.",
+        "log.not_read.unreadable": "{count} file(s) could not be read.",
+        "log.side.target": "Target",
+        "log.side.judge": "Judge",
+        "log.span": "  {sighting} — {first} to {last}, {runs} run(s){environments}",
+        "log.environments": " ({environments})",
+        "log.sighting.answered": "{who}, answered as {answered}",
+        "log.sighting.absent": "{who}: {absence}",
+        "log.absence.declared_nothing": "declared no configuration",
+        "log.absence.several_judges": "several judges; no single answering model",
+        "log.absence.withheld": ("the answering model is withheld at a named endpoint"),
+        "log.absence.not_reported": "no answering model was reported",
+        "log.absence.not_recorded": (
+            "not recorded: the document does not name its writer"
+        ),
+        "log.replay": (
+            "{run} re-judged {source} and asked the target nothing; it is not "
+            "counted as a sighting of the target."
+        ),
+        "log.rolls.none": "No roll recorded.",
+        "log.roll": (
+            "{side}: {sent} answered as {before} last at {last_before}, and as "
+            "{after} first at {first_after}."
+        ),
+        "log.roll.silence": (
+            "{count} run(s) between them recorded no answering model."
+        ),
+        "log.reference": (
+            "Reference {run}, recorded {created_at}, approved {promoted_at}."
+        ),
+        "log.reference.undated": (
+            "Reference {run}, recorded {created_at}; when it was approved was "
+            "not recorded."
+        ),
+        "log.reference.none": "No reference is approved for this suite.",
+        "log.reference.side": "  {side}: {sighting}",
+        # The register's section of the same reading (ADR 0021 §8).
+        "log.register.heading": "Dispositions recorded",
+        "log.register.none": "  No disposition is recorded for this suite.",
+        "log.register.unreadable": (
+            "  The register could not be read, so no disposition is shown."
+        ),
+        "log.register.torn": (
+            "  The register's last line is incomplete and was not read."
+        ),
+        "log.register.reference": "  Against reference {run}:",
+        "log.register.entry": (
+            "    {recorded_at} · {disposition}: {run}, exit {exit_code} — "
+            "{regressed} worse, {improved} better, {unjudged} not judged"
+        ),
+        "log.disposition.accepted": "accepted",
+        "log.disposition.rejected": "rejected",
+        "log.disposition.unsure": "unsure",
     },
     "it": {
         "document.title": "Rapporto di valutazione — {suite}",
@@ -1100,6 +1160,76 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             " È fuori dall'intervallo misurato dal riferimento, {noise}."
         ),
         "explain.nothing": "Niente in questo gruppo.",
+        "log.heading": (
+            "{suite} · {count} esecuzioni lette in questo archivio, da {first} a {last}"
+        ),
+        "log.empty": (
+            "{suite} · nessuna esecuzione letta in questo archivio, in questa finestra."
+        ),
+        "log.window": "Finestra: da {since} a {until}.",
+        "log.window.open": "…",
+        "log.not_read.schema": (
+            "{count} esecuzioni allo schema {version} non sono state lette."
+        ),
+        "log.not_read.unreadable": "{count} file non si sono potuti leggere.",
+        "log.side.target": "Sistema",
+        "log.side.judge": "Giudice",
+        "log.span": (
+            "  {sighting} — da {first} a {last}, {runs} esecuzioni{environments}"
+        ),
+        "log.environments": " ({environments})",
+        "log.sighting.answered": "{who}, ha risposto come {answered}",
+        "log.sighting.absent": "{who}: {absence}",
+        "log.absence.declared_nothing": "nessuna configurazione dichiarata",
+        "log.absence.several_judges": (
+            "più giudici; nessun singolo modello che ha risposto"
+        ),
+        "log.absence.withheld": (
+            "il modello che ha risposto è trattenuto presso un endpoint nominato"
+        ),
+        "log.absence.not_reported": "nessun modello che ha risposto è stato riportato",
+        "log.absence.not_recorded": (
+            "non registrato: il documento non dice quale versione l'ha scritto"
+        ),
+        "log.replay": (
+            "{run} ha rivalutato {source} senza interrogare il sistema; non conta "
+            "come avvistamento del sistema."
+        ),
+        "log.rolls.none": "Nessun cambio di modello registrato.",
+        "log.roll": (
+            "{side}: {sent} ha risposto come {before} l'ultima volta a "
+            "{last_before}, e come {after} la prima volta a {first_after}."
+        ),
+        "log.roll.silence": (
+            "{count} esecuzioni tra le due non hanno registrato il modello che ha "
+            "risposto."
+        ),
+        "log.reference": (
+            "Riferimento {run}, registrato a {created_at}, approvato a {promoted_at}."
+        ),
+        "log.reference.undated": (
+            "Riferimento {run}, registrato a {created_at}; quando sia stato "
+            "approvato non è registrato."
+        ),
+        "log.reference.none": "Nessun riferimento approvato per questa suite.",
+        "log.reference.side": "  {side}: {sighting}",
+        "log.register.heading": "Decisioni registrate",
+        "log.register.none": "  Nessuna decisione registrata per questa suite.",
+        "log.register.unreadable": (
+            "  Il registro non si è potuto leggere, quindi nessuna decisione è "
+            "mostrata."
+        ),
+        "log.register.torn": (
+            "  L'ultima riga del registro è incompleta e non è stata letta."
+        ),
+        "log.register.reference": "  Rispetto al riferimento {run}:",
+        "log.register.entry": (
+            "    {recorded_at} · {disposition}: {run}, uscita {exit_code} — "
+            "{regressed} peggiorati, {improved} migliorati, {unjudged} non valutati"
+        ),
+        "log.disposition.accepted": "accettata",
+        "log.disposition.rejected": "rifiutata",
+        "log.disposition.unsure": "incerta",
     },
 }
 

@@ -2,6 +2,7 @@
 
 from digline.store.file_store import (
     PENDING_DIRNAME,
+    REGISTER_DIRNAME,
     FileJournal,
     FileResultStore,
     journal_key,
@@ -16,6 +17,7 @@ from digline.store.migrate import (
 )
 from digline.store.protocol import (
     JOURNAL_VERSION,
+    REGISTER_VERSION,
     ConfigMismatchError,
     ErroredRunError,
     Journal,
@@ -24,16 +26,24 @@ from digline.store.protocol import (
     JournalRefusedError,
     Listing,
     Pending,
+    Register,
+    RegisterRefusedError,
     ReplayedRunError,
     ResultStore,
     RunRef,
     SupportsJournal,
+    SupportsRegister,
     TenantMismatchError,
 )
 
 __all__ = [
     "JOURNAL_VERSION",
     "PENDING_DIRNAME",
+    "REGISTER_DIRNAME",
+    "REGISTER_VERSION",
+    "Register",
+    "RegisterRefusedError",
+    "SupportsRegister",
     "ConfigMismatchError",
     "ErroredRunError",
     "FileJournal",

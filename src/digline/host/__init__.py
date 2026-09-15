@@ -40,6 +40,8 @@ from digline.host.measure import (
     prepare,
     seed_observed,
 )
+from digline.host.reading import Explained, explained, history, instant
+from digline.host.register import entry_for, record
 from digline.host.resolve import (
     LATEST,
     Resolved,
@@ -51,6 +53,7 @@ from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 
 __all__ = [
     "DIRTY_SUFFIX",
+    "Explained",
     "LATEST",
     "Resolved",
     "SUITE_ATTR",
@@ -61,7 +64,11 @@ __all__ = [
     "Prepared",
     "SourceOnlyLoader",
     "UsageError",
+    "entry_for",
+    "explained",
     "git_commit",
+    "history",
+    "instant",
     "load_suite",
     "load_target",
     "load_toml_suite",
@@ -70,6 +77,7 @@ __all__ = [
     "need_baseline",
     "read_artifacts",
     "read_run",
+    "record",
     "resolve_key",
     "seed_observed",
     "utc_now_iso",

@@ -14,6 +14,16 @@ from digline.report.explain import (
     facts,
 )
 from digline.report.history import CaseEntry, CaseHistory, case_history
+from digline.report.log import (
+    IdentityLog,
+    IdentitySpan,
+    Reference,
+    Replay,
+    Roll,
+    Sighting,
+    identity_log,
+    log_text,
+)
 from digline.report.pages import (
     VIEW_CSS,
     case_page,
@@ -66,10 +76,18 @@ __all__ = [
     "TEXT",
     "ErroredVerdict",
     "Headline",
+    "IdentityLog",
+    "IdentitySpan",
     "Locale",
+    "Reference",
+    "Replay",
+    "Roll",
     "RunTally",
     "Section",
+    "Sighting",
     "case_history",
+    "identity_log",
+    "log_text",
     "check_line",
     "diff",
     "case_page",

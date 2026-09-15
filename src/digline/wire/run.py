@@ -89,6 +89,22 @@ def runs_json(
                 # can see that one of them came from a release it does not have,
                 # which is the same fact the CLI prints on stderr. (ADR 0014 §3)
                 "digline_version": run.digline_version,
+                # The column `digline view`'s grid already shows, so the machine
+                # surface is no thinner than the human one. Fixed decision 9's
+                # crossing list and nothing more: no `metadata`, so no
+                # `Disclosure` is needed here — the counts are one `get_run`
+                # away — and no `reason`, because none crosses. (ADR 0020 §7)
+                "aggregate": [
+                    {
+                        "name": verdict.score.name,
+                        "assertion_id": verdict.assertion_id,
+                        "status": verdict.status,
+                        "score": verdict.score.score,
+                        "threshold": verdict.threshold,
+                        "tolerance": verdict.tolerance,
+                    }
+                    for verdict in run.aggregate
+                ],
             }
             for key, run in ordered
         ],

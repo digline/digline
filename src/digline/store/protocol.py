@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
+from digline.core.register import RegisterEntry
 from digline.core.run import (
     SCHEMA_VERSION,
     CaseProgress,
@@ -17,6 +18,10 @@ from digline.core.types import Cause
 
 __all__ = [
     "JOURNAL_VERSION",
+    "REGISTER_VERSION",
+    "Register",
+    "RegisterRefusedError",
+    "SupportsRegister",
     "ConfigMismatchError",
     "ErroredRunError",
     "Journal",
@@ -38,6 +43,24 @@ __all__ = [
 #: digline cannot read is one it does not resume — it is left on disk, named,
 #: and the run it belongs to is started again. (ADR 0017 §2)
 JOURNAL_VERSION = 1
+
+#: The register's own format version, independent of `SCHEMA_VERSION` and of
+#: the journal's. A register is a **format** and not a document: nothing
+#: migrates it, and a line this digline cannot read is refused by name and left
+#: on disk — it is a committed record, and a committed record is never rewritten
+#: by a command. (ADR 0021 §5)
+REGISTER_VERSION = 1
+
+
+class RegisterRefusedError(Exception):
+    """Raised when a register may not be read, or may not be appended to.
+
+    A line that does not parse anywhere but at the end is a corrupt register; a
+    line at a format this digline does not know is a register it cannot read;
+    and an incomplete last line is one it will not append after, because the
+    new line would bury it in the middle. Each is refused by name and the file is
+    left exactly as it was. (ADR 0021 §5)
+    """
 
 
 class ConfigMismatchError(Exception):
@@ -391,6 +414,45 @@ class Journal(Protocol):
 
         Named for what it means rather than for what it does. A journal that is
         deleted for any other reason is paid work thrown away.
+        """
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class Register:
+    """Every disposition recorded for one suite, in `recorded_at` order.
+
+    Ordered by the recorded fact and not by file order: two branches that each
+    appended a line meet in a union merge, and the merged file's order is git's
+    and not time's. A line that is byte-identical to one already read is read
+    once. (ADR 0021 §4)
+
+    `torn` is an incomplete last line, which was not read. It is stated rather
+    than dropped in silence, so a reading can say so.
+    """
+
+    entries: tuple[RegisterEntry, ...] = ()
+    torn: bool = False
+
+
+@runtime_checkable
+class SupportsRegister(Protocol):
+    """A store that can hold the register.
+
+    Asked for rather than required, the way `SupportsJournal` is: the planned
+    production store has no business being obliged to write an append-only
+    file into a repository. (ADR 0021 §5)
+    """
+
+    def read_register(self, tenant: str, suite: str) -> Register:
+        """Raises `RegisterRefusedError` for a corrupt line or an unknown format."""
+        ...
+
+    def append_register(self, tenant: str, suite: str, entry: RegisterEntry) -> None:
+        """One line, durably, after every line already there — never an edit.
+
+        Refuses, leaving the file untouched, where the register cannot be read
+        or its last line is incomplete.
         """
         ...
 

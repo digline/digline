@@ -5,10 +5,12 @@ composes it. The clock and git are still read once per command and passed down
 as values; they are now read through `digline.host` so that a second front end
 reads them the same way rather than growing its own. (ADR 0011 §7)
 
-Nine commands, each doing one thing, and nothing promoting as a side effect of
-anything else: `run` writes a run and prints its key, `compare` reads and
-judges, `diff` reads two runs and judges neither, `promote` promotes, `report`
-renders, `explain` reads the same facts back at length, `migrate` brings stored
+Twelve commands, each doing one thing, and nothing promoting as a side effect of
+anything else: `run` writes a run and prints its key, `rejudge` judges stored
+answers again, `compare` reads and judges, `diff` reads two runs and judges
+neither, `promote` promotes, `register` records what a person decided about a
+comparison, `report` renders, `explain` reads the same facts back at length,
+`log` reads which model answered down the runs, `migrate` brings stored
 documents up to the current schema, `list` and `view` show.
 
 `compare` and `diff` are two commands and not one with a flag, because **the
@@ -36,6 +38,7 @@ from digline import __version__
 from digline.cli.output import emit, say
 from digline.cli.view import serve
 from digline.core import (
+    DISPOSITIONS,
     Run,
     compare,
     diff,
@@ -46,7 +49,10 @@ from digline.host import (
     LATEST,
     Loaded,
     UsageError,
+    explained,
     git_commit,
+    history,
+    instant,
     load_suite,
     load_target,
     measure,
@@ -54,6 +60,7 @@ from digline.host import (
     prepare,
     read_artifacts,
     read_run,
+    record,
     resolve_key,
     utc_now_iso,
 )
@@ -61,8 +68,8 @@ from digline.report import (
     artifact_lines,
     config_lines,
     explain_text,
-    facts,
     headline,
+    log_text,
     render_html,
     render_run_html,
     summary_lines,
@@ -92,6 +99,7 @@ from digline.wire import (
     diff_json,
     exit_code,
     explain_json,
+    log_json,
     run_json,
 )
 
@@ -560,6 +568,36 @@ def cmd_promote(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_register(args: argparse.Namespace) -> int:
+    """A person's disposition about a comparison, appended to the register.
+
+    The human's memory, beside the operator's journal, which is the machine's
+    (ADR 0021 §1). It writes one line into a committed file and exits 0 when it
+    did — like `promote`, and never with the comparison's code: the gate is
+    `compare`'s, and a recording command that failed a pipeline would be a
+    second gate on one fact.
+
+    The reason is not an argument. A note field is where somebody writes the
+    customer's name; the reason belongs in the message of the commit that adds
+    the line, which the entry's run key now lets anyone join to its run.
+    """
+    suite, _loaded, store = _load(args)
+    key = _resolve(store, suite, args.run)
+    # The clock, read here and handed down, as `promote` reads it.
+    entry, path = record(
+        store, suite, key, disposition=args.disposition, recorded_at=utc_now_iso()
+    )
+    shown = path
+    if path.is_relative_to(Path(args.root).resolve()):
+        shown = path.relative_to(Path(args.root).resolve())
+    say(
+        f"{suite.name}: recorded {entry.disposition} for {key} against the "
+        f"reference {entry.baseline_key}"
+    )
+    say(f"commit {shown} — the reason belongs in that commit's message")
+    return EXIT_OK
+
+
 def cmd_migrate(args: argparse.Namespace) -> int:
     """Bring the stored documents of this suite up to the current schema.
 
@@ -619,37 +657,51 @@ def cmd_explain(args: argparse.Namespace) -> int:
     0 on three paragraphs about it.
     """
     suite, _loaded, store = _load(args)
-    run = read_run(store, suite, _resolve(store, suite, args.run))
-    baseline = store.read_baseline(suite.tenant, suite.name)
-    _warn_if_ahead(run, baseline)
-
-    if baseline is None:
-        # `_report_single`'s rule, and for its reason: "worse" is a relation,
-        # and there is nothing here to be worse than. An unjudged case survives
-        # — that is a fact about the harness rather than about a reference.
-        reading = facts(run)
-        code = EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
-        scope = "run"
-    else:
-        comparison = compare(run, baseline)
-        reading = facts(run, comparison)
-        code = exit_code(headline(comparison, run, baseline, locale=args.locale))
-        scope = "comparison"
+    # Composed in the host, because the MCP `explain` tool reads a run back the
+    # same way and two compositions are two answers waiting to happen.
+    read = explained(store, suite, _resolve(store, suite, args.run))
+    _warn_if_ahead(read.run, read.baseline)
 
     if args.json:
         emit(
             json.dumps(
-                explain_json(reading, scope=scope, exit_code=code),
+                explain_json(read.reading, scope=read.scope, exit_code=read.exit_code),
                 sort_keys=True,
                 indent=2,
                 ensure_ascii=False,
             )
         )
-        return code
+        return read.exit_code
 
-    for line in explain_text(reading, locale=args.locale):
+    for line in explain_text(read.reading, locale=args.locale):
         say(line)
-    return code
+    return read.exit_code
+
+
+def cmd_log(args: argparse.Namespace) -> int:
+    """Which model answered, read down this suite's stored runs. (ADR 0020)
+
+    **Not a gate: it exits 0 whenever it could read the store**, whatever it
+    found. A roll is a fact about the system, and the verdict about a suite is
+    `compare`'s — where a changed answering model is already a named delta and
+    a moved canary already exits 1. Two gates on one fact teach a pipeline to
+    mute one of them.
+    """
+    suite, _loaded, store = _load(args)
+    reading = history(
+        store,
+        suite,
+        since=instant(args.since, name="--since"),
+        until=instant(args.until, name="--until"),
+    )
+    if args.json:
+        emit(
+            json.dumps(log_json(reading), sort_keys=True, indent=2, ensure_ascii=False)
+        )
+        return EXIT_OK
+    for line in log_text(reading, locale=args.locale):
+        say(line)
+    return EXIT_OK
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -877,6 +929,20 @@ def build_parser() -> argparse.ArgumentParser:
     prom_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
     prom_p.set_defaults(func=cmd_promote)
 
+    reg_p = subparsers.add_parser(
+        "register",
+        help="record a person's disposition about a comparison; commit the line",
+    )
+    common(reg_p)
+    reg_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    reg_p.add_argument(
+        "--disposition",
+        required=True,
+        choices=DISPOSITIONS,
+        help="what a person decided about this run's comparison; no default",
+    )
+    reg_p.set_defaults(func=cmd_register)
+
     view_p = subparsers.add_parser(
         "view", help="browse stored runs, compare any two, promote"
     )
@@ -901,6 +967,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the fact list the prose is rendered from, instead of the prose",
     )
     exp_p.set_defaults(func=cmd_explain)
+
+    log_p = subparsers.add_parser(
+        "log",
+        help="which model answered, read down the stored runs; never a gate",
+    )
+    common(log_p)
+    # A terminal, so the terminal rule — like `compare`, `diff` and `explain`.
+    terminal_locale(log_p)
+    log_p.add_argument(
+        "--since",
+        metavar="WHEN",
+        help="a date (2026-09-14) or an instant with a time zone; inclusive",
+    )
+    log_p.add_argument(
+        "--until",
+        metavar="WHEN",
+        help="a date or an instant with a time zone; inclusive",
+    )
+    log_p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the reading the lines are rendered from, instead of the lines",
+    )
+    log_p.set_defaults(func=cmd_log)
 
     rep_p = subparsers.add_parser("report", help="render the report")
     common(rep_p)
