@@ -168,6 +168,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "configuration; what answered is withheld, so whether the model "
             "changed is not known."
         ),
+        # An absence disguised as a presence, stated as a fact: the endpoint
+        # returned the id it was sent. Not a diagnosis. (ADR 0020 §3, row 7)
+        "fact.target_config.echoed": (
+            "The endpoint returned the requested id, {model}, as the model that "
+            "answered, so which model answered is not identified; only a canary "
+            "sees whether its behaviour changed."
+        ),
+        "explain.tally.echoed": (
+            "The endpoint returned the requested id as the model that answered, "
+            "so which model answered is not identified."
+        ),
         "fact.judge_config.changed": (
             "The judging changed ({changes}), so these scores are less "
             "comparable with the reference: what moved is the measuring "
@@ -604,6 +615,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.absence.not_recorded": (
             "not recorded: the document does not name its writer"
         ),
+        # Row 7, stated as a fact and never as a diagnosis: an honest provider
+        # may return the id it was sent. (ADR 0020 §3)
+        "log.absence.echoed": (
+            "the endpoint echoed the requested id, so what answered is not identified"
+        ),
+        "log.canary_only": (
+            "Where what answered is not identified, only a canary sees whether "
+            "the model's behaviour changed."
+        ),
         "log.replay": (
             "{run} re-judged {source} and asked the target nothing; it is not "
             "counted as a sighting of the target."
@@ -742,6 +762,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Il sistema in prova ha risposto con la stessa configurazione "
             "dichiarata; il modello che ha risposto è trattenuto, quindi non si "
             "sa se sia cambiato."
+        ),
+        "fact.target_config.echoed": (
+            "L'endpoint ha restituito l'id richiesto, {model}, come modello che "
+            "ha risposto, quindi quale modello abbia risposto non è "
+            "identificato; solo un canary vede se il suo comportamento è "
+            "cambiato."
+        ),
+        "explain.tally.echoed": (
+            "L'endpoint ha restituito l'id richiesto come modello che ha "
+            "risposto, quindi quale modello abbia risposto non è identificato."
         ),
         "fact.judge_config.changed": (
             "Il modo di giudicare è cambiato ({changes}), quindi questi "
@@ -1203,6 +1233,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.absence.not_reported": "nessun modello che ha risposto è stato riportato",
         "log.absence.not_recorded": (
             "non registrato: il documento non dice quale versione l'ha scritto"
+        ),
+        "log.absence.echoed": (
+            "l'endpoint ha restituito l'id richiesto, quindi il modello che ha "
+            "risposto non è identificato"
+        ),
+        "log.canary_only": (
+            "Dove il modello che ha risposto non è identificato, solo un canary "
+            "vede se il suo comportamento è cambiato."
         ),
         "log.replay": (
             "{run} ha rivalutato {source} senza interrogare il sistema; non conta "

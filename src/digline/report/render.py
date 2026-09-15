@@ -162,6 +162,13 @@ class Headline:
     #: something untrue in order to produce the right exit code. `exit_code()`
     #: returns 1 for either. (ADR 0016 §5)
     canary_moved: bool = False
+    #: The endpoint returned the id it was sent as the model that answered, on
+    #: the run being compared — so the identity the record seems to confirm is
+    #: not identified at all. The twelfth fact: an absence disguised as a
+    #: presence, stated and never diagnosed. Never set behind a named endpoint,
+    #: where the answering model is withheld and *echoed* would disclose it. It
+    #: moves no exit code. (ADR 0020 §3, row 7)
+    target_echoed: bool = False
     #: How many of this run's checks measured a band that covers their own
     #: threshold. The eleventh fact, and the one that is about **this**
     #: measurement rather than about a distance from the reference: a check on
@@ -548,6 +555,15 @@ def headline(
     target_text = _config_fact(
         comparison.target_config_deltas, locale, key="target_config"
     )
+    # Straight after what the system declared, because it qualifies it: the
+    # identity the record seems to confirm was the id the endpoint was sent.
+    # (ADR 0020 §3, row 7)
+    echoed = echoed_model(comparison.target_config_deltas)
+    echo_text = (
+        phrase(locale, "fact.target_config.echoed", model=echoed)
+        if echoed is not None
+        else ""
+    )
     # The judge speaks only when it moved. A judge that did not is not news, and
     # `unknown` about an instrument nobody recorded is not either — while a
     # judge that *did* move is the loudest thing on the page, because it makes
@@ -571,6 +587,7 @@ def headline(
         artifacts_changed=bool(changed_artifacts),
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
+        target_echoed=echoed is not None,
         rejudged=run.rejudged_from is not None,
         canary_moved=comparison.canary_moved,
         # Config and artifacts last, because they modify the meaning of
@@ -596,6 +613,7 @@ def headline(
                 artifact_text,
                 rejudged_text,
                 target_text,
+                echo_text,
                 canary_text,
                 judge_text,
             )
@@ -635,6 +653,26 @@ def _canary_fact(comparison: Comparison, locale: Locale) -> str:
         after=fmt_score(first.current.score.score),
         beyond=beyond,
     )
+
+
+def echoed_model(deltas: Sequence[ConfigDelta]) -> str | None:
+    """The sent id, where the run being compared recorded it as what answered.
+
+    Read off the current side of the comparison — the run, not the reference —
+    and only where the answering model is in clear. A withheld one never reaches
+    here as a value (`config_deltas` reduced it first), so the equality is never
+    computed over something a boundary kept back: behind a named endpoint the
+    headline says *withheld*, and *echoed* would disclose it. Literal string
+    equality, and nothing normalised. (ADR 0020 §3, row 7)
+    """
+    by_field = {delta.field: delta for delta in deltas}
+    answered = by_field.get("resolved_model")
+    model = by_field.get("model")
+    if answered is None or model is None or answered.withheld:
+        return None
+    if answered.after is None or model.after is None:
+        return None
+    return str(model.after) if str(answered.after) == str(model.after) else None
 
 
 def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> str:

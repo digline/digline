@@ -38,6 +38,7 @@ from digline.report.render import (
     SECTIONS,
     diff_lines,
     diff_tally,
+    echoed_model,
     errored_verdicts,
     fmt_score,
     fmt_value,
@@ -108,6 +109,12 @@ type TallyKind = Literal[
     # omitted it would describe a run whose exit code it could not account for.
     # (ADR 0016 §8)
     "canary",
+    # The fourth amendment, from ADR 0020 §3: the endpoint returned the id it
+    # was sent as the model that answered, so what answered is not identified.
+    # The report says it, and a reading that omitted it would describe an
+    # identity as confirmed that the record does not confirm. A fact, not a
+    # verdict: it moves no exit code.
+    "echoed",
 ]
 
 
@@ -246,6 +253,9 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     if covered:
         out.append(TallyFact("within_noise", count=covered))
     out.append(TallyFact("suite_config", state=comparison.config_changed))
+    # Silent unless it holds, like the headline clause it mirrors.
+    if echoed_model(comparison.target_config_deltas) is not None:
+        out.append(TallyFact("echoed", state=True))
     # The judge speaks only when it moved, as in the headline sentence. A judge
     # that did not is not news; one that did makes every number above it less
     # comparable than it looks.
@@ -574,6 +584,8 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, "explain.tally.rejudged")
         case "canary":
             return phrase(locale, "explain.tally.canary")
+        case "echoed":
+            return phrase(locale, "explain.tally.echoed")
     assert_never(fact.kind)
 
 

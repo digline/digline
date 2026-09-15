@@ -36,8 +36,13 @@ notes under them are this file, verbatim.
   model*, *withheld at a named endpoint*, *no answering model was reported*, and
   *not recorded* for a document that does not name the digline that wrote it —
   which stays undated, because the dependency pin at its `git_commit` is a
-  second record read off a tree that was commonly dirty. Files the scan could
-  not read are counted. A replay is never counted as a sighting of the target,
+  second record read off a tree that was commonly dirty — and *echoed*, where the
+  endpoint returned the requested id as the model that answered. That last one
+  is an absence disguised as a presence, stated as a fact and never as a
+  diagnosis: an honest provider may legitimately echo, and an echo cannot be one
+  side of a roll. Where what answered is not identified the reading says the
+  canary is the only instrument that sees behaviour. Files the scan could not
+  read are counted. A replay is never counted as a sighting of the target,
   because it asked the target nothing.
 
   **The reading reads no score, and its types have no field for one**: a roll
@@ -48,6 +53,16 @@ notes under them are this file, verbatim.
   gate**: it exits 0 whatever it finds. Checked against the dogfood's real
   store, it says what that store can say: *No roll recorded*, over three
   sightings and twelve runs that recorded nothing.
+
+- **`compare`, the report and `explain` say when an endpoint echoed the
+  requested id.** Where the run being compared recorded the id it sent as the
+  model that answered, the headline adds *"the endpoint returned the requested
+  id, `gpt-5.6-sol`, as the model that answered, so which model answered is not
+  identified; only a canary sees whether its behaviour changed"*, `compare
+  --json` carries `target_echoed`, and `explain` carries the tally `echoed` — the
+  fourth amendment to ADR 0012 §3's closed list. It moves no exit code. Behind a
+  named endpoint it is never said, because the answering model is withheld there
+  and *echoed* would disclose it. `OUTPUT_VERSION` stays 1.
 
 - **`runs_json` carries each run's aggregate verdicts**, the column `digline
   view`'s grid already shows — `name`, `assertion_id`, `status`, `score`,

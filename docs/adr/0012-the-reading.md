@@ -159,6 +159,13 @@ three shapes:
   within noise, whether the suite's rules moved, whether comparability is
   reduced.
 
+  *Amended 2026-09-15 by [ADR 0020](0020-the-reading-across-runs.md) §3, the
+  fourth time this closed list has moved: `echoed` joins it — the endpoint
+  returned the requested id as the model that answered, so what answered is not
+  identified. It passes this section's test: the report states it, and a reading
+  that omitted it would describe an identity as confirmed that the record does
+  not confirm.*
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

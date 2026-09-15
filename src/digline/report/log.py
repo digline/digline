@@ -51,11 +51,16 @@ __all__ = [
 
 type Side = Literal["target", "judge"]
 
-#: §3's rows 2–6, in the order they are checked. Row 1 — a file that was not
+#: §3's rows 2–7, in the order they are checked. Row 1 — a file that was not
 #: read at all — is not a sighting of anything, so it is a count on the log
 #: rather than a kind here.
 type AbsenceKind = Literal[
-    "declared_nothing", "several_judges", "withheld", "not_reported", "not_recorded"
+    "declared_nothing",
+    "several_judges",
+    "withheld",
+    "not_reported",
+    "not_recorded",
+    "echoed",
 ]
 
 SIDES: tuple[Side, ...] = ("target", "judge")
@@ -65,6 +70,14 @@ ABSENCES: tuple[AbsenceKind, ...] = (
     "withheld",
     "not_reported",
     "not_recorded",
+    "echoed",
+)
+
+#: The absences under which no answering model is identified, so the canary is
+#: the only instrument that sees whether behaviour changed (ADR 0020 §3). A
+#: fact about which instruments can see what — the reading states it once.
+UNIDENTIFIED: frozenset[AbsenceKind] = frozenset(
+    {"withheld", "not_reported", "not_recorded", "echoed"}
 )
 
 
@@ -204,6 +217,13 @@ def sighting(config: SystemConfig, *, writer: str) -> Sighting:
     sent = (str(seen.values["model"]),)
     answered = seen.values.get("resolved_model")
     if answered is not None:
+        # Row 7: an absence disguised as a presence. The endpoint returned the
+        # id it was sent, which says what was asked for and not what answered.
+        # Literal equality, and nothing normalised — normalising is
+        # interpretation. Only reachable in clear: behind a named endpoint the
+        # value was withheld above, and saying "echoed" would disclose it.
+        if str(answered) == sent[0]:
+            return Sighting(provider, sent, None, "echoed")
         return Sighting(provider, sent, str(answered), None)
     if "resolved_model" in seen.withheld:
         return Sighting(provider, sent, None, "withheld")
@@ -474,6 +494,9 @@ def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
                     "  " + phrase(locale, "log.replay", run=r.key, source=r.source)
                     for r in log.replays
                 )
+        if any(span.absence in UNIDENTIFIED for span in log.spans):
+            lines.append("")
+            lines.append(phrase(locale, "log.canary_only"))
         lines.append("")
         if not log.rolls:
             lines.append(phrase(locale, "log.rolls.none"))

@@ -244,6 +244,11 @@ COMPARE_KEYS = {
     # anywhere. Only for a suite that declares a canary, which none did before
     # this release, so no existing consumer sees a number it did not see before.
     "canary_moved",
+    # Joined with ADR 0020 §3, row 7, same rule a sixth time. The endpoint
+    # returned the requested id as the model that answered, so the identity the
+    # record seems to confirm is not identified. It moves no exit code, and it is
+    # never true behind a named endpoint, where the answering model is withheld.
+    "target_echoed",
     "counts",
     "reasons_available",
     "sentence",

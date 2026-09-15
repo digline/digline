@@ -4,6 +4,10 @@
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) and
   [ADR 0019](0019-the-reasoning-operator.md) were
 - Date: 2026-09-15
+- Corrected: 2026-09-15, before release — §3 gains a seventh absence, the
+  endpoint that echoed the requested id, found by the first external run of the
+  TOML quickstart against an OpenAI-compatible aggregator. The record was
+  corrected before it was born rather than amended after
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the payload
   stays where it is born, the verdict travels);
@@ -29,7 +33,8 @@
   [ADR 0012](0012-the-reading.md) §8 and
   [ADR 0015](0015-the-recorded-output-and-the-declared-re-judge.md) §8 — their
   "no seventh tool" sentences are superseded here and stay true of the releases
-  they describe
+  they describe; [ADR 0012](0012-the-reading.md) §3 — the closed tally list
+  gains `echoed`, its fourth amendment (§3)
 - Turns into surface: `digline log`; the MCP tools `explain` and `log`;
   `docs/mcp.md` ("The six tools"); `examples/operator/README.md` (the
   interactive path); `ROADMAP.md`; the `operating-digline` skill wherever it
@@ -60,10 +65,14 @@ this record was written from, in any example or in the dogfood, carries a
 The dogfood's own store is the material this record was checked against, and
 it says the same thing more quietly. Sixteen runs over seven days. Twelve were
 written by a digline that did not name itself and record no answering model at
-all. Four record one, and in all four the provider named the alias back:
-`claude-sonnet-5` answered as `claude-sonnet-5`. One of the sixteen is a replay,
-which asked the target nothing. The alias story that store can tell is a flat
-line with a long absence in front of it — true, and worth being able to say.
+all. Four record one, and **all four are echoes**: the provider returned the
+requested id, `claude-sonnet-5`, as the model that answered. One of the four is
+a replay, which asked the target nothing. So the target side reads **12 not
+recorded and 3 echoed, and zero verified identities** — the only answering model
+this project has ever observed that was not the requested id is 0.8.0's haiku
+snapshot, `claude-haiku-4-5-20251001`, the one whose runs are gone. The alias
+story that store can tell is not a flat line; it is an absence all the way down,
+and it is worth being able to say exactly that.
 
 So the thesis of this release — *digline learns to remember* — begins with a
 reading rather than a file. Every fact it needs is already in the documents:
@@ -109,6 +118,13 @@ Everything else is something else, and it is named as what it is:
   moment is **not known** — it happened after the last run that recorded `A`
   and no later than the first that recorded `B`, and it is reported as that
   window with the count of silent runs inside it, never pinned to a date;
+- an **echo** — an answering model recorded as the literal sent id — is an
+  absence (§3, row 7), and an absence cannot be one side of a roll. An alias
+  that echoed and was then recorded as a dated snapshot is *first seen* as that
+  snapshot, never a roll; between two recorded models, echoed runs count as
+  silence inside the window. The equality is **literal string equality**:
+  `openai/gpt-5.6-sol` returned for `gpt-5.6-sol` is not an echo, and nothing is
+  normalised, because normalising is interpretation;
 - a change in behaviour is not an identity at all (§4).
 
 **One run is at most one sighting per side**, and that is guaranteed rather
@@ -131,7 +147,7 @@ side of a replay *is* a sighting — the judge was asked, and that is the whole
 point of a re-judge (ADR 0015 §6). One document, two sides, two answers, and
 the rule is written per side so that neither is lost.
 
-### 3. The absences, and there are six
+### 3. The absences, and there are seven
 
 A reading of identity over real history is mostly absence, and each absence is
 a different fact. They are checked in the order below; the first that applies
@@ -145,12 +161,13 @@ names the run.
 | 4 | `resolved_model` in `withheld` | **withheld** at a named endpoint | yes |
 | 5 | a configuration, a writer that names itself, no `resolved_model` | **no answering model was reported** | yes |
 | 6 | a configuration, no `resolved_model`, and no `digline_version` | **not recorded** — *this document does not name its writer* | yes, by `created_at` |
+| 7 | `resolved_model` in clear and **literally equal** to the sent `model` | **echoed** — *the endpoint echoed the requested id, so what answered is not identified* | yes |
 
-A document with a `resolved_model` is a sighting whatever else it lacks: a file
-written by 0.8 or 0.9 carries the model and not the writer, and the record
-declares the identity, which is all a sighting needs.
+A document with a `resolved_model` that differs from the sent id is a sighting
+whatever else it lacks: a file written by 0.8 or 0.9 carries the model and not
+the writer, and the record declares the identity, which is all a sighting needs.
 
-Three of the rows deserve their own sentence.
+Four of the rows deserve their own sentence.
 
 **Row 5 cannot say who was silent.** The provider may return no model id
 (Bedrock does not, by its own service model), or a plugin may not pass one on.
@@ -170,6 +187,42 @@ built. So where a suite holds two judges, the reading can say *which two* and
 cannot say either one's answering model. That is the cost of a rule this record
 does not reopen.
 
+**Row 7 is an absence disguised as a presence, and it is stated as a fact,
+never as a diagnosis.** A `resolved_model` equal to the sent id *looks* like the
+provider confirming the model, and until this row existed it read that way. It
+is not a confirmation of anything: an endpoint that returns the id it was sent
+has said what was asked for, not what answered. An honest provider may
+legitimately do exactly that — an alias with no snapshot behind it, an
+aggregator that passes the request's id through — so the row says *echoed* and
+stops. It does not say the provider hid anything, and it does not say nothing
+changed. It was found by the first external run of the TOML quickstart, against
+an OpenAI-compatible aggregator, and it describes every recorded sighting in the
+dogfood's store.
+
+Row 7 is checked only where `resolved_model` is **in clear**. At a named
+endpoint row 4 applies first, and it has to: the sent id travels in clear, so
+saying *echoed* about a withheld value would disclose it exactly — the equality
+oracle §6 already refuses as a `changed` bit, pointed the other way. Behind a
+named endpoint the reading says *withheld*, and `compare` says the declared
+configuration is the same and what answered is not known.
+
+**The corollary belongs to four rows, not one.** Where a run is *withheld*,
+*not reported*, *not recorded* or *echoed*, no answering model is identified,
+and the canary is the only instrument that sees whether behaviour changed
+(ADR 0016 §5). The reading says so once, beneath a span table that holds any of
+them. It is a fact about which instruments can see what, and it is not advice.
+
+Row 7 appears in three places, because it qualifies three readings: the span
+table of `digline log`; the headline of `compare` and the report, as a clause
+beside the target configuration naming the echoed id; and the fact list of
+`explain`, as the tally `echoed` — which is the fourth amendment to
+[ADR 0012](0012-the-reading.md) §3's closed list, earned by that section's own
+test: the report says it, and a reading that omitted it would describe an
+identity as confirmed that the record does not confirm. It moves no exit code.
+It is a fact, not a verdict. In `compare` and `explain` it is read off the run
+being compared, on the target side, where the headline's configuration clause
+already speaks; the judge's echo is in `log`, which reads both sides.
+
 Absence is **never collapsed into its neighbours**. A span of silent runs is its
 own row, between the sightings on either side of it, so that a reader cannot
 mistake *nothing was recorded for four days* for *the same model answered for
@@ -185,7 +238,7 @@ The reading is two value types, both frozen, both in `digline.report` beside
         provider:      str
         sent:          tuple[str, ...]           # one model, or the judges' identities
         answered:      str | None                # None exactly when `absence` is set
-        absence:       AbsenceKind | None        # §3's rows 2–6
+        absence:       AbsenceKind | None        # §3's rows 2–7
         first_seen:    str                       # created_at of the first run in the span
         last_seen:     str
         runs:          int
@@ -360,21 +413,25 @@ Rendered in the terminal over the dogfood's store, in the shape §4 types:
       sent               answered as        first seen            last seen             runs
       claude-haiku-4-5   not recorded       2026-09-08T16:12:27Z  2026-09-09T06:51:45Z     8
       claude-sonnet-5    not recorded       2026-09-09T08:08:18Z  2026-09-10T11:58:06Z     4
-      claude-sonnet-5    claude-sonnet-5    2026-09-11T14:51:30Z  2026-09-14T15:03:21Z     3
+      claude-sonnet-5    echoed             2026-09-11T14:51:30Z  2026-09-14T15:03:21Z     3
 
+      Where what answered is not identified, only a canary sees whether the
+      model's behaviour changed.
       No roll recorded.
-      12 runs do not name their writer, and record no answering model.
       1 replay re-judged 2026-09-11T15:09:23Z and asked the target nothing.
 
     judge  declared nothing, in every run
 
     reference  2026-09-14T15:03:21Z · approved 2026-09-14T15:53:17Z
-               claude-sonnet-5 answered as claude-sonnet-5
+               claude-sonnet-5: echoed
 
 `claude-haiku-4-5` to `claude-sonnet-5` is not in the roll line, because it is
 not a roll: somebody changed the suite, on a date the suite's history records.
-And *no roll recorded* is scoped by the rows above it — three sightings, twelve
-silences — rather than read as a property of the provider.
+And *no roll recorded* is scoped by the rows above it — **12 not recorded, 3
+echoed, zero verified identities** — rather than read as a property of the
+provider. As first written, this sketch said `claude-sonnet-5` *answered as*
+`claude-sonnet-5` and counted three sightings; that was row 7 read as a
+presence, and it is the correction this record carries.
 
 This is the whole of the positive evidence, and it is stated as such: **the
 roll this feature exists to show does not appear in any history available to
@@ -465,6 +522,17 @@ source's, the judge's is the replay's.
 and the precedence order where two rows could apply. Row 6's fixture carries a
 `git_commit` and a dirty marker, and the output is asserted to contain no
 release number.
+
+**An echo is an absence, literally.** A `resolved_model` equal to the sent id
+reads as *echoed*; a prefixed or differently-cased id does not. An echo followed
+by a dated snapshot is *first seen*, not a roll; a snapshot, an echo, and a
+second snapshot is one roll with one silent run inside its window. Behind a named
+endpoint the same values read as *withheld* and the word *echoed* appears in no
+rendering. `compare`'s headline carries the echoed clause and `target_echoed`
+for a first-party echo, and neither for a verified snapshot or a withheld one;
+`explain` carries the `echoed` tally on the same fixtures and on no other. The
+corollary line appears beneath a span table holding any of rows 4–7, and not
+beneath one that holds only verified sightings.
 
 **The type has no score.** `IdentitySpan` and `Roll` are asserted by field set,
 so a field added by accident fails here.
