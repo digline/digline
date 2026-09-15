@@ -101,11 +101,40 @@ for whoever pays for them.
 Decide the number of re-runs before running them, and stop at the signal. Never
 keep rolling until the answer looks right."""
 
+EXPLAIN = """\
+A run read back as typed facts: what ran, what moved and by how much, against
+which measured interval, what was suspended, what could not be judged, and what
+differed underneath. Held against the baseline when there is one, read alone
+when there is not — `scope` says which.
+
+`exit_code` is the contract, exactly as on `compare`: 0 proceed, 1 stop and
+report what got worse, 2 stop because nothing downstream is meaningful.
+
+The facts carry no prose and no judge's words. Do not reconstruct a verdict the
+exit code does not state, and do not read a single run as a trend: a reading is
+of one run and its reference."""
+
+LOG = """\
+Which model answered, read down this suite's stored runs: spans of the same sent
+model and the same answering model, the rolls between them, and every absence
+named for what it is.
+
+A roll is declared by the record: the same sent model, recorded answering as a
+different model. A changed sent model is somebody editing the suite. Never infer
+a roll from scores moving — that is a deduction, and the only licensed one is
+the canary, which lives in `compare`.
+
+This is not a gate and carries no exit code. `runs` counts what is in this store:
+a history of 0 runs is not "no roll", and a span marked withheld cannot say
+whether the model changed behind a named endpoint."""
+
 DESCRIPTIONS: dict[str, str] = {
     "list_runs": LIST_RUNS,
     "get_run": GET_RUN,
     "get_baseline": GET_BASELINE,
+    "log": LOG,
     "compare": COMPARE,
     "diff": DIFF,
+    "explain": EXPLAIN,
     "run": RUN,
 }

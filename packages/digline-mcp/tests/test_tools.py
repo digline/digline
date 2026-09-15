@@ -1,4 +1,4 @@
-"""The six tools against a real repository, and the CLI beside them.
+"""The eight tools against a real repository, and the CLI beside them.
 
 The anti-drift test is the one this package exists for: the tool's response and
 the CLI's `--json` are the same object, because they are built by the same
@@ -43,6 +43,38 @@ def refusal(root: Path, tool: str, **arguments: Any) -> str:
         return str(caught.value)
 
     return anyio.run(go)
+
+
+# --------------------------------------------------------------------------- #
+# The reading tools of ADR 0020: the CLI's --json, byte for byte
+# --------------------------------------------------------------------------- #
+
+
+def test_explain_is_the_cli_explain_json(promoted: Path) -> None:
+    """One composition in the host, two front ends. The tool adds the resolved
+    key and nothing else, and it carries the same exit code the process exits
+    with."""
+    key = run_key(promoted)
+    shown = cli(promoted, "explain", "--suite", "suite_qa.py", "--run", key, "--json")
+    answered = call(promoted, "explain", suite=str(promoted / "suite_qa.py"), run=key)
+    assert answered.pop("key") == key
+    assert answered == json.loads(shown.stdout)
+    assert answered["exit_code"] == shown.returncode
+    assert answered["scope"] == "comparison"
+
+
+def test_log_is_the_cli_log_json(promoted: Path) -> None:
+    shown = cli(promoted, "log", "--suite", "suite_qa.py", "--json")
+    answered = call(promoted, "log", suite=str(promoted / "suite_qa.py"))
+    assert answered == json.loads(shown.stdout)
+    assert "exit_code" not in answered
+
+
+def test_log_refuses_an_instant_without_a_zone(repo: Path) -> None:
+    message = refusal(
+        repo, "log", suite=str(repo / "suite_qa.py"), since="2026-09-14T08:00"
+    )
+    assert "time zone" in message
 
 
 # --------------------------------------------------------------------------- #

@@ -37,7 +37,10 @@ from digline.core import compare as compare_runs
 from digline.core import diff as diff_runs
 from digline.host import (
     Loaded,
+    explained,
     git_commit,
+    history,
+    instant,
     load_suite,
     load_target,
     measure,
@@ -52,7 +55,15 @@ from digline.report import diff as diff_report
 from digline.report import headline
 from digline.run import CallPlan, Suite
 from digline.store import FileResultStore
-from digline.wire import compare_json, diff_json, run_document, run_json, runs_json
+from digline.wire import (
+    compare_json,
+    diff_json,
+    explain_json,
+    log_json,
+    run_document,
+    run_json,
+    runs_json,
+)
 from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
 
@@ -267,6 +278,37 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         )
 
     @translated
+    def explain(suite: str, run: str = "latest") -> dict[str, Any]:
+        # The CLI's composition, from the host, so the two cannot come to read
+        # one run differently. No locale: the fact list ships no prose, so there
+        # is nothing to localise and nothing to choose. (ADR 0020 §8)
+        loaded_suite = loaded(suite)
+        key = resolve_key(store, loaded_suite, run).key
+        read = explained(store, loaded_suite, key)
+        return {
+            **explain_json(read.reading, scope=read.scope, exit_code=read.exit_code),
+            "key": key,
+        }
+
+    @translated
+    def log(
+        suite: str, since: str | None = None, until: str | None = None
+    ) -> dict[str, Any]:
+        # A read, and never a gate: there is no exit code in the answer because
+        # a roll is not a verdict. The configuration was reduced inside the
+        # fold, so nothing a named endpoint keeps back reaches this response.
+        # (ADR 0020 §5, §6)
+        loaded_suite = loaded(suite)
+        return log_json(
+            history(
+                store,
+                loaded_suite,
+                since=instant(since, name="since"),
+                until=instant(until, name="until"),
+            )
+        )
+
+    @translated
     def run(suite: str, acknowledge_calls: int | None = None) -> dict[str, Any]:
         # One `opened` for the whole tool: the plan below needs the suite and
         # the target needs the module, and they come from the same load.
@@ -324,14 +366,17 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     # definition. The decorator form leaves every tool a function that is
     # defined and never referenced, which pyright strict reports and which is
     # also, read literally, true — the registration is a side effect. Listing
-    # them makes the surface one thing to read: **six entries, and the sixth is
-    # not `promote`.**
+    # them makes the surface one thing to read: **eight entries, and none of
+    # them writes.** `explain` and `log` arrived together so the count moved
+    # once. (ADR 0020 §9)
     for name, fn, hints in (
         ("list_runs", list_runs, READS),
         ("get_run", get_run, READS),
         ("get_baseline", get_baseline, READS),
+        ("log", log, READS),
         ("compare", compare, READS),
         ("diff", diff, READS),
+        ("explain", explain, READS),
         ("run", run, MEASURES),
     ):
         server.add_tool(

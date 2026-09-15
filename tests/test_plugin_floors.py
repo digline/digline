@@ -152,6 +152,21 @@ INTRODUCED: dict[str, str] = {
     # imported them. `digline-mcp` 0.1.2 does, which is what dates them.
     "prepare": "0.11.0",
     "measure": "0.11.0",
+    # 0.7.0 — the reading's machine shape (ADR 0012 §3). Undated until the MCP
+    # `explain` tool imported it (ADR 0020 §8); `git describe --contains` on the
+    # commit that defined it lands in v0.7.0.
+    "explain_json": "0.7.0",
+    # 0.13.0 — the reading across runs (ADR 0020), and the host composition both
+    # front ends share for it and for `explain`. **Dated to a release that does
+    # not exist yet**, which is why this table is what keeps the MCP half off
+    # `main` until it does: the floor below cannot name 0.13.0 while the
+    # workspace is 0.12.1, so `test_the_floor_covers_every_core_name_the_plugin_
+    # uses` stays red on this branch until the release it names is real — the
+    # shape ADR 0017 §11 gave `prepare` and `measure`.
+    "explained": "0.13.0",
+    "history": "0.13.0",
+    "instant": "0.13.0",
+    "log_json": "0.13.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

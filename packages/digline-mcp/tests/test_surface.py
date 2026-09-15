@@ -17,10 +17,20 @@ from digline_mcp.server import build_server
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
-#: The whole surface. Adding a seventh entry has to happen here first, which is
+#: The whole surface. Adding a ninth entry has to happen here first, which is
 #: the point: a tool that appears without somebody editing this line is a tool
-#: nobody decided on.
-TOOLS = {"list_runs", "get_run", "get_baseline", "compare", "diff", "run"}
+#: nobody decided on. `explain` and `log` were added together, so the count moved
+#: once. (ADR 0020 §9)
+TOOLS = {
+    "list_runs",
+    "get_run",
+    "get_baseline",
+    "log",
+    "compare",
+    "diff",
+    "explain",
+    "run",
+}
 
 
 def tool_names(root: str) -> set[str]:
@@ -30,7 +40,7 @@ def tool_names(root: str) -> set[str]:
     return anyio.run(go)
 
 
-def test_the_surface_is_exactly_six_tools(tmp_path: Path) -> None:
+def test_the_surface_is_exactly_eight_tools(tmp_path: Path) -> None:
     assert tool_names(str(tmp_path)) == TOOLS
 
 

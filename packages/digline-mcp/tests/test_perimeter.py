@@ -47,15 +47,17 @@ def target(case):
                     latency_ms=100.0)
 """
 
-#: Every tool, with the arguments it needs beyond `suite`. All six, because the
-#: defect was in the funnel they all cross and a fix that reached five of them
-#: would leave the sixth as the whole vulnerability.
+#: Every tool, with the arguments it needs beyond `suite`. All eight, because the
+#: defect was in the funnel they all cross and a fix that reached seven of them
+#: would leave the eighth as the whole vulnerability.
 TOOLS: tuple[tuple[str, dict[str, object]], ...] = (
     ("list_runs", {}),
     ("get_run", {}),
     ("get_baseline", {}),
+    ("log", {}),
     ("compare", {}),
     ("diff", {"run1": "latest", "run2": "latest"}),
+    ("explain", {}),
     ("run", {"acknowledge_calls": 1}),
 )
 

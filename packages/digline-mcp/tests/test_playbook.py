@@ -88,8 +88,10 @@ def test_every_tool_has_a_description() -> None:
         "list_runs",
         "get_run",
         "get_baseline",
+        "log",
         "compare",
         "diff",
+        "explain",
         "run",
     }
     for name, text in DESCRIPTIONS.items():

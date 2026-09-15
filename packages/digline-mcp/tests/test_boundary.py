@@ -1,4 +1,4 @@
-"""No response from any tool carries the payload. All six, not just the two.
+"""No response from any tool carries the payload. All eight, not just the two.
 
 `tests/test_wire_boundary.py` in the root suite holds this line for the shapes
 in isolation. This holds it for the **surface**: the tools as a client calls
@@ -7,9 +7,9 @@ them, over a suite whose every payload-bearing field carries a distinct marker.
 Both exist because they fail differently. The wire test catches a projection
 that emits too much; this one catches a *tool* that reaches around the
 projection — a response assembled by hand, a field appended after the fact, a
-future seventh tool that forgets. ADR 0011 §5: "It runs over all six tools and
+future ninth tool that forgets. ADR 0011 §5: "It runs over all six tools and
 not only the two that return runs, because the point is the boundary and not the
-function."
+function." Six became eight with ADR 0020, and the sentence holds for all of them.
 """
 
 from __future__ import annotations
@@ -105,8 +105,10 @@ def responses(root: Path) -> dict[str, str]:
         ("list_runs", {"suite": suite}),
         ("get_run", {"suite": suite}),
         ("get_baseline", {"suite": suite}),
+        ("log", {"suite": suite}),
         ("compare", {"suite": suite, "run": "latest"}),
         ("diff", {"suite": suite, "run1": keys[0], "run2": keys[1]}),
+        ("explain", {"suite": suite, "run": "latest"}),
         ("run", {"suite": suite}),  # refused, and the refusal is searched too
     ]
 
@@ -171,4 +173,6 @@ def test_the_tools_still_answered(loaded: Path) -> None:
     assert '"baseline_key"' in answers["list_runs"]
     assert '"config_hash"' in answers["get_run"]
     assert '"favours_left"' in answers["diff"]
+    assert '"facts"' in answers["explain"]
+    assert '"spans"' in answers["log"]
     assert "acknowledge_calls=" in answers["run"]
