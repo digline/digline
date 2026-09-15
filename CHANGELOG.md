@@ -69,6 +69,21 @@ notes under them are this file, verbatim.
   reference.
 - Requires `digline>=0.13.0`.
 
+## digline-mcp — Unreleased
+
+- **`digline-mcp`: `explain` and `log` join the surface, which moves once from
+  six tools to eight** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md)
+  §9, amending ADR 0011 §1. `explain` is `digline explain --json` — the fact list
+  and the exit code, composed once in the host so the two front ends cannot read
+  one run differently — and it takes no locale, because the list ships no prose.
+  `log` is `digline log --json`, register included, and carries no exit code.
+  Neither writes, and nothing that writes joined them: `promote`, `migrate`,
+  `view`, `report` and the register's writer stay absent. The tools import names
+  that first ship in this digline, so they ship in the `digline-mcp` release that
+  follows it, with its floor raised to it: a floor cannot name a release that
+  does not exist yet, which is the shape ADR 0017 §11 gave `prepare` and
+  `measure`.
+
 ## 0.13.0 — 2026-09-15
 
 **The ledger.** digline **0.13.0**, alone on this tag: `digline-mcp` stays at

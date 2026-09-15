@@ -162,8 +162,9 @@ each cycle rather than trusting it — see below.
 ## The interactive path
 
 `.mcp.json` points `digline-mcp` at this directory. Open a coding agent here and
-it has six tools — list the runs, read one, read the baseline, compare, diff,
-run — and no seventh. `operator-prompt.md` is what to hand it.
+it has eight tools — list the runs, read one, read the baseline, read which
+model answered down the runs, compare, diff, read a run back as facts, run — and
+none of them writes. `operator-prompt.md` is what to hand it.
 
 That is the same operator, driven by a person instead of by cron: same rules,
 same boundary, same absent `promote`.

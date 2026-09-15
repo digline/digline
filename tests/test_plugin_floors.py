@@ -159,12 +159,25 @@ INTRODUCED: dict[str, str] = {
     "canonical": "0.1.0",
     # 0.13.0 — the trajectory a provider plugin hands over (ADR 0018 §1,
     # amended 2026-09-15), and the declared zero each plugin's `free()` now
-    # delegates to (ADR 0022 §2). **Dated to a release that does not exist
-    # yet**: the trio's floors name it, which is what keeps this branch off the
-    # index until 0.13.0 is. A names gate sees these two and not the field
+    # delegates to (ADR 0022 §2). Dated to a release that did not exist yet
+    # when the trio's floors named it, which is what kept the plugins off the
+    # index until 0.13.0 was. A names gate sees these two and not the field
     # `Completion.tool_calls` beside them, so the floors say that by hand.
     "ToolCall": "0.13.0",
     "free": "0.13.0",
+    # 0.7.0 — the reading's machine shape (ADR 0012 §3). Undated until the MCP
+    # `explain` tool imported it (ADR 0020 §8); `git describe --contains` on the
+    # commit that defined it lands in v0.7.0.
+    "explain_json": "0.7.0",
+    # 0.13.0 — the reading across runs (ADR 0020), and the host composition both
+    # front ends share for it and for `explain`. Dated to a release that did not
+    # exist yet when the MCP tools first imported them, which is what kept the
+    # MCP half off `main` until it did — the shape ADR 0017 §11 gave `prepare`
+    # and `measure`.
+    "explained": "0.13.0",
+    "history": "0.13.0",
+    "instant": "0.13.0",
+    "log_json": "0.13.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

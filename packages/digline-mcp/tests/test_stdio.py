@@ -59,7 +59,7 @@ def served(root: Path, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
     return anyio.run(go)
 
 
-def test_a_real_client_sees_six_tools_and_no_promote(promoted: Path) -> None:
+def test_a_real_client_sees_eight_tools_and_no_promote(promoted: Path) -> None:
     suite = str(promoted / "suite_qa.py")
     key = run_key(promoted)
     tools, compared, refused = served(
@@ -70,7 +70,16 @@ def test_a_real_client_sees_six_tools_and_no_promote(promoted: Path) -> None:
         ],
     )
 
-    assert tools == ["compare", "diff", "get_baseline", "get_run", "list_runs", "run"]
+    assert tools == [
+        "compare",
+        "diff",
+        "explain",
+        "get_baseline",
+        "get_run",
+        "list_runs",
+        "log",
+        "run",
+    ]
     assert "promote" not in tools
 
     assert isinstance(compared, CallToolResult)
