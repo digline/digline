@@ -229,6 +229,7 @@ def rejudge(
     mapper: Mapper = default_mapper,
     git_commit: str | None = None,
     run_metadata: Mapping[str, object] | None = None,
+    pricing: str = "",
 ) -> Run:
     """Judge `source`'s recorded answers with `suite`, and say so in the run.
 
@@ -243,7 +244,10 @@ def rejudge(
       claim one produced the other;
     - `created_at`, `git_commit` and `digline_version` are this evaluation's,
       because this evaluation is happening now;
-    - `config_hash` is the current suite's: the rules moving is the point.
+    - `config_hash` is the current suite's: the rules moving is the point. Its
+      declared price is `pricing`, the digest of the target the suite would run
+      today — the replay wrapper answers from stored responses and declares no
+      price of its own (ADR 0022 §4).
 
     The run it returns cannot be promoted (`ReplayedRunError`), which is ADR
     0015 §7 and is enforced in the store rather than here: a value does not know
@@ -256,6 +260,7 @@ def rejudge(
         mapper=mapper,
         git_commit=git_commit,
         run_metadata=run_metadata,
+        pricing=pricing,
     )
     return replace(
         produced,

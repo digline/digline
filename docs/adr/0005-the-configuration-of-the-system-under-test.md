@@ -136,6 +136,12 @@ particular no new `Disclosure` member, because the prudent default of ADR 0003
 §4 is the answer here too and an opt-in nobody has asked for is a widening
 nobody reviewed.
 
+*Amended 2026-09-15 by [ADR 0022](0022-the-declared-price.md) §6: the
+per-million rates a suite declares for its target are withheld at a named
+endpoint too, beside `resolved_model` — a negotiated rate is the customer's
+commercial fact. Because `config_hash` is computed from the rate and travels in
+clear, that withholding is declared a latch, not a constraint.*
+
 `unknown` and not `same` is the same choice ADR 0003 §5 made and for the same
 cause: with no value on one side, `same` would be a guess wearing the clothes
 of a finding.

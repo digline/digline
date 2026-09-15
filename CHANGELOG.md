@@ -22,6 +22,39 @@ notes under them are this file, verbatim.
   the first external run of the TOML quickstart, against an OpenAI-compatible
   aggregator.
 
+- **Added: `[target.pricing]`, what the endpoint actually charges** —
+  [ADR 0022](docs/adr/0022-the-declared-price.md). A data suite pointed at an
+  OpenAI-compatible aggregator, a corporate gateway or a self-hosted model
+  priced every call from the plugin's own list, so a `CostBudget` measured
+  somebody else's prices; `pricing` was refused as an object. Four per-million
+  rates under a provider target are data, and now declarable. The declared price
+  replaces the plugin's entry for the model, the run records
+  `pricing = "declared"` and the rates, and a Python suite declares the same way
+  with `override()`.
+
+  **A declared price enters `config_hash`**, because the rate is the ruler a
+  `CostBudget` reads cost on, not a property of the system: declaring or
+  changing one makes the baseline comparable and not promotable. A suite that
+  declares no price hashes exactly as before, and no stored run or baseline
+  moves. At a named endpoint the rates are withheld, and **that withholding is a
+  latch, not a constraint** — the value never prints, but the hash narrows it; a
+  rate you cannot afford to narrow belongs in a Python suite, or at an unnamed
+  endpoint.
+
+  One pair disagrees for a window, and it is named here so nobody finds it: a
+  Python suite that prices a hosted model with `digline_openai.free()` or
+  `digline_bedrock.free()` still hashes as it did, while its data-suite twin
+  with four declared zeros hashes with the declared price. The two forms agree
+  about that suite once each plugin's `free()` delegates to `digline.targets.free`
+  in its next release.
+
+- **Fixed: `promote`, `view` and `rejudge` take `--target`.** `run --target`
+  could choose among a `suite.py`'s targets and `promote` could not, so a
+  multi-target suite could sign a run made against one system as the reference
+  for another, with nothing in the promotion saying which. The declared price
+  made it visible, because the hash now depends on the target; the flag has
+  `run`'s meaning, and a data suite, which has one target, refuses it.
+
 - **Added: `digline log`, which model answered, read down a suite's stored
   runs** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md). For each side,
   target and judge, the reading shows spans of the same sent model and the same

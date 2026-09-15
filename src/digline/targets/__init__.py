@@ -32,6 +32,7 @@ from digline.targets.pricing import (
     Pricing,
     UnknownModelError,
     Usage,
+    free,
 )
 from digline.targets.provider import ProviderTarget
 from digline.targets.registry import (
@@ -69,6 +70,7 @@ __all__ = [
     "declared_config",
     "endpoint_host",
     "finish_of",
+    "free",
     "installed",
     "loads_lenient",
     "render_value",

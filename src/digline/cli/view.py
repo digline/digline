@@ -70,10 +70,15 @@ class ViewHandler(BaseHTTPRequestHandler):
         *args: object,
         suite: Suite,
         store: FileResultStore,
+        pricing: str = "",
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
+        #: The declared-price digest of the target this view promotes for, so a
+        #: promotion from the browser checks the same hash the CLI does.
+        #: (ADR 0022 §5)
+        self.pricing = pricing
         # `BaseHTTPRequestHandler.__init__` handles the request, so every
         # attribute this class needs must be set before calling it.
         super().__init__(*args, **kwargs)  # pyright: ignore[reportArgumentType]
@@ -147,7 +152,7 @@ class ViewHandler(BaseHTTPRequestHandler):
             pages.runs_page(
                 runs,  # pyright: ignore[reportArgumentType]
                 baseline_key=self._baseline_key(),
-                config_hash=self.suite.config_hash(),
+                config_hash=self.suite.config_hash(pricing=self.pricing),
                 locale=locale,
                 suite=self.suite.name,
                 ignored=ignored,
@@ -255,7 +260,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         ref = RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=key)
         try:
             self.store.promote_baseline(
-                ref, self.suite.config_hash(), promoted_at=utc_now_iso()
+                ref,
+                self.suite.config_hash(pricing=self.pricing),
+                promoted_at=utc_now_iso(),
             )
         except (
             ConfigMismatchError,
@@ -280,11 +287,12 @@ def serve(
     *,
     host: str = "127.0.0.1",
     port: int = 7373,
+    pricing: str = "",
 ) -> None:
     """Serve until interrupted. Loopback by default, and that is not a default
     anyone should change lightly: this server has no authentication because it
     has no user, only a developer at the same machine."""
-    handler = partial(ViewHandler, suite=suite, store=store)
+    handler = partial(ViewHandler, suite=suite, store=store, pricing=pricing)
     with ThreadingHTTPServer((host, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         shown = f"http://{host}:{httpd.server_address[1]}/"
         # Flushed, and the *bound* port rather than the requested one: with

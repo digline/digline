@@ -177,7 +177,21 @@ PERIMETER_FIELDS = frozenset({"base_url", "fingerprint"})
 #: suite and the suite goes through a review, which is the argument ADR 0003 §4
 #: makes for opting artifacts in. Two model names, two provenances.
 #: (ADR 0005 §9, amended)
-ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"})
+#: The per-million rates a suite **declared** for its target's model, recorded in
+#: `target_config` beside `pricing = "declared"` (ADR 0022 §2).
+#:
+#: A negotiated rate is the customer's commercial fact, in `base_url`'s class,
+#: so at a named endpoint these are withheld exactly as `resolved_model` is. The
+#: withholding is a **latch, not a constraint**: the value never prints, but
+#: `config_hash` is computed from it and travels in clear beside inputs that all
+#: cross the boundary, so the hash narrows it. A rate that cannot afford to be
+#: narrowed belongs in a Python suite that prices without declaring, or at an
+#: unnamed endpoint. (ADR 0022 §6)
+DECLARED_PRICE_FIELDS = frozenset(
+    {"input_per_mtok", "output_per_mtok", "cache_read_per_mtok", "cache_write_per_mtok"}
+)
+
+ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"}) | DECLARED_PRICE_FIELDS
 
 #: The fields a provider **reported** rather than the target **sent**.
 #:
@@ -953,8 +967,17 @@ def config_hash(
     samples: int = 1,
     min_agreement: float | None = None,
     run_assertions: Iterable[RunAssertion] = (),
+    pricing: str = "",
 ) -> str:
     """Fingerprint of the suite *configuration*.
+
+    `pricing` is the digest of a price the suite **declared** for its target,
+    or empty. It is here for the reason a threshold is: tokens are measured, but
+    a `CostBudget` judges dollars, and dollars are tokens read on a declared
+    rate — change the rate and the same run passes or fails against the same
+    bar. The price is the ruler, not the thing measured. Empty leaves the hash
+    byte-identical, so a suite that declares nothing hashes as it always did.
+    (ADR 0022 §3, §4)
 
     Built from each assertion's `identity` **plus its threshold and tolerance**,
     sorted so the result is independent of declaration order.
@@ -988,8 +1011,31 @@ def config_hash(
         (a.identity, _num(float(a.threshold)), _num(float(a.tolerance)))
         for a in run_assertions
     )
+    body: list[object] = [entries, samples, min_agreement, aggregates]
+    if pricing:
+        # Appended only when present: every suite that declares no price keeps
+        # the exact bytes, and so the exact hash and run keys, it had before.
+        body.append(pricing)
+    payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def pricing_digest(model: str, rates: Mapping[str, float | None]) -> str:
+    """The identity of one declared price, as `config_hash` takes it.
+
+    Over the model and its rates, canonically: two suites that declare the same
+    price for the same model get the same digest whichever form they are
+    written in (ADR 0007 §9). Unkeyed on purpose — ADR 0022 §6 weighed a salt
+    and refused it, and declares what that costs instead.
+    """
     payload = json.dumps(
-        [entries, samples, min_agreement, aggregates],
+        {
+            "model": model,
+            **{
+                name: None if value is None else _num(float(value))
+                for name, value in rates.items()
+            },
+        },
         sort_keys=True,
         separators=(",", ":"),
     )

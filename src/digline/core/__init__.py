@@ -82,6 +82,7 @@ from digline.core.protocols import (
     Assertion,
     AsyncJudge,
     ClaimJudge,
+    DeclaresPrice,
     HasConfig,
     Judge,
 )
@@ -93,6 +94,7 @@ from digline.core.register import (
     RegisterEntry,
 )
 from digline.core.run import (
+    DECLARED_PRICE_FIELDS,
     MAX_RECORDED_CHARS,
     OBSERVED_FIELDS,
     PERIMETER_FIELDS,
@@ -110,6 +112,7 @@ from digline.core.run import (
     config_hash,
     config_to_dict,
     identity_of,
+    pricing_digest,
     record_output,
     record_trajectory,
     redact,
@@ -161,6 +164,9 @@ from digline.core.types import (
 
 __all__ = [
     "ALL_KINDS",
+    "DECLARED_PRICE_FIELDS",
+    "DeclaresPrice",
+    "pricing_digest",
     "DISPOSITIONS",
     "Disposition",
     "RecordedOutcome",

@@ -47,6 +47,7 @@ from digline.core import (
 )
 from digline.host import (
     LATEST,
+    TARGET_ATTR,
     Loaded,
     UsageError,
     explained,
@@ -76,7 +77,7 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.report import diff as diff_report
-from digline.run import ReplayError, Suite, planned_calls, rejudge
+from digline.run import ReplayError, Suite, planned_calls, price_digest_of, rejudge
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -116,6 +117,13 @@ __all__ = [
 LOCALES: tuple[str, ...] = ("en", "it")
 
 RUN_HELP = "a run key, or 'latest' for the most recent run of this suite"
+
+#: `run`'s meaning, on the commands that check a run's hash: the target whose
+#: declared price the hash includes. A data suite has one target and refuses it.
+TARGET_HELP = (
+    "same syntax as --suite; the target the run was made with, for a suite.py "
+    "that holds more than one"
+)
 
 
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
@@ -195,6 +203,27 @@ def _warn_if_ahead(*runs: Run | None) -> None:
     note = ahead_note(run.digline_version for run in runs if run is not None)
     if note:
         say(f"warning: {note}", err=True)
+
+
+def _pricing(args: argparse.Namespace, loaded: Loaded) -> str:
+    """The declared-price digest of the target this command is about.
+
+    `run` chooses its target with `--target`, and until ADR 0022 `promote`,
+    `view` and `rejudge` could not — so a multi-target suite could sign a run of
+    one system as the reference for another. They take the same flag now, and
+    the hash they check is computed off the same target (ADR 0022 §5).
+
+    A `suite.py` with no `target` at all, and no `--target`, contributes
+    nothing: it is promoted as it always was, because there is no price there
+    to have declared.
+    """
+    if (
+        args.target is None
+        and loaded.module is not None
+        and not hasattr(loaded.module, TARGET_ATTR)
+    ):
+        return ""
+    return price_digest_of(load_target(args.target, loaded, args.suite))
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -349,7 +378,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     commit = git_commit(Path(args.root))
     created_at = utc_now_iso()
 
-    suite, _loaded, store = _load(args)
+    suite, loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
     source = read_run(store, suite, key)
     _warn_if_ahead(source)
@@ -365,6 +394,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             created_at=created_at,
             git_commit=commit,
             run_metadata=_meta(args.meta),
+            pricing=_pricing(args, loaded),
         )
     except ReplayError as exc:
         raise UsageError(str(exc)) from exc
@@ -553,14 +583,16 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_promote(args: argparse.Namespace) -> int:
-    suite, _loaded, store = _load(args)
+    suite, loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
     ref = RunRef(tenant=suite.tenant, suite=suite.name, key=key)
     # The clock is read here, in the layer allowed to read it, and handed down
     # as a value — the rule `created_at` already follows. What it stamps is the
     # human signature's own time: `created_at` says when the run was measured.
     promoted = store.promote_baseline(
-        ref, suite.config_hash(), promoted_at=utc_now_iso()
+        ref,
+        suite.config_hash(pricing=_pricing(args, loaded)),
+        promoted_at=utc_now_iso(),
     )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards.
@@ -639,8 +671,14 @@ def cmd_view(args: argparse.Namespace) -> int:
     remembered between requests, so there is no state to lose and none to
     migrate — the store is the only thing that persists, as everywhere else.
     """
-    suite, _loaded, store = _load(args)
-    serve(suite, store, host=args.host, port=args.port)
+    suite, loaded, store = _load(args)
+    serve(
+        suite,
+        store,
+        host=args.host,
+        port=args.port,
+        pricing=_pricing(args, loaded),
+    )
     return EXIT_OK
 
 
@@ -862,6 +900,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     common(rej_p)
     rej_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    rej_p.add_argument("--target", help=TARGET_HELP)
     rej_p.add_argument(
         "--meta",
         action="append",
@@ -927,6 +966,7 @@ def build_parser() -> argparse.ArgumentParser:
     prom_p = subparsers.add_parser("promote", help="make a run the baseline")
     common(prom_p)
     prom_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    prom_p.add_argument("--target", help=TARGET_HELP)
     prom_p.set_defaults(func=cmd_promote)
 
     reg_p = subparsers.add_parser(
@@ -949,6 +989,7 @@ def build_parser() -> argparse.ArgumentParser:
     common(view_p)
     view_p.add_argument("--host", default="127.0.0.1", help="bind address")
     view_p.add_argument("--port", type=int, default=7373, help="bind port")
+    view_p.add_argument("--target", help=TARGET_HELP)
     view_p.set_defaults(func=cmd_view)
 
     exp_p = subparsers.add_parser(

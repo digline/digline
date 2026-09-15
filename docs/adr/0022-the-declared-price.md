@@ -29,7 +29,8 @@
   declared zero is a declaration, never a default; decision 4 — cost is a
   budget, and this is what makes the budget measure the endpoint's cost rather
   than somebody else's list; decision 9 — a negotiated rate is withheld where
-  `base_url` is (§5)
+  `base_url` is, and the record says plainly that the withholding is a latch and
+  not a constraint (§6)
 - Requires: no `SCHEMA_VERSION` (the rates are `target_config` keys, ADR 0005
   §7) and no `OUTPUT_VERSION`. `config_hash` changes **only** for a suite that
   declares a price; every other suite hashes byte-identically
@@ -183,8 +184,8 @@ the rules changed. Declaring the price is the remedy for a suite that cares.
 
 ### 4. The mechanism: a digest of the declared price, fed by both forms
 
-    pricing_digest = digest(salt, canonical({model, input, output,
-                                             cache_read, cache_write}))
+    pricing_digest = sha256(canonical({model, input, output,
+                                       cache_read, cache_write}))[:16]
     Suite.config_hash(*, pricing: str = "")
 
 - **An empty digest leaves the hash byte-identical.** The digest joins the
@@ -205,13 +206,30 @@ the rules changed. Declaring the price is the remedy for a suite that cares.
   `pricing=OPENAI_PRICING.override(model, ModelPrice(...))` produce the same
   digest and the same `config_hash`.
 
-**A finding the mechanism has to state.** A Python suite may hold several
-targets and choose one with `run --target`. `promote` has no `--target` today,
-so it would read the default target's price and refuse a run made with another
-as a configuration mismatch. `promote` and `view` therefore gain `--target`,
-with `run`'s meaning; a data suite has exactly one target and needs none.
+### 5. A correction in its own right: `promote` could sign the wrong target
 
-### 5. Withheld at a named endpoint — and the hash must not give it back
+A Python suite may hold several targets, and `run --target other` chooses one.
+`promote` has never had `--target`. Until now that was harmless by accident —
+the hash did not depend on the target, so a baseline promoted from a run made
+against `other` recorded the same `config_hash` as one made against the default
+— and it hid a real defect: **a multi-target suite could sign a run made against
+one system as the reference for a suite whose default is another**, and nothing
+in the promotion said which target the signature was for.
+
+The declared price makes the defect visible, because the hash now depends on the
+target's declaration: `promote` without `--target` reads the default target's
+price and refuses a run made with a differently priced one as a configuration
+mismatch. The fix is not a workaround for this record. `promote` and `view` gain
+`--target`, with exactly `run`'s meaning, so the target a signature is for is
+named at the moment of signing. A data suite has exactly one target and needs
+none.
+
+`rejudge` gains it too, found while writing the code: a replay's target is a
+wrapper around stored answers and declares no price, so the hash a re-judged run
+carries has to be computed off the target the suite would run today — named the
+same way, for the same reason.
+
+### 6. Withheld at a named endpoint, and the withholding is a latch
 
 A negotiated rate is the customer's commercial fact. It is in the class of
 `base_url`: where the suite names an endpoint, the declared rates join
@@ -220,50 +238,41 @@ A negotiated rate is the customer's commercial fact. It is in the class of
 At a first-party endpoint the price is a list price the suite chose to pin, and
 it travels in clear like the model id.
 
-**The hash is computed from the value; only its printing is withheld.** And
-here the record has to stop at a finding rather than pass over it:
-`config_hash` travels in clear everywhere — in every run key, in the register,
-in `log`, in `compare --json`, in the MCP — and every other input to it crosses
-the same boundary on its own merit: the assertion identities, the thresholds and
-tolerances, `samples`, `min_agreement`. An **unkeyed** digest of the price would
-therefore leave the price as the only unknown in a public hash, over a small,
-guessable space — a rate to the cent, per million tokens — and a withheld rate
-would be recoverable by enumeration in seconds. That is ADR 0003 §4's verifier,
-in a new place: the withholding would be defeated by the hash beside it.
+**The hash is computed from the value; only its printing is withheld.** And that
+has a consequence the record states rather than hides. `config_hash` travels in
+clear everywhere — in every run key, in the register, in `log`, in `compare
+--json`, in the MCP — and every other input to it crosses the same boundary on
+its own merit: the assertion identities, the thresholds and tolerances,
+`samples`, `min_agreement`. So a reader holding a redacted document holds a hash
+in which the declared price is the one unknown, over a space small enough to
+search: a rate to the cent, per million tokens. The value never prints; the hash
+narrows it.
 
-So the digest is **keyed**, with a salt the hash's readers outside the
-repository do not have:
+In the words `DESIGN.md` uses for walls:
 
-    .digline/<tenant>/pricing.salt      committed, generated once
+> **Withholding a declared rate is a latch, not a constraint** — the value never
+> prints, but the hash narrows it; a rate you cannot afford to narrow belongs in
+> a Python suite, or at an unnamed endpoint.
 
-- **Per tenant**, because the tenant is the perimeter (decision 8), and a salt
-  shared across customers would let one customer's rate be tested against
-  another's.
-- **Committed**, because every clone must compute the same hash for the same
-  suite, or no run made on CI could be promoted against a baseline made on a
-  laptop. The salt travels with the repository — which already holds the price
-  in clear, in the suite file — and appears in no document, no key, no wire
-  shape and no report.
-- **Generated only by a command that already writes** — `run`, `rejudge`,
-  `promote` — through `ensure_layout`, and only when a suite declares a price.
-  Never by `compare`, `log`, `explain` or `report`: a reading that wrote a file
-  would be a reading with a side effect.
+A **Python suite** can price a target without declaring the price —
+`Pricing(per_model={...})` built directly carries no declaration — and then no
+digest enters the hash, at the stated cost that a change of that rate no longer
+reads as *the rules changed*. At an **unnamed endpoint** the rate is a list price
+and travels in clear, so there is nothing to narrow.
 
-**Why not the repository's root commit, which needs no new file.** It is not
-stable: a shallow clone — the default checkout on a hosted runner — reports its
-shallow boundary as the root, so CI and a laptop would key the same suite
-differently and never agree on a hash.
+**Why not a keyed digest.** A salt committed per tenant would close the
+enumeration, and it was weighed and refused. A negotiated rate is a commercial
+fact, not a credential, and the salt's costs are the kind this project has
+learned to count: a new committed file that stamps runs `-dirty` until it is
+committed, and two clones that each generate one computing different hashes for
+the same suite until one salt wins a merge. That is a new way for a baseline to
+become unpromotable for a reason unrelated to the suite, bought to protect a
+value that is not a secret — so the protection is declared for what it is
+instead. A key taken from the repository's root commit, which needs no file, was
+refused too: a shallow clone reports its shallow boundary as the root, so CI and
+a laptop would disagree about it.
 
-**The cost, stated.** A new salt is an untracked file until somebody commits it,
-and a run made from that tree is stamped `-dirty` — the hazard `promote` and
-the register already carry. Two clones that each generate a salt before either
-is committed compute different hashes until one salt wins the merge; the
-conflict is on one small file and the loser's runs are comparable and not
-promotable, which is the truth about them. Deleting the salt re-keys every
-declared price in the tenant and unpromotes those baselines, and the sentence
-that says *the rules changed* is, again, the true one.
-
-### 6. What a reader sees
+### 7. What a reader sees
 
 At a first-party endpoint, a changed declared price is a named delta —
 *input_per_mtok 2.50 → 1.10* — and a changed hash: *the suite changed since the
@@ -285,8 +294,11 @@ budgeted in the currency they actually charge.
 correcting one, unpromotes the baseline — and that is the design: the budget's
 ruler moved.
 
-**There is one more committed file, for suites that declare a price.** Suites
-that do not never see it.
+**A withheld rate is narrowed by the hash beside it.** Declared as a latch in
+§6, with the two places a rate that cannot afford it belongs.
+
+**A multi-target suite names the target it signs.** `promote --target` closes a
+gap older than this record.
 
 **A plugin's own list still moves verdicts silently between plugin releases.**
 Unchanged by this record, stated here, and now avoidable by declaring.
@@ -303,11 +315,16 @@ and a suite holding it would describe a target it does not construct.
 **A price map in the data suite.** Rejected in §1: a provider target prices one
 model.
 
-**An unkeyed digest.** Rejected in §5: beside public thresholds it is an oracle
-for the withheld rate.
+**A digest keyed with a committed per-tenant salt.** Rejected in §6: it closes
+the enumeration, and costs a new way to stamp runs `-dirty` and to make two
+clones disagree about a hash, to protect a commercial fact rather than a
+credential. The weakness is declared as a latch instead.
 
-**A key from the repository's root commit.** Rejected in §5: shallow clones
+**A key from the repository's root commit.** Rejected in §6: shallow clones
 disagree about it.
+
+**Leaving `promote` without `--target`.** Rejected in §5: a multi-target suite
+could sign a run of one system as the reference for another.
 
 **Putting the plugin's list price in the hash too.** Rejected in §3: a plugin
 release would unpromote every baseline that uses it.
@@ -341,14 +358,19 @@ the journal header and the MCP `run` tool each produce a hash that includes the
 digest, asserted by promoting a run made with a declared price; and `promote
 --target` promotes a run made with a non-default target.
 
-**Withheld, and not recoverable.** At a named endpoint the rates appear in no
-redacted document, `--json`, MCP response or `log` output; and the stored
-`config_hash` cannot be reproduced from the public inputs plus a candidate rate
-without the salt — asserted by enumerating the true rate and failing to match.
+**Withheld, and declared a latch.** At a named endpoint the rates appear in no
+redacted document, `--json`, MCP response or `log` output, and no report. The
+latch sentence of §6 is in the security page beside the other declared latches,
+held there by a test, so the weakness cannot be edited out of the documentation
+while it remains in the code.
 
-**The salt.** Generated once by `run` for a suite that declares a price, never by
-`compare`, `log`, `explain` or `report`, never for a suite that declares none,
-and never overwritten.
+**The undeclared Python price stays out of the hash.** A target built with
+`Pricing(per_model=...)` directly produces no digest and hashes as today, and the
+same price through `override()` produces one.
+
+**`promote --target`.** A Python suite with two targets: a run made with
+`--target other` and a declared price is refused by `promote` without the flag,
+and promoted with it.
 
 ## Not decided here
 
