@@ -24,6 +24,7 @@ from digline.core.types import (
     Message,
     Output,
     OutputKind,
+    ResultAbsence,
     Score,
     Status,
     ToolStatus,
@@ -487,13 +488,24 @@ def record_trajectory(
                 "not a mapping with a 'tool' in it"
             )
         item = cast("Mapping[str, object]", entry)
+        # Defaulting to `success` is a plain-function target's contract from the
+        # day the trajectory arrived, and changing it would reinterpret every
+        # trajectory one has reported. A writer that does not know says
+        # `not_reported`, the way every provider plugin does. (ADR 0018 §1,
+        # amended 2026-09-15)
         raw_status = item.get("status", "success")
+        raw_absence = item.get("result_absence")
         calls.append(
             RecordedToolCall(
                 tool=str(item.get("tool", "")),
                 arguments=_recorded_arguments(item.get("arguments")),
                 result=None if item.get("result") is None else str(item["result"]),
                 status=cast(ToolStatus, str(raw_status)),
+                result_absence=(
+                    None
+                    if raw_absence is None
+                    else cast(ResultAbsence, str(raw_absence))
+                ),
             )
         )
     return tuple(calls)
@@ -565,12 +577,23 @@ class RecordedToolCall:
     call raised, and the agent answered from nothing. `status` is also the one
     field here a fake cannot forge into vacuity — a tool that raises reports
     `error` whether or not the model is real. (ADR 0018 §1)
+
+    **What a provider does not report is named, never defaulted.** A provider
+    plugin sees the model *ask* for a client-side tool and nothing after, so its
+    calls carry `status="not_reported"` and `result_absence="not_reported"`; a
+    server tool that succeeded carries `result_absence="not_recorded"`, because
+    its payload is bulk. An assertion may assert on the tool and its arguments,
+    and errors — never fails — on a status or a result nobody reported. (ADR
+    0018 §1, amended 2026-09-15)
     """
 
     tool: str
     arguments: str | None = None
     result: str | None = None
     status: ToolStatus = "success"
+    #: Why `result` is empty, where the writer knows. `None` keeps its 0.12
+    #: meaning: the target reported no result and said nothing about why.
+    result_absence: ResultAbsence | None = None
 
     def __post_init__(self) -> None:
         if not self.tool:
@@ -578,10 +601,23 @@ class RecordedToolCall:
                 "RecordedToolCall.tool must not be empty: a call to nothing is "
                 "not a call, and a trajectory reads by the names in it"
             )
-        if self.status not in ("success", "error"):
+        # The exact sentence 0.12.x raises for a value it does not know, kept
+        # so that the refusal an old reader gives a newer document and the one
+        # this reader gives a corrupt document read alike.
+        if self.status not in ("success", "error", "not_reported"):
             raise ValueError(
-                f"RecordedToolCall.status must be 'success' or 'error', got "
-                f"{self.status!r}"
+                f"RecordedToolCall.status must be 'success', 'error' or "
+                f"'not_reported', got {self.status!r}"
+            )
+        if self.result_absence not in (None, "not_reported", "not_recorded"):
+            raise ValueError(
+                "RecordedToolCall.result_absence must be 'not_reported' or "
+                f"'not_recorded', got {self.result_absence!r}"
+            )
+        if self.result_absence is not None and self.result is not None:
+            raise ValueError(
+                f"RecordedToolCall declares its result {self.result_absence} "
+                "and carries one: a reader cannot be told both"
             )
 
 
@@ -1438,15 +1474,21 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
 def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     """Absent rather than emptied, like every other payload field here.
 
-    `status` is written only when it is `error`: `success` is what its absence
-    already says, and writing it on every call of every recorded response would
-    be a key that repeats the ordinary case. (ADR 0018 §1)
+    `status` is written only when it is not `success`: `success` is what its
+    absence already says, and writing it on every call of every recorded
+    response would be a key that repeats the ordinary case. (ADR 0018 §1)
+
+    `not_reported` is therefore always **written**, and that is load-bearing: a
+    0.12.x reader refuses the value by name rather than reading its absence as
+    success. (ADR 0018 §1, amended 2026-09-15)
     """
     payload: dict[str, object] = {"tool": call.tool}
     if call.arguments is not None:
         payload["arguments"] = call.arguments
     if call.result is not None:
         payload["result"] = call.result
+    if call.result_absence is not None:
+        payload["result_absence"] = call.result_absence
     if call.status != "success":
         payload["status"] = call.status
     return payload
@@ -1470,6 +1512,7 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
         )
     entry = cast("Mapping[str, Any]", raw)
     status = entry.get("status")
+    absence = entry.get("result_absence")
     try:
         return RecordedToolCall(
             tool=str(_required(entry, "tool", "recorded tool call")),
@@ -1478,6 +1521,9 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
             ),
             result=None if entry.get("result") is None else str(entry["result"]),
             status=cast(ToolStatus, "success" if status is None else str(status)),
+            result_absence=(
+                None if absence is None else cast(ResultAbsence, str(absence))
+            ),
         )
     except ValueError as exc:
         raise ValueError(f"recorded tool call: {exc}") from exc

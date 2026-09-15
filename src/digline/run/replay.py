@@ -125,6 +125,7 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
                 "arguments": call.arguments,
                 "result": call.result,
                 "status": call.status,
+                "result_absence": call.result_absence,
             }
             for call in answer.tool_calls
         ],

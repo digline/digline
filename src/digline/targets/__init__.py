@@ -14,6 +14,7 @@ from digline.targets.completion import (
     CompletionResult,
     HasObserved,
     ObservedIdentity,
+    ToolCall,
     as_completion,
     finish_of,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "ProviderTarget",
     "Pricing",
     "ScoreJudge",
+    "ToolCall",
     "UnknownModelError",
     "Usage",
     "as_completion",

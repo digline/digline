@@ -152,6 +152,19 @@ INTRODUCED: dict[str, str] = {
     # imported them. `digline-mcp` 0.1.2 does, which is what dates them.
     "prepare": "0.11.0",
     "measure": "0.11.0",
+    # 0.1.0 — the canonical form a recorded value is written in. Undated until
+    # `digline-bedrock` used it to write a non-object tool input as JSON rather
+    # than drop it; `git describe --contains` on its definition lands in
+    # `v0.1.0~7`.
+    "canonical": "0.1.0",
+    # 0.13.0 — the trajectory a provider plugin hands over (ADR 0018 §1,
+    # amended 2026-09-15), and the declared zero each plugin's `free()` now
+    # delegates to (ADR 0022 §2). **Dated to a release that does not exist
+    # yet**: the trio's floors name it, which is what keeps this branch off the
+    # index until 0.13.0 is. A names gate sees these two and not the field
+    # `Completion.tool_calls` beside them, so the floors say that by hand.
+    "ToolCall": "0.13.0",
+    "free": "0.13.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true
