@@ -379,12 +379,20 @@ suite and its spend is reported, not budgeted by `CostBudget`. A declared judge
 price is the same shape and a smaller question, and it waits for a suite that
 needs its judge's cost to be exact.
 
-**Cache-write tokens on OpenAI-compatible endpoints.** The OpenAI plugin reads
-cached reads and reports no cache writes, because OpenAI's API has none. An
-aggregator that forwards another vendor's cache-write count would report tokens
-the plugin never reads, and a declared `cache_write_per_mtok` would then price
-nothing. Whether such an endpoint reports them, and in which field, needs the
-raw usage of a real call before it needs a rule.
+**Cache-write tokens on OpenAI endpoints.** *Corrected 2026-09-15.* This
+paragraph said the OpenAI plugin reports no cache writes "because OpenAI's API
+has none", and that was already false: from GPT-5.6 the plugin's own price list
+carries a cache-write rate, and openai 3.13.0 exposes
+`prompt_tokens_details.cache_write_tokens`. The plugin still reports zero, for a
+different reason, stated where the zero is (`digline_openai.client`): whether
+those tokens sit **inside** `prompt_tokens`, as cached reads do, or beside it is
+**unmeasured**, and each guess misprices. Until a real call settles it, a call
+that writes a cache is undercounted, in the good-news direction — and a declared
+`cache_write_per_mtok` prices nothing, on the official endpoint as on an
+aggregator. What settles it is three calls with caching off as the baseline,
+carried as a live test in `digline-openai`. An aggregator forwarding another
+vendor's count in another field is the same question, and still needs its raw
+usage before a rule.
 
 **Dated prices.** A rate that changes on a known date is two suites or two
 commits today, which is the honest form until somebody needs a third.
