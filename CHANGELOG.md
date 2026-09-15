@@ -8,6 +8,20 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **Fixed:** `compare` and the report **no longer say "the same configuration"
+  over an answering model they withheld**. At a named endpoint — an
+  OpenAI-compatible aggregator, a corporate gateway, a self-hosted server
+  behind `base_url` — `resolved_model` is a perimeter field and is withheld
+  inside the comparison, so every declared field can match while the model
+  behind the endpoint changed. The headline read that as *"answered under the
+  same configuration as the reference"*: a withheld identity read as
+  confirmation. It now says *"the same declared configuration; what answered is
+  withheld, so whether the model changed is not known."* Nothing leaked, and
+  still nothing does — the value stays withheld and the sentence reveals nothing
+  about it; the report simply stops asserting what it does not know. Found by
+  the first external run of the TOML quickstart, against an OpenAI-compatible
+  aggregator.
+
 - **Added: `digline log`, which model answered, read down a suite's stored
   runs** — [ADR 0020](docs/adr/0020-the-reading-across-runs.md). For each side,
   target and judge, the reading shows spans of the same sent model and the same

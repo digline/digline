@@ -644,6 +644,13 @@ def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> 
     two runs that predate ADR 0005. `unknown` is not a change and never renders
     as one: a run compared against a baseline that predates the record says so,
     which is a different sentence from "it moved" and from "it did not".
+
+    **Nor is a withheld identity an unchanged one.** At a named endpoint the
+    answering model is a perimeter field and is withheld inside the comparison,
+    so every declared field can match while the model behind the endpoint
+    changed. "The same configuration" there was a withheld identity read as
+    confirmation; the sentence now says what is known and what is not, and
+    reveals nothing about the withheld value in doing so.
     """
     if not deltas:
         return ""
@@ -652,6 +659,10 @@ def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> 
         return phrase(locale, f"fact.{key}.changed", changes=changes)
     if all(delta.outcome == "unknown" for delta in deltas):
         return phrase(locale, f"fact.{key}.unknown")
+    if key == "target_config" and any(
+        delta.withheld and delta.field in OBSERVED_FIELDS for delta in deltas
+    ):
+        return phrase(locale, f"fact.{key}.withheld_identity")
     return phrase(locale, f"fact.{key}.unchanged")
 
 

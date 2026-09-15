@@ -160,6 +160,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The configuration of the system under test is not recorded on "
             "both sides, so whether it changed is not known."
         ),
+        # Never "the same configuration" over an identity that was withheld: a
+        # withheld answering model is not an unchanged one, and saying so would
+        # be the report asserting what it does not know.
+        "fact.target_config.withheld_identity": (
+            "The system under test answered under the same declared "
+            "configuration; what answered is withheld, so whether the model "
+            "changed is not known."
+        ),
         "fact.judge_config.changed": (
             "The judging changed ({changes}), so these scores are less "
             "comparable with the reference: what moved is the measuring "
@@ -729,6 +737,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.target_config.unknown": (
             "La configurazione del sistema in prova non è registrata da "
             "entrambe le parti, quindi non si sa se sia cambiata."
+        ),
+        "fact.target_config.withheld_identity": (
+            "Il sistema in prova ha risposto con la stessa configurazione "
+            "dichiarata; il modello che ha risposto è trattenuto, quindi non si "
+            "sa se sia cambiato."
         ),
         "fact.judge_config.changed": (
             "Il modo di giudicare è cambiato ({changes}), quindi questi "
