@@ -8,31 +8,25 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-- **Security:** `log --json` **no longer puts a C1 control character on your
-  terminal**. The register is committed, so a pull request writes its strings,
-  and a `run.environment` holding U+009B — CSI on its own, the same sequence
-  ESC `[` opens — reached stdout raw. `emit()` printed every `--json` document
-  unescaped on a premise its own docstring stated: that `json.dumps` escapes
-  every control character. **It does not escape DEL or C1.** It writes C0 as
-  `\u00XX` and, under `ensure_ascii=False`, which is how every document here is
-  built, leaves U+007F and U+0080–U+009F as they came. `emit()` now escapes those
-  two ranges itself, at the sink, so every `--json` command inherits it; the
-  value a parser reads is unchanged.
+## 0.13.1 — 2026-09-15
 
-  The class predates this release — the premise was written in 0.10.1, beside
-  `say()` — and 0.13.0 added a source anyone with repository write access can
-  fill. That capability is, in `SECURITY.md`'s words, "already the capability to
-  edit `suite.py`, which is code and executes". So no advisory, by
-  `SECURITY.md`'s line, on the precedent of 0.10.1 and 0.12.1.
+**The register, read as the hostile document it is.** digline **0.13.1**,
+alone: the three provider plugins stay at 0.5.0, `digline-mcp` at 0.1.3 and
+`pytest-digline` at 0.1.3, and no floor moves. `SCHEMA_VERSION` stays **11** and
+`OUTPUT_VERSION` stays 1 — no stored document moves, **no baseline needs
+re-promoting**.
 
-  **It is the third time this family bit, so the rule is now standing rather
-  than remembered:** every source of third-party text reaches a terminal through
-  `digline.cli.output` — `say()` for a sentence, `emit()` for a document — **by
-  construction**. One test enforces it, and it is the one place to look:
-  `test_nothing_in_the_cli_prints_except_through_say_or_emit` refuses any
-  `print` or stream write in `digline.cli` outside that module. It found one on
-  its first run — `digline view`'s start-up line — which now goes through
-  `say()` too.
+The honest headline first: **0.13.0 could refuse a register it had written
+itself.** Its reader split lines wherever Python's `splitlines()` does — at NEL
+and the Unicode line separators as well as at `\n` — and the writer puts those
+characters down raw inside a string, so a line digline recorded read back as a
+corrupt register. That, and six ways a hostile line defeated the same reader,
+are fixed below. All of it comes from the delta-pass over 0.13.0 and the tests
+written to close what it found, before any announcement.
+
+```sh
+uv add --upgrade digline
+```
 
 - **Fixed: a committed register is read as the hostile document it is.**
   `log`, `register` and the MCP `log` all read `.digline/<tenant>/register/`,
@@ -64,6 +58,32 @@ notes under them are this file, verbatim.
   `\n` and nowhere else. Where the register cannot be read, `log` still reads
   the runs and says so, as before; `digline register` is where the named
   refusal is printed.
+
+- **Security:** `log --json` **no longer puts a C1 control character on your
+  terminal**. The register is committed, so a pull request writes its strings,
+  and a `run.environment` holding U+009B — CSI on its own, the same sequence
+  ESC `[` opens — reached stdout raw. `emit()` printed every `--json` document
+  unescaped on a premise its own docstring stated: that `json.dumps` escapes
+  every control character. **It does not escape DEL or C1.** It writes C0 as
+  `\u00XX` and, under `ensure_ascii=False`, which is how every document here is
+  built, leaves U+007F and U+0080–U+009F as they came. `emit()` now escapes those
+  two ranges itself, at the sink, so every `--json` command inherits it; the
+  value a parser reads is unchanged.
+
+  The class predates this release — the premise was written in 0.10.1, beside
+  `say()` — and 0.13.0 added a source anyone with repository write access can
+  fill. That capability is, in `SECURITY.md`'s words, "already the capability to
+  edit `suite.py`, which is code and executes". So no advisory, by
+  `SECURITY.md`'s line, on the precedent of 0.10.1 and 0.12.1.
+
+  **It is the third time this family bit, so the rule is now standing rather
+  than remembered:** every source of third-party text reaches a terminal through
+  `digline.cli.output` — `say()` for a sentence, `emit()` for a document — **by
+  construction**. One test enforces it, and it is the one place to look:
+  `test_nothing_in_the_cli_prints_except_through_say_or_emit` refuses any
+  `print` or stream write in `digline.cli` outside that module. It found one on
+  its first run — `digline view`'s start-up line — which now goes through
+  `say()` too.
 
 - **Fixed: one unreadable tool call no longer decides a check about another.**
   `ToolCalledWith` errored as soon as *any* call to its tool had arguments that

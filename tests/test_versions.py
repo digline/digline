@@ -277,6 +277,28 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'until 0.7.2 nothing did' — a checked name proved a segment "
         "safe and never where it led. The release that closed it, said as "
         "history beside the code that closes it",
+        "0.13.0": "four sites reading '(0.13.0 delta-pass)' — the pass over "
+        "0.13.0 that found the register reader tracebacking on `Infinity` and "
+        "nesting, coercing a wrong-typed field, forgiving a BOM as a tear, and "
+        "splitting lines at NEL. Each names the pass beside the refusal that "
+        "closes it. History from the moment 0.13.1 shipped",
+    },
+    # The rest of the 0.13.0 delta-pass, in the same shape: the pass named
+    # where each finding is closed, history from the moment 0.13.1 shipped.
+    "src/digline/cli/output.py": {
+        "0.13.0": "'Until the 0.13.0 delta-pass this docstring said' and "
+        "'(from the 0.13.0 delta-pass)' — the pass that found `emit()` "
+        "trusting `json.dumps` to escape DEL and C1, named where the standing "
+        "rule and the escaping now live",
+    },
+    "src/digline/cli/view.py": {
+        "0.13.0": "'(0.13.0 delta-pass)' — the start-up line the standing "
+        "rule's guard caught on its first run, now through `say()`",
+    },
+    "src/digline/core/assertions.py": {
+        "0.13.0": "'(0.13.0 delta-pass)' — the pass that found one undecodable "
+        "call erroring `ToolCalledWith` beside a match, named where unreadable "
+        "calls are now stepped over",
     },
     "src/digline/targets/http.py": {
         "0.7.2": "'Unguarded until 0.7.2' — the `InvalidURL` that escaped "
