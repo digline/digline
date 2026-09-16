@@ -7,11 +7,13 @@ really reported, and that `--check` refuses a file captured by another version.
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+from packaging.requirements import Requirement
 
 import home_capture
 
@@ -67,6 +69,30 @@ def test_band_says_zero_width_when_every_sample_agreed() -> None:
     assert home_capture.band([document]).startswith("zero-width: samples=3")
 
 
+def test_runtime_dependencies_leave_out_extras_and_inactive_markers() -> None:
+    found = home_capture.runtime_dependencies(
+        [
+            "typing-extensions>=4",
+            'rich>=13; extra == "pretty"',
+            'tomli>=2; python_version < "3.0"',
+            'colorama; sys_platform != "no-such-platform"',
+        ]
+    )
+    assert found["names"] == ["colorama", "typing-extensions"]
+    assert found["count"] == 2
+
+
+def test_runtime_dependencies_read_the_installed_digline() -> None:
+    found = home_capture.runtime_dependencies()
+    declared = [
+        Requirement(line) for line in importlib.metadata.requires("digline") or ()
+    ]
+    unconditional = {r.name for r in declared if r.marker is None}
+    assert unconditional <= set(found["names"])
+    assert found["count"] == len(found["names"])
+    assert "importlib.metadata" in found["source"]
+
+
 def test_a_guide_that_moved_stops_the_derivation() -> None:
     files = {"app.py": "", "rules.py": "", "support.py": ""}
     with pytest.raises(home_capture.CaptureError):
@@ -85,10 +111,17 @@ def test_the_capture_is_what_the_cli_printed(tmp_path: Path) -> None:
     assert compared["cmd"] == "digline compare --suite support.py --run latest"
     assert compared["exit"] == 1
     assert "prompt.md · +1 −1 lines" in compared["stdout"]
-    assert regression["compare_json"]["exit_code"] == 1
+    as_json = regression["commands"][-1]
+    assert as_json["cmd"].endswith("--json full")
+    assert set(as_json) == {"cmd", "stderr", "exit"}
+    assert as_json["cmd"] in regression["compare_json"]["source"]
+    assert regression["compare_json"]["exit_code"] == as_json["exit"] == 1
     assert regression["compare_json"]["artifacts_changed"] is True
     assert regression["band"] == "absent: samples=1"
     (changed,) = regression["change"]["files"]
     assert f"-{home_capture.SIGNATURE_LINE}" in changed["diff"]
     assert f"+{home_capture.CHANGED_LINE}" in changed["diff"]
     assert len(regression["run_ids"]) == 2
+
+    dependencies = result["runtime_dependencies"]
+    assert dependencies["count"] == len(dependencies["names"])

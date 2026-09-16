@@ -51,6 +51,10 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "pyright>=1.1.380",
+    # For `tools/home_capture.py`, which evaluates the markers on digline's own
+    # requirements. Already in the lock through pytest; named here so a tool
+    # does not lean on another tool's dependency.
+    "packaging>=24",
     # Not a dependency of digline and never will be: it is here so that
     # `tests/test_examples.py` can run `examples/langchain` against this source
     # on every build, the same way it runs every other example. The example

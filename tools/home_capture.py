@@ -38,10 +38,14 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.metadata import requires
 from pathlib import Path
 from typing import Any
+
+from packaging.requirements import Requirement
 
 from doc_fences import python_files
 
@@ -345,7 +349,15 @@ def prompt_regression(root: Path, guide: str) -> dict[str, Any]:
     as_json = space.digline(
         "compare", "--suite", "support.py", "--run", "latest", "--json", "full"
     )
-    facts: dict[str, Any] = json.loads(as_json["stdout"])
+    # The stdout is kept once, decoded, in `compare_json`: carrying it again as
+    # a string beside the object it decodes to doubled the file for nothing.
+    stdout = as_json.pop("stdout")
+    facts: dict[str, Any] = json.loads(stdout)
+    if "source" in facts:
+        raise CaptureError(
+            "compare --json now emits a `source` field of its own, which the "
+            "capture would overwrite: rename the capture's field"
+        )
 
     if compared["exit"] == 0 or as_json["exit"] == 0:
         raise CaptureError(
@@ -367,7 +379,44 @@ def prompt_regression(root: Path, guide: str) -> dict[str, Any]:
         },
         "band": band([space.run_document(before), space.run_document(after)]),
         "commands": space.commands,
-        "compare_json": facts,
+        "compare_json": {
+            "source": (
+                f"The stdout of `{as_json['cmd']}` above, decoded with "
+                "json.loads and otherwise unchanged: every key but this one "
+                "is digline's."
+            ),
+            **facts,
+        },
+    }
+
+
+RUNTIME_DEPENDENCIES_SOURCE = (
+    "importlib.metadata.requires('digline') in the interpreter that ran every "
+    "command above: the requirements the installed digline declares, keeping "
+    "those whose marker holds in that interpreter. Extras are never active, so "
+    "a requirement that exists only for an extra is not counted."
+)
+
+
+def runtime_dependencies(declared: Iterable[str] | None = None) -> dict[str, Any]:
+    """The direct dependencies digline declares, as the installed metadata says.
+
+    `declared` is for the tests; left out, it is read from the distribution. A
+    marker is evaluated with `extra` set to the empty string, which is how an
+    install that asked for no extra sees it.
+    """
+    lines = list(requires("digline") or ()) if declared is None else list(declared)
+    names = sorted(
+        {
+            requirement.name
+            for requirement in map(Requirement, lines)
+            if requirement.marker is None or requirement.marker.evaluate({"extra": ""})
+        }
+    )
+    return {
+        "count": len(names),
+        "names": names,
+        "source": RUNTIME_DEPENDENCIES_SOURCE,
     }
 
 
@@ -399,6 +448,7 @@ def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
             + CLOSED_PROXY,
             "stripped": [*STRIPPED, *(f"{p}*" for p in STRIPPED_PREFIXES)],
         },
+        "runtime_dependencies": runtime_dependencies(),
         "scenarios": scenarios,
     }
 
