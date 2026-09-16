@@ -1,6 +1,6 @@
 {
   "digline_version": "0.13.1",
-  "captured_at": "2026-09-16T08:43:41+00:00",
+  "captured_at": "2026-09-16T09:56:41+00:00",
   "environment": {
     "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
     "stripped": [
@@ -16,23 +16,27 @@
     ],
     "source": "importlib.metadata.requires('digline') in the interpreter that ran every command above: the requirements the installed digline declares, keeping those whose marker holds in that interpreter. Extras are never active, so a requirement that exists only for an extra is not counted."
   },
+  "requires_python": {
+    "specifier": ">=3.12",
+    "source": "importlib.metadata.metadata('digline')['Requires-Python'] in the interpreter that ran every command above: the interpreter range the installed digline declares, as its own metadata carries it, not as the interpreter that happened to run this script satisfies it."
+  },
   "scenarios": {
     "quickstart": {
       "run_ids": [
-        "2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4"
+        "2026-09-16T09-56-40-824989-00-00-282b0c02d6511fb4"
       ],
       "change": null,
       "band": "absent: samples=1",
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-16T09-56-40-824989-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-16T09-56-40-824989-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
@@ -46,8 +50,8 @@
     },
     "prompt_regression": {
       "run_ids": [
-        "2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4",
-        "2026-09-16T08-43-41-050592-00-00-282b0c02d6511fb4"
+        "2026-09-16T09-56-41-266484-00-00-282b0c02d6511fb4",
+        "2026-09-16T09-56-41-576405-00-00-282b0c02d6511fb4"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
       "change": {
@@ -72,19 +76,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-16T09-56-41-266484-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-16T09-56-41-266484-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-16T08-43-41-050592-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-16T09-56-41-576405-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
