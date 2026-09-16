@@ -12,11 +12,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Any, ClassVar, Protocol, cast
 
 from digline.core.assertions import AssertionBase
 from digline.core.types import (
     TEXT_ONLY,
+    CheckKind,
     EvaluatorInputs,
     OutputKind,
     Score,
@@ -68,6 +69,7 @@ class FromAutoevals(AssertionBase):
     threshold: float
     tolerance: float
     name: str = "autoevals"
+    KIND: ClassVar[CheckKind] = "wrapper"
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:

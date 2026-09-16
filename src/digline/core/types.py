@@ -22,6 +22,7 @@ __all__ = [
     "REDACTED",
     "STORAGE_STEP",
     "Cause",
+    "CheckKind",
     "ClaimReply",
     "ConfigValue",
     "Disclosure",
@@ -160,6 +161,21 @@ type ToolStatus = Literal["success", "error", "not_reported"]
 #:   `MAX_RECORDED_CHARS`, dropping the model's own answer with it; an error is
 #:   signal, short, and is recorded. (ADR 0018 §1, amended 2026-09-15)
 type ResultAbsence = Literal["not_reported", "not_recorded"]
+
+#: What kind of check a class is, declared on the class as `KIND`, so that a
+#: list of checks can say which ones need a model and which ones fail the run
+#: on a ceiling without anybody keeping that list by hand.
+#:
+#: - `deterministic`: the same output always gets the same verdict.
+#: - `judged`: a model decides, so the verdict is noisy by construction.
+#: - `budget`: a declared ceiling on cost or latency (fixed decision 4).
+#: - `aggregate`: one verdict about the whole run, from every case's outcome.
+#: - `wrapper`: its nature is the thing it wraps — `Repeated` around any check,
+#:   `FromAutoevals` around a scorer that may or may not call a model.
+#:
+#: A property of the class, never of an instance, and outside `identity` and
+#: `config_hash`: saying what a check *is* does not change what it checks.
+type CheckKind = Literal["deterministic", "judged", "budget", "aggregate", "wrapper"]
 
 #: What a target or a judge may declare about itself. Scalars only, and
 #: deliberately: the configuration of the system under test is diffed field by

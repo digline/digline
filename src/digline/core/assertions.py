@@ -25,6 +25,7 @@ from digline.core.types import (
     TEXT_ONLY,
     TEXT_OR_CONVERSATION,
     TEXT_OR_STRUCTURED,
+    CheckKind,
     EvaluatorInputs,
     Message,
     Output,
@@ -130,6 +131,11 @@ class AssertionBase:
     threshold: float
     tolerance: float
     accepts: frozenset[OutputKind]
+    #: What kind of check this is (see `CheckKind`). Declared without a value
+    #: here so that a concrete class must say it: a default would make every
+    #: new check `deterministic` by omission. Optional for a check of your own —
+    #: nothing that runs or compares reads it.
+    KIND: ClassVar[CheckKind]
 
     #: Fields deliberately outside `identity`. They describe *how* a result is
     #: judged, not *what* is checked, and they already travel in every `Verdict`.
@@ -226,6 +232,7 @@ class Equals(AssertionBase):
     """
 
     name: str = "equals"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = ALL_KINDS
@@ -260,6 +267,7 @@ class Contains(AssertionBase):
     needle: str
     case_sensitive: bool = True
     name: str = "contains"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -298,6 +306,7 @@ class NotContains(AssertionBase):
     needle: str
     case_sensitive: bool = True
     name: str = "not_contains"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -349,6 +358,7 @@ class Affix(AssertionBase):
     at: AffixEnd = "start"
     case_sensitive: bool = True
     name: str = ""
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -409,6 +419,7 @@ class IsJson(AssertionBase):
 
     top_level: Literal["any", "object", "array"] = "any"
     name: str = "is_json"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -473,6 +484,7 @@ class Length(AssertionBase):
     maximum: int | None = None
     unit: LengthUnit = "characters"
     name: str = "length"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -592,6 +604,7 @@ class Levenshtein(AssertionBase):
     """
 
     name: str = "levenshtein"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 0.9
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -643,6 +656,7 @@ class Regex(AssertionBase):
 
     pattern: str
     name: str = "regex"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -676,6 +690,7 @@ class JsonSchema(AssertionBase):
 
     schema: Mapping[str, object]
     name: str = "json_schema"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_OR_STRUCTURED
@@ -769,6 +784,7 @@ class LlmRubric(AssertionBase):
     threshold: float
     tolerance: float
     name: str = "llm_rubric"
+    KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_OR_CONVERSATION
 
     def __post_init__(self) -> None:
@@ -842,6 +858,7 @@ class PiiAbsent(AssertionBase):
 
     patterns: tuple[PiiPattern, ...] = ITALIAN_PII
     name: str = "pii_absent"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -916,6 +933,7 @@ class Faithfulness(AssertionBase):
     threshold: float
     tolerance: float
     name: str = "faithfulness"
+    KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -1005,6 +1023,7 @@ class ToolsCalled(AssertionBase):
 
     expected: Sequence[str]
     name: str = "tools_called"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = ALL_KINDS
@@ -1101,6 +1120,7 @@ class ToolCalledWith(AssertionBase):
     arguments: Mapping[str, object]
     match: ArgumentMatch = "exact"
     name: str = "tool_called_with"
+    KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
     accepts: frozenset[OutputKind] = ALL_KINDS
@@ -1342,6 +1362,7 @@ class CostBudget(AssertionBase):
     max_usd: float
     tolerance: float
     name: str = "cost_budget"
+    KIND: ClassVar[CheckKind] = "budget"
     threshold: float = 0.5
     accepts: frozenset[OutputKind] = ALL_KINDS
 
@@ -1389,6 +1410,7 @@ class LatencyBudget(AssertionBase):
     max_ms: float
     tolerance: float
     name: str = "latency_budget"
+    KIND: ClassVar[CheckKind] = "budget"
     threshold: float = 0.5
     accepts: frozenset[OutputKind] = ALL_KINDS
 
