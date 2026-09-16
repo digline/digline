@@ -99,9 +99,23 @@ is here because skipping it is what v0.3.0 cost.
 ```sh
 git clone https://github.com/digline/digline.dev ../digline.dev   # once
 cd ../digline.dev && uv sync
-tools/sync-docs.sh ../digline
-uv run mkdocs build --strict
+make preview DIGLINE=../digline
 ```
+
+**`make preview`, and not `tools/sync-docs.sh` followed by
+`uv run mkdocs build --strict`.** That is the target the `docs` job calls on a
+pull request — called rather than copied, so this block cannot drift from the
+gate. The two-step form this file carried until 0.13.2 is worse than nothing:
+`tools/sync-docs.sh` refuses a checkout that is dirty or **ahead of
+`origin/main`**, which a release branch always is, and the build run after it
+renders whatever `docs/product/` already held and says `Documentation built`.
+The refusal is an exit code two lines above, and nothing downstream reads it.
+On this release it went green three times while `docs/product/` did not carry
+the new changelog entry at all; the `docs` job, on the same tree, failed on the
+first try — a relative link in that entry, `](tools/home_capture.py)`, which
+resolves on GitHub and is not a page on the site. A check that can pass having
+looked at nothing is the vacuously green assertion decision 3 of `CLAUDE.md`
+forbids, and it had been sitting in this file.
 
 digline.dev builds the site from two repositories: its own pages, and the
 documentation here — `docs/`, `CHANGELOG.md`, `ROADMAP.md`, and one page per
@@ -135,9 +149,12 @@ page's first paragraph and shipped it to Google as the description. That
 fallback is a net, not a decision.
 
 All of it is gated — by the `docs` job in `ci.yml`, which runs this same build
-on every push, and, for the nav entry specifically, by `tests/test_examples.py`,
-`tests/test_adr.py` and `tests/test_docs_pages.py`, which name the page and the
-line to add.
+on every push and on every pull request, calling the site's own targets rather
+than a copy of them: `make preview` on a pull request, because the sync refuses
+a checkout ahead of `origin/main` and a pull request is always at least one
+commit ahead, and the ordinary build everywhere else. And, for the nav entry
+specifically, by `tests/test_examples.py`, `tests/test_adr.py` and
+`tests/test_docs_pages.py`, which name the page and the line to add.
 So this block should already be green by the time you reach it. Run it anyway:
 the job checks `digline.dev`'s **default branch**, and what the release will
 actually build against is whatever that branch holds at dispatch time.
@@ -147,18 +164,21 @@ actually build against is whatever that branch holds at dispatch time.
 The three-line rule above collects a batch per release, and the pages are held
 back deliberately: `digline.dev` is on its default branch and this documentation
 is not merged yet, so adding the entries early would fail the site build on
-pages that do not exist. They land together. Four, for the release-schema —
+pages that do not exist. They land together.
 
-- `docs/rejudge.md` → `product/rejudge.md`, under `- Reference:`;
-- `docs/adr/0014-what-may-ride-a-schema-bump.md` → under `- Decisions:`;
-- `docs/adr/0015-the-recorded-output-and-the-declared-re-judge.md` → under
-  `- Decisions:`;
-- `docs/adr/0016-the-canary-case.md` → under `- Decisions:`;
+**Nothing is queued as of 0.13.2.** Read off `digline.dev`'s `origin/main`
+rather than remembered — `rejudge`, `log` and `register`, and ADRs 0014, 0015
+and 0016 each carry all three entries there: the `nav` line, `PRODUCT` in
+`tools/hooks/seo.py`, `DESCRIPTIONS` in `tools/hooks/llms.py`. The batch this
+section used to list went over with the pages themselves, and
+`tests/test_docs_pages.py` and `tests/test_adr.py` are green here, which is what
+an empty queue looks like from this side.
 
-— and `tests/test_docs_pages.py` and `tests/test_adr.py` are red here for
-exactly that reason, which is the gate keeping the two repositories in step
-rather than a defect. **Three lines each**, per the table above: twelve lines in
-three files.
+The next page added goes in this list with its destination, and comes out of it
+when the site has it: **three lines each**, per the table above, in three files.
+Check it the way the sentence above was checked — `git show origin/main:<file>`
+in `digline.dev`, not from memory, because this list is exactly the kind that
+rots quietly once it stops being true.
 
 **A failure here is not a re-tag.** The site job is the last step of
 `publish.yml` and runs *after* PyPI, so a docs defect discovered at that point

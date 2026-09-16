@@ -19,9 +19,10 @@ moves, **no baseline needs re-promoting**.
 The honest headline first, because the diff says it plainly: **nothing under
 `src/` changed.** A 0.13.2 wheel answers every command exactly as 0.13.1 does,
 and a reader who upgrades for the code gains nothing. This is the documentation
-0.13.0 shipped without, and it is a release rather than a commit for one
-reason — `digline.dev` is rebuilt on a `v*` tag and on nothing else, so a page
-that is not tagged is a page nobody outside the repository reads.
+0.13.0 shipped without. It is a release rather than a commit because
+digline.dev documents the version people install. Since these pages reached
+main, the site has shown them for a version nobody can install, and a release
+build from v0.13.1 no longer passes.
 
 ```sh
 uv add --upgrade digline
