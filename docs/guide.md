@@ -641,6 +641,22 @@ $ python calibrate.py 5
 5 runs recorded
 ```
 
+Before picking one, look at what is stored: `digline list` prints the suite's
+runs newest first and marks the current baseline with `*`.
+
+```console
+$ digline list --suite support.py
+  KEY                                                CREATED                            ENV           COMMIT          CASES
+  2026-08-26T16-08-16-219738-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.219738+00:00   staging       -               3
+  2026-08-26T16-08-16-218356-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.218356+00:00   staging       -               3
+  2026-08-26T16-08-16-216801-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.216801+00:00   staging       -               3
+  2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.214505+00:00   staging       -               3
+  2026-08-26T16-08-16-212613-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.212613+00:00   staging       -               3
+* 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a  2026-08-26T16:08:15.998299+00:00   staging       -               3
+
+* = current baseline
+```
+
 ```python
 # median.py
 """The most typical run, which is the one to promote.

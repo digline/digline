@@ -16,8 +16,8 @@ The conventions are visible in the rendered page, not hidden in an attribute:
   working directory in document order, and the lines beneath each one must come
   back out of it.
 
-Run keys are the one thing that legitimately differs between two executions, so
-they are normalised away — and only they.
+Run keys, and the instant a run was created, are the things that legitimately
+differ between two executions, so they are normalised away — and only they.
 """
 
 from __future__ import annotations
@@ -46,9 +46,14 @@ ROOT = Path(__file__).resolve().parents[1]
 #: the config hash. It changes on every run and means nothing to the reader.
 KEY_RE = re.compile(r"\d{4}-\d{2}-\d{2}T[\d-]+-[0-9a-f]{16}")
 
+#: `2026-08-26T15:44:09.282929+00:00` — the same instant the key is slugged
+#: from, as `digline list` prints it in its CREATED column. Only the full form a
+#: run carries, so a date a page states on purpose is still compared.
+INSTANT_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00")
+
 
 def normalise(line: str) -> str:
-    return KEY_RE.sub("<KEY>", line).rstrip()
+    return INSTANT_RE.sub("<INSTANT>", KEY_RE.sub("<KEY>", line)).rstrip()
 
 
 def python_snippets(text: str) -> list[str]:
