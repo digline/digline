@@ -161,6 +161,32 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      - name: Wait for every pinned version to be served to this runner
+        # This job is the most exposed consumer in the repository and had no
+        # wait at all. It runs on `workflow_run: [publish] completed` — the
+        # moment the release finishes — and builds a Dockerfile that installs
+        # four exact versions from PyPI. That is how the digline-openai-v0.5.0
+        # red happened: the build started ~20s after that publish completed and
+        # was served `digline-anthropic` only up to 0.4.0.
+        #
+        # Four minutes, not thirty: nothing here waits on a human. By the time
+        # this runs, `publish.yml` has finished and has already held the index
+        # to the same files from its own runner. What is left is the edge skew
+        # between that runner and this one, which is seconds to minutes.
+        #
+        # **On the release commit itself this red is expected and is not this
+        # step's fault.** `docker/Dockerfile` is bumped in the commit the tag
+        # points at, so the push-triggered `ci` runs before the `pypi` job has
+        # uploaded anything. The failure message says which of the two cases it
+        # is; the follow-on `ci` after `publish` is the run that counts.
+        env:
+          TIMEOUT: "240"
+          INTERVAL: "15"
+        run: |
+          set -euo pipefail
+          .github/docker_pins.sh docker/Dockerfile > /tmp/pins.txt
+          python3 .github/await_index.py --manifest /tmp/pins.txt
+
       - name: Build for this runner's architecture, load, do not push
         # `load: true` and no `push:`. One architecture because this one has to
         # be *run*: a multi-arch build produces a manifest list and `--load`
@@ -211,17 +237,42 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
+      - name: Wait for this workspace's version to be served to this runner
+        # This job fires the moment `publish` finishes, and PyPI takes a minute
+        # to serve what was just uploaded — which is exactly what reddened the
+        # `rag` and `llamaindex` legs on 0.8.0 while the other seven won the
+        # same race by being scheduled seconds later.
+        #
+        # The bare retry that used to live in the step below could not tell a
+        # version that is not there *yet* from one that is not there at all.
+        # This asks the index for the exact version this workspace declares and
+        # fails naming it.
+        #
+        # **What it does not cover, stated rather than assumed:** five examples
+        # carry a `uv.lock` pinning an exact version, and after a release those
+        # locks legitimately still name the *previous* one until they are
+        # regenerated. This waits for the version in `pyproject.toml` — the one
+        # the post-release dispatch exists to prove — and says nothing about
+        # what any individual lock resolves to.
+        env:
+          TIMEOUT: "240"
+          INTERVAL: "15"
+        run: |
+          set -euo pipefail
+          version=$(python3 -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          python3 .github/await_index.py "digline==$version"
+
       - name: Resolve from the index only
         working-directory: examples/${{ matrix.example }}
-        # Retried: this job fires the moment `publish` finishes, and PyPI's
-        # index takes a minute to serve what was just uploaded. A version that
-        # is not there *yet* is not the same as one that is not there.
+        # The wait above has already held the index to this workspace's
+        # version. The two remaining tries are for the lock-pinned examples,
+        # whose versions that wait cannot speak for.
         run: |
-          for attempt in 1 2 3 4 5 6; do
+          for attempt in 1 2 3; do
             uv sync && exit 0
             echo "index not ready yet, retrying in 20s"; sleep 20
           done
-          echo "still unresolvable after two minutes"; exit 1
+          echo "still unresolvable after a minute"; exit 1
 
       # The one example whose application is a separate process. A suite that
       # is data cannot import a module, so it cannot start a server the way
