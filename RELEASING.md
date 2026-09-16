@@ -28,6 +28,7 @@ uv run pytest -q -m "not live"
 uv run ruff format --check .
 uv run ruff check .
 uv run pyright
+uv run python tools/home_capture.py --check
 ```
 
 Copied from `.github/workflows/ci.yml` and held to it by
@@ -46,6 +47,28 @@ Two of these are easy to think you can skip, and both were the same mistake:
   after a version bump; a lock still naming the previous version is a lock that
   describes a release that does not exist. Running `ruff` and `pytest` straight
   from a system Python never touches it.
+
+## Before the tag: the home capture
+
+`docs/assets/home/home.json` is what the home of digline.dev shows: the
+quickstart and a one-line prompt regression, **run** by
+`tools/home_capture.py`, with every command's stdout, stderr and exit code as
+they came out. `sync-docs.sh` carries it to the site with the rest of `docs/`.
+
+The file records the `digline_version` that produced it, and the last gate above
+fails when that is not the version in `pyproject.toml`. So **the PR that raises
+the version regenerates the file**, on the same branch, before the tag:
+
+```sh
+uv sync --all-packages
+uv run python tools/home_capture.py
+git add docs/assets/home/home.json
+```
+
+The script fails on its own if the regression it captures stops being red, or
+if no case comes back worse — a capture that went green would put a claim on
+the home the tool did not make. Read the diff of the file before committing it:
+the run keys and the date always move, anything else moving is news.
 
 ## Before the tag: the alert list
 
