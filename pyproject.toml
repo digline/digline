@@ -111,10 +111,12 @@ markers = [
     "live: calls a real provider",
 ]
 # `.` so `tests` is importable as a package (`tests._helpers`) whatever the
-# working directory; `src` so the sources are importable without an install.
+# working directory; `src` so the sources are importable without an install;
+# `tools` for the fence reader the docs tests share with the home capture.
 pythonpath = [
     ".",
     "src",
+    "tools",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
@@ -127,6 +129,7 @@ line-length = 88
 src = [
     "src",
     "tests",
+    "tools",
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
@@ -143,8 +146,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # its own pyproject, its own venv and its own strict pyright run. Checking
 # them from here would collide four modules called `app` and resolve none
 # of them. The quickstart is not standalone and stays.
-include = ["src", "tests", "examples/quickstart", "packages"]
+include = ["src", "tests", "tools", "examples/quickstart", "packages"]
 extraPaths = [
+    "tools",
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
