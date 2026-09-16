@@ -7,6 +7,7 @@ really reported, and that `--check` refuses a file captured by another version.
 
 from __future__ import annotations
 
+import argparse
 import importlib.metadata
 import json
 from email.message import Message
@@ -148,3 +149,122 @@ def test_the_capture_is_what_the_cli_printed(tmp_path: Path) -> None:
     dependencies = result["runtime_dependencies"]
     assert dependencies["count"] == len(dependencies["names"])
     assert result["requires_python"]["specifier"]
+
+
+# ── the lists the home shows ──────────────────────────────────────────────────
+
+
+def test_the_commands_are_the_parser_s_in_its_order() -> None:
+    from digline.cli import build_parser
+
+    found = home_capture.cli_commands()
+    names = [item["name"] for item in found["items"]]
+    assert names, "the capture found no command, so the home would show none"
+    assert names[0] == "run" and {"compare", "promote", "report"} <= set(names)
+    assert all(item["help"].strip() for item in found["items"])
+    assert found["items"] == home_capture.cli_commands(build_parser())["items"]
+    assert "build_parser" in found["source"]
+
+
+def test_the_commands_refuse_an_argparse_without_the_private_list() -> None:
+    """The one private attribute the capture leans on, taken away."""
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("one", help="the only one")
+    assert home_capture.cli_commands(parser)["items"] == [
+        {"name": "one", "help": "the only one"}
+    ]
+    del subparsers._choices_actions  # pyright: ignore[reportPrivateUsage]
+    with pytest.raises(home_capture.CaptureError, match="_choices_actions"):
+        home_capture.cli_commands(parser)
+
+
+def test_the_commands_refuse_a_parser_with_none() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_subparsers()
+    with pytest.raises(home_capture.CaptureError):
+        home_capture.cli_commands(parser)
+
+
+def test_the_commands_leave_out_one_declared_without_help() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("public", help="shown")
+    subparsers.add_parser("hidden")
+    names = [i["name"] for i in home_capture.cli_commands(parser)["items"]]
+    assert names == ["public"]
+
+
+def test_every_exported_check_is_listed_with_a_kind_and_an_anchor() -> None:
+    found = home_capture.checks()
+    listed = {item["name"]: item for item in found["items"]}
+    assert set(listed) == {cls.__name__ for cls in home_capture.exported_checks()}
+    assert len(listed) >= 22
+    assert listed["LlmRubric"] == {
+        "name": "LlmRubric",
+        "kind": "judged",
+        "anchor": "llmrubric",
+    }
+    assert listed["CostBudget"]["kind"] == "budget"
+    assert listed["F1"]["kind"] == "aggregate"
+    assert listed["Repeated"]["kind"] == listed["FromAutoevals"]["kind"] == "wrapper"
+    assert listed["Contains"]["kind"] == "deterministic"
+    assert "KIND" in found["source"] and "docs/metrics.md" in found["source"]
+
+
+def _card(name: str) -> str:
+    return f"# The metrics\n\n## Per case\n\n### `{name}`\n\nText.\n"
+
+
+def test_the_checks_refuse_a_class_without_a_kind() -> None:
+    class Undeclared:
+        pass
+
+    with pytest.raises(home_capture.CaptureError, match="declares no KIND"):
+        home_capture.checks(_card("Undeclared"), [Undeclared])
+
+
+def test_the_checks_refuse_a_kind_outside_the_five() -> None:
+    class Invented:
+        KIND = "heuristic"
+
+    with pytest.raises(home_capture.CaptureError, match="not one of"):
+        home_capture.checks(_card("Invented"), [Invented])
+
+
+def test_the_checks_refuse_a_check_without_a_card() -> None:
+    class Uncarded:
+        KIND = "deterministic"
+
+    with pytest.raises(home_capture.CaptureError, match="no card"):
+        home_capture.checks(_card("SomethingElse"), [Uncarded])
+
+
+def test_the_checks_refuse_an_anchor_two_headings_share() -> None:
+    class Twice:
+        KIND = "deterministic"
+
+    with pytest.raises(home_capture.CaptureError, match="more than one heading"):
+        home_capture.checks(_card("Twice") + "\n## Twice\n", [Twice])
+
+
+def test_a_hash_line_inside_a_fence_is_not_a_heading() -> None:
+    class Fenced:
+        KIND = "deterministic"
+
+    text = _card("Fenced") + "\n```python\n# Fenced\n```\n"
+    assert home_capture.checks(text, [Fenced])["items"][0]["anchor"] == "fenced"
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("`Equals`", "equals"),
+        ("`F1`", "f1"),
+        ("What each one puts in the verdict", "what-each-one-puts-in-the-verdict"),
+        ("What is left out of a denominator", "what-is-left-out-of-a-denominator"),
+    ],
+)
+def test_heading_ids_are_the_ones_the_site_builds(title: str, expected: str) -> None:
+    """Read off the built digline.dev page for `docs/metrics.md`, 2026-09-16."""
+    assert home_capture.heading_id(title) == expected

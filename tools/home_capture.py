@@ -38,12 +38,13 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import metadata, requires
 from pathlib import Path
-from typing import Any
+from typing import Any, cast, get_args
 
 from packaging.requirements import Requirement
 
@@ -53,6 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "docs" / "guide.md"
 PYPROJECT = ROOT / "pyproject.toml"
 OUTPUT = ROOT / "docs" / "assets" / "home" / "home.json"
+METRICS = ROOT / "docs" / "metrics.md"
 
 #: Removed from the environment of every command. Names, never values.
 STRIPPED = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
@@ -447,6 +449,131 @@ def requires_python(declared: str | None = None) -> dict[str, Any]:
     }
 
 
+CLI_COMMANDS_SOURCE = (
+    "digline.cli.build_parser(), the parser `digline` itself runs: every "
+    "subcommand in the order it is declared, with the one-line help `digline "
+    "--help` prints beside it. Read from argparse's own list of subcommands, "
+    "not from a list kept for the home."
+)
+
+
+def cli_commands(parser: argparse.ArgumentParser | None = None) -> dict[str, Any]:
+    """Every public subcommand of `digline`, with its help line.
+
+    `parser` is for the tests; left out, it is the CLI's own. `_choices_actions`
+    is private to argparse, and it is the only place a subcommand's name and its
+    help line are held together — so a Python that renames it stops the capture
+    here instead of writing an empty list onto the home.
+    """
+    from digline.cli import build_parser
+
+    parser = build_parser() if parser is None else parser
+    found: list[argparse.Action] = [
+        action
+        for action in parser._actions  # pyright: ignore[reportPrivateUsage]
+        if isinstance(action, argparse._SubParsersAction)  # pyright: ignore[reportPrivateUsage]
+    ]
+    if len(found) != 1:
+        raise CaptureError(
+            f"the digline parser has {len(found)} groups of subcommands, "
+            "expected exactly one"
+        )
+    # `getattr` rather than the attribute: a Python that drops it must reach
+    # the refusal below, not an AttributeError nobody reads as "the home broke".
+    subcommands: object = getattr(found[0], "_choices_actions", None)
+    if not isinstance(subcommands, list) or not subcommands:
+        raise CaptureError(
+            "argparse no longer lists the subcommands in `_choices_actions`, or "
+            "the list is empty: the home has no commands to show"
+        )
+    items: list[dict[str, str]] = []
+    for action in cast(list[argparse.Action], subcommands):
+        # A subcommand declared without `help=` is left out of `--help` by
+        # argparse too: it is not public, so it is not on the home.
+        if action.help is None or action.help == argparse.SUPPRESS:
+            continue
+        items.append({"name": action.dest, "help": action.help})
+    if not items:
+        raise CaptureError("every subcommand of digline is hidden or has no help")
+    return {"items": items, "source": CLI_COMMANDS_SOURCE}
+
+
+CHECKS_SOURCE = (
+    "Every class in digline.core.__all__ that subclasses AssertionBase or "
+    "RunAssertionBase, in the order of __all__, with the `KIND` the class "
+    "declares and the anchor of its card in docs/metrics.md, derived from the "
+    "card's heading the way the site's Markdown derives a heading id."
+)
+HEADING = re.compile(r"^#{1,6} +(.+?) *$", re.MULTILINE)
+
+
+def exported_checks() -> list[type]:
+    """Every check digline.core exports: the rule `tests/test_metrics.py` uses."""
+    import digline.core as core
+
+    bases = (core.AssertionBase, core.RunAssertionBase)
+    return [
+        obj
+        for name in core.__all__
+        if isinstance(obj := getattr(core, name), type)
+        and issubclass(obj, bases)
+        and obj not in bases
+    ]
+
+
+def heading_id(title: str) -> str:
+    """The id Python-Markdown's `toc` gives a heading, with its default slugify.
+
+    The site sets no `slugify` of its own. A code span is rendered before the
+    id is taken, so its backticks are not part of the text.
+    """
+    text = unicodedata.normalize("NFKD", title.replace("`", ""))
+    text = re.sub(r"[^\w\s-]", "", text.encode("ascii", "ignore").decode()).strip()
+    return re.sub(r"[-\s]+", "-", text.lower())
+
+
+def checks(
+    metrics: str | None = None, classes: Iterable[type] | None = None
+) -> dict[str, Any]:
+    """Every exported check, its kind and the anchor of its card.
+
+    Both arguments are for the tests. A check with no `KIND`, a `KIND` outside
+    `CheckKind`, or no card in `docs/metrics.md` stops the capture: a list with
+    a hole in it is the hand-kept list this replaces.
+    """
+    from digline.core import CheckKind
+
+    text = METRICS.read_text(encoding="utf-8") if metrics is None else metrics
+    # `CheckKind` is a PEP 695 alias: `__value__` is the `Literal` behind it,
+    # and `get_args` spells out its five strings.
+    allowed: tuple[str, ...] = get_args(CheckKind.__value__)
+    # A `#` line inside a fence is a comment in the code shown, not a heading.
+    prose = re.sub(r"^```.*?^```", "", text, flags=re.MULTILINE | re.DOTALL)
+    titles: list[str] = HEADING.findall(prose)
+    ids = [heading_id(title) for title in titles]
+    items: list[dict[str, str]] = []
+    for cls in exported_checks() if classes is None else classes:
+        name = cls.__name__
+        kind: object = getattr(cls, "KIND", None)
+        if kind is None:
+            raise CaptureError(f"{name} is exported and declares no KIND")
+        if kind not in allowed:
+            raise CaptureError(
+                f"{name}.KIND is {kind!r}, not one of {', '.join(allowed)}"
+            )
+        if f"### `{name}`" not in text.splitlines():
+            raise CaptureError(f"{name} is exported and has no card in docs/metrics.md")
+        anchor = heading_id(f"`{name}`")
+        if ids.count(anchor) != 1:
+            # `toc` would suffix the later heading, and the link would land on
+            # whichever came first.
+            raise CaptureError(f"the id {anchor!r} names more than one heading")
+        items.append({"name": name, "kind": str(kind), "anchor": anchor})
+    if not items:
+        raise CaptureError("digline.core exports no check: the derivation broke")
+    return {"items": items, "source": CHECKS_SOURCE}
+
+
 def package_version(pyproject: Path = PYPROJECT) -> str:
     with pyproject.open("rb") as handle:
         version: str = tomllib.load(handle)["project"]["version"]
@@ -477,6 +604,8 @@ def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
         },
         "runtime_dependencies": runtime_dependencies(),
         "requires_python": requires_python(),
+        "cli_commands": cli_commands(),
+        "checks": checks(),
         "scenarios": scenarios,
     }
 
