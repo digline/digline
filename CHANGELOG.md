@@ -8,6 +8,83 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+## 0.13.2 — 2026-09-16
+
+**The pages those commands were owed, and a home that was run rather than
+typed.** digline **0.13.2**, alone: the three provider plugins stay at 0.5.0,
+`digline-mcp` at 0.1.3 and `pytest-digline` at 0.1.3, and no floor moves.
+`SCHEMA_VERSION` stays **11** and `OUTPUT_VERSION` stays 1 — no stored document
+moves, **no baseline needs re-promoting**.
+
+The honest headline first, because the diff says it plainly: **nothing under
+`src/` changed.** A 0.13.2 wheel answers every command exactly as 0.13.1 does,
+and a reader who upgrades for the code gains nothing. This is the documentation
+0.13.0 shipped without. It is a release rather than a commit because
+digline.dev documents the version people install. Since these pages reached
+main, the site has shown them for a version nobody can install, and a release
+build from v0.13.1 no longer passes.
+
+```sh
+uv add --upgrade digline
+```
+
+- **Docs: `log` and `register` have the command pages they were owed.** 0.13.0
+  shipped both commands and sent the reader to an ADR, which records *why* a
+  decision was made and is not a page about how to run something.
+  [`docs/log.md`](docs/log.md) and [`docs/register.md`](docs/register.md) are
+  those pages: the question each command answers that no other one does — *has
+  the model behind my alias changed?* for `log`, *what did a person decide?*
+  for `register` — with the shipped output quoted rather than sketched, and the
+  README table now links the page beside each command instead of the decision.
+
+  One correction rides inside the first: **"No roll recorded." is scoped to the
+  history it was read on.** A store with nothing in it and a store whose runs
+  all agree are not the same finding, and the page said so in a sentence that
+  read like the second when it meant the first.
+
+- **Docs: ADR 0020 and 0021 amended where the shipped code says otherwise.**
+  Three factual corrections, no decision revisited, each dated in the record it
+  amends. ADR 0020 §10 drew the reading as a column table and `log_text` prints
+  one sentence per span, so the sketch was a draft and the page now quotes what
+  shipped. ADR 0021 §3 gave `recorded_at` to the second, and `digline register`
+  reads the clock through `host.utc_now_iso()`, which keeps microseconds on
+  purpose — truncating once let two runs in the same second share a key. And
+  ADR 0021 §8's section of the reading **is windowed**, on each disposition's
+  own `recorded_at` rather than on the `created_at` of the run it names: a
+  window that closes before a person read a comparison shows the run and not
+  the decision about it, and no record said so.
+
+- **Docs: the home of digline.dev is a capture now, and the capture is run.**
+  The home carried a console block typed into the page, printed by a version
+  three minors old and reproducible by nobody.
+  `tools/home_capture.py` replaces it with
+  `docs/assets/home/home.json`, written by **running digline** in two throwaway
+  git repositories: the guide's first chapter, read out of its own fences so the
+  guide cannot drift from it, and a one-line prompt regression that must end
+  **red** with at least one case worse or the capture fails — a home that went
+  green would put a claim on the page the tool did not make. Every command's
+  stdout, stderr and exit code are recorded as they came out, nothing is
+  stripped or re-typed, and nothing reaches the network: the provider keys are
+  removed from the environment and the proxies point at a closed port. The file
+  also records what the installed digline **declares** — its runtime
+  dependencies, and its `Requires-Python` range — each beside a sentence saying
+  what was read and in which interpreter. CI fails when the capture is not the
+  version in `pyproject.toml`, so the page cannot describe a release that is not
+  this one.
+
+- **CI: a release is waited for, not retried past.** The consumers of a publish
+  used to race the index and fail on a schedule rather than on anything in the
+  tree — five times, counted. `.github/await_index.py` asks the one question a
+  retry cannot answer: *is this exact file served to this runner?* — and its red
+  says which of the two it is, a version still propagating or a project that was
+  never published. It runs in each consuming job, because one runner's view of
+  the index does not prove another's.
+
+- **Docs:** the README, ROADMAP and SECURITY front doors say what digline is at
+  0.13.1 rather than what it was, the adversarial delta-pass before an
+  announcement is written down as a standing rule rather than remembered, and
+  the README carries the PyPI downloads badge beside the others.
+
 ## 0.13.1 — 2026-09-15
 
 **The register, read as the hostile document it is.** digline **0.13.1**,

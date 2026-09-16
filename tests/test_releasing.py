@@ -111,11 +111,21 @@ def test_releasing_tells_a_human_to_build_the_site_too() -> None:
 
     Not derived command-for-command like `gate_commands`, because the paths
     genuinely differ — CI checks the site out beside the workspace, a person has
-    it as a sibling clone — so what is pinned is the two steps that are the
-    gate, and the reason a reader needs for running them.
+    it as a sibling clone — so what is pinned is the target that *is* the gate,
+    and the reason a reader needs for running it.
+
+    It pinned `tools/sync-docs.sh` and `uv run mkdocs build --strict` until
+    0.13.2, which is one release too long. That pair is not the gate: the sync
+    refuses a checkout ahead of `origin/main`, which a release branch always is,
+    and the build after it renders whatever `docs/product/` already held and
+    reports success. Pinning it here is what kept the checklist advertising a
+    check that can pass having looked at nothing, so the page may still name the
+    pair — it explains what not to do — and what is *held* is `make preview`,
+    the target the `docs` job calls, which
+    `test_ci_still_builds_the_site_before_any_tag` pins to that job from the
+    other side.
     """
     page = RELEASING.read_text(encoding="utf-8")
-    assert "tools/sync-docs.sh" in page
-    assert "uv run mkdocs build --strict" in page
+    assert "make preview" in page
     # The consequence, without which nobody runs an optional-looking step.
     assert "after* PyPI" in page or "after PyPI" in page

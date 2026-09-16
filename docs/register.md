@@ -53,10 +53,10 @@ The entry is **counts and keys, by type**. One line of JSON per disposition:
 ```json
 {"register_version": 1,
  "recorded_at": "2026-09-16T06:50:52.301208+00:00",
- "digline_version": "0.13.1",
+ "digline_version": "…",
  "disposition": "rejected",
  "run":      {"key": "…", "created_at": "…", "config_hash": "331b1cfd9709f0cd",
-              "environment": "staging", "digline_version": "0.13.1",
+              "environment": "staging", "digline_version": "…",
               "rejudged": false},
  "baseline": {"key": "…", "config_hash": "331b1cfd9709f0cd",
               "promoted_at": "2026-09-12T16:30:11+00:00"},

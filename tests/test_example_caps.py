@@ -109,6 +109,11 @@ RELEASED: dict[str, int] = {
     # hardens is its own format beside the run document, not a field in it:
     # a register line is refused where 0.13.0 misread it, and no run file moves.
     "0.13.1": 11,
+    # Schema 11 still, and nothing under src/ moved at all: 0.13.2 is the
+    # documentation release — the log and register pages, two ADRs amended
+    # where the shipped code said otherwise, and the home capture. A run
+    # document written by 0.13.1 is the same document.
+    "0.13.2": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
