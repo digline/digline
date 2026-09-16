@@ -263,6 +263,45 @@ jobs:
           /tmp/from-index/bin/digline promote --suite suite.py --run latest
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
 
+  github-release:
+    name: GitHub Release, from the changelog
+    needs: pypi
+    # The notes under each release title are CHANGELOG.md verbatim, and until
+    # 0.13.3 they were a manual step after the tag. It was missed on v0.13.1,
+    # v0.13.2 and v0.13.3, and v0.12.1's was backfilled days late: a step
+    # outside this file is the one that does not happen. After PyPI, because a
+    # release page for a version nobody can install is a claim ahead of the fact.
+    #
+    # Workspace releases only, like `site` below. A named plugin tag heads its
+    # own story, which is not an entry under a `## <version>` heading here.
+    if: startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      # Creating a release writes to the repository; nothing else is needed.
+      contents: write
+    steps:
+      # The tag's own checkout: the changelog the notes come from is the one the
+      # tag points at, which RELEASING.md requires to carry the entry.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Publish the release with the changelog entry as its notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Refuses by name when the entry is missing or empty, so a release
+          # never goes out with no notes.
+          python .github/changelog_entry.py "$version" CHANGELOG.md > /tmp/notes.md
+          # A re-run of this job must converge, not fail on a release it
+          # created the first time: the notes are rewritten from the same tag.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "digline $version" --notes-file /tmp/notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "digline $version" --notes-file /tmp/notes.md
+          fi
+
   site:
     name: Rebuild digline.dev
     needs: pypi

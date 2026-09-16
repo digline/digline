@@ -33,6 +33,15 @@ stays the one that says nothing about the version somebody just installed.
 Fixing that costs a re-tag, which is repeatable but only until the `pypi` job
 has run.
 
+The entry is also the **GitHub Release**. On a `v*` tag the `github-release`
+job in `publish.yml` runs after PyPI, cuts the entry for that version out of the
+tag's `CHANGELOG.md` with `.github/changelog_entry.py`, and publishes it as the
+notes under the title `digline <version>`. It refuses a version with no entry or
+an empty one, so an entry heading that does not read `## <version> — <date>`
+fails there, after PyPI and without a re-tag: fix nothing on the tag, write the
+release by hand from the entry. A re-run rewrites the notes rather than failing
+on the release it already made. Named plugin tags get no release from it.
+
 ## Before the tag: the gates
 
 Run **exactly what CI runs**, from the repository root:
