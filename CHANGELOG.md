@@ -56,7 +56,7 @@ uv add --upgrade digline
 - **Docs: the home of digline.dev is a capture now, and the capture is run.**
   The home carried a console block typed into the page, printed by a version
   three minors old and reproducible by nobody.
-  [`tools/home_capture.py`](tools/home_capture.py) replaces it with
+  `tools/home_capture.py` replaces it with
   `docs/assets/home/home.json`, written by **running digline** in two throwaway
   git repositories: the guide's first chapter, read out of its own fences so the
   guide cannot drift from it, and a one-line prompt regression that must end
