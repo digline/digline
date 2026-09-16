@@ -184,6 +184,13 @@ The difference between the two formulations is the whole decision. A rule that c
 skipped in a hurry will be skipped in a hurry; one that has no entry point does not need
 to be remembered.
 
+*Amended 2026-09-16 ([ADR 0023](0023-capture.md) §6): the generated id stays generated,
+with no parameter to pass one in, but the recipe changes. Date, sequence number and a hash
+of the response failed on both real histories — a record may have no response, and a
+sequence number mints two ids for one item captured on two branches. The id is
+`"cap-" + sha256(canonical(vars))[:16]`, from the input; the application's own identifier
+is kept in the case's metadata, inside the perimeter, and never enters the id.*
+
 ### 6. Production store: Postgres, and retention is mandatory
 
 Production data does not live in the repository. The repository is the system of record
