@@ -154,6 +154,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'Step 3 no longer exists, since 0.7.2' — the release that "
         "replaced the hand-kept publish roster with one derived from dist/. "
         "What the runbook no longer asks anyone to do, dated",
+        "0.13.0": "the release the index race was measured on, told as history: "
+        "its docker-publish was refused `digline==0.13.0` ~30s after the pypi "
+        "job had verified that same pin from another runner. The numbers are "
+        "the evidence the wait-and-verify was chosen from, and the example "
+        "failure messages quote them",
+        "0.11.0": "'0.11.0's classifier lock regen' — one of the five incidents "
+        "in the index-race record, named so the class can be counted rather "
+        "than argued about. History",
         "0.8.0": "three sentences about the release that earned the delta-pass "
         "section — the one whose new surface leaked a resolved model id, whose "
         "finish_raw and ToolsCalled came back clean, and whose follow-on run "

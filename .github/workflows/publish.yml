@@ -189,6 +189,35 @@ jobs:
           packages-dir: to-publish/
           skip-existing: true
 
+      - name: Wait for the index to serve exactly what this tag uploaded
+        # The upload returning 200 is not the index serving the file, and the
+        # gap between them is the race every consumer downstream runs into.
+        # This is the publishing half of the answer: before anything is told
+        # the release is done, the job that spent the version numbers holds the
+        # index to them by name.
+        #
+        # It is a wait-and-verify and not a retry, which is the ruling and the
+        # difference that matters: it asks *is this exact file served?*, so a
+        # version that was never uploaded fails here, loudly, in the job that
+        # was supposed to upload it — instead of becoming a slow flake in
+        # somebody else's build twenty minutes later.
+        #
+        # It does not replace the consumers' own wait. One runner's view of the
+        # index does not prove another's: on v0.13.0 this job verified its pins
+        # and the image build was still told `digline==0.13.0` did not exist.
+        # `.github/await_index.py` explains why, and runs there too.
+        #
+        # Ten minutes: this is a CDN catching up, not a person deciding.
+        env:
+          TIMEOUT: "600"
+          INTERVAL: "10"
+        run: |
+          # Written again rather than carried from the step below, so either
+          # step can be re-run on its own. It is the same roster either way:
+          # `dist/` is what the tag built.
+          python .github/dist_manifest.py /tmp/manifest
+          python .github/await_index.py --manifest /tmp/manifest/pins.txt
+
       - name: Install from the index and run the quickstart
         # The twin of the TestPyPI step above, and the only thing that proves
         # the **real** index serves what this tag uploaded. It was missing

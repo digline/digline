@@ -106,6 +106,63 @@ def test_the_workflow_writes_no_version_of_its_own() -> None:
     assert "sed -n 's/^ARG DIGLINE_VERSION=//p' docker/Dockerfile" in workflow()
 
 
+def test_the_pins_script_covers_every_version_the_image_installs() -> None:
+    """`docker_pins.sh` is what both waiting jobs hold the index to, so a pin
+    missing from it is a version nothing waits for.
+
+    That is not hypothetical: the wait it replaces asked only about `digline`,
+    and on digline-openai-v0.5.0 the build was served `digline-anthropic` only
+    up to 0.4.0 while the core was already current.
+    """
+    text = (ROOT / ".github" / "docker_pins.sh").read_text(encoding="utf-8")
+    for arg in PINS:
+        assert arg in text, (
+            f"docker_pins.sh does not read {arg}, so the version it pins would "
+            "be installed by the image and waited for by nothing"
+        )
+
+
+def test_the_pins_script_is_executable() -> None:
+    """Both waiting jobs invoke it as a command, not as `bash docker_pins.sh`.
+
+    A lost mode bit is a permission denied inside the step that waits for the
+    index — at a tag, in the job guarding a release, which is the worst place
+    to debug one. `docker/smoke.sh` is pinned the same way and for the same
+    reason.
+    """
+    script = ROOT / ".github" / "docker_pins.sh"
+    assert script.stat().st_mode & 0o111, ".github/docker_pins.sh is not executable"
+
+
+def test_nothing_is_built_before_the_index_serves_what_the_image_installs() -> None:
+    """Both jobs that build the image wait first, and neither retries instead.
+
+    The race is guaranteed by our own ordering — `ci.yml` runs on
+    `workflow_run: [publish] completed` and `docker-publish.yml` on the same
+    tag push — so the build is structurally early. A retry there could not tell
+    a version that is not served *yet* from one that does not exist.
+    """
+    jobs = {
+        "docker-publish.yml": workflow().partition("\n  publish:")[0],
+        "ci.yml": ci()
+        .partition("\n  image:")[2]
+        .partition("\n  examples-from-pypi:")[0],
+    }
+    for name, job in jobs.items():
+        assert "await_index.py" in job, (
+            f"{name} builds the image without waiting for the index to serve "
+            "the versions it installs"
+        )
+        assert "docker_pins.sh" in job, (
+            f"{name} does not derive the pins from docker/Dockerfile, so its "
+            "wait can fall behind what the image actually installs"
+        )
+        assert job.index("await_index.py") < job.index("build-push-action"), (
+            f"{name} waits for the index after building, which is after the "
+            "install it was supposed to protect"
+        )
+
+
 def test_the_image_readme_documents_the_version_it_ships() -> None:
     """Every pinned tag on the page is the version in the Dockerfile.
 

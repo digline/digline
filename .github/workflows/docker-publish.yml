@@ -84,43 +84,35 @@ jobs:
             echo "TAGS"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Wait for the version to be installable from PyPI
+      - name: Wait for every pinned version to be served to this runner
         # `publish.yml` is triggered by the same tag push and its `pypi` job is
         # gated on a reviewer, so at this moment the index very probably does
-        # not have the version the Dockerfile pins yet. Building before it does
+        # not have the versions the Dockerfile pins yet. Building before it does
         # fails on `pip install digline==<version>` with nothing to retry.
         #
-        # Asked of the **simple index**, which is the file listing `pip` itself
-        # resolves from — not `/pypi/<name>/<version>/json`. On the first
-        # release that ran this step, that JSON endpoint answered 404 for the
-        # three plugins for minutes after their upload had returned 200 and
-        # after the simple index was already serving them. It said 200 for the
-        # core by luck rather than by rule, so this step passed; on another day
-        # it would have waited out the whole thirty minutes and failed a
-        # release whose packages were in fact there. Ask the source that
-        # decides whether the build can install.
+        # **All four pins, not just the core.** This step used to ask only
+        # about `digline`, on the reasoning that an index serving one package
+        # serves the rest. That is not true and cost a red: on
+        # digline-openai-v0.5.0 the build was served `digline-anthropic` only
+        # up to 0.4.0 while the core was already current. The pins come from
+        # `docker/Dockerfile` through `docker_pins.sh`, so the list cannot fall
+        # behind what the image actually installs.
         #
-        # The core only: the plugins are uploaded in the same job, and an index
-        # that serves one serves the rest. Thirty minutes because the wait is
-        # for a person to press a button, not for a CDN to catch up.
+        # `await_index.py` asks the **simple index**, which is the file listing
+        # `pip` itself resolves from — not `/pypi/<name>/<version>/json`. On the
+        # first release that ran this step, that JSON endpoint answered 404 for
+        # the three plugins for minutes after their upload had returned 200 and
+        # after the simple index was already serving them.
+        #
+        # Thirty minutes because the wait here is for a person to press a
+        # button, not for a CDN to catch up.
         env:
-          VERSION: ${{ steps.plan.outputs.version }}
+          TIMEOUT: "1800"
+          INTERVAL: "30"
         run: |
           set -euo pipefail
-          # The dots are escaped: a version must not match one that merely
-          # has other characters in those positions.
-          pattern="digline-${VERSION//./\\.}(-py3|\\.tar\\.gz)"
-          deadline=$(( SECONDS + 1800 ))
-          until curl -sf "https://pypi.org/simple/digline/" | grep -qE "$pattern"; do
-            if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "digline $VERSION is still not on PyPI after 30 minutes;" \
-                   "approve the pypi job in publish.yml, then re-run this one"
-              exit 1
-            fi
-            echo "digline $VERSION not on PyPI yet; checking again in 30s"
-            sleep 30
-          done
-          echo "digline $VERSION is on PyPI"
+          .github/docker_pins.sh docker/Dockerfile > /tmp/pins.txt
+          python3 .github/await_index.py --manifest /tmp/pins.txt
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
