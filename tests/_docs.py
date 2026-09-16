@@ -8,7 +8,8 @@ typed by hand fails, which is the only way a printed number stays true.
 The conventions are visible in the rendered page, not hidden in an attribute:
 
 - a ```python block whose **first line is `# name.py`** is a file, written into
-  the working directory under that name;
+  the working directory under that name (the reading lives in
+  `tools/doc_fences.py`, shared with the script that captures the site's home);
 - any other ```python block is a **snippet**, evaluated against a namespace that
   already holds the public API;
 - a ```console block is a **session**: `$ ` lines are commands, run in that same
@@ -25,6 +26,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+from doc_fences import BLOCK_RE, FILENAME_RE, blocks, python_files
 
 __all__ = [
     "KEY_RE",
@@ -43,39 +46,17 @@ ROOT = Path(__file__).resolve().parents[1]
 #: the config hash. It changes on every run and means nothing to the reader.
 KEY_RE = re.compile(r"\d{4}-\d{2}-\d{2}T[\d-]+-[0-9a-f]{16}")
 
-_BLOCK_RE = re.compile(r"```(\w+)\n(.*?)```", re.DOTALL)
-_FILENAME_RE = re.compile(r"^# ([\w-]+\.py)\s*$")
-
 
 def normalise(line: str) -> str:
     return KEY_RE.sub("<KEY>", line).rstrip()
-
-
-def _blocks(text: str, language: str) -> list[str]:
-    return [body for lang, body in _BLOCK_RE.findall(text) if lang == language]
-
-
-def python_files(text: str) -> dict[str, str]:
-    """Every block that is a file, by the name written on its first line.
-
-    A name used twice is a later version of the same file — that is how a guide
-    shows a suite growing. `replay` writes each version at the point the page
-    introduces it, so both versions really run.
-    """
-    files: dict[str, str] = {}
-    for body in _blocks(text, "python"):
-        first, _, _rest = body.partition("\n")
-        if (match := _FILENAME_RE.match(first)) is not None:
-            files[match.group(1)] = body
-    return files
 
 
 def python_snippets(text: str) -> list[str]:
     """The blocks that are not files: fragments the reader is meant to copy."""
     return [
         body
-        for body in _blocks(text, "python")
-        if _FILENAME_RE.match(body.partition("\n")[0]) is None
+        for body in blocks(text, "python")
+        if FILENAME_RE.match(body.partition("\n")[0]) is None
     ]
 
 
@@ -101,7 +82,7 @@ def _sessions_in(body: str) -> list[Session]:
 
 
 def console_sessions(text: str) -> list[Session]:
-    return [s for body in _blocks(text, "console") for s in _sessions_in(body)]
+    return [s for body in blocks(text, "console") for s in _sessions_in(body)]
 
 
 _SUBSTITUTION_RE = re.compile(r"\$\(([^)]+)\)")
@@ -162,10 +143,10 @@ def replay(text: str, workdir: Path) -> list[Session]:
     ran would be a page nobody can follow, and this is what catches it.
     """
     sessions: list[Session] = []
-    for lang, body in _BLOCK_RE.findall(text):
+    for lang, body in BLOCK_RE.findall(text):
         if lang == "python":
             first, _, _rest = body.partition("\n")
-            if (match := _FILENAME_RE.match(first)) is not None:
+            if (match := FILENAME_RE.match(first)) is not None:
                 (workdir / match.group(1)).write_text(body, encoding="utf-8")
         elif lang == "console":
             for session in _sessions_in(body):

@@ -51,6 +51,10 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "pyright>=1.1.380",
+    # For `tools/home_capture.py`, which evaluates the markers on digline's own
+    # requirements. Already in the lock through pytest; named here so a tool
+    # does not lean on another tool's dependency.
+    "packaging>=24",
     # Not a dependency of digline and never will be: it is here so that
     # `tests/test_examples.py` can run `examples/langchain` against this source
     # on every build, the same way it runs every other example. The example
@@ -111,10 +115,12 @@ markers = [
     "live: calls a real provider",
 ]
 # `.` so `tests` is importable as a package (`tests._helpers`) whatever the
-# working directory; `src` so the sources are importable without an install.
+# working directory; `src` so the sources are importable without an install;
+# `tools` for the fence reader the docs tests share with the home capture.
 pythonpath = [
     ".",
     "src",
+    "tools",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
     "packages/digline-bedrock/src",
@@ -127,6 +133,7 @@ line-length = 88
 src = [
     "src",
     "tests",
+    "tools",
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",
@@ -143,8 +150,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # its own pyproject, its own venv and its own strict pyright run. Checking
 # them from here would collide four modules called `app` and resolve none
 # of them. The quickstart is not standalone and stays.
-include = ["src", "tests", "examples/quickstart", "packages"]
+include = ["src", "tests", "tools", "examples/quickstart", "packages"]
 extraPaths = [
+    "tools",
     "examples/quickstart",
     "packages/digline-anthropic/src",
     "packages/digline-openai/src",

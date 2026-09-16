@@ -58,6 +58,12 @@ jobs:
       - name: Types
         run: uv run --python ${{ matrix.python }} pyright
 
+      - name: Home capture is current
+        # docs/assets/home/home.json is what digline.dev's home shows, captured
+        # by running digline. A version bump that did not regenerate it would
+        # put another version's output on the site.
+        run: uv run --python ${{ matrix.python }} python tools/home_capture.py --check
+
   docs:
     name: The site still builds from these docs
     # The gap this closes cost three pushes after v0.3.0 was already on PyPI.

@@ -1,0 +1,262 @@
+{
+  "digline_version": "0.13.1",
+  "captured_at": "2026-09-16T08:43:41+00:00",
+  "environment": {
+    "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
+    "stripped": [
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+      "AWS_*"
+    ]
+  },
+  "runtime_dependencies": {
+    "count": 1,
+    "names": [
+      "jsonschema"
+    ],
+    "source": "importlib.metadata.requires('digline') in the interpreter that ran every command above: the requirements the installed digline declares, keeping those whose marker holds in that interpreter. Extras are never active, so a requirement that exists only for an extra is not counted."
+  },
+  "scenarios": {
+    "quickstart": {
+      "run_ids": [
+        "2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4"
+      ],
+      "change": null,
+      "band": "absent: samples=1",
+      "commands": [
+        {
+          "cmd": "digline run --suite support.py",
+          "stdout": "2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4\n",
+          "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
+          "exit": 0
+        },
+        {
+          "cmd": "digline promote --suite support.py --run latest",
+          "stdout": "support baseline set to 2026-09-16T08-43-40-259476-00-00-282b0c02d6511fb4\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "cmd": "digline compare --suite support.py --run latest",
+          "stdout": "Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.\n",
+          "stderr": "",
+          "exit": 0
+        }
+      ]
+    },
+    "prompt_regression": {
+      "run_ids": [
+        "2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4",
+        "2026-09-16T08-43-41-050592-00-00-282b0c02d6511fb4"
+      ],
+      "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
+      "change": {
+        "description": "One line of prompt.md, the signature line, changed.",
+        "files": [
+          {
+            "path": "prompt.md",
+            "outcome": "changed",
+            "diff": [
+              "--- a/prompt.md",
+              "+++ b/prompt.md",
+              "@@ -1,3 +1,3 @@",
+              " You are the support assistant for Northwind.",
+              " Answer the customer's question in one sentence.",
+              "-Sign every reply as \"— Northwind Support\".",
+              "+Sign every reply as \"— the Northwind team\"."
+            ]
+          }
+        ]
+      },
+      "band": "absent: samples=1",
+      "commands": [
+        {
+          "cmd": "digline run --suite support.py",
+          "stdout": "2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4\n",
+          "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
+          "exit": 0
+        },
+        {
+          "cmd": "digline promote --suite support.py --run latest",
+          "stdout": "support baseline set to 2026-09-16T08-43-40-718107-00-00-282b0c02d6511fb4\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "cmd": "digline run --suite support.py",
+          "stdout": "2026-09-16T08-43-41-050592-00-00-282b0c02d6511fb4\n",
+          "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
+          "exit": 0
+        },
+        {
+          "cmd": "digline compare --suite support.py --run latest",
+          "stdout": "6 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\n\n  prompt.md · +1 −1 lines\n\nhow-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nhow-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).\nis-it-waterproof · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nis-it-waterproof · contains · Went from passing to failing (1.000000 → 0.000000).\nwhere-is-my-order · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nwhere-is-my-order · contains · Went from passing to failing (1.000000 → 0.000000).\n",
+          "stderr": "",
+          "exit": 1
+        },
+        {
+          "cmd": "digline compare --suite support.py --run latest --json full",
+          "stderr": "",
+          "exit": 1
+        }
+      ],
+      "compare_json": {
+        "source": "The stdout of `digline compare --suite support.py --run latest --json full` above, decoded with json.loads and otherwise unchanged: every key but this one is digline's.",
+        "artifacts_changed": true,
+        "canary_moved": false,
+        "config_changed": false,
+        "counts": {
+          "errored": 0,
+          "improved": 0,
+          "missing": 0,
+          "new": 0,
+          "regressed": 6,
+          "unchanged": 3
+        },
+        "deltas": [
+          {
+            "after": 0.814996,
+            "assertion": "cost_budget",
+            "before": 0.815328,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": -0.000332,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.4,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": -0.6,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": -1.0,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.813339,
+            "assertion": "cost_budget",
+            "before": 0.81367,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": -0.000331,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.4,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": -0.6,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": -1.0,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.817327,
+            "assertion": "cost_budget",
+            "before": 0.817661,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": -0.000334,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.4,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": -0.6,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": -1.0,
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "outcome": "regressed",
+            "scope": "case",
+            "within_noise": false
+          }
+        ],
+        "exit_code": 1,
+        "judge_config_changed": false,
+        "judge_config_deltas": [],
+        "on_the_line": 0,
+        "output_version": 1,
+        "reasons_available": true,
+        "rejudged": false,
+        "sentence": "6 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.",
+        "suspended": 0,
+        "target_config_changed": false,
+        "target_config_deltas": [],
+        "target_echoed": false,
+        "unjudged": 0,
+        "within_noise": 0,
+        "worse": true
+      }
+    }
+  }
+}

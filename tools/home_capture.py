@@ -1,0 +1,508 @@
+"""Capture what the home of digline.dev shows, by running digline.
+
+    uv run python tools/home_capture.py            # writes docs/assets/home/home.json
+    uv run python tools/home_capture.py --check    # fails if that file is stale
+
+The home used to carry a console block typed into the page, printed by a version
+three minors old and reproducible by nobody. This replaces it with a file that
+came out of the CLI: every command's stdout and stderr exactly as they were
+written, its exit code, and the run keys it produced. `sync-docs.sh` copies
+`docs/` to the site, so the file arrives there with everything else.
+
+Two scenarios, each in its own temporary directory, initialised as a git
+repository so that the run records a commit:
+
+- **quickstart** — the three files of the guide's first chapter, read out of
+  its fences by the same reader the guide's test uses, then run, promote,
+  compare. The guide is not copied here: when it changes, this changes.
+- **prompt_regression** — the same files, derived so that the canned model
+  follows one line of a `prompt.md` the suite declares as an artifact. Run,
+  promote, change that line, run, compare. It must end red, with at least one
+  case worse, or this script fails: a capture that stayed green would put a
+  claim on the home that the tool did not make.
+
+Nothing here reaches the network, and it is run with the provider credentials
+removed from the environment and the proxies pointed at a closed port, so an
+accidental call fails rather than spends.
+
+A tool, not part of the package: it lives outside `src/` and is never shipped.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import tomllib
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from importlib.metadata import requires
+from pathlib import Path
+from typing import Any
+
+from packaging.requirements import Requirement
+
+from doc_fences import python_files
+
+ROOT = Path(__file__).resolve().parents[1]
+GUIDE = ROOT / "docs" / "guide.md"
+PYPROJECT = ROOT / "pyproject.toml"
+OUTPUT = ROOT / "docs" / "assets" / "home" / "home.json"
+
+#: Removed from the environment of every command. Names, never values.
+STRIPPED = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+STRIPPED_PREFIXES = ("AWS_",)
+#: Port 9 is discard, and nothing listens on it locally: a client that honours
+#: the proxy variables fails at once instead of reaching a provider.
+CLOSED_PROXY = "http://127.0.0.1:9"
+
+TENANT = "northwind"
+SUITE = "support"
+
+SIGNATURE_LINE = 'Sign every reply as "— Northwind Support".'
+CHANGED_LINE = 'Sign every reply as "— the Northwind team".'
+
+PROMPT = f"""\
+You are the support assistant for Northwind.
+Answer the customer's question in one sentence.
+{SIGNATURE_LINE}
+"""
+
+MODEL = (
+    "The model and the judge are canned: no provider is called. The reply "
+    "depends on the prompt by construction — each canned answer is signed with "
+    "whatever the signature line of prompt.md asks for — and that line is the "
+    "only edit made between the two runs."
+)
+
+
+class CaptureError(Exception):
+    """The capture did not show what the home needs it to show."""
+
+
+# ── the fixtures ──────────────────────────────────────────────────────────────
+
+
+def chapter_one_files(guide: str) -> dict[str, str]:
+    """The files as the guide has them when chapter 1 runs.
+
+    Later chapters rewrite `app.py`, and `python_files` keeps the last version
+    of a name, so the text is cut before chapter 2.
+    """
+    found = re.search(r"^## 2\. ", guide, re.MULTILINE)
+    if found is None:
+        raise CaptureError("docs/guide.md has no chapter 2 heading to stop at")
+    files = python_files(guide[: found.start()])
+    expected = {"app.py", "rules.py", "support.py"}
+    if set(files) != expected:
+        raise CaptureError(
+            f"chapter 1 of docs/guide.md carries {sorted(files)}, "
+            f"expected {sorted(expected)}"
+        )
+    return files
+
+
+def _replace_once(text: str, old: str, new: str, *, where: str) -> str:
+    if text.count(old) != 1:
+        raise CaptureError(
+            f"{where}: expected exactly one {old!r} to derive the prompt fixture "
+            "from; the guide changed, so this derivation has to follow it"
+        )
+    return text.replace(old, new)
+
+
+def prompt_fixture(files: dict[str, str]) -> dict[str, str]:
+    """The quickstart, with the reply made to depend on a prompt line.
+
+    Every edit is a replacement that must match exactly once, so a guide that
+    moves under it stops the capture instead of producing a different fixture.
+    """
+    app = _replace_once(
+        files["app.py"],
+        '"""The system under test, and the judge. Both would be yours."""\n',
+        '"""The system under test, and the judge. Both would be yours."""\n\n'
+        "import re\n",
+        where="app.py",
+    )
+    app = _replace_once(
+        app,
+        "def reply(question_id: str) -> tuple[str, float]:\n"
+        '    """Your model call. Canned, so this page needs no key."""\n'
+        "    text = ANSWERS[question_id]\n",
+        "def reply(question_id: str, prompt: str) -> tuple[str, float]:\n"
+        '    """Your model call. Canned, and signed as the prompt says."""\n'
+        '    text = ANSWERS[question_id].removesuffix(" — Northwind Support")\n'
+        "    signature = re.search(r'^Sign every reply as \"(.+)\"\\.$', prompt, "
+        "re.MULTILINE)\n"
+        "    if signature is not None:\n"
+        '        text = f"{text} {signature.group(1)}"\n',
+        where="app.py",
+    )
+    support = _replace_once(
+        files["support.py"],
+        "import app\n",
+        "from pathlib import Path\n\nimport app\n",
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        "app.reply(case.id)",
+        'app.reply(case.id, Path("prompt.md").read_text(encoding="utf-8"))',
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        f'    name="{SUITE}",\n',
+        f'    name="{SUITE}",\n    artifacts=[Path("prompt.md")],\n',
+        where="support.py",
+    )
+    return {**files, "app.py": app, "support.py": support, "prompt.md": PROMPT}
+
+
+# ── running ───────────────────────────────────────────────────────────────────
+
+
+def clean_environment() -> dict[str, str]:
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in STRIPPED and not name.startswith(STRIPPED_PREFIXES)
+    }
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+        env[name] = env[name.lower()] = CLOSED_PROXY
+    env.pop("NO_PROXY", None)
+    env.pop("no_proxy", None)
+    # The temporary repository must not inherit a signing key, a hook path or
+    # an identity from whoever runs this.
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    for role in ("AUTHOR", "COMMITTER"):
+        env[f"GIT_{role}_NAME"] = "digline capture"
+        env[f"GIT_{role}_EMAIL"] = "capture@digline.invalid"
+    return env
+
+
+@dataclass
+class Workspace:
+    path: Path
+    env: dict[str, str]
+    commands: list[dict[str, Any]]
+
+    def git(self, *args: str) -> None:
+        subprocess.run(
+            ["git", *args],
+            cwd=self.path,
+            env=self.env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    def commit(self, message: str) -> None:
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", message)
+
+    def digline(self, *args: str) -> dict[str, Any]:
+        """One command, recorded as it came out. Nothing is stripped or joined."""
+        done = subprocess.run(
+            [sys.executable, "-m", "digline.cli", *args],
+            cwd=self.path,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        entry: dict[str, Any] = {
+            "cmd": " ".join(("digline", *args)),
+            "stdout": done.stdout,
+            "stderr": done.stderr,
+            "exit": done.returncode,
+        }
+        self.commands.append(entry)
+        return entry
+
+    def run(self) -> str:
+        entry = self.digline("run", "--suite", "support.py")
+        if entry["exit"] != 0:
+            raise CaptureError(f"`{entry['cmd']}` exited {entry['exit']}")
+        return entry["stdout"].strip()
+
+    def run_document(self, key: str) -> dict[str, Any]:
+        path = self.path / ".digline" / TENANT / "runs" / SUITE / f"{key}.json"
+        document: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        return document
+
+
+def workspace(root: Path, files: dict[str, str]) -> Workspace:
+    root.mkdir(parents=True)
+    for name, body in files.items():
+        (root / name).write_text(body, encoding="utf-8")
+    space = Workspace(path=root, env=clean_environment(), commands=[])
+    space.git("init", "-q")
+    space.commit("The suite")
+    return space
+
+
+def band(documents: list[dict[str, Any]]) -> str:
+    """What the run files say about the interval each check measured.
+
+    Read from the documents, never assumed: a verdict that was sampled carries
+    `sample_min` and `sample_max`, and one that was not carries neither.
+    """
+    found: set[str] = set()
+    for document in documents:
+        verdicts = [v for r in document["results"] for v in r["verdicts"]]
+        samples = max(
+            (int(v.get("metadata", {}).get("samples", 1)) for v in verdicts),
+            default=1,
+        )
+        widths = [
+            v["sample_max"] - v["sample_min"]
+            for v in verdicts
+            if v.get("sample_min") is not None and v.get("sample_max") is not None
+        ]
+        if not widths:
+            found.add(f"absent: samples={samples}")
+        elif all(w == 0 for w in widths):
+            found.add(f"zero-width: samples={samples}, every sample agreed")
+        else:
+            found.add(f"measured: samples={samples}")
+    return "; ".join(sorted(found))
+
+
+def _succeeded(entry: dict[str, Any]) -> None:
+    if entry["exit"] != 0:
+        raise CaptureError(
+            f"`{entry['cmd']}` exited {entry['exit']}\n{entry['stdout']}"
+            f"{entry['stderr']}"
+        )
+
+
+def quickstart(root: Path, guide: str) -> dict[str, Any]:
+    space = workspace(root, chapter_one_files(guide))
+    key = space.run()
+    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    space.commit("Promote the baseline")
+    compared = space.digline("compare", "--suite", "support.py", "--run", "latest")
+    if compared["exit"] != 0:
+        raise CaptureError(
+            f"the quickstart compare exited {compared['exit']}, not 0:\n"
+            f"{compared['stdout']}{compared['stderr']}"
+        )
+    return {
+        "run_ids": [key],
+        "change": None,
+        "band": band([space.run_document(key)]),
+        "commands": space.commands,
+    }
+
+
+def prompt_diff(workdir: Path, key: str) -> list[dict[str, Any]]:
+    """The diff of each changed file under test, as digline produces it.
+
+    `compare` prints only the tally (`prompt.md · +1 −1 lines`); the lines
+    themselves are what the report renders, from `digline.report.diff_lines`
+    over the comparison `digline.core.compare` builds from the stored run and
+    baseline. The same two functions, called here, so nothing is reconstructed.
+    """
+    from digline.core import compare
+    from digline.report import diff_lines
+    from digline.store import FileResultStore, RunRef
+
+    store = FileResultStore(workdir)
+    run = store.read_run(RunRef(tenant=TENANT, suite=SUITE, key=key))
+    baseline = store.read_baseline(TENANT, SUITE)
+    if baseline is None:
+        raise CaptureError("the prompt scenario has no baseline to diff against")
+    return [
+        {"path": delta.path, "outcome": delta.outcome, "diff": diff_lines(delta)}
+        for delta in compare(run, baseline).artifact_deltas
+        if delta.outcome not in ("same", "unknown")
+    ]
+
+
+def prompt_regression(root: Path, guide: str) -> dict[str, Any]:
+    space = workspace(root, prompt_fixture(chapter_one_files(guide)))
+    before = space.run()
+    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    space.commit("Promote the baseline")
+
+    prompt = root / "prompt.md"
+    prompt.write_text(
+        _replace_once(
+            prompt.read_text(encoding="utf-8"),
+            SIGNATURE_LINE,
+            CHANGED_LINE,
+            where="prompt.md",
+        ),
+        encoding="utf-8",
+    )
+    space.commit("Change the signature line of the prompt")
+
+    after = space.run()
+    compared = space.digline("compare", "--suite", "support.py", "--run", "latest")
+    as_json = space.digline(
+        "compare", "--suite", "support.py", "--run", "latest", "--json", "full"
+    )
+    # The stdout is kept once, decoded, in `compare_json`: carrying it again as
+    # a string beside the object it decodes to doubled the file for nothing.
+    stdout = as_json.pop("stdout")
+    facts: dict[str, Any] = json.loads(stdout)
+    if "source" in facts:
+        raise CaptureError(
+            "compare --json now emits a `source` field of its own, which the "
+            "capture would overwrite: rename the capture's field"
+        )
+
+    if compared["exit"] == 0 or as_json["exit"] == 0:
+        raise CaptureError(
+            "the prompt change did not make compare fail: exits "
+            f"{compared['exit']} and {as_json['exit']}"
+        )
+    worse_cases = sorted(
+        {d["case_id"] for d in facts["deltas"] if d["outcome"] == "regressed"}
+    )
+    if not worse_cases:
+        raise CaptureError("compare failed, but no case is reported as worse")
+
+    return {
+        "run_ids": [before, after],
+        "model": MODEL,
+        "change": {
+            "description": "One line of prompt.md, the signature line, changed.",
+            "files": prompt_diff(root, after),
+        },
+        "band": band([space.run_document(before), space.run_document(after)]),
+        "commands": space.commands,
+        "compare_json": {
+            "source": (
+                f"The stdout of `{as_json['cmd']}` above, decoded with "
+                "json.loads and otherwise unchanged: every key but this one "
+                "is digline's."
+            ),
+            **facts,
+        },
+    }
+
+
+RUNTIME_DEPENDENCIES_SOURCE = (
+    "importlib.metadata.requires('digline') in the interpreter that ran every "
+    "command above: the requirements the installed digline declares, keeping "
+    "those whose marker holds in that interpreter. Extras are never active, so "
+    "a requirement that exists only for an extra is not counted."
+)
+
+
+def runtime_dependencies(declared: Iterable[str] | None = None) -> dict[str, Any]:
+    """The direct dependencies digline declares, as the installed metadata says.
+
+    `declared` is for the tests; left out, it is read from the distribution. A
+    marker is evaluated with `extra` set to the empty string, which is how an
+    install that asked for no extra sees it.
+    """
+    lines = list(requires("digline") or ()) if declared is None else list(declared)
+    names = sorted(
+        {
+            requirement.name
+            for requirement in map(Requirement, lines)
+            if requirement.marker is None or requirement.marker.evaluate({"extra": ""})
+        }
+    )
+    return {
+        "count": len(names),
+        "names": names,
+        "source": RUNTIME_DEPENDENCIES_SOURCE,
+    }
+
+
+def package_version(pyproject: Path = PYPROJECT) -> str:
+    with pyproject.open("rb") as handle:
+        version: str = tomllib.load(handle)["project"]["version"]
+    return version
+
+
+def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
+    text = guide.read_text(encoding="utf-8")
+    scenarios = {
+        "quickstart": quickstart(scratch / "quickstart", text),
+        "prompt_regression": prompt_regression(scratch / "prompt_regression", text),
+    }
+    # The version that actually ran, as the run file records it — not the one
+    # this script believes it imported.
+    recorded = {
+        json.loads(path.read_text(encoding="utf-8"))["digline_version"]
+        for path in scratch.glob(f"*/.digline/{TENANT}/runs/{SUITE}/*.json")
+    }
+    if len(recorded) != 1:
+        raise CaptureError(f"the runs record more than one version: {recorded}")
+    return {
+        "digline_version": recorded.pop(),
+        "captured_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "environment": {
+            "network": "none: no provider is configured, proxies point at "
+            + CLOSED_PROXY,
+            "stripped": [*STRIPPED, *(f"{p}*" for p in STRIPPED_PREFIXES)],
+        },
+        "runtime_dependencies": runtime_dependencies(),
+        "scenarios": scenarios,
+    }
+
+
+# ── the check ─────────────────────────────────────────────────────────────────
+
+
+def check(path: Path = OUTPUT, pyproject: Path = PYPROJECT) -> list[str]:
+    """Everything wrong with the committed capture. Empty means current."""
+    if not path.is_file():
+        return [f"{path} does not exist: run tools/home_capture.py"]
+    captured = json.loads(path.read_text(encoding="utf-8")).get("digline_version")
+    version = package_version(pyproject)
+    if captured != version:
+        return [
+            f"{path.name} was captured with digline {captured} and the package "
+            f"is {version}: run `uv run python tools/home_capture.py` and commit "
+            "the result"
+        ]
+    return []
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--out", type=Path, default=OUTPUT)
+    args = parser.parse_args(argv)
+
+    if args.check:
+        problems = check(args.out)
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        return 1 if problems else 0
+
+    with tempfile.TemporaryDirectory(prefix="digline-home-") as scratch:
+        try:
+            result = capture(Path(scratch))
+        except CaptureError as exc:
+            print(f"capture failed: {exc}", file=sys.stderr)
+            return 1
+    if result["digline_version"] != package_version():
+        print(
+            f"the runs recorded digline {result['digline_version']} and the "
+            f"package is {package_version()}: run `uv sync --all-packages` first",
+            file=sys.stderr,
+        )
+        return 1
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(args.out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
