@@ -76,7 +76,8 @@ Worked through with numbers in
 
 A dip that does not recur on re-run is sampling noise: document it and move on.
 One that recurs is drift, and drift is investigated — the model, the judge, the
-prompt, the dependency floor, in that order of likelihood.
+prompt, the dependency floor, in that order of likelihood. Before measuring
+how much any of them moved, read what the judge was shown (§9).
 
 **Decide the number of re-runs before running them.** Two is usually enough to
 tell a wobble from a drift; write the number down, run exactly that many, and
@@ -99,7 +100,8 @@ are findings.
 Do not retry it. Retrying until it passes destroys the evidence either way:
 the regression gets a green run to hide behind, and the judge's drift — which
 would have shown up as the same cases flipping again, differently — is never
-measured. Read the run, name the cases, and look at what they have in common.
+measured. Read the run, name the cases, and look at what they have in common
+— starting with what the judge was shown for them (§9).
 
 ## 5. "Within noise" explains, it does not excuse
 
@@ -164,6 +166,28 @@ the one case in 0.4.0: they need marks a run file does not hold, so they arrive
 with the next promotion rather than with the upgrade. Read
 [`CHANGELOG.md`](CHANGELOG.md) for the version you moved to, and
 [`docs/migrate.md`](docs/migrate.md) for what a migration will and will not do.
+
+## 9. Read what the judge reads before measuring how it moves
+
+Before you spend anything on how much a judged score moves — re-runs, samples,
+a `Repeated`, a re-judge — print one rendered judge prompt per judged check, in
+full, and read it against its sources. Check that the context is the whole
+evidence the case is meant to be judged on and not a prefix of it (compare what
+was sent with what was retrieved, by length), that the rubric is the one the
+suite declares, and that the output is the answer rather than a wrapper around
+it.
+
+Repetition measures noise and nothing else. A judge shown 600 characters of a
+1,100-character passage gives stable, repeatable, wrong scores, and no number
+of samples finds it: the error is configuration, identical on every call. One
+RAG author's faithfulness went from 57.6% to 82.1% by changing that one number.
+
+A run does not keep what the judge was sent — it records the input and the
+answer, not the context or the prompt — so this is done live, in a scratch
+script: wrap the judge in a function that prints its prompt and delegates. Not
+in the committed suite, where the wrapper changes the check's identity. The
+prompt is payload: to your terminal, never into a report, a commit or a pull
+request.
 
 ---
 
