@@ -130,7 +130,9 @@ RECORDED: dict[str, dict[str, str]] = {
     "RELEASING.md": {
         "0.12.0": "'the delta-pass over 0.12.0' — which release the worked "
         "example of a drafted advisory came from, told as history. The number "
-        "dates the pass; without it the example cannot say when it happened",
+        "dates the pass; without it the example cannot say when it happened. "
+        "Also, in 'Choosing the version', the worked example of a minor: the "
+        "release that moved SCHEMA_VERSION 10 -> 11 and required migrate",
         "0.1.0": "a worked example of the tag format, with invented numbers",
         "0.6.0": "'v0.6.0 was the tag that exercised it' — the release that "
         "first ran the new-package section, said as history rather than plan",
@@ -169,7 +171,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the 0.7.1 entries above",
         "0.12.1": "'0.12.1's is the worked example' — the release whose drafted "
         "advisory shows the session posting a GHSA draft, told as history beside "
-        "the 0.12.0 entry that dates the pass it came from",
+        "the 0.12.0 entry that dates the pass it came from. Also one of the "
+        "three patch examples in 'Choosing the version': it added `escape` to "
+        "digline.report and removed nothing",
+        "0.10.1": "a patch example in 'Choosing the version': the release that "
+        "added `visible` to digline.report and removed nothing. History",
+        "0.13.3": "a forward reference in 'Choosing the version': the patch that "
+        "adds CheckKind and KIND, named as an addition that does not move the "
+        "minor. The day 0.13.3 is the current version this entry is refused, "
+        "and the release PR must delete it — the sentence is then history",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "

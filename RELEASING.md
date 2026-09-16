@@ -4,6 +4,21 @@ One workflow, `.github/workflows/publish.yml`, fires on a tag. What follows is
 the part that is not in the file, plus the things that have already gone wrong
 once.
 
+## Choosing the version
+
+Before 1.0, the **minor** number moves when something a user relies on stops
+working as it did: a public name removed or renamed in `digline.core`,
+`digline.run`, `digline.host` or `digline.wire`, a CLI subcommand or option
+removed or changed in meaning, an exit code changed, or a schema change that
+needs `migrate` or a re-promote. 0.12.0 was a minor for this reason.
+
+The **patch** number is for everything that leaves existing suites, scripts and
+stored documents working unchanged: fixes, documentation, CI, and additions — a
+new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
+
+Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
+last tag and `main`, not from memory.
+
 ## Before the tag: the changelog
 
 `CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
