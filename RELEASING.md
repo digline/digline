@@ -40,7 +40,8 @@ notes under the title `digline <version>`. It refuses a version with no entry or
 an empty one, so an entry whose heading does not read `## <version> — <date>`
 fails there — after PyPI, and not worth a re-tag: publish the release by hand
 from the entry with `gh release create <tag> --notes-file`. A re-run rewrites
-the notes rather than failing on the release it already made. Named plugin tags get no release from it.
+the notes rather than failing on the release it already made. Named plugin tags
+get no release from it.
 
 ## Before the tag: the gates
 
