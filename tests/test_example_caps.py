@@ -114,6 +114,10 @@ RELEASED: dict[str, int] = {
     # where the shipped code said otherwise, and the home capture. A run
     # document written by 0.13.1 is the same document.
     "0.13.2": 11,
+    # Schema 11 still: 0.13.3 adds `CheckKind` and a `KIND` class variable on
+    # every shipped check, neither of them a field, so no document, identity
+    # or config_hash moves. A run document written by 0.13.2 is the same one.
+    "0.13.3": 11,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

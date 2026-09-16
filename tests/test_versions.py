@@ -176,10 +176,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "digline.report and removed nothing",
         "0.10.1": "a patch example in 'Choosing the version': the release that "
         "added `visible` to digline.report and removed nothing. History",
-        "0.13.3": "a forward reference in 'Choosing the version': the patch that "
-        "adds CheckKind and KIND, named as an addition that does not move the "
-        "minor. The day 0.13.3 is the current version this entry is refused, "
-        "and the release PR must delete it — the sentence is then history",
+        "0.13.2": "'the two-step form this file carried until 0.13.2' — the "
+        "release on which the site check was found passing having built "
+        "nothing, and replaced by make preview. History",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "

@@ -16,8 +16,19 @@ The conventions are visible in the rendered page, not hidden in an attribute:
   working directory in document order, and the lines beneath each one must come
   back out of it.
 
-Run keys are the one thing that legitimately differs between two executions, so
-they are normalised away — and only they.
+Run keys, and the instant a run was created, are the things that legitimately
+differ between two executions, so they are compared by **identity** rather than
+by value — and only they. The first time a key on the page meets a key the
+command printed, the two are bound for the rest of the page: the same key on the
+page must be the same run every time it appears, and two different keys on the
+page must be two different runs. A key copied from one output onto another
+fails that way.
+
+What identity cannot catch, because the value itself is never compared: a key
+that appears once, or one renamed consistently everywhere it appears. And a
+quoted line binds to the **first** printed line of its shape, so a page that
+skips rows of a listing binds its keys to the wrong runs and fails later —
+quote a listing from its top.
 """
 
 from __future__ import annotations
@@ -31,6 +42,7 @@ from doc_fences import BLOCK_RE, FILENAME_RE, blocks, python_files
 
 __all__ = [
     "KEY_RE",
+    "Bindings",
     "Session",
     "console_sessions",
     "normalise",
@@ -46,9 +58,77 @@ ROOT = Path(__file__).resolve().parents[1]
 #: the config hash. It changes on every run and means nothing to the reader.
 KEY_RE = re.compile(r"\d{4}-\d{2}-\d{2}T[\d-]+-[0-9a-f]{16}")
 
+#: `2026-08-26T15:44:09.282929+00:00` — the same instant the key is slugged
+#: from, as `digline list` prints it in its CREATED column. Only the full form a
+#: run carries, so a date a page states on purpose is still compared.
+INSTANT_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00")
+
+
+#: Either of the two, in the order they occur on a line.
+TOKEN_RE = re.compile(f"{KEY_RE.pattern}|{INSTANT_RE.pattern}")
+
 
 def normalise(line: str) -> str:
-    return KEY_RE.sub("<KEY>", line).rstrip()
+    """The line with every key and instant blanked: its *shape*, which must be
+    equal for two lines to match before their tokens are compared."""
+    return INSTANT_RE.sub("<INSTANT>", KEY_RE.sub("<KEY>", line)).rstrip()
+
+
+class Bindings:
+    """Which printed token each token on the page stands for, one to one.
+
+    Keys and instants share the table and never collide, being spelt
+    differently; a run's key and its CREATED instant are bound each on its own.
+    """
+
+    def __init__(self) -> None:
+        self.page_to_run: dict[str, str] = {}
+        self.run_to_page: dict[str, str] = {}
+        self.order: dict[str, int] = {}
+
+    def match(self, expected: str, actual: str) -> bool:
+        """Whether `actual` is `expected`, binding any token seen for the first time.
+
+        Nothing is bound unless the whole line matches, so a line that fails
+        leaves the bindings as they were for the next candidate.
+        """
+        if normalise(expected) != normalise(actual):
+            return False
+        pending: dict[str, str] = {}
+        taken: dict[str, str] = {}
+        pairs = zip(TOKEN_RE.findall(expected), TOKEN_RE.findall(actual), strict=True)
+        for page, run in pairs:
+            bound = self.page_to_run.get(page, pending.get(page))
+            if bound is not None:
+                if bound != run:
+                    return False
+                continue
+            owner = self.run_to_page.get(run, taken.get(run))
+            if owner is not None and owner != page:
+                return False
+            pending[page] = run
+            taken[run] = page
+        for page, run in pending.items():
+            self.page_to_run[page] = run
+            self.run_to_page[run] = page
+        return True
+
+    def seen(self, line: str) -> None:
+        """Number every token of a page line by first appearance on the page."""
+        for token in TOKEN_RE.findall(line):
+            self.order.setdefault(token, len(self.order) + 1)
+
+    def label(self, line: str) -> str:
+        """`line` with each token named by the order the page first used it:
+        `<KEY 3>` is the third distinct token on the page, wherever it appears,
+        so the same key reads the same in every error about it."""
+
+        def name(found: re.Match[str]) -> str:
+            token = found.group(0)
+            kind = "KEY" if KEY_RE.fullmatch(token) else "INSTANT"
+            return f"<{kind} {self.order[token]}>"
+
+        return TOKEN_RE.sub(name, line).rstrip()
 
 
 def python_snippets(text: str) -> list[str]:
@@ -77,7 +157,7 @@ def _sessions_in(body: str) -> list[Session]:
         if line.startswith("$ "):
             sessions.append(Session(line[2:].strip()))
         elif line.strip() and sessions:
-            sessions[-1].expected.append(normalise(line))
+            sessions[-1].expected.append(line.rstrip())
     return sessions
 
 
@@ -116,16 +196,20 @@ def run_command(command: str, workdir: Path) -> subprocess.CompletedProcess[str]
     )
 
 
-def _subsequence(expected: list[str], actual: list[str]) -> str | None:
+def _subsequence(
+    expected: list[str], actual: list[str], bindings: Bindings
+) -> str | None:
     """`None` if every expected line appears, in order, among the actual ones.
 
     In order rather than merely present: two lines swapped is a page that
     describes a different execution from the one that happened. Gaps are
-    allowed, so a page may quote the three lines that matter out of thirty.
+    allowed, so a page may quote the three lines that matter out of thirty —
+    but a gap never excuses a key: every key quoted is bound to the run it
+    stood beside, for the rest of the page.
     """
     remaining = list(actual)
     for line in expected:
-        while remaining and remaining[0] != line:
+        while remaining and not bindings.match(line, remaining[0]):
             remaining.pop(0)
         if not remaining:
             return line
@@ -143,6 +227,9 @@ def replay(text: str, workdir: Path) -> list[Session]:
     ran would be a page nobody can follow, and this is what catches it.
     """
     sessions: list[Session] = []
+    # One set of bindings for the whole page, not per chapter: chapter 6 names
+    # the run chapter 5 promoted, and it has to be that run.
+    bindings = Bindings()
     for lang, body in BLOCK_RE.findall(text):
         if lang == "python":
             first, _, _rest = body.partition("\n")
@@ -151,19 +238,21 @@ def replay(text: str, workdir: Path) -> list[Session]:
         elif lang == "console":
             for session in _sessions_in(body):
                 sessions.append(session)
-                _check(session, workdir)
+                _check(session, workdir, bindings)
     return sessions
 
 
-def _check(session: Session, workdir: Path) -> None:
+def _check(session: Session, workdir: Path, bindings: Bindings) -> None:
     done = run_command(session.command, workdir)
     actual = [
-        normalise(line)
+        line.rstrip()
         for line in (done.stdout + done.stderr).splitlines()
         if line.strip()
     ]
-    missing = _subsequence([e for e in session.expected if e], actual)
+    for line in session.expected:
+        bindings.seen(line)
+    missing = _subsequence([e for e in session.expected if e], actual, bindings)
     assert missing is None, (
-        f"`{session.command}` never printed {missing!r}\n"
-        f"--- it printed ---\n" + "\n".join(actual)
+        f"`{session.command}` never printed {bindings.label(missing)!r}\n"
+        f"--- it printed ---\n" + "\n".join(map(normalise, actual))
     )

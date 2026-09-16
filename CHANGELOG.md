@@ -8,12 +8,74 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-- **`KIND` on every shipped check**, a `ClassVar[CheckKind]` naming it
-  `deterministic`, `judged`, `budget`, `aggregate` or `wrapper`, and
-  `CheckKind` exported from `digline.core`. Optional on a check of your own. It
-  is not a field, so no `identity` and no `config_hash` moves and **no baseline
-  needs re-promoting** — pinned in `tests/test_check_kind.py` against values
-  taken before it existed and against every committed example baseline.
+## 0.13.3 — 2026-09-16
+
+**A check says what kind it is, and the home stops being a hand-kept list.**
+digline **0.13.3**, alone: the three provider plugins stay at 0.5.0,
+`digline-mcp` at 0.1.3 and `pytest-digline` at 0.1.3, and no floor moves.
+`SCHEMA_VERSION` stays **11** and `OUTPUT_VERSION` stays 1 — no stored document
+moves, **no baseline needs re-promoting**.
+
+A patch, by the rule `RELEASING.md` now writes down: between v0.13.2 and this
+release one public name is added — `CheckKind` in `digline.core` — and nothing
+is removed or renamed, no CLI subcommand, option or exit code moves, and the
+schema stays where it was.
+
+```sh
+uv add --upgrade digline
+```
+
+- **`KIND` on every shipped check.** Each of the 22 checks `digline.core`
+  exports declares a `KIND: ClassVar[CheckKind]`: `deterministic`, `judged`
+  (`LlmRubric`, `Faithfulness`), `budget` (`CostBudget`, `LatencyBudget`),
+  `aggregate` (`Precision`, `Recall`, `Accuracy`, `F1`) or `wrapper`
+  (`Repeated`, and `FromAutoevals`, whose scorer may or may not call a model).
+  `AssertionBase` and `RunAssertionBase` declare it without a value, so a shipped
+  check cannot be `deterministic` by omission; on a check of your own it is
+  optional, and nothing that runs, compares or promotes reads it. It is a class
+  variable and not a dataclass field, so **no `identity` and no `config_hash`
+  moves** — pinned against values computed before it existed, and against every
+  committed example baseline, which still pairs and still promotes. The
+  *Custom assertions* section of the API reference explains the five values.
+
+- **The home capture carries the commands and the checks.**
+  `docs/assets/home/home.json` gains two keys, each with the `source` sentence
+  the other keys have:
+  - `cli_commands` — every public subcommand of `digline` with its help line,
+    in the order the parser declares them, read from the CLI's own
+    `build_parser()`;
+  - `checks` — every exported check with its `KIND` and the anchor of its card
+    in the metrics page.
+
+  The capture refuses to write a list with a hole in it. It stops on a check
+  with no `KIND`, a `KIND` outside the five, a check with no card, or an
+  argparse that no longer exposes its subcommands.
+
+- **Docs: the guide shows `digline list`.** Chapter 6 lists the five runs it
+  has just recorded, above the baseline chapter 5 promoted, before choosing
+  which one to promote. It was the one public subcommand the guide never ran.
+
+  The replay that executes the guide now compares run keys by **identity**
+  rather than blanking them: the first time a key on the page meets a key a
+  command printed, the two are bound for the rest of the page, so one key cannot
+  stand for two runs and two keys cannot stand for one. That found two keys the
+  page had carried since it was written and no execution produced — chapter 1's
+  second run printed the first run's key, and chapter 8's fresh reference named
+  a run the page never ran. The first line is gone and the second now names the
+  run the page does run.
+
+- **Docs: ADR 0024, *The judge as an instrument*, proposed.** Four
+  measurements of the judge — noise and scale, at one point and across the
+  suite — written and checkpointed before any code; nothing in it is
+  implemented in this release. ADR 0020 §4 gains one sentence: identity decides
+  which runs are grouped, and scores never decide identity. `AGENTS.md` and the
+  operating-digline skill gain a rule: read what the judge reads before
+  measuring how it moves.
+
+- **Releasing: how a version is chosen is written down.** The minor moves when
+  something a user relies on stops working as it did; everything that leaves
+  existing suites, scripts and stored documents working — fixes, documentation,
+  CI and additions — is a patch.
 
 ## 0.13.2 — 2026-09-16
 

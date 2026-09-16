@@ -119,7 +119,6 @@ none, and it exits 0 rather than pretending to gate anything.
 
 ```console
 $ digline run --suite support.py
-2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline report --suite support.py --run latest --locale en --out first-run.html
 ```
@@ -641,6 +640,22 @@ $ python calibrate.py 5
 5 runs recorded
 ```
 
+`digline list` shows them, newest first, above the run chapter 5 promoted —
+marked `*` as the current baseline — and every earlier run below it.
+
+```console
+$ digline list --suite support.py
+  KEY                                                CREATED                            ENV           COMMIT          CASES
+  2026-08-26T16-08-16-221095-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.221095+00:00   staging       -               3
+  2026-08-26T16-08-16-219738-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.219738+00:00   staging       -               3
+  2026-08-26T16-08-16-218356-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.218356+00:00   staging       -               3
+  2026-08-26T16-08-16-216801-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.216801+00:00   staging       -               3
+  2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.214505+00:00   staging       -               3
+* 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a  2026-08-26T16:08:15.998299+00:00   staging       -               3
+
+* = current baseline
+```
+
 ```python
 # median.py
 """The most typical run, which is the one to promote.
@@ -978,7 +993,7 @@ Take a fresh reference first, so what follows has nothing else in it:
 
 ```console
 $ digline promote --suite support.py --run latest
-support baseline set to 2026-08-26T16-24-18-627485-00-00-ec1c0061f461d5e3
+support baseline set to 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 ```
 
 Now the provider ships. Only `app.py` changes, and not by your hand —
