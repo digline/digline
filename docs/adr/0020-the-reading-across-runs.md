@@ -17,6 +17,10 @@
   nothing gets a span like any other rather than a summary line. What §10 claims
   about the dogfood still holds; only its layout was a draft. `docs/log.md`
   quotes the shipped output
+- Amended: 2026-09-16 by [ADR 0024](0024-the-judge-as-an-instrument.md) §7 —
+  §4 gains one sentence and loses nothing: a reading may group runs by identity
+  and read their aggregates, in a type of its own. Identity decides which runs
+  are grouped; scores never decide identity
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the payload
   stays where it is born, the verdict travels);
@@ -272,6 +276,14 @@ licensed inference about behaviour.
 `environments` is reported and never splits a span: decision 8 keeps the
 environment inside the perimeter and out of any constraint, and an alias that
 answered the same in staging and production is one fact rather than two.
+
+*Amended 2026-09-16 by [ADR 0024](0024-the-judge-as-an-instrument.md) §7: the
+hazard above is a score deciding an identity, and it is closed in that direction
+only. **Identity decides which runs are grouped; scores never decide identity.**
+A reading may therefore read the aggregates of the runs inside one identity span
+— the run-to-run spread — in a type of its own, `AggregateSpread`, which shares
+no row with `IdentitySpan` or `Roll`. Those two keep the field sets asserted in
+the test plan, and neither gains a score.*
 
 ### 5. Where it lives: `digline log`
 
