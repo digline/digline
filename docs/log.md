@@ -82,13 +82,14 @@ editing the suite, on a date the suite's own history records.
 **The moment is never pinned.** A roll happened after the last run that recorded
 `before` and no later than the first that recorded `after`, and the runs in
 between that recorded nothing are counted rather than skipped — the
-`1 run(s) between them recorded no answering model` line. A roll compares with
+`1 run(s) between them recorded no answering model.` line. A roll compares with
 the previous *recorded* sighting and not with the previous run, so a stretch of
 silence widens the window instead of breaking the comparison.
 
 Where no roll is found the reading says `No roll recorded.`, and that sentence is
-scoped by the spans above it: on a store of thirteen absences it means *nothing
-was ever verified twice*, not *the provider held still*.
+scoped by the spans above it: on a history where eleven of thirteen sightings
+identify nothing, it means *there was almost nothing to compare*, not *the
+provider held still*.
 
 ## The absences, and there are seven
 
