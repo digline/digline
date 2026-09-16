@@ -8,6 +8,15 @@
   endpoint that echoed the requested id, found by the first external run of the
   TOML quickstart against an OpenAI-compatible aggregator. The record was
   corrected before it was born rather than amended after
+- Amended: 2026-09-16 — one factual correction, no decision revisited: **§10's
+  sketch is not the shape that shipped.** It drew the target side as a column
+  table (`sent / answered as / first seen / last seen / runs`) and the judge as
+  `declared nothing, in every run`. `log_text` prints one sentence per span
+  under a `Target` or `Judge` heading — the sighting, then the first and last
+  `created_at`, the run count and the environments — and a side that declared
+  nothing gets a span like any other rather than a summary line. What §10 claims
+  about the dogfood still holds; only its layout was a draft. `docs/log.md`
+  quotes the shipped output
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the payload
   stays where it is born, the verdict travels);
@@ -289,6 +298,10 @@ and the words are scoped to it. *First seen* means **first seen in this store,
 in this window** — runs are ignored by fixed decision 2, so a hosted runner has
 no history and a fresh clone has none either. The reading says *0 runs in this
 store* there, and never *no roll*.
+
+*Amended 2026-09-16 by [ADR 0021](0021-the-register.md) §8: the window has a
+second axis — the dispositions in the reading are windowed on their own
+`recorded_at`, not on the `created_at` of the run they name.*
 
 **The reference is named once**, at the end: the baseline's key, `promoted_at`
 where it was recorded, and its sighting. It is the one sighting that is
