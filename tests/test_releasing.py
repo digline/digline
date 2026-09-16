@@ -99,6 +99,10 @@ def test_ci_still_builds_the_site_before_any_tag() -> None:
     commands = docs_job_commands()
     assert any("sync-docs.sh" in c for c in commands), commands
     assert any("mkdocs build --strict" in c for c in commands), commands
+    # A pull request is its merge commit, ahead of origin/main, which the site's
+    # sync refuses: there the job builds through the site's own preview target,
+    # which is still `mkdocs build --strict` with only omitted pages loosened.
+    assert any(c.startswith("make preview") for c in commands), commands
 
 
 def test_releasing_tells_a_human_to_build_the_site_too() -> None:

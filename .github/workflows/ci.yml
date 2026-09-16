@@ -87,16 +87,45 @@ jobs:
         with:
           enable-cache: true
 
+      # Two builds, chosen by the event, because the site's sync refuses a
+      # digline checkout that is ahead of origin/main (digline.dev 369db4e) —
+      # and a pull request is checked out as its merge commit, which is always
+      # one commit ahead. Both builds are `mkdocs build --strict`.
+      #
+      # A pull request gets the site's own preview, `make preview`: the sync
+      # skips the published-checkout check and leaves a marker the deploy gate
+      # refuses, and `MKDOCS_OMITTED_FILES=info` lets a page with no nav entry
+      # through — by the site's RUNBOOK a new page gets its nav line only once
+      # it is on digline main, so on its own PR it has none. Nothing else is
+      # loosened: a broken link, an anchor, a nav entry pointing at nothing, a
+      # hook's PluginError all still fail it. The target is called rather than
+      # copied, so the preview cannot drift from what the site means by one.
+      #
+      # Everything else — a push to main, the weekly schedule, the run after a
+      # publish, a dispatch — gets the ordinary build, guard included. There
+      # HEAD is origin/main (or a commit it already contains), so the guard
+      # passes, and it is the build a release of the site will actually run:
+      # a page on main with no nav line is a site that owes an entry, and that
+      # should be red. A dispatch on a branch other than main is refused by the
+      # guard, which is the guard being right.
+      #
       # Shallow on purpose, unlike the real build. `sync-docs.sh` reads this
       # repository's history to date each page for the sitemap, detects a
       # shallow clone and falls back to mtimes rather than writing a date it
       # cannot stand behind. The dates are not what is under test here; the
       # links and the nav are.
+      - name: Build the site from unreleased docs, strict (pull request)
+        if: github.event_name == 'pull_request'
+        working-directory: _site
+        run: make preview DIGLINE=..
+
       - name: Copy the product documentation in
+        if: github.event_name != 'pull_request'
         working-directory: _site
         run: tools/sync-docs.sh ..
 
       - name: Build the site, strict
+        if: github.event_name != 'pull_request'
         working-directory: _site
         run: uv run mkdocs build --strict
 
