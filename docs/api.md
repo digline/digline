@@ -1052,7 +1052,7 @@ KIND: ClassVar[CheckKind] = "deterministic"
 |---|---|
 | `deterministic` | The same output always gets the same verdict. |
 | `judged` | A model decides, so the verdict is noisy by construction: `LlmRubric`, `Faithfulness`. |
-| `budget` | A declared ceiling that fails the run: `CostBudget`, `LatencyBudget`. |
+| `budget` | A declared ceiling on cost or latency, scored graded rather than pass/fail — `cap / (cap + measured)`, `0.5` exactly at the cap — so drift under the cap stays visible to `compare()`. Over the cap the verdict fails, whatever the score rounds to: `CostBudget`, `LatencyBudget`. |
 | `aggregate` | One verdict about the whole run, from every case's outcome: `Precision`, `Recall`, `Accuracy`, `F1`. |
 | `wrapper` | Its nature is the thing it wraps: `Repeated`, and `FromAutoevals`, whose scorer may or may not call a model. |
 
