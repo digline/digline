@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+from email.message import Message
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +94,27 @@ def test_runtime_dependencies_read_the_installed_digline() -> None:
     assert "importlib.metadata" in found["source"]
 
 
+def test_requires_python_reads_the_installed_digline() -> None:
+    declared = importlib.metadata.metadata("digline")["Requires-Python"]
+    found = home_capture.requires_python()
+    assert found["specifier"] == declared
+    assert "importlib.metadata" in found["source"]
+
+
+def test_requires_python_refuses_a_distribution_that_declares_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A distribution whose metadata carries no such header: `Message` is the
+    # shape importlib.metadata hands back, and it answers None for a key it
+    # does not hold.
+    def without_the_header(_name: str) -> Message:
+        return Message()
+
+    monkeypatch.setattr(home_capture, "metadata", without_the_header)
+    with pytest.raises(home_capture.CaptureError):
+        home_capture.requires_python()
+
+
 def test_a_guide_that_moved_stops_the_derivation() -> None:
     files = {"app.py": "", "rules.py": "", "support.py": ""}
     with pytest.raises(home_capture.CaptureError):
@@ -125,3 +147,4 @@ def test_the_capture_is_what_the_cli_printed(tmp_path: Path) -> None:
 
     dependencies = result["runtime_dependencies"]
     assert dependencies["count"] == len(dependencies["names"])
+    assert result["requires_python"]["specifier"]

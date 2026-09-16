@@ -41,7 +41,7 @@ import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from importlib.metadata import requires
+from importlib.metadata import metadata, requires
 from pathlib import Path
 from typing import Any
 
@@ -420,6 +420,33 @@ def runtime_dependencies(declared: Iterable[str] | None = None) -> dict[str, Any
     }
 
 
+REQUIRES_PYTHON_SOURCE = (
+    "importlib.metadata.metadata('digline')['Requires-Python'] in the "
+    "interpreter that ran every command above: the interpreter range the "
+    "installed digline declares, as its own metadata carries it, not as the "
+    "interpreter that happened to run this script satisfies it."
+)
+
+
+def requires_python(declared: str | None = None) -> dict[str, Any]:
+    """The interpreter range digline declares, as the installed metadata says.
+
+    `declared` is for the tests; left out, it is read from the distribution.
+    A distribution that declares no range stops the capture rather than
+    writing an empty promise onto the home.
+    """
+    specifier = metadata("digline")["Requires-Python"] if declared is None else declared
+    if not specifier:
+        raise CaptureError(
+            "the installed digline declares no Requires-Python: the home has no "
+            "interpreter range to show"
+        )
+    return {
+        "specifier": specifier,
+        "source": REQUIRES_PYTHON_SOURCE,
+    }
+
+
 def package_version(pyproject: Path = PYPROJECT) -> str:
     with pyproject.open("rb") as handle:
         version: str = tomllib.load(handle)["project"]["version"]
@@ -449,6 +476,7 @@ def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
             "stripped": [*STRIPPED, *(f"{p}*" for p in STRIPPED_PREFIXES)],
         },
         "runtime_dependencies": runtime_dependencies(),
+        "requires_python": requires_python(),
         "scenarios": scenarios,
     }
 
