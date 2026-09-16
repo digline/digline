@@ -47,14 +47,22 @@ uv add --upgrade digline
   - `checks` — every exported check with its `KIND` and the anchor of its card
     in the metrics page.
 
-  The capture refuses to write a list with a hole in it: a check with no `KIND`,
-  a `KIND` outside the five, a check with no card, or an argparse that no longer
-  exposes its subcommands all stop it.
+  The capture refuses to write a list with a hole in it. It stops on a check
+  with no `KIND`, a `KIND` outside the five, a check with no card, or an
+  argparse that no longer exposes its subcommands.
 
-- **Docs: the guide shows `digline list`.** Chapter 6 lists the stored runs
-  before choosing which one to promote, with the output the guide's own replay
-  produces — the baseline marked, newest first. It was the one public subcommand
-  the guide never ran.
+- **Docs: the guide shows `digline list`.** Chapter 6 lists the five runs it
+  has just recorded, above the baseline chapter 5 promoted, before choosing
+  which one to promote. It was the one public subcommand the guide never ran.
+
+  The replay that executes the guide now compares run keys by **identity**
+  rather than blanking them: the first time a key on the page meets a key a
+  command printed, the two are bound for the rest of the page, so one key cannot
+  stand for two runs and two keys cannot stand for one. That found two keys the
+  page had carried since it was written and no execution produced — chapter 1's
+  second run printed the first run's key, and chapter 8's fresh reference named
+  a run the page never ran. The first line is gone and the second now names the
+  run the page does run.
 
 - **Docs: ADR 0024, *The judge as an instrument*, proposed.** Four
   measurements of the judge — noise and scale, at one point and across the
