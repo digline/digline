@@ -335,6 +335,64 @@ bearing and neither is obvious:
 `select_unpublished.py` copies rather than moves, which is what leaves `dist/`
 whole for that step to read.
 
+## The index race
+
+**An upload returning 200 is not the index serving the file**, and the gap
+between the two is a race our own ordering guarantees. `publish` uploads, and
+the consumers start the moment it completes: `ci.yml` on
+`workflow_run: [publish] types: [completed]`, `docker-publish.yml` beside it on
+the same `v*` tag. So the first consumer to run is structurally early, and
+whether it goes red used to be decided by scheduling rather than by anything in
+the tree.
+
+It has been paid for five times — 0.7.1's warm pip cache, 0.8.0's `rag` and
+`llamaindex` legs, 0.11.0's classifier lock regen, v0.13.0's `docker-publish`,
+and the follow-on `ci` after `digline-openai-v0.5.0`.
+
+`.github/await_index.py` is the answer, and **it is a wait-and-verify, not a
+retry**. That distinction is the whole design and it is worth keeping: a bare
+retry cannot tell *not yet propagated* from *genuinely missing* — a typo'd pin,
+a version that never uploaded, a project that does not exist. It burns its
+budget and fails the same way for both, so a real defect becomes a slow flake
+and the red says nothing about which it was. The wait asks the one question
+that separates them — *is this exact file served?* — and answers in two shapes:
+
+| The red says | It means |
+|---|---|
+| `/simple/digline/ is served and lists 41 file version(s), none at 0.13.0` | propagation, or a version that was never uploaded |
+| `/simple/digline-mcp/ answered 404 — a project that has never been published, or a name that is misspelled` | a package **new to the index**, or a misspelling |
+
+The second shape is there because a brand-new project has no page at all, so an
+edge can hold a cached 404 for the project URL — a longer-lived thing than a
+page that merely has to gain a line.
+
+**It runs in each consuming job, not only in the one that uploaded.** One
+runner's view of the index does not prove another's: on v0.13.0 the `pypi` job
+verified its pins and the image build, ~30s later and inside a container's own
+network namespace, was still told `digline==0.13.0` did not exist. A wait that
+ran only at the publisher would have passed there and changed nothing.
+
+| Job | Waits for | Deadline |
+|---|---|---|
+| `publish.yml` → `pypi` | every pin in `dist/` | 10 min |
+| `docker-publish.yml` → `smoke` | the four pins in `docker/Dockerfile` | 30 min — it waits on a *person* approving `pypi` |
+| `ci.yml` → `image` | the same four pins | 4 min |
+| `ci.yml` → `examples-from-pypi` | this workspace's core version | 4 min |
+
+**What still is not covered, stated rather than assumed.** The `testpypi` job
+installs unversioned names, on purpose — TestPyPI resolves against a different
+set of uploads — so nothing holds it to a version and a lagging index there can
+still resolve an older one. The five examples carrying a `uv.lock` pin exact
+versions that legitimately lag a release until the locks are regenerated, and
+the wait says nothing about what any individual lock resolves to. The ten
+`examples/*/.github/workflows/check.yml` are inert inside this monorepo and are
+not reached by a release at all. `java-example.yml` installs no Python package
+and is not a consumer.
+
+And the part no amount of waiting closes: **PyPI's edges converge on their own
+schedule.** The wait narrows the window to whatever the consuming runner can
+see; it cannot make one edge speak for another.
+
 
 ## After the green, before the announcement: the delta-pass
 
@@ -401,12 +459,25 @@ worth doing by hand.
 
 **A red `ci` on the release commit is expected.** `docker/Dockerfile` pins
 `digline==<the version being released>`, and the push-triggered `ci` fires
-*before* the `pypi` job has uploaded it. So the image job fails with
-`No matching distribution found`, every time, on the commit the tag points at.
-It self-heals: the `workflow_run` `ci` that follows `publish` rebuilds it green.
-On 0.7.1 the failing build ran at 06:25:07 and the upload landed at 06:27:21.
-**Do not chase it, and do not re-tag for it** — check that the follow-on run is
-green instead.
+*before* the `pypi` job has uploaded it. So the image job fails, every time, on
+the commit the tag points at. It self-heals: the `workflow_run` `ci` that
+follows `publish` rebuilds it green. On 0.7.1 the failing build ran at 06:25:07
+and the upload landed at 06:27:21. **Do not chase it, and do not re-tag for
+it** — check that the follow-on run is green instead.
+
+What changed is *which* red it is. It used to be `No matching distribution
+found` from `pip`, which is the same sentence a typo'd pin produces. Now the
+`Wait for every pinned version to be served to this runner` step fails first
+and names the version and the shape of the absence, so the expected red and a
+real defect no longer read alike. **If that step reports a project that has
+never been published, that is not this race** — read it.
+
+**A red `docker-publish` on the release tag no longer means "re-run it".** It
+used to: the job's own wait asked only about `digline`, from the runner, and
+the build then installed four versions from inside a container. Re-running was
+how it got past a plugin the index had not caught up on. The job now waits for
+all four pins, so a red there is a failure to read rather than a button to
+press again. Re-run it only after reading which version it names.
 
 **The nine example legs need a dispatch after the lock regen.** Two things
 combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
@@ -417,7 +488,9 @@ and that is not a failure. On 0.8.0 two legs went red in that run for a second
 reason worth knowing apart from the first: not a stale lock but a **propagation
 race** — `rag` and `llamaindex` burned their six retries between 10:26:29 and
 10:27:29 while the index still served `<=0.7.2`, and the other seven won the
-same race by being scheduled seconds later. Same verdict either way: the
+same race by being scheduled seconds later. That second reason is now waited
+out rather than retried past (see *The index race*), and the legs fail naming
+the version if it genuinely never arrives. Same verdict either way: the
 dispatch against `main` is the run that counts. Run it by hand against `main` once the locks are in:
 
 ```sh

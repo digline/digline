@@ -3,6 +3,24 @@
 - Status: proposed — the text first, checkpointed before any code, beside
   [ADR 0020](0020-the-reading-across-runs.md)
 - Date: 2026-09-15
+- Amended: 2026-09-16 — one factual correction, no decision revisited: **§3's
+  example gives `recorded_at` to the second, and the writer keeps
+  microseconds.** `digline register` reads the clock through
+  `host.utc_now_iso()`, which keeps them on purpose: truncating once let two
+  runs in the same second share a key. The store's second-truncating
+  `utc_now_iso` is not the one the CLI uses. The register gains from this too:
+  the reader orders by `recorded_at` and a union merge makes file order
+  meaningless, so two dispositions recorded in the same second still keep their
+  order. `isoformat()` drops an all-zero fraction, and those values still sort
+  correctly as strings, because `+` sorts before `.`
+- Amended: 2026-09-16 — **§8's section of the reading is windowed, and no
+  record said so.** `log --since`/`--until` apply to the dispositions as well as
+  the runs, and each disposition is filtered on its own `recorded_at`, not on
+  the `created_at` of the run it names. A window that ends before a person read
+  a comparison shows the run and not the disposition about it. ADR 0020 §5
+  describes the window over `created_at` and now points here. The register's
+  section is a separate record with a separate date, and filtering it on the
+  run's date would place a person's decision on a day they had not yet made it
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the payload
   stays where it is born), §8 (a baseline is an approved reference);
