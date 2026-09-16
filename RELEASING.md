@@ -37,10 +37,10 @@ The entry is also the **GitHub Release**. On a `v*` tag the `github-release`
 job in `publish.yml` runs after PyPI, cuts the entry for that version out of the
 tag's `CHANGELOG.md` with `.github/changelog_entry.py`, and publishes it as the
 notes under the title `digline <version>`. It refuses a version with no entry or
-an empty one, so an entry heading that does not read `## <version> — <date>`
-fails there, after PyPI and without a re-tag: fix nothing on the tag, write the
-release by hand from the entry. A re-run rewrites the notes rather than failing
-on the release it already made. Named plugin tags get no release from it.
+an empty one, so an entry whose heading does not read `## <version> — <date>`
+fails there — after PyPI, and not worth a re-tag: publish the release by hand
+from the entry with `gh release create <tag> --notes-file`. A re-run rewrites
+the notes rather than failing on the release it already made. Named plugin tags get no release from it.
 
 ## Before the tag: the gates
 
