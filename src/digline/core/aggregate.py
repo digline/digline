@@ -20,7 +20,7 @@ from typing import Any, ClassVar, Literal, Protocol, cast
 
 from digline.core.assertions import dataclass_identity
 from digline.core.ratio import Ratio, as_ratio
-from digline.core.types import Score, Verdict, at_precision, meets
+from digline.core.types import CheckKind, Score, Verdict, at_precision, meets
 
 __all__ = [
     "F1",
@@ -198,6 +198,9 @@ class RunAssertionBase:
     #: every subclass, which is what makes `Precision(group="x")` unwritable in
     #: Python and an unknown parameter in TOML. (ADR 0010 §5)
     group: str | None
+    #: Always `aggregate` on the four shipped here; declared without a value
+    #: for the reason `AssertionBase.KIND` is.
+    KIND: ClassVar[CheckKind]
 
     #: Same rule as for per-case assertions: threshold and tolerance are *how*
     #: a result is judged, not *what* is measured, so raising a bar leaves the
@@ -326,6 +329,7 @@ class Precision(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "precision"
+    KIND: ClassVar[CheckKind] = "aggregate"
     by_group: bool = False
     group: str | None = field(init=False, default=None)
 
@@ -351,6 +355,7 @@ class Recall(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "recall"
+    KIND: ClassVar[CheckKind] = "aggregate"
     by_group: bool = False
     group: str | None = field(init=False, default=None)
 
@@ -376,6 +381,7 @@ class Accuracy(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "accuracy"
+    KIND: ClassVar[CheckKind] = "aggregate"
     by_group: bool = False
     group: str | None = field(init=False, default=None)
 
@@ -413,6 +419,7 @@ class F1(RunAssertionBase):
     threshold: Ratio
     tolerance: Ratio
     name: str = "f1"
+    KIND: ClassVar[CheckKind] = "aggregate"
     by_group: bool = False
     group: str | None = field(init=False, default=None)
 

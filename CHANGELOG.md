@@ -8,6 +8,13 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **`KIND` on every shipped check**, a `ClassVar[CheckKind]` naming it
+  `deterministic`, `judged`, `budget`, `aggregate` or `wrapper`, and
+  `CheckKind` exported from `digline.core`. Optional on a check of your own. It
+  is not a field, so no `identity` and no `config_hash` moves and **no baseline
+  needs re-promoting** — pinned in `tests/test_check_kind.py` against values
+  taken before it existed and against every committed example baseline.
+
 ## 0.13.2 — 2026-09-16
 
 **The pages those commands were owed, and a home that was run rather than

@@ -16,13 +16,14 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from statistics import fmean
-from typing import cast
+from typing import ClassVar, cast
 
 from digline.core.assertions import AssertionBase
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.types import (
     STORAGE_STEP,
+    CheckKind,
     EvaluatorInputs,
     OutputKind,
     Score,
@@ -448,6 +449,7 @@ class Repeated(AssertionBase):
     #: A float that no `k/samples` can produce is refused (see `as_agreement`).
     min_agreement: Ratio
     name: str = ""
+    KIND: ClassVar[CheckKind] = "wrapper"
     # Copied from `inner` rather than declared: two copies of a threshold drift
     # apart, and the wrapper has no opinion of its own about where the bar sits.
     # `init=False` makes it impossible to pass one that contradicts the inner.

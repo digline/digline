@@ -1041,6 +1041,26 @@ class MaxWords(AssertionBase):
 *how* you judge, not *what* you check, so raising a threshold leaves the
 verdicts paired and the comparison says so.
 
+**`KIND` is optional on a check of your own.** Every check `digline.core` ships
+declares what kind of check it is, as a class variable:
+
+```text
+KIND: ClassVar[CheckKind] = "deterministic"
+```
+
+| `KIND` | Means |
+|---|---|
+| `deterministic` | The same output always gets the same verdict. |
+| `judged` | A model decides, so the verdict is noisy by construction: `LlmRubric`, `Faithfulness`. |
+| `budget` | A declared ceiling that fails the run: `CostBudget`, `LatencyBudget`. |
+| `aggregate` | One verdict about the whole run, from every case's outcome: `Precision`, `Recall`, `Accuracy`, `F1`. |
+| `wrapper` | Its nature is the thing it wraps: `Repeated`, and `FromAutoevals`, whose scorer may or may not call a model. |
+
+The list of checks the home of digline.dev shows is built from it, and nothing
+that runs, compares or promotes reads it. It is a `ClassVar`, not a field, so it
+never enters `identity` or `config_hash`: declaring it, or changing it, leaves
+every stored baseline paired and promotable. `MaxWords` above works without it.
+
 ### A custom aggregate
 
 `RunAssertionBase` is the same thing one level up: the dataclass declares `over`,
