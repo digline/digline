@@ -207,6 +207,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.shape.none": (
             "{check}: no judged score of it could be read in this run."
         ),
+        # A fold of folds (ADR 0024 §6.5): left out, counted, and said to be an
+        # absence rather than a score.
+        "explain.tally.shape.sample_means.one": (
+            " 1 verdict is left out: its per-judgement scores were not recorded, "
+            "only their means."
+        ),
+        "explain.tally.shape.sample_means.many": (
+            " {count} verdicts are left out: their per-judgement scores were not "
+            "recorded, only their means."
+        ),
+        "explain.tally.shape.reference_sample_means.one": (
+            " In the reference, 1 verdict is left out: its per-judgement scores "
+            "were not recorded, or cannot be told from means."
+        ),
+        "explain.tally.shape.reference_sample_means.many": (
+            " In the reference, {count} verdicts are left out: their per-judgement "
+            "scores were not recorded, or cannot be told from means."
+        ),
         "explain.tally.shape.single_claim.one": (
             " 1 verdict with a single claim is left out: it can only score 0 or 1."
         ),
@@ -882,6 +900,22 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.tally.shape.none": (
             "{check}: nessun suo punteggio giudicato è leggibile in questa esecuzione."
+        ),
+        "explain.tally.shape.sample_means.one": (
+            " 1 verdetto è escluso: i suoi punteggi per giudizio non sono stati "
+            "registrati, solo le loro medie."
+        ),
+        "explain.tally.shape.sample_means.many": (
+            " {count} verdetti sono esclusi: i loro punteggi per giudizio non sono "
+            "stati registrati, solo le loro medie."
+        ),
+        "explain.tally.shape.reference_sample_means.one": (
+            " Nel riferimento, 1 verdetto è escluso: i suoi punteggi per giudizio "
+            "non sono stati registrati, o non si distinguono da medie."
+        ),
+        "explain.tally.shape.reference_sample_means.many": (
+            " Nel riferimento, {count} verdetti sono esclusi: i loro punteggi per "
+            "giudizio non sono stati registrati, o non si distinguono da medie."
         ),
         "explain.tally.shape.single_claim.one": (
             " 1 verdetto con una sola affermazione è escluso: può valere solo 0 o 1."

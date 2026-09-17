@@ -428,13 +428,22 @@ ToolsCalled(expected=["search", "cite"])
 **Produces** `1.0` or `0.0`, plus `tool_calls` (the count) and `called` (the
 names). The count crosses a boundary on its own merit; the names are strings
 and need `Disclosure(score_metadata={"called"})` to travel in a redacted
-document.
+document. **`called` can hold `null`**, at the position of a call the provider
+reported without naming its tool: `["search", null, "cite"]`. It means *this
+call was not named*. It is never a name, and never a shorter list either,
+because dropping the hole would move every later name to a position it did
+not hold. Do not `str()` an entry, and do not take the list's length as the
+number of named calls. A suite that discloses `called` meets this `null` in
+`--json` exactly as written.
 **Watch out** it needs a target that *reports* its tool calls — a provider
 plugin on a provider that names them. Anywhere else it is an **error**, not a
 failure: nobody reported, so what the model called is not knowable, and
 "called nothing" would be a finding nobody established. It errors too when a
 provider contradicts itself, ending the turn on a tool call and then naming
-none.
+none. A call whose tool nobody named never passes: it **fails** where the reply
+settles the mismatch without it (a different number of calls, or a named call
+out of place), and **errors** where every named call matches, because then the
+missing name is what decides.
 
 ### `ToolCalledWith`
 

@@ -128,6 +128,12 @@ RELEASED: dict[str, int] = {
     # promised about the calibration answer and states a limit of the shape
     # reading; the only code it adds is a test. No document moves.
     "0.14.1": 12,
+    # 13 — two passengers, and the train is full. The tool call nobody named
+    # (ADR 0018 §1, amended 2026-09-17): `tool` omitted and `tool_absence`
+    # written where the reporter gave no name. And the fold stamp (ADR 0024
+    # §6.5): `"sample_means": true` on a verdict whose samples are means of
+    # judgements.
+    "0.15.0": 13,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

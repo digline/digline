@@ -65,6 +65,7 @@ def _side_json(side: ShapeSide) -> dict[str, int]:
         "scores": side.scores,
         "single_claim": side.single_claim,
         "claims_unrecorded": side.claims_unrecorded,
+        "sample_means": side.sample_means,
     }
 
 

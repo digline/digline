@@ -13,6 +13,13 @@
   `Completion` widens. Added rather than a new ADR: it fills in fields §1
   already declared and overturns nothing, which is the test ADR 0004's
   amendment was added under
+- Amended: 2026-09-17 — §1, the call a provider does not name. `tool` is
+  omitted and `tool_absence: "not_reported"` says so; `ToolsCalled` never passes
+  over such a call, fails where the mismatch is settled without it, and errors
+  otherwise; `called` carries `null` at its position; the second passenger of
+  schema 13, justified by the train, not by the refusal. digline-anthropic
+  0.5.1 shipped the plugin half first. Added rather than a new ADR on the first amendment's
+  test: it fills in what §1's `tool` never said and overturns nothing
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);
   [ADR 0004](0004-every-plugin-is-a-target-and-a-judge.md) §6 ("the names, not
@@ -255,6 +262,168 @@ as a fact that is not one is the value the old reader refuses.
 **5. `Completion` widens** (§6). `Completion.tool_calls` carries the live
 record beside `tools`, names in the same order, and `as_metadata()` puts it
 under its own key. A plugin that fills it raises its floor by hand, per §9.
+
+#### Amendment, 2026-09-17: the call a provider does not name
+
+§1 declared `tool: str`, and every writer since refuses `""`. It never said what
+a call the reporter **did not name** is, and three readers answered for it,
+differently and each wrongly. Parked on 2026-09-15 when 0.13.1 shipped only the
+half that stops such a call contaminating the others (`ToolCalledWith` counts
+it unreadable and judges the rest); this is the half that says how it is
+**recorded**. It rides schema 13, the second passenger of that train.
+
+**What the three SDKs surface.** Measured through each SDK's own response path
+— a mocked transport for anthropic 1.5.0 and openai 3.13.0, botocore 1.43.92's
+own `rest-json` parser for Converse — with the name left out and with
+`"name": null`, beside a named second call. Not recalled:
+
+| | the contract | what the SDK hands over | what the plugin did with it |
+|---|---|---|---|
+| Anthropic `tool_use` | `ToolUseBlock.name: str`, required | `block.name is None`, both shapes: responses are not validated (`_strict_response_validation=False`) | 0.5.0: `str(block.name)` → **a tool named `"None"`, silently**, in `tools` and `tool_calls` alike. 0.5.1 (2026-09-17) raises like the other two |
+| OpenAI `function` / `custom` | `name: str`, required | `function.name is None`, both shapes, for the same reason | `str(name or "")` → `ToolCall(tool="")` raises: **the whole case errors**, the named call with it |
+| Bedrock `toolUse` | `name` in the service model's `required` | the key is **absent**, both shapes: the parser drops a `null` member | `.get("name", "")` → the same raise, the same whole-case error |
+
+None of the three providers produces this shape under its own contract; every
+one of them hands it through when a server does not honour that contract. That
+is not hypothetical here: the OpenAI plugin exists for compatible endpoints
+behind `base_url`, and the Anthropic SDK reads `ANTHROPIC_BASE_URL` from the
+environment, so a gateway in front of either reaches the plugin unvalidated.
+Two more readers already misread it on the core side: `record_trajectory` does
+`str(item.get("tool", ""))`, so a plain-function target's `"tool": None` is
+recorded as `"None"`; and `ToolsCalled` does `str(name)` over `tools`, so the
+live `[None]` is judged as a call to `"None"`. The 0.14 document reader is the
+fifth: `str(_required(entry, "tool", …))` reads `"tool": null` as `"None"`.
+
+**1. The value, and its sentence.** `tool` is **omitted, never `null`** — `null`
+is exactly the value every reader above turns into a name — and the absence is
+carried by its own key, in the vocabulary §1's first amendment already
+declared:
+
+    {"tool_absence": "not_reported", "arguments": …, "status": "not_reported", …}
+
+*The reporter handed over a call and did not name the tool it called; the
+document does not know which tool it was.* The reporter is the provider, for a
+plugin, and the target, for a plain function — never digline, which records
+every name it is given. That is why `not_reported` is the only value:
+`not_recorded`, digline's own omission, has no case here and is refused.
+
+In memory the absence is `tool=None` on `ToolCall` and on `RecordedToolCall`,
+and `Completion.tools` becomes `tuple[str | None, ...]`, its consistency rule
+comparing `None` to `None`. There is no second field to disagree with it: `None`
+had no earlier meaning (it was refused), so it is the absence, and the document
+writes `tool_absence` exactly where `tool` is `None`. `""` stays refused
+everywhere — a writer that does not know says `None`. A plugin reads the SDK's
+`None`, a missing key and `""` alike as not reported: none of the three APIs
+admits an empty tool name, so an empty one is not a name either.
+
+The reader accepts an absent `tool` only beside `tool_absence: "not_reported"`,
+and refuses by name `"tool": null`, a `tool` beside `tool_absence`, and any
+other `tool_absence` value. `record_trajectory` takes a mapper's `"tool": None`
+as the absence; a mapping with no `tool` key at all stays a malformed entry and
+raises, by its *strict about shape* rule.
+
+**2. What the assertions do.** `ToolCalledWith` does not change: 0.13.1 already
+counts a nameless call unreadable, steps over it, and errors only where nothing
+readable matched. It is now tested on a call recorded as `tool_absence`, not
+only on a live `None`.
+
+`ToolsCalled` **never passes** over a nameless call: the sequence it checks
+cannot be known equal to the expected one. Whether it errors or fails is
+0.13.1's rule, written here rather than inherited: *a nameless call decides a
+verdict only where the verdict turns on it.* `ToolsCalled` returns one verdict
+over the whole sequence, so there is no *only that call* to error: the rule is
+applied to the check, and gives
+
+- **`fail`** where the mismatch is established without the nameless call: the
+  number of calls differs from `expected`, or a named call sits at a position
+  whose expected name is different. Both are findings the reply does establish,
+  and erroring them would hide a real regression behind a reporter's gap.
+- **`error`** otherwise — every named call matches its position, so the
+  nameless one is what decides — saying that *the provider reported a call
+  without naming it*, and at which position.
+
+The `reason` renders the position as *an unnamed call*, never as a name.
+
+**The one `null` this amendment writes is in `called`.** In `Score.metadata`,
+`tool_calls` counts every call, the unnamed one included. `called` keeps the
+positions, with `null` where the reporter gave no name:
+
+    {"tool_calls": 3, "called": ["search", null, "cite"]}
+
+It is a `null` and not an omission because `called` is a sequence: dropping the
+entry would shift every name after it into a position it did not hold. This is
+the value rule 1 forbids for `tool`, so the list is not read the same way.
+`null` in `called` means *this call was not named*. A reader never
+`str()`s an entry, and never takes the list's length as the number of named
+calls. No reader under `src/` reads `called` today. The first one will meet this
+`null` through `--json`. `digline.wire` emits a verdict's metadata only for the
+keys in `Disclosure.score_metadata`, so that reader will be one whose suite
+declared `called`, and the `null` reaches it exactly as written. The sentence
+therefore goes into `docs/api.md` beside the key, rather than waiting for that
+reader to find it.
+
+A non-string, non-`None` entry in `tools` becomes unreadable, not `str()`ed. The replay rebuilds `tools` with `None` at the same
+position, so a replayed `ToolsCalled` judges what the live one judged.
+
+**3. The passenger rule (ADR 0014 §1).**
+
+| | 1 — the hash | 2 — the migration | 3 — the boundary |
+|---|---|---|---|
+| `tool_absence` (omitted `tool`) | untouched: a recording field inside `RecordedResponse`, and `config_hash` is the suite's configuration | the 12 → 13 step writes **nothing** for it: no schema-12 document holds an omitted `tool`, because every 0.14 writer refuses one, and an absent `tool_absence` means *named*, which every call in such a document is | payload: it rides `RecordedResponse`, so `redact()` drops it with the response, `promote_baseline` strips it through `without_responses`, and `digline.wire` never learns its name. On a `ToolsCalled` verdict the count travels by `travels()` and `called` does not |
+
+**The residue the step cannot reach, stated.** A schema-12 document may already
+hold `"tool": "None"` that was an unnamed call — written by digline-anthropic
+0.5.0 or earlier behind a non-conforming endpoint (0.5.1 errors the case
+instead), or by `record_trajectory` from a
+mapper's `None`. It cannot be told apart from a tool really named `None`, which
+both the Anthropic and the OpenAI name patterns admit. So the step does not
+rewrite it, since that would be a guess, and does not refuse the document, since
+that would refuse a legitimate name. Rewriting would be guessing; refusing
+would break valid documents. It is left alone and named in the schema-13
+release's changelog entry, in these words:
+
+> **Not repaired: a `"None"` already recorded.** A run written before this
+> release may hold a tool call recorded as `"None"` that was really a call the
+> provider did not name: digline-anthropic 0.5.0 or earlier behind an endpoint
+> that omitted the name, or a plain-function target that reported
+> `"tool": None`. It cannot be told apart from a tool really named `None`, so
+> `digline migrate` neither rewrites it nor refuses the document.
+
+**4. The old reader, and what justifies the bump.** The bump does not create
+the refusal. A 0.14.x reader already refuses an omitted `tool` by name, at any
+schema: it reads a call through `_required(entry, "tool", …)` and says
+*recorded tool call: recorded tool call is missing the mandatory field 'tool'*.
+It ignores `tool_absence`, as it ignores every key it does not know, but that
+cannot produce *a call with no tool*, because the call cannot be built without
+`tool`. The silent misread exists only for `"tool": null`, and rule 1 closes it
+by omitting `tool` instead of writing null.
+
+The bump is justified by three things, in this order:
+
+1. **The train.** Schema 13 moves for the `Repeated`-fold stamp regardless
+   (ADR 0024 §6.2), and this passenger costs it no migration. ADR 0014 wants a
+   bump to carry what it honestly can.
+2. **A named refusal instead of one that reads like corruption.** At schema 13,
+   0.14.x refuses the run file on `schema_version` before a call is read,
+   saying *a newer schema* and pointing its holder at an upgrade. Without the
+   bump, the only refusal would be *missing the mandatory field 'tool'*. That is
+   true, but it reads as a damaged file, not a newer one.
+3. **Above all: the inner refusal is the journals' only protection.**
+   `JOURNAL_VERSION` is independent of `SCHEMA_VERSION` (ADR 0017 §2) and does
+   not move with this bump, and journal lines are read through the same
+   `case_from_dict`. A journal carrying a nameless call gets no outer lock. The
+   refusal by `'tool'` is all it has, so that refusal is tested as a property in
+   its own right, not left as a side effect of the reader's code.
+
+Tested in both directions, on the 0.12.1 test's pattern: 0.14.1's source taken
+from its tag, and skipped where the tags are absent. This reader reads every
+schema-12 document, migrated, unchanged. 0.14.1 refuses a schema-13 document on
+its version. 0.14.1 refuses a document **stamped 12** that carries a nameless
+call, and the test asserts the refusal names `'tool'`, not merely that it exits
+non-zero: that is the property a journal relies on. The same refusal is
+asserted on a journal leg read by 0.14.1's `case_from_dict`. And this reader refuses
+`"tool": null`, `tool` beside `tool_absence`, and `tool_absence:
+"not_recorded"`, each by name.
 
 ### 2. It rides `RecordedResponse`, because that is where the boundary already is
 

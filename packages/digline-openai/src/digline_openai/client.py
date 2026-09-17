@@ -328,7 +328,7 @@ def _finish_of(choice: Any, message: Any) -> tuple[Finish | None, str | None]:
     return finish_of(getattr(choice, "finish_reason", None), FINISH)
 
 
-def tools_of(message: Any) -> tuple[str, ...] | None:
+def tools_of(message: Any) -> tuple[str | None, ...] | None:
     """The functions the model called, in order — or `None` if none were named.
 
     `tool_calls` is absent on a reply that called nothing *and* on a compatible
@@ -373,7 +373,7 @@ def tool_calls_of(message: Any) -> tuple[ToolCall, ...] | None:
     if single is not None:
         return (
             _asked(
-                str(getattr(single, "name", "") or ""),
+                _name_of(getattr(single, "name", None)),
                 _decoded(getattr(single, "arguments", None)),
             ),
         )
@@ -385,17 +385,30 @@ def _call_of(call: Any) -> ToolCall:
         custom: Any = getattr(call, "custom", None)
         text = getattr(custom, "input", None)
         return _asked(
-            str(getattr(custom, "name", "") or ""),
+            _name_of(getattr(custom, "name", None)),
             text if isinstance(text, str) else None,
         )
     function: Any = getattr(call, "function", None)
     return _asked(
-        str(getattr(function, "name", "") or ""),
+        _name_of(getattr(function, "name", None)),
         _decoded(getattr(function, "arguments", None)),
     )
 
 
-def _asked(name: str, arguments: Mapping[str, object] | str | None) -> ToolCall:
+def _name_of(value: object) -> str | None:
+    """The function a call names, or `None` where it names none.
+
+    The SDK declares `name: str` and does not validate a reply, so a compatible
+    server that leaves the name out or sends `null` hands over `None`. That call
+    used to become `ToolCall(tool="")`, which raised and errored the whole case,
+    the named calls beside it included; it is now recorded as a call the
+    provider did not name. `""` is not a name either. (ADR 0018 §1, amended
+    2026-09-17)
+    """
+    return value if isinstance(value, str) and value else None
+
+
+def _asked(name: str | None, arguments: Mapping[str, object] | str | None) -> ToolCall:
     return ToolCall(
         tool=name,
         arguments=arguments,

@@ -6,6 +6,51 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.15.0 — unreleased
+
+**A tool call nobody named is recorded as one.** digline **0.15.0**, not yet
+tagged. `SCHEMA_VERSION` moves to **13** and `OUTPUT_VERSION` stays 1: every
+stored document has to be migrated, no `--json` shape breaks, and **no baseline
+needs re-promoting**, because nothing here touches an identity or `config_hash`.
+
+**Schema 13 carries two passengers, and the train is full**
+([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1: a bump is paid
+once).
+
+*For whoever writes the release commit: `unreleased` in this heading becomes the
+date, and the paragraph ADR 0018 §1's 2026-09-17 amendment rules for the
+`"None"` residue joins this section there.*
+
+- **The tool call nobody named.** A provider can hand over a call without the
+  name of its tool: none of the three SDKs validates a reply. Until now digline
+  either errored the whole case or read the call as a tool named `"None"`. The
+  run document now omits `tool` for such a call and writes
+  `"tool_absence": "not_reported"`, and the named calls beside it are kept.
+  `ToolsCalled` never passes over one. It **fails** where the reply settles the
+  mismatch without it, and **errors** where every named call matches. Its
+  `called` metadata holds `null` at that position. `ToolCalledWith` judges the
+  named calls, as it did. `digline-anthropic`, `digline-openai` and
+  `digline-bedrock` record the call this way in their releases that follow,
+  with their floors raised to `digline>=0.15.0`. See
+  [`metrics.md`](docs/metrics.md#toolscalled) and ADR 0018 §1, amended
+  2026-09-17.
+- **The shape line stops misreading a fold of folds.** In 0.14.x, a judged
+  check wrapped in `Repeated` in a sampled suite stored the means of its
+  judgements where the judgements belonged, and the shape line in `explain`
+  read them as judgements. A judge that alternated 0 and 1 read as 0% at the
+  extremes, which is the opposite of what it was. A nested `Repeated` did the
+  same at `samples=1`, and so did a `--judge-samples` replay of a `Repeated`
+  check. Such a verdict is now written with `"sample_means": true` beside its
+  `samples`. The shape line leaves it out, counts it, and says its
+  per-judgement scores were not recorded; `compare --json full` carries the
+  count as `sample_means`. A reference from 0.14.x holds these folds unstamped,
+  and nothing can stamp them afterwards. Where your run stamps a check, the
+  reference's matching sampled verdicts are left out and counted, not read.
+  **Your baselines keep comparing**, and nothing re-promotes. For such a check the
+  shape line has no share to show on either side, because the per-judgement
+  scores it would read were never recorded. To read a judge's shape, declare
+  the check without nesting `Repeated` and run the suite at `samples=1`. See [`explain.md`](docs/explain.md) and ADR 0024 §6.5.
+
 ## digline-anthropic 0.5.1 — 2026-09-17
 
 `digline-anthropic` alone. digline stays at 0.14.1, and the other two provider

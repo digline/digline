@@ -196,17 +196,32 @@ def text_of(reply: Mapping[str, Any]) -> str:
     )
 
 
-def tools_of(reply: Mapping[str, Any]) -> tuple[str, ...]:
+def tools_of(reply: Mapping[str, Any]) -> tuple[str | None, ...]:
     """The tools the model asked for, in the order it asked.
 
     Never `None`: Converse always reports the assistant message's blocks, so an
     empty tuple here is the model calling nothing rather than nobody reporting.
+    A call Converse did not name is `None` at its position, by `_name_of`.
     """
     return tuple(
-        str(cast("Mapping[str, Any]", block["toolUse"]).get("name", ""))
+        _name_of(cast("Mapping[str, Any]", block["toolUse"]))
         for block in _blocks(reply)
         if isinstance(block, Mapping) and "toolUse" in block
     )
+
+
+def _name_of(use: Mapping[str, Any]) -> str | None:
+    """The tool a `toolUse` names, or `None` where it names none.
+
+    The service model lists `name` as required, and botocore does not validate
+    an output: a server that leaves it out, or sends `null` — which the parser
+    drops — reaches here with no key at all. `""` is not a name either. That
+    call used to build `ToolCall(tool="")`, which raised and errored the whole
+    case, the named calls beside it included; it is now recorded as a call the
+    provider did not name. (ADR 0018 §1, amended 2026-09-17)
+    """
+    name = use.get("name")
+    return name if isinstance(name, str) and name else None
 
 
 def tool_calls_of(reply: Mapping[str, Any]) -> tuple[ToolCall, ...]:
@@ -246,7 +261,7 @@ def tool_calls_of(reply: Mapping[str, Any]) -> tuple[ToolCall, ...]:
         if not isinstance(block, Mapping) or "toolUse" not in block:
             continue
         use = cast("Mapping[str, Any]", cast("Mapping[str, Any]", block)["toolUse"])
-        name = str(use.get("name", ""))
+        name = _name_of(use)
         arguments = _arguments(use.get("input"))
         outcome = (
             outcomes.get(str(use.get("toolUseId", "")))

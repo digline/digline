@@ -143,15 +143,24 @@ line says its per-sample counts were not recorded. Against a reference written
 before 0.14.0, which carries no `"judged"` key, the line says there is nothing to
 set beside the share.
 
-**A known limit: `Repeated` in a sampled suite.** At `samples > 1`, a check
-wrapped in `Repeated` stores the per-answer **means** of its judgements, not the
-judgements themselves. A judge that alternates 0 and 1 inside `Repeated` is
-stored as `0.5, 0.5` and reads as **0%** at 0 or 1 — the opposite of what it
-is. The run document cannot yet say which verdicts are such folds, so the line
-cannot leave them out. Until it can, **do not read a shape line for a `Repeated`
-check in a sampled suite**. At `samples=1` the reading is exact. The fix is ruled
-for the next schema change: those verdicts will be left out and counted, as
-single-claim verdicts are. ADR 0024 §6.2, amended.
+**Verdicts whose samples are means are left out and counted.** A judged check
+in `Repeated` in a sampled suite, a nested `Repeated` at any sample count, and
+a `--judge-samples` replay of a `Repeated` check all store the **means** of
+their judgements where the judgements would be. Read as judgements, a judge that
+alternates 0 and 1 would show 0% at the extremes, the opposite of what it is.
+Since 0.15.0 such a verdict carries `"sample_means": true`. The line leaves it
+out, and says how many were left out and that their per-judgement scores were
+not recorded. On the reference side, a sampled verdict with no stamp is left out
+as well wherever this run stamped the same check, because a reference written by
+0.14.x holds these folds unstamped. When a document cannot say what an absence
+means, the rule errs toward leaving a verdict out, never toward misreading one.
+
+**The one case this cannot reach.** A run that stamps nothing for the check,
+such as the same `Repeated` check now at `samples=1`, against a reference
+promoted before 0.15.0 at a different sample count. Nothing in the run points
+at the check, and nothing in the reference says what its samples are, so its
+share may be means read as judgements. `config_changed` is true for that
+comparison. **Re-promote the reference to read it.** ADR 0024 §6.5.
 
 **It says nothing about which share is larger**, and that is not an omission.
 *More than the reference* needs a threshold, and on a suite of twenty cases one

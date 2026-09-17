@@ -565,6 +565,14 @@ mistake rather than a formatting one:
 - **`tools=None` and `tools=()` are different facts.** `()` is the model calling
   nothing; `None` is nobody reporting. `ToolsCalled` errors on the second rather
   than announcing that no tool was called.
+- **A call without a name is `None` at its position, never `""` or `"None"`.**
+  None of the three SDKs validates a reply, so a server that leaves the name
+  out hands over `None` or no key. Write `ToolCall(tool=None, …)` and `None` in
+  `tools`, in the same place. `ToolCall` refuses `""`. The run document omits
+  `tool` for such a call and writes `"tool_absence": "not_reported"`, never
+  `"tool": null`, which every reader before schema 13 turns into a tool named
+  `"None"`. A plain-function target says the same with `"tool": None` in
+  `metadata["tool_calls"]`. (ADR 0018 §1, amended 2026-09-17)
 - **`model` is read out of the reply, never copied from the request.** Echoing
   the requested id back would manufacture the one fact it exists to obtain, and
   would do so identically whether or not the model had rolled underneath. A

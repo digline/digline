@@ -128,16 +128,35 @@ __all__ = [
 #    recorded as judged*, never derived from a name; one boolean about the check.
 #    It is what the shape reading reads. (ADR 0024 §6.4)
 #
-# Queued for the next bump, ruled and not yet taken. Read this before choosing
-# what rides with it:
-# - First passenger: a stamp on a verdict whose `Score.samples` are folds — a
-#   `Repeated` check in a suite with `samples > 1`, which stores the per-answer
-#   means of its judgements, not the judgements. Ruled in ADR 0024 §6.2's
-#   amendment (2026-09-17). Its reading is ruled too: `digline.report.shape`
-#   leaves those verdicts out of the shares, counts them, and says their
-#   per-judgement scores were not recorded — an absence, never a zero. Left
-#   open: only the key's name, and its three answers to ADR 0014 §1.
-SCHEMA_VERSION = 12
+# 13: an open train, ruled for two passengers and boarding them as they are
+#    built. Build order is not ruling order.
+#    Boarded first: the tool call nobody named. `RecordedToolCall.tool` may be
+#    `None`, and the document then omits `tool` and writes
+#    `"tool_absence": "not_reported"` — never `null`, which every earlier
+#    reader turns into a tool named "None". Checked against ADR 0014 §1 in ADR
+#    0018 §1's 2026-09-17 amendment: payload inside `RecordedResponse`, outside
+#    `config_hash`; the step writes nothing, because no schema-12 writer could
+#    omit `tool`; `redact()` drops it with the response and promotion strips it.
+#    The bump did not create the refusal an old reader gives — an omitted `tool`
+#    was already refused by name — and a journal, whose version does not move
+#    with this one, has only that refusal.
+#    Boarded second, and closes the train: `Score.sample_means`, written as
+#    `"sample_means": true` beside `samples` on a verdict whose samples are
+#    means of judgements rather than judgements — a fold of folds, stamped in
+#    `combine_samples`. Checked against ADR 0014 §1 in ADR 0024 §6.5: outside
+#    `identity` and `config_hash`; the step writes nothing, but here absent
+#    means *not stamped*, never *judgements*, because every 0.14.x run of a
+#    `Repeated` check in a sampled suite wrote an unstamped fold the step could
+#    not derive — the shape reading carries that by pairing; one boolean that
+#    crosses with the samples it qualifies. Unlike the passenger before it, this
+#    one needs the bump's refusal: 0.14.x would ignore the key and read means
+#    as judgements.
+SCHEMA_VERSION = 13
+
+#: What a recorded tool call writes under `tool_absence` when the reporter did
+#: not name the tool. The only value: digline records every name it is given, so
+#: it has no omission of its own to declare. (ADR 0018 §1, amended 2026-09-17)
+TOOL_NOT_REPORTED = "not_reported"
 
 
 def _num(value: float) -> float:
@@ -526,7 +545,7 @@ def record_trajectory(
         raw_absence = item.get("result_absence")
         calls.append(
             RecordedToolCall(
-                tool=str(item.get("tool", "")),
+                tool=_reported_tool(item),
                 arguments=_recorded_arguments(item.get("arguments")),
                 result=None if item.get("result") is None else str(item["result"]),
                 status=cast(ToolStatus, str(raw_status)),
@@ -538,6 +557,29 @@ def record_trajectory(
             )
         )
     return tuple(calls)
+
+
+def _reported_tool(item: Mapping[str, object]) -> str | None:
+    """The tool a target named, or `None` where it said it named none.
+
+    `"tool": None` is the absence, and it is a statement: the reporter handed
+    over a call and did not name the tool. A mapping with no `tool` key at all
+    is not that statement but a malformed entry, and raises by this function's
+    caller's rule — strict about shape. `str()` is no longer applied: it is what
+    turned `None` into a tool named `"None"`. (ADR 0018 §1, amended 2026-09-17)
+    """
+    if "tool" not in item:
+        raise ValueError(
+            "a target reported a tool call with no 'tool' in it: a call whose "
+            'tool nobody named says so with "tool": None'
+        )
+    tool = item["tool"]
+    if tool is None or isinstance(tool, str):
+        return tool
+    raise ValueError(
+        f"a target reported a tool call whose 'tool' is {type(tool).__name__}, "
+        "not a name"
+    )
 
 
 def _recorded_arguments(value: object) -> str | None:
@@ -562,7 +604,7 @@ def trajectory_chars(calls: Sequence[RecordedToolCall]) -> int:
     is partial. (ADR 0018 §1)
     """
     return sum(
-        len(call.tool) + len(call.arguments or "") + len(call.result or "")
+        len(call.tool or "") + len(call.arguments or "") + len(call.result or "")
         for call in calls
     )
 
@@ -614,9 +656,18 @@ class RecordedToolCall:
     its payload is bulk. An assertion may assert on the tool and its arguments,
     and errors — never fails — on a status or a result nobody reported. (ADR
     0018 §1, amended 2026-09-15)
+
+    **`tool` is `None` where the reporter did not name the tool** — a provider
+    whose reply carried a call without a name, or a target that said
+    `"tool": None`. The document omits `tool` and writes
+    `"tool_absence": "not_reported"` instead, never `null`: `null` is what an
+    older reader turns into a tool named `"None"`. (ADR 0018 §1, amended
+    2026-09-17)
     """
 
-    tool: str
+    #: The name, as reported. `None` is *the reporter did not name it*; `""` is
+    #: refused, because a writer that does not know says `None`.
+    tool: str | None
     arguments: str | None = None
     result: str | None = None
     status: ToolStatus = "success"
@@ -625,10 +676,10 @@ class RecordedToolCall:
     result_absence: ResultAbsence | None = None
 
     def __post_init__(self) -> None:
-        if not self.tool:
+        if self.tool == "":
             raise ValueError(
                 "RecordedToolCall.tool must not be empty: a call to nothing is "
-                "not a call, and a trajectory reads by the names in it"
+                "not a call, and a call nobody named is recorded as None"
             )
         # The exact sentence 0.12.x raises for a value it does not know, kept
         # so that the refusal an old reader gives a newer document and the one
@@ -1157,6 +1208,10 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
             samples=verdict.score.samples,
             sample_min=verdict.score.sample_min,
             sample_max=verdict.score.sample_max,
+            # What those numbers are, beside them, for their reason: a fact
+            # about how the scores were stored, never about the case. (ADR 0024
+            # §6.5)
+            sample_means=verdict.score.sample_means,
         ),
         threshold=verdict.threshold,
         status=verdict.status,
@@ -1307,6 +1362,11 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
         assert verdict.score.sample_max is not None
         payload["sample_min"] = _num(verdict.score.sample_min)
         payload["sample_max"] = _num(verdict.score.sample_max)
+        # Beside the samples it qualifies, and only when true: every verdict
+        # whose samples are judgements writes the document it wrote before.
+        # (ADR 0024 §6.5)
+        if verdict.score.sample_means:
+            payload["sample_means"] = True
     # Omitted, not emptied: a redacted document must carry nothing from which
     # the reason could be guessed, not even its length.
     if not redacted:
@@ -1359,6 +1419,7 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
             sample_max=(
                 None if raw.get("sample_max") is None else float(raw["sample_max"])
             ),
+            sample_means=_sample_means(raw),
         ),
         threshold=float(_required(raw, "threshold", where)),
         tolerance=float(_required(raw, "tolerance", where)),
@@ -1371,6 +1432,26 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # written before 12, and nothing is guessed from a check's name.
         judged=bool(raw.get("judged", False)),
     )
+
+
+def _sample_means(raw: Mapping[str, Any]) -> bool:
+    """`sample_means`, where it is written, and only as `true`.
+
+    Absent is *not stamped* — never *these are judgements*. A document written
+    at 13 stamps every fold of folds, so there the two coincide; one migrated
+    from 12 holds unstamped folds the step could not derive, and the shape
+    reading carries that difference by pairing. The key is written only when
+    true, so anything else in it is refused by name rather than read as either.
+    (ADR 0024 §6.5)
+    """
+    if "sample_means" not in raw:
+        return False
+    if raw["sample_means"] is not True:
+        raise ValueError(
+            f"verdict: 'sample_means' is written only as true, got "
+            f"{raw['sample_means']!r}"
+        )
+    return True
 
 
 def run_to_dict(run: Run) -> dict[str, object]:
@@ -1570,8 +1651,18 @@ def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     `not_reported` is therefore always **written**, and that is load-bearing: a
     0.12.x reader refuses the value by name rather than reading its absence as
     success. (ADR 0018 §1, amended 2026-09-15)
+
+    **A call nobody named omits `tool`** and says so under its own key. Never
+    `"tool": null`: every reader before schema 13 does `str()` on it and reads a
+    tool named `"None"`, silently. An omitted `tool` is one they refuse by name —
+    and that refusal is the only one a journal gets, because `JOURNAL_VERSION`
+    does not move with `SCHEMA_VERSION`. (ADR 0018 §1, amended 2026-09-17)
     """
-    payload: dict[str, object] = {"tool": call.tool}
+    payload: dict[str, object] = (
+        {"tool_absence": TOOL_NOT_REPORTED}
+        if call.tool is None
+        else {"tool": call.tool}
+    )
     if call.arguments is not None:
         payload["arguments"] = call.arguments
     if call.result is not None:
@@ -1604,7 +1695,7 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
     absence = entry.get("result_absence")
     try:
         return RecordedToolCall(
-            tool=str(_required(entry, "tool", "recorded tool call")),
+            tool=_recorded_tool(entry),
             arguments=(
                 None if entry.get("arguments") is None else str(entry["arguments"])
             ),
@@ -1616,6 +1707,37 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
         )
     except ValueError as exc:
         raise ValueError(f"recorded tool call: {exc}") from exc
+
+
+def _recorded_tool(entry: Mapping[str, Any]) -> str | None:
+    """`tool`, or its declared absence — and nothing a reader has to guess at.
+
+    Refused by name, each of them: `"tool": null`, which is the shape an older
+    reader misreads as `"None"` and so is never written; a `tool` beside
+    `tool_absence`, which says two things; and a `tool_absence` other than
+    `not_reported`, because digline records every name it is given and so has
+    no omission of its own to declare. (ADR 0018 §1, amended 2026-09-17)
+    """
+    if "tool_absence" in entry:
+        if "tool" in entry:
+            raise ValueError(
+                "carries both 'tool' and 'tool_absence': a call is either named "
+                "or not, and a reader cannot be told both"
+            )
+        if entry["tool_absence"] != TOOL_NOT_REPORTED:
+            raise ValueError(
+                f"'tool_absence' must be {TOOL_NOT_REPORTED!r}, got "
+                f"{entry['tool_absence']!r}"
+            )
+        return None
+    tool = _required(entry, "tool", "recorded tool call")
+    if not isinstance(tool, str):
+        raise ValueError(
+            f"'tool' is {'null' if tool is None else type(tool).__name__}, not a "
+            "name: a call nobody named omits 'tool' and says "
+            f'"tool_absence": {TOOL_NOT_REPORTED!r}'
+        )
+    return tool
 
 
 #: The three branches `Output` has, as the document may spell them. Read from a

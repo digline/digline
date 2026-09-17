@@ -303,6 +303,14 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
             samples=tuple(scores),
             sample_min=min(scores),
             sample_max=max(scores),
+            # **A fold of folds is stamped here, on the mechanism.** Where any
+            # verdict folded was itself sampled, each value in `samples` is a
+            # mean of judgements. Stamped in the one function every fold passes
+            # through, rather than on a list of the cases known to do it —
+            # `Repeated` in a sampled suite, a nested `Repeated`, a
+            # `--judge-samples` replay of one — because that list was wrong
+            # three times before it was measured. (ADR 0024 §6.5)
+            sample_means=any(v.score.sampled or v.score.sample_means for v in verdicts),
         ),
         threshold=first.threshold,
         tolerance=first.tolerance,
@@ -499,6 +507,10 @@ class Repeated(AssertionBase):
                 samples=combined.score.samples,
                 sample_min=combined.score.sample_min,
                 sample_max=combined.score.sample_max,
+                # Carried with the samples it qualifies: a nested `Repeated`
+                # folds means, and dropping the stamp here is exactly how the
+                # document would forget it. (ADR 0024 §6.5)
+                sample_means=combined.score.sample_means,
             ),
             threshold=combined.threshold,
             tolerance=combined.tolerance,

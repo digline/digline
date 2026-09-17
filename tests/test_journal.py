@@ -676,9 +676,13 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     the shape ADR 0017 §11 wrote the brief for — so the key-set comparison below
     is still the thing worth checking, and it still passes for the journal's own
     reason. It moved to 12 under ADR 0024 for `CaseResult.calibration`, and the
-    same holds a second time.
+    same holds a second time. It moved to 13 under ADR 0018 §1's 2026-09-17
+    amendment for the tool call nobody named, and holds a third — with one
+    thing this test does not see and `test_nameless_tool_call.py` does: the
+    journal's own version did not move with it, so an older digline reading a
+    journal line is kept honest by refusing the omitted `tool` by name.
     """
-    assert SCHEMA_VERSION == 12
+    assert SCHEMA_VERSION == 13
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

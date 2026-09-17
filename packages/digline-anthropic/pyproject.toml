@@ -32,7 +32,13 @@ dependencies = [
     # the second is refused by the run document's reader. No `free()` here to
     # delegate: Anthropic hosts every model it serves. (ADR 0018 §1 and §9, the
     # `pytest-digline` precedent)
-    "digline>=0.13.0",
+    #
+    # 0.15.0, by hand for the same reason: `ToolCall(tool=None)` — a call the
+    # provider did not name — is a *value*. Against 0.14.x it raises "must not
+    # be empty" and errors the case, and the document it needs, which omits
+    # `tool` and writes `tool_absence`, is schema 13. (ADR 0018 §1, amended
+    # 2026-09-17)
+    "digline>=0.15.0",
     "anthropic>=0.40",
 ]
 

@@ -47,6 +47,11 @@ class ShapeSide:
     #: the fold keeps the mean, and a mean of 2 or more does not prove that no
     #: sample made one claim.
     claims_unrecorded: int = 0
+    #: Verdicts left out because their per-sample scores are means of
+    #: judgements, not judgements: stamped `sample_means`, or — on the
+    #: reference side only — sampled, unstamped, and paired by identity with a
+    #: stamped verdict of the run. (ADR 0024 §6.5)
+    sample_means: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +75,12 @@ def _raw(verdict: Verdict) -> tuple[float, ...]:
     return (verdict.score.score,)
 
 
-def _count(side: ShapeSide, verdict: Verdict) -> None:
+def _count(side: ShapeSide, verdict: Verdict, *, unstamped_fold: bool = False) -> None:
+    if verdict.score.sample_means or (unstamped_fold and verdict.score.sampled):
+        # Before the claim count: a verdict whose samples are means is not read
+        # at all, so nothing else about it is either. (ADR 0024 §6.5)
+        side.sample_means += 1
+        return
     claims = verdict.score.metadata.get(CLAIMS_KEY)
     if isinstance(claims, int | float) and not isinstance(claims, bool):
         if claims < 2:
@@ -95,11 +105,26 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
     verdict and so no delta. Ordered by check name, then identity, so two
     readings of one comparison are equal.
     """
+    counted = [
+        delta
+        for delta in comparison.deltas
+        if delta.scope == "case" and not delta.canary and not delta.calibration
+    ]
+    # **The pairing, by identity.** A reference migrated from schema 12 holds
+    # folds nobody stamped, and the step could not derive the stamp. Where this
+    # run stamped a check's verdicts, a sampled, unstamped reference verdict of
+    # the same identity is either such a fold or one taken at a different suite
+    # `samples` — and neither can be read as judgements. So it is left out and
+    # counted: **the rule errs toward leaving a verdict out, never toward
+    # misreading one.** (ADR 0024 §6.5)
+    folds = {
+        delta.current.assertion_id
+        for delta in counted
+        if delta.current is not None and delta.current.score.sample_means
+    }
     runs: dict[str, tuple[str, ShapeSide]] = {}
     references: dict[str, ShapeSide] = {}
-    for delta in comparison.deltas:
-        if delta.scope != "case" or delta.canary or delta.calibration:
-            continue
+    for delta in counted:
         now, before = delta.current, delta.baseline
         if now is not None and now.judged:
             _, side = runs.setdefault(now.assertion_id, (now.score.name, ShapeSide()))
@@ -108,7 +133,7 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
         if before is not None and before.judged:
             side = references.setdefault(before.assertion_id, ShapeSide())
             if before.status != "error":
-                _count(side, before)
+                _count(side, before, unstamped_fold=before.assertion_id in folds)
     return tuple(
         Shape(name, identity, side, references.get(identity))
         for identity, (name, side) in sorted(

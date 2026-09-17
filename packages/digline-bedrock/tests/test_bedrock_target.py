@@ -566,6 +566,31 @@ def test_a_client_tool_call_names_what_converse_does_not_report(
     ]
 
 
+@pytest.mark.parametrize(
+    "use",
+    [
+        {"toolUseId": "t1", "input": {"id": "4711"}},
+        {"toolUseId": "t1", "name": "", "input": {"id": "4711"}},
+    ],
+    ids=["absent", "empty"],
+)
+def test_a_call_that_names_no_tool_is_recorded_as_one_nobody_named(
+    prompt: Path, client: FakeClient, use: dict[str, Any]
+) -> None:
+    """The service model lists `name` as required and botocore does not check an
+    output; its parser drops a `null` member, so absent is also what `null`
+    becomes. 0.5.0 built `ToolCall(tool="")`, which raised and errored the case
+    with the named call beside it. (ADR 0018 §1, amended 2026-09-17)"""
+    calls = calls_in(
+        prompt,
+        client,
+        {"toolUse": use},
+        {"toolUse": {"toolUseId": "t2", "name": "lookup", "input": {}}},
+    )
+    assert [call["tool"] for call in calls] == [None, "lookup"]
+    assert calls[0]["arguments"] == {"id": "4711"}
+
+
 def test_a_server_tool_that_succeeded_keeps_its_status_and_not_its_payload(
     prompt: Path, client: FakeClient
 ) -> None:

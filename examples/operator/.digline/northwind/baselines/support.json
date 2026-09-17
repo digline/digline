@@ -301,7 +301,7 @@
       "verdicts": []
     }
   ],
-  "schema_version": 12,
+  "schema_version": 13,
   "suite": "support",
   "target_config": {
     "values": {

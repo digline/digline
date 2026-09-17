@@ -612,6 +612,32 @@ def test_a_custom_tool_call_is_named_by_its_own_name(
     assert call["arguments"] == '{"not": "json"}'
 
 
+@pytest.mark.parametrize("name", [None, ""], ids=["null-or-absent", "empty"])
+def test_a_call_that_names_no_function_is_recorded_as_one_nobody_named(
+    prompt: Path, client: FakeClient, name: str | None
+) -> None:
+    """A compatible server that leaves the name out, or sends `null`: the SDK
+    hands over `None`. 0.5.0 built `ToolCall(tool="")`, which raised and errored
+    the case with the named call beside it; now the call is `None` at its
+    position and the named one is kept. (ADR 0018 §1, amended 2026-09-17)"""
+    client.completions.reply = FakeReply(
+        choices=[
+            FakeChoice(
+                FakeMessage(
+                    None,
+                    tool_calls=[FakeToolCall(FakeFunction(name=name)), FakeToolCall()],
+                ),
+                "tool_calls",
+            )
+        ]
+    )
+    reported = a_target(prompt, client)(a_case()).metadata
+    assert reported["tools"] == [None, "search"]
+    calls = cast("list[dict[str, object]]", reported["tool_calls"])
+    assert [call["tool"] for call in calls] == [None, "search"]
+    assert calls[0]["arguments"] == {"q": "rome"}
+
+
 def test_a_reply_that_reports_no_tool_calls_reports_no_trajectory(
     prompt: Path, client: FakeClient
 ) -> None:

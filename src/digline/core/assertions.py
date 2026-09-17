@@ -1052,7 +1052,18 @@ class ToolsCalled(AssertionBase):
                 f"the target reported its tool calls as a {type(found).__name__}, "
                 "not a list of names: there is no trajectory to read"
             )
-        called = tuple(str(name) for name in cast("Sequence[object]", found))
+        called: list[str | None] = []
+        for name in cast("Sequence[object]", found):
+            if name is not None and (not isinstance(name, str) or not name):
+                # `str()` here is what once read `None` as a tool named "None".
+                # Anything that is neither a name nor the declared absence of
+                # one is not a trajectory this can read.
+                return self._error(
+                    f"the target reported a tool call named by "
+                    f"{type(name).__name__} {name!r}, not by a name: there is no "
+                    "trajectory to read"
+                )
+            called.append(name)
 
         if reported.get("finish") == "tool_use" and not called:
             # The provider contradicted itself: it ended the turn *because* the
@@ -1067,7 +1078,27 @@ class ToolsCalled(AssertionBase):
             )
 
         want = tuple(self.expected)
-        ok = called == want
+        unnamed = [index + 1 for index, name in enumerate(called) if name is None]
+        # **A call nobody named decides this verdict only where the verdict
+        # turns on it** — `ToolCalledWith`'s rule for an unreadable call, applied to a
+        # check that returns one verdict over the whole sequence. It can never
+        # pass: the sequence cannot be known equal to `expected`. It fails where
+        # the reply settles the mismatch without it — a different number of
+        # calls, or a named call out of place — and errors where every named
+        # call matches, because then the missing name is what decides.
+        # (ADR 0018 §1, amended 2026-09-17)
+        settled = len(called) != len(want) or any(
+            name is not None and name != wanted
+            for name, wanted in zip(called, want, strict=False)
+        )
+        if unnamed and not settled:
+            return self._error(
+                f"the call at position(s) {', '.join(map(str, unnamed))} was "
+                "reported without the name of its tool — by the provider, or by "
+                "the target that relayed it — and every named call matches: "
+                "what the model called is decided by a name nobody reported"
+            )
+        ok = not unnamed and tuple(called) == want
         return self._graded(
             1.0 if ok else 0.0,
             f"called {_named(called)}, expected {_named(want)}",
@@ -1077,6 +1108,12 @@ class ToolsCalled(AssertionBase):
             # `Disclosure.score_metadata`, exactly as it would a model name —
             # and a reader without that disclosure still learns that three tools
             # were called where two were expected.
+            #
+            # `None` keeps its position in `called`: dropping a call nobody
+            # named would shift every later name into a place it did not hold,
+            # which falsifies the very order this check judges. The one `null`
+            # a document carries for it, and it means *not named* — never a
+            # name, and never a shorter list. (ADR 0018 §1, amended 2026-09-17)
             metadata={"tool_calls": len(called), "called": list(called)},
         )
 
@@ -1277,9 +1314,17 @@ def _reported(inputs: EvaluatorInputs) -> Mapping[str, object]:
     return cast("Mapping[str, object]", found)
 
 
-def _named(names: Sequence[str]) -> str:
-    """`nothing`, or the names in order. Read inside a `reason`, so it reads."""
-    return ", ".join(repr(name) for name in names) if names else "nothing"
+def _named(names: Sequence[str | None]) -> str:
+    """`nothing`, or the names in order. Read inside a `reason`, so it reads.
+
+    A call nobody named reads as *an unnamed call* in its place, never as a
+    name. (ADR 0018 §1, amended 2026-09-17)
+    """
+    if not names:
+        return "nothing"
+    return ", ".join(
+        "an unnamed call" if name is None else repr(name) for name in names
+    )
 
 
 def budget_score(measured: float, cap: float) -> float:
