@@ -40,6 +40,13 @@
   judgements, so shape reads a fold there and cannot tell. The limit is stated
   now, and the fix — a stamp, left out and counted — is ruled onto the next
   schema bump as its first passenger
+- Amended: 2026-09-17 — §6.2's stamp, in §6.5. The fold of folds happens in
+  three places, not one (a nested `Repeated` at suite `samples=1` included), so
+  it is stamped in `combine_samples`. The key is `"sample_means": true`, on
+  `Score`, written only when true. It boards schema 13 second. The migration
+  writes nothing, and absent means *not stamped*, never *judgements*; the
+  reading carries that difference by pairing, and names the one residue it
+  cannot reach
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -749,6 +756,22 @@ fully collapsed judge shown as the opposite, which is the one picture this
 reading exists to catch. At suite `samples=1` the judgements are stored and the
 reading is exact.*
 
+> **Corrected 2026-09-17, in §6.5: the last sentence above is false.** A nested
+> `Repeated` folds means at suite `samples=1` too. Measured through the driver,
+> `Repeated(Repeated(check, samples=2), samples=2)` stores `(0.5, 0.5)` at suite
+> `samples=1` for a check that alternates 0 and 1, the same as `Repeated` at
+> suite `samples=2`, and with the same keys. A `--judge-samples` replay of a
+> `Repeated` check reaches it by a third road.
+>
+> **This paragraph was written before there was data, and a reader should know
+> that is why it keeps narrowing.** This is the third time. §6.2 first said the
+> raw per-sample scores are read. Then *exact at one sample, and not at more*,
+> for `Faithfulness`'s claim count. Then this amendment, for `Repeated` in a
+> sampled suite. Now it narrows again, for a nested `Repeated`. Each time the
+> sentence described the cases its author had in mind, not the mechanism. §6.5
+> stamps the mechanism — a fold whose inputs were themselves folds — so the
+> reading no longer depends on a list of cases being complete.
+
 *The document cannot say which verdicts are such a fold. The inner fold writes
 `samples`, `agreement`, `spread`, `errored_samples` and `scores`, and the outer
 fold overwrites those same keys, so the stored verdicts of `LlmRubric` and
@@ -869,6 +892,130 @@ byte for any other.
   Closing that needs the adapter to declare what its scorer is — a decision of
   its own, not taken here. A test pins the hole, so closing it is a decision
   someone makes rather than a side effect.
+
+#### 6.5 Amendment, 2026-09-17: the stamp, its key, and its three answers
+
+*§6.2's amendment ruled the reading: a verdict whose `Score.samples` are folds
+is left out of the shares, counted, and the line says its per-judgement scores
+were not recorded. It left open the key's name and its answers to ADR 0014 §1.
+This section answers both, and it boards schema 13 second, after ADR 0018 §1's
+nameless tool call.*
+
+**What building it found first: the fold is not where §6.2 put it.** §6.2 names
+one case, `Repeated` in a suite with `samples > 1`. Measured through the
+driver, with a judged check that alternates 0 and 1 and `min_agreement` at its
+floor:
+
+| declared | suite `samples` | stored `Score.samples` |
+|---|---|---|
+| the check | 2 | `(0.0, 1.0)`: judgements |
+| `Repeated(check, samples=2)` | 1 | `(0.0, 1.0)`: judgements |
+| `Repeated(check, samples=2)` | 2 | `(0.5, 0.5)`: means |
+| `Repeated(Repeated(check, samples=2), samples=2)` | 1 | `(0.5, 0.5)`: means |
+
+All four verdicts carry the same metadata keys. **So "at suite `samples=1` the
+reading is exact" is false for a nested `Repeated`.** A `--judge-samples`
+replay reaches the same state by a third road: `fold_judgements` records each
+answer's first judgement, and for a `Repeated` check that judgement is already a
+fold. What the cases share is not a declaration but a mechanism: **a fold whose
+inputs were themselves folds.** So the stamp is placed on that mechanism, not on
+a list of cases someone has to keep complete.
+
+**1. Where it is stamped.** In `combine_samples`, the one function every fold
+passes through, which is pure and in `digline.core`. The rule: a fold of two or
+more verdicts, at least one of which carries samples of its own or the stamp,
+is stamped. `Repeated` carries the stamp through when it re-stamps the fold
+under its own name, and `fold_judgements` inherits it from `combine_samples`. A
+fold of one verdict returns that verdict unchanged, as it always has, so a
+`Repeated` check at suite `samples=1` is not stamped, because what it stores
+are judgements. An all-errored fold has no samples and is not stamped: there is
+nothing to read.
+
+It sits on `Score`, beside the `samples` it qualifies, not on `Verdict` beside
+`judged`. `judged` is a copy of a declaration and is stamped by the driver.
+This is a fact about how these numbers were produced, and it has to hold
+wherever the score is built, including inside a core function that never sees
+a driver.
+
+**2. The key: `"sample_means": true`.** Written only when true, beside
+`samples`, by the canary's convention and `judged`'s. It says what the stored
+samples *are*: each one is a mean of judgements. Two names were refused:
+
+- **`folded`** — every sampled verdict is a fold of its samples. The key would
+  be true of `(0.0, 1.0)` in the first row too, and a reader would have to
+  already know which fold is meant.
+- **`"samples": "means"`**, or any vocabulary key — refused by §6.4's reasoning:
+  a key named for a vocabulary that only ever holds one value invites a reader to
+  look for the others. `samples` is also already the number list.
+
+In memory: `Score.sample_means: bool = False`, refused where it is true and
+`samples` is empty.
+
+**3. The reading, as §6.2's amendment ruled it.** `ShapeSide` gains
+`sample_means`, a count of verdicts left out because their per-sample scores are
+means. `explain` says *N verdicts left out: their per-judgement scores were not
+recorded* (en and it). `compare --json full` carries the count as
+`"sample_means"` inside each side of `shape`: an added key, which ADR 0011's
+output contract admits without moving `OUTPUT_VERSION`. The `docs/explain.md`
+limit is replaced by the sentence about what is left out, plus the residue
+below.
+
+**4. The passenger rule (ADR 0014 §1).**
+
+| | 1 — the hash | 2 — the migration | 3 — the boundary |
+|---|---|---|---|
+| `Score.sample_means` | outside `identity` and `config_hash`: it follows from `Suite.samples` and the `Repeated` declarations, which are already in both, and it declares nothing new | the 12 → 13 step writes **nothing** — but here absent does **not** mean what it means in a schema-13 document. See below | one boolean about how the scores were stored, never about the case. It crosses with the verdict as `samples` does, and it adds no string. `redact()` keeps it, and `promote_baseline` keeps it, because a baseline is read by this very reading. `digline.wire`'s run projection does not emit it, which is the known gap already stated for `judged` |
+
+**Answer 2 is where reality resists, and it is not the nameless call's
+answer.** A schema-12 document *can* hold such folds, unstamped: every 0.14.x
+run of a `Repeated` check in a sampled suite wrote one. The migration cannot
+derive the stamp. The key sets are identical (the delta-pass proof), `Run` does
+not record the suite's `samples` (it is only inside `config_hash`), and a
+`Repeated`'s identity is a hash nobody can read back. Writing the stamp would be
+a guess, and so would writing its absence as *these are judgements*.
+`_NON_ADDITIVE` would refuse every schema-12 document for a fact most of them
+do not involve. So the step writes nothing, and **absent means *not stamped*,
+never *judgements*.** In a document written at 13 that is the same thing,
+because the writer always stamps. In a migrated one it is not, and the reading
+has to carry the difference, the way it carried `judged`'s absence in older
+references.
+
+**How the reading carries it.** Pairing is by `assertion_id`, which includes
+`Repeated` and its count. Where the run's verdict for a check is stamped, a
+reference verdict for the same identity that is sampled and unstamped is left
+out of the reference side and counted, not read: it is either a fold nobody
+stamped, or a fold at a different suite `samples`, and neither can be read as
+judgements. That can leave out a reference verdict that really was judgements —
+a reference at suite `samples=1` compared with a run at `samples > 1`, which
+`config_changed` already announces.
+
+**The criterion, not a detail of this case.** Where a document cannot say what
+an absence means, and nothing in the comparison can resolve it, **the rule errs
+toward leaving a verdict out, never toward misreading one.** A verdict left out
+is counted and named in the reading, so the reader sees what is missing. A
+verdict misread looks exactly like every verdict read correctly. Any later
+reading that meets an unresolvable absence applies the same criterion, and says
+so.
+
+**The residue, stated.** One pairing stays unreadable: a run that is **not**
+stamped, such as the same `Repeated` check now at suite `samples=1`, against a
+reference promoted before 0.15.0 at `samples > 1`. Nothing in the run points at
+the check, and nothing in the reference says what it holds. `config_changed` is
+true for that comparison. `docs/explain.md` keeps one sentence for it: **a
+reference promoted before 0.15.0, at a different sample count, may show means as
+judgements; re-promote to read it.** It goes away as references are re-promoted,
+and nothing here guesses.
+
+**Old reader.** An unknown key on a verdict is ignored by 0.14.x, which would
+read the means as judgements — the misreading this stamp exists to stop.
+Nothing inside the verdict can refuse it by name. The refusal is the bump's:
+0.14.x refuses a schema-13 run file on its version. A **journal**, whose version
+does not move, gets no refusal. A 0.14.x resuming a leg that holds a stamped
+verdict drops the key and writes a schema-12 run. That is the document 0.14.x
+writes for that suite anyway, and one this reading already treats as *not
+stamped*, so it adds no new misreading. So this passenger, unlike the nameless
+call, **is** justified by the refusal the bump gives. Tested from v0.14.1's
+source, in both directions, the journal leg included.
 
 ### 7. Spread: how much the suite moves between runs
 
