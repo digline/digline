@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.14.0 — unreleased
+## 0.14.0 — 2026-09-17
 
 **The judge gets a known point.** digline **0.14.0**, not yet tagged.
 `SCHEMA_VERSION` moves to **12** and `OUTPUT_VERSION` stays 1: every stored
