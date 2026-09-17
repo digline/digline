@@ -406,6 +406,18 @@ def test_the_copy_in_the_build_context_is_the_script() -> None:
     )
 
 
+def test_the_build_context_admits_what_the_install_step_mounts() -> None:
+    """A bind mount reads from the build context, and `.dockerignore` decides
+    what the context is. The first build of the in-build wait failed before
+    waiting at all — `"/await_index.py": not found` — because the context was
+    the Dockerfile alone. Checked by name so the two cannot drift apart again."""
+    rules = (ROOT / "docker" / ".dockerignore").read_text(encoding="utf-8").split()
+    assert "!await_index.py" in rules, (
+        "docker/.dockerignore excludes await_index.py, which the install step "
+        "bind-mounts: the build would fail before it waits"
+    )
+
+
 def test_a_local_build_waits_for_nothing() -> None:
     """The image's public behaviour is unchanged: `docker build docker/` with
     no build argument must not sit waiting on an index."""
