@@ -6,20 +6,17 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.15.0 — unreleased
+## 0.15.0 — 2026-09-17
 
-**A tool call nobody named is recorded as one.** digline **0.15.0**, not yet
-tagged. `SCHEMA_VERSION` moves to **13** and `OUTPUT_VERSION` stays 1: every
+**A tool call nobody named is recorded as one.** digline **0.15.0**, with
+digline-anthropic 0.5.2, digline-openai 0.5.1 and digline-bedrock 0.5.1.
+`SCHEMA_VERSION` moves to **13** and `OUTPUT_VERSION` stays 1: every
 stored document has to be migrated, no `--json` shape breaks, and **no baseline
 needs re-promoting**, because nothing here touches an identity or `config_hash`.
 
 **Schema 13 carries two passengers, and the train is full**
 ([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1: a bump is paid
 once).
-
-*For whoever writes the release commit: `unreleased` in this heading becomes the
-date, and the paragraph ADR 0018 §1's 2026-09-17 amendment rules for the
-`"None"` residue joins this section there.*
 
 - **The tool call nobody named.** A provider can hand over a call without the
   name of its tool: none of the three SDKs validates a reply. Until now digline
@@ -30,10 +27,15 @@ date, and the paragraph ADR 0018 §1's 2026-09-17 amendment rules for the
   mismatch without it, and **errors** where every named call matches. Its
   `called` metadata holds `null` at that position. `ToolCalledWith` judges the
   named calls, as it did. `digline-anthropic`, `digline-openai` and
-  `digline-bedrock` record the call this way in their releases that follow,
-  with their floors raised to `digline>=0.15.0`. See
-  [`metrics.md`](docs/metrics.md#toolscalled) and ADR 0018 §1, amended
-  2026-09-17.
+  `digline-bedrock` record the call this way, with their floors raised to
+  `digline>=0.15.0`. See [`metrics.md`](docs/metrics.md#toolscalled) and
+  ADR 0018 §1, amended 2026-09-17.
+- **Not repaired: a `"None"` already recorded.** A run written before this
+  release may hold a tool call recorded as `"None"` that was really a call the
+  provider did not name: digline-anthropic 0.5.0 or earlier behind an endpoint
+  that omitted the name, or a plain-function target that reported
+  `"tool": None`. It cannot be told apart from a tool really named `None`, so
+  `digline migrate` neither rewrites it nor refuses the document.
 - **The shape line stops misreading a fold of folds.** In 0.14.x, a judged
   check wrapped in `Repeated` in a sampled suite stored the means of its
   judgements where the judgements belonged, and the shape line in `explain`
@@ -49,7 +51,35 @@ date, and the paragraph ADR 0018 §1's 2026-09-17 amendment rules for the
   **Your baselines keep comparing**, and nothing re-promotes. For such a check the
   shape line has no share to show on either side, because the per-judgement
   scores it would read were never recorded. To read a judge's shape, declare
-  the check without nesting `Repeated` and run the suite at `samples=1`. See [`explain.md`](docs/explain.md) and ADR 0024 §6.5.
+  the check without nesting `Repeated` and run the suite at `samples=1`. See
+  [`explain.md`](docs/explain.md) and ADR 0024 §6.5.
+
+## digline-anthropic 0.5.2 — 2026-09-17
+
+- **Changed: a tool call with no name is recorded, not errored.** 0.5.1 made
+  such a reply error the whole case, so the named calls beside it were lost with
+  it. Now the call is `None` at its position in `tools` and `tool_calls`, the
+  document records it as a call the provider did not name, and the named calls
+  are judged. See digline 0.15.0 above.
+- Requires `digline>=0.15.0`.
+
+## digline-openai 0.5.1 — 2026-09-17
+
+- **Fixed: a function call with no name errored the whole case.** A compatible
+  server that leaves `function.name` or `custom.name` out, or sends `null`,
+  hands the SDK's `None` to the plugin, which built a call named `""` and
+  raised. The call is now recorded as one the provider did not name, and the
+  named calls beside it are kept and judged. See digline 0.15.0 above.
+- Requires `digline>=0.15.0`.
+
+## digline-bedrock 0.5.1 — 2026-09-17
+
+- **Fixed: a `toolUse` with no name errored the whole case.** The service model
+  lists `name` as required, but botocore does not check a reply, and its
+  parser drops a `null`. Such a call is now recorded as one the provider did
+  not name, and the named calls beside it are kept and judged. See digline
+  0.15.0 above.
+- Requires `digline>=0.15.0`.
 
 ## digline-anthropic 0.5.1 — 2026-09-17
 
