@@ -6,6 +6,28 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.1.4 — 2026-09-17
+
+`pytest-digline` alone, on its own version line. digline stays at 0.14.1 and
+nothing else moves. The floor is now **`digline>=0.14.0`**, because the plugin
+reads the calibration case's facts, which that release introduced.
+
+```sh
+uv add --dev --upgrade pytest-digline
+```
+
+- **A calibration case outside its band is an ERROR row.** It is the plugin's
+  unjudged state, and it carries the report's own sentence: *the calibration
+  case … scored 1.000000 across 2 samples (…), outside its declared band …*. The
+  judged numbers in that run are not measurements, which is what ERROR already
+  says and what `digline compare` exits 2 for.
+- **A calibration case that moved inside its band fails nothing.** Its only gate
+  is the band, and the target was never asked, so a movement there is not a
+  check of the system that got worse. Every other row is unchanged.
+- **What it does not do:** name the checks whose class declares no `KIND`.
+  `digline run` prints that line; the plugin's `--digline-run` does not, and
+  [`pytest.md`](docs/pytest.md) says so.
+
 ## 0.14.1 — 2026-09-17
 
 **Two corrections from 0.14.0's delta-pass, and no behaviour change.**
