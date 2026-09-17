@@ -34,6 +34,7 @@ from digline.store.protocol import (
     SupportsJournal,
     SupportsRegister,
     TenantMismatchError,
+    UncalibratedRunError,
 )
 
 __all__ = [
@@ -57,6 +58,7 @@ __all__ = [
     "MigrationReport",
     "NonAdditiveError",
     "ReplayedRunError",
+    "UncalibratedRunError",
     "ResultStore",
     "RunRef",
     "SupportsJournal",

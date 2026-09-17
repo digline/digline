@@ -26,6 +26,7 @@ from digline.report import (
     facts,
     headline,
     identity_log,
+    scale_lost,
     unjudged_cases,
 )
 from digline.run import Suite
@@ -56,14 +57,17 @@ def explained(store: FileResultStore, suite: Suite, key: str) -> Explained:
     """The scope follows the store, never a flag (ADR 0012 §1).
 
     With no baseline, "worse" is a relation with nothing on the other side, so
-    only an unjudged case can move the code. With one, the code is `compare`'s,
-    computed by the same function. The headline is built in `en` because only
-    its number is used, and the number does not depend on the locale.
+    only an unjudged case or a lost scale can move the code. With one, the code
+    is `compare`'s, computed by the same function. The headline is built in
+    `en` because only its number is used, and the number does not depend on
+    the locale.
     """
     run = read_run(store, suite, key)
     baseline = store.read_baseline(suite.tenant, suite.name)
     if baseline is None:
-        code = EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
+        # A lost scale needs no reference either: it compares a score with a
+        # declared band, not with a past. (ADR 0024 §4.5)
+        code = EXIT_UNJUDGED if unjudged_cases(run) or scale_lost(run) else EXIT_OK
         return Explained(run, None, facts(run), "run", code)
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale="en")

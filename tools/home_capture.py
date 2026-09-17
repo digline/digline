@@ -53,6 +53,7 @@ from doc_fences import python_files
 ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "docs" / "guide.md"
 PYPROJECT = ROOT / "pyproject.toml"
+CHANGELOG = ROOT / "CHANGELOG.md"
 OUTPUT = ROOT / "docs" / "assets" / "home" / "home.json"
 METRICS = ROOT / "docs" / "metrics.md"
 
@@ -613,17 +614,50 @@ def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
 # ── the check ─────────────────────────────────────────────────────────────────
 
 
-def check(path: Path = OUTPUT, pyproject: Path = PYPROJECT) -> list[str]:
-    """Everything wrong with the committed capture. Empty means current."""
+#: A core release heading, exactly as digline.dev's `tools/hooks/home.py` reads
+#: one: `## 0.13.3 — 2026-09-16`. Not `## Unreleased`, not `## 0.14.0 —
+#: unreleased`, not a plugin's `## digline-openai 0.5.0 — …`.
+_RELEASED = re.compile(r"^## (\d+\.\d+\.\d+) — \d{4}-\d{2}-\d{2}$")
+
+
+def released_version(changelog: Path = CHANGELOG) -> str | None:
+    """The newest core release the changelog dates, or `None`."""
+    for line in changelog.read_text(encoding="utf-8").splitlines():
+        if match := _RELEASED.match(line):
+            return match.group(1)
+    return None
+
+
+def check(path: Path = OUTPUT, changelog: Path = CHANGELOG) -> list[str]:
+    """Everything wrong with the committed capture. Empty means current.
+
+    **Held to the newest dated release in the changelog, not to
+    `pyproject.toml`**, and the difference is deliberate — do not "fix" it back.
+    The home of digline.dev is a public claim about what is *released*, so it
+    must never show the output of a version that is not tagged. The site's own
+    hook holds the file to the newest `## X.Y.Z — YYYY-MM-DD` heading; this
+    check used to hold it to `pyproject.toml`, so the two tools had disagreed
+    about what "the current version" means all along. It only became visible
+    when a version was set on a branch ahead of its tag — schema 12's open
+    train, `## 0.14.0 — unreleased` — and each gate then demanded a different
+    capture. The tag PR dates the heading, this check then refuses the old
+    capture, and the regeneration follows: the right order, and a required one
+    rather than a remembered one (`RELEASING.md`, the home capture).
+    """
     if not path.is_file():
         return [f"{path} does not exist: run tools/home_capture.py"]
     captured = json.loads(path.read_text(encoding="utf-8")).get("digline_version")
-    version = package_version(pyproject)
-    if captured != version:
+    released = released_version(changelog)
+    if released is None:
         return [
-            f"{path.name} was captured with digline {captured} and the package "
-            f"is {version}: run `uv run python tools/home_capture.py` and commit "
-            "the result"
+            f"{changelog.name} has no heading of the form `## X.Y.Z — YYYY-MM-DD`, "
+            f"so there is no released version to hold {path.name} to"
+        ]
+    if captured != released:
+        return [
+            f"{path.name} was captured with digline {captured} and the newest "
+            f"dated release in {changelog.name} is {released}: run `uv run "
+            "python tools/home_capture.py` and commit the result"
         ]
     return []
 

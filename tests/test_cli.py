@@ -249,6 +249,11 @@ COMPARE_KEYS = {
     # record seems to confirm is not identified. It moves no exit code, and it is
     # never true behind a named endpoint, where the answering model is withheld.
     "target_echoed",
+    # Joined with ADR 0024 §4.7, the same rule a seventh time, and the second
+    # addition that can change the exit code: a calibration case outside its
+    # band exits 2. Only for a suite that declares one, which none could before
+    # this release.
+    "scale_lost",
     "counts",
     "reasons_available",
     "sentence",
@@ -284,6 +289,9 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
         "deltas",
         "target_config_deltas",
         "judge_config_deltas",
+        # ADR 0024 §6.3: the shape reading's counts, beside the deltas they are
+        # read from, under `full` only.
+        "shape",
     }
 
 

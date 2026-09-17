@@ -32,7 +32,13 @@ dependencies = [
     # imports `report.visible`, which arrived there. A judge's `reason` quotes
     # what a model answered and this plugin prints it into a terminal, so the
     # escaping is not optional here.
-    "digline>=0.10.1",
+    #
+    # 0.14.0 raises it a third time, for a name the gate sees and a field it
+    # does not: the plugin imports `report.scale_lost` and `calibration_fact`,
+    # and reads `AssertionDelta.calibration` so a calibration case that moved
+    # inside its band never fails a row. A calibration case outside its band is
+    # the plugin's ERROR state, with the report's sentence. (ADR 0024 §4.7)
+    "digline>=0.14.0",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user

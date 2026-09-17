@@ -456,6 +456,14 @@ class Verdict:
     reason: str
     tolerance: float = 0.0
     assertion_id: str = ""
+    #: A model placed this value on a scale: the assertion that produced it is
+    #: `judged()`, its class's `KIND` read through `Repeated`. Stamped by the
+    #: driver, never by an assertion, and written to the document only when
+    #: true — the one fact the shape reading needs and cannot look up, because
+    #: `compare()` reads documents without the suite. A copy of a declaration,
+    #: not a measurement: it is outside `identity` and `config_hash`, and no
+    #: comparison, gate or exit code reads it. (ADR 0024 §6.1, §6.4)
+    judged: bool = False
 
     def __post_init__(self) -> None:
         # Standard frozen-dataclass idiom: `__post_init__` is the one place

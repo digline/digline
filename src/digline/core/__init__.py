@@ -45,6 +45,7 @@ from digline.core.assertions import (
     error_verdict,
     levenshtein_distance,
 )
+from digline.core.calibration import CalibrationBand, ScaleLost, scale_lost
 from digline.core.compare import (
     IDENTITY_FIELD,
     ArtifactDelta,
@@ -128,6 +129,8 @@ from digline.core.sampling import (
     budget_exceedances,
     combine_samples,
     directions,
+    fold_judgements,
+    judged,
     on_the_line,
 )
 from digline.core.types import (
@@ -193,10 +196,12 @@ __all__ = [
     "ArtifactOutcome",
     "AssertionDelta",
     "AsyncJudge",
+    "CalibrationBand",
     "CaseOutcome",
     "Artifact",
     "CaseProgress",
     "CaseResult",
+    "ScaleLost",
     "Cause",
     "CheckKind",
     "Comparison",
@@ -268,6 +273,9 @@ __all__ = [
     "STORAGE_STEP",
     "at_precision",
     "canonical",
+    "fold_judgements",
+    "judged",
+    "scale_lost",
     "meets",
     "within",
     "budget_exceedances",

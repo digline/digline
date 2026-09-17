@@ -14,6 +14,23 @@
   The run-to-run spread is recorded as a finding against §7.1's aggregate-only
   scope: a suite-level reading stays inside the noise while one case alternates
   underneath it. §7 is unchanged
+- Amended: 2026-09-17 — §4, what building the calibration case found, in
+  §4.8. Four places where the code resisted the text, each ruled at a
+  checkpoint rather than decided in the code: a calibration delta is out of
+  `counts` and `worse` (§4.4's `Headline.counts` row was the canary's, copied);
+  `Calibration` gains `input` and its refusal (§4.2); the §4.2 refusal reads the
+  `KIND` that 0.13.3 already ships, and §6.1 is left to shape; and §9's bump
+  boards one passenger first, which leaves 12 an open train
+- Amended: 2026-09-17 — §5, what building `judge_samples` found, in §5.5. Four
+  rulings the text left open: the verdict records the first judgement; the
+  bounds are the widest answer's own, with a tie rule; an errored judgement is
+  counted, not escalated; and the sentence belongs to `rejudge` alone.
+  `Run.judge_samples` boards schema 12 second
+- Amended: 2026-09-17 — §6.1, in §6.4: the scale is `KIND`'s. `AssertionBase.scale`
+  is not added; shape's passenger is `Verdict.judged`, written only when true,
+  and it boards schema 12 third, which fills the train. Undeclared is announced
+  and never guessed, which makes `KIND` optional but no longer unread, and
+  `FromAutoevals` is named as the known hole in the reading
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -310,6 +327,7 @@ would sit. A calibration case exercises the judge path the real cases use.
         check:   str             # the name of the judged assertion it calibrates
         low:     float           # the band, inclusive at storage precision
         high:    float
+        input:   str | None = None   # amended 2026-09-17, §4.8 — payload
 
 Flag-shaped in how it is treated — §4.4 is ADR 0016 §2's table — and
 declaration-shaped in what it carries, because the band and the answer are the
@@ -363,6 +381,11 @@ trap, which a calibration case walks into exactly as a canary does), counted in
 | `planned_calls` / `CallPlan` | target calls counted | **target calls not counted**; judge calls counted — the announced bill has to match the invoice |
 | the checks that run | all of them | **the named check only** (§4.3) |
 | `Matrix` | `canary_excluded` | `calibration_excluded`, beside it, silent at zero |
+
+*Amended 2026-09-17 (§4.8): the calibration case is counted in `run_tally` and
+kept in every delta table, and it is **not** counted in `Headline.counts` or in
+`worse`. The row above was the canary's, copied without noticing that the canary
+measures the system while the calibration case measures the instrument.*
 
 #### 4.5 When it fires, and what it produces
 
@@ -443,6 +466,62 @@ reader is owed which one it is without a second sentence to choose between them.
   the run, recorded responses or not — it is in the committed cases file already,
   and a second copy under `runs/` is a second record of the same payload.
 
+#### 4.8 Amendment, 2026-09-17: what building it found
+
+*The calibration case was built first, as §2 orders. Four places resisted the
+text. Each was taken to a checkpoint and ruled there; none was decided in the
+code alone.*
+
+**A calibration delta is not a verdict about the system.** `compare()` pairs
+the calibration case's verdict like any other, so a score that moves 0.50 →
+0.40, beyond tolerance and outside the reference's interval, is `regressed` —
+inside its band. Counted as §4.4's table first said, that sets `worse` and
+exits 1 with *1 check got worse* about a case the target was never asked. So
+the delta is computed and kept: in `Comparison.deltas`, in `--json full` with
+`calibration: true`, and in its own section of both documents, because movement
+inside the band is information the other three measurements will read. It is
+left out of `Comparison.counts`, of every outcome selection, of `within_noise`
+and `on_the_line`, and so of `Headline.counts` and `worse`. Counting it in the
+wire's `counts` while keeping it out of `worse` was weighed and refused: a
+document whose `regressed: 1` sits beside *nothing got worse* contradicts
+itself, and a machine consumer reads the number. **The rule, in one line: the
+canary's row was copied without noticing that the canary measures the system
+while the calibration case measures the instrument.** Its one gate is its band.
+
+**The judge must see what the real cases' judge sees.** The target renders the
+input, and the target is not called here, so an `LlmRubric` or a `Faithfulness`
+would grade the known answer without its question. `Calibration` gains
+`input: str | None = None`, payload like `output` and never written. `None` and
+`""` stay different facts — not declared, declared empty — and where the check
+is one of those two, `None` is refused by name: a control instrument that fails
+for a reason unrelated to what it controls is worse than none. Named types, as
+the replay's trajectory refusal is, because no check declares that it reads the
+input; a third-party judged check is not refused.
+
+**The refusal reads `KIND`.** This record was written without knowing that
+0.13.3 had shipped `KIND: ClassVar[CheckKind]` on every check, with `LlmRubric`
+and `Faithfulness` declared `judged`. Adding `AssertionBase.scale` now would
+declare one fact twice, and the two would diverge the day one of them is edited.
+So §4.2's refusal reads `KIND`, following `Repeated` to what it wraps, and
+refuses a class that declares none. **§6.1 is not amended here.** The finding is
+left for shape, stated as a question: `KIND` says who produces a verdict and
+`scale` was meant to say what kind of number it is, and a judged check can be
+binary or graded, so shape probably still needs a declaration — under another
+name, and not repeating what `KIND` states.
+
+**"Recorded as skipped" has no state to record into.** ADR 0001 §1 has three
+statuses and none of them is *skipped*. The case's checks other than the named
+one produce no verdict, and the band's `check` is what the document says ran:
+the skip is declared by the band rather than by a fourth status.
+
+**§9's bump boards one passenger first.** `CaseResult.calibration` changes what
+a document means — a 0.13.x reader would count the case as ordinary and exit 0
+where 0.14.0 exits 2 — so `SCHEMA_VERSION` moves to 12 with it, and the version
+moves to 0.14.0 with the schema. `Verdict.scale` and `Run.judge_samples` are
+ruled onto the same bump, and ADR 0014 §1's economics decide the order: a bump
+is paid once, so **0.14.0 is not tagged until both have boarded 12**, or each
+needs a 13 of its own.
+
 ### 5. `judge_samples`: repeatability, and never without its scale
 
 #### 5.1 What it is
@@ -504,6 +583,61 @@ alone would be fixed decision 3's vacuous green, measured on the judge.
 
 It is a replay, so it inherits everything ADR 0015 decided: not promotable, the
 headline says re-judged, and it needs `record_responses=True` on the source.
+
+#### 5.5 Amendment, 2026-09-17: what building it found
+
+*Four places the text left open, each ruled at a checkpoint before the code.*
+
+**The verdict records the first judgement.** Of an answer's M judgements, the
+one its verdict is built from is the **first in execution order** — the calls
+are serial, and the order is the order they were made, never the order they
+returned, so parallelising them later must not change which one is first. A
+`--judge-samples` replay therefore records the same quantity as a plain replay
+and as its source run, which judged each answer once. Recording the mean of the
+M would produce two documents that look alike, carry the same field names and
+measure different things. The flag is a measuring instrument, not a better way
+to judge: comparing a plain replay with a `--judge-samples` one isolates exactly
+the flag — the same scores, and metadata beside them.
+
+**The bounds are the widest answer's own.** §5.3's list reads as though
+`judge_min` and `judge_max` could be taken across answers, and they are not: a
+minimum on one answer and a maximum on another describe two different
+questions, not an unstable judge — the confusion §7.3 already forbids between
+the two noise intervals. So the keys are `judge_samples`, `judge_errored`,
+`judge_min` and `judge_max` of the one answer whose judgements spread widest,
+and `judge_answer`, its position from 1. There is no separate range key: it is
+`judge_max - judge_min`, and two copies of one number drift. **On a tie the
+lowest position wins**, within a verdict and, for the sentence, in the run's own
+order, so identical data names the same answer on every run.
+
+**An errored judgement is counted, not escalated.** An error in one of M
+measurements is a fault of the instrument, not of the case, and the chance of
+at least one grows with M: escalating it to an unjudged case and exit 2 would
+make the tool less usable exactly when it is used properly. It is counted in
+`judge_errored`. **Where the first judgement is the one that errored**, the
+verdict is built from the first judgement that returned a score — "first" means
+first to score, not first attempted. Where no judgement of an answer scored,
+that answer is unjudged under the existing rule. An answer with fewer than two
+scores contributes no range, and where no answer has two the range keys are
+absent and the sentence says the range was not measured.
+
+**The sentence belongs to `rejudge`.** It is printed on stderr beside the
+planned-calls line, and is `judge_reading` in `rejudge --json`. It is not a fact
+in `explain` or a line in the report. The measurement belongs to the command
+that produced it, not to every later reading of a re-judged run, and amending
+ADR 0012 §3's closed list a third time, for a place this record does not ask
+for, would make the list stop being closed. If the measurement ever earns a
+place in the report, it gets a decision of its own.
+
+**What it reads, and the second passenger.** Which checks are judged is `KIND`,
+read through `Repeated` — the definition §4.8 gave the calibration refusal, now
+one function both measurements share. `Run.judge_samples` boards schema 12
+beside `CaseResult.calibration`, checked against ADR 0014 §1 as §9's table
+does: outside `config_hash`, absent on every older run (none asked a judge twice
+per answer), a count of our own calls. It is refused unless `rejudged_from` is
+set, and `execute` refuses the parameter on any target but a replay, before the
+first call: on a live target the range would be the target's and the judge's
+together under the judge's name.
 
 ### 6. Shape: the distribution across the suite
 
@@ -601,6 +735,87 @@ check.
 **Never an exit code**, before or after the threshold exists. The calibration
 case is the gate; the shape is the diagnosis — the same split as the aggregate
 and the cases in `docs/guide.md` §7.
+
+#### 6.4 Amendment, 2026-09-17: the scale is `KIND`'s, and the key is `judged`
+
+*Ruled 2026-09-17, before any code. It answers the question §4.8 left open:
+`KIND` says who produces a verdict, `scale` was meant to say what kind of
+number it is, and a judged check can be binary or graded — so is `scale` a
+second axis, or the same fact declared twice?*
+
+**The declaration is redundant; the document key is not.** They were one
+proposal in §6.1 and they separate cleanly.
+
+**What §6.1 wanted `scale` to do, and what already does it.** It named three
+values and one reading. The reading, §6.2, reads **one** of them: shape is read
+over checks declared `judged`, and §6.1's own last paragraph writes nothing for
+`binary`, `graded` or undeclared, "because no reading distinguishes them". The
+other two values were there to keep deterministic checks out of the shape
+reading: `PiiAbsent` and `ToolsCalled`, graded by helper and binary by
+construction, and the budgets, graded and not judged. `KIND` already separates
+those: every one of them is `deterministic` or `budget`, and only `LlmRubric`
+and `Faithfulness` are `judged`. Adding `scale` would state `judged` a second
+time and add two values nothing reads, and §4.8 already refused one fact
+declared twice.
+
+**The case that looked like a second axis is not one.** *A judged check can be
+binary* was argued from scout's `agrees_with_mark`. Read from scout's source,
+that check compares the target's structured answer with the action Mark took,
+through `_binary(agrees(said, wanted))`. The model inside it is the **system
+under test**, not an instrument grading it. In digline's terms it is
+deterministic and binary, and the §6.1 bullet that already said "scout declares
+no judged check" was right. No suite the house runs has a check that is judged
+and binary by design.
+
+**And where one exists, shape does not need to be told.** A judge asked for yes
+or no puts every raw score at an extreme, in the run and in the reference.
+§6.2's reading is a comparison — the run's share against the reference's — so a
+check binary by design reads 100% against 100%. That is true, it cannot become
+*more than the reference*, and so it cannot fire whatever threshold §6.3 later
+sets. Declaring it `binary` would only remove a row that says nothing new. It
+would also let a declaration exempt a check from the one reading that watches
+it, which is the self-exemption §6.1 refused when it refused inference. A
+hedging judge that starts returning 0.5 on a yes/no rubric is the one movement
+such a row can show, and it is a true fact about that judge.
+
+**What stays: the reading needs the fact in the document.** `compare()` and
+`explain` are functions of the documents they are handed, which is §7.1's own
+argument, so which verdicts are judged cannot be looked up in the suite at
+read time. A verdict whose assertion is `judged` — `judged()`, read through
+`Repeated` — is written with **`"judged": true`**, and nothing is written
+otherwise. That is the canary's convention, a flag written only when true, and
+not `"scale": "judged"` or `"kind": "judged"`: a key named for a vocabulary that
+only ever holds one value invites a reader to expect the others.
+
+**So the train is not full with two pieces.** Shape keeps its passenger, renamed
+and sourced from `KIND`: `Verdict.judged`. Against ADR 0014 §1, as §9's table
+does: outside `identity` and `config_hash`, since `KIND` is a `ClassVar`;
+absent means *not recorded as judged*, which is true of every older verdict,
+and nothing is derived from a check's name; one boolean about the check, never
+about the case. §9's cost is unchanged — one key per judged verdict, and no
+byte for any other.
+
+**What follows for the rest of §6.1.**
+
+- `AssertionBase.scale` is not added. §6.1's declaration, and its test-plan
+  line *every assertion in `digline.core` declares one, by set*, are replaced by
+  `KIND`, which 0.13.3 already declares and tests by set.
+- **Undeclared stays announced, never guessed.** A check whose class declares no
+  `KIND`, read through `Repeated`, is left out of shape, and `digline run` names
+  it on stderr beside the planned-calls line, as §6.1 decided for `scale`. That
+  reverses one sentence of 0.13.3's documentation. `KIND` stays optional —
+  nothing fails without it — but it is no longer unread, and scout's two checks
+  are the first that will be named until they declare `deterministic`.
+- **`FromAutoevals` is the known hole in the reading, and this record says so at
+  that weight.** It declares `wrapper` and wraps a scorer, not an assertion, so
+  there is nothing to read through. An autoevals scorer that calls a model is
+  therefore **neither judged nor announced**: shape cannot see it, and the
+  author is not told. The rule this amendment rests on is that a declaration
+  must never let a check escape the reading that exists to watch it, in either
+  direction, and `FromAutoevals` escapes it by having no declaration to read.
+  Closing that needs the adapter to declare what its scorer is — a decision of
+  its own, not taken here. A test pins the hole, so closing it is a decision
+  someone makes rather than a side effect.
 
 ### 7. Spread: how much the suite moves between runs
 
@@ -726,9 +941,17 @@ instrument could not answer*.
 | field | 1. outside `config_hash` | 2. migrates without inventing | 3. does not widen what travels |
 |---|---|---|---|
 | `CaseResult.calibration` — `check`, `low`, `high`, never `output` | case data, as `canary` | absent: *not a calibration case*, which is what every older case was | a name and two numbers; the answer is payload and never written |
-| `Verdict.scale` | a `ClassVar`, outside `identity` and so outside the hash | absent: *not recorded as judged* — not derived from the assertion's name, which would be the guess | one declared word about the check, never about the case |
+| `Verdict.scale` (ruled as `Verdict.judged`, §6.4) | a `ClassVar`, outside `identity` and so outside the hash | absent: *not recorded as judged* — not derived from the assertion's name, which would be the guess | one declared word about the check, never about the case |
 
 `Run.judge_samples` rides the same bump, written only on a replay that set it.
+
+*Amended 2026-09-17 (§4.8, §5.5, §6.4): the train is full. `Verdict.scale` is
+`Verdict.judged` — `true` where the check's `KIND` is `judged`, absent otherwise
+— and boarded third, after `Run.judge_samples`. `CaseResult.calibration` boarded
+12 first, and alone. Checked against ADR 0014 §1 as the table above does — outside the hash,
+migrates by writing nothing, a name and two numbers across a boundary — it
+changes the example documents by their version field only. 12 stays open until
+`Verdict.scale` and `Run.judge_samples` have boarded it.*
 
 All three are written **only when present**. What that does and does not keep
 byte-identical, said plainly:

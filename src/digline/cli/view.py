@@ -36,6 +36,7 @@ from digline.store import (
     ReplayedRunError,
     RunRef,
     TenantMismatchError,
+    UncalibratedRunError,
     utc_now_iso,
 )
 
@@ -270,10 +271,11 @@ class ViewHandler(BaseHTTPRequestHandler):
             ConfigMismatchError,
             ErroredRunError,
             ReplayedRunError,
+            UncalibratedRunError,
             TenantMismatchError,
             FileNotFoundError,
         ) as exc:
-            # The same four refusals as the CLI, because it is the same call.
+            # The same refusals as the CLI, because it is the same call.
             self._screen_runs(
                 locale, pages.phrase(locale, "view.promote.refused", why=str(exc))
             )

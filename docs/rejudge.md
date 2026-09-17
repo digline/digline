@@ -79,7 +79,10 @@ Each one arrives before the first judge is paid, and each names what is missing.
    ordinary first encounter: set `record_responses=True` and run it again.
 2. **A case has no recorded answer.** A case added since the run was produced
    cannot be re-judged from it, and judging the rest would be a narrower
-   measurement carrying the declared suite's name.
+   measurement carrying the declared suite's name. A
+   [calibration case](api.md#casecalibration-watching-the-judges-scale) is
+   the exception: it carries its own answer, never records one, and is re-judged
+   from its declaration exactly as a live run judges it.
 3. **An answer is withheld or over the size ceiling.** A partial replay is a
    weaker measurement claiming to be the declared one — the rule the driver
    already applies when one call of a sampled case fails. The ceiling is 65 536
@@ -114,6 +117,55 @@ is a noise floor measured without the noise.
 It is the fourth condition on promotion, beside the three that were already
 there: the tenant must be the perimeter, the configuration must match, the run
 must have judged every case — and the answers must have been measured.
+
+## Measuring the judge: `--judge-samples`
+
+A replay holds the answers still, so it is the one place the judge's own
+variation can be measured without the target's mixed in:
+
+```console
+$ digline rejudge --suite eval/suite.py --run latest --judge-samples 5
+digline: 12 cases × 1 recorded answer = 12 answers replayed; no call to the target; each recorded answer is judged 5 times by faithfulness
+digline: the judge's own range on these answers is at most 0.100000 across 5 judgements (faithfulness, answer 1 of case refund-policy); the calibration case half-supported scored 0.500000, inside its declared band 0.300000–0.700000
+2026-09-17T09-12-40-…
+```
+
+Each judged check — `KIND = "judged"`, read through `Repeated` — asks the judge
+M times per recorded answer, in call order. Checks nothing judges run once, as
+always.
+
+**What each verdict records does not change.** An answer contributes its first
+judgement — the first, in call order, that returned a score — exactly as a plain
+replay does, so a `--judge-samples` replay and a plain one of the same run carry
+the same scores, and comparing the two isolates the flag. The rest is
+measurement, in each judged verdict's metadata:
+
+| key | |
+|---|---|
+| `judge_samples` | M |
+| `judge_errored` | judgements, across the case's answers, that returned no score |
+| `judge_min`, `judge_max` | the lowest and highest score of **the one answer** whose judgements spread widest |
+| `judge_answer` | that answer's position, from 1; on a tie, the lowest |
+
+Both bounds come from one answer on purpose: a minimum on one answer and a
+maximum on another describe two different questions, not an unstable judge. A
+judgement that errors is counted, not escalated — it is the instrument's fault,
+not the case's, and its chance grows with M. An answer with no scored judgement
+at all is unjudged, as it would be anyway.
+
+**Never on the noise floor.** `compare()` reads `sample_min` and `sample_max` as
+the baseline's interval; the judge's range never reaches them, and a
+`--judge-samples` replay is not promotable, like every replay.
+
+**Never without the scale.** A judge that has gone binary is *more* repeatable:
+every answer at 1.00, every time, is a range of zero. So the sentence always
+carries the calibration result beside the range, and a suite with no
+[calibration case](api.md#casecalibration-watching-the-judges-scale) is told
+*this suite declares no calibration case, and a judge that has lost its scale
+reads as perfectly repeatable*. The sentence is printed by `rejudge` on stderr,
+and is `judge_reading` in `--json`; later reports of the run do not repeat it.
+The run records the count as `judge_samples`. Reasoning in
+[ADR 0024](adr/0024-the-judge-as-an-instrument.md) §5.
 
 ## Where the answers stay
 

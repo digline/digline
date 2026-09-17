@@ -179,6 +179,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.13.2": "'the two-step form this file carried until 0.13.2' — the "
         "release on which the site check was found passing having built "
         "nothing, and replaced by make preview. History",
+        "0.13.3": "a patch example in 'Choosing the version': the release that "
+        "added `CheckKind` to digline.core and removed nothing. History since "
+        "the 0.14.0 bump",
     },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "

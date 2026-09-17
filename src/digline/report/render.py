@@ -25,6 +25,7 @@ from digline.core import (
     ConfigValue,
     Outcome,
     Run,
+    ScaleLost,
     Scope,
     Status,
     SystemConfig,
@@ -32,6 +33,7 @@ from digline.core import (
     budget_exceedances,
     directions,
     on_the_line,
+    scale_lost,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -56,6 +58,9 @@ __all__ = [
     "render_html",
     "render_run_html",
     "run_tally",
+    "calibration_fact",
+    "calibration_section",
+    "scale_lost",
     "summary_lines",
     "suspended_cases",
     "unjudged_cases",
@@ -182,6 +187,14 @@ class Headline:
     #: reported as clean because nothing moved and one reported as clean because
     #: what moved was noise are two different states of the world. (ADR 0006 §9)
     within_noise: int = 0
+    #: A calibration case scored outside its declared band, so the judged
+    #: numbers in this run exist and are not measurements. The thirteenth fact,
+    #: and the only one that moves the exit code without being about the system:
+    #: `exit_code()` returns 2 for it, as for a case that could not be judged.
+    #: Its clause leads the sentence whichever code is returned — a reader who
+    #: learns the scale is gone after reading "2 checks got worse" has already
+    #: believed the 2. (ADR 0024 §4.5, §4.6)
+    scale_lost: bool = False
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -469,7 +482,9 @@ def headline(
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
     # the clause that matters gets skipped with it.
-    within_noise = sum(1 for d in comparison.deltas if d.within_noise)
+    within_noise = sum(
+        1 for d in comparison.deltas if d.within_noise and not d.calibration
+    )
     if within_noise == 0:
         noise_text = ""
     elif within_noise == 1:
@@ -527,6 +542,8 @@ def headline(
     # the stronger of the two. The judge stays last — a moved scale makes even
     # the canary's own numbers less comparable. (ADR 0016 §7)
     canary_text = _canary_fact(comparison, locale)
+    lost = scale_lost(run)
+    calibration_text = calibration_fact(lost, locale)
     # Before the configuration clause, because it qualifies what the numbers
     # *are* rather than how the system was set up: a replay did not ask the
     # target anything. The configuration clause still prints below it — it
@@ -590,6 +607,7 @@ def headline(
         target_echoed=echoed is not None,
         rejudged=run.rejudged_from is not None,
         canary_moved=comparison.canary_moved,
+        scale_lost=bool(lost),
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
@@ -597,6 +615,10 @@ def headline(
         sentence=" ".join(
             part
             for part in (
+                # First of all, before the counts and not only before the
+                # canary: every number after it was graded by a judge that put
+                # a known answer where it cannot be. (ADR 0024 §4.6)
+                calibration_text,
                 worse_text,
                 # Straight after "nothing got worse", because it is what
                 # qualifies it: something did move, and it moved no further than
@@ -620,6 +642,105 @@ def headline(
             if part
         ),
     )
+
+
+def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:
+    """The clause a lost scale earns, or nothing at all.
+
+    Silent when every calibration case held, and when a suite declares none —
+    the canary's silence, for the canary's reason. The raw samples are printed
+    because *every one at an extreme* and *a mean just outside the band* are
+    different pictures, and the reader is owed which one it is without a second
+    sentence to choose between them.
+    """
+    if not lost:
+        return ""
+    first = lost[0]
+    across = (
+        phrase(
+            locale,
+            "fact.calibration.across",
+            count=len(first.samples),
+            values=", ".join(fmt_score(v) for v in first.samples),
+        )
+        if first.samples
+        else ""
+    )
+    return phrase(
+        locale,
+        "fact.calibration.one" if len(lost) == 1 else "fact.calibration.many",
+        count=len(lost),
+        case=first.case_id,
+        score=fmt_score(first.score),
+        across=across,
+        low=fmt_score(first.low),
+        high=fmt_score(first.high),
+    )
+
+
+def calibration_section(run: Run, locale: Locale, *, reasons: bool) -> str:
+    """Where the judge placed each calibration answer, against its band.
+
+    Nothing at all when the run has no calibration case, so every report of a
+    suite that declares none stays byte for byte what it was. Otherwise the
+    section is open when a band was left and closed when all held: movement
+    inside a band is information, not a finding. (ADR 0024 §4.4)
+
+    Read from the run, not from the comparison, like the suspended section: the
+    band is a fact about this run, and it needs no reference to be true.
+    """
+    rows: list[str] = []
+    outside = 0
+    for case in run.results:
+        band = case.calibration
+        if band is None:
+            continue
+        for verdict in case.verdicts:
+            if verdict.score.name != band.check:
+                continue
+            score = verdict.score.score
+            if score is None:
+                result, where = phrase(locale, "detail.errored"), ""
+            else:
+                held = band.holds(score)
+                outside += 0 if held else 1
+                result = fmt_score(score)
+                where = phrase(locale, f"calibration.{'inside' if held else 'outside'}")
+            why = verdict.reason if reasons else phrase(locale, "reason.unavailable")
+            rows.append(
+                "<tr>"
+                f"<td><code>{escape(case.case_id)}</code></td>"
+                f"<td><code>{escape(band.check)}</code></td>"
+                f"<td><b>{escape(result)}</b> {escape(where)}</td>"
+                f"<td>{fmt_score(band.low)}–{fmt_score(band.high)}</td>"
+                f"<td>{escape(why)}</td>"
+                "</tr>"
+            )
+    if not rows:
+        return ""
+    title = escape(phrase(locale, "section.calibration"))
+    table = _table(
+        (
+            "column.case",
+            "column.check",
+            "column.result",
+            "column.band",
+            "column.reason",
+        ),
+        rows,
+        locale,
+    )
+    open_attr = " open" if outside else ""
+    return (
+        f"<details{open_attr}><summary>{title} ({len(rows)})</summary>{table}</details>"
+    )
+
+
+def _calibration_block(run: Run, locale: Locale, *, reasons: bool) -> str:
+    """`calibration_section` with its own line break, or nothing — so a report
+    of a suite with no calibration case gains not even an empty line."""
+    section = calibration_section(run, locale, reasons=reasons)
+    return f"{section}\n" if section else ""
 
 
 def _canary_fact(comparison: Comparison, locale: Locale) -> str:
@@ -880,7 +1001,15 @@ def on_the_line_count(run: Run) -> int:
     return sum(
         1
         for verdict in (
-            *(v for case in run.results for v in case.verdicts),
+            # A calibration case's threshold is read against an answer nobody
+            # generated, so which side of it the draw landed on says nothing
+            # about the system. Its gate is the band. (ADR 0024 §4.4)
+            *(
+                v
+                for case in run.results
+                if case.calibration is None
+                for v in case.verdicts
+            ),
             *run.aggregate,
         )
         if on_the_line(verdict)
@@ -926,7 +1055,9 @@ def _summarized(comparison: Comparison) -> Sequence[AssertionDelta]:
     on the outcome alone would let the headline say "1 case could not be judged"
     while the list below it named nothing. The two must agree.
     """
-    regressed = [d for d in comparison.deltas if d.outcome == "regressed"]
+    regressed = [
+        d for d in comparison.deltas if d.outcome == "regressed" and not d.calibration
+    ]
     unjudged = [
         d
         for d in comparison.deltas
@@ -1145,7 +1276,15 @@ def _section(
         count = len(cases)
     else:
         wanted = frozenset(section.outcomes)
-        rows = [d for d in comparison.deltas if d.outcome in wanted]
+        # A calibration delta is not a statement about the system, so it has no
+        # place under what got worse or better; its own section reads it against
+        # its band. An unjudged one stays where unjudged checks are.
+        # (ADR 0024 §4.4)
+        rows = [
+            d
+            for d in comparison.deltas
+            if d.outcome in wanted and (not d.calibration or _errored_now(d))
+        ]
         body = (
             empty
             if not rows
@@ -1158,6 +1297,10 @@ def _section(
         count = len(rows)
 
     return f"<details{open_attr}><summary>{title} ({count})</summary>{body}</details>"
+
+
+def _errored_now(delta: AssertionDelta) -> bool:
+    return delta.current is not None and delta.current.status == "error"
 
 
 def _aggregates(
@@ -1551,6 +1694,7 @@ def render_html(
         f"{_artifacts(comparison, locale)}\n"
         f"{_configs(comparison, locale)}\n"
         f"{sections}\n"
+        f"{_calibration_block(run, locale, reasons=head.reasons_available)}"
         "</body>\n"
         "</html>\n"
     )
@@ -1625,9 +1769,16 @@ def _run_answer(run: Run, locale: Locale) -> str:
         f"<li>{escape(phrase(locale, key))} <b>{value}</b></li>"
         for key, value in counted
     )
+    # The one verdict a run can carry with no reference, and it leads: it says
+    # the numbers below are not measurements. Absent otherwise, so this block
+    # is byte for byte what it was for every run whose calibration held or
+    # that declares none. (ADR 0024 §4.5)
+    lost = calibration_fact(scale_lost(run), locale)
+    lost_line = f"<p>{escape(lost)}</p>\n" if lost else ""
     return (
         '<section class="answer">\n'
         f'<p class="verdict">{escape(phrase(locale, "noreference.title"))}</p>\n'
+        f"{lost_line}"
         f"<p>{escape(phrase(locale, 'noreference.sentence'))}</p>\n"
         f'<ul class="tally">{tally}</ul>\n'
         "</section>"
@@ -1756,6 +1907,9 @@ def _run_section(
             for case in run.results
             for verdict in case.verdicts
             if verdict.status == status
+            # Read in its own section, against its band, unless it could not be
+            # judged at all. (ADR 0024 §4.4)
+            and (case.calibration is None or status == "error")
         ]
         body = (
             empty
@@ -1865,6 +2019,7 @@ def render_run_html(run: Run, *, locale: Locale) -> str:
         f"{_run_artifacts(run, locale)}\n"
         f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
+        f"{_calibration_block(run, locale, reasons=reasons)}"
         f"{_recorded_answers(run, locale)}\n"
         "</body>\n"
         "</html>\n"

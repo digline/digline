@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, cast
 
 from digline.core.aggregate import RunAssertion
+from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.types import (
     NOTHING_EXTRA,
@@ -108,7 +109,25 @@ __all__ = [
 #    else forced. Additive both times: `()` for a run that recorded no
 #    trajectory and none is recoverable, absent for a run nobody resumed. So the
 #    step writes nothing and no baseline needs re-promoting.
-SCHEMA_VERSION = 11
+# 12: `CaseResult.calibration` — the check a calibration case calibrates and the
+#    band its score has to land in, never the answer it carries (ADR 0024 §4,
+#    §9). Checked against ADR 0014 §1: case data outside `config_hash`, as the
+#    canary is; absent means *not a calibration case*, which is what every older
+#    case was, so the step writes nothing; and what it adds to a document is a
+#    name and two numbers. The first passenger of this version, and not the
+#    last: `Verdict.scale` and `Run.judge_samples` are ruled onto the same bump,
+#    so 12 stays open until they have boarded it.
+#    `Run.judge_samples` boarded second: how many times each judged check asked
+#    the judge per recorded answer, on a replay. Outside `config_hash` (it is a
+#    replay's own parameter, not the suite's); absent means *did not measure the
+#    judge's range*, which is what every older run did; a count of our own
+#    calls. The range it produces is metadata on judged verdicts, numbers only.
+#    `Verdict.judged` boarded third, and closes the train: `true` on a verdict
+#    whose assertion `KIND` declares `judged`, absent otherwise. Outside
+#    `identity` and `config_hash` (`KIND` is a `ClassVar`); absent means *not
+#    recorded as judged*, never derived from a name; one boolean about the check.
+#    It is what the shape reading reads. (ADR 0024 §6.4)
+SCHEMA_VERSION = 12
 
 
 def _num(value: float) -> float:
@@ -768,10 +787,20 @@ class CaseResult:
     #: case whose exclusion could only be learnt from the suite would be a case
     #: excluded invisibly. (ADR 0016 §1)
     canary: bool = False
+    #: This case calibrated the judge rather than measuring the system: the
+    #: check it names was graded on an answer the author wrote, and its score
+    #: has to land inside the band. The answer itself is never here — it is
+    #: payload and it is already in the committed cases file. (ADR 0024 §4)
+    calibration: CalibrationBand | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id:
             raise ValueError("CaseResult.case_id must not be empty")
+        if self.canary and self.calibration is not None:
+            raise ValueError(
+                f"case {self.case_id!r} is both a canary and a calibration case: "
+                "one asks the target and the other bypasses it"
+            )
         if self.suspended is None:
             return
         if not self.suspended:
@@ -912,6 +941,13 @@ class Run:
     #: `promoted_at`. Pre-vetted against the passenger rule by ADR 0017 §11 and
     #: boarded by ADR 0018 §3, which is the bump that finally forced the move.
     resumed_at: tuple[str, ...] = ()
+    #: How many times each judged check asked the judge per recorded answer, on
+    #: a replay that measured the judge's own range. `0` is a run that did not,
+    #: which is every run but those, and what a document written before this
+    #: field says by omitting it. The verdicts record what a single judgement
+    #: records; the range is in each judged verdict's metadata. A fact about our
+    #: own instrument, so it survives `redact()`. (ADR 0024 §5.3, §9)
+    judge_samples: int = 0
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -922,6 +958,18 @@ class Run:
             raise ValueError("Run.suite must not be empty")
         if not self.config_hash:
             raise ValueError("Run.config_hash must not be empty")
+        if self.judge_samples == 1 or self.judge_samples < 0:
+            raise ValueError(
+                f"Run.judge_samples is {self.judge_samples}: it is 0 on a run "
+                "that did not measure the judge's range, and at least 2 on one "
+                "that did"
+            )
+        if self.judge_samples and self.rejudged_from is None:
+            raise ValueError(
+                "Run.judge_samples is set on a run that declares no "
+                "rejudged_from: the judge's range is measured on answers that do "
+                "not move, which only a replay has"
+            )
         if not self.redacted:
             return
         # `redacted` is a claim about the contents, so it is checked against
@@ -1105,6 +1153,8 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
         reason=REDACTED,
         tolerance=verdict.tolerance,
         assertion_id=verdict.assertion_id,
+        # A fact about the check, never about the case. (ADR 0024 §6.4)
+        judged=verdict.judged,
     )
 
 
@@ -1152,6 +1202,10 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # redacted document that lost it would report an exit code its
                 # own contents could not account for.
                 canary=case.canary,
+                # Carried for the canary's reason: a name and two numbers, and a
+                # redacted document that lost them would report an exit code
+                # its own contents could not account for. (ADR 0024 §9)
+                calibration=case.calibration,
             )
             for case in run.results
         ),
@@ -1197,6 +1251,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # And so is when it was resumed: the legs of our own instrument, never
         # anything about what it measured. (ADR 0018 §3)
         resumed_at=run.resumed_at,
+        # A count of our own judge calls, never anything about what was judged.
+        # (ADR 0024 §9)
+        judge_samples=run.judge_samples,
     )
 
 
@@ -1244,6 +1301,12 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     # the reason could be guessed, not even its length.
     if not redacted:
         payload["reason"] = verdict.reason
+    # Written only when true, the canary's convention: a suite with no judged
+    # check writes the document it wrote before, and a key named for a
+    # vocabulary would invite a reader to look for values it never holds.
+    # (ADR 0024 §6.4)
+    if verdict.judged:
+        payload["judged"] = True
     return payload
 
 
@@ -1294,6 +1357,9 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # reconstructed verdict valid without inventing content.
         reason=REDACTED if redacted else str(_required(raw, "reason", where)),
         assertion_id=str(_required(raw, "assertion_id", where)),
+        # Absent is *not recorded as judged*, which is true of every verdict
+        # written before 12, and nothing is guessed from a check's name.
+        judged=bool(raw.get("judged", False)),
     )
 
 
@@ -1332,6 +1398,10 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # Absent on a run nobody resumed, which is almost every run. Absent is
         # *not resumed*, and it is never an invented time. (ADR 0018 §3)
         **({"resumed_at": list(run.resumed_at)} if run.resumed_at else {}),
+        # Absent on every run that did not measure the judge's range, which is
+        # all of them but one kind of replay, so no other document moves.
+        # (ADR 0024 §9)
+        **({"judge_samples": run.judge_samples} if run.judge_samples else {}),
     }
 
 
@@ -1436,6 +1506,15 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     # produced before. (ADR 0016 §9)
     if case.canary:
         payload["canary"] = True
+    # Written only when present, for the canary's reason one line up. The answer
+    # the case carries is not a field of this value and so cannot be written.
+    # (ADR 0024 §9)
+    if case.calibration is not None:
+        payload["calibration"] = {
+            "check": case.calibration.check,
+            "low": _num(case.calibration.low),
+            "high": _num(case.calibration.high),
+        }
     return payload
 
 
@@ -1594,6 +1673,21 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
             for r in cast(Sequence[Mapping[str, Any]], raw.get("responses") or ())
         ),
         canary=bool(raw.get("canary", False)),
+        calibration=_calibration_from_dict(raw.get("calibration")),
+    )
+
+
+def _calibration_from_dict(raw: object) -> CalibrationBand | None:
+    if raw is None:
+        return None
+    where = "case result calibration"
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{where} is not an object")
+    fields_ = cast(Mapping[str, Any], raw)
+    return CalibrationBand(
+        check=str(_required(fields_, "check", where)),
+        low=float(_required(fields_, "low", where)),
+        high=float(_required(fields_, "high", where)),
     )
 
 
@@ -1645,6 +1739,7 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         resumed_at=tuple(
             str(stamp) for stamp in cast(Sequence[Any], raw.get("resumed_at") or ())
         ),
+        judge_samples=int(raw.get("judge_samples") or 0),
     )
 
 

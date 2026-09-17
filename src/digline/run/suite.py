@@ -18,18 +18,90 @@ from digline.core import (
     GROUP_MARKER,
     NOTHING_EXTRA,
     Assertion,
+    CalibrationBand,
     Disclosure,
+    Faithfulness,
     Label,
+    LlmRubric,
     Output,
     Repeated,
     RunAssertion,
     canonical,
     config_hash,
     expand_by_group,
+    judged,
 )
 from digline.core.ratio import Ratio, as_agreement
 
-__all__ = ["CallPlan", "Case", "Suite", "planned_calls"]
+__all__ = [
+    "Calibration",
+    "CallPlan",
+    "Case",
+    "Suite",
+    "planned_calls",
+    "undeclared_kinds",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class Calibration:
+    """A fixed answer, known to be partially correct, and the band a judge that
+    still has a scale places it in.
+
+    The canary watches whether the model is still that model; this watches
+    whether the scale is still a scale. A judge that has gone binary is *more*
+    repeatable, not less, so no amount of repetition sees the collapse — an
+    answer the author knows to be half right, scored at 1.0, does. (ADR 0024 §1)
+
+    It is a **fixed answer, not a flag on a generated one**: an answer the target
+    generates today is not known to be partial. So the target is never called
+    for this case. The driver hands `output` and `input` to the suite's mapper
+    as a `Response`, which keeps the judge on the path the real cases take —
+    the mapper is where a context is built, and so where a truncation would sit.
+    (ADR 0024 §4.1)
+
+    `output` and `input` are **payload**. Neither is ever written into a run,
+    recorded responses or not: they are in the committed cases file already,
+    and a second copy under `runs/` would be a second record of the same data.
+    What the run holds is `band`: the check's name and two numbers.
+
+    `input` is `None` when it is not declared and `""` when it is declared
+    empty, and the two are different facts. A check that shows the judge the
+    question refuses the first — see `Suite` — because a control instrument
+    graded blind would fail for a reason unrelated to what it controls. (ADR
+    0024 §4.2, amended 2026-09-17)
+
+    Whether an answer makes a good calibration — four claims, two supported; a
+    reply that satisfies half a rubric — is the author's craft, and nothing here
+    checks it.
+    """
+
+    output: Output
+    #: The name of the judged assertion this case calibrates. Only that check
+    #: runs on the case (ADR 0024 §4.3).
+    check: str
+    low: float
+    high: float
+    input: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.output:
+            # The `expected=""` refusal, for the same reason: an empty answer
+            # is not partially correct, it is nothing, and a band placed around
+            # the score of nothing calibrates nothing.
+            raise ValueError(
+                f"the calibration of {self.check!r} declares an empty output: a "
+                "calibration answer is one known to be partially correct, and "
+                "an empty one is not an answer at all"
+            )
+        # Built once here so a malformed band is refused at declaration, with
+        # the core's own sentence, and not first at the end of a paid run.
+        _ = self.band
+
+    @property
+    def band(self) -> CalibrationBand:
+        """The half that is written into the run."""
+        return CalibrationBand(check=self.check, low=self.low, high=self.high)
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +163,10 @@ class Case:
     #: (none) and what its movement means (the model behind the alias probably
     #: changed, which is a reason to stop). (ADR 0016 §1)
     canary: bool = False
+    #: This case calibrates the judge on a fixed answer instead of asking the
+    #: target. Excluded from every aggregate, like the canary, and gated by its
+    #: own band rather than by a comparison. (ADR 0024 §4)
+    calibration: Calibration | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -132,6 +208,20 @@ class Case:
                 f"case {self.id!r} is a canary and declares the group "
                 f"{self.group!r}: a canary is counted in no aggregate, so the "
                 "group would be a gate with nothing in it. Leave the group unset"
+            )
+        if self.calibration is not None and self.canary:
+            raise ValueError(
+                f"case {self.id!r} is both a canary and a calibration case: a "
+                "canary asks the target and a calibration case bypasses it, so "
+                "one case cannot be both. Declare two cases"
+            )
+        if self.calibration is not None and self.group is not None:
+            # The canary's refusal, for the canary's reason. (ADR 0024 §4.2)
+            raise ValueError(
+                f"case {self.id!r} is a calibration case and declares the group "
+                f"{self.group!r}: a calibration case is counted in no aggregate, "
+                "so the group would be a gate with nothing in it. Leave the "
+                "group unset"
             )
 
 
@@ -244,6 +334,23 @@ class Suite:
                 "measure: every wobble would stop a release. Set samples to at "
                 "least 2 (with min_agreement), or drop the canary flag"
             )
+        if (
+            any(case.calibration is not None for case in self.cases)
+            and self.samples < 2
+        ):
+            # The canary's refusal, and cheaper to meet: on this case the target
+            # is not called, so `samples` repeats the judge alone. A single
+            # judgement landing outside the band on a noisy judge would be a
+            # red light nobody chose. (ADR 0024 §4.2)
+            raise ValueError(
+                f"suite {self.name!r} declares a calibration case and samples "
+                f"{self.samples} time(s). A calibration case is read by where the "
+                "judge places a known answer, and one judgement of it is one "
+                "draw of a noisy instrument: every wobble outside the band would "
+                "stop a release. Set samples to at least 2 (with min_agreement) "
+                "— on this case it costs judge calls only — or drop the "
+                "calibration case"
+            )
         if self.samples > 1 and self.min_agreement is None:
             raise ValueError(
                 f"suite {self.name!r} samples {self.samples} times without "
@@ -275,6 +382,7 @@ class Suite:
                 )
             seen.add(case.id)
 
+        self._check_calibrations()
         # Validated on the *declared* set, so a refusal names what the author
         # wrote rather than a copy the expansion made.
         self._check_aggregates()
@@ -297,6 +405,63 @@ class Suite:
         the identity set, the `config_hash` and the report's columns.
         """
         return tuple(sorted({c.group for c in self.cases if c.group is not None}))
+
+    def _check_calibrations(self) -> None:
+        """Each calibration names one judged check of this suite, and gives it
+        what it shows the judge.
+
+        Absent and ambiguous are refused for the reason `_check_aggregates`
+        refuses them. A check that is not judged is refused because a
+        calibration of a deterministic check is a calibration of arithmetic.
+
+        **What is read is `KIND`**, the declaration every shipped check already
+        carries, followed through `Repeated` to what it wraps. A check whose
+        class declares nothing is not judged as far as anything here can know,
+        and is refused rather than guessed at. (ADR 0024 §4.2, amended
+        2026-09-17)
+        """
+        for case in self.cases:
+            calibration = case.calibration
+            if calibration is None:
+                continue
+            matches = [a for a in self.assertions if a.name == calibration.check]
+            if not matches:
+                available = ", ".join(sorted({a.name for a in self.assertions}))
+                raise ValueError(
+                    f"case {case.id!r} calibrates {calibration.check!r}, which "
+                    f"no assertion in suite {self.name!r} is called. Declared: "
+                    f"{available}"
+                )
+            if len(matches) > 1:
+                raise ValueError(
+                    f"case {case.id!r} calibrates {calibration.check!r}, which "
+                    f"{len(matches)} assertions in suite {self.name!r} share. "
+                    "Give the one you mean a distinct `name`: a band read against "
+                    "whichever came first is a band nobody placed"
+                )
+            check = _unwrapped(matches[0])
+            if not judged(check):
+                raise ValueError(
+                    f"case {case.id!r} calibrates {calibration.check!r}, which is "
+                    "not a judged check: nothing places its score on a scale, so "
+                    "there is no scale for a calibration case to watch"
+                )
+            if calibration.input is None and isinstance(
+                check, LlmRubric | Faithfulness
+            ):
+                # Named types, like the replay's trajectory refusal: these two
+                # put the input in front of the judge on every real case, and
+                # the target that renders it is not called here. Graded without
+                # it, the calibration would measure a different question. `""`
+                # declares that the real cases have none either.
+                raise ValueError(
+                    f"case {case.id!r} calibrates {calibration.check!r} and "
+                    "declares no input. That check shows the judge the question "
+                    "beside the answer, and the target that would render it is "
+                    "not called for a calibration case, so the judge would grade "
+                    "the known answer blind. Declare `input` — the question the "
+                    'answer replies to, or "" if the real cases have none'
+                )
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be
@@ -339,8 +504,11 @@ class Suite:
             return
         # A canary is exempt: it is not in the population being measured, so a
         # mark for it would be a mark nobody counts. (ADR 0016 §1)
+        # So is a calibration case, for the same reason. (ADR 0024 §4.2)
         unlabelled = sorted(
-            c.id for c in self.cases if c.label is None and not c.canary
+            c.id
+            for c in self.cases
+            if c.label is None and not c.canary and c.calibration is None
         )
         if unlabelled:
             raise ValueError(
@@ -391,6 +559,35 @@ class Suite:
             canonical(list(self.cases)), sort_keys=True, separators=(",", ":")
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _unwrapped(assertion: Assertion) -> Assertion:
+    """What a `Repeated` repeats, however deep.
+
+    `Repeated` declares `KIND = "wrapper"` because its nature is the thing it
+    wraps, so a judged check inside one is read through it.
+    """
+    current = assertion
+    while isinstance(current, Repeated):
+        current = current.inner
+    return current
+
+
+def undeclared_kinds(suite: Suite) -> tuple[str, ...]:
+    """The assertions whose class, read through `Repeated`, declares no `KIND`.
+
+    The shape reading cannot know whether a model scores them, so it leaves
+    them out — and says so where the author is, rather than guessing either
+    way: defaulting to *judged* would read every binary check as a collapsed
+    judge, and defaulting to *not judged* would silence a third-party judge
+    without a word. `KIND` stays optional; it is no longer unread. (ADR 0024
+    §6.1, §6.4)
+    """
+    return tuple(
+        assertion.name
+        for assertion in suite.assertions
+        if getattr(type(_unwrapped(assertion)), "KIND", None) is None
+    )
 
 
 def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
@@ -468,6 +665,17 @@ class CallPlan:
     #: "each answer is judged 3 times" is only true of the assertion that says
     #: so — and nothing here claims to know which of the others call a model.
     repeats: tuple[tuple[str, int], ...] = ()
+    #: Calibration cases that will be judged. Not in `cases`, because the target
+    #: is not called for them — the announced bill has to match the invoice —
+    #: and announced beside it, because each is judged `samples` times and a
+    #: judge call is still a call somebody pays for. (ADR 0024 §4.4)
+    calibration: int = 0
+    #: How many times a replay asks each judged check per recorded answer, and
+    #: which checks those are, by name. Announced for the reason `repeats` is:
+    #: the multiplication is the part that surprises people, and it is only
+    #: true of the checks it names. (ADR 0024 §5)
+    judge_samples: int = 0
+    judged: tuple[str, ...] = ()
 
     @property
     def target_calls(self) -> int:
@@ -507,6 +715,18 @@ class CallPlan:
                 text += f"; {_count(self.reused, 'case')} already judged"
             if self.retried:
                 text += f"; {_count(self.retried, 'case')} retried after an error"
+        if self.calibration:
+            judgements = self.samples * max(self.judge_samples, 1)
+            text += (
+                f"; {_count(self.calibration, 'calibration case')} judged "
+                f"{_count(judgements, 'time')}, with no call to the target"
+            )
+        if self.judge_samples and self.judged:
+            answer = "recorded answer" if replayed else "answer"
+            text += (
+                f"; each {answer} is judged {self.judge_samples} times by "
+                f"{', '.join(self.judged)}"
+            )
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
         return text
@@ -547,7 +767,11 @@ def _repeats(assertions: Sequence[Assertion]) -> tuple[tuple[str, int], ...]:
 
 
 def planned_calls(
-    suite: Suite, *, done: Container[str] = (), retried: int = 0
+    suite: Suite,
+    *,
+    done: Container[str] = (),
+    retried: int = 0,
+    judge_samples: int = 0,
 ) -> CallPlan:
     """How many calls `suite` is about to make. Pure, and declared-only.
 
@@ -563,15 +787,21 @@ def planned_calls(
     `retried` is carried rather than derived: which errored cases are being paid
     for again is the caller's decision, not this function's.
     """
-    called = [
-        case.id
-        for case in suite.cases
-        if case.suspended is None and case.id not in done
+    pending = [
+        case for case in suite.cases if case.suspended is None and case.id not in done
     ]
+    # A calibration case is judged and not called, so it is announced on its
+    # own and kept out of the target's bill. (ADR 0024 §4.4)
+    called = [case for case in pending if case.calibration is None]
     return CallPlan(
         cases=len(called),
         samples=suite.samples,
         repeats=_repeats(suite.assertions),
-        reused=sum(1 for case in suite.cases if case.suspended is None) - len(called),
+        reused=sum(1 for case in suite.cases if case.suspended is None) - len(pending),
         retried=retried,
+        calibration=len(pending) - len(called),
+        judge_samples=judge_samples,
+        judged=tuple(a.name for a in suite.assertions if judged(a))
+        if judge_samples
+        else (),
     )

@@ -149,6 +149,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "moved, including {case} from {before} to {after}{beyond}."
         ),
         "fact.canary.beyond": ", beyond the noise of this check ({interval})",
+        # No *likely*, and the absence is chosen: that word is the canary's,
+        # which infers a model from behaviour. Here nothing is inferred — the
+        # band was declared and the score was observed. (ADR 0024 §4.6)
+        "fact.calibration.one": (
+            "The calibration case {case} scored {score}{across}, outside its "
+            "declared band {low}–{high}: the judged scores in this run are not "
+            "placed on the scale they are compared on."
+        ),
+        "fact.calibration.many": (
+            "{count} calibration cases scored outside their declared bands, "
+            "including {case} at {score}{across} against {low}–{high}: the "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on."
+        ),
+        "fact.calibration.across": " across {count} samples ({values})",
         "fact.target_config.changed": (
             "The system under test answered under a different configuration: {changes}."
         ),
@@ -178,6 +193,33 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.echoed": (
             "The endpoint returned the requested id as the model that answered, "
             "so which model answered is not identified."
+        ),
+        # Shape (ADR 0024 §6): the shares side by side, and nothing that says
+        # which is more. That sentence waits for a threshold sized on data.
+        "explain.tally.shape": (
+            "{check}: {share} of {scores} judged scores at 0 or 1, against "
+            "{reference_share} of {reference_scores} in the reference."
+        ),
+        "explain.tally.shape.noreference": (
+            "{check}: {share} of {scores} judged scores at 0 or 1; the reference "
+            "records no judged score of it to set beside that."
+        ),
+        "explain.tally.shape.none": (
+            "{check}: no judged score of it could be read in this run."
+        ),
+        "explain.tally.shape.single_claim.one": (
+            " 1 verdict with a single claim is left out: it can only score 0 or 1."
+        ),
+        "explain.tally.shape.single_claim.many": (
+            " {count} verdicts with a single claim are left out: they can only "
+            "score 0 or 1."
+        ),
+        "explain.tally.shape.claims_unrecorded.one": (
+            " 1 sampled verdict is read whose claim count per sample was not recorded."
+        ),
+        "explain.tally.shape.claims_unrecorded.many": (
+            " {count} sampled verdicts are read whose claim counts per sample were "
+            "not recorded."
         ),
         "fact.judge_config.changed": (
             "The judging changed ({changes}), so these scores are less "
@@ -254,12 +296,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.changes": "What was added or removed",
         "section.improvements": "What got better",
         "section.unchanged": "What stayed the same",
+        "section.calibration": "Where the judge placed the calibration answers",
         "section.empty": "Nothing in this section.",
         "summary.truncated": (
             "showing the first {shown} of {total}; the full list is in the report"
         ),
         "column.case": "Case",
         "column.check": "Check",
+        "column.band": "Declared band",
+        "calibration.inside": "inside",
+        "calibration.outside": "outside",
         "column.detail": "What happened",
         "column.reason": "Why",
         "detail.dropped": "Score fell from {before} to {now}.",
@@ -485,6 +531,47 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "A canary check moved. It is counted in no aggregate, and what its "
             "movement is about is which model answered rather than how well it "
             "answered."
+        ),
+        # `digline rejudge --judge-samples` (ADR 0024 §5.4). A terminal line,
+        # printed after `digline: ` like the planned-calls line, so it starts
+        # lower-case and has no full stop. The range never goes without the
+        # calibration: a collapsed judge is perfectly repeatable.
+        "judged.range": (
+            "the judge's own range on these answers is at most {range} across "
+            "{count} judgements ({check}, answer {answer} of case {case})"
+        ),
+        "judged.range.none": (
+            "the judge's own range on these answers was not measured: no judged "
+            "answer returned two scores"
+        ),
+        "judged.errored.one": ", and 1 judgement returned no score",
+        "judged.errored.many": ", and {count} judgements returned no score",
+        "judged.calibration.inside": (
+            "; the calibration case {case} scored {score}, inside its declared "
+            "band {low}–{high}"
+        ),
+        "judged.calibration.outside": (
+            "; the calibration case {case} scored {score}, outside its declared "
+            "band {low}–{high}"
+        ),
+        "judged.calibration.unjudged": (
+            "; the calibration case {case} could not be judged"
+        ),
+        "judged.calibration.none": (
+            "; this suite declares no calibration case, and a judge that has "
+            "lost its scale reads as perfectly repeatable"
+        ),
+        "explain.tally.calibration.one": (
+            "1 calibration case scored outside its declared band: the judged "
+            "scores in this run are not placed on the scale they are compared "
+            "on. It is counted in no aggregate, and the target was not asked "
+            "for it."
+        ),
+        "explain.tally.calibration.many": (
+            "{count} calibration cases scored outside their declared bands: the "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on. They are counted in no aggregate, and the target was "
+            "not asked for them."
         ),
         "explain.tally.on_the_line.one": (
             "1 check measured a band that covers its own threshold, so which "
@@ -747,6 +834,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{after}{beyond}."
         ),
         "fact.canary.beyond": ", oltre il rumore di questo controllo ({interval})",
+        "fact.calibration.one": (
+            "Il caso di calibrazione {case} ha ottenuto {score}{across}, fuori "
+            "dalla banda dichiarata {low}–{high}: i punteggi giudicati in questa "
+            "esecuzione non stanno sulla scala su cui vengono confrontati."
+        ),
+        "fact.calibration.many": (
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata, fra "
+            "cui {case} con {score}{across} rispetto a {low}–{high}: i punteggi "
+            "giudicati in questa esecuzione non stanno sulla scala su cui "
+            "vengono confrontati."
+        ),
+        "fact.calibration.across": " su {count} campioni ({values})",
         "fact.target_config.changed": (
             "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
         ),
@@ -772,6 +871,32 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.echoed": (
             "L'endpoint ha restituito l'id richiesto come modello che ha "
             "risposto, quindi quale modello abbia risposto non è identificato."
+        ),
+        "explain.tally.shape": (
+            "{check}: {share} di {scores} punteggi giudicati a 0 o 1, rispetto a "
+            "{reference_share} di {reference_scores} nel riferimento."
+        ),
+        "explain.tally.shape.noreference": (
+            "{check}: {share} di {scores} punteggi giudicati a 0 o 1; il "
+            "riferimento non registra punteggi giudicati da affiancare."
+        ),
+        "explain.tally.shape.none": (
+            "{check}: nessun suo punteggio giudicato è leggibile in questa esecuzione."
+        ),
+        "explain.tally.shape.single_claim.one": (
+            " 1 verdetto con una sola affermazione è escluso: può valere solo 0 o 1."
+        ),
+        "explain.tally.shape.single_claim.many": (
+            " {count} verdetti con una sola affermazione sono esclusi: possono "
+            "valere solo 0 o 1."
+        ),
+        "explain.tally.shape.claims_unrecorded.one": (
+            " 1 verdetto campionato è letto senza che il numero di affermazioni "
+            "per campione sia registrato."
+        ),
+        "explain.tally.shape.claims_unrecorded.many": (
+            " {count} verdetti campionati sono letti senza che il numero di "
+            "affermazioni per campione sia registrato."
         ),
         "fact.judge_config.changed": (
             "Il modo di giudicare è cambiato ({changes}), quindi questi "
@@ -845,12 +970,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.changes": "Che cosa è stato aggiunto o tolto",
         "section.improvements": "Che cosa è migliorato",
         "section.unchanged": "Che cosa è rimasto uguale",
+        "section.calibration": (
+            "Dove il giudice ha collocato le risposte di calibrazione"
+        ),
         "section.empty": "Niente in questa sezione.",
         "summary.truncated": (
             "mostrate le prime {shown} di {total}; l'elenco completo è nel rapporto"
         ),
         "column.case": "Caso",
         "column.check": "Controllo",
+        "column.band": "Banda dichiarata",
+        "calibration.inside": "dentro",
+        "calibration.outside": "fuori",
         "column.detail": "Che cosa è successo",
         "column.reason": "Perché",
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",
@@ -1093,6 +1224,45 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un controllo sentinella si è mosso. Non entra in nessun "
             "aggregato, e ciò di cui il suo movimento parla è quale modello "
             "abbia risposto, non quanto bene."
+        ),
+        "judged.range": (
+            "l'intervallo del giudice su queste risposte è al più {range} su "
+            "{count} giudizi ({check}, risposta {answer} del caso {case})"
+        ),
+        "judged.range.none": (
+            "l'intervallo del giudice su queste risposte non è stato misurato: "
+            "nessuna risposta giudicata ha restituito due punteggi"
+        ),
+        "judged.errored.one": ", e 1 giudizio non ha restituito un punteggio",
+        "judged.errored.many": (
+            ", e {count} giudizi non hanno restituito un punteggio"
+        ),
+        "judged.calibration.inside": (
+            "; il caso di calibrazione {case} ha ottenuto {score}, dentro la "
+            "banda dichiarata {low}–{high}"
+        ),
+        "judged.calibration.outside": (
+            "; il caso di calibrazione {case} ha ottenuto {score}, fuori dalla "
+            "banda dichiarata {low}–{high}"
+        ),
+        "judged.calibration.unjudged": (
+            "; il caso di calibrazione {case} non è stato possibile giudicarlo"
+        ),
+        "judged.calibration.none": (
+            "; questa suite non dichiara un caso di calibrazione, e un giudice "
+            "che ha perso la sua scala risulta perfettamente ripetibile"
+        ),
+        "explain.tally.calibration.one": (
+            "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "
+            "giudicati in questa esecuzione non stanno sulla scala su cui "
+            "vengono confrontati. Non entra in nessun aggregato, e al sistema "
+            "sotto esame non è stato chiesto nulla per esso."
+        ),
+        "explain.tally.calibration.many": (
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata: i "
+            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
+            "cui vengono confrontati. Non entrano in nessun aggregato, e al "
+            "sistema sotto esame non è stato chiesto nulla per essi."
         ),
         "explain.tally.on_the_line.one": (
             "1 controllo ha misurato una banda che copre la propria soglia: da "

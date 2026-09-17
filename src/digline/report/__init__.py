@@ -14,6 +14,7 @@ from digline.report.explain import (
     facts,
 )
 from digline.report.history import CaseEntry, CaseHistory, case_history
+from digline.report.judged import judge_reading
 from digline.report.log import (
     IdentityLog,
     IdentitySpan,
@@ -43,6 +44,7 @@ from digline.report.render import (
     RunTally,
     Section,
     artifact_lines,
+    calibration_fact,
     check_line,
     config_changes,
     config_lines,
@@ -54,11 +56,13 @@ from digline.report.render import (
     render_html,
     render_run_html,
     run_tally,
+    scale_lost,
     summary_lines,
     suspended_cases,
     unjudged_cases,
     visible,
 )
+from digline.report.shape import Shape, ShapeSide, shape
 from digline.report.text import LOCALES, TEXT, Locale, phrase
 
 __all__ = [
@@ -84,10 +88,14 @@ __all__ = [
     "Roll",
     "RunTally",
     "Section",
+    "Shape",
+    "ShapeSide",
     "Sighting",
     "case_history",
     "identity_log",
+    "judge_reading",
     "log_text",
+    "calibration_fact",
     "check_line",
     "diff",
     "case_page",
@@ -115,6 +123,8 @@ __all__ = [
     "suspended_cases",
     "suspension_snippet",
     "unjudged_cases",
+    "scale_lost",
+    "shape",
     "escape",
     "visible",
 ]

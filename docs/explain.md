@@ -125,6 +125,43 @@ deduce from an absence.
 `exit_code` is the number the process exits with, carried as a field for the
 same reason it is on `compare --json`.
 
+## Shape: judged scores at the extremes
+
+Against a reference, the reading adds one line per judged check — a check whose
+class declares `KIND = "judged"`, written into the run as `"judged": true`:
+
+```text
+faithfulness: 97.1% of 208 judged scores at 0 or 1, against 41.3% of 204 in the reference.
+```
+
+It reads **raw per-sample scores**, never a folded mean, over the cases that
+count: not a canary, not a calibration case, not a verdict that errored. A
+`Faithfulness` verdict with a single claim can only score 0 or 1, so it is left
+out, and the line says how many were. At `samples > 1` the run keeps only the
+mean claim count, so a sampled verdict averaging two or more is read, and the
+line says its per-sample counts were not recorded. Against a reference written
+before 0.14.0, which carries no `"judged"` key, the line says there is nothing to
+set beside the share.
+
+**It says nothing about which share is larger**, and that is not an omission.
+*More than the reference* needs a threshold, and on a suite of twenty cases one
+verdict moves a share by five points. The threshold is sized on data and added
+by a dated amendment to [ADR 0024](adr/0024-the-judge-as-an-instrument.md) §6.3.
+Until then this is a measurement, not a verdict. It is never in the headline and
+never an exit code: the [calibration case](api.md#casecalibration-watching-the-judges-scale)
+is the gate, and shape is the diagnosis.
+
+In `--json` it is a fact with `"kind": "shape"`, carrying its counts under
+`shape` — `check`, `assertion_id`, and `run` and `reference`, each with
+`extremes`, `scores`, `single_claim` and `claims_unrecorded` (`reference` is
+`null` where there is none). `compare --json full` carries the same list as
+`shape`.
+
+A check whose class declares no `KIND` is not read, and `digline run` names it.
+An autoevals scorer wrapped in `FromAutoevals` is not read either, and is **not**
+named — the known hole, described in the
+[API reference](api.md#custom-assertions).
+
 ## What it will not tell you
 
 **The judge's words.** No fact carries a `reason` — the field does not exist on

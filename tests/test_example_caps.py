@@ -118,6 +118,12 @@ RELEASED: dict[str, int] = {
     # every shipped check, neither of them a field, so no document, identity
     # or config_hash moves. A run document written by 0.13.2 is the same one.
     "0.13.3": 11,
+    # 12 — the calibration case (ADR 0024 §4): the check a case calibrates and
+    # the band its score has to land in, written where a case carries one. Its
+    # first passenger, and deliberately not its last: `Verdict.scale` and
+    # `Run.judge_samples` are ruled onto the same bump, so no 0.14.0 is tagged
+    # until they have boarded (ADR 0014 §1 — a bump is paid once).
+    "0.14.0": 12,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

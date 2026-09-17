@@ -249,7 +249,7 @@
       ]
     }
   ],
-  "schema_version": 11,
+  "schema_version": 12,
   "suite": "dispatch",
   "target_config": {},
   "tenant": "northwind"

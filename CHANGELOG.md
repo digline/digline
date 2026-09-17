@@ -6,7 +6,74 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.14.0 — unreleased
+
+**The judge gets a known point.** digline **0.14.0**, not yet tagged.
+`SCHEMA_VERSION` moves to **12** and `OUTPUT_VERSION` stays 1: every stored
+document has to be migrated, no `--json` shape breaks, and **no baseline needs
+re-promoting**, because nothing here touches an identity or `config_hash`.
+
+**Schema 12 is an open train, and that is a rule rather than a note.** Its first
+passenger is `CaseResult.calibration`; `Verdict.scale` and `Run.judge_samples`
+are ruled onto the same bump by
+[ADR 0024](docs/adr/0024-the-judge-as-an-instrument.md) §9. A bump is paid once
+— every stored document migrated, every example cap raised
+([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1) — so **0.14.0 is
+not tagged until both have boarded 12**, or each of them needs a 13 of its own.
+
+*For whoever writes the release commit: `unreleased` in this heading becomes the
+date, and nothing else in the section moves.*
+
+- **The calibration case.** `Case(calibration=Calibration(output=…, check=…,
+  low=…, high=…, input=…))` declares an answer you know to be partially correct
+  and the band a judge that still has a scale places it in. The target is never
+  called for it and only the named check runs; it is in no aggregate
+  (`calibration_excluded`, silent at zero), and a movement inside its band is
+  shown but never counted as better or worse. When the score lands **outside
+  the band**, the headline leads with the calibration clause, the run exits
+  **`2`** on `Headline.scale_lost` — with or without a baseline — and it cannot
+  be promoted (`UncalibratedRunError`). A regression beside it still exits `1`.
+  It exists because a judge that has gone binary is *more* repeatable, not less,
+  and a repeatability figure alone would call it perfectly stable.
+  `pytest-digline` shows a lost scale as the calibration row's ERROR, with the
+  report's sentence, in its release that follows; its floor is raised to
+  `digline>=0.14.0`. See the
+  [API reference](docs/api.md#casecalibration-watching-the-judges-scale) and
+  ADR 0024 §4, amended in §4.8 with what building it found.
+- **`digline rejudge --judge-samples M`.** On a replay, each judged check asks
+  the judge M times per recorded answer, and the verdicts still record what a
+  plain replay records. The judge's own range goes into metadata
+  (`judge_samples`, `judge_errored`, and the widest answer's `judge_min`,
+  `judge_max` and `judge_answer`) and never onto the noise floor. The run
+  records `judge_samples` — the second passenger of schema 12. The range is
+  never reported without the calibration result beside it: `rejudge` prints both
+  in one sentence on stderr and as `judge_reading` in `--json`. See
+  [`rejudge.md`](docs/rejudge.md) and ADR 0024 §5, amended in §5.5.
+- **Shape, measured and not yet judged.** Against a reference, `explain` adds
+  one line per judged check: the share of its raw per-sample scores at exactly
+  0 or 1, beside the reference's share
+  (`faithfulness: 97.1% of 208 judged scores at 0 or 1, against 41.3% of 204 in
+  the reference.`). `compare --json full` carries the counts as `shape`. There is
+  deliberately no sentence saying *more*: that threshold is sized on data and
+  added later. Shape is never in the headline and never an exit code. It reads
+  a new document key, `"judged": true`, written only on verdicts whose check
+  declares `KIND = "judged"` — the third and last passenger of schema 12. A suite
+  with a judge gains one key per judged verdict. No score, status or identity
+  moves, and no comparison against an older baseline reports a delta. See
+  [`explain.md`](docs/explain.md) and ADR 0024 §6, amended in §6.4.
+- **New lines on your terminal: `KIND` is optional but no longer unread.**
+  0.13.3's documentation said nothing that runs reads `KIND`. That is no longer
+  true. From this release, `digline run` names on stderr, on every run, each
+  check whose class declares no `KIND`, because the shape reading leaves it out
+  and the exclusion must not be silent. Nothing fails; declare `KIND` on the
+  class to stop the line. digline's own dogfood suite is the first to be named:
+  scout's `agrees_with_mark` and `agrees_on_comment` declare none.
+- **The known hole: `FromAutoevals`.** An autoevals scorer that calls a model is
+  **neither judged nor announced**. The adapter declares `wrapper` and wraps a
+  scorer, not an assertion, so nothing can be read through it: the shape
+  reading cannot see that scorer, and no line tells you. Closing the hole needs
+  its own decision, on how the adapter declares what its scorer is. It is not
+  taken in this release.
 
 ## 0.13.3 — 2026-09-16
 

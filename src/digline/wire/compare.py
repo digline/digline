@@ -9,7 +9,7 @@ from __future__ import annotations
 import dataclasses
 
 from digline.core import AssertionDelta, Comparison, ConfigDelta
-from digline.report import Headline
+from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
 
 __all__ = ["compare_json", "config_json", "delta_json"]
@@ -52,6 +52,31 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         # moved. A pipeline that reads only the number sees no change in kind;
         # one that wants to point at the check has the field. (ADR 0016 §8)
         "canary": delta.canary,
+        # The row that belongs to a calibration case, which `counts` leaves out:
+        # a pipeline reading every row can tell why this one is not among them.
+        # (ADR 0024 §4.4)
+        "calibration": delta.calibration,
+    }
+
+
+def _side_json(side: ShapeSide) -> dict[str, int]:
+    return {
+        "extremes": side.extremes,
+        "scores": side.scores,
+        "single_claim": side.single_claim,
+        "claims_unrecorded": side.claims_unrecorded,
+    }
+
+
+def shape_json(item: Shape) -> dict[str, object]:
+    """One judged check's shape: counts only, so a consumer computes any share
+    it wants and nothing rounded here is taken for a measurement. `reference`
+    is `null` where the reference records no judged verdict for the check."""
+    return {
+        "check": item.check,
+        "assertion_id": item.assertion_id,
+        "run": _side_json(item.run),
+        "reference": None if item.reference is None else _side_json(item.reference),
     }
 
 
@@ -94,6 +119,10 @@ def compare_json(
     payload["exit_code"] = exit_code(head)
     if full:
         payload["deltas"] = [delta_json(d) for d in comparison.deltas]
+        # The shape reading's numbers, beside the deltas they are read from. An
+        # added key, and a list with no verdict in it: nothing here says *more*.
+        # (ADR 0024 §6.3)
+        payload["shape"] = [shape_json(item) for item in shape(comparison)]
         payload["target_config_deltas"] = [
             config_json(d) for d in comparison.target_config_deltas
         ]

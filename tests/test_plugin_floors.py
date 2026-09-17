@@ -178,6 +178,13 @@ INTRODUCED: dict[str, str] = {
     "history": "0.13.0",
     "instant": "0.13.0",
     "log_json": "0.13.0",
+    # 0.14.0 — the calibration case (ADR 0024 §4). Dated to a release that does
+    # not exist yet, the shape `ToolCall` and `free` had: `pytest-digline` reads
+    # a lost scale off the run with the report's own function and prints the
+    # report's own sentence for it, so it stays off the index until 0.14.0 is.
+    "ScaleLost": "0.14.0",
+    "scale_lost": "0.14.0",
+    "calibration_fact": "0.14.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

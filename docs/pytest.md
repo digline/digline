@@ -99,6 +99,13 @@ before the first call (`20 cases × 5 samples = 100 calls to the target`); and i
 **refuses under `--collect-only`**, because a command whose job is to list test
 names must never be able to spend a hundred model calls.
 
+It does **not** name the checks whose class declares no `KIND`. `digline run`
+prints that line on every run, because those checks are left out of `explain`'s
+shape reading; the plugin's `--digline-run` does not. The asymmetry is
+deliberate: a stderr announcement is not worth raising the plugin's `digline`
+floor for. Run `digline run` once to see the line, or read
+[the API reference](api.md#custom-assertions).
+
 ## Naming a suite
 
 Nothing is discovered by convention. A suite is a file that *executes*, and

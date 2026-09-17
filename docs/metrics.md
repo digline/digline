@@ -583,7 +583,7 @@ one: it says a class moved, never which of the two halves moved it. Read
 
 ## What is left out of a denominator
 
-Four exclusions, and every one of them is counted in the verdict's metadata so
+Five exclusions, and every one of them is counted in the verdict's metadata so
 that a number can be reconciled with the case file:
 
 | | |
@@ -592,12 +592,14 @@ that a number can be reconciled with the case file:
 | `errored_excluded` | the check could not be judged |
 | `unlabelled_excluded` | the case carries no human mark to count against |
 | `canary_excluded` | the case watches the model rather than measuring it — see [`api.md`](api.md#casecanary-watching-the-model-instead-of-measuring-it) |
+| `calibration_excluded` | the case calibrates the judge on a fixed answer — see [`api.md`](api.md#casecalibration-watching-the-judges-scale) |
 
 `suspended_excluded` is the one figure here that can be improved by doing
 *less* work, which is why it is never printed on its own. The clause naming the
 canary appears only when there is one: rendered always, it would have rewritten
 the recorded reason of every aggregate verdict in every baseline already
-committed.
+committed. The calibration clause, and the `calibration_excluded` key itself,
+appear only when there is one too, for the same reason.
 
 ## Targets
 

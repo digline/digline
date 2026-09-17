@@ -32,6 +32,7 @@ from digline.core import (
     SystemConfig,
     Verdict,
     on_the_line,
+    scale_lost,
 )
 from digline.report.render import (
     ABSENT,
@@ -45,6 +46,7 @@ from digline.report.render import (
     on_the_line_count,
     run_tally,
 )
+from digline.report.shape import Shape, ShapeSide, shape
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -115,6 +117,19 @@ type TallyKind = Literal[
     # identity as confirmed that the record does not confirm. A fact, not a
     # verdict: it moves no exit code.
     "echoed",
+    # The fifth amendment, from ADR 0024 §4.7, by the same test the canary's
+    # passed: the report says it, and a reading that omitted it would describe a
+    # run whose exit code it could not account for. A count — how many
+    # calibration cases left their band — and it reads the run alone, so it is
+    # stated with or without a reference.
+    "calibration",
+    # The sixth, and the second amendment ADR 0024 makes to ADR 0012 §3: the
+    # share of a judged check's raw scores at 0 or 1, in this run and in the
+    # reference. One fact per judged check, carrying its numbers in `shape`
+    # rather than in `count`, and **no sentence that judges them**: the
+    # threshold for *more than the reference* is measured later. It gates
+    # nothing, and it is not in the headline. (ADR 0024 §6.3)
+    "shape",
 ]
 
 
@@ -181,15 +196,20 @@ class SettingFact:
 
 @dataclass(frozen=True, slots=True)
 class TallyFact:
-    """One run-level count, or one run-level state.
+    """One run-level count, one run-level state, or one judged check's shape.
 
-    `count` for the first, `state` for the second, and never both: a fact that
-    carried a number and a boolean would be two facts sharing a row.
+    `count` for the first, `state` for the second, `shape` for the third — the
+    two sides' counts, which are neither a count of the run nor a state — and
+    never more than one of them: a fact that carried two would be two facts
+    sharing a row.
     """
 
     kind: TallyKind
     count: int = 0
     state: bool | None = None
+    #: Only on `shape`, whose numbers are neither a count nor a state: the two
+    #: shares, their counts and what each side left out.
+    shape: Shape | None = None
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -245,8 +265,16 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     on_line = on_the_line_count(run)
     if on_line:
         out.append(TallyFact("on_the_line", count=on_line))
+    # **First, before any number and before a moved judge**, and from the run
+    # alone. A lost scale says the judged numbers below are not measurements at
+    # all, which is a stronger caveat than a judge that moved — a moved judge
+    # still measures on a scale, just a different one. It is inserted last so
+    # the comparability fact below cannot displace it. (ADR 0024 §4.6)
+    lost = len(scale_lost(run))
 
     if comparison is None:
+        if lost:
+            out.insert(0, TallyFact("calibration", count=lost))
         return out
 
     covered = sum(1 for delta in comparison.deltas if delta.within_noise)
@@ -264,6 +292,9 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # none has nothing to say at all.
     if comparison.canary_moved:
         out.append(TallyFact("canary", state=True))
+    # After the states and before any caveat is moved to the top: shape is a
+    # diagnosis, read beside the calibration case rather than instead of it.
+    out.extend(TallyFact("shape", shape=item) for item in shape(comparison))
     # **First of all, and before any number.** A judge that moved did not change
     # what was measured, it changed the scale it was measured on — so every
     # count above it is a count of differences read off two rulers, and a reader
@@ -278,6 +309,8 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # term — a reading is a list, and a list is read from the top. (ADR 0018 §8)
     if comparison.comparability_reduced:
         out.insert(0, TallyFact("comparability", state=True))
+    if lost:
+        out.insert(0, TallyFact("calibration", count=lost))
     return out
 
 
@@ -373,6 +406,11 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
 
     by_outcome: dict[str, list[AssertionDelta]] = {}
     for delta in comparison.deltas:
+        if delta.calibration and not _errored(delta):
+            # Not a check of the system, so not in a list of what moved in it:
+            # its only gate is its band, which the tally states. An errored one
+            # stays, because it is unjudged like any other. (ADR 0024 §4.4)
+            continue
         if delta.outcome == "unchanged" and not _moved(delta):
             # A check that did not move at all is in the tally and nowhere
             # else. The dossier this depth is taken from draws the line in the
@@ -388,6 +426,10 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
             out.append(_check_fact(delta))
     out.extend(_suspensions(run))
     return out
+
+
+def _errored(delta: AssertionDelta) -> bool:
+    return delta.current is not None and delta.current.status == "error"
 
 
 def _moved(delta: AssertionDelta) -> bool:
@@ -448,7 +490,9 @@ def _checks_alone(run: Run) -> list[Fact]:
         )
         for case in run.results
         for verdict in case.verdicts
-        if verdict.status == "fail"
+        # A calibration case's pass or fail is a threshold read against an
+        # answer nobody generated; what it found is its band, in the tally.
+        if verdict.status == "fail" and case.calibration is None
     ]
     out.extend(
         CheckFact(
@@ -586,7 +630,55 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, "explain.tally.canary")
         case "echoed":
             return phrase(locale, "explain.tally.echoed")
+        case "calibration":
+            return phrase(
+                locale,
+                f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "shape":
+            assert fact.shape is not None
+            return _shape_line(fact.shape, locale)
     assert_never(fact.kind)
+
+
+def _share(side: ShapeSide) -> str:
+    """`97.1%`: one decimal, the dot in every locale."""
+    return f"{100 * side.extremes / side.scores:.1f}%"
+
+
+def _shape_line(item: Shape, locale: Locale) -> str:
+    """The two shares and their counts, and what each left out — never a word
+    about whether one is more than the other. (ADR 0024 §6.3)"""
+    run, reference = item.run, item.reference
+    if not run.scores:
+        text = phrase(locale, "explain.tally.shape.none", check=item.check)
+    elif reference is None or not reference.scores:
+        text = phrase(
+            locale,
+            "explain.tally.shape.noreference",
+            check=item.check,
+            share=_share(run),
+            scores=run.scores,
+        )
+    else:
+        text = phrase(
+            locale,
+            "explain.tally.shape",
+            check=item.check,
+            share=_share(run),
+            scores=run.scores,
+            reference_share=_share(reference),
+            reference_scores=reference.scores,
+        )
+    for count, key in (
+        (run.single_claim, "explain.tally.shape.single_claim"),
+        (run.claims_unrecorded, "explain.tally.shape.claims_unrecorded"),
+    ):
+        if count:
+            suffix = "one" if count == 1 else "many"
+            text += phrase(locale, f"{key}.{suffix}", count=count)
+    return text
 
 
 def _count(count: int) -> str:

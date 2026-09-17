@@ -31,6 +31,7 @@ __all__ = [
     "Listing",
     "Pending",
     "ReplayedRunError",
+    "UncalibratedRunError",
     "ResultStore",
     "RunRef",
     "SupportsJournal",
@@ -89,6 +90,18 @@ class ReplayedRunError(Exception):
     ordinary wobble of the target would then read as a movement beyond the
     noise. A replay promoted as a reference is a noise floor measured without
     the noise. (ADR 0015 §7)
+    """
+
+
+class UncalibratedRunError(Exception):
+    """Raised when promoting a run whose calibration case left its band.
+
+    The scores in that run are not placed on the scale they are compared on:
+    the judge graded an answer known to be partially correct and put it at an
+    extreme, or somewhere else the author declared it cannot be. Promoted, it
+    would become the reference a later run's shape is read against — and a
+    baseline scored by a judge that has gone binary makes a collapse invisible
+    for as long as it stands. (ADR 0024 §4.5)
     """
 
 
@@ -253,7 +266,7 @@ class ResultStore(Protocol):
 
         Promotion is a deliberate act and never a side effect of running: that
         is what makes the baseline a committed, reviewable artifact rather than
-        a file that updates itself. It has three conditions, and each of them
+        a file that updates itself. It has five conditions, and each of them
         exists because breaking it produces a comparison that still runs and
         still returns numbers, which is the worst way to be wrong.
 
@@ -268,6 +281,9 @@ class ResultStore(Protocol):
         4. `ReplayedRunError` if the run declares `rejudged_from` — the answers
            must have been *measured*, or the interval promoted with them was
            measured without the target in it (ADR 0015 §7).
+        5. `UncalibratedRunError` if a calibration case scored outside its
+           declared band — the numbers exist and are not measurements
+           (ADR 0024 §4.5).
 
         What is written carries `promoted_at`: `created_at` says when the run was
         measured, and this says when a person signed it off.
