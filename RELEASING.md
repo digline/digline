@@ -422,14 +422,20 @@ The second shape is there because a brand-new project has no page at all, so an
 edge can hold a cached 404 for the project URL — a longer-lived thing than a
 page that merely has to gain a line.
 
-**It runs where each consumer resolves, not only in the job that uploaded.**
-One view of the index does not prove another's. On v0.13.0 the `pypi` job
-verified its pins, and the image build ~30s later was still told
-`digline==0.13.0` did not exist. On v0.14.0 and v0.14.1 the image jobs' own
-wait on the runner passed, and `pip` inside the Docker build was served the
-previous version 16–20s later. A consumer is not a job: it is **a place `pip`
-resolves from**, and a Docker build resolves from its own container and network
-namespace, which can reach a different edge from the runner that started it.
+**The rule: list consumers by where `pip` resolves, not by job.** A consumer is
+**a place `pip` resolves the index from**: a runner, a container, a build's
+network namespace. Each one gets its own wait, run from that place, beside the
+install it protects. One place's view of the index proves nothing about
+another's, so a job can hold several consumers, and a wait in the job protects
+only the one it runs in. **To find a missed consumer, don't list the workflow's
+jobs. List every `pip install`, and ask where it runs.**
+
+The rule was learnt twice. On v0.13.0 the `pypi` job verified its pins, and the
+image build ~30s later was still told `digline==0.13.0` did not exist. On
+v0.14.0 and v0.14.1 the image jobs' own wait on the runner passed, and `pip`
+*inside the Docker build* was served the previous version 16–20s later. A Docker
+build resolves from its own container and network namespace, which can reach a
+different edge from the runner that started it.
 
 | Consumer | Where it resolves | Waits for | Deadline |
 |---|---|---|---|
@@ -442,14 +448,24 @@ namespace, which can reach a different edge from the runner that started it.
 | `ci.yml` → `examples-from-pypi` | the runner | this workspace's core version | 4 min |
 
 **Why the in-build consumers were missed, and cost two reruns.** The first list
-was a list of **jobs**. It should have been a list of the **network namespaces**
-the jobs resolve from. The wait inside the build is `docker/await_index.py`, the
+was made by walking the jobs, which is the method the rule above replaces. The wait inside the build is `docker/await_index.py`, the
 same script copied into the build context, held byte for byte by
 `tests/test_docker.py` and bind-mounted, so no byte of it lands in the image.
 It runs in the same `RUN` as `pip install`, so a cached install is never
 separated from its wait. It is gated by `ARG AWAIT_INDEX_TIMEOUT`, **default
 `0`**: a local `docker build docker/` waits for nothing, and only the three
 builds above pass a timeout. The same test holds each of them to a non-zero one.
+
+**Unproven on the release path until the next `v*` tag.** Of the three
+in-build waits, only `ci.yml` → `image` has run a real build, on the pull request
+that added it: it printed `served` for all four pins from inside the build. The
+two `docker-publish.yml` legs, `smoke`'s build step and the multi-arch push with
+its arm64 install, run only on a `v*` tag, and they have not run with this wait
+yet. **The next release's `docker-publish` green is their first real test.**
+Read the build log for `served` lines under `#… the index at https://pypi.org
+must serve`, not only the run's conclusion. A green run without those lines
+means the wait did not run. Then delete this paragraph in the same release's
+follow-up, saying it was seen.
 
 **What still is not covered, stated rather than assumed.** The `testpypi` job
 installs unversioned names, on purpose — TestPyPI resolves against a different
