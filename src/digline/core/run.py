@@ -140,14 +140,17 @@ __all__ = [
 #    The bump did not create the refusal an old reader gives — an omitted `tool`
 #    was already refused by name — and a journal, whose version does not move
 #    with this one, has only that refusal.
-#    Ruled first, not yet built: a stamp on a verdict whose `Score.samples` are
-#    folds — a `Repeated` check in a suite with `samples > 1`, which stores the
-#    per-answer means of its judgements, not the judgements. Ruled in ADR 0024
-#    §6.2's amendment (2026-09-17). Its reading is ruled too: `digline.report.
-#    shape` leaves those verdicts out of the shares, counts them, and says their
-#    per-judgement scores were not recorded — an absence, never a zero. Left
-#    open: only the key's name, and its three answers to ADR 0014 §1. 13 stays
-#    open until it has boarded.
+#    Boarded second, and closes the train: `Score.sample_means`, written as
+#    `"sample_means": true` beside `samples` on a verdict whose samples are
+#    means of judgements rather than judgements — a fold of folds, stamped in
+#    `combine_samples`. Checked against ADR 0014 §1 in ADR 0024 §6.5: outside
+#    `identity` and `config_hash`; the step writes nothing, but here absent
+#    means *not stamped*, never *judgements*, because every 0.14.x run of a
+#    `Repeated` check in a sampled suite wrote an unstamped fold the step could
+#    not derive — the shape reading carries that by pairing; one boolean that
+#    crosses with the samples it qualifies. Unlike the passenger before it, this
+#    one needs the bump's refusal: 0.14.x would ignore the key and read means
+#    as judgements.
 SCHEMA_VERSION = 13
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
@@ -1205,6 +1208,10 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
             samples=verdict.score.samples,
             sample_min=verdict.score.sample_min,
             sample_max=verdict.score.sample_max,
+            # What those numbers are, beside them, for their reason: a fact
+            # about how the scores were stored, never about the case. (ADR 0024
+            # §6.5)
+            sample_means=verdict.score.sample_means,
         ),
         threshold=verdict.threshold,
         status=verdict.status,
@@ -1355,6 +1362,11 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
         assert verdict.score.sample_max is not None
         payload["sample_min"] = _num(verdict.score.sample_min)
         payload["sample_max"] = _num(verdict.score.sample_max)
+        # Beside the samples it qualifies, and only when true: every verdict
+        # whose samples are judgements writes the document it wrote before.
+        # (ADR 0024 §6.5)
+        if verdict.score.sample_means:
+            payload["sample_means"] = True
     # Omitted, not emptied: a redacted document must carry nothing from which
     # the reason could be guessed, not even its length.
     if not redacted:
@@ -1407,6 +1419,7 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
             sample_max=(
                 None if raw.get("sample_max") is None else float(raw["sample_max"])
             ),
+            sample_means=_sample_means(raw),
         ),
         threshold=float(_required(raw, "threshold", where)),
         tolerance=float(_required(raw, "tolerance", where)),
@@ -1419,6 +1432,26 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # written before 12, and nothing is guessed from a check's name.
         judged=bool(raw.get("judged", False)),
     )
+
+
+def _sample_means(raw: Mapping[str, Any]) -> bool:
+    """`sample_means`, where it is written, and only as `true`.
+
+    Absent is *not stamped* — never *these are judgements*. A document written
+    at 13 stamps every fold of folds, so there the two coincide; one migrated
+    from 12 holds unstamped folds the step could not derive, and the shape
+    reading carries that difference by pairing. The key is written only when
+    true, so anything else in it is refused by name rather than read as either.
+    (ADR 0024 §6.5)
+    """
+    if "sample_means" not in raw:
+        return False
+    if raw["sample_means"] is not True:
+        raise ValueError(
+            f"verdict: 'sample_means' is written only as true, got "
+            f"{raw['sample_means']!r}"
+        )
+    return True
 
 
 def run_to_dict(run: Run) -> dict[str, object]:

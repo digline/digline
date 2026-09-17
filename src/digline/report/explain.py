@@ -672,8 +672,15 @@ def _shape_line(item: Shape, locale: Locale) -> str:
             reference_scores=reference.scores,
         )
     for count, key in (
+        (run.sample_means, "explain.tally.shape.sample_means"),
         (run.single_claim, "explain.tally.shape.single_claim"),
         (run.claims_unrecorded, "explain.tally.shape.claims_unrecorded"),
+        # The reference's own, because the pairing leaves verdicts out there
+        # too, and an absence nobody names is a misreading by omission.
+        (
+            0 if reference is None else reference.sample_means,
+            "explain.tally.shape.reference_sample_means",
+        ),
     ):
         if count:
             suffix = "one" if count == 1 else "many"

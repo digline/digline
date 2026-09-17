@@ -191,7 +191,7 @@ def _add_schema_twelve(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _add_schema_thirteen(raw: dict[str, Any]) -> dict[str, Any]:
-    """12 -> 13. One passenger boarded so far, and it writes nothing.
+    """12 -> 13. Two passengers, and the step writes nothing for either.
 
     `tool_absence` is left absent on every recorded call, because a schema-12
     writer could not omit `tool` — `RecordedToolCall` refused a call without a
@@ -204,6 +204,17 @@ def _add_schema_thirteen(raw: dict[str, Any]) -> dict[str, Any]:
     plain-function target that reported `"tool": None`. It cannot be told apart
     from a tool really named `None`, so rewriting it would be a guess and
     refusing the document would refuse a legitimate name. It is left as written.
+
+    `sample_means` is left absent too, and here the absence does **not** mean
+    what it means in a document written at 13. Every 0.14.x run of a `Repeated`
+    check in a sampled suite stored means of judgements unstamped, and nothing in
+    the document can tell them apart: the metadata keys are identical, `Run` does
+    not record the suite's `samples`, and a `Repeated`'s identity is a hash. So
+    absent means *not stamped*, never *these are judgements*, and the shape
+    reading carries that difference by pairing a reference verdict with the
+    run's by identity. Writing the stamp would be a guess, and refusing every
+    schema-12 document would cost most of them a fact they do not involve.
+    (ADR 0024 §6.5)
 
     The step still has to **exist**, for the reason the steps before it give.
     """

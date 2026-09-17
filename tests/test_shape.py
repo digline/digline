@@ -332,12 +332,19 @@ def test_the_wire_carries_counts_under_full_only() -> None:
     assert item == {
         "check": "llm_rubric",
         "assertion_id": "id-llm_rubric",
-        "run": {"extremes": 4, "scores": 4, "single_claim": 0, "claims_unrecorded": 0},
+        "run": {
+            "extremes": 4,
+            "scores": 4,
+            "single_claim": 0,
+            "claims_unrecorded": 0,
+            "sample_means": 0,
+        },
         "reference": {
             "extremes": 1,
             "scores": 4,
             "single_claim": 0,
             "claims_unrecorded": 0,
+            "sample_means": 0,
         },
     }
 

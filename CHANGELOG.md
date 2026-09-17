@@ -13,10 +13,7 @@ tagged. `SCHEMA_VERSION` moves to **13** and `OUTPUT_VERSION` stays 1: every
 stored document has to be migrated, no `--json` shape breaks, and **no baseline
 needs re-promoting**, because nothing here touches an identity or `config_hash`.
 
-**Schema 13 is an open train.** It is ruled for two passengers and boards them as
-they are built. The `Repeated`-fold stamp
-([ADR 0024](docs/adr/0024-the-judge-as-an-instrument.md) §6.2) was ruled first
-and has not boarded, so **0.15.0 is not tagged until it has**
+**Schema 13 carries two passengers, and the train is full**
 ([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1: a bump is paid
 once).
 
@@ -37,6 +34,22 @@ date, and the paragraph ADR 0018 §1's 2026-09-17 amendment rules for the
   with their floors raised to `digline>=0.15.0`. See
   [`metrics.md`](docs/metrics.md#toolscalled) and ADR 0018 §1, amended
   2026-09-17.
+- **The shape line stops misreading a fold of folds.** In 0.14.x, a judged
+  check wrapped in `Repeated` in a sampled suite stored the means of its
+  judgements where the judgements belonged, and the shape line in `explain`
+  read them as judgements. A judge that alternated 0 and 1 read as 0% at the
+  extremes, which is the opposite of what it was. A nested `Repeated` did the
+  same at `samples=1`, and so did a `--judge-samples` replay of a `Repeated`
+  check. Such a verdict is now written with `"sample_means": true` beside its
+  `samples`. The shape line leaves it out, counts it, and says its
+  per-judgement scores were not recorded; `compare --json full` carries the
+  count as `sample_means`. A reference from 0.14.x holds these folds unstamped,
+  and nothing can stamp them afterwards. Where your run stamps a check, the
+  reference's matching sampled verdicts are left out and counted, not read.
+  **Your baselines keep comparing**, and nothing re-promotes. For such a check the
+  shape line has no share to show on either side, because the per-judgement
+  scores it would read were never recorded. To read a judge's shape, declare
+  the check without nesting `Repeated` and run the suite at `samples=1`. See [`explain.md`](docs/explain.md) and ADR 0024 §6.5.
 
 ## digline-anthropic 0.5.1 — 2026-09-17
 

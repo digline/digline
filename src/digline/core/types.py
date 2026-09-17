@@ -364,10 +364,23 @@ class Score:
     samples: tuple[float, ...] = ()
     sample_min: float | None = None
     sample_max: float | None = None
+    #: Each of `samples` is itself a **mean of judgements**, not a judgement: the
+    #: fold that produced this score folded verdicts that were already folds —
+    #: `Repeated` in a sampled suite, a nested `Repeated`, a `--judge-samples`
+    #: replay of a `Repeated` check. Stamped by `combine_samples`, never
+    #: declared, and written to the document only when true. A reading of
+    #: per-judgement scores leaves such a verdict out and counts it. (ADR 0024
+    #: §6.5)
+    sample_means: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("Score.name must not be empty")
+        if self.sample_means and not self.samples:
+            raise ValueError(
+                "Score says its samples are means and carries no samples: the "
+                "stamp qualifies samples, and there are none to qualify"
+            )
         self._check_interval()
         if self.score is None:
             return
@@ -502,6 +515,7 @@ class Verdict:
                         samples=self.score.samples,
                         sample_min=self.score.sample_min,
                         sample_max=self.score.sample_max,
+                        sample_means=self.score.sample_means,
                     ),
                 )
 
