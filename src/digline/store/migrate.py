@@ -190,6 +190,26 @@ def _add_schema_twelve(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_thirteen(raw: dict[str, Any]) -> dict[str, Any]:
+    """12 -> 13. One passenger boarded so far, and it writes nothing.
+
+    `tool_absence` is left absent on every recorded call, because a schema-12
+    writer could not omit `tool` — `RecordedToolCall` refused a call without a
+    name — so every call in such a document is named, which is what the absence
+    says. (ADR 0018 §1, amended 2026-09-17)
+
+    **What this step cannot reach, and does not try to.** A schema-12 document
+    may hold `"tool": "None"` that was really a call nobody named: digline-
+    anthropic 0.5.0 or earlier behind an endpoint that omitted the name, or a
+    plain-function target that reported `"tool": None`. It cannot be told apart
+    from a tool really named `None`, so rewriting it would be a guess and
+    refusing the document would refuse a legitimate name. It is left as written.
+
+    The step still has to **exist**, for the reason the steps before it give.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -201,6 +221,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     9: _add_schema_ten,
     10: _add_schema_eleven,
     11: _add_schema_twelve,
+    12: _add_schema_thirteen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

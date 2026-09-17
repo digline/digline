@@ -128,6 +128,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
     "RELEASING.md": {
+        "0.14.1": "three sentences told as history once 0.15.0 is the tree's "
+        "version: 'Nothing is queued as of 0.14.1' — the site-batch state read "
+        "on that release — and the two releases, v0.14.0 and v0.14.1, whose "
+        "image wait passed on the runner while the build still could not "
+        "resolve the pin. The numbers date the evidence",
         "0.12.0": "'the delta-pass over 0.12.0' — which release the worked "
         "example of a drafted advisory came from, told as history. The number "
         "dates the pass; without it the example cannot say when it happened. "
@@ -303,6 +308,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_docker.py",
         "0.5.1": "digline-anthropic's version, pinned to its own pyproject by "
         "tests/test_docker.py",
+    },
+    "src/digline/store/migrate.py": {
+        "0.5.0": "'digline-anthropic 0.5.0 or earlier' — the plugin releases "
+        'that recorded a call nobody named as a tool named "None", which is '
+        "the residue the 12 -> 13 step names and leaves alone. History",
     },
     "src/digline/report/pages.py": {
         "0.4.0": "'0.4.0 rendering compare_page' — the state of a shipped release",

@@ -19,7 +19,7 @@ import pytest
 from digline.run import Case
 from digline.targets import ModelPrice, Pricing, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
-from digline_anthropic.client import tools_of
+from digline_anthropic.client import tool_calls_of, tools_of
 
 
 @dataclass
@@ -439,14 +439,15 @@ def test_a_server_tool_with_no_result_in_the_reply_reports_neither(
 
 @pytest.mark.parametrize("name", [None, ""], ids=["null-or-absent", "empty"])
 @pytest.mark.parametrize("kind", ["tool_use", "server_tool_use"])
-def test_a_call_that_names_no_tool_errors_instead_of_being_recorded(
+def test_a_call_that_names_no_tool_is_recorded_as_one_nobody_named(
     prompt: Path, kind: str, name: str | None
 ) -> None:
     """The SDK declares `name: str` and does not validate a reply, so a server
     that breaks the contract hands over `None` — for a name left out and for
-    `"name": null` alike. 0.5.0 recorded that as a tool named `"None"`, beside
-    the named call, and nothing noticed. Now the reply errors, as it already did
-    on digline-openai and digline-bedrock. (ADR 0018 §1, amended 2026-09-17)"""
+    `"name": null` alike. 0.5.0 recorded that as a tool named `"None"`; 0.5.1
+    errored the case, the named call beside it included. Now the call is `None`
+    at its position, in `tools` and `tool_calls` alike, and the named call is
+    kept. (ADR 0018 §1, amended 2026-09-17)"""
     target, client = a_target(prompt)
     client.messages.reply = FakeReply(
         content=[
@@ -455,16 +456,18 @@ def test_a_call_that_names_no_tool_errors_instead_of_being_recorded(
         ],
         stop_reason="tool_use",
     )
-    with pytest.raises(ValueError, match="ToolCall.tool must not be empty"):
-        target(Case(id="it", vars={"country": "Italy"}))
+    reported = target(Case(id="it", vars={"country": "Italy"})).metadata
+    assert reported["tools"] == [None, "lookup"]
+    calls = cast("list[dict[str, object]]", reported["tool_calls"])
+    assert [call["tool"] for call in calls] == [None, "lookup"]
+    assert calls[0]["arguments"] == {"id": "4711"}
 
 
-def test_tools_of_refuses_the_same_block_rather_than_naming_it() -> None:
-    """`tools_of` is public, and it used to `str()` the name on its own path —
-    so it would have said `"None"` even where `tool_calls_of` refused."""
+def test_tools_of_and_tool_calls_of_agree_on_a_call_nobody_named() -> None:
+    """`tools_of` is public, and it used to `str()` the name on its own path."""
     reply = FakeReply(content=[FakeBlock("", "tool_use", name=None, id="toolu_1")])
-    with pytest.raises(ValueError, match="ToolCall.tool must not be empty"):
-        tools_of(reply)
+    assert tools_of(reply) == (None,)
+    assert tuple(call.tool for call in tool_calls_of(reply)) == (None,)
 
 
 def test_a_reply_that_called_nothing_reports_an_empty_trajectory(prompt: Path) -> None:

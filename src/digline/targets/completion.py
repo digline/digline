@@ -50,18 +50,25 @@ class ToolCall:
     client-side call is `status="not_reported"` with
     `result_absence="not_reported"`, because the reply ends where the tool
     would start. (ADR 0018 §1, amended 2026-09-15)
+
+    **A call the provider did not name is `tool=None`.** None of the three SDKs
+    validates a reply, so a server that leaves the name out hands over `None`
+    or nothing; a plugin reads both, and `""`, as not reported, and the document
+    records the absence rather than a tool named `"None"`. `""` is refused here:
+    a plugin that does not know says `None`. (ADR 0018 §1, amended 2026-09-17)
     """
 
-    tool: str
+    tool: str | None
     arguments: Mapping[str, object] | str | None
     status: ToolStatus
     result: str | None = None
     result_absence: ResultAbsence | None = None
 
     def __post_init__(self) -> None:
-        if not self.tool:
+        if self.tool == "":
             raise ValueError(
-                "ToolCall.tool must not be empty: a call to nothing is not a call"
+                "ToolCall.tool must not be empty: a call to nothing is not a call, "
+                "and a call the provider did not name is None"
             )
         if self.result_absence is not None and self.result is not None:
             raise ValueError(
@@ -120,7 +127,11 @@ class Completion:
     #: nobody reported. A plain-function target and a provider that says nothing
     #: about tools must not be read as models that called none, so `ToolsCalled`
     #: errors on `None` and judges `()`.
-    tools: tuple[str, ...] | None = None
+    #:
+    #: **A `None` inside is a call the provider did not name**, at its position.
+    #: `ToolsCalled` never passes over one, fails where the mismatch is settled
+    #: without it, and errors otherwise. (ADR 0018 §1, amended 2026-09-17)
+    tools: tuple[str | None, ...] | None = None
     #: What the provider said answered, where it says so. `None` on Bedrock
     #: Converse, whose reply carries no model id at all — and it stays `None`
     #: rather than echoing the request back, which would manufacture the one

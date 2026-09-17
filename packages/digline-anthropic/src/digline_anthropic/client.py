@@ -90,7 +90,7 @@ def usage_of(reply: Any) -> Usage:
     )
 
 
-def tools_of(reply: Any) -> tuple[str, ...]:
+def tools_of(reply: Any) -> tuple[str | None, ...]:
     """The tools the model called, in the order it called them.
 
     Both kinds count. A `tool_use` block is a tool the suite is asked to run; a
@@ -101,8 +101,8 @@ def tools_of(reply: Any) -> tuple[str, ...]:
     Never `None`: this API always says what the assistant turn contained, so an
     empty tuple here is the model calling nothing rather than nobody reporting.
 
-    Read off `tool_calls_of`, so the two cannot disagree: a block that one
-    refuses for naming no tool, the other refuses too.
+    Read off `tool_calls_of`, so the two cannot disagree: a block that names no
+    tool is `None` at its position in both.
     """
     return tuple(call.tool for call in tool_calls_of(reply))
 
@@ -176,19 +176,20 @@ def tool_calls_of(reply: Any) -> tuple[ToolCall, ...]:
     return tuple(calls)
 
 
-def _name_of(block: Any) -> str:
-    """The tool a block names, or `""` where it names none — which `ToolCall`
-    refuses, so the reply errors instead of being recorded.
+def _name_of(block: Any) -> str | None:
+    """The tool a block names, or `None` where it names none.
 
     The SDK declares `name: str` and does not validate a reply, so a server that
     does not honour the contract hands over `None`, whether it left the name out
-    or sent `null`. `str()` of that was a tool named `"None"`: a silent misread
-    in `tools` and `tool_calls` alike, where digline-openai and digline-bedrock
-    already raised. An errored case is the honest outcome until the document
-    can record a call nobody named. (ADR 0018 §1, amended 2026-09-17)
+    or sent `null`. `str()` of that was once a tool named `"None"`: a silent
+    misread in `tools` and `tool_calls` alike. The next release errored the
+    case instead;
+    the document now records the call as one the provider did not name, and the
+    named calls beside it are judged. `""` is not a name either. (ADR 0018 §1,
+    amended 2026-09-17)
     """
     name: object = getattr(block, "name", None)
-    return name if isinstance(name, str) else ""
+    return name if isinstance(name, str) and name else None
 
 
 def _error_code(outcome: Any) -> str | None:

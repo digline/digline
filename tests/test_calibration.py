@@ -713,10 +713,12 @@ def test_redaction_keeps_the_band() -> None:
 
 def test_the_migration_to_twelve_writes_nothing() -> None:
     run = execute(suite(cases=[Case(id="one")]), Counting(), created_at=CREATED)
-    at_twelve = run_to_dict(run)
-    at_eleven = {**at_twelve, "schema_version": 11}
-    assert SCHEMA_VERSION == 12
-    assert upgrade_document(at_eleven) == at_twelve
+    current = run_to_dict(run)
+    at_eleven = {**current, "schema_version": 11}
+    # Through 12 and on to 13, whose step writes nothing either (ADR 0018 §1,
+    # amended 2026-09-17): what 11 -> 12 adds is still nothing.
+    assert SCHEMA_VERSION == 13
+    assert upgrade_document(at_eleven) == current
 
 
 def test_a_suite_without_one_writes_no_new_byte() -> None:
@@ -913,11 +915,14 @@ def test_a_0_13_1_reader_refuses_a_document_carrying_one(tmp_path: Path) -> None
     with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
         tar.extractall(tmp_path / "old", filter="data")
 
-    document = tmp_path / "run.json"
-    document.write_text(
-        run_to_json(execute(suite(score=1.0), Counting(), created_at=CREATED)),
-        encoding="utf-8",
+    # Stamped 12, the schema that brought the calibration case: a document at
+    # 13 would be refused on its version too, for a bump that is not this one.
+    written = json.loads(
+        run_to_json(execute(suite(score=1.0), Counting(), created_at=CREATED))
     )
+    written["schema_version"] = 12
+    document = tmp_path / "run.json"
+    document.write_text(json.dumps(written), encoding="utf-8")
     read = subprocess.run(  # noqa: S603
         [
             sys.executable,

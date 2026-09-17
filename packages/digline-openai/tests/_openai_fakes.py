@@ -21,7 +21,9 @@ from typing import Any
 
 @dataclass
 class FakeFunction:
-    name: str = "search"
+    #: `None` is what the SDK hands over when a compatible server leaves the
+    #: name out or sends `null`: it does not validate a reply.
+    name: str | None = "search"
     #: A **string** on this API, not an object, and the SDK's own docstring
     #: warns the model does not always generate valid JSON in it — which is why
     #: the plugin decodes it when it is an object and keeps it verbatim when it
