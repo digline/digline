@@ -124,6 +124,10 @@ RELEASED: dict[str, int] = {
     # `Run.judge_samples` are ruled onto the same bump, so no 0.14.0 is tagged
     # until they have boarded (ADR 0014 §1 — a bump is paid once).
     "0.14.0": 12,
+    # Schema 12 still: 0.14.1 is the delta-pass patch. It corrects what 0.14.0
+    # promised about the calibration answer and states a limit of the shape
+    # reading; the only code it adds is a test. No document moves.
+    "0.14.1": 12,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

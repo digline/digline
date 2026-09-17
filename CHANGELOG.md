@@ -6,7 +6,18 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.14.1 — 2026-09-17
+
+**Two corrections from 0.14.0's delta-pass, and no behaviour change.**
+digline **0.14.1**, alone: `pytest-digline` 0.1.4 follows it as a named tag,
+and the provider plugins and `digline-mcp` do not move. `SCHEMA_VERSION` stays
+**12** and `OUTPUT_VERSION` stays 1. No stored document moves, and **no baseline
+needs re-promoting**. The example locks stay at 0.14.0: their caps admit 0.14.1,
+and nothing in this patch changes what they run.
+
+```sh
+uv add --upgrade digline
+```
 
 - **A correction to what 0.14.0 promised about the calibration answer, and it
   applies to every suite, not only to calibration.** 0.14.0 said a calibration
