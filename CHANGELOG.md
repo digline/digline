@@ -6,6 +6,30 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-anthropic 0.5.1 — 2026-09-17
+
+`digline-anthropic` alone. digline stays at 0.14.1, and the other two provider
+plugins stay at 0.5.0.
+
+```sh
+uv add --upgrade digline-anthropic
+```
+
+- **Fixed: a tool call with no name was recorded as a tool named `"None"`.**
+  The SDK declares the name required but does not check the reply, so a server
+  that leaves it out or sends `null` — a gateway behind `ANTHROPIC_BASE_URL` —
+  handed over `None`, and the plugin wrote `"None"` into `tools` and
+  `tool_calls` with nothing to notice. `ToolsCalled` judged it as a call to
+  `"None"`, and a recorded run kept it. The reply now **errors the case**,
+  as it already did on `digline-openai` and `digline-bedrock`: an errored case
+  is honest, and a misread verdict is not. Recording a call nobody named — so
+  that the named calls beside it can still be judged — needs the document to
+  say so, and arrives with the next schema.
+- **What it does not do:** repair runs already written. A `"None"` recorded
+  by 0.5.0 cannot be told apart from a tool really named `None`, so it is
+  left as it is.
+- Requires `digline>=0.13.0`, unchanged.
+
 ## pytest-digline 0.1.4 — 2026-09-17
 
 `pytest-digline` alone, on its own version line. digline stays at 0.14.1 and

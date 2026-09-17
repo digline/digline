@@ -301,6 +301,8 @@ RECORDED: dict[str, dict[str, str]] = {
     "docker/Dockerfile": {
         "0.5.0": "the plugin versions, pinned to their own pyproject files by "
         "tests/test_docker.py",
+        "0.5.1": "digline-anthropic's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
     },
     "src/digline/report/pages.py": {
         "0.4.0": "'0.4.0 rendering compare_page' — the state of a shipped release",
