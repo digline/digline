@@ -20,9 +20,9 @@ from packaging.requirements import Requirement
 import home_capture
 
 
-def _pyproject(tmp_path: Path, version: str) -> Path:
-    path = tmp_path / "pyproject.toml"
-    path.write_text(f'[project]\nname = "digline"\nversion = "{version}"\n')
+def _changelog(tmp_path: Path, *headings: str) -> Path:
+    path = tmp_path / "CHANGELOG.md"
+    path.write_text("# Changelog\n\n" + "\n\n".join(headings) + "\n")
     return path
 
 
@@ -32,23 +32,50 @@ def _capture_file(tmp_path: Path, version: str) -> Path:
     return path
 
 
-def test_check_passes_when_the_capture_matches_the_package(tmp_path: Path) -> None:
+def test_check_passes_when_the_capture_matches_the_newest_release(
+    tmp_path: Path,
+) -> None:
     problems = home_capture.check(
-        _capture_file(tmp_path, "1.2.3"), _pyproject(tmp_path, "1.2.3")
+        _capture_file(tmp_path, "1.2.3"), _changelog(tmp_path, "## 1.2.3 — 2026-01-01")
     )
     assert problems == []
 
 
-def test_check_fails_when_the_package_moved(tmp_path: Path) -> None:
+def test_check_fails_when_a_newer_release_is_dated(tmp_path: Path) -> None:
     problems = home_capture.check(
-        _capture_file(tmp_path, "1.2.3"), _pyproject(tmp_path, "1.3.0")
+        _capture_file(tmp_path, "1.2.3"),
+        _changelog(tmp_path, "## 1.3.0 — 2026-02-01", "## 1.2.3 — 2026-01-01"),
     )
     assert len(problems) == 1
     assert "1.2.3" in problems[0] and "1.3.0" in problems[0]
 
 
+def test_an_untagged_version_is_not_a_release_to_capture(tmp_path: Path) -> None:
+    """The home is a public claim about what is released: a version set ahead
+    of its tag, with an undated heading, holds the capture to the last release —
+    the same reading digline.dev's hook makes, so the two cannot disagree."""
+    changelog = _changelog(
+        tmp_path,
+        "## Unreleased",
+        "## 1.3.0 — unreleased",
+        "## digline-openai 9.9.9 — 2026-03-01",
+        "## 1.2.3 — 2026-01-01",
+    )
+    assert home_capture.check(_capture_file(tmp_path, "1.2.3"), changelog) == []
+    assert home_capture.check(_capture_file(tmp_path, "1.3.0"), changelog)
+
+
+def test_check_fails_when_nothing_is_dated(tmp_path: Path) -> None:
+    problems = home_capture.check(
+        _capture_file(tmp_path, "1.2.3"), _changelog(tmp_path, "## 1.2.3 - 2026-01-01")
+    )
+    assert len(problems) == 1 and "no heading" in problems[0]
+
+
 def test_check_fails_when_there_is_no_capture(tmp_path: Path) -> None:
-    problems = home_capture.check(tmp_path / "home.json", _pyproject(tmp_path, "1.2.3"))
+    problems = home_capture.check(
+        tmp_path / "home.json", _changelog(tmp_path, "## 1.2.3 — 2026-01-01")
+    )
     assert len(problems) == 1
 
 

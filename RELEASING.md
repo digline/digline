@@ -81,8 +81,18 @@ quickstart and a one-line prompt regression, **run** by
 they came out. `sync-docs.sh` carries it to the site with the rest of `docs/`.
 
 The file records the `digline_version` that produced it, and the last gate above
-fails when that is not the version in `pyproject.toml`. So **the PR that raises
-the version regenerates the file**, on the same branch, before the tag:
+fails when that is not the **newest dated release in `CHANGELOG.md`** — the first
+`## X.Y.Z — YYYY-MM-DD` heading, which is exactly what digline.dev's home hook
+reads. Not `pyproject.toml`: the home is a public claim about what is released,
+so it never shows the output of an untagged version, and a version set on a
+branch ahead of its tag (`## X.Y.Z — unreleased`) keeps the last release's
+capture until the tag PR. So this is a step of that PR, required rather than
+remembered, and in this order:
+
+1. Date the heading: `## X.Y.Z — unreleased` becomes `## X.Y.Z — YYYY-MM-DD`.
+2. `uv run python tools/home_capture.py --check` now fails, naming the old
+   capture. That failure is the step working.
+3. Regenerate and stage the file, on the same branch, before the tag:
 
 ```sh
 uv sync --all-packages
