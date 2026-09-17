@@ -25,6 +25,21 @@ notes under them are this file, verbatim.
   than enforced. The reason is not scrubbed either, because scrubbing it would
   delete the diagnosis a mute judge gives. A test now pins every boundary sink
   for a calibration case on that path. See ADR 0024 §4.7, amended.
+- **A known limit of the shape reading, stated before it is fixed.** In a suite
+  with `samples > 1`, a check wrapped in `Repeated` stores the per-answer means
+  of its judgements, not the judgements. So `explain`'s shape line for it can
+  read **0%** at 0 or 1 for a judge that is always at 0 or 1. The run document
+  cannot yet say which verdicts are such folds, so the line cannot leave them
+  out: do not read a shape line for a `Repeated` check in a sampled suite. At
+  `samples=1` the reading is exact. The fix changes the document, which a patch
+  does not do. It is ruled as the first passenger of the next schema bump: those
+  verdicts will be left out and counted, never shown as zero. See
+  [`explain.md`](docs/explain.md) and ADR 0024 §6.2, amended.
+- **A known gap in the MCP server, recorded.** `get_run` and `get_baseline` do not
+  mark a judged check, a calibration case, a canary or a re-judged run. Nothing
+  is withheld by that; `explain` and `compare` carry each as a fact. Closing it
+  is a decision about what crosses a boundary, and it is not taken here. See
+  [`mcp.md`](docs/mcp.md).
 
 ## 0.14.0 — 2026-09-17
 

@@ -48,6 +48,14 @@ The reasoning in full is [ADR 0011](adr/0011-the-mcp-server.md).
 `explain` and `log` arrived together, so the surface moved once, from six to
 eight ([ADR 0020](adr/0020-the-reading-across-runs.md)). Neither writes.
 
+**What `get_run` and `get_baseline` do not say.** The run document they return is
+a projection chosen for the boundary, and it has not followed the instrument's
+own flags. It does not mark a judged check, a calibration case, a canary, or a
+run that was re-judged or measured the judge's range. None of those is withheld
+data; they are simply absent. Call `explain` or `compare` for them, which carry
+each as a fact. Closing the gap is a decision about what crosses, recorded in
+[ADR 0024](adr/0024-the-judge-as-an-instrument.md), *Not decided here*.
+
 `promote`, `migrate`, `view` and `report` are absent. The first is the thesis;
 the second is upgrade maintenance somebody chose the moment for; the last two
 are documents written for a person, and an agent that wants the facts behind the

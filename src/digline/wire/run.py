@@ -187,6 +187,16 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     `suspended` is a **boolean**. That a case was set aside is a fact about
     coverage and belongs here; the sentence explaining it is payload and does
     not. A developer writes things like "fails on the Rossi account".
+
+    **A known gap, recorded rather than closed.** This projection has not
+    followed the instrument's own flags: it carries no `Verdict.judged`, no
+    `CaseResult.calibration`, no `CaseResult.canary`, no `Run.judge_samples` and
+    no `Run.rejudged_from`. None is a leak by being absent. But a model reading
+    `get_run` cannot tell a judged check, a calibration case, a canary or a
+    replay from its neighbours. Adding any of them is a change to what crosses a
+    boundary, so it waits for a decision about the wire (ADR 0011 §5), and
+    `tests/test_wire_boundary.py` will ask for one. Found in the 0.14.0
+    delta-pass; ADR 0024, *Not decided here*.
     """
     return {
         "output_version": OUTPUT_VERSION,
