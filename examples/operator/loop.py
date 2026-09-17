@@ -44,8 +44,11 @@ from policy import Policy, digest_of, load_policy
 #: where it carried `compare --json full`; 3 since the cycle carries the probe;
 #: 4 since it carries the tenant and the identity of the policy that ruled it —
 #: which is what `decide.py` takes a decision under, and what the probe's
-#: fourth check compares against the file on disk.
-CYCLE_FORMAT = 4
+#: fourth check compares against the file on disk; 5 since it carries how many
+#: canaries the suite declares, because `explain` is silent both about a canary
+#: that held and about a suite that has none, and only the first rules anything
+#: out.
+CYCLE_FORMAT = 5
 
 #: What one cycle concluded. A `Literal` rather than an enum because these
 #: strings land in a markdown document and in a test assertion, and a plain
@@ -124,6 +127,11 @@ class Cycle:
     #: directory everywhere else in digline, and it is what says where the
     #: decision journal lives.
     tenant: str = ""
+    #: How many cases the suite flags `canary=True`, read off the suite and not
+    #: off a run: `explain` states a canary only when one moved, so a silent
+    #: fact list cannot tell a canary that held from a suite that declares none.
+    #: `None` only on a `Cycle` built without a suite, and `cycle()` never does.
+    canaries_declared: int | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -502,6 +510,7 @@ def cycle(config: Config, *, root: Path) -> Cycle:
     """
     suite, _loaded = load_suite(str(root / config.suite))
     plan = planned_calls(suite)
+    canaries = sum(1 for case in suite.cases if case.canary)
 
     # Before the first call, which is the only moment a budget means anything.
     worst_case = plan.target_calls * (1 + config.max_reruns)
@@ -525,6 +534,7 @@ def cycle(config: Config, *, root: Path) -> Cycle:
             frozenset(),
             plan.target_calls,
             tenant=suite.tenant,
+            canaries_declared=canaries,
         )
     if first.exit_code == EXIT_OK:
         return Cycle(
@@ -534,6 +544,7 @@ def cycle(config: Config, *, root: Path) -> Cycle:
             frozenset(),
             plan.target_calls,
             tenant=suite.tenant,
+            canaries_declared=canaries,
         )
 
     if len(first.cases_regressed) >= config.structural_flip_cases:
@@ -544,6 +555,7 @@ def cycle(config: Config, *, root: Path) -> Cycle:
             first.regressions,
             plan.target_calls,
             tenant=suite.tenant,
+            canaries_declared=canaries,
         )
 
     reproduced = first.regressions
@@ -569,6 +581,7 @@ def cycle(config: Config, *, root: Path) -> Cycle:
         plan.target_calls,
         budget_stopped=budget_stopped,
         tenant=suite.tenant,
+        canaries_declared=canaries,
     )
 
 
@@ -601,6 +614,7 @@ def cycle_json(
             "digest_matches": wall.digest_matches,
         },
         "suite": config.suite,
+        "canaries_declared": done.canaries_declared,
         "cadence": config.cadence,
         "stopping_rule": {
             "max_reruns": config.max_reruns,

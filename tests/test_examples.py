@@ -802,6 +802,9 @@ def test_the_operator_classifies_each_scenario(operator: Path, scenario: str) ->
         "stopping rule is declared in operator.toml and the loop has to obey it"
     )
     assert cycle["escalate"] is want_escalate
+    # Read off the suite, not off a run: this suite declares no canary, and
+    # `explain` alone could not tell that apart from one that held.
+    assert cycle["canaries_declared"] == 0
     assert cycle["budget"]["spent"] <= cycle["budget"]["max_target_calls"]
     # Against the real server, every scenario: the wall is a fact about the
     # surface and not about how the system under test is doing this week.
@@ -1394,6 +1397,70 @@ def test_an_unknown_streak_is_not_a_streak_of_zero(
     # The same cycle with a known, empty journal holds: the pair is what shows
     # the unknown streak, and nothing else, decided it.
     assert decided(streak_known=True)["escalate"] is False
+
+
+def test_the_canary_line_clears_the_model_only_when_a_canary_is_declared() -> None:
+    """Three states, and only one of them excludes the model.
+
+    `explain` is silent alike about a canary that held and a suite that has
+    none, so a line built from the facts alone would read "no canary moved" for
+    both — and layer 3 is told that a silent canary clears the model. A suite
+    with no canary cannot clear it: that state is declared, never a zero, and a
+    cycle older than the record clears nothing either.
+    """
+    judgment = operator_module("judgment")
+    moved = a_cycle(
+        "drift",
+        escalate=True,
+        run_facts=[{"about": "run", "kind": "canary", "state": True}],
+    )
+    held = {**a_cycle("drift", escalate=True), "canaries_declared": 1}
+    absent = {**a_cycle("drift", escalate=True), "canaries_declared": 0}
+    unrecorded = a_cycle("drift", escalate=True)
+
+    assert "MOVED" in judgment.canary_line({**moved, "canaries_declared": 1})
+    assert "1 declared, and none moved" in judgment.canary_line(held)
+    for cycle in (absent, unrecorded):
+        line = judgment.canary_line(cycle)
+        assert "neither excluded nor suspected" in line, line
+        assert "none moved" not in line, line
+    assert "no canary declared" in judgment.canary_line(absent)
+    assert "not recorded" in judgment.canary_line(unrecorded)
+    # The rule the model is held to names the third state, and no order of
+    # suspects survives in it.
+    system = " ".join(judgment.SYSTEM.split())
+    assert "neither excluded nor suspected" in system
+    assert "order of likelihood" not in system
+
+
+@pytest.mark.parametrize(
+    ("record", "says"),
+    [
+        ({"stop_reason": "end_turn", "max_tokens": 1024}, None),
+        ({"stop_reason": "max_tokens", "max_tokens": 1024}, "was cut off"),
+        ({"stop_reason": "refusal", "max_tokens": 1024}, "did not finish normally"),
+        (None, "was not recorded"),
+    ],
+)
+def test_a_judgment_that_did_not_finish_says_so(
+    record: dict[str, Any] | None, says: str | None
+) -> None:
+    """A document that stops mid-sentence without declaring it reads as a
+    conclusion the model never reached. Pilot-zero's cycle 5 did exactly that,
+    at the old ceiling of 400 tokens: the cut is stated before the text, and a
+    finished judgment carries no line at all."""
+    dossier = operator_module("dossier")
+    body = dossier.alert_body(
+        captured("drift-cycle.json"),
+        judgment="The judge moved, and agrees_on_comment is binary",
+        judgment_record=record,
+    )
+    layer3 = body.split("## 3. The judgment", 1)[1]
+    if says is None:
+        assert "cut off" not in layer3 and "not recorded" not in layer3, layer3
+    else:
+        assert says in layer3, layer3
+        assert layer3.index(says) < layer3.index("agrees_on_comment is binary")
 
 
 def test_the_operator_workflow_carries_the_journal_between_cycles() -> None:
