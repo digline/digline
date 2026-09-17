@@ -19,7 +19,14 @@ from digline.run.driver import (
     target_config,
 )
 from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
-from digline.run.suite import Calibration, CallPlan, Case, Suite, planned_calls
+from digline.run.suite import (
+    Calibration,
+    CallPlan,
+    Case,
+    Suite,
+    planned_calls,
+    undeclared_kinds,
+)
 
 __all__ = [
     "Calibration",
@@ -39,6 +46,7 @@ __all__ = [
     "judge_config",
     "judges",
     "planned_calls",
+    "undeclared_kinds",
     "price_digest_of",
     "rejudge",
     "replayable_cases",

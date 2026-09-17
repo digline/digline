@@ -49,6 +49,31 @@ date, and nothing else in the section moves.*
   never reported without the calibration result beside it: `rejudge` prints both
   in one sentence on stderr and as `judge_reading` in `--json`. See
   [`rejudge.md`](docs/rejudge.md) and ADR 0024 §5, amended in §5.5.
+- **Shape, measured and not yet judged.** Against a reference, `explain` adds
+  one line per judged check: the share of its raw per-sample scores at exactly
+  0 or 1, beside the reference's share
+  (`faithfulness: 97.1% of 208 judged scores at 0 or 1, against 41.3% of 204 in
+  the reference.`). `compare --json full` carries the counts as `shape`. There is
+  deliberately no sentence saying *more*: that threshold is sized on data and
+  added later. Shape is never in the headline and never an exit code. It reads
+  a new document key, `"judged": true`, written only on verdicts whose check
+  declares `KIND = "judged"` — the third and last passenger of schema 12. A suite
+  with a judge gains one key per judged verdict. No score, status or identity
+  moves, and no comparison against an older baseline reports a delta. See
+  [`explain.md`](docs/explain.md) and ADR 0024 §6, amended in §6.4.
+- **New lines on your terminal: `KIND` is optional but no longer unread.**
+  0.13.3's documentation said nothing that runs reads `KIND`. That is no longer
+  true. From this release, `digline run` names on stderr, on every run, each
+  check whose class declares no `KIND`, because the shape reading leaves it out
+  and the exclusion must not be silent. Nothing fails; declare `KIND` on the
+  class to stop the line. digline's own dogfood suite is the first to be named:
+  scout's `agrees_with_mark` and `agrees_on_comment` declare none.
+- **The known hole: `FromAutoevals`.** An autoevals scorer that calls a model is
+  **neither judged nor announced**. The adapter declares `wrapper` and wraps a
+  scorer, not an assertion, so nothing can be read through it: the shape
+  reading cannot see that scorer, and no line tells you. Closing the hole needs
+  its own decision, on how the adapter declares what its scorer is. It is not
+  taken in this release.
 
 ## 0.13.3 — 2026-09-16
 

@@ -10,7 +10,7 @@ about the baseline would have two reasons to change.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -296,9 +296,20 @@ def _clip(text: str) -> str:
     return text if len(text) <= MAX_FAILURE_CHARS else text[:MAX_FAILURE_CHARS] + "…"
 
 
+def _stamped(assertion: Assertion, verdict: Verdict) -> Verdict:
+    """The verdict, marked when a model placed it on a scale.
+
+    Stamped here, where the assertion and its verdict are both in hand, and not
+    by the assertion: `KIND` is a declaration about a class, and the one place
+    that reads it for the document is the one place every verdict passes.
+    (ADR 0024 §6.4)
+    """
+    return replace(verdict, judged=True) if judged(assertion) else verdict
+
+
 def _failed(suite: Suite, reason: str) -> tuple[Verdict, ...]:
     """Every assertion on this case errors, because none of them could run."""
-    return tuple(error_verdict(a, _clip(reason)) for a in suite.assertions)
+    return tuple(_stamped(a, error_verdict(a, _clip(reason))) for a in suite.assertions)
 
 
 def _judge(assertion: Assertion, inputs: EvaluatorInputs) -> Verdict:
@@ -332,15 +343,21 @@ def _graded(
     """
     floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
     if judge_samples < 2 or not judged(assertion):
-        return combine_samples(
-            [_judge(assertion, inputs) for inputs in samples], min_agreement=floor
+        return _stamped(
+            assertion,
+            combine_samples(
+                [_judge(assertion, inputs) for inputs in samples], min_agreement=floor
+            ),
         )
-    return fold_judgements(
-        [
-            [_judge(assertion, inputs) for _ in range(judge_samples)]
-            for inputs in samples
-        ],
-        min_agreement=floor,
+    return _stamped(
+        assertion,
+        fold_judgements(
+            [
+                [_judge(assertion, inputs) for _ in range(judge_samples)]
+                for inputs in samples
+            ],
+            min_agreement=floor,
+        ),
     )
 
 
@@ -479,8 +496,12 @@ def _calibrate(
                 CaseResult(
                     case_id=case.id,
                     verdicts=(
-                        error_verdict(
-                            check, _clip(f"mapper raised {type(exc).__name__}: {exc}")
+                        _stamped(
+                            check,
+                            error_verdict(
+                                check,
+                                _clip(f"mapper raised {type(exc).__name__}: {exc}"),
+                            ),
                         ),
                     ),
                     calibration=band,

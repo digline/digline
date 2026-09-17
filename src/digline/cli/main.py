@@ -79,7 +79,14 @@ from digline.report import (
     unjudged_cases,
 )
 from digline.report import diff as diff_report
-from digline.run import ReplayError, Suite, planned_calls, price_digest_of, rejudge
+from digline.run import (
+    ReplayError,
+    Suite,
+    planned_calls,
+    price_digest_of,
+    rejudge,
+    undeclared_kinds,
+)
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -266,6 +273,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
     say(f"digline: {prepared.plan.sentence()}", err=True)
+    # Named where the author is reading, at the one moment the suite is loaded,
+    # and never guessed: a check whose class declares no KIND is left out of the
+    # shape reading, and saying so here is what keeps that exclusion from being
+    # silent. KIND stays optional; nothing fails without it. (ADR 0024 §6.4)
+    undeclared = undeclared_kinds(suite)
+    if undeclared:
+        say(f"digline: {_undeclared_note(undeclared)}", err=True)
     if prepared.retrying:
         say(f"digline: retrying {_retry_note(prepared.retrying)}", err=True)
 
@@ -364,6 +378,19 @@ def _resume(
             f"(pending: {known})"
         )
     return chosen
+
+
+def _undeclared_note(names: Sequence[str]) -> str:
+    listed = ", ".join(names)
+    if len(names) == 1:
+        return (
+            f"{listed} declares no KIND, so the shape reading leaves it out; "
+            'declare KIND = "judged" or "deterministic" on its class to have it read'
+        )
+    return (
+        f"{listed} declare no KIND, so the shape reading leaves them out; declare "
+        'KIND = "judged" or "deterministic" on their classes to have them read'
+    )
 
 
 def cmd_rejudge(args: argparse.Namespace) -> int:

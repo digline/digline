@@ -122,6 +122,11 @@ __all__ = [
 #    replay's own parameter, not the suite's); absent means *did not measure the
 #    judge's range*, which is what every older run did; a count of our own
 #    calls. The range it produces is metadata on judged verdicts, numbers only.
+#    `Verdict.judged` boarded third, and closes the train: `true` on a verdict
+#    whose assertion `KIND` declares `judged`, absent otherwise. Outside
+#    `identity` and `config_hash` (`KIND` is a `ClassVar`); absent means *not
+#    recorded as judged*, never derived from a name; one boolean about the check.
+#    It is what the shape reading reads. (ADR 0024 §6.4)
 SCHEMA_VERSION = 12
 
 
@@ -1148,6 +1153,8 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
         reason=REDACTED,
         tolerance=verdict.tolerance,
         assertion_id=verdict.assertion_id,
+        # A fact about the check, never about the case. (ADR 0024 §6.4)
+        judged=verdict.judged,
     )
 
 
@@ -1294,6 +1301,12 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     # the reason could be guessed, not even its length.
     if not redacted:
         payload["reason"] = verdict.reason
+    # Written only when true, the canary's convention: a suite with no judged
+    # check writes the document it wrote before, and a key named for a
+    # vocabulary would invite a reader to look for values it never holds.
+    # (ADR 0024 §6.4)
+    if verdict.judged:
+        payload["judged"] = True
     return payload
 
 
@@ -1344,6 +1357,9 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # reconstructed verdict valid without inventing content.
         reason=REDACTED if redacted else str(_required(raw, "reason", where)),
         assertion_id=str(_required(raw, "assertion_id", where)),
+        # Absent is *not recorded as judged*, which is true of every verdict
+        # written before 12, and nothing is guessed from a check's name.
+        judged=bool(raw.get("judged", False)),
     )
 
 

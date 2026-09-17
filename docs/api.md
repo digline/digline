@@ -1121,12 +1121,34 @@ KIND: ClassVar[CheckKind] = "deterministic"
 | `aggregate` | One verdict about the whole run, from every case's outcome: `Precision`, `Recall`, `Accuracy`, `F1`. |
 | `wrapper` | Its nature is the thing it wraps: `Repeated`, and `FromAutoevals`, whose scorer may or may not call a model. |
 
-The list of checks the home of digline.dev shows is built from it, and one
-refusal reads it: a [calibration case](#casecalibration-watching-the-judges-scale)
-may only name a check whose `KIND` is `judged`. Nothing that compares or
-promotes reads it. It is a `ClassVar`, not a field, so it
-never enters `identity` or `config_hash`: declaring it, or changing it, leaves
-every stored baseline paired and promotable. `MaxWords` above works without it.
+The list of checks the home of digline.dev shows is built from it, and since
+0.14.0 digline reads it in three more places — **optional, but no longer
+unread**:
+
+- a [calibration case](#casecalibration-watching-the-judges-scale) may only name
+  a check whose `KIND` is `judged`, and `rejudge --judge-samples` asks only
+  those checks again;
+- a verdict of a `judged` check is written with `"judged": true`, which is what
+  `explain`'s shape reading reads;
+- **a check whose class declares no `KIND`** — read through `Repeated` — is left
+  out of that reading, and `digline run` names it on stderr on every run:
+
+  ```text
+  digline: max_words declares no KIND, so the shape reading leaves it out; declare KIND = "judged" or "deterministic" on its class to have it read
+  ```
+
+  Nothing fails without it; the line is there so the exclusion is never silent.
+
+**The known hole: `FromAutoevals`.** It declares `wrapper` and wraps a scorer,
+not an assertion, so there is nothing to read through. An autoevals scorer that
+calls a model is therefore **neither judged nor announced**: the shape reading
+cannot see it at all, and nothing on your terminal says so. Closing it needs the
+adapter to declare what its scorer is, which is a decision of its own and has not
+been taken.
+
+It is a `ClassVar`, not a field, so it never enters `identity` or
+`config_hash`: declaring it, or changing it, leaves every stored baseline paired
+and promotable. `MaxWords` above works without it, and is announced.
 
 ### A custom aggregate
 
@@ -1304,8 +1326,8 @@ change.
 At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
 `config_changed`, `artifacts_changed`, `target_config_changed`,
 `judge_config_changed`, `within_noise`, `counts`, `reasons_available`,
-`sentence` and `exit_code`; `--json full` adds `deltas`, `target_config_deltas`
-and `judge_config_deltas`.
+`sentence` and `exit_code`; `--json full` adds `deltas`, `target_config_deltas`,
+`judge_config_deltas` and `shape`.
 
 `exit_code` is the number the process exits with, in the object — the same
 `0` / `1` / `2` a shell sees, computed by the one function that knows a

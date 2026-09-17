@@ -23,6 +23,7 @@ from collections.abc import Sequence
 from typing import assert_never
 
 from digline.report.explain import CheckFact, Fact, SettingFact, TallyFact
+from digline.wire.compare import shape_json
 from digline.wire.contract import OUTPUT_VERSION
 
 __all__ = ["explain_json", "fact_json"]
@@ -72,12 +73,16 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "removed": fact.removed,
             }
         case TallyFact():
-            return {
+            payload: dict[str, object] = {
                 "about": "run",
                 "kind": fact.kind,
                 "count": fact.count,
                 "state": fact.state,
             }
+            # Only on `shape`, so every other fact is byte for byte what it was.
+            if fact.shape is not None:
+                payload["shape"] = shape_json(fact.shape)
+            return payload
     assert_never(fact)
 
 

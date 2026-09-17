@@ -46,6 +46,7 @@ from digline.report.render import (
     on_the_line_count,
     run_tally,
 )
+from digline.report.shape import Shape, ShapeSide, shape
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -122,6 +123,13 @@ type TallyKind = Literal[
     # calibration cases left their band — and it reads the run alone, so it is
     # stated with or without a reference.
     "calibration",
+    # The sixth, and the second amendment ADR 0024 makes to ADR 0012 §3: the
+    # share of a judged check's raw scores at 0 or 1, in this run and in the
+    # reference. One fact per judged check, carrying its numbers in `shape`
+    # rather than in `count`, and **no sentence that judges them**: the
+    # threshold for *more than the reference* is measured later. It gates
+    # nothing, and it is not in the headline. (ADR 0024 §6.3)
+    "shape",
 ]
 
 
@@ -188,15 +196,20 @@ class SettingFact:
 
 @dataclass(frozen=True, slots=True)
 class TallyFact:
-    """One run-level count, or one run-level state.
+    """One run-level count, one run-level state, or one judged check's shape.
 
-    `count` for the first, `state` for the second, and never both: a fact that
-    carried a number and a boolean would be two facts sharing a row.
+    `count` for the first, `state` for the second, `shape` for the third — the
+    two sides' counts, which are neither a count of the run nor a state — and
+    never more than one of them: a fact that carried two would be two facts
+    sharing a row.
     """
 
     kind: TallyKind
     count: int = 0
     state: bool | None = None
+    #: Only on `shape`, whose numbers are neither a count nor a state: the two
+    #: shares, their counts and what each side left out.
+    shape: Shape | None = None
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -279,6 +292,9 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # none has nothing to say at all.
     if comparison.canary_moved:
         out.append(TallyFact("canary", state=True))
+    # After the states and before any caveat is moved to the top: shape is a
+    # diagnosis, read beside the calibration case rather than instead of it.
+    out.extend(TallyFact("shape", shape=item) for item in shape(comparison))
     # **First of all, and before any number.** A judge that moved did not change
     # what was measured, it changed the scale it was measured on — so every
     # count above it is a count of differences read off two rulers, and a reader
@@ -620,7 +636,49 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
                 f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
+        case "shape":
+            assert fact.shape is not None
+            return _shape_line(fact.shape, locale)
     assert_never(fact.kind)
+
+
+def _share(side: ShapeSide) -> str:
+    """`97.1%`: one decimal, the dot in every locale."""
+    return f"{100 * side.extremes / side.scores:.1f}%"
+
+
+def _shape_line(item: Shape, locale: Locale) -> str:
+    """The two shares and their counts, and what each left out — never a word
+    about whether one is more than the other. (ADR 0024 §6.3)"""
+    run, reference = item.run, item.reference
+    if not run.scores:
+        text = phrase(locale, "explain.tally.shape.none", check=item.check)
+    elif reference is None or not reference.scores:
+        text = phrase(
+            locale,
+            "explain.tally.shape.noreference",
+            check=item.check,
+            share=_share(run),
+            scores=run.scores,
+        )
+    else:
+        text = phrase(
+            locale,
+            "explain.tally.shape",
+            check=item.check,
+            share=_share(run),
+            scores=run.scores,
+            reference_share=_share(reference),
+            reference_scores=reference.scores,
+        )
+    for count, key in (
+        (run.single_claim, "explain.tally.shape.single_claim"),
+        (run.claims_unrecorded, "explain.tally.shape.claims_unrecorded"),
+    ):
+        if count:
+            suffix = "one" if count == 1 else "many"
+            text += phrase(locale, f"{key}.{suffix}", count=count)
+    return text
 
 
 def _count(count: int) -> str:

@@ -194,6 +194,33 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The endpoint returned the requested id as the model that answered, "
             "so which model answered is not identified."
         ),
+        # Shape (ADR 0024 §6): the shares side by side, and nothing that says
+        # which is more. That sentence waits for a threshold sized on data.
+        "explain.tally.shape": (
+            "{check}: {share} of {scores} judged scores at 0 or 1, against "
+            "{reference_share} of {reference_scores} in the reference."
+        ),
+        "explain.tally.shape.noreference": (
+            "{check}: {share} of {scores} judged scores at 0 or 1; the reference "
+            "records no judged score of it to set beside that."
+        ),
+        "explain.tally.shape.none": (
+            "{check}: no judged score of it could be read in this run."
+        ),
+        "explain.tally.shape.single_claim.one": (
+            " 1 verdict with a single claim is left out: it can only score 0 or 1."
+        ),
+        "explain.tally.shape.single_claim.many": (
+            " {count} verdicts with a single claim are left out: they can only "
+            "score 0 or 1."
+        ),
+        "explain.tally.shape.claims_unrecorded.one": (
+            " 1 sampled verdict is read whose claim count per sample was not recorded."
+        ),
+        "explain.tally.shape.claims_unrecorded.many": (
+            " {count} sampled verdicts are read whose claim counts per sample were "
+            "not recorded."
+        ),
         "fact.judge_config.changed": (
             "The judging changed ({changes}), so these scores are less "
             "comparable with the reference: what moved is the measuring "
@@ -844,6 +871,32 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.echoed": (
             "L'endpoint ha restituito l'id richiesto come modello che ha "
             "risposto, quindi quale modello abbia risposto non è identificato."
+        ),
+        "explain.tally.shape": (
+            "{check}: {share} di {scores} punteggi giudicati a 0 o 1, rispetto a "
+            "{reference_share} di {reference_scores} nel riferimento."
+        ),
+        "explain.tally.shape.noreference": (
+            "{check}: {share} di {scores} punteggi giudicati a 0 o 1; il "
+            "riferimento non registra punteggi giudicati da affiancare."
+        ),
+        "explain.tally.shape.none": (
+            "{check}: nessun suo punteggio giudicato è leggibile in questa esecuzione."
+        ),
+        "explain.tally.shape.single_claim.one": (
+            " 1 verdetto con una sola affermazione è escluso: può valere solo 0 o 1."
+        ),
+        "explain.tally.shape.single_claim.many": (
+            " {count} verdetti con una sola affermazione sono esclusi: possono "
+            "valere solo 0 o 1."
+        ),
+        "explain.tally.shape.claims_unrecorded.one": (
+            " 1 verdetto campionato è letto senza che il numero di affermazioni "
+            "per campione sia registrato."
+        ),
+        "explain.tally.shape.claims_unrecorded.many": (
+            " {count} verdetti campionati sono letti senza che il numero di "
+            "affermazioni per campione sia registrato."
         ),
         "fact.judge_config.changed": (
             "Il modo di giudicare è cambiato ({changes}), quindi questi "

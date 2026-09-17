@@ -62,6 +62,7 @@ from digline.report.render import (
     unjudged_cases,
     visible,
 )
+from digline.report.shape import Shape, ShapeSide, shape
 from digline.report.text import LOCALES, TEXT, Locale, phrase
 
 __all__ = [
@@ -87,6 +88,8 @@ __all__ = [
     "Roll",
     "RunTally",
     "Section",
+    "Shape",
+    "ShapeSide",
     "Sighting",
     "case_history",
     "identity_log",
@@ -121,6 +124,7 @@ __all__ = [
     "suspension_snippet",
     "unjudged_cases",
     "scale_lost",
+    "shape",
     "escape",
     "visible",
 ]

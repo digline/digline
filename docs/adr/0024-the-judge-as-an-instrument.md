@@ -26,6 +26,11 @@
   bounds are the widest answer's own, with a tie rule; an errored judgement is
   counted, not escalated; and the sentence belongs to `rejudge` alone.
   `Run.judge_samples` boards schema 12 second
+- Amended: 2026-09-17 — §6.1, in §6.4: the scale is `KIND`'s. `AssertionBase.scale`
+  is not added; shape's passenger is `Verdict.judged`, written only when true,
+  and it boards schema 12 third, which fills the train. Undeclared is announced
+  and never guessed, which makes `KIND` optional but no longer unread, and
+  `FromAutoevals` is named as the known hole in the reading
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -731,6 +736,87 @@ check.
 case is the gate; the shape is the diagnosis — the same split as the aggregate
 and the cases in `docs/guide.md` §7.
 
+#### 6.4 Amendment, 2026-09-17: the scale is `KIND`'s, and the key is `judged`
+
+*Ruled 2026-09-17, before any code. It answers the question §4.8 left open:
+`KIND` says who produces a verdict, `scale` was meant to say what kind of
+number it is, and a judged check can be binary or graded — so is `scale` a
+second axis, or the same fact declared twice?*
+
+**The declaration is redundant; the document key is not.** They were one
+proposal in §6.1 and they separate cleanly.
+
+**What §6.1 wanted `scale` to do, and what already does it.** It named three
+values and one reading. The reading, §6.2, reads **one** of them: shape is read
+over checks declared `judged`, and §6.1's own last paragraph writes nothing for
+`binary`, `graded` or undeclared, "because no reading distinguishes them". The
+other two values were there to keep deterministic checks out of the shape
+reading: `PiiAbsent` and `ToolsCalled`, graded by helper and binary by
+construction, and the budgets, graded and not judged. `KIND` already separates
+those: every one of them is `deterministic` or `budget`, and only `LlmRubric`
+and `Faithfulness` are `judged`. Adding `scale` would state `judged` a second
+time and add two values nothing reads, and §4.8 already refused one fact
+declared twice.
+
+**The case that looked like a second axis is not one.** *A judged check can be
+binary* was argued from scout's `agrees_with_mark`. Read from scout's source,
+that check compares the target's structured answer with the action Mark took,
+through `_binary(agrees(said, wanted))`. The model inside it is the **system
+under test**, not an instrument grading it. In digline's terms it is
+deterministic and binary, and the §6.1 bullet that already said "scout declares
+no judged check" was right. No suite the house runs has a check that is judged
+and binary by design.
+
+**And where one exists, shape does not need to be told.** A judge asked for yes
+or no puts every raw score at an extreme, in the run and in the reference.
+§6.2's reading is a comparison — the run's share against the reference's — so a
+check binary by design reads 100% against 100%. That is true, it cannot become
+*more than the reference*, and so it cannot fire whatever threshold §6.3 later
+sets. Declaring it `binary` would only remove a row that says nothing new. It
+would also let a declaration exempt a check from the one reading that watches
+it, which is the self-exemption §6.1 refused when it refused inference. A
+hedging judge that starts returning 0.5 on a yes/no rubric is the one movement
+such a row can show, and it is a true fact about that judge.
+
+**What stays: the reading needs the fact in the document.** `compare()` and
+`explain` are functions of the documents they are handed, which is §7.1's own
+argument, so which verdicts are judged cannot be looked up in the suite at
+read time. A verdict whose assertion is `judged` — `judged()`, read through
+`Repeated` — is written with **`"judged": true`**, and nothing is written
+otherwise. That is the canary's convention, a flag written only when true, and
+not `"scale": "judged"` or `"kind": "judged"`: a key named for a vocabulary that
+only ever holds one value invites a reader to expect the others.
+
+**So the train is not full with two pieces.** Shape keeps its passenger, renamed
+and sourced from `KIND`: `Verdict.judged`. Against ADR 0014 §1, as §9's table
+does: outside `identity` and `config_hash`, since `KIND` is a `ClassVar`;
+absent means *not recorded as judged*, which is true of every older verdict,
+and nothing is derived from a check's name; one boolean about the check, never
+about the case. §9's cost is unchanged — one key per judged verdict, and no
+byte for any other.
+
+**What follows for the rest of §6.1.**
+
+- `AssertionBase.scale` is not added. §6.1's declaration, and its test-plan
+  line *every assertion in `digline.core` declares one, by set*, are replaced by
+  `KIND`, which 0.13.3 already declares and tests by set.
+- **Undeclared stays announced, never guessed.** A check whose class declares no
+  `KIND`, read through `Repeated`, is left out of shape, and `digline run` names
+  it on stderr beside the planned-calls line, as §6.1 decided for `scale`. That
+  reverses one sentence of 0.13.3's documentation. `KIND` stays optional —
+  nothing fails without it — but it is no longer unread, and scout's two checks
+  are the first that will be named until they declare `deterministic`.
+- **`FromAutoevals` is the known hole in the reading, and this record says so at
+  that weight.** It declares `wrapper` and wraps a scorer, not an assertion, so
+  there is nothing to read through. An autoevals scorer that calls a model is
+  therefore **neither judged nor announced**: shape cannot see it, and the
+  author is not told. The rule this amendment rests on is that a declaration
+  must never let a check escape the reading that exists to watch it, in either
+  direction, and `FromAutoevals` escapes it by having no declaration to read.
+  Closing that needs the adapter to declare what its scorer is — a decision of
+  its own, not taken here. A test pins the hole, so closing it is a decision
+  someone makes rather than a side effect.
+
 ### 7. Spread: how much the suite moves between runs
 
 #### 7.1 Where, and the amendment it needs
@@ -855,12 +941,14 @@ instrument could not answer*.
 | field | 1. outside `config_hash` | 2. migrates without inventing | 3. does not widen what travels |
 |---|---|---|---|
 | `CaseResult.calibration` — `check`, `low`, `high`, never `output` | case data, as `canary` | absent: *not a calibration case*, which is what every older case was | a name and two numbers; the answer is payload and never written |
-| `Verdict.scale` | a `ClassVar`, outside `identity` and so outside the hash | absent: *not recorded as judged* — not derived from the assertion's name, which would be the guess | one declared word about the check, never about the case |
+| `Verdict.scale` (ruled as `Verdict.judged`, §6.4) | a `ClassVar`, outside `identity` and so outside the hash | absent: *not recorded as judged* — not derived from the assertion's name, which would be the guess | one declared word about the check, never about the case |
 
 `Run.judge_samples` rides the same bump, written only on a replay that set it.
 
-*Amended 2026-09-17 (§4.8): `CaseResult.calibration` boarded 12 first, and
-alone. Checked against ADR 0014 §1 as the table above does — outside the hash,
+*Amended 2026-09-17 (§4.8, §5.5, §6.4): the train is full. `Verdict.scale` is
+`Verdict.judged` — `true` where the check's `KIND` is `judged`, absent otherwise
+— and boarded third, after `Run.judge_samples`. `CaseResult.calibration` boarded
+12 first, and alone. Checked against ADR 0014 §1 as the table above does — outside the hash,
 migrates by writing nothing, a name and two numbers across a boundary — it
 changes the example documents by their version field only. 12 stays open until
 `Verdict.scale` and `Run.judge_samples` have boarded it.*

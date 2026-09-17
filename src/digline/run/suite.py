@@ -33,7 +33,14 @@ from digline.core import (
 )
 from digline.core.ratio import Ratio, as_agreement
 
-__all__ = ["Calibration", "CallPlan", "Case", "Suite", "planned_calls"]
+__all__ = [
+    "Calibration",
+    "CallPlan",
+    "Case",
+    "Suite",
+    "planned_calls",
+    "undeclared_kinds",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -564,6 +571,23 @@ def _unwrapped(assertion: Assertion) -> Assertion:
     while isinstance(current, Repeated):
         current = current.inner
     return current
+
+
+def undeclared_kinds(suite: Suite) -> tuple[str, ...]:
+    """The assertions whose class, read through `Repeated`, declares no `KIND`.
+
+    The shape reading cannot know whether a model scores them, so it leaves
+    them out — and says so where the author is, rather than guessing either
+    way: defaulting to *judged* would read every binary check as a collapsed
+    judge, and defaulting to *not judged* would silence a third-party judge
+    without a word. `KIND` stays optional; it is no longer unread. (ADR 0024
+    §6.1, §6.4)
+    """
+    return tuple(
+        assertion.name
+        for assertion in suite.assertions
+        if getattr(type(_unwrapped(assertion)), "KIND", None) is None
+    )
 
 
 def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
