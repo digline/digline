@@ -4,6 +4,16 @@
   [ADR 0020](0020-the-reading-across-runs.md) and
   [ADR 0022](0022-the-declared-price.md) were
 - Date: 2026-09-16
+- Amended: 2026-09-17 — evidence added to the Context, no decision revisited:
+  **a miss of the house's own, in pilot-zero's fourth cycle.** Its judgment
+  layer told the reader to look at the model first, on a dossier whose own
+  facts had already ruled the model out. It had been handed `AGENTS.md` §3's
+  likelihood order, which was never measured, and across four cycles it
+  answered the same shape both ways. Whether that order should be measured is
+  left open. The canary, which had ruled the model out, is the motivating case.
+  The run-to-run spread is recorded as a finding against §7.1's aggregate-only
+  scope: a suite-level reading stays inside the noise while one case alternates
+  underneath it. §7 is unchanged
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -100,6 +110,93 @@ part of what follows:
 - **scout cannot size the spread on the material it holds today either** — §10
   says why, with the numbers. The instrument is designed here; its two
   thresholds are measured later, on data this record does not have.
+
+### A miss of the house's own
+
+*Amended 2026-09-17. Evidence only: nothing under Decision moves.*
+
+The two signals above come from outside. This one comes from digline's own
+dogfood, and it is a miss rather than a signal. Read from the artifacts of
+pilot-zero's four cycles on scout (2026-09-14 to 2026-09-16): the alert, its
+`cycle.json` and the decision. The run documents of the first three are gone,
+for the reason §10 gives, and the fact lists in `cycle.json` are what survived.
+Case identifiers are slugged from post titles and stay out of this record, as
+ADR 0021 §7 rules for the ledgers.
+
+**What layer 3 said.** In cycle 4, three runs at three seeds each regressed one
+case's `agrees_on_comment`, from its reference 0.6 to 0.4, 0.0 and 0.0. The
+dossier's judgment layer, the one part of the alert a model writes, opened with
+*"The model moved"* and closed with *"Look first at the model: the
+comment-agreement pattern is too consistent across seeds to be pure noise"*.
+
+**It is wrong on two counts, both inside the same document:**
+
+- **Layer 1 had already excluded it.** Rendered from `digline explain --json`,
+  it read: *"The suite itself did not change. Underneath it, nothing differed:
+  not the system under test, not the judge, not a file under test."* The
+  same line refuses layer 3's third hypothesis, a subtly changed prompt under
+  test, since the prompt is a file under test.
+- **The canary had not moved.** None of the three runs carries a `canary`
+  fact, and `explain` emits one only when `canary_moved` holds (ADR 0016).
+  The canary is the instrument that exists to answer *is this still the same
+  model*, and its answer was in the evidence and unread. *The model moved* was
+  ruled out inside the cycle, by the case built to rule it out.
+
+**The cause is structural, not a bad sentence.** Layer 3 is handed one cycle
+and has no memory. The cycle before this one, cycle 3, was a single run that
+exited 0, and the same case had no fact in it at all. `explain` omits an
+unchanged check whose score did not move, so the case was back at 0.6 on its
+own. A model that moved does not heal overnight. Over the four cycles the case
+read 0.0, 0.2, 0.4; then 0.0, 0.4, 0.0; then 0.6; then 0.4, 0.0, 0.0. That is an
+alternation, not a step, and no single cycle can show it.
+
+**The order it was handed is a house rule nobody verified.** Layer 3's system
+prompt asks it to say what it would look at first: *"the model, the judge, the
+prompt, the dependency floor, in that order of likelihood"*. That sentence is
+not an implementation slip in the operator. It is `AGENTS.md` §3, word for word,
+copied into the prompt, the skill and the dossier's own drift sentence. It is
+an a priori: the house wrote it and never measured it. Across the four cycles,
+under the same prompt, it lost twice and won twice. Cycles 1 and 2 put the judge
+first, and cycles 3 and 4 put the model first. The only attribution with numbers
+under it points at the judge: in cycle 1 this case's measured floor spanned
+0.0–1.0 across five samples, and scout's policy holds the case as one the judge
+cannot score, with the rubric investigation still pending. Four cycles do not
+condemn the order. They show it inconsistent with the one attribution that has
+been measured, and that is why what follows is a question and not a decision:
+**is an opinion steered by a declared likelihood order still an opinion, or is
+the order itself something that should be measured?**
+
+**A memoryless layer 3 is not merely incomplete; it is unstable.** Cycles 2 and
+4 had the same shape: this case regressed at all three seeds, and the policy's
+hold on it was in the evidence both times. Cycle 2 answered *"That pattern
+points to the judge, not the model or prompt."* Cycle 4 answered *"The model
+moved."* Cycle 1 contradicts itself inside one answer. It says *"Look at the
+judge first"*, and closes with *"The model, not the system under test, is
+drifting."* A reading that gives opposite answers to the same shape cannot be
+corrected by handing it more of the same cycle.
+
+**What that makes it evidence for.**
+
+- **The canary**, whose shape §4's calibration case borrows. It is the
+  motivating case here. The measurement existed, was correct, and was not read.
+- **The run-to-run spread, as a finding against its own scope, and not as
+  support.** §7.1 reads aggregates only, and across the same ten runs the
+  aggregates did not follow the case. Accuracy read between 0.860 and 0.889,
+  and was `unchanged` against its reference in every run, including the ones
+  where the case fell to 0.0. The spread as §7 specifies it would have said
+  *inside the noise* and been right about the suite. It would still have said
+  nothing about this case. **Inside the noise at suite level does not imply
+  inside the noise at case level**, and a case that alternates can stay
+  invisible to any aggregate reading. §7.2 would also have dropped two of the
+  ten runs, cycles 2 and 4 at seed 0, each with one unjudged case.
+
+**Why §7 does not become per-case here.** Per-case spread is what this miss
+motivates, and it is not wanted today. On scout it would be 145 cases × 4
+checks, 580 ranges in one reading. A reading that long is not read row by row.
+It is read through a summary, whether a person's or layer 3's, and that summary
+is the one §7.1 refuses to invent. If a per-case spread is ever proposed, this
+cycle is its motivation, and the proposal owes an answer to that objection
+first.
 
 ## Decision
 
