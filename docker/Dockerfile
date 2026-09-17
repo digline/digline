@@ -3,10 +3,14 @@
 # beside this file.
 #
 # The build context is *this directory*, not the repository root — nothing is
-# copied in, every byte comes from PyPI, and a one-file context keeps the
-# daemon from being handed a checkout with a virtualenv in it:
+# copied in, every byte of the image comes from PyPI, and a small context keeps
+# the daemon from being handed a checkout with a virtualenv in it:
 #
 #     docker build docker/ -t digline:local
+#
+# `await_index.py` beside this file is read during the build through a bind
+# mount and never lands in a layer. It is a byte-for-byte copy of
+# `.github/await_index.py`, and `tests/test_docker.py` holds the two identical.
 # Pinned by digest, not by tag: `python:3.12-slim` is a moving target, and an
 # image that cannot say which base it was built on cannot answer the one
 # question an advisory asks. The digest is the multi-arch index, so the amd64
@@ -51,10 +55,36 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && git config --system --add safe.directory '*'
 
+# How long to wait, from inside this build, for the index to serve the four
+# pins below. **0 — the default — waits for nothing**, so a local
+# `docker build` behaves exactly as it always did. The release and CI builds
+# pass a timeout.
+#
+# Why here and not only on the runner: the runner-side wait in both workflows
+# ran and passed, and `pip` then failed 16–20s later inside the build, served
+# the previous version as the newest — on two releases in a row. The build
+# resolves from its own network namespace, which can reach a different PyPI edge
+# from the runner's, so a wait that polls one edge does not protect a consumer
+# that polls another. The wait therefore runs in the same step as the install,
+# from the same container, and fails by naming the exact version this consumer
+# was not served.
+ARG AWAIT_INDEX_TIMEOUT=0
+
 # Into the system site-packages rather than a virtualenv: a suite with its own
 # dependencies derives this image and installs them with `pip install`, and
 # they have to land where digline already is.
-RUN pip install --no-cache-dir \
+#
+# One `RUN` for the wait and the install, so a cached install can never be
+# separated from the wait that protected it.
+RUN --mount=type=bind,source=await_index.py,target=/tmp/await_index.py \
+    if [ "${AWAIT_INDEX_TIMEOUT}" != "0" ]; then \
+      TIMEOUT="${AWAIT_INDEX_TIMEOUT}" INTERVAL=15 python3 /tmp/await_index.py \
+        "digline==${DIGLINE_VERSION}" \
+        "digline-anthropic==${DIGLINE_ANTHROPIC_VERSION}" \
+        "digline-openai==${DIGLINE_OPENAI_VERSION}" \
+        "digline-bedrock==${DIGLINE_BEDROCK_VERSION}"; \
+    fi \
+ && pip install --no-cache-dir \
       "digline==${DIGLINE_VERSION}" \
       "digline-anthropic==${DIGLINE_ANTHROPIC_VERSION}" \
       "digline-openai==${DIGLINE_OPENAI_VERSION}" \

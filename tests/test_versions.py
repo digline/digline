@@ -182,6 +182,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.13.3": "a patch example in 'Choosing the version': the release that "
         "added `CheckKind` to digline.core and removed nothing. History since "
         "the 0.14.0 bump",
+        "0.14.0": "two incidents in 'The index race': the image build whose "
+        "in-build `pip` lost the race with the runner-side wait already green, "
+        "which is what added the in-build consumers. History, dated like the "
+        "section's other incidents",
     },
     "docs/explain.md": {
         "0.14.0": "'a reference written before 0.14.0' — the release the "

@@ -126,7 +126,13 @@ jobs:
           context: docker
           load: true
           tags: digline:smoke
-          build-args: VCS_REF=${{ steps.plan.outputs.revision }}
+          # The same wait again, from inside the build: the edge `pip` reaches
+          # there is not the one the step above polled (see docker/Dockerfile).
+          # Five minutes, because the runner-side wait has already held back
+          # for the person approving `pypi`.
+          build-args: |
+            VCS_REF=${{ steps.plan.outputs.revision }}
+            AWAIT_INDEX_TIMEOUT=300
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -173,7 +179,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ needs.smoke.outputs.tags }}
-          build-args: VCS_REF=${{ needs.smoke.outputs.revision }}
+          # arm64 installs here for the first time, from yet another network
+          # namespace, so it waits from inside its build as well.
+          build-args: |
+            VCS_REF=${{ needs.smoke.outputs.revision }}
+            AWAIT_INDEX_TIMEOUT=300
           cache-from: type=gha
 
       - name: Say what is now on the registry
