@@ -68,7 +68,7 @@ def test_every_docs_page_is_in_the_site_nav() -> None:
         f"docs/{missing[0]}.md becomes the page product/{missing[0]}.md, which "
         f"{config} does not list in its nav — so `mkdocs build --strict` fails "
         f"and the site is not rebuilt. Add it under `- Docs:`, in the "
-        f"`- Reference:` sub-list if it documents one command:\n"
+        f"`- Commands:` group if it documents one command:\n"
         f'          - "digline {missing[0]}": product/{missing[0]}.md\n'
         f"Missing: {', '.join(missing)}. "
         "If that path is a checkout of your own, it may simply be behind "
