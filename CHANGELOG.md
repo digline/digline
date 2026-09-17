@@ -21,9 +21,6 @@ are ruled onto the same bump by
 ([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1) — so **0.14.0 is
 not tagged until both have boarded 12**, or each of them needs a 13 of its own.
 
-*For whoever writes the release commit: `unreleased` in this heading becomes the
-date, and nothing else in the section moves.*
-
 - **The calibration case.** `Case(calibration=Calibration(output=…, check=…,
   low=…, high=…, input=…))` declares an answer you know to be partially correct
   and the band a judge that still has a scale places it in. The target is never
