@@ -444,14 +444,38 @@ moved a floor down:
    *No matching distribution found for digline==0.15.0*, listing versions up to
    0.14.1. Two requests, from the same place, got two different answers.
 
-The two requests are not the same request. `await_index.py` asks
-`/simple/<name>/` with `Cache-Control: no-cache` and no `Accept`; `pip` asks the
-same URL with its own headers. Why they diverge is **not proven yet**: that a
-CDN keeps the variants apart is a hypothesis, and one laptop check already
-weakens it. So nothing here is changed to fit it. When the mechanism is proven,
-the fix is the wait asking what `pip` asks. **A retry of `pip install` stays
-refused**, for the reason above: it cannot tell *not yet propagated* from
-*genuinely missing*.
+**Why, proven by protocol.** PyPI answers `/simple/<name>/` with
+`Vary: Accept-Encoding, Accept`, and the two requests differed in both. The
+wait sent no `Accept` and `Accept-Encoding: identity`, and got the HTML page.
+pip 25.0.1 sends the JSON simple API first and `gzip, deflate`, and gets the
+JSON page. So they read two cached copies of one URL, and the wait never read
+pip's. Measured on the wire the same day, and consistent with it: each copy was
+answered by a different shield server, and `Cache-Control: no-cache` did not
+force a fresh copy.
+
+**The fix: the wait asks what `pip` asks.** `await_index.py` now sends pip's
+`Accept` and `Accept-Encoding` and reads the JSON page. It keeps the HTML page as
+the fallback pip keeps. It also sends pip's `Cache-Control: max-age=0` in place
+of `no-cache`. That last change is **not** because the cache header is proven to
+matter: the goal is the same question, not a better one. The script says so
+beside the headers, and `tests/test_await_index.py` holds each one to pip's.
+**A retry of `pip install` stays refused**, for the reason above: it cannot tell
+*not yet propagated* from *genuinely missing*.
+
+**The diagnostic, kept ready and not built.** After this fix, if an in-build
+wait prints `served` and `pip` in the same `RUN` still finds no such version,
+the variant is ruled out. One hypothesis is left: **per-server luck**, the two
+requests landing on different cache servers of the same variant, one refreshed
+and one not. That is when a capture earns its cost, and not before. Build it
+into the step then, recording for both requests, the wait's and `pip`'s own, at
+the moment of failure:
+
+- the versions the page lists;
+- `X-Served-By`, `X-Cache` and `Age`;
+- the time, to the tenth of a second.
+
+Same server and a different answer would refute per-server luck. Different
+servers would confirm it.
 
 The rule was learnt twice. On v0.13.0 the `pypi` job verified its pins, and the
 image build ~30s later was still told `digline==0.13.0` did not exist. On
@@ -594,8 +618,9 @@ press again. Re-run it only after reading which version it names.
 
 **One red still ends in a re-run, and v0.15.0 is its example:** the in-build wait
 prints `served` for every pin and `pip install` in the same `RUN` then finds no
-such version. That is the divergence under *The index race*, not a defect in the
-tree. Re-run the failed jobs (`gh run rerun <id> --failed`). Then **read the log,
+such version. On v0.15.0 that was the variant divergence under *The index race*,
+which the wait no longer has. If it happens again, it is the one hypothesis left
+there, and the diagnostic described there is built before the next tag. Re-run the failed jobs (`gh run rerun <id> --failed`). Then **read the log,
 not the green**: `served` lines in both legs, `Successfully installed` with the
 released versions, and all three tags on one digest.
 

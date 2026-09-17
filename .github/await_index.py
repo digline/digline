@@ -34,6 +34,14 @@ the three plugins for minutes after their upload had returned 200 and after the
 simple index was already serving them; a wait built on it would have failed a
 release whose packages were in fact there.
 
+**And asked the same question `pip` asks, header for header.** On v0.15.0 this
+wait, inside the build, printed `served digline==0.15.0 (after 0s)`, and `pip
+install` in the same `RUN`, 1.2s later, found no such version. PyPI answers
+`Vary: Accept-Encoding, Accept`, and the two requests differed in both: this
+file sent no `Accept` and `identity`, `pip` sends the JSON simple API first and
+`gzip, deflate`. So by protocol they were two different cached objects, and a
+wait that reads one proves nothing about the other. See `PIP_HEADERS`.
+
 **And asked from where the install will happen.** One runner's view of the
 index does not prove another's: on v0.13.0 the publishing job verified its
 pins and the image build, ~30s later and inside a container's own network
@@ -59,12 +67,15 @@ Environment:
 
 from __future__ import annotations
 
+import gzip
+import json
 import os
 import re
 import sys
 import time
 import urllib.error
 import urllib.request
+import zlib
 
 INDEX = os.environ.get("INDEX", "https://pypi.org").rstrip("/")
 TIMEOUT = float(os.environ.get("TIMEOUT", "300"))
@@ -73,6 +84,31 @@ INTERVAL = float(os.environ.get("INTERVAL", "10"))
 #: Per-request ceiling. Distinct from TIMEOUT, which bounds the whole wait: a
 #: single edge hanging must not eat the budget meant for the next poll.
 REQUEST_TIMEOUT = 15
+
+#: What `pip` sends for a project page, copied from pip 25.0.1, the version in
+#: the image's base (`_get_simple_response` in `pip/_internal/index/collector.py`,
+#: and `DEFAULT_ACCEPT_ENCODING` in its vendored `requests`), and confirmed on
+#: the wire with `http.client`'s debug output.
+#:
+#: `Accept` and `Accept-Encoding` are what PyPI's `Vary` names, so they decide
+#: *which* cached copy answers. **`Cache-Control` is aligned too, and not
+#: because it is proven to matter.** The goal is to ask **the same question**
+#: `pip` asks, not a better one. `no-cache` looks stronger, and it is exactly
+#: how this file came to read a copy `pip` never reads. Do not "improve" it
+#: back: a wait that asks something fresher than the install is a wait that can
+#: pass while the install fails. (RELEASING.md, *The index race*, v0.15.0)
+PIP_HEADERS = {
+    "Accept": (
+        "application/vnd.pypi.simple.v1+json, "
+        "application/vnd.pypi.simple.v1+html; q=0.1, text/html; q=0.01"
+    ),
+    "Accept-Encoding": "gzip, deflate",
+    "Cache-Control": "max-age=0",
+}
+
+#: The content type of a PEP 691 JSON project page, which is what `PIP_HEADERS`
+#: asks for first and what PyPI answers with.
+JSON_PAGE = "application/vnd.pypi.simple.v1+json"
 
 #: The filename of every anchor on a PEP 503 page. The page is a flat list of
 #: `<a href="...">filename</a>`, and the filename is what carries the version —
@@ -137,11 +173,13 @@ def served_versions(name: str) -> set[str]:
     """
     url = f"{INDEX}/simple/{name}/"
     request = urllib.request.Request(  # noqa: S310 - http(s) index URL, by config
-        url, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"}
+        url, headers=PIP_HEADERS
     )
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
-            body = response.read().decode("utf-8", "replace")
+            raw = response.read()
+            encoding = (response.headers.get("Content-Encoding") or "").lower()
+            kind = (response.headers.get("Content-Type") or "").lower()
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise Absent(f"{url} answered 404") from exc
@@ -152,12 +190,45 @@ def served_versions(name: str) -> set[str]:
         # network comes up late often enough to be worth riding out.
         raise Absent(f"{url} is unreachable ({exc.reason})") from exc
 
-    found = set()
-    for filename in ANCHOR.findall(body):
-        parsed = name_and_version(filename.strip())
-        if parsed and parsed[0] == name:
-            found.add(parsed[1])
-    return found
+    return {
+        parsed[1]
+        for filename in filenames(decoded(raw, encoding), kind)
+        if (parsed := name_and_version(filename)) and parsed[0] == name
+    }
+
+
+def decoded(raw: bytes, encoding: str) -> str:
+    """The body, undone from the encoding `PIP_HEADERS` accepted.
+
+    `urllib` does not decode for us, unlike `pip`'s `requests`. So asking with
+    `gzip, deflate` means undoing both here. `deflate` is tried as zlib-wrapped
+    first and raw second, since servers send either under that name.
+    """
+    if encoding == "gzip":
+        raw = gzip.decompress(raw)
+    elif encoding == "deflate":
+        try:
+            raw = zlib.decompress(raw)
+        except zlib.error:
+            raw = zlib.decompress(raw, -zlib.MAX_WBITS)
+    return raw.decode("utf-8", "replace")
+
+
+def filenames(body: str, kind: str) -> list[str]:
+    """Every distribution filename on the page, in either shape `pip` reads.
+
+    The JSON page (PEP 691) is what PyPI answers `PIP_HEADERS` with. The HTML
+    page (PEP 503) is what an index that does not speak JSON answers, and
+    `pip` reads that too, so a custom `INDEX` still works.
+    """
+    if kind.startswith(JSON_PAGE):
+        page = json.loads(body)
+        return [
+            str(entry["filename"])
+            for entry in page.get("files", [])
+            if isinstance(entry, dict) and "filename" in entry
+        ]
+    return [text.strip() for text in ANCHOR.findall(body)]
 
 
 def main(argv: list[str]) -> int:
