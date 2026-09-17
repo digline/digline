@@ -400,10 +400,12 @@ the same `v*` tag. So the first consumer to run is structurally early, and
 whether it goes red used to be decided by scheduling rather than by anything in
 the tree.
 
-It has been paid for seven times — 0.7.1's warm pip cache, 0.8.0's `rag` and
+It has been paid for eight times — 0.7.1's warm pip cache, 0.8.0's `rag` and
 `llamaindex` legs, 0.11.0's classifier lock regen, v0.13.0's `docker-publish`,
-the follow-on `ci` after `digline-openai-v0.5.0`, and `docker-publish` on both
-v0.14.0 and v0.14.1, the last two with every wait in this section already green.
+the follow-on `ci` after `digline-openai-v0.5.0`, `docker-publish` on both
+v0.14.0 and v0.14.1 with every wait in this section already green, and
+`docker-publish` on v0.15.0, where the wait **inside the build** printed
+`served` and `pip` failed in the same `RUN`.
 
 `.github/await_index.py` is the answer, and **it is a wait-and-verify, not a
 retry**. That distinction is the whole design and it is worth keeping: a bare
@@ -429,6 +431,27 @@ install it protects. One place's view of the index proves nothing about
 another's, so a job can hold several consumers, and a wait in the job protects
 only the one it runs in. **To find a missed consumer, don't list the workflow's
 jobs. List every `pip install`, and ask where it runs.**
+
+**Corrected on v0.15.0: the same place is necessary and not sufficient. The wait
+must ask the same question `pip` asks.** This is the third time one lesson has
+moved a floor down:
+
+1. v0.13.0 — a wait in one job does not protect another job: wait per consumer.
+2. v0.14.0 and v0.14.1 — a wait on the runner does not protect `pip` inside the
+   Docker build it starts: wait from where `pip` resolves.
+3. v0.15.0 — a wait inside the build, in the same `RUN`, printed
+   `served digline==0.15.0 (after 0s)`, and `pip install` 1.2s later answered
+   *No matching distribution found for digline==0.15.0*, listing versions up to
+   0.14.1. Two requests, from the same place, got two different answers.
+
+The two requests are not the same request. `await_index.py` asks
+`/simple/<name>/` with `Cache-Control: no-cache` and no `Accept`; `pip` asks the
+same URL with its own headers. Why they diverge is **not proven yet**: that a
+CDN keeps the variants apart is a hypothesis, and one laptop check already
+weakens it. So nothing here is changed to fit it. When the mechanism is proven,
+the fix is the wait asking what `pip` asks. **A retry of `pip install` stays
+refused**, for the reason above: it cannot tell *not yet propagated* from
+*genuinely missing*.
 
 The rule was learnt twice. On v0.13.0 the `pypi` job verified its pins, and the
 image build ~30s later was still told `digline==0.13.0` did not exist. On
@@ -456,16 +479,18 @@ separated from its wait. It is gated by `ARG AWAIT_INDEX_TIMEOUT`, **default
 `0`**: a local `docker build docker/` waits for nothing, and only the three
 builds above pass a timeout. The same test holds each of them to a non-zero one.
 
-**Unproven on the release path until the next `v*` tag.** Of the three
-in-build waits, only `ci.yml` → `image` has run a real build, on the pull request
-that added it: it printed `served` for all four pins from inside the build. The
-two `docker-publish.yml` legs, `smoke`'s build step and the multi-arch push with
-its arm64 install, run only on a `v*` tag, and they have not run with this wait
-yet. **The next release's `docker-publish` green is their first real test.**
-Read the build log for `served` lines under `#… the index at https://pypi.org
-must serve`, not only the run's conclusion. A green run without those lines
-means the wait did not run. Then delete this paragraph in the same release's
-follow-up, saying it was seen.
+**Seen on the release path on v0.15.0, and not sufficient.** Both
+`docker-publish.yml` legs printed `served` lines under `#… the index at
+https://pypi.org must serve`, so the wait runs. On **attempt 1**, `smoke`'s build
+step printed `served` for all four pins *after 0s*, and `pip install` in the same
+`RUN`, 1.2s later, found no `digline==0.15.0`. The job failed, the multi-arch push
+was skipped, and no image was published. On **attempt 2** (`gh run rerun
+--failed`), `smoke`'s build printed `served` and installed all four. The
+multi-arch push's arm64 leg printed `served` after waiting 16s and installed; its
+amd64 layer was cached from the same `RUN` in `smoke`. `0.15.0`, `0.15` and
+`latest` resolved to one digest. A green run without `served` lines still means
+the wait did not run. What v0.15.0 adds is that a `served` line does not mean
+`pip` will resolve: see the correction under *The index race*.
 
 **What still is not covered, stated rather than assumed.** The `testpypi` job
 installs unversioned names, on purpose — TestPyPI resolves against a different
@@ -566,6 +591,13 @@ the build then installed four versions from inside a container. Re-running was
 how it got past a plugin the index had not caught up on. The job now waits for
 all four pins, so a red there is a failure to read rather than a button to
 press again. Re-run it only after reading which version it names.
+
+**One red still ends in a re-run, and v0.15.0 is its example:** the in-build wait
+prints `served` for every pin and `pip install` in the same `RUN` then finds no
+such version. That is the divergence under *The index race*, not a defect in the
+tree. Re-run the failed jobs (`gh run rerun <id> --failed`). Then **read the log,
+not the green**: `served` lines in both legs, `Successfully installed` with the
+released versions, and all three tags on one digest.
 
 **The nine example legs need a dispatch after the lock regen.** Two things
 combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
