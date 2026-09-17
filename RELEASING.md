@@ -462,6 +462,18 @@ beside the headers, and `tests/test_await_index.py` holds each one to pip's.
 **A retry of `pip install` stays refused**, for the reason above: it cannot tell
 *not yet propagated* from *genuinely missing*.
 
+**Unproven on the release path until the next `v*` tag**, exactly as the in-build
+wait itself was before v0.15.0. So far it has run only in `ci.yml`'s `image` job,
+on the pull request that added it. There it printed `served` for all four pins,
+on the runner and inside the build, and `pip` in the same `RUN` then installed
+them. But that was against versions that had been on the index for half an hour,
+so there was no race to lose. On the next tag, read `docker-publish.yml`'s
+`smoke` build step and both legs of the multi-arch push for **the pair**:
+`served` for every pin, **and** a clean `pip install` of the released versions
+in the same `RUN` after it. A green run does not prove the fix. The pair seen
+together, on the tag that races the upload, is what proves it. Record which
+legs showed it, then replace this paragraph with that record.
+
 **The diagnostic, kept ready and not built.** After this fix, if an in-build
 wait prints `served` and `pip` in the same `RUN` still finds no such version,
 the variant is ruled out. One hypothesis is left: **per-server luck**, the two
