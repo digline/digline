@@ -31,6 +31,10 @@
   and it boards schema 12 third, which fills the train. Undeclared is announced
   and never guessed, which makes `KIND` optional but no longer unread, and
   `FromAutoevals` is named as the known hole in the reading
+- Amended: 2026-09-17, after the 0.14.0 release — §4.7, what the delta-pass
+  found. The calibration answer's *fields* are never written, and a judge's own
+  reason may still quote them inside the perimeter. The promise is corrected,
+  not the reason scrubbed. Nothing crosses a boundary
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -465,6 +469,27 @@ reader is owed which one it is without a second sentence to choose between them.
   does not apply to a case that carries one. The answer is never recorded into
   the run, recorded responses or not — it is in the committed cases file already,
   and a second copy under `runs/` is a second record of the same payload.
+
+*Amended 2026-09-17, after the 0.14.0 release, by its delta-pass. The sentence
+above promised more than the house has promised anywhere else, and it is
+corrected rather than enforced. **The fields are never written**: no
+`output`, no `input`, no `responses` entry, recorded responses or not, and that
+holds. **A judge's own `reason` may quote them inside the perimeter, as any
+reason may quote any answer.** The scored path does not carry one — a
+calibration case samples at least twice, and the fold replaces the judge's
+reason with the samples' scores. The path that does is the one where every
+judgement errors: `_all_errored` keeps each sample's reason verbatim, and a
+judge that replied in prose instead of JSON is refused with its reply quoted
+(`the judge replied with no JSON object: …`). Probed per sink, that quote
+reaches the run file, the journal, the complete report and the pytest row —
+all inside the perimeter — and no boundary sink: `--redacted`, `compare
+--json`, `explain --json`, the MCP run document and `run_to_json(redacted=True)`
+carry no reason, so fixed decision 9 holds and nothing needed an advisory.
+**The reason is not scrubbed**, because scrubbing it would delete the diagnosis
+a mute judge gives, which is what 0.8.0 worked to get into the run file. This is
+not specific to calibration: a reason has always been payload inside the
+perimeter. A test pins every boundary sink for a calibration case on the
+errored path, and that test is what keeps the corrected promise true.*
 
 #### 4.8 Amendment, 2026-09-17: what building it found
 
