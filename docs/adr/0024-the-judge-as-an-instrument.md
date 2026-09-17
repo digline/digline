@@ -7,10 +7,13 @@
 - Amended: 2026-09-17 — evidence added to the Context, no decision revisited:
   **a miss of the house's own, in pilot-zero's fourth cycle.** Its judgment
   layer told the reader to look at the model first, on a dossier whose own
-  facts had already ruled the model out. The canary, which saw that, is the
-  motivating case. The run-to-run spread is recorded as a finding against
-  §7.1's aggregate-only scope: a suite-level reading stays inside the noise
-  while one case alternates underneath it. §7 is unchanged
+  facts had already ruled the model out. It had been handed `AGENTS.md` §3's
+  likelihood order, which was never measured, and across four cycles it
+  answered the same shape both ways. Whether that order should be measured is
+  left open. The canary, which had ruled the model out, is the motivating case.
+  The run-to-run spread is recorded as a finding against §7.1's aggregate-only
+  scope: a suite-level reading stays inside the noise while one case alternates
+  underneath it. §7 is unchanged
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -146,6 +149,31 @@ unchanged check whose score did not move, so the case was back at 0.6 on its
 own. A model that moved does not heal overnight. Over the four cycles the case
 read 0.0, 0.2, 0.4; then 0.0, 0.4, 0.0; then 0.6; then 0.4, 0.0, 0.0. That is an
 alternation, not a step, and no single cycle can show it.
+
+**The order it was handed is a house rule nobody verified.** Layer 3's system
+prompt asks it to say what it would look at first: *"the model, the judge, the
+prompt, the dependency floor, in that order of likelihood"*. That sentence is
+not an implementation slip in the operator. It is `AGENTS.md` §3, word for word,
+copied into the prompt, the skill and the dossier's own drift sentence. It is
+an a priori: the house wrote it and never measured it. Across the four cycles,
+under the same prompt, it lost twice and won twice. Cycles 1 and 2 put the judge
+first, and cycles 3 and 4 put the model first. The only attribution with numbers
+under it points at the judge: in cycle 1 this case's measured floor spanned
+0.0–1.0 across five samples, and scout's policy holds the case as one the judge
+cannot score, with the rubric investigation still pending. Four cycles do not
+condemn the order. They show it inconsistent with the one attribution that has
+been measured, and that is why what follows is a question and not a decision:
+**is an opinion steered by a declared likelihood order still an opinion, or is
+the order itself something that should be measured?**
+
+**A memoryless layer 3 is not merely incomplete; it is unstable.** Cycles 2 and
+4 had the same shape: this case regressed at all three seeds, and the policy's
+hold on it was in the evidence both times. Cycle 2 answered *"That pattern
+points to the judge, not the model or prompt."* Cycle 4 answered *"The model
+moved."* Cycle 1 contradicts itself inside one answer. It says *"Look at the
+judge first"*, and closes with *"The model, not the system under test, is
+drifting."* A reading that gives opposite answers to the same shape cannot be
+corrected by handing it more of the same cycle.
 
 **What that makes it evidence for.**
 
