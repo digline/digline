@@ -173,12 +173,16 @@ def _add_schema_eleven(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _add_schema_twelve(raw: dict[str, Any]) -> dict[str, Any]:
-    """11 -> 12. One passenger so far, and an absence the old document justifies.
+    """11 -> 12. Two passengers so far, and absences the old document justifies.
 
     `calibration` is left absent because a case written before the idea existed
     was not a calibration case, which is exactly what the absence says — the
     sentence `canary` earned at 10. Nothing is derived from a check's name or a
     score's position: that would be the guess ADR 0014 §2 refuses. (ADR 0024 §9)
+
+    `judge_samples` is left absent for the same kind of reason: a run written
+    before it did not ask any judge more than once per answer, which is what
+    the absence says.
 
     The step writes nothing and still has to **exist**, for the reason the two
     before it give.

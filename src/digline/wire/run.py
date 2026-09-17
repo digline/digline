@@ -18,7 +18,11 @@ __all__ = ["run_document", "run_json", "runs_json"]
 
 
 def run_json(
-    ref: RunRef, plan: CallPlan, *, resumed: bool = False
+    ref: RunRef,
+    plan: CallPlan,
+    *,
+    resumed: bool = False,
+    judge_reading: str | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -34,7 +38,7 @@ def run_json(
     They are here because a pipeline that launched the resume is entitled to
     know what its own call did, at the one moment the fact exists.
     """
-    return {
+    payload: dict[str, object] = {
         "output_version": OUTPUT_VERSION,
         "key": ref.key,
         "tenant": ref.tenant,
@@ -43,6 +47,13 @@ def run_json(
         "resumed": resumed,
         "reused": plan.reused,
     }
+    # Present only where a replay measured the judge's range: the sentence that
+    # never states the range without the calibration beside it, for a pipeline
+    # that reads this instead of stderr. An added key, and absent everywhere
+    # else, so no existing consumer sees a byte change. (ADR 0024 §5.4)
+    if judge_reading is not None:
+        payload["judge_reading"] = judge_reading
+    return payload
 
 
 def runs_json(

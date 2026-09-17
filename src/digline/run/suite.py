@@ -29,6 +29,7 @@ from digline.core import (
     canonical,
     config_hash,
     expand_by_group,
+    judged,
 )
 from digline.core.ratio import Ratio, as_agreement
 
@@ -432,7 +433,7 @@ class Suite:
                     "whichever came first is a band nobody placed"
                 )
             check = _unwrapped(matches[0])
-            if getattr(type(check), "KIND", None) != "judged":
+            if not judged(check):
                 raise ValueError(
                     f"case {case.id!r} calibrates {calibration.check!r}, which is "
                     "not a judged check: nothing places its score on a scale, so "
@@ -645,6 +646,12 @@ class CallPlan:
     #: and announced beside it, because each is judged `samples` times and a
     #: judge call is still a call somebody pays for. (ADR 0024 §4.4)
     calibration: int = 0
+    #: How many times a replay asks each judged check per recorded answer, and
+    #: which checks those are, by name. Announced for the reason `repeats` is:
+    #: the multiplication is the part that surprises people, and it is only
+    #: true of the checks it names. (ADR 0024 §5)
+    judge_samples: int = 0
+    judged: tuple[str, ...] = ()
 
     @property
     def target_calls(self) -> int:
@@ -685,9 +692,16 @@ class CallPlan:
             if self.retried:
                 text += f"; {_count(self.retried, 'case')} retried after an error"
         if self.calibration:
+            judgements = self.samples * max(self.judge_samples, 1)
             text += (
                 f"; {_count(self.calibration, 'calibration case')} judged "
-                f"{_count(self.samples, 'time')}, with no call to the target"
+                f"{_count(judgements, 'time')}, with no call to the target"
+            )
+        if self.judge_samples and self.judged:
+            answer = "recorded answer" if replayed else "answer"
+            text += (
+                f"; each {answer} is judged {self.judge_samples} times by "
+                f"{', '.join(self.judged)}"
             )
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
@@ -729,7 +743,11 @@ def _repeats(assertions: Sequence[Assertion]) -> tuple[tuple[str, int], ...]:
 
 
 def planned_calls(
-    suite: Suite, *, done: Container[str] = (), retried: int = 0
+    suite: Suite,
+    *,
+    done: Container[str] = (),
+    retried: int = 0,
+    judge_samples: int = 0,
 ) -> CallPlan:
     """How many calls `suite` is about to make. Pure, and declared-only.
 
@@ -758,4 +776,8 @@ def planned_calls(
         reused=sum(1 for case in suite.cases if case.suspended is None) - len(pending),
         retried=retried,
         calibration=len(pending) - len(called),
+        judge_samples=judge_samples,
+        judged=tuple(a.name for a in suite.assertions if judged(a))
+        if judge_samples
+        else (),
     )

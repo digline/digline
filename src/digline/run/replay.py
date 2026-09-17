@@ -237,6 +237,7 @@ def rejudge(
     git_commit: str | None = None,
     run_metadata: Mapping[str, object] | None = None,
     pricing: str = "",
+    judge_samples: int = 0,
 ) -> Run:
     """Judge `source`'s recorded answers with `suite`, and say so in the run.
 
@@ -256,6 +257,10 @@ def rejudge(
       today — the replay wrapper answers from stored responses and declares no
       price of its own (ADR 0022 §4).
 
+    `judge_samples` asks each judged check that many times per recorded answer
+    and stamps the count on the run: what each verdict records is unchanged, and
+    the judge's own range is in its metadata (ADR 0024 §5).
+
     The run it returns cannot be promoted (`ReplayedRunError`), which is ADR
     0015 §7 and is enforced in the store rather than here: a value does not know
     what a caller intends to do with it.
@@ -268,12 +273,14 @@ def rejudge(
         git_commit=git_commit,
         run_metadata=run_metadata,
         pricing=pricing,
+        judge_samples=judge_samples,
     )
     return replace(
         produced,
         target_config=source.target_config,
         artifacts=dict(source.artifacts),
         rejudged_from=key,
+        judge_samples=judge_samples,
     )
 
 

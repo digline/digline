@@ -14,6 +14,7 @@ from digline.report.explain import (
     facts,
 )
 from digline.report.history import CaseEntry, CaseHistory, case_history
+from digline.report.judged import judge_reading
 from digline.report.log import (
     IdentityLog,
     IdentitySpan,
@@ -89,6 +90,7 @@ __all__ = [
     "Sighting",
     "case_history",
     "identity_log",
+    "judge_reading",
     "log_text",
     "calibration_fact",
     "check_line",

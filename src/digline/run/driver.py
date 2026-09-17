@@ -35,7 +35,9 @@ from digline.core import (
     Verdict,
     combine_samples,
     error_verdict,
+    fold_judgements,
     identity_of,
+    judged,
     record_output,
     record_trajectory,
     trajectory_chars,
@@ -314,8 +316,36 @@ def _judge(assertion: Assertion, inputs: EvaluatorInputs) -> Verdict:
         )
 
 
+def _graded(
+    suite: Suite,
+    assertion: Assertion,
+    samples: Sequence[EvaluatorInputs],
+    judge_samples: int,
+) -> Verdict:
+    """One check over a case's samples, folded.
+
+    With `judge_samples` below 2, or on a check nothing judges, each sample is
+    judged once — byte for byte what the driver always did. Otherwise a judged
+    check is asked `judge_samples` times per sample, **serially, in call
+    order**, and `fold_judgements` records what a single judgement would have
+    recorded and puts the judge's own range in metadata. (ADR 0024 §5)
+    """
+    floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
+    if judge_samples < 2 or not judged(assertion):
+        return combine_samples(
+            [_judge(assertion, inputs) for inputs in samples], min_agreement=floor
+        )
+    return fold_judgements(
+        [
+            [_judge(assertion, inputs) for _ in range(judge_samples)]
+            for inputs in samples
+        ],
+        min_agreement=floor,
+    )
+
+
 def _run_case(
-    suite: Suite, target: Target, mapper: Mapper, case: Case
+    suite: Suite, target: Target, mapper: Mapper, case: Case, judge_samples: int = 0
 ) -> tuple[CaseResult, Cause]:
     """The case, and which layer errored it.
 
@@ -337,7 +367,7 @@ def _run_case(
             "",
         )
     if case.calibration is not None:
-        return _calibrate(suite, mapper, case, case.calibration)
+        return _calibrate(suite, mapper, case, case.calibration, judge_samples)
 
     samples: list[EvaluatorInputs] = []
     # Collected beside the mapped inputs rather than derived from them: what a
@@ -388,12 +418,8 @@ def _run_case(
 
     # With one sample `combine_samples` is the identity function, so this is
     # byte for byte what the driver produced before sampling existed.
-    floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
     verdicts = tuple(
-        combine_samples(
-            [_judge(assertion, inputs) for inputs in samples],
-            min_agreement=floor,
-        )
+        _graded(suite, assertion, samples, judge_samples)
         for assertion in suite.assertions
     )
     return (
@@ -412,7 +438,11 @@ def _run_case(
 
 
 def _calibrate(
-    suite: Suite, mapper: Mapper, case: Case, calibration: Calibration
+    suite: Suite,
+    mapper: Mapper,
+    case: Case,
+    calibration: Calibration,
+    judge_samples: int = 0,
 ) -> tuple[CaseResult, Cause]:
     """A calibration case: the author's answer, graded by one check.
 
@@ -457,10 +487,7 @@ def _calibrate(
                 ),
                 "mapper",
             )
-    floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
-    verdict = combine_samples(
-        [_judge(check, inputs) for inputs in samples], min_agreement=floor
-    )
+    verdict = _graded(suite, check, samples, judge_samples)
     return (
         CaseResult(case_id=case.id, verdicts=(verdict,), calibration=band),
         "assertion" if verdict.status == "error" else "",
@@ -538,6 +565,7 @@ def execute(
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
     pricing: str | None = None,
+    judge_samples: int = 0,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -567,7 +595,29 @@ def execute(
     and the failure this one would hide is a recorder that stopped recording
     while the run went on for another six hundred calls, which is the loss the
     journal exists to end.
+
+    `judge_samples` asks each judged check that many times per answer. It is a
+    measurement of the judge on answers that do not move, so it is refused on
+    any target but a `Replay`, before the first call: on a live target the
+    answers move too, and the range would be the target's and the judge's
+    together under the judge's name. The run returned carries no marker of it;
+    `rejudge` stamps `Run.judge_samples` beside `rejudged_from`. (ADR 0024 §5.2)
     """
+    if judge_samples:
+        # Imported here: `replay` imports this module.
+        from digline.run.replay import Replay
+
+        if judge_samples < 2:
+            raise ValueError(
+                f"judge_samples is {judge_samples}: asking the judge once is an "
+                "ordinary judgement, and a range needs at least two"
+            )
+        if not isinstance(target, Replay):
+            raise ValueError(
+                "judge_samples measures the judge on answers that do not move, so "
+                "it runs only on a replay: on a live target the range would mix "
+                "the target's variance into the judge's. Use `rejudge`"
+            )
     # Asked before anything is called. A target that can check itself against
     # the suite says so by having the method; the ones that cannot are plain
     # functions and are left alone.
@@ -601,7 +651,7 @@ def execute(
         if case.id in reuse:
             results.append(reuse[case.id])
             continue
-        result, cause = _run_case(suite, target, mapper, case)
+        result, cause = _run_case(suite, target, mapper, case, judge_samples)
         results.append(result)
         if on_case is not None:
             # Asked per case rather than once at the end, because a recorder

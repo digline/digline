@@ -505,6 +505,35 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "movement is about is which model answered rather than how well it "
             "answered."
         ),
+        # `digline rejudge --judge-samples` (ADR 0024 §5.4). A terminal line,
+        # printed after `digline: ` like the planned-calls line, so it starts
+        # lower-case and has no full stop. The range never goes without the
+        # calibration: a collapsed judge is perfectly repeatable.
+        "judged.range": (
+            "the judge's own range on these answers is at most {range} across "
+            "{count} judgements ({check}, answer {answer} of case {case})"
+        ),
+        "judged.range.none": (
+            "the judge's own range on these answers was not measured: no judged "
+            "answer returned two scores"
+        ),
+        "judged.errored.one": ", and 1 judgement returned no score",
+        "judged.errored.many": ", and {count} judgements returned no score",
+        "judged.calibration.inside": (
+            "; the calibration case {case} scored {score}, inside its declared "
+            "band {low}–{high}"
+        ),
+        "judged.calibration.outside": (
+            "; the calibration case {case} scored {score}, outside its declared "
+            "band {low}–{high}"
+        ),
+        "judged.calibration.unjudged": (
+            "; the calibration case {case} could not be judged"
+        ),
+        "judged.calibration.none": (
+            "; this suite declares no calibration case, and a judge that has "
+            "lost its scale reads as perfectly repeatable"
+        ),
         "explain.tally.calibration.one": (
             "1 calibration case scored outside its declared band: the judged "
             "scores in this run are not placed on the scale they are compared "
@@ -1142,6 +1171,33 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un controllo sentinella si è mosso. Non entra in nessun "
             "aggregato, e ciò di cui il suo movimento parla è quale modello "
             "abbia risposto, non quanto bene."
+        ),
+        "judged.range": (
+            "l'intervallo del giudice su queste risposte è al più {range} su "
+            "{count} giudizi ({check}, risposta {answer} del caso {case})"
+        ),
+        "judged.range.none": (
+            "l'intervallo del giudice su queste risposte non è stato misurato: "
+            "nessuna risposta giudicata ha restituito due punteggi"
+        ),
+        "judged.errored.one": ", e 1 giudizio non ha restituito un punteggio",
+        "judged.errored.many": (
+            ", e {count} giudizi non hanno restituito un punteggio"
+        ),
+        "judged.calibration.inside": (
+            "; il caso di calibrazione {case} ha ottenuto {score}, dentro la "
+            "banda dichiarata {low}–{high}"
+        ),
+        "judged.calibration.outside": (
+            "; il caso di calibrazione {case} ha ottenuto {score}, fuori dalla "
+            "banda dichiarata {low}–{high}"
+        ),
+        "judged.calibration.unjudged": (
+            "; il caso di calibrazione {case} non è stato possibile giudicarlo"
+        ),
+        "judged.calibration.none": (
+            "; questa suite non dichiara un caso di calibrazione, e un giudice "
+            "che ha perso la sua scala risulta perfettamente ripetibile"
         ),
         "explain.tally.calibration.one": (
             "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "

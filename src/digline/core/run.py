@@ -117,6 +117,11 @@ __all__ = [
 #    name and two numbers. The first passenger of this version, and not the
 #    last: `Verdict.scale` and `Run.judge_samples` are ruled onto the same bump,
 #    so 12 stays open until they have boarded it.
+#    `Run.judge_samples` boarded second: how many times each judged check asked
+#    the judge per recorded answer, on a replay. Outside `config_hash` (it is a
+#    replay's own parameter, not the suite's); absent means *did not measure the
+#    judge's range*, which is what every older run did; a count of our own
+#    calls. The range it produces is metadata on judged verdicts, numbers only.
 SCHEMA_VERSION = 12
 
 
@@ -931,6 +936,13 @@ class Run:
     #: `promoted_at`. Pre-vetted against the passenger rule by ADR 0017 §11 and
     #: boarded by ADR 0018 §3, which is the bump that finally forced the move.
     resumed_at: tuple[str, ...] = ()
+    #: How many times each judged check asked the judge per recorded answer, on
+    #: a replay that measured the judge's own range. `0` is a run that did not,
+    #: which is every run but those, and what a document written before this
+    #: field says by omitting it. The verdicts record what a single judgement
+    #: records; the range is in each judged verdict's metadata. A fact about our
+    #: own instrument, so it survives `redact()`. (ADR 0024 §5.3, §9)
+    judge_samples: int = 0
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -941,6 +953,18 @@ class Run:
             raise ValueError("Run.suite must not be empty")
         if not self.config_hash:
             raise ValueError("Run.config_hash must not be empty")
+        if self.judge_samples == 1 or self.judge_samples < 0:
+            raise ValueError(
+                f"Run.judge_samples is {self.judge_samples}: it is 0 on a run "
+                "that did not measure the judge's range, and at least 2 on one "
+                "that did"
+            )
+        if self.judge_samples and self.rejudged_from is None:
+            raise ValueError(
+                "Run.judge_samples is set on a run that declares no "
+                "rejudged_from: the judge's range is measured on answers that do "
+                "not move, which only a replay has"
+            )
         if not self.redacted:
             return
         # `redacted` is a claim about the contents, so it is checked against
@@ -1220,6 +1244,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # And so is when it was resumed: the legs of our own instrument, never
         # anything about what it measured. (ADR 0018 §3)
         resumed_at=run.resumed_at,
+        # A count of our own judge calls, never anything about what was judged.
+        # (ADR 0024 §9)
+        judge_samples=run.judge_samples,
     )
 
 
@@ -1355,6 +1382,10 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # Absent on a run nobody resumed, which is almost every run. Absent is
         # *not resumed*, and it is never an invented time. (ADR 0018 §3)
         **({"resumed_at": list(run.resumed_at)} if run.resumed_at else {}),
+        # Absent on every run that did not measure the judge's range, which is
+        # all of them but one kind of replay, so no other document moves.
+        # (ADR 0024 §9)
+        **({"judge_samples": run.judge_samples} if run.judge_samples else {}),
     }
 
 
@@ -1692,6 +1723,7 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         resumed_at=tuple(
             str(stamp) for stamp in cast(Sequence[Any], raw.get("resumed_at") or ())
         ),
+        judge_samples=int(raw.get("judge_samples") or 0),
     )
 
 

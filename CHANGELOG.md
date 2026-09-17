@@ -40,6 +40,15 @@ date, and nothing else in the section moves.*
   `digline>=0.14.0`. See the
   [API reference](docs/api.md#casecalibration-watching-the-judges-scale) and
   ADR 0024 §4, amended in §4.8 with what building it found.
+- **`digline rejudge --judge-samples M`.** On a replay, each judged check asks
+  the judge M times per recorded answer, and the verdicts still record what a
+  plain replay records. The judge's own range goes into metadata
+  (`judge_samples`, `judge_errored`, and the widest answer's `judge_min`,
+  `judge_max` and `judge_answer`) and never onto the noise floor. The run
+  records `judge_samples` — the second passenger of schema 12. The range is
+  never reported without the calibration result beside it: `rejudge` prints both
+  in one sentence on stderr and as `judge_reading` in `--json`. See
+  [`rejudge.md`](docs/rejudge.md) and ADR 0024 §5, amended in §5.5.
 
 ## 0.13.3 — 2026-09-16
 

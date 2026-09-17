@@ -70,6 +70,7 @@ from digline.report import (
     config_lines,
     explain_text,
     headline,
+    judge_reading,
     log_text,
     render_html,
     render_run_html,
@@ -385,7 +386,13 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     source = read_run(store, suite, key)
     _warn_if_ahead(source)
 
-    plan = planned_calls(suite)
+    judge_samples = args.judge_samples or 0
+    if judge_samples == 1:
+        raise UsageError(
+            "--judge-samples 1 asks the judge once, which is what rejudge already "
+            "does: a range needs at least 2"
+        )
+    plan = planned_calls(suite, judge_samples=judge_samples)
     say(f"digline: {plan.sentence(replayed=True)}", err=True)
 
     try:
@@ -397,13 +404,20 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             git_commit=commit,
             run_metadata=_meta(args.meta),
             pricing=_pricing(args, loaded),
+            judge_samples=judge_samples,
         )
     except ReplayError as exc:
         raise UsageError(str(exc)) from exc
 
     ref = store.write_run(run)
+    # The measurement is reported by the command that took it, beside the line
+    # that announced its cost — never on its own and never without the
+    # calibration result. (ADR 0024 §5.4)
+    reading = judge_reading(run, locale="en") if judge_samples else None
+    if reading is not None:
+        say(f"digline: {reading}", err=True)
     if args.json:
-        emit(json.dumps(run_json(ref, plan)))
+        emit(json.dumps(run_json(ref, plan, judge_reading=reading)))
     else:
         say(ref.key)
     return EXIT_OK
@@ -905,6 +919,16 @@ def build_parser() -> argparse.ArgumentParser:
     common(rej_p)
     rej_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
     rej_p.add_argument("--target", help=TARGET_HELP)
+    rej_p.add_argument(
+        "--judge-samples",
+        type=int,
+        metavar="M",
+        help=(
+            "ask each judged check M times per recorded answer and report the "
+            "judge's own range beside the calibration result; what each verdict "
+            "records is unchanged (M >= 2)"
+        ),
+    )
     rej_p.add_argument(
         "--meta",
         action="append",

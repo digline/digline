@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from statistics import fmean
 from typing import ClassVar, cast
 
@@ -41,6 +41,8 @@ __all__ = [
     "budget_exceedances",
     "combine_samples",
     "directions",
+    "fold_judgements",
+    "judged",
     "on_the_line",
 ]
 
@@ -504,3 +506,91 @@ class Repeated(AssertionBase):
             reason=combined.reason,
             assertion_id=self.identity,
         )
+
+
+def judged(assertion: Assertion) -> bool:
+    """Whether a model places this check's value on a scale.
+
+    Read off the class's `KIND`, followed through `Repeated` to what it wraps —
+    `Repeated` declares `wrapper` because its nature is the thing it wraps. A
+    class that declares no `KIND` is not judged as far as anything here can
+    know, and nothing guesses. The one definition both judge measurements read:
+    which check a calibration case may name, and which checks
+    `--judge-samples` asks more than once. (ADR 0024 §4.2, §5)
+    """
+    current: object = assertion
+    while isinstance(current, Repeated):
+        current = current.inner
+    return getattr(type(current), "KIND", None) == "judged"
+
+
+def fold_judgements(
+    judgements: Sequence[Sequence[Verdict]], *, min_agreement: float
+) -> Verdict:
+    """One judged check over the recorded answers of a case, each judged M times.
+
+    `judgements[i]` is the M verdicts the check returned for recorded answer
+    `i`, **in the order the calls were made**. The calls are serial, so that
+    order is the execution order and never the order in which they happened to
+    return: if they are ever parallelised, this list must still be built in
+    call order, or "first" below stops being reproducible.
+
+    **What is recorded is what a plain replay records.** Each answer contributes
+    its *first* judgement — the first, in that order, that returned a score —
+    and those are folded by `combine_samples` exactly as the driver folds one
+    judgement per answer. So a `--judge-samples` replay records the same
+    quantity as a plain replay and as its source run, which judged each answer
+    once; the other judgements are measurement, and they reach metadata only.
+    Averaging all M would produce a document that looks like a replay, carries
+    the same field names, and measures something else. Where no judgement of an
+    answer returned a score, that answer is unjudged and contributes its first
+    errored verdict, which is the existing rule. (ADR 0024 §5.5)
+
+    **Metadata, never the `Score` fields.** `compare()` reads `sample_min` and
+    `sample_max` as the baseline's noise floor; the judge's range must not reach
+    it, or a replay that asked the target nothing would widen the excuse of
+    every real run measured against it (ADR 0024 §5.3). The keys, all numbers:
+
+    - `judge_samples` — M;
+    - `judge_errored` — judgements, across every answer, that returned no score.
+      An error in one of M is a fault of the instrument, not of the case, and
+      the chance of one grows with M, so it is counted rather than escalated;
+    - `judge_min`, `judge_max`, `judge_answer` — the lowest and highest score of
+      **the one answer whose judgements spread widest**, and that answer's
+      position, from 1. Both bounds come from the same answer on purpose: a
+      minimum on one answer and a maximum on another describe two different
+      questions, not an unstable judge — the confusion ADR 0024 §7.3 forbids
+      between the two noise intervals. No separate range key: it is
+      `judge_max - judge_min`, and two copies of one number drift. On a tie the
+      **lowest position** wins, so identical data reports the same answer on
+      every run. Absent where no answer returned two scores: there is no range
+      to report, and the reading says so.
+    """
+    if not judgements or any(not answer for answer in judgements):
+        raise ValueError("fold_judgements needs at least one judgement per answer")
+    chosen = [
+        next((v for v in answer if v.score.score is not None), answer[0])
+        for answer in judgements
+    ]
+    folded = combine_samples(chosen, min_agreement=min_agreement)
+
+    count = len(judgements[0])
+    metadata: dict[str, object] = dict(folded.score.metadata)
+    metadata["judge_samples"] = count
+    metadata["judge_errored"] = sum(
+        1 for answer in judgements for v in answer if v.score.score is None
+    )
+    widest: tuple[float, float, int] | None = None
+    for position, answer in enumerate(judgements, start=1):
+        scores = [v.score.score for v in answer if v.score.score is not None]
+        if len(scores) < 2:
+            continue
+        low, high = min(scores), max(scores)
+        # Strictly wider, so a tie keeps the lower position.
+        if widest is None or at_precision(high - low) > at_precision(
+            widest[1] - widest[0]
+        ):
+            widest = (low, high, position)
+    if widest is not None:
+        metadata["judge_min"], metadata["judge_max"], metadata["judge_answer"] = widest
+    return replace(folded, score=replace(folded.score, metadata=metadata))

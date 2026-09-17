@@ -21,6 +21,11 @@
   `Calibration` gains `input` and its refusal (§4.2); the §4.2 refusal reads the
   `KIND` that 0.13.3 already ships, and §6.1 is left to shape; and §9's bump
   boards one passenger first, which leaves 12 an open train
+- Amended: 2026-09-17 — §5, what building `judge_samples` found, in §5.5. Four
+  rulings the text left open: the verdict records the first judgement; the
+  bounds are the widest answer's own, with a tie rule; an errored judgement is
+  counted, not escalated; and the sentence belongs to `rejudge` alone.
+  `Run.judge_samples` boards schema 12 second
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -573,6 +578,61 @@ alone would be fixed decision 3's vacuous green, measured on the judge.
 
 It is a replay, so it inherits everything ADR 0015 decided: not promotable, the
 headline says re-judged, and it needs `record_responses=True` on the source.
+
+#### 5.5 Amendment, 2026-09-17: what building it found
+
+*Four places the text left open, each ruled at a checkpoint before the code.*
+
+**The verdict records the first judgement.** Of an answer's M judgements, the
+one its verdict is built from is the **first in execution order** — the calls
+are serial, and the order is the order they were made, never the order they
+returned, so parallelising them later must not change which one is first. A
+`--judge-samples` replay therefore records the same quantity as a plain replay
+and as its source run, which judged each answer once. Recording the mean of the
+M would produce two documents that look alike, carry the same field names and
+measure different things. The flag is a measuring instrument, not a better way
+to judge: comparing a plain replay with a `--judge-samples` one isolates exactly
+the flag — the same scores, and metadata beside them.
+
+**The bounds are the widest answer's own.** §5.3's list reads as though
+`judge_min` and `judge_max` could be taken across answers, and they are not: a
+minimum on one answer and a maximum on another describe two different
+questions, not an unstable judge — the confusion §7.3 already forbids between
+the two noise intervals. So the keys are `judge_samples`, `judge_errored`,
+`judge_min` and `judge_max` of the one answer whose judgements spread widest,
+and `judge_answer`, its position from 1. There is no separate range key: it is
+`judge_max - judge_min`, and two copies of one number drift. **On a tie the
+lowest position wins**, within a verdict and, for the sentence, in the run's own
+order, so identical data names the same answer on every run.
+
+**An errored judgement is counted, not escalated.** An error in one of M
+measurements is a fault of the instrument, not of the case, and the chance of
+at least one grows with M: escalating it to an unjudged case and exit 2 would
+make the tool less usable exactly when it is used properly. It is counted in
+`judge_errored`. **Where the first judgement is the one that errored**, the
+verdict is built from the first judgement that returned a score — "first" means
+first to score, not first attempted. Where no judgement of an answer scored,
+that answer is unjudged under the existing rule. An answer with fewer than two
+scores contributes no range, and where no answer has two the range keys are
+absent and the sentence says the range was not measured.
+
+**The sentence belongs to `rejudge`.** It is printed on stderr beside the
+planned-calls line, and is `judge_reading` in `rejudge --json`. It is not a fact
+in `explain` or a line in the report. The measurement belongs to the command
+that produced it, not to every later reading of a re-judged run, and amending
+ADR 0012 §3's closed list a third time, for a place this record does not ask
+for, would make the list stop being closed. If the measurement ever earns a
+place in the report, it gets a decision of its own.
+
+**What it reads, and the second passenger.** Which checks are judged is `KIND`,
+read through `Repeated` — the definition §4.8 gave the calibration refusal, now
+one function both measurements share. `Run.judge_samples` boards schema 12
+beside `CaseResult.calibration`, checked against ADR 0014 §1 as §9's table
+does: outside `config_hash`, absent on every older run (none asked a judge twice
+per answer), a count of our own calls. It is refused unless `rejudged_from` is
+set, and `execute` refuses the parameter on any target but a replay, before the
+first call: on a live target the range would be the target's and the judge's
+together under the judge's name.
 
 ### 6. Shape: the distribution across the suite
 

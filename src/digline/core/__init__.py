@@ -129,6 +129,8 @@ from digline.core.sampling import (
     budget_exceedances,
     combine_samples,
     directions,
+    fold_judgements,
+    judged,
     on_the_line,
 )
 from digline.core.types import (
@@ -271,6 +273,8 @@ __all__ = [
     "STORAGE_STEP",
     "at_precision",
     "canonical",
+    "fold_judgements",
+    "judged",
     "scale_lost",
     "meets",
     "within",
