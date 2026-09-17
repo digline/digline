@@ -392,109 +392,54 @@ whole for that step to read.
 
 ## The index race
 
-**An upload returning 200 is not the index serving the file**, and the gap
-between the two is a race our own ordering guarantees. `publish` uploads, and
-the consumers start the moment it completes: `ci.yml` on
-`workflow_run: [publish] types: [completed]`, `docker-publish.yml` beside it on
-the same `v*` tag. So the first consumer to run is structurally early, and
-whether it goes red used to be decided by scheduling rather than by anything in
-the tree.
+**An upload returning 200 is not the index serving the file.** `publish`
+uploads, and its consumers start the moment it completes. So the first
+`pip install` after a tag is structurally early.
 
-It has been paid for eight times — 0.7.1's warm pip cache, 0.8.0's `rag` and
-`llamaindex` legs, 0.11.0's classifier lock regen, v0.13.0's `docker-publish`,
-the follow-on `ci` after `digline-openai-v0.5.0`, `docker-publish` on both
-v0.14.0 and v0.14.1 with every wait in this section already green, and
-`docker-publish` on v0.15.0, where the wait **inside the build** printed
-`served` and `pip` failed in the same `RUN`.
+**The rule.** Every place `pip` resolves the index from gets its own wait. The
+wait runs there, beside the install it protects. It asks exactly what `pip`
+asks. It **never retries**: it waits for these exact files and names what is
+missing.
 
-`.github/await_index.py` is the answer, and **it is a wait-and-verify, not a
-retry**. That distinction is the whole design and it is worth keeping: a bare
-retry cannot tell *not yet propagated* from *genuinely missing* — a typo'd pin,
-a version that never uploaded, a project that does not exist. It burns its
-budget and fails the same way for both, so a real defect becomes a slow flake
-and the red says nothing about which it was. The wait asks the one question
-that separates them — *is this exact file served?* — and answers in two shapes:
+**Reading a red:**
 
-| The red says | It means |
-|---|---|
-| `/simple/digline/ is served and lists 41 file version(s), none at 0.13.0` | propagation, or a version that was never uploaded |
-| `/simple/digline-mcp/ answered 404 — a project that has never been published, or a name that is misspelled` | a package **new to the index**, or a misspelling |
+| The red says | It means | Do |
+|---|---|---|
+| `/simple/digline/ is served and lists 41 file version(s), none at 0.13.0` | propagation, or a version that was never uploaded | before `pypi` has uploaded, the expected red (*After the tag*); after it, check the `pypi` job's log lists the file, and re-run only if it does |
+| `/simple/digline-mcp/ answered 404 — a project that has never been published, or a name that is misspelled` | a package **new to the index**, or a misspelling | check the spelling; for a new package, see *Before the first tag of a new package* |
+| `served` for every pin, then `No matching distribution found` from `pip` in the same `RUN` | the wait and `pip` got different answers | `gh run rerun <id> --failed`, read the log, and see *The diagnostic* below |
+| `No matching distribution found` from `pip`, with no `the index at … must serve` above it | a consumer with no wait | add one: see *Applying it* |
 
-The second shape is there because a brand-new project has no page at all, so an
-edge can hold a cached 404 for the project URL — a longer-lived thing than a
-page that merely has to gain a line.
+A green run proves a wait ran only if its `served` lines are in the log.
 
-**The rule: list consumers by where `pip` resolves, not by job.** A consumer is
-**a place `pip` resolves the index from**: a runner, a container, a build's
-network namespace. Each one gets its own wait, run from that place, beside the
-install it protects. One place's view of the index proves nothing about
-another's, so a job can hold several consumers, and a wait in the job protects
-only the one it runs in. **To find a missed consumer, don't list the workflow's
-jobs. List every `pip install`, and ask where it runs.**
+### Why each clause
 
-**Corrected on v0.15.0: the same place is necessary and not sufficient. The wait
-must ask the same question `pip` asks.** This is the third time one lesson has
-moved a floor down:
+- **A wait, not a retry.** A bare retry cannot tell *not yet propagated* from
+  *genuinely missing*: a typo'd pin, a version that never uploaded, a project
+  that does not exist. It burns its budget and fails the same way for both, so
+  a real defect becomes a slow flake. The wait asks the one question that
+  separates them, *is this exact file served?*, and answers in the two shapes
+  above. The second shape exists because a brand-new project has no page at
+  all, so an edge can hold a cached 404 for its URL. That lasts longer than a
+  page that only has to gain a line.
+- **From where `pip` resolves.** One place's view of the index proves nothing
+  about another's. A runner, a container and a Docker build's network namespace
+  can each reach a different edge. So a job can hold several consumers, and a
+  wait protects only the one it runs in.
+- **The same question `pip` asks.** PyPI answers `/simple/<name>/` with
+  `Vary: Accept-Encoding, Accept`, so two requests that differ in either header
+  read two different cached copies of one URL. `await_index.py` sends pip
+  25.0.1's `Accept` (the JSON simple API first) and `Accept-Encoding`
+  (`gzip, deflate`), and reads the JSON page. It keeps the HTML page as the
+  fallback `pip` keeps. It also sends pip's `Cache-Control: max-age=0` in place of
+  `no-cache`, not because that header is proven to matter but because the goal is the same
+  question, not a better one. The script says so beside the headers, and
+  `tests/test_await_index.py` holds each one to pip's.
 
-1. v0.13.0 — a wait in one job does not protect another job: wait per consumer.
-2. v0.14.0 and v0.14.1 — a wait on the runner does not protect `pip` inside the
-   Docker build it starts: wait from where `pip` resolves.
-3. v0.15.0 — a wait inside the build, in the same `RUN`, printed
-   `served digline==0.15.0 (after 0s)`, and `pip install` 1.2s later answered
-   *No matching distribution found for digline==0.15.0*, listing versions up to
-   0.14.1. Two requests, from the same place, got two different answers.
+### Applying it
 
-**Why, proven by protocol.** PyPI answers `/simple/<name>/` with
-`Vary: Accept-Encoding, Accept`, and the two requests differed in both. The
-wait sent no `Accept` and `Accept-Encoding: identity`, and got the HTML page.
-pip 25.0.1 sends the JSON simple API first and `gzip, deflate`, and gets the
-JSON page. So they read two cached copies of one URL, and the wait never read
-pip's. Measured on the wire the same day, and consistent with it: each copy was
-answered by a different shield server, and `Cache-Control: no-cache` did not
-force a fresh copy.
-
-**The fix: the wait asks what `pip` asks.** `await_index.py` now sends pip's
-`Accept` and `Accept-Encoding` and reads the JSON page. It keeps the HTML page as
-the fallback pip keeps. It also sends pip's `Cache-Control: max-age=0` in place
-of `no-cache`. That last change is **not** because the cache header is proven to
-matter: the goal is the same question, not a better one. The script says so
-beside the headers, and `tests/test_await_index.py` holds each one to pip's.
-**A retry of `pip install` stays refused**, for the reason above: it cannot tell
-*not yet propagated* from *genuinely missing*.
-
-**Unproven on the release path until the next `v*` tag**, exactly as the in-build
-wait itself was before v0.15.0. So far it has run only in `ci.yml`'s `image` job,
-on the pull request that added it. There it printed `served` for all four pins,
-on the runner and inside the build, and `pip` in the same `RUN` then installed
-them. But that was against versions that had been on the index for half an hour,
-so there was no race to lose. On the next tag, read `docker-publish.yml`'s
-`smoke` build step and both legs of the multi-arch push for **the pair**:
-`served` for every pin, **and** a clean `pip install` of the released versions
-in the same `RUN` after it. A green run does not prove the fix. The pair seen
-together, on the tag that races the upload, is what proves it. Record which
-legs showed it, then replace this paragraph with that record.
-
-**The diagnostic, kept ready and not built.** After this fix, if an in-build
-wait prints `served` and `pip` in the same `RUN` still finds no such version,
-the variant is ruled out. One hypothesis is left: **per-server luck**, the two
-requests landing on different cache servers of the same variant, one refreshed
-and one not. That is when a capture earns its cost, and not before. Build it
-into the step then, recording for both requests, the wait's and `pip`'s own, at
-the moment of failure:
-
-- the versions the page lists;
-- `X-Served-By`, `X-Cache` and `Age`;
-- the time, to the tenth of a second.
-
-Same server and a different answer would refute per-server luck. Different
-servers would confirm it.
-
-The rule was learnt twice. On v0.13.0 the `pypi` job verified its pins, and the
-image build ~30s later was still told `digline==0.13.0` did not exist. On
-v0.14.0 and v0.14.1 the image jobs' own wait on the runner passed, and `pip`
-*inside the Docker build* was served the previous version 16–20s later. A Docker
-build resolves from its own container and network namespace, which can reach a
-different edge from the runner that started it.
+**To find a consumer, do not list the workflow's jobs. List every
+`pip install`, and ask where it runs.**
 
 | Consumer | Where it resolves | Waits for | Deadline |
 |---|---|---|---|
@@ -506,42 +451,93 @@ different edge from the runner that started it.
 | `ci.yml` → `image`, build step | **inside the build** | the same four pins | 4 min |
 | `ci.yml` → `examples-from-pypi` | the runner | this workspace's core version | 4 min |
 
-**Why the in-build consumers were missed, and cost two reruns.** The first list
-was made by walking the jobs, which is the method the rule above replaces. The wait inside the build is `docker/await_index.py`, the
-same script copied into the build context, held byte for byte by
-`tests/test_docker.py` and bind-mounted, so no byte of it lands in the image.
-It runs in the same `RUN` as `pip install`, so a cached install is never
-separated from its wait. It is gated by `ARG AWAIT_INDEX_TIMEOUT`, **default
-`0`**: a local `docker build docker/` waits for nothing, and only the three
-builds above pass a timeout. The same test holds each of them to a non-zero one.
+The consumers start as `ci.yml` on `workflow_run: [publish] types: [completed]`,
+and `docker-publish.yml` beside it on the same `v*` tag.
 
-**Seen on the release path on v0.15.0, and not sufficient.** Both
-`docker-publish.yml` legs printed `served` lines under `#… the index at
-https://pypi.org must serve`, so the wait runs. On **attempt 1**, `smoke`'s build
-step printed `served` for all four pins *after 0s*, and `pip install` in the same
-`RUN`, 1.2s later, found no `digline==0.15.0`. The job failed, the multi-arch push
-was skipped, and no image was published. On **attempt 2** (`gh run rerun
---failed`), `smoke`'s build printed `served` and installed all four. The
-multi-arch push's arm64 leg printed `served` after waiting 16s and installed; its
-amd64 layer was cached from the same `RUN` in `smoke`. `0.15.0`, `0.15` and
-`latest` resolved to one digest. A green run without `served` lines still means
-the wait did not run. What v0.15.0 adds is that a `served` line does not mean
-`pip` will resolve: see the correction under *The index race*.
+**How the wait inside a build works.** It is `docker/await_index.py`, the same
+script as `.github/await_index.py`, copied into the build context and held byte
+for byte by `tests/test_docker.py`. It is bind-mounted, so no byte of it lands
+in the image. It runs in the same `RUN` as `pip install`, so a cached install is
+never separated from its wait. It is gated by `ARG AWAIT_INDEX_TIMEOUT`,
+**default `0`**: a local `docker build docker/` waits for nothing, and only the
+three builds above pass a timeout. The same test holds each of them to a
+non-zero one.
 
-**What still is not covered, stated rather than assumed.** The `testpypi` job
-installs unversioned names, on purpose — TestPyPI resolves against a different
-set of uploads — so nothing holds it to a version and a lagging index there can
-still resolve an older one. The five examples carrying a `uv.lock` pin exact
-versions that legitimately lag a release until the locks are regenerated, and
-the wait says nothing about what any individual lock resolves to. The ten
-`examples/*/.github/workflows/check.yml` are inert inside this monorepo and are
-not reached by a release at all. `java-example.yml` installs no Python package
-and is not a consumer.
+### The diagnostic, kept ready and not built
+
+If a wait prints `served` and `pip` in the same `RUN` still finds no such
+version, **after** the same-question fix, the variant is ruled out. One
+hypothesis is left: **per-server luck**, the two requests landing on different
+cache servers of the same variant, one refreshed and one not. That is when a
+capture earns its cost, and not before. Build it into the step then, recording
+for both requests, the wait's and `pip`'s own, at the moment of failure:
+
+- the versions the page lists;
+- `X-Served-By`, `X-Cache` and `Age`;
+- the time, to the tenth of a second.
+
+Same server with a different answer would refute per-server luck. Different
+servers would confirm it.
+
+### Status: what each path has proven
+
+This is the part that changes from release to release.
+
+- **The wait inside the build runs on the release path.** Seen on v0.15.0: both
+  `docker-publish.yml` legs printed `served` under `#… the index at
+  https://pypi.org must serve`.
+- **The same-question fix is unproven on the release path until the next `v*`
+  tag.** So far it has run only in `ci.yml`'s `image` job, on the pull request
+  that added it. There it printed `served` for all four pins, on the runner and
+  inside the build, and `pip` in the same `RUN` then installed them. But those
+  versions had been on the index for half an hour, so there was no race to lose.
+  On the next tag, read `docker-publish.yml`'s `smoke` build step and both legs
+  of the multi-arch push for **the pair**: `served` for every pin, **and** a
+  clean `pip install` of the released versions in the same `RUN` after it. A
+  green run does not prove the fix. The pair seen together, on the tag that
+  races the upload, is what proves it. Record which legs showed it, then replace
+  this item with that record.
+
+### What is not covered, stated rather than assumed
+
+The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves
+against a different set of uploads — so nothing holds it to a version and a
+lagging index there can still resolve an older one. The five examples carrying
+a `uv.lock` pin exact versions that legitimately lag a release until the locks
+are regenerated, and the wait says nothing about what any individual lock
+resolves to. The ten `examples/*/.github/workflows/check.yml` are inert inside
+this monorepo and are not reached by a release at all. `java-example.yml`
+installs no Python package and is not a consumer.
 
 And the part no amount of waiting closes: **PyPI's edges converge on their own
 schedule.** The wait narrows the window to whatever the consuming runner can
 see; it cannot make one edge speak for another.
 
+### Evidence: eight times paid for
+
+Each clause of the rule was learnt by losing the race, one floor further down
+each time. Before the wait existed, whether the first consumer went red was
+decided by scheduling, not by anything in the tree.
+
+| Release | What failed | What it taught |
+|---|---|---|
+| 0.7.1 | a warm `pip` cache | the race, before any wait existed |
+| 0.8.0 | the `rag` and `llamaindex` legs of the follow-on run (see *After the tag*) | the race, before any wait existed |
+| 0.11.0 | the classifier lock regen | the race, before any wait existed |
+| v0.13.0 | the `pypi` job verified its pins, and `docker-publish`'s image build ~30s later, inside a container's own network namespace, was still told `digline==0.13.0` did not exist | a wait in one job does not protect another: wait per consumer |
+| `digline-openai-v0.5.0` | the follow-on `ci`: the core was current and a plugin was not, and the wait, which asked only about the core, passed | wait for every pin, not merely one (`tests/test_await_index.py` holds it) |
+| v0.14.0, v0.14.1 | `docker-publish`: the image jobs' own wait on the runner passed, and `pip` *inside the Docker build* was served the previous version 16–20s later | a wait on the runner does not protect the build it starts: wait from where `pip` resolves. The first list of consumers was made by walking the jobs, which missed the in-build ones and cost two reruns |
+| v0.15.0 | `docker-publish`, attempt 1: the wait inside `smoke`'s build printed `served digline==0.15.0 (after 0s)`, and `pip install` 1.2s later in the same `RUN` answered *No matching distribution found for digline==0.15.0*, listing versions up to 0.14.1. The job failed, the multi-arch push was skipped, and no image was published | the same place is not enough: ask the same question `pip` asks |
+
+**v0.15.0, measured.** The two requests differed in both headers PyPI's `Vary`
+names. The wait sent no `Accept` and `Accept-Encoding: identity`, and got the
+HTML page. pip 25.0.1 sent the JSON simple API first and `gzip, deflate`, and got
+the JSON page. Measured on the wire the same day, and consistent with that: each
+copy was answered by a different shield server, and `Cache-Control: no-cache`
+did not force a fresh copy. Attempt 2 (`gh run rerun --failed`): `smoke`'s build
+printed `served` and installed all four. The multi-arch push's arm64 leg printed
+`served` after waiting 16s and installed, and its amd64 layer was cached from the
+same `RUN` in `smoke`. `0.15.0`, `0.15` and `latest` resolved to one digest.
 
 ## After the green, before the announcement: the delta-pass
 
