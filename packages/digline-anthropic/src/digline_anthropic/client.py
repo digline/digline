@@ -100,12 +100,11 @@ def tools_of(reply: Any) -> tuple[str, ...]:
 
     Never `None`: this API always says what the assistant turn contained, so an
     empty tuple here is the model calling nothing rather than nobody reporting.
+
+    Read off `tool_calls_of`, so the two cannot disagree: a block that one
+    refuses for naming no tool, the other refuses too.
     """
-    return tuple(
-        str(block.name)
-        for block in reply.content
-        if getattr(block, "type", "") in ("tool_use", "server_tool_use")
-    )
+    return tuple(call.tool for call in tool_calls_of(reply))
 
 
 def tool_calls_of(reply: Any) -> tuple[ToolCall, ...]:
@@ -138,7 +137,7 @@ def tool_calls_of(reply: Any) -> tuple[ToolCall, ...]:
         kind = getattr(block, "type", "")
         if kind not in ("tool_use", "server_tool_use"):
             continue
-        name = str(block.name)
+        name = _name_of(block)
         raw_input: object = getattr(block, "input", None)
         arguments = (
             cast("Mapping[str, object]", raw_input)
@@ -175,6 +174,21 @@ def tool_calls_of(reply: Any) -> tuple[ToolCall, ...]:
                 ToolCall(tool=name, arguments=arguments, status="error", result=code)
             )
     return tuple(calls)
+
+
+def _name_of(block: Any) -> str:
+    """The tool a block names, or `""` where it names none — which `ToolCall`
+    refuses, so the reply errors instead of being recorded.
+
+    The SDK declares `name: str` and does not validate a reply, so a server that
+    does not honour the contract hands over `None`, whether it left the name out
+    or sent `null`. `str()` of that was a tool named `"None"`: a silent misread
+    in `tools` and `tool_calls` alike, where digline-openai and digline-bedrock
+    already raised. An errored case is the honest outcome until the document
+    can record a call nobody named. (ADR 0018 §1, amended 2026-09-17)
+    """
+    name: object = getattr(block, "name", None)
+    return name if isinstance(name, str) else ""
 
 
 def _error_code(outcome: Any) -> str | None:

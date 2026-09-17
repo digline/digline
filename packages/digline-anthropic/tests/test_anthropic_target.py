@@ -19,6 +19,7 @@ import pytest
 from digline.run import Case
 from digline.targets import ModelPrice, Pricing, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
+from digline_anthropic.client import tools_of
 
 
 @dataclass
@@ -27,7 +28,7 @@ class FakeBlock:
     type: str = "text"
     #: Every real `tool_use` block carries one. Here so the fake keeps the
     #: shape the code reads rather than the subset an older test needed.
-    name: str = ""
+    name: str | None = ""
     #: A `tool_use` or `server_tool_use` block's own id, and what the model sent.
     id: str = ""
     input: dict[str, object] | None = None
@@ -434,6 +435,36 @@ def test_a_server_tool_with_no_result_in_the_reply_reports_neither(
     )
     assert call["status"] == "not_reported"
     assert call["result_absence"] == "not_reported"
+
+
+@pytest.mark.parametrize("name", [None, ""], ids=["null-or-absent", "empty"])
+@pytest.mark.parametrize("kind", ["tool_use", "server_tool_use"])
+def test_a_call_that_names_no_tool_errors_instead_of_being_recorded(
+    prompt: Path, kind: str, name: str | None
+) -> None:
+    """The SDK declares `name: str` and does not validate a reply, so a server
+    that breaks the contract hands over `None` — for a name left out and for
+    `"name": null` alike. 0.5.0 recorded that as a tool named `"None"`, beside
+    the named call, and nothing noticed. Now the reply errors, as it already did
+    on digline-openai and digline-bedrock. (ADR 0018 §1, amended 2026-09-17)"""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[
+            FakeBlock("", kind, name=name, id="toolu_1", input={"id": "4711"}),
+            FakeBlock("", "tool_use", name="lookup", id="toolu_2", input={}),
+        ],
+        stop_reason="tool_use",
+    )
+    with pytest.raises(ValueError, match="ToolCall.tool must not be empty"):
+        target(Case(id="it", vars={"country": "Italy"}))
+
+
+def test_tools_of_refuses_the_same_block_rather_than_naming_it() -> None:
+    """`tools_of` is public, and it used to `str()` the name on its own path —
+    so it would have said `"None"` even where `tool_calls_of` refused."""
+    reply = FakeReply(content=[FakeBlock("", "tool_use", name=None, id="toolu_1")])
+    with pytest.raises(ValueError, match="ToolCall.tool must not be empty"):
+        tools_of(reply)
 
 
 def test_a_reply_that_called_nothing_reports_an_empty_trajectory(prompt: Path) -> None:
