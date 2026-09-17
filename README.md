@@ -12,7 +12,7 @@
 **Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
-[![Downloads](https://img.shields.io/pypi/dm/digline)](https://pypistats.org/packages/digline)
+[![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/digline/digline/actions/workflows/ci.yml)
