@@ -481,7 +481,8 @@ servers would confirm it.
 
 ### Status: what each path has proven
 
-This is the part that changes from release to release.
+This is the part that changes from release to release. Step 4 of *After the
+tag* updates it on every tag.
 
 - **The wait inside the build runs on the release path.** Seen on v0.15.0: both
   `docker-publish.yml` legs printed `served` under `#… the index at
@@ -599,8 +600,22 @@ delta-pass over 0.12.0, `low` derived from a vector scoring 2.5.
 
 ## After the tag: what to watch, and what to ignore
 
-Three of these look like problems and are not, and the fourth is the one check
-worth doing by hand.
+**In order, after every tag.** Each step is explained below or in the section it
+names.
+
+1. **The reviewer gate:** read the approvals endpoint, not the run's green. See
+   the last paragraph of this section.
+2. **`docker-publish`:** read its log, not its green. That means the `served`
+   lines and a clean `pip install` of the released versions in the same `RUN`,
+   and all three image tags on one digest. See *The index race*.
+3. **The example locks:** regenerate them, then dispatch `ci.yml`. See *The nine
+   example legs* below.
+4. **The status block:** update *The index race* → *Status: what each path has
+   proven* with what this tag proved and what the next one must show. It
+   changes every release, so it is updated by this step, not from memory.
+
+Three of the paragraphs below look like problems and are not, and the fourth is
+the one check worth doing by hand.
 
 **A red `ci` on the release commit is expected.** `docker/Dockerfile` pins
 `digline==<the version being released>`, and the push-triggered `ci` fires
