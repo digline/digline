@@ -249,8 +249,12 @@ the question, and the target that would render it is not called: write the
 question, or `""` if your real cases have none. `None` and `""` are different
 declarations.
 
-`output` and `input` are payload and are **never written into a run**, recorded
-responses or not; the run holds the check's name and the band. Whether an answer
+`output` and `input` are payload. **The fields are never written into a run**,
+recorded responses or not: the run holds the check's name and the band. A
+judge's own `reason` may quote them inside the perimeter, as any reason may
+quote any answer, and it reaches the run file and the journal when every
+judgement of the case errors. Every boundary drops it: `--redacted`, `--json`,
+`explain` and the MCP server carry no reason. Whether an answer
 makes a good calibration — four claims, two supported — is your craft, and
 nothing checks it. Reasoning in
 [ADR 0024](adr/0024-the-judge-as-an-instrument.md) §4.

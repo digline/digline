@@ -60,10 +60,13 @@ class Calibration:
     the mapper is where a context is built, and so where a truncation would sit.
     (ADR 0024 §4.1)
 
-    `output` and `input` are **payload**. Neither is ever written into a run,
-    recorded responses or not: they are in the committed cases file already,
-    and a second copy under `runs/` would be a second record of the same data.
-    What the run holds is `band`: the check's name and two numbers.
+    `output` and `input` are **payload**. Neither *field* is ever written into a
+    run, recorded responses or not: they are in the committed cases file
+    already, and a second copy under `runs/` would be a second record of the
+    same data. What the run holds is `band`: the check's name and two numbers.
+    A judge's own `reason` may still quote them inside the perimeter, as any
+    reason may quote any answer, and every boundary drops it. (ADR 0024 §4.7,
+    amended 2026-09-17)
 
     `input` is `None` when it is not declared and `""` when it is declared
     empty, and the two are different facts. A check that shows the judge the

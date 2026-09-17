@@ -31,6 +31,15 @@
   and it boards schema 12 third, which fills the train. Undeclared is announced
   and never guessed, which makes `KIND` optional but no longer unread, and
   `FromAutoevals` is named as the known hole in the reading
+- Amended: 2026-09-17, after the 0.14.0 release — §4.7, what the delta-pass
+  found. The calibration answer's *fields* are never written, and a judge's own
+  reason may still quote them inside the perimeter. The promise is corrected,
+  not the reason scrubbed. Nothing crosses a boundary
+- Amended: 2026-09-17, after the 0.14.0 release — §6.2, what the delta-pass
+  found. A `Repeated` check in a sampled suite stores per-answer means, not its
+  judgements, so shape reads a fold there and cannot tell. The limit is stated
+  now, and the fix — a stamp, left out and counted — is ruled onto the next
+  schema bump as its first passenger
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -466,6 +475,27 @@ reader is owed which one it is without a second sentence to choose between them.
   the run, recorded responses or not — it is in the committed cases file already,
   and a second copy under `runs/` is a second record of the same payload.
 
+*Amended 2026-09-17, after the 0.14.0 release, by its delta-pass. The sentence
+above promised more than the house has promised anywhere else, and it is
+corrected rather than enforced. **The fields are never written**: no
+`output`, no `input`, no `responses` entry, recorded responses or not, and that
+holds. **A judge's own `reason` may quote them inside the perimeter, as any
+reason may quote any answer.** The scored path does not carry one — a
+calibration case samples at least twice, and the fold replaces the judge's
+reason with the samples' scores. The path that does is the one where every
+judgement errors: `_all_errored` keeps each sample's reason verbatim, and a
+judge that replied in prose instead of JSON is refused with its reply quoted
+(`the judge replied with no JSON object: …`). Probed per sink, that quote
+reaches the run file, the journal, the complete report and the pytest row —
+all inside the perimeter — and no boundary sink: `--redacted`, `compare
+--json`, `explain --json`, the MCP run document and `run_to_json(redacted=True)`
+carry no reason, so fixed decision 9 holds and nothing needed an advisory.
+**The reason is not scrubbed**, because scrubbing it would delete the diagnosis
+a mute judge gives, which is what 0.8.0 worked to get into the run file. This is
+not specific to calibration: a reason has always been payload inside the
+perimeter. A test pins every boundary sink for a calibration case on the
+errored path, and that test is what keeps the corrected promise true.*
+
 #### 4.8 Amendment, 2026-09-17: what building it found
 
 *The calibration case was built first, as §2 orders. Four places resisted the
@@ -708,6 +738,29 @@ per-sample scores at exactly 0.0 or 1.0**, at storage precision:
   not prove that none did: `(1, 3)` averages to 2. Those verdicts are read, and
   the reading says their per-sample counts were not recorded. Recording them is
   a document change and is not decided here.
+
+*Amended 2026-09-17, after the 0.14.0 release, by its delta-pass: **a second
+fold the reading cannot see.** A `Repeated` check folds its own judgements into
+one verdict per answer, and in a suite with `samples > 1` the driver then folds
+those verdicts across the answers. What `Score.samples` keeps is the per-answer
+**means**, not the judgements: a judge that alternates 0 and 1 inside
+`Repeated(samples=2)` is stored as `(0.5, 0.5)` and reads as 0% at 0 or 1 — a
+fully collapsed judge shown as the opposite, which is the one picture this
+reading exists to catch. At suite `samples=1` the judgements are stored and the
+reading is exact.*
+
+*The document cannot say which verdicts are such a fold. The inner fold writes
+`samples`, `agreement`, `spread`, `errored_samples` and `scores`, and the outer
+fold overwrites those same keys, so the stored verdicts of `LlmRubric` and
+`Repeated(LlmRubric)` carry identical key sets. Only the values differ, and the
+values are what is in question. **So the fix is a document change, and a patch
+does not move documents.** It is ruled onto the next schema bump as that bump's
+first passenger: a stamp saying the verdict's samples are folds. The reading
+then treats those verdicts the way this section treats single-claim ones —
+left out of the shares, counted, and the line saying their per-judgement scores
+were not recorded. An absence stated, never a zero. Until the stamp exists, the
+limit is stated in `docs/explain.md` beside the reading, so nobody reads such a
+0% and believes it.*
 
 The same share for the reference, and both printed.
 
@@ -1162,6 +1215,20 @@ abstention. Any heuristic for a malformed case is refused in advance.
 **Recording `Faithfulness`' claim count per sample** (§6.2), which would make the
 shape exact on sampled suites. A metadata list per verdict, and a passenger
 question for the next bump.
+
+**Stamping a `Repeated` fold** (§6.2, amended 2026-09-17). Ruled: the first
+passenger of the next schema bump. The shape it takes there is ruled too; only
+the key's name and the passenger rule's three answers are left for that bump.
+
+**What the MCP run document carries.** `get_run` and `get_baseline` return
+`digline.wire.run_document`, a projection chosen under ADR 0011 §5 rather than
+inherited from storage. It does not carry `Verdict.judged`,
+`CaseResult.calibration`, `Run.judge_samples`, `CaseResult.canary` or
+`Run.rejudged_from`. Those are facts about our own instrument, and none is a
+leak by being absent; but a model reading `get_run` cannot tell a judged check,
+a calibration case, a canary or a replay from their neighbours, and has to call
+`explain` or `compare` for them. A known gap, found in the 0.14.0 delta-pass, to
+be closed by a decision about the wire, not noticed by accident.
 
 **A per-check calibration for more than one judged check** per suite. One
 calibration case names one check; a suite with two judged checks declares two

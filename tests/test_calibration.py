@@ -23,6 +23,8 @@ from tests._helpers import cli
 from tests._vocabulary import ADVICE, SPECULATION, spoken
 
 from digline.core import (
+    JUDGE_OUTPUT_LABEL,
+    NOTHING_EXTRA,
     Accuracy,
     CalibrationBand,
     CaseResult,
@@ -66,12 +68,15 @@ from digline.run import (
 )
 from digline.store import FileResultStore, UncalibratedRunError
 from digline.store.migrate import upgrade_document
+from digline.targets import CompletionResult, ModelPrice, Pricing, ScoreJudge, Usage
 from digline.wire import (
     EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_WORSE,
     compare_json,
     exit_code,
+    explain_json,
+    run_document,
 )
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -944,3 +949,88 @@ def test_declaring_one_moves_no_config_hash() -> None:
         cases=[Case(id="one"), Case(id="half", calibration=calibration(low=0.4))],
     )
     assert plain.config_hash() == calibrated.config_hash() == moved.config_hash()
+
+
+# --------------------------------------------------------------------------- #
+# §4.7, amended after 0.14.0 — the fields never, a reason inside, no boundary
+# --------------------------------------------------------------------------- #
+
+
+class RamblingJudge(ScoreJudge):
+    """The shipped `ScoreJudge`, over a model that answers the calibration case in
+    prose: it restates the answer and the question and gives no JSON, so every
+    judgement is refused with its reply quoted — the one path on which a reason
+    carries the declared payload into a document."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "fake-1",
+            max_tokens=100,
+            pricing=Pricing(per_model={"fake-1": ModelPrice(1.0, 1.0)}),
+        )
+
+    def _complete(self, system: str, prompt: str) -> CompletionResult:
+        if "HALF-RIGHT" in prompt:
+            output = prompt.split(JUDGE_OUTPUT_LABEL)[-1].strip()
+            return (
+                f"I will not score this. The answer says {output!r} to "
+                "'How do refunds work?'.",
+                Usage(input_tokens=10, output_tokens=10),
+            )
+        return ('{"score": 1.0, "reason": "fine"}', Usage(10, 10))
+
+
+def rambling_suite() -> Suite:
+    return suite(
+        assertions=[
+            LlmRubric(
+                rubric="is it right?",
+                judge=RamblingJudge(),
+                threshold=0.7,
+                tolerance=0.05,
+            )
+        ],
+        record_responses=True,
+    )
+
+
+def test_the_fields_are_never_written_and_a_quoting_reason_stays_inside() -> None:
+    """The corrected promise, both halves at once. The quote does reach the
+    complete document — that is what a reason is, for any case — and no
+    boundary sink carries it: redacted document, redacted report, both JSON
+    readings, the MCP run document. If this starts failing on a boundary sink,
+    decision 9 is broken; if the quote stops reaching the complete document,
+    the test has stopped exercising the path."""
+    held = execute(suite(record_responses=True), Counting(), created_at=CREATED)
+    run = execute(rambling_suite(), Counting(), created_at=LATER)
+    half = run.results[1]
+    assert half.responses == ()
+    [verdict] = half.verdicts
+    assert verdict.status == "error"
+
+    complete = run_to_json(run)
+    assert "HALF-RIGHT" in complete
+    assert "How do refunds work?" in complete
+    assert "responses" not in json.loads(complete)["results"][1]
+
+    comparison = compare(run, held)
+    head = headline(comparison, run, held, locale="en")
+    boundary = {
+        "run_to_json(redacted=True)": run_to_json(run, redacted=True),
+        "report --redacted": render_run_html(redact(run), locale="en"),
+        "report --redacted, compared": render_html(
+            compare(redact(run), redact(held)), redact(run), redact(held), locale="en"
+        ),
+        "compare --json full": json.dumps(compare_json(comparison, head, full=True)),
+        "explain --json": json.dumps(
+            explain_json(facts(run, comparison), scope="comparison", exit_code=2)
+        ),
+        "explain --json, alone": json.dumps(
+            explain_json(facts(run), scope="run", exit_code=2)
+        ),
+        "MCP run document": json.dumps(run_document(run, NOTHING_EXTRA)),
+        "headline sentence": head.sentence,
+    }
+    for sink, text in boundary.items():
+        assert "HALF-RIGHT" not in text, sink
+        assert "How do refunds work?" not in text, sink

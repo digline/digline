@@ -183,6 +183,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "added `CheckKind` to digline.core and removed nothing. History since "
         "the 0.14.0 bump",
     },
+    "docs/explain.md": {
+        "0.14.0": "'a reference written before 0.14.0' — the release the "
+        "`judged` key first reached a document, which is what decides whether "
+        "a shape line has a reference to set beside. History",
+    },
+    "src/digline/wire/run.py": {
+        "0.14.0": "'Found in the 0.14.0 delta-pass' — which release's pass "
+        "found the MCP run document's gap, told as history in its docstring",
+    },
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
         "declarative format landed. The Status line above it is the live claim "
@@ -220,6 +229,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "page",
     },
     "docs/api.md": {
+        "0.14.0": "'since 0.14.0 digline reads it in three more places' — the "
+        "release KIND stopped being unread, in the Custom assertions section. "
+        "History: it dates a change of behaviour, not the current version",
         "0.6.0": "'These moved in 0.6.0.' — the release that promoted "
         "`load_suite` and its neighbours out of `digline.cli` into "
         "`digline.host`, said as history. Hidden from the sweep until the "

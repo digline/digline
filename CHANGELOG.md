@@ -6,6 +6,52 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.14.1 — 2026-09-17
+
+**Two corrections from 0.14.0's delta-pass, and no behaviour change.**
+digline **0.14.1**, alone: `pytest-digline` 0.1.4 follows it as a named tag,
+and the provider plugins and `digline-mcp` do not move. `SCHEMA_VERSION` stays
+**12** and `OUTPUT_VERSION` stays 1. No stored document moves, and **no baseline
+needs re-promoting**. The example locks stay at 0.14.0: their caps admit 0.14.1,
+and nothing in this patch changes what they run.
+
+```sh
+uv add --upgrade digline
+```
+
+- **A correction to what 0.14.0 promised about the calibration answer, and it
+  applies to every suite, not only to calibration.** 0.14.0 said a calibration
+  case's `output` and `input` are *never written into a run*. The **fields**
+  never are, and that holds. A judge's own `reason` can still quote them: when
+  every judgement of a case errors, the samples' reasons are kept verbatim, and a
+  judge that replied in prose instead of JSON is refused with its reply quoted —
+  which commonly restates the answer and the question. That quote reaches the
+  run file, the journal, the complete report and the pytest row, all inside the
+  perimeter. **No boundary carries it**: `--redacted`, `compare --json`,
+  `explain --json` and the MCP server drop every reason, so nothing crossed and
+  there is no advisory. This is not new, and it is not specific to calibration:
+  **a judge's reason has always been payload inside the perimeter**, able to
+  quote whatever answer it graded, in a suite of any kind. The sentence in 0.14.0
+  promised more than digline promises anywhere else, so it is corrected rather
+  than enforced. The reason is not scrubbed either, because scrubbing it would
+  delete the diagnosis a mute judge gives. A test now pins every boundary sink
+  for a calibration case on that path. See ADR 0024 §4.7, amended.
+- **A known limit of the shape reading, stated before it is fixed.** In a suite
+  with `samples > 1`, a check wrapped in `Repeated` stores the per-answer means
+  of its judgements, not the judgements. So `explain`'s shape line for it can
+  read **0%** at 0 or 1 for a judge that is always at 0 or 1. The run document
+  cannot yet say which verdicts are such folds, so the line cannot leave them
+  out: do not read a shape line for a `Repeated` check in a sampled suite. At
+  `samples=1` the reading is exact. The fix changes the document, which a patch
+  does not do. It is ruled as the first passenger of the next schema bump: those
+  verdicts will be left out and counted, never shown as zero. See
+  [`explain.md`](docs/explain.md) and ADR 0024 §6.2, amended.
+- **A known gap in the MCP server, recorded.** `get_run` and `get_baseline` do not
+  mark a judged check, a calibration case, a canary or a re-judged run. Nothing
+  is withheld by that; `explain` and `compare` carry each as a fact. Closing it
+  is a decision about what crosses a boundary, and it is not taken here. See
+  [`mcp.md`](docs/mcp.md).
+
 ## 0.14.0 — 2026-09-17
 
 **The judge gets a known point.** digline **0.14.0**, not yet tagged.

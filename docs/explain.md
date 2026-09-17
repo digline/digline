@@ -143,6 +143,16 @@ line says its per-sample counts were not recorded. Against a reference written
 before 0.14.0, which carries no `"judged"` key, the line says there is nothing to
 set beside the share.
 
+**A known limit: `Repeated` in a sampled suite.** At `samples > 1`, a check
+wrapped in `Repeated` stores the per-answer **means** of its judgements, not the
+judgements themselves. A judge that alternates 0 and 1 inside `Repeated` is
+stored as `0.5, 0.5` and reads as **0%** at 0 or 1 — the opposite of what it
+is. The run document cannot yet say which verdicts are such folds, so the line
+cannot leave them out. Until it can, **do not read a shape line for a `Repeated`
+check in a sampled suite**. At `samples=1` the reading is exact. The fix is ruled
+for the next schema change: those verdicts will be left out and counted, as
+single-claim verdicts are. ADR 0024 §6.2, amended.
+
 **It says nothing about which share is larger**, and that is not an omission.
 *More than the reference* needs a threshold, and on a suite of twenty cases one
 verdict moves a share by five points. The threshold is sized on data and added
