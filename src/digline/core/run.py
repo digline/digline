@@ -127,6 +127,16 @@ __all__ = [
 #    `identity` and `config_hash` (`KIND` is a `ClassVar`); absent means *not
 #    recorded as judged*, never derived from a name; one boolean about the check.
 #    It is what the shape reading reads. (ADR 0024 §6.4)
+#
+# Queued for the next bump, ruled and not yet taken. Read this before choosing
+# what rides with it:
+# - First passenger: a stamp on a verdict whose `Score.samples` are folds — a
+#   `Repeated` check in a suite with `samples > 1`, which stores the per-answer
+#   means of its judgements, not the judgements. Ruled in ADR 0024 §6.2's
+#   amendment (2026-09-17). Its reading is ruled too: `digline.report.shape`
+#   leaves those verdicts out of the shares, counts them, and says their
+#   per-judgement scores were not recorded — an absence, never a zero. Left
+#   open: only the key's name, and its three answers to ADR 0014 §1.
 SCHEMA_VERSION = 12
 
 

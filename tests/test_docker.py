@@ -320,7 +320,7 @@ def test_the_image_runs_as_a_user_that_is_not_root() -> None:
     text = dockerfile()
     assert re.search(r"^USER digline$", text, re.M)
     # After the installs, or it would be a non-root user who cannot install.
-    assert text.index("RUN pip install") < text.index("USER digline")
+    assert text.index("pip install --no-cache-dir") < text.index("USER digline")
 
 
 def test_the_entrypoint_is_the_cli_in_the_mounted_repository() -> None:
@@ -375,3 +375,90 @@ def test_the_readme_lists_the_commands_the_image_can_run() -> None:
         "command genuinely cannot run in the image — exclude it here with the "
         "reason, the way `view` is excluded."
     )
+
+
+# --------------------------------------------------------------------------- #
+# The wait from inside the build, where `pip` resolves
+# --------------------------------------------------------------------------- #
+
+AWAIT = ROOT / ".github" / "await_index.py"
+AWAIT_IN_CONTEXT = ROOT / "docker" / "await_index.py"
+
+
+def install_step() -> str:
+    """The one `RUN` that installs digline, from `RUN` to the next instruction."""
+    text = dockerfile()
+    start = text.index("RUN --mount=type=bind,source=await_index.py")
+    following = re.search(
+        r"^(?:RUN|ENV|USER|WORKDIR|ENTRYPOINT|CMD|ARG|LABEL)\b", text[start + 3 :], re.M
+    )
+    assert following is not None
+    return text[start : start + 3 + following.start()]
+
+
+def test_the_copy_in_the_build_context_is_the_script() -> None:
+    """The build context is `docker/`, so the script is copied there. Two copies
+    of one script drift, and a drifted copy is a wait that answers a different
+    question from the one F1 documents — so they are held byte for byte."""
+    assert AWAIT_IN_CONTEXT.read_bytes() == AWAIT.read_bytes(), (
+        "docker/await_index.py differs from .github/await_index.py. Edit the "
+        "one in .github/ and copy it: `cp .github/await_index.py docker/`"
+    )
+
+
+def test_the_build_context_admits_what_the_install_step_mounts() -> None:
+    """A bind mount reads from the build context, and `.dockerignore` decides
+    what the context is. The first build of the in-build wait failed before
+    waiting at all — `"/await_index.py": not found` — because the context was
+    the Dockerfile alone. Checked by name so the two cannot drift apart again."""
+    rules = (ROOT / "docker" / ".dockerignore").read_text(encoding="utf-8").split()
+    assert "!await_index.py" in rules, (
+        "docker/.dockerignore excludes await_index.py, which the install step "
+        "bind-mounts: the build would fail before it waits"
+    )
+
+
+def test_a_local_build_waits_for_nothing() -> None:
+    """The image's public behaviour is unchanged: `docker build docker/` with
+    no build argument must not sit waiting on an index."""
+    assert pinned("AWAIT_INDEX_TIMEOUT") == "0"
+    assert '[ "${AWAIT_INDEX_TIMEOUT}" != "0" ]' in install_step()
+
+
+def test_the_wait_runs_in_the_install_step_before_pip_for_every_pin() -> None:
+    """In the same `RUN`, so a cached install can never be separated from the
+    wait that protected it, and from the same container, whose edge is the one
+    `pip` reaches. Bind-mounted rather than copied, so no byte of it lands in
+    the image."""
+    step = install_step()
+    assert "COPY" not in dockerfile(), (
+        "the image copies a file in; it installs from PyPI"
+    )
+    assert step.index("await_index.py") < step.index("pip install"), (
+        "the install step reaches pip before it waits"
+    )
+    for arg in PINS:
+        assert f"=${{{arg}}}" in step.partition("pip install")[0], (
+            f"the in-build wait does not hold the index to {arg}, which the "
+            "install that follows it pins"
+        )
+
+
+def test_every_build_of_the_image_passes_a_wait() -> None:
+    """Three builds reach the index from inside a container: the release smoke,
+    the multi-arch push (arm64 installs there for the first time), and CI's
+    `image` job. A build that passes no timeout gets the local default, 0, and
+    waits for nothing — which is the race this closes."""
+    builds = {
+        "docker-publish.yml": workflow(),
+        "ci.yml": ci(),
+    }
+    counted = 0
+    for name, text in builds.items():
+        for step in text.split("uses: docker/build-push-action@")[1:]:
+            block = step.split("\n      - ")[0]
+            found = re.search(r"AWAIT_INDEX_TIMEOUT=(\d+)", block)
+            assert found is not None, f"a build in {name} passes no AWAIT_INDEX_TIMEOUT"
+            assert int(found.group(1)) > 0, f"a build in {name} waits for nothing"
+            counted += 1
+    assert counted == 3, f"expected the three image builds, found {counted}"

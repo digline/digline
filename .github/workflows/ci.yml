@@ -236,6 +236,9 @@ jobs:
           load: true
           tags: digline:smoke
           cache-from: type=gha
+          # The wait from inside the build, where `pip` resolves. The runner-side
+          # step above passed on 0.14.1 and the install still failed 20s later.
+          build-args: AWAIT_INDEX_TIMEOUT=240
 
       - name: The front page's quickstart, on a mounted volume
         # The same script the release runs, against an image built the same

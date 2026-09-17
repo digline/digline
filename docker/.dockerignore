@@ -3,5 +3,11 @@
 # Dockerfile and nothing else — the page beside it and the smoke test that runs
 # the built image are for readers and for CI, and neither belongs in a layer or
 # in the tarball the daemon is handed.
+#
+# One exception, and it still puts no byte in the image: `await_index.py` is
+# bind-mounted into the install step, so it has to be in the context the
+# daemon is handed. Excluded, the build fails before any wait with
+# `"/await_index.py": not found`, which is how CI found this.
 *
 !Dockerfile
+!await_index.py
