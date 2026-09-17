@@ -128,6 +128,8 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
     "RELEASING.md": {
+        "25.0.1": "pip's version, not digline's: the pip in the image's base "
+        "whose request headers the index wait copies (The index race, v0.15.0)",
         "0.14.1": "three sentences told as history once 0.15.0 is the tree's "
         "version: 'Nothing is queued as of 0.14.1' — the site-batch state read "
         "on that release — and the two releases, v0.14.0 and v0.14.1, whose "

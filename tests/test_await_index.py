@@ -13,28 +13,38 @@ pinned here is the failure path — a version that will never exist must fail
 it is. A wait that hangs, or that passes having found nothing, would be the bug
 this file exists to prevent.
 
-The index is a local `ThreadingHTTPServer` speaking PEP 503, for two reasons:
+The index is a local `ThreadingHTTPServer` that answers the way PyPI does: the
+JSON page (PEP 691) to a request that asks for it, gzipped where accepted, the
+HTML page (PEP 503) otherwise, and a separate copy per variant, since PyPI
+answers `Vary: Accept-Encoding, Accept`. Two reasons for a local one:
 fixed decision 5 (no network call the user has not configured — CI runs these
 with no index in reach), and because the failure path cannot be produced on
 purpose against the real one.
 
 **What no test here can prove**, and it is stated rather than implied: that
-PyPI's own edges converge, and that the edge `pip` reaches from inside a Docker
-build is the edge this wait polled from the runner. That gap is why the wait
-runs in each consuming job instead of only in the publishing one, and closing
-it further needs a real publish, not a test.
+PyPI's own edges converge, and that the cache server `pip` reaches is the one
+this wait reached. The wait now asks for pip's variant, so the two read the same
+object by protocol. They may still land on different servers. If a `served` is
+ever again followed by a `pip` failure, that per-server luck is the one
+hypothesis left, and closing it needs a capture on a real publish, not a test
+(RELEASING.md, *The index race*).
 """
 
 from __future__ import annotations
 
+import gzip
+import json
 import subprocess
 import sys
 import time
+import zlib
 from collections.abc import Generator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / ".github" / "await_index.py"
@@ -59,19 +69,57 @@ def page(files: list[str]) -> bytes:
     return f"<!DOCTYPE html><html><body>{links}</body></html>".encode()
 
 
+def json_page(files: list[str]) -> bytes:
+    """A PEP 691 project page, the shape PyPI answers pip's `Accept` with."""
+    return json.dumps(
+        {
+            "meta": {"api-version": "1.1"},
+            "name": "x",
+            "files": [
+                {"filename": name, "url": f"/files/{name}", "hashes": {}}
+                for name in files
+            ],
+        }
+    ).encode()
+
+
+#: pip 25.0.1's own request headers for a project page, written out here a
+#: second time rather than imported from the script, so an edit to the script
+#: that drifts from pip fails this file. Read from `_get_simple_response` in
+#: `pip/_internal/index/collector.py` and seen on the wire, 2026-09-17.
+PIP_ACCEPT = (
+    "application/vnd.pypi.simple.v1+json, "
+    "application/vnd.pypi.simple.v1+html; q=0.1, text/html; q=0.01"
+)
+PIP_ACCEPT_ENCODING = "gzip, deflate"
+PIP_CACHE_CONTROL = "max-age=0"
+
+
 @contextmanager
 def index(
-    pages: dict[str, list[str]], gains: dict[str, tuple[int, str]] | None = None
+    pages: dict[str, list[str]],
+    gains: dict[str, tuple[int, str]] | None = None,
+    *,
+    speaks_json: bool = True,
+    json_lags: dict[str, list[str]] | None = None,
+    seen: list[dict[str, str]] | None = None,
+    encoding: str = "gzip",
 ) -> Generator[str]:
     """An index serving `pages`, keyed by normalised project name.
 
     `gains` makes a project pick up a file after N requests, which is how the
     *wait* half is driven: a page that is missing the version and then has it
     is what propagation looks like from a consumer's side.
+
+    `json_lags` holds files the JSON copy does not list yet while the HTML copy
+    does: two variants of one URL, refreshed at different moments, which is the
+    v0.15.0 divergence. `speaks_json=False` is an index that only has the HTML
+    page. `seen` collects the headers of every request.
     """
     served = {name: list(files) for name, files in pages.items()}
     counts: dict[str, int] = {}
     gaining = gains or {}
+    lagging = json_lags or {}
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's name
@@ -85,12 +133,35 @@ def index(
                 if counts[name] >= after:
                     served.setdefault(name, []).append(filename)
                     del gaining[name]
+            if seen is not None:
+                seen.append(dict(self.headers.items()))
             if name not in served:
                 self.send_error(404)
                 return
-            body = page(served[name])
+            accept = self.headers.get("Accept") or ""
+            if speaks_json and "application/vnd.pypi.simple.v1+json" in accept:
+                files = [f for f in served[name] if f not in lagging.get(name, [])]
+                body = json_page(files)
+                kind = "application/vnd.pypi.simple.v1+json"
+            else:
+                body = page(served[name])
+                kind = "text/html"
+            compressed = ""
+            accepted = self.headers.get("Accept-Encoding") or ""
+            if encoding == "gzip" and "gzip" in accepted:
+                body, compressed = gzip.compress(body), "gzip"
+            elif encoding == "deflate" and "deflate" in accepted:
+                body, compressed = zlib.compress(body), "deflate"
+            elif encoding == "deflate-raw" and "deflate" in accepted:
+                # Some servers send raw DEFLATE under the same name.
+                squeeze = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+                body = squeeze.compress(body) + squeeze.flush()
+                compressed = "deflate"
             self.send_response(200)
-            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Type", kind)
+            self.send_header("Vary", "Accept-Encoding, Accept")
+            if compressed:
+                self.send_header("Content-Encoding", compressed)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -312,3 +383,67 @@ def test_an_empty_manifest_is_refused() -> None:
 
     assert result.returncode == 1
     assert "decision 3" in result.stderr, result.stderr
+
+
+# --------------------------------------------------------------------------- #
+# The same question pip asks (v0.15.0)
+# --------------------------------------------------------------------------- #
+
+
+def test_it_asks_with_pips_own_headers() -> None:
+    """Header for header, including the cache header nobody proved matters.
+
+    The goal is the same question, not a better one: `no-cache` looks stronger
+    and is exactly how the wait came to read a copy pip never reads."""
+    seen: list[dict[str, str]] = []
+    with index({"digline": ["digline-0.15.0-py3-none-any.whl"]}, seen=seen) as url:
+        result, _ = await_index("digline==0.15.0", url=url)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    (headers,) = seen
+    assert headers.get("Accept") == PIP_ACCEPT
+    assert headers.get("Accept-Encoding") == PIP_ACCEPT_ENCODING
+    assert headers.get("Cache-Control") == PIP_CACHE_CONTROL
+    assert "Pragma" not in headers
+
+
+def test_served_means_the_copy_pip_reads_has_it() -> None:
+    """v0.15.0, as a test. The HTML copy of the page already lists the new
+    version and the JSON copy, which pip reads, does not. The wait used to read
+    the HTML copy, print `served`, and let pip fail 1.2s later. It must wait,
+    and name the pin."""
+    with index(
+        {
+            "digline": [
+                "digline-0.14.1-py3-none-any.whl",
+                "digline-0.15.0-py3-none-any.whl",
+            ]
+        },
+        json_lags={"digline": ["digline-0.15.0-py3-none-any.whl"]},
+    ) as url:
+        result, _ = await_index("digline==0.15.0", url=url)
+
+    assert result.returncode == 1, result.stdout
+    assert "served  digline==0.15.0" not in result.stdout
+    assert "digline==0.15.0" in result.stderr, result.stderr
+
+
+def test_an_index_that_only_speaks_html_is_still_read() -> None:
+    """pip reads the PEP 503 page where JSON is not offered, so a custom `INDEX`
+    keeps working."""
+    with index(
+        {"digline": ["digline-0.15.0-py3-none-any.whl"]}, speaks_json=False
+    ) as url:
+        result, _ = await_index("digline==0.15.0", url=url)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate", "deflate-raw", "identity"])
+def test_every_encoding_pip_accepts_is_undone(encoding: str) -> None:
+    with index(
+        {"digline": ["digline-0.15.0-py3-none-any.whl"]}, encoding=encoding
+    ) as url:
+        result, _ = await_index("digline==0.15.0", url=url)
+
+    assert result.returncode == 0, result.stdout + result.stderr
