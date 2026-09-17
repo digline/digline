@@ -14,6 +14,13 @@
   The run-to-run spread is recorded as a finding against §7.1's aggregate-only
   scope: a suite-level reading stays inside the noise while one case alternates
   underneath it. §7 is unchanged
+- Amended: 2026-09-17 — §4, what building the calibration case found, in
+  §4.8. Four places where the code resisted the text, each ruled at a
+  checkpoint rather than decided in the code: a calibration delta is out of
+  `counts` and `worse` (§4.4's `Headline.counts` row was the canary's, copied);
+  `Calibration` gains `input` and its refusal (§4.2); the §4.2 refusal reads the
+  `KIND` that 0.13.3 already ships, and §6.1 is left to shape; and §9's bump
+  boards one passenger first, which leaves 12 an open train
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -310,6 +317,7 @@ would sit. A calibration case exercises the judge path the real cases use.
         check:   str             # the name of the judged assertion it calibrates
         low:     float           # the band, inclusive at storage precision
         high:    float
+        input:   str | None = None   # amended 2026-09-17, §4.8 — payload
 
 Flag-shaped in how it is treated — §4.4 is ADR 0016 §2's table — and
 declaration-shaped in what it carries, because the band and the answer are the
@@ -363,6 +371,11 @@ trap, which a calibration case walks into exactly as a canary does), counted in
 | `planned_calls` / `CallPlan` | target calls counted | **target calls not counted**; judge calls counted — the announced bill has to match the invoice |
 | the checks that run | all of them | **the named check only** (§4.3) |
 | `Matrix` | `canary_excluded` | `calibration_excluded`, beside it, silent at zero |
+
+*Amended 2026-09-17 (§4.8): the calibration case is counted in `run_tally` and
+kept in every delta table, and it is **not** counted in `Headline.counts` or in
+`worse`. The row above was the canary's, copied without noticing that the canary
+measures the system while the calibration case measures the instrument.*
 
 #### 4.5 When it fires, and what it produces
 
@@ -442,6 +455,62 @@ reader is owed which one it is without a second sentence to choose between them.
   does not apply to a case that carries one. The answer is never recorded into
   the run, recorded responses or not — it is in the committed cases file already,
   and a second copy under `runs/` is a second record of the same payload.
+
+#### 4.8 Amendment, 2026-09-17: what building it found
+
+*The calibration case was built first, as §2 orders. Four places resisted the
+text. Each was taken to a checkpoint and ruled there; none was decided in the
+code alone.*
+
+**A calibration delta is not a verdict about the system.** `compare()` pairs
+the calibration case's verdict like any other, so a score that moves 0.50 →
+0.40, beyond tolerance and outside the reference's interval, is `regressed` —
+inside its band. Counted as §4.4's table first said, that sets `worse` and
+exits 1 with *1 check got worse* about a case the target was never asked. So
+the delta is computed and kept: in `Comparison.deltas`, in `--json full` with
+`calibration: true`, and in its own section of both documents, because movement
+inside the band is information the other three measurements will read. It is
+left out of `Comparison.counts`, of every outcome selection, of `within_noise`
+and `on_the_line`, and so of `Headline.counts` and `worse`. Counting it in the
+wire's `counts` while keeping it out of `worse` was weighed and refused: a
+document whose `regressed: 1` sits beside *nothing got worse* contradicts
+itself, and a machine consumer reads the number. **The rule, in one line: the
+canary's row was copied without noticing that the canary measures the system
+while the calibration case measures the instrument.** Its one gate is its band.
+
+**The judge must see what the real cases' judge sees.** The target renders the
+input, and the target is not called here, so an `LlmRubric` or a `Faithfulness`
+would grade the known answer without its question. `Calibration` gains
+`input: str | None = None`, payload like `output` and never written. `None` and
+`""` stay different facts — not declared, declared empty — and where the check
+is one of those two, `None` is refused by name: a control instrument that fails
+for a reason unrelated to what it controls is worse than none. Named types, as
+the replay's trajectory refusal is, because no check declares that it reads the
+input; a third-party judged check is not refused.
+
+**The refusal reads `KIND`.** This record was written without knowing that
+0.13.3 had shipped `KIND: ClassVar[CheckKind]` on every check, with `LlmRubric`
+and `Faithfulness` declared `judged`. Adding `AssertionBase.scale` now would
+declare one fact twice, and the two would diverge the day one of them is edited.
+So §4.2's refusal reads `KIND`, following `Repeated` to what it wraps, and
+refuses a class that declares none. **§6.1 is not amended here.** The finding is
+left for shape, stated as a question: `KIND` says who produces a verdict and
+`scale` was meant to say what kind of number it is, and a judged check can be
+binary or graded, so shape probably still needs a declaration — under another
+name, and not repeating what `KIND` states.
+
+**"Recorded as skipped" has no state to record into.** ADR 0001 §1 has three
+statuses and none of them is *skipped*. The case's checks other than the named
+one produce no verdict, and the band's `check` is what the document says ran:
+the skip is declared by the band rather than by a fourth status.
+
+**§9's bump boards one passenger first.** `CaseResult.calibration` changes what
+a document means — a 0.13.x reader would count the case as ordinary and exit 0
+where 0.14.0 exits 2 — so `SCHEMA_VERSION` moves to 12 with it, and the version
+moves to 0.14.0 with the schema. `Verdict.scale` and `Run.judge_samples` are
+ruled onto the same bump, and ADR 0014 §1's economics decide the order: a bump
+is paid once, so **0.14.0 is not tagged until both have boarded 12**, or each
+needs a 13 of its own.
 
 ### 5. `judge_samples`: repeatability, and never without its scale
 
@@ -729,6 +798,12 @@ instrument could not answer*.
 | `Verdict.scale` | a `ClassVar`, outside `identity` and so outside the hash | absent: *not recorded as judged* — not derived from the assertion's name, which would be the guess | one declared word about the check, never about the case |
 
 `Run.judge_samples` rides the same bump, written only on a replay that set it.
+
+*Amended 2026-09-17 (§4.8): `CaseResult.calibration` boarded 12 first, and
+alone. Checked against ADR 0014 §1 as the table above does — outside the hash,
+migrates by writing nothing, a name and two numbers across a boundary — it
+changes the example documents by their version field only. 12 stays open until
+`Verdict.scale` and `Run.judge_samples` have boarded it.*
 
 All three are written **only when present**. What that does and does not keep
 byte-identical, said plainly:

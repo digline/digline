@@ -177,6 +177,12 @@ def _check(suite: Suite, source: Run) -> None:
             # Never called, so it recorded nothing, and the driver will set it
             # aside again exactly as it did the first time.
             continue
+        if case.calibration is not None:
+            # It carries its own answer and the driver never asks the target for
+            # it, so ADR 0015 §6's second refusal does not apply: a replay
+            # re-judges it from the declaration, exactly as a live run does.
+            # (ADR 0024 §4.7)
+            continue
         stored = recorded.get(case.id)
         if stored is None or not stored.responses:
             raise ReplayError(

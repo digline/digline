@@ -85,11 +85,19 @@ stop at the signal. Never keep rolling until the answer looks right: with a
 stochastic judge, enough re-runs always produce a green one, and a stopping
 rule chosen after the fact measures your patience rather than the system.
 
-**A canary is the exception, and the only one.** A case flagged `canary=True`
-watches the model behind the alias rather than measuring quality, so a move on
-it is not a draw and re-running does not settle it: the second run asks the
-same alias the same thing. Read the headline — *the model under this alias
-likely changed* — and check what answered before touching the prompt.
+**A canary is one exception.** A case flagged `canary=True` watches the model
+behind the alias rather than measuring quality, so a move on it is not a draw
+and re-running does not settle it: the second run asks the same alias the same
+thing. Read the headline — *the model under this alias likely changed* — and
+check what answered before touching the prompt.
+
+**A calibration case outside its band is the other, and for the canary's
+reason.** It carries a fixed answer the author knows to be partially correct,
+and the target is never asked for it, so running again asks the same judge the
+same thing about the same answer — that is not a draw either. Read the headline
+— *the judged scores in this run are not placed on the scale they are compared
+on* — and read what the judge was shown (§9) before any other number in the
+run.
 
 ## 4. A multi-flip is investigated, not retried
 
@@ -132,6 +140,12 @@ and `output_version` is there so a consumer can tell when the shape changed.
 canary moved. They are separate fields — `worse` and `canary_moved` — because a
 canary that *improved* is a changed model too, and calling that "worse" would be
 a sentence nobody could reconcile with the number beside it.
+
+`2` has two causes as well: a case could not be judged (`unjudged`), or a
+calibration case scored outside its declared band (`scale_lost`). The second is
+not an error — the score is real — but the judged numbers beside it are not
+measurements, which is what `2` already meant. A regression beside a lost scale
+still returns `1`, and the calibration clause leads the headline either way.
 
 
 ## 7. Say what a hunt will cost before starting it

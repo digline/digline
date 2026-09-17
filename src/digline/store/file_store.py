@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from digline.core.calibration import scale_lost
 from digline.core.register import (
     DISPOSITIONS,
     RecordedOutcome,
@@ -64,6 +65,7 @@ from digline.store.protocol import (
     ReplayedRunError,
     RunRef,
     TenantMismatchError,
+    UncalibratedRunError,
 )
 
 __all__ = [
@@ -361,6 +363,17 @@ class FileResultStore:
                 "and an error is not one. Fix the case or remove it from the "
                 "suite; promoting it would freeze a red line no reader could "
                 "tell apart from a new failure"
+            )
+
+        lost = scale_lost(run)
+        if lost:
+            names = ", ".join(sorted({item.case_id for item in lost}))
+            raise UncalibratedRunError(
+                f"run {ref.key} has {len(lost)} calibration case(s) outside "
+                f"their declared band ({names}): the judged scores in it are not "
+                "placed on the scale they are compared on, and a reference "
+                "scored by a judge that lost its scale hides the loss for as "
+                "long as it stands. Promote a run whose calibration held"
             )
 
         self.ensure_layout(run.tenant)

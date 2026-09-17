@@ -192,6 +192,69 @@ The case is called and judged like any other, and then:
 
 Reasoning in [ADR 0016](adr/0016-the-canary-case.md).
 
+### `Case.calibration`: watching the judge's scale
+
+The canary watches whether the model is still that model; a calibration case
+watches whether the scale is still a scale. A judge that has gone binary is
+*more* repeatable, not less — every answer at 1.00, every time — so no number of
+re-runs sees it. An answer you know to be half right, scored at 1.00, does:
+
+```python
+from digline.run import Calibration, Case
+
+Case(
+    id="half-supported",
+    context=("Refunds take 30 days.", "A receipt is required."),
+    calibration=Calibration(
+        output="Refunds take 30 days and need no receipt.",
+        check="faithfulness",
+        low=0.3,
+        high=0.7,
+        input="How do refunds work?",
+    ),
+)
+```
+
+It is a **fixed answer**, not a flag on a generated one: an answer the target
+generates today is not known to be partial. So:
+
+- **the target is not called** for it. The driver hands `output` and `input` to
+  your mapper as a `Response`, so the judge is reached along the path your real
+  cases take;
+- **only the named check runs** on it. A `CostBudget`, a `LatencyBudget` or a
+  `ToolsCalled` would read a call nobody made and error;
+- it is in **no** aggregate, and the reason names it (`… 1 calibration`); it
+  needs no `label` and may declare no `group`, and it cannot also be a canary;
+- a movement of its score **inside the band** is shown, in its own section of
+  the report and on each `--json full` delta as `"calibration": true`, and it is
+  never a regression: it is left out of `counts` and out of `worse`, because the
+  target was never asked;
+- if the check's score lands **outside `[low, high]`** — at storage precision,
+  both ends inclusive — the headline leads with *the calibration case … scored
+  1.000000 across 3 samples (1.000000, 1.000000, 1.000000), outside its declared
+  band 0.300000–0.700000*, and the run exits **`2`**, on `Headline.scale_lost`.
+  The numbers exist and are not measurements. A regression beside it still
+  exits `1`, and the calibration clause still comes first. It needs no
+  baseline, so a first run can be stopped by it;
+- a run whose scale was lost **cannot be promoted** (`UncalibratedRunError`);
+- `digline rejudge` re-judges it from the declaration, not from the stored run.
+
+What it refuses at construction, each cheaper met as a sentence than as a
+number: a band that touches `0` or `1` (an extreme in band cannot detect the
+extreme); a `check` that names no assertion, or two; a check whose class does
+not declare `KIND = "judged"` (read through `Repeated`); a suite with
+`samples < 2` — on this case that repeats the judge alone; and, for
+`LlmRubric` and `Faithfulness`, an `input` left unset. Those two show the judge
+the question, and the target that would render it is not called: write the
+question, or `""` if your real cases have none. `None` and `""` are different
+declarations.
+
+`output` and `input` are payload and are **never written into a run**, recorded
+responses or not; the run holds the check's name and the band. Whether an answer
+makes a good calibration — four claims, two supported — is your craft, and
+nothing checks it. Reasoning in
+[ADR 0024](adr/0024-the-judge-as-an-instrument.md) §4.
+
 ### `Case`
 
 | Field | Type | Default |
@@ -204,6 +267,8 @@ Reasoning in [ADR 0016](adr/0016-the-canary-case.md).
 | `suspended` | `str \| None` | `None` |
 | `label` | `"positive" \| "negative" \| None` | `None`, mandatory with an aggregate |
 | `group` | `str \| None` | `None` |
+| `canary` | `bool` | `False` |
+| `calibration` | `Calibration \| None` | `None` |
 
 `id` is the key `compare()` pairs on: renaming it produces a `new` plus a
 `missing`. Choose it stable and **with no production data inside**.
@@ -1056,8 +1121,10 @@ KIND: ClassVar[CheckKind] = "deterministic"
 | `aggregate` | One verdict about the whole run, from every case's outcome: `Precision`, `Recall`, `Accuracy`, `F1`. |
 | `wrapper` | Its nature is the thing it wraps: `Repeated`, and `FromAutoevals`, whose scorer may or may not call a model. |
 
-The list of checks the home of digline.dev shows is built from it, and nothing
-that runs, compares or promotes reads it. It is a `ClassVar`, not a field, so it
+The list of checks the home of digline.dev shows is built from it, and one
+refusal reads it: a [calibration case](#casecalibration-watching-the-judges-scale)
+may only name a check whose `KIND` is `judged`. Nothing that compares or
+promotes reads it. It is a `ClassVar`, not a field, so it
 never enters `identity` or `config_hash`: declaring it, or changing it, leaves
 every stored baseline paired and promotable. `MaxWords` above works without it.
 

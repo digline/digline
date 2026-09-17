@@ -70,7 +70,7 @@ from digline.host.toml_errors import (
     unknown_key,
     unknown_type,
 )
-from digline.run import Case, Suite, Target
+from digline.run import Calibration, Case, Suite, Target
 from digline.targets import (
     HttpTarget,
     ModelPrice,
@@ -475,11 +475,37 @@ def _cases(path: Path, where: str) -> list[Case]:
             raise UsageError(f"{spot}: this entry is not an object")
         arguments = cast("Mapping[str, object]", entry)
         _refuse_unknown(arguments, set(declared), spot, "field")
+        if "calibration" in arguments:
+            arguments = {
+                **arguments,
+                "calibration": _calibration(arguments["calibration"], spot),
+            }
         try:
             built.append(Case(**cast("Any", arguments)))
         except (TypeError, ValueError) as exc:
             raise UsageError(f"{spot}: {exc}") from exc
     return built
+
+
+def _calibration(raw: object, spot: str) -> Calibration:
+    """`"calibration": {"output": …, "check": …, "low": …, "high": …}`.
+
+    The one case field that is an object, so the one that has to be built here
+    rather than passed through: an unknown key inside it is refused by name for
+    the reason one outside it is. (ADR 0024 §4.2)
+    """
+    where = f"{spot}, calibration"
+    if not isinstance(raw, Mapping):
+        raise UsageError(
+            f"{where}: this is an object — output, check, low, high, and input "
+            "where the check shows the judge the question"
+        )
+    given = cast("Mapping[str, object]", raw)
+    _refuse_unknown(given, set(_init_fields(Calibration)), where, "field")
+    try:
+        return Calibration(**cast("Any", given))
+    except (TypeError, ValueError) as exc:
+        raise UsageError(f"{where}: {exc}") from exc
 
 
 # --------------------------------------------------------------------------- #

@@ -52,6 +52,10 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         # moved. A pipeline that reads only the number sees no change in kind;
         # one that wants to point at the check has the field. (ADR 0016 §8)
         "canary": delta.canary,
+        # The row that belongs to a calibration case, which `counts` leaves out:
+        # a pipeline reading every row can tell why this one is not among them.
+        # (ADR 0024 §4.4)
+        "calibration": delta.calibration,
     }
 
 

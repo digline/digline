@@ -41,6 +41,7 @@ from digline.core import (
     run_to_json,
     without_responses,
 )
+from digline.core.run import SCHEMA_VERSION
 from digline.report import headline, render_html
 from digline.run import (
     Case,
@@ -556,7 +557,7 @@ def test_a_corrupt_trajectory_is_refused_by_name(calls: object) -> None:
     reader does now too. (0.12.1, from the release delta-pass)
     """
     document: dict[str, Any] = {
-        "schema_version": 11,
+        "schema_version": SCHEMA_VERSION,
         "tenant": "acme",
         "environment": "staging",
         "redacted": False,
@@ -737,11 +738,16 @@ def test_a_0_12_reader_refuses_not_reported_by_name(tmp_path: Path) -> None:
     with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
         tar.extractall(tmp_path / "old", filter="data")
 
-    document = tmp_path / "run.json"
-    document.write_text(
-        run_to_json(execute(trajectory_suite(), asking(), created_at=CREATED)),
-        encoding="utf-8",
+    # Written at schema 11, which is what every release from 0.12.1 to 0.13.3
+    # wrote a `not_reported` call into. A document at 12 is refused by 0.12.1
+    # on its version before the value is ever read, which is true and is not
+    # the property under test. (ADR 0024 §9)
+    written = json.loads(
+        run_to_json(execute(trajectory_suite(), asking(), created_at=CREATED))
     )
+    written["schema_version"] = 11
+    document = tmp_path / "run.json"
+    document.write_text(json.dumps(written), encoding="utf-8")
     read = subprocess.run(  # noqa: S603
         [
             sys.executable,

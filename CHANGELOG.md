@@ -6,7 +6,40 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.14.0 — unreleased
+
+**The judge gets a known point.** digline **0.14.0**, not yet tagged.
+`SCHEMA_VERSION` moves to **12** and `OUTPUT_VERSION` stays 1: every stored
+document has to be migrated, no `--json` shape breaks, and **no baseline needs
+re-promoting**, because nothing here touches an identity or `config_hash`.
+
+**Schema 12 is an open train, and that is a rule rather than a note.** Its first
+passenger is `CaseResult.calibration`; `Verdict.scale` and `Run.judge_samples`
+are ruled onto the same bump by
+[ADR 0024](docs/adr/0024-the-judge-as-an-instrument.md) §9. A bump is paid once
+— every stored document migrated, every example cap raised
+([ADR 0014](docs/adr/0014-what-may-ride-a-schema-bump.md) §1) — so **0.14.0 is
+not tagged until both have boarded 12**, or each of them needs a 13 of its own.
+
+*For whoever writes the release commit: `unreleased` in this heading becomes the
+date, and nothing else in the section moves.*
+
+- **The calibration case.** `Case(calibration=Calibration(output=…, check=…,
+  low=…, high=…, input=…))` declares an answer you know to be partially correct
+  and the band a judge that still has a scale places it in. The target is never
+  called for it and only the named check runs; it is in no aggregate
+  (`calibration_excluded`, silent at zero), and a movement inside its band is
+  shown but never counted as better or worse. When the score lands **outside
+  the band**, the headline leads with the calibration clause, the run exits
+  **`2`** on `Headline.scale_lost` — with or without a baseline — and it cannot
+  be promoted (`UncalibratedRunError`). A regression beside it still exits `1`.
+  It exists because a judge that has gone binary is *more* repeatable, not less,
+  and a repeatability figure alone would call it perfectly stable.
+  `pytest-digline` shows a lost scale as the calibration row's ERROR, with the
+  report's sentence, in its release that follows; its floor is raised to
+  `digline>=0.14.0`. See the
+  [API reference](docs/api.md#casecalibration-watching-the-judges-scale) and
+  ADR 0024 §4, amended in §4.8 with what building it found.
 
 ## 0.13.3 — 2026-09-16
 

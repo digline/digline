@@ -79,7 +79,10 @@ Each one arrives before the first judge is paid, and each names what is missing.
    ordinary first encounter: set `record_responses=True` and run it again.
 2. **A case has no recorded answer.** A case added since the run was produced
    cannot be re-judged from it, and judging the rest would be a narrower
-   measurement carrying the declared suite's name.
+   measurement carrying the declared suite's name. A
+   [calibration case](api.md#casecalibration-watching-the-judges-scale) is
+   the exception: it carries its own answer, never records one, and is re-judged
+   from its declaration exactly as a live run judges it.
 3. **An answer is withheld or over the size ceiling.** A partial replay is a
    weaker measurement claiming to be the declared one — the rule the driver
    already applies when one call of a sampled case fails. The ceiling is 65 536

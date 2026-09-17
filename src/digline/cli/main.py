@@ -73,6 +73,7 @@ from digline.report import (
     log_text,
     render_html,
     render_run_html,
+    scale_lost,
     summary_lines,
     unjudged_cases,
 )
@@ -87,6 +88,7 @@ from digline.store import (
     ReplayedRunError,
     RunRef,
     TenantMismatchError,
+    UncalibratedRunError,
     migrate_paths,
 )
 from digline.wire import (
@@ -816,7 +818,9 @@ def _report_single(run: Run, suite: Suite, args: argparse.Namespace) -> int:
         Path(args.out).write_text(document, encoding="utf-8")
     else:
         emit(document)
-    return EXIT_UNJUDGED if unjudged_cases(run) else EXIT_OK
+    # And so does a lost scale: a band is declared, not referenced. (ADR 0024
+    # §4.5)
+    return EXIT_UNJUDGED if unjudged_cases(run) or scale_lost(run) else EXIT_OK
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1065,6 +1069,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ConfigMismatchError,
         ErroredRunError,
         ReplayedRunError,
+        UncalibratedRunError,
         TenantMismatchError,
     ) as exc:
         # Refusals from the core and the store — a crossed perimeter, a moved

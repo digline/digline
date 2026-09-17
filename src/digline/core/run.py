@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, cast
 
 from digline.core.aggregate import RunAssertion
+from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.types import (
     NOTHING_EXTRA,
@@ -108,7 +109,15 @@ __all__ = [
 #    else forced. Additive both times: `()` for a run that recorded no
 #    trajectory and none is recoverable, absent for a run nobody resumed. So the
 #    step writes nothing and no baseline needs re-promoting.
-SCHEMA_VERSION = 11
+# 12: `CaseResult.calibration` — the check a calibration case calibrates and the
+#    band its score has to land in, never the answer it carries (ADR 0024 §4,
+#    §9). Checked against ADR 0014 §1: case data outside `config_hash`, as the
+#    canary is; absent means *not a calibration case*, which is what every older
+#    case was, so the step writes nothing; and what it adds to a document is a
+#    name and two numbers. The first passenger of this version, and not the
+#    last: `Verdict.scale` and `Run.judge_samples` are ruled onto the same bump,
+#    so 12 stays open until they have boarded it.
+SCHEMA_VERSION = 12
 
 
 def _num(value: float) -> float:
@@ -768,10 +777,20 @@ class CaseResult:
     #: case whose exclusion could only be learnt from the suite would be a case
     #: excluded invisibly. (ADR 0016 §1)
     canary: bool = False
+    #: This case calibrated the judge rather than measuring the system: the
+    #: check it names was graded on an answer the author wrote, and its score
+    #: has to land inside the band. The answer itself is never here — it is
+    #: payload and it is already in the committed cases file. (ADR 0024 §4)
+    calibration: CalibrationBand | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id:
             raise ValueError("CaseResult.case_id must not be empty")
+        if self.canary and self.calibration is not None:
+            raise ValueError(
+                f"case {self.case_id!r} is both a canary and a calibration case: "
+                "one asks the target and the other bypasses it"
+            )
         if self.suspended is None:
             return
         if not self.suspended:
@@ -1152,6 +1171,10 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # redacted document that lost it would report an exit code its
                 # own contents could not account for.
                 canary=case.canary,
+                # Carried for the canary's reason: a name and two numbers, and a
+                # redacted document that lost them would report an exit code
+                # its own contents could not account for. (ADR 0024 §9)
+                calibration=case.calibration,
             )
             for case in run.results
         ),
@@ -1436,6 +1459,15 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     # produced before. (ADR 0016 §9)
     if case.canary:
         payload["canary"] = True
+    # Written only when present, for the canary's reason one line up. The answer
+    # the case carries is not a field of this value and so cannot be written.
+    # (ADR 0024 §9)
+    if case.calibration is not None:
+        payload["calibration"] = {
+            "check": case.calibration.check,
+            "low": _num(case.calibration.low),
+            "high": _num(case.calibration.high),
+        }
     return payload
 
 
@@ -1594,6 +1626,21 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
             for r in cast(Sequence[Mapping[str, Any]], raw.get("responses") or ())
         ),
         canary=bool(raw.get("canary", False)),
+        calibration=_calibration_from_dict(raw.get("calibration")),
+    )
+
+
+def _calibration_from_dict(raw: object) -> CalibrationBand | None:
+    if raw is None:
+        return None
+    where = "case result calibration"
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{where} is not an object")
+    fields_ = cast(Mapping[str, Any], raw)
+    return CalibrationBand(
+        check=str(_required(fields_, "check", where)),
+        low=float(_required(fields_, "low", where)),
+        high=float(_required(fields_, "high", where)),
     )
 
 

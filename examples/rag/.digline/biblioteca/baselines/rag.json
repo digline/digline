@@ -310,7 +310,7 @@
       ]
     }
   ],
-  "schema_version": 11,
+  "schema_version": 12,
   "suite": "rag",
   "target_config": {},
   "tenant": "biblioteca"

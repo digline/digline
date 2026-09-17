@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 if TYPE_CHECKING:
-    from digline.core import AssertionDelta, Comparison, Verdict
+    from digline.core import AssertionDelta, Comparison, ScaleLost, Verdict
     from digline.run import Suite
     from digline.store import FileResultStore
 
@@ -239,6 +239,9 @@ class _Opened:
     #: Whether this run carries the judge's own words. False on a redacted run,
     #: where quoting a reason would be quoting something that is not there.
     reasons_available: bool
+    #: The calibration cases of the run that left their band, read off the run
+    #: by the report's own function. (ADR 0024 §4.7)
+    lost: Sequence[ScaleLost] = ()
 
 
 def _open(spec: str, config: pytest.Config) -> _Opened:
@@ -263,7 +266,7 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
 def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     from digline.core import compare
     from digline.host import load_suite, need_baseline, read_run, resolve_key
-    from digline.report import config_changes, headline
+    from digline.report import config_changes, headline, scale_lost
     from digline.store import FileResultStore
 
     suite, loaded = load_suite(spec, root=root)
@@ -285,6 +288,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
         coincides=config_changes(comparison.config_changes, LOCALE),
         headline=head.sentence,
         reasons_available=head.reasons_available,
+        lost=scale_lost(run),
     )
 
 
@@ -406,8 +410,23 @@ class Check(pytest.Item):
         """
         if _failing(self.delta):
             return
-        if _errored(self.delta.current):
+        if _errored(self.delta.current) or self._lost():
             raise CouldNotJudge(self)
+
+    def _lost(self) -> Sequence[ScaleLost]:
+        """This row's calibration case, if it left its band.
+
+        A lost scale is the plugin's unjudged state and not a failure: the
+        numbers exist and are not measurements, which is what ERROR already
+        says, and `exit_code()` returns 2 for it. (ADR 0024 §4.7)
+        """
+        if not self.delta.calibration:
+            return ()
+        return tuple(
+            item
+            for item in self.opened.lost
+            if item.case_id == self.delta.case_id and item.check == self.delta.assertion
+        )
 
     def runtest(self) -> None:
         if _failing(self.delta):
@@ -440,10 +459,15 @@ class Check(pytest.Item):
         sentence here instead would be a fourth prose rendering of one
         comparison, bound to the other three by nothing.
         """
-        from digline.report import check_line, visible
+        from digline.report import calibration_fact, check_line, visible
 
         where = f"{self.delta.case_id or RUN_SCOPE} · {self.delta.assertion}"
-        line = check_line(self.delta, locale=LOCALE, coincides=self.opened.coincides)
+        lost = self._lost()
+        line = (
+            calibration_fact(lost, LOCALE)
+            if lost
+            else check_line(self.delta, locale=LOCALE, coincides=self.opened.coincides)
+        )
         parts = [f"digline: {where}", f"  {line}"]
         if self.opened.reasons_available and (reason := _reason(self.delta)):
             parts.append(f"  reason: {reason}")
@@ -517,6 +541,11 @@ def _failing(delta: AssertionDelta) -> bool:
     as one predicate so the two cannot drift: a front end that decided this for
     itself would be a second answer to what fails a release. (ADR 0016 §5, §8)
     """
+    if delta.calibration:
+        # Its only gate is its band, which `setup()` reads. A calibration case
+        # that moved inside its band is not a check of the system that got
+        # worse, so it never fails a row. (ADR 0024 §4.4)
+        return False
     if delta.outcome == "regressed":
         return True
     return delta.canary and delta.outcome == "improved"

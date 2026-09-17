@@ -52,8 +52,20 @@ tolerance = 0.05
 
 A case is a JSON object whose keys are `Case`'s fields, so the file needs no
 schema of its own: `id`, `vars`, `expected`, `label`, `group`, `context`,
-`metadata`, `suspended`. Name one that does not exist and the loader lists the
-ones that do.
+`metadata`, `suspended`, `canary`, `calibration`. Name one that does not exist
+and the loader lists the ones that do. `calibration` is the one field that is an
+object, and its own keys are refused by name the same way:
+
+```json
+{"id": "half-supported",
+ "context": ["Refunds take 30 days.", "A receipt is required."],
+ "calibration": {"output": "Refunds take 30 days and need no receipt.",
+                 "check": "faithfulness", "low": 0.3, "high": 0.7,
+                 "input": "How do refunds work?"}}
+```
+
+What it is, and what it refuses, is in the
+[API reference](api.md#casecalibration-watching-the-judges-scale).
 
 Then the cycle you already know:
 

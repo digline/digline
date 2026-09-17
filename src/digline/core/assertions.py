@@ -134,7 +134,9 @@ class AssertionBase:
     #: What kind of check this is (see `CheckKind`). Declared without a value
     #: here so that a concrete class must say it: a default would make every
     #: new check `deterministic` by omission. Optional for a check of your own —
-    #: nothing that runs or compares reads it.
+    #: nothing that compares or promotes reads it, and the one refusal that does
+    #: (a calibration case may only name a `judged` check) refuses a class that
+    #: declares nothing rather than guessing. (ADR 0024 §4.2)
     KIND: ClassVar[CheckKind]
 
     #: Fields deliberately outside `identity`. They describe *how* a result is

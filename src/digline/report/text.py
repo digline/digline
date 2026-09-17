@@ -149,6 +149,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "moved, including {case} from {before} to {after}{beyond}."
         ),
         "fact.canary.beyond": ", beyond the noise of this check ({interval})",
+        # No *likely*, and the absence is chosen: that word is the canary's,
+        # which infers a model from behaviour. Here nothing is inferred — the
+        # band was declared and the score was observed. (ADR 0024 §4.6)
+        "fact.calibration.one": (
+            "The calibration case {case} scored {score}{across}, outside its "
+            "declared band {low}–{high}: the judged scores in this run are not "
+            "placed on the scale they are compared on."
+        ),
+        "fact.calibration.many": (
+            "{count} calibration cases scored outside their declared bands, "
+            "including {case} at {score}{across} against {low}–{high}: the "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on."
+        ),
+        "fact.calibration.across": " across {count} samples ({values})",
         "fact.target_config.changed": (
             "The system under test answered under a different configuration: {changes}."
         ),
@@ -254,12 +269,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.changes": "What was added or removed",
         "section.improvements": "What got better",
         "section.unchanged": "What stayed the same",
+        "section.calibration": "Where the judge placed the calibration answers",
         "section.empty": "Nothing in this section.",
         "summary.truncated": (
             "showing the first {shown} of {total}; the full list is in the report"
         ),
         "column.case": "Case",
         "column.check": "Check",
+        "column.band": "Declared band",
+        "calibration.inside": "inside",
+        "calibration.outside": "outside",
         "column.detail": "What happened",
         "column.reason": "Why",
         "detail.dropped": "Score fell from {before} to {now}.",
@@ -485,6 +504,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "A canary check moved. It is counted in no aggregate, and what its "
             "movement is about is which model answered rather than how well it "
             "answered."
+        ),
+        "explain.tally.calibration.one": (
+            "1 calibration case scored outside its declared band: the judged "
+            "scores in this run are not placed on the scale they are compared "
+            "on. It is counted in no aggregate, and the target was not asked "
+            "for it."
+        ),
+        "explain.tally.calibration.many": (
+            "{count} calibration cases scored outside their declared bands: the "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on. They are counted in no aggregate, and the target was "
+            "not asked for them."
         ),
         "explain.tally.on_the_line.one": (
             "1 check measured a band that covers its own threshold, so which "
@@ -747,6 +778,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{after}{beyond}."
         ),
         "fact.canary.beyond": ", oltre il rumore di questo controllo ({interval})",
+        "fact.calibration.one": (
+            "Il caso di calibrazione {case} ha ottenuto {score}{across}, fuori "
+            "dalla banda dichiarata {low}–{high}: i punteggi giudicati in questa "
+            "esecuzione non stanno sulla scala su cui vengono confrontati."
+        ),
+        "fact.calibration.many": (
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata, fra "
+            "cui {case} con {score}{across} rispetto a {low}–{high}: i punteggi "
+            "giudicati in questa esecuzione non stanno sulla scala su cui "
+            "vengono confrontati."
+        ),
+        "fact.calibration.across": " su {count} campioni ({values})",
         "fact.target_config.changed": (
             "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
         ),
@@ -845,12 +888,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.changes": "Che cosa è stato aggiunto o tolto",
         "section.improvements": "Che cosa è migliorato",
         "section.unchanged": "Che cosa è rimasto uguale",
+        "section.calibration": (
+            "Dove il giudice ha collocato le risposte di calibrazione"
+        ),
         "section.empty": "Niente in questa sezione.",
         "summary.truncated": (
             "mostrate le prime {shown} di {total}; l'elenco completo è nel rapporto"
         ),
         "column.case": "Caso",
         "column.check": "Controllo",
+        "column.band": "Banda dichiarata",
+        "calibration.inside": "dentro",
+        "calibration.outside": "fuori",
         "column.detail": "Che cosa è successo",
         "column.reason": "Perché",
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",
@@ -1093,6 +1142,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un controllo sentinella si è mosso. Non entra in nessun "
             "aggregato, e ciò di cui il suo movimento parla è quale modello "
             "abbia risposto, non quanto bene."
+        ),
+        "explain.tally.calibration.one": (
+            "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "
+            "giudicati in questa esecuzione non stanno sulla scala su cui "
+            "vengono confrontati. Non entra in nessun aggregato, e al sistema "
+            "sotto esame non è stato chiesto nulla per esso."
+        ),
+        "explain.tally.calibration.many": (
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata: i "
+            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
+            "cui vengono confrontati. Non entrano in nessun aggregato, e al "
+            "sistema sotto esame non è stato chiesto nulla per essi."
         ),
         "explain.tally.on_the_line.one": (
             "1 controllo ha misurato una banda che copre la propria soglia: da "

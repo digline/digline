@@ -249,6 +249,11 @@ COMPARE_KEYS = {
     # record seems to confirm is not identified. It moves no exit code, and it is
     # never true behind a named endpoint, where the answering model is withheld.
     "target_echoed",
+    # Joined with ADR 0024 §4.7, the same rule a seventh time, and the second
+    # addition that can change the exit code: a calibration case outside its
+    # band exits 2. Only for a suite that declares one, which none could before
+    # this release.
+    "scale_lost",
     "counts",
     "reasons_available",
     "sentence",

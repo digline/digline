@@ -138,6 +138,13 @@ class AssertionDelta:
     #: five does not have to learn a sixth. What it changes is what the movement
     #: *means* — see `Comparison.canary_moved`. (ADR 0016 §5)
     canary: bool = False
+    #: This delta belongs to a case that measures the **instrument**: the target
+    #: was never asked, and the only gate on the case is its declared band. So
+    #: the delta is computed and kept in `deltas`, where movement inside the
+    #: band stays readable, and it is left out of `counts` and of every outcome
+    #: selection — a calibration case that moved is not a check of the system
+    #: that got better or worse. (ADR 0024 §4.4, amended 2026-09-17)
+    calibration: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,8 +245,17 @@ class Comparison:
         return tuple(d for d in self.target_config_deltas if d.outcome == "changed")
 
     def of(self, *outcomes: Outcome) -> Sequence[AssertionDelta]:
+        """The deltas about the system with these outcomes.
+
+        A calibration delta is never among them: its outcome is a relation
+        between two gradings of an answer nobody generated, and selecting it as
+        `regressed` is how "1 check got worse" would come to be said about a
+        case the target was never asked. (ADR 0024 §4.4)
+        """
         wanted = frozenset(outcomes)
-        return tuple(d for d in self.deltas if d.outcome in wanted)
+        return tuple(
+            d for d in self.deltas if d.outcome in wanted and not d.calibration
+        )
 
     @property
     def regressed(self) -> Sequence[AssertionDelta]:
@@ -255,8 +271,22 @@ class Comparison:
 
     @property
     def counts(self) -> dict[Outcome, int]:
-        tally: Counter[Outcome] = Counter(d.outcome for d in self.deltas)
+        """How many deltas about the system landed in each outcome.
+
+        Without the calibration deltas, for `of`'s reason — and the headline's
+        counts, the `worse` flag and the wire's `counts` are all read from here,
+        so a machine consumer reading the number and a person reading the
+        sentence cannot be told two different things. (ADR 0024 §4.4)
+        """
+        tally: Counter[Outcome] = Counter(
+            d.outcome for d in self.deltas if not d.calibration
+        )
         return dict(tally)
+
+    @property
+    def calibration_deltas(self) -> Sequence[AssertionDelta]:
+        """The deltas of the calibration cases, which `counts` leaves out."""
+        return tuple(d for d in self.deltas if d.calibration)
 
 
 def _changed(deltas: Sequence[ConfigDelta]) -> bool:
@@ -413,6 +443,14 @@ def compare(run: Run, baseline: Run) -> Comparison:
         for case in baseline.results
         if case.canary and case.case_id not in {c.case_id for c in run.results}
     }
+    # The same reading for the calibration case, and for the same reason.
+    calibrated = {case.case_id for case in run.results if case.calibration is not None}
+    calibrated |= {
+        case.case_id
+        for case in baseline.results
+        if case.calibration is not None
+        and case.case_id not in {c.case_id for c in run.results}
+    }
     deltas: list[AssertionDelta] = []
 
     for key in sorted(current.keys() | previous.keys()):
@@ -436,6 +474,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     None,
                     "absent from the baseline",
                     canary=case_id in canaries,
+                    calibration=case_id in calibrated,
                 )
             )
             continue
@@ -451,6 +490,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     None,
                     "present in the baseline but not in this run",
                     canary=case_id in canaries,
+                    calibration=case_id in calibrated,
                 )
             )
             continue
@@ -469,6 +509,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     None,
                     f"assertion errored {side}: {culprit.reason}",
                     canary=case_id in canaries,
+                    calibration=case_id in calibrated,
                 )
             )
             continue
@@ -515,6 +556,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     delta,
                     why,
                     canary=case_id in canaries,
+                    calibration=case_id in calibrated,
                 )
             )
             continue
@@ -566,6 +608,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_max=floor.high,
                 noise_samples=floor.count,
                 canary=case_id in canaries,
+                calibration=case_id in calibrated,
             )
         )
 

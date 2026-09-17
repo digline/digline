@@ -19,9 +19,10 @@ from digline.run.driver import (
     target_config,
 )
 from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
-from digline.run.suite import CallPlan, Case, Suite, planned_calls
+from digline.run.suite import Calibration, CallPlan, Case, Suite, planned_calls
 
 __all__ = [
+    "Calibration",
     "CallPlan",
     "Case",
     "HasArtifacts",

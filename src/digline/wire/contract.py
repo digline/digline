@@ -71,6 +71,11 @@ __all__ = [
 #:    an exit code, by that section's own ruling. A consumer that ignores it
 #:    parses the same numbers it parsed before.
 #:
+#:    `scale_lost` on the headline and `calibration` on each delta (ADR 0024
+#:    §4.7): the same rule a seventh time. Like `canary_moved` it can change the
+#:    exit code, and only of a suite that declares a calibration case, which no
+#:    suite could before this release.
+#:
 #:    `target_echoed` on the headline (ADR 0020 §3, row 7): the same rule a sixth
 #:    time. The endpoint returned the requested id as the model that answered,
 #:    so what answered is not identified. A fact and not a verdict — it moves no
@@ -94,11 +99,12 @@ def exit_code(head: Headline) -> int:
     """The one place a headline becomes a number.
 
     Precedence is deliberate: **a regression, or a canary that moved, outranks
-    an unjudged case.** Both need attention, but a regression is a statement
-    about behaviour that got worse — and a moved canary a statement about
-    *which model* answered — while an unjudged case is a statement about the
-    harness. When both are true the louder fact must be the one the pipeline
-    reports, or a real regression would hide behind a flaky provider.
+    an unjudged case and a lost scale.** Both need attention, but a regression
+    is a statement about behaviour that got worse — and a moved canary a
+    statement about *which model* answered — while an unjudged case is a
+    statement about the harness. When both are true the louder fact must be
+    the one the pipeline reports, or a real regression would hide behind a
+    flaky provider.
 
     A suspension never fails: it is a decision someone already made, not an
     outcome.
@@ -110,6 +116,12 @@ def exit_code(head: Headline) -> int:
         # headline can say what happened without saying something untrue about
         # it. (ADR 0016 §5)
         return EXIT_WORSE
-    if head.unjudged:
+    if head.unjudged or head.scale_lost:
+        # A lost scale is not an errored verdict — the score is real, and it is
+        # the evidence — but the numbers beside it are not measurements, which
+        # is what 2 already means. It comes after 1 by choice rather than by
+        # necessity: a regression on a binary check beside a collapsed judge is
+        # still true, both codes stop a pipeline, and the headline has already
+        # put the calibration clause first. (ADR 0024 §4.5)
         return EXIT_UNJUDGED
     return EXIT_OK

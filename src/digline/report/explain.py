@@ -32,6 +32,7 @@ from digline.core import (
     SystemConfig,
     Verdict,
     on_the_line,
+    scale_lost,
 )
 from digline.report.render import (
     ABSENT,
@@ -115,6 +116,12 @@ type TallyKind = Literal[
     # identity as confirmed that the record does not confirm. A fact, not a
     # verdict: it moves no exit code.
     "echoed",
+    # The fifth amendment, from ADR 0024 §4.7, by the same test the canary's
+    # passed: the report says it, and a reading that omitted it would describe a
+    # run whose exit code it could not account for. A count — how many
+    # calibration cases left their band — and it reads the run alone, so it is
+    # stated with or without a reference.
+    "calibration",
 ]
 
 
@@ -245,8 +252,16 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     on_line = on_the_line_count(run)
     if on_line:
         out.append(TallyFact("on_the_line", count=on_line))
+    # **First, before any number and before a moved judge**, and from the run
+    # alone. A lost scale says the judged numbers below are not measurements at
+    # all, which is a stronger caveat than a judge that moved — a moved judge
+    # still measures on a scale, just a different one. It is inserted last so
+    # the comparability fact below cannot displace it. (ADR 0024 §4.6)
+    lost = len(scale_lost(run))
 
     if comparison is None:
+        if lost:
+            out.insert(0, TallyFact("calibration", count=lost))
         return out
 
     covered = sum(1 for delta in comparison.deltas if delta.within_noise)
@@ -278,6 +293,8 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # term — a reading is a list, and a list is read from the top. (ADR 0018 §8)
     if comparison.comparability_reduced:
         out.insert(0, TallyFact("comparability", state=True))
+    if lost:
+        out.insert(0, TallyFact("calibration", count=lost))
     return out
 
 
@@ -373,6 +390,11 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
 
     by_outcome: dict[str, list[AssertionDelta]] = {}
     for delta in comparison.deltas:
+        if delta.calibration and not _errored(delta):
+            # Not a check of the system, so not in a list of what moved in it:
+            # its only gate is its band, which the tally states. An errored one
+            # stays, because it is unjudged like any other. (ADR 0024 §4.4)
+            continue
         if delta.outcome == "unchanged" and not _moved(delta):
             # A check that did not move at all is in the tally and nowhere
             # else. The dossier this depth is taken from draws the line in the
@@ -388,6 +410,10 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
             out.append(_check_fact(delta))
     out.extend(_suspensions(run))
     return out
+
+
+def _errored(delta: AssertionDelta) -> bool:
+    return delta.current is not None and delta.current.status == "error"
 
 
 def _moved(delta: AssertionDelta) -> bool:
@@ -448,7 +474,9 @@ def _checks_alone(run: Run) -> list[Fact]:
         )
         for case in run.results
         for verdict in case.verdicts
-        if verdict.status == "fail"
+        # A calibration case's pass or fail is a threshold read against an
+        # answer nobody generated; what it found is its band, in the tally.
+        if verdict.status == "fail" and case.calibration is None
     ]
     out.extend(
         CheckFact(
@@ -586,6 +614,12 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, "explain.tally.canary")
         case "echoed":
             return phrase(locale, "explain.tally.echoed")
+        case "calibration":
+            return phrase(
+                locale,
+                f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
     assert_never(fact.kind)
 
 

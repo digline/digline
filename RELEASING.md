@@ -201,7 +201,7 @@ back deliberately: `digline.dev` is on its default branch and this documentation
 is not merged yet, so adding the entries early would fail the site build on
 pages that do not exist. They land together.
 
-**Nothing is queued as of 0.13.3.** Read off `digline.dev`'s `origin/main`
+**Nothing is queued as of 0.14.0.** Read off `digline.dev`'s `origin/main`
 rather than remembered — `rejudge`, `log` and `register`, and ADRs 0014, 0015,
 0016 and 0024 each carry all three entries there: the `nav` line, `PRODUCT` in
 `tools/hooks/seo.py`, `DESCRIPTIONS` in `tools/hooks/llms.py`. The batch this

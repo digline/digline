@@ -172,6 +172,20 @@ def _add_schema_eleven(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twelve(raw: dict[str, Any]) -> dict[str, Any]:
+    """11 -> 12. One passenger so far, and an absence the old document justifies.
+
+    `calibration` is left absent because a case written before the idea existed
+    was not a calibration case, which is exactly what the absence says — the
+    sentence `canary` earned at 10. Nothing is derived from a check's name or a
+    score's position: that would be the guess ADR 0014 §2 refuses. (ADR 0024 §9)
+
+    The step writes nothing and still has to **exist**, for the reason the two
+    before it give.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -182,6 +196,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     8: _add_sample_interval,
     9: _add_schema_ten,
     10: _add_schema_eleven,
+    11: _add_schema_twelve,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

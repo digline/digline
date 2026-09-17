@@ -42,7 +42,7 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.protocols import DeclaresPrice
-from digline.run.suite import Case, Suite
+from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
     "HasArtifacts",
@@ -336,6 +336,8 @@ def _run_case(
             ),
             "",
         )
+    if case.calibration is not None:
+        return _calibrate(suite, mapper, case, case.calibration)
 
     samples: list[EvaluatorInputs] = []
     # Collected beside the mapped inputs rather than derived from them: what a
@@ -409,6 +411,62 @@ def _run_case(
     )
 
 
+def _calibrate(
+    suite: Suite, mapper: Mapper, case: Case, calibration: Calibration
+) -> tuple[CaseResult, Cause]:
+    """A calibration case: the author's answer, graded by one check.
+
+    **The target is not called.** The answer is known to be partially correct
+    only because the author wrote it, so the driver builds the `Response` from
+    the declaration — no cost, no latency, no trajectory, because no call was
+    made — and hands it to the mapper like any other. That the mapper is on the
+    path is the point: it is where the context a judge reads is built. (ADR 0024
+    §4.1)
+
+    **Only the named check runs**, and the skip belongs here for the reason a
+    suspension's does: an assertion is never asked a question it then has to
+    decline. `CostBudget` and `LatencyBudget` read figures a call nobody made
+    does not have, and `ToolsCalled` a trajectory nobody produced; run on this
+    case each would error, and every suite with a budget and a calibration case
+    would exit 2 on every run for nothing. The skip is recorded rather than
+    hidden: the run carries the band, whose `check` is the one verdict the case
+    holds. (ADR 0024 §4.3)
+
+    `suite.samples` repeats the judge alone here. Nothing is recorded into
+    `responses`, whatever the suite asked for: the answer is already in the
+    committed cases file. (ADR 0024 §4.7)
+    """
+    band = calibration.band
+    # `Suite` has already refused a check that is absent or ambiguous.
+    check = next(a for a in suite.assertions if a.name == calibration.check)
+    response = Response(output=calibration.output, input=calibration.input)
+    samples: list[EvaluatorInputs] = []
+    for _ in range(suite.samples):
+        try:
+            samples.append(mapper(response, case))
+        except Exception as exc:  # noqa: BLE001 — the ordinary case's treatment
+            return (
+                CaseResult(
+                    case_id=case.id,
+                    verdicts=(
+                        error_verdict(
+                            check, _clip(f"mapper raised {type(exc).__name__}: {exc}")
+                        ),
+                    ),
+                    calibration=band,
+                ),
+                "mapper",
+            )
+    floor = 1.0 if suite.min_agreement is None else float(suite.min_agreement)
+    verdict = combine_samples(
+        [_judge(check, inputs) for inputs in samples], min_agreement=floor
+    )
+    return (
+        CaseResult(case_id=case.id, verdicts=(verdict,), calibration=band),
+        "assertion" if verdict.status == "error" else "",
+    )
+
+
 def _outcomes(
     suite: Suite, results: Sequence[CaseResult], run_assertion: RunAssertion
 ) -> tuple[CaseOutcome, ...]:
@@ -452,6 +510,7 @@ def _outcomes(
             # every other reader of this fact will find it — a stored run has no
             # suite beside it. (ADR 0016 §1)
             canary=result.canary,
+            calibration=result.calibration is not None,
         )
         for result in counted
     )
