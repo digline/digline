@@ -88,6 +88,13 @@ jobs:
         with:
           repository: digline/digline.dev
           path: _site
+          # The site's whole history, unlike this repository's below. A
+          # translated page records the commit of its original
+          # (`source_commit`) and the build dates its notice from it, so a
+          # shallow site checkout fails every build once translations exist.
+          # digline.dev's own docs.yml and translate.yml fetch it whole for
+          # the same reason.
+          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
@@ -115,7 +122,7 @@ jobs:
       # should be red. A dispatch on a branch other than main is refused by the
       # guard, which is the guard being right.
       #
-      # Shallow on purpose, unlike the real build. `sync-docs.sh` reads this
+      # This repository shallow on purpose, unlike the real build. `sync-docs.sh` reads this
       # repository's history to date each page for the sitemap, detects a
       # shallow clone and falls back to mtimes rather than writing a date it
       # cannot stand behind. The dates are not what is under test here; the
