@@ -636,6 +636,28 @@ tag* updates it on every tag.
   rather than a green, because a cache hit and a pass look identical from the
   summary.
 
+- **v0.15.2, written back on 2026-09-18 from that tag's own logs.** Step 4 was
+  not performed at the time — this block went from v0.15.1 to v0.15.3 — and the
+  gap was found by the check that now asks. It is filled rather than left,
+  because the evidence is still there and a release with no line here reads as a
+  release nobody looked at.
+
+  The same three parts, and the same verdict. `#9 [stage-0 3/5]` in `smoke`:
+  `#9 0.415 every version is served (after 0s)`, then `#9 1.542 Collecting
+  digline==0.15.2` and `#9 8.852 Successfully installed … digline-0.15.2 …` —
+  one `RUN`, install 1.1s after `served`, which is **amd64** proven.
+  `#11 [linux/amd64 stage-0 3/5]` in the multi-arch push is `CACHED` and proves
+  nothing, exactly as the v0.15.1 paragraph predicts it will be every time.
+  `#15 [linux/arm64 stage-0 3/5]`: `served` *(after 1s)*, `#15 20.48 Collecting`
+  and `#15 107.1 Successfully installed`, which is **arm64** proven.
+
+  **And the race was not live here either.** `after 0s` and `after 1s`: the
+  index was already serving when the build asked, and the whole run took under
+  four minutes from tag to release. So v0.15.1 remains the only tag on which the
+  same-question fix has been observed under a real race — one observation, now
+  twice unrepeated, which is the fact this list exists to keep visible rather
+  than to let three greens obscure.
+
 - **v0.15.3 read the same way, and the shape held — but the race was not
   live.** The reading is the one above, a second time and in the same three
   parts: `#9 [stage-0 3/5]` in `smoke` printed `every version is served (after
@@ -843,7 +865,26 @@ rather than per repository, which is a correction rather than a preference: with
 one issue for the whole repository, a green run about 0.15.3 closed an issue
 naming 0.15.2 — a step nobody had done, marked done by a run that never looked
 at it. An issue about another release is left open and named in the run's
-notices, because a follow-up still outstanding is itself worth seeing. That shape is the point rather than a convenience: this
+notices, because a follow-up still outstanding is itself worth seeing.
+
+**Two of the four are asked only about the newest release**, and this is what
+keeps such an issue from being immortal. The example locks and the `<minor>` and
+`latest` image tags are the *current state of a moving thing*: asked about a
+superseded release they report that the locks name something else and that
+`latest` points elsewhere — which is what they are supposed to do, so the
+failure would be describing the repair. They answer **not applicable** there.
+The other two keep their meaning for ever, because their subject is a record of
+what happened at that release: the approvals of its publish run, and its
+paragraph in the Status block. That is the line, and it is worth stating as a
+rule because the next check added will sit on one side of it — *is this about
+what was recorded then, or about what is true now?*
+
+Without it the issue opened for 0.15.2 could never have been closed: two of its
+lines could only go green by making the current tree wrong, so no run could
+close it, and a red label open for ever is the signal people learn to ignore —
+the failure this section exists to prevent, one level up.
+
+That shape is the point rather than a convenience: this
 checklist was skipped twice precisely because nothing stayed open, and the job
 cannot use a red instead — between the tag and the follow-up commit the
 repository is *supposed* to fail these, since a lock cannot name a version the

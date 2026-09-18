@@ -421,3 +421,130 @@ def test_the_scope_is_a_prefix_and_not_a_search() -> None:
     assert "0.15.3" in older_title
     assert not older_title.startswith(followup.report([sound("a")], "0.15.3")["scope"])
     assert older_title.startswith(str(older["scope"]))
+
+
+# --------------------------------------------------------------------------- #
+# Applicability: which questions a superseded release may be asked
+# --------------------------------------------------------------------------- #
+#
+# Issue #45 is where this came from. Opened about 0.15.2 after 0.15.3 had
+# shipped, it failed on the locks and on the image tags — and both were failing
+# because the repository had been *repaired*: the locks name 0.15.3 and `latest`
+# points at it, which is correct. Two of its three lines could never go green
+# without making the current tree wrong, so no run could ever close it, and a
+# red label open for ever is the signal people learn to ignore.
+
+
+def test_the_locks_are_not_asked_about_a_superseded_release(tmp_path: Path) -> None:
+    all_locks(tmp_path, "0.15.3")
+    finding = followup.locks_finding(tmp_path, "0.15.2", current=False)
+    assert not finding.applicable
+    assert finding.sound, "nothing to answer is not something wrong"
+    assert "not applicable" in finding.said
+    assert "0.15.2" in finding.said
+
+
+def test_the_locks_are_still_asked_about_the_current_release(tmp_path: Path) -> None:
+    """The other half: `current=True` is today's behaviour, unchanged."""
+    all_locks(tmp_path, "0.15.0")
+    finding = followup.locks_finding(tmp_path, "0.15.3", current=True)
+    assert finding.applicable
+    assert not finding.sound
+    assert "do not name 0.15.3" in finding.said
+
+
+def test_the_image_tags_are_not_asked_about_a_superseded_release() -> None:
+    finding = followup.digests_finding(digests(latest=OTHER), "0.15.2", current=False)
+    assert not finding.applicable
+    assert finding.sound
+    assert "`latest` follow the newest release" in finding.said
+
+
+def test_the_image_tags_are_still_asked_about_the_current_release() -> None:
+    finding = followup.digests_finding(digests(latest=OTHER), "0.15.3", current=True)
+    assert finding.applicable
+    assert not finding.sound
+
+
+def test_the_record_shaped_checks_keep_their_meaning_for_ever() -> None:
+    """The reviewer gate and the Status block take no `current` at all.
+
+    Their subject is a record of what happened at that release — the approvals
+    of its publish run, and its paragraph in the block — and a record does not
+    stop being true because a later version shipped. That is the line between
+    the two categories, and it is why these two have no switch to set.
+    """
+    assert followup.approvals_finding(APPROVED, []).applicable
+    assert followup.status_finding(BLOCK.format(version="0.15.2"), "0.15.2").applicable
+
+
+def test_a_superseded_release_whose_record_is_complete_is_all_green(
+    tmp_path: Path,
+) -> None:
+    """The state #45 has to be able to reach, or it can never be closed by a run:
+    locks and tags not applicable, gate approved, block written."""
+    all_locks(tmp_path, "0.15.3")
+    findings = [
+        followup.locks_finding(tmp_path, "0.15.2", current=False),
+        followup.approvals_finding(APPROVED, []),
+        followup.digests_finding(digests(latest=OTHER), "0.15.2", current=False),
+        followup.status_finding(BLOCK.format(version="0.15.2"), "0.15.2"),
+    ]
+    written = followup.report(findings, "0.15.2")
+    assert written["ok"] is True
+    body = str(written["body"])
+    assert "- [~] **the example locks**" in body
+    assert "- [~] **the image tags**" in body
+    assert "- [x] **the Status block**" in body
+
+
+def test_a_superseded_release_whose_record_is_missing_is_still_red(
+    tmp_path: Path,
+) -> None:
+    """And the negative half of the whole idea: not-applicable must not become a
+    way of passing. The block without its paragraph still fails, alone."""
+    all_locks(tmp_path, "0.15.3")
+    findings = [
+        followup.locks_finding(tmp_path, "0.15.2", current=False),
+        followup.approvals_finding(APPROVED, []),
+        followup.digests_finding(digests(latest=OTHER), "0.15.2", current=False),
+        followup.status_finding(BLOCK.format(version="0.15.3"), "0.15.2"),
+    ]
+    written = followup.report(findings, "0.15.2")
+    assert written["ok"] is False
+    assert "the Status block does not mention v0.15.2" in str(written["title"])
+
+
+def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
+    """`--newest` is what decides it, and leaving it out asks about the present
+    — so a caller that does not know cannot accidentally excuse a check."""
+    all_locks(tmp_path, "0.15.3")
+    (tmp_path / "RELEASING.md").write_text(
+        BLOCK.format(version="0.15.2"), encoding="utf-8"
+    )
+    (tmp_path / "approvals.json").write_text(json.dumps(APPROVED), encoding="utf-8")
+    (tmp_path / "control.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "digests.json").write_text(
+        json.dumps({"0.15.2": ONE, "0.15": OTHER, "latest": OTHER}), encoding="utf-8"
+    )
+    out = tmp_path / "report.json"
+    argv = [
+        "--version",
+        "0.15.2",
+        "--root",
+        str(tmp_path),
+        "--releasing",
+        str(tmp_path / "RELEASING.md"),
+        "--approvals",
+        str(tmp_path / "approvals.json"),
+        "--approvals-control",
+        str(tmp_path / "control.json"),
+        "--digests",
+        str(tmp_path / "digests.json"),
+        "--out",
+        str(out),
+    ]
+    assert followup.main([*argv, "--newest", "0.15.3"]) == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["ok"] is True
+    # Without `--newest`, the same inputs are read as the present and fail.
+    assert followup.main(argv) == 1
