@@ -28,6 +28,7 @@ __all__ = [
     "Scope",
     "artifact_deltas",
     "compare",
+    "considered_cases",
     "config_deltas",
     "index_verdicts",
     "withhold_artifacts",
@@ -163,6 +164,17 @@ class AssertionDelta:
     #: `config_changed` is the precedent — the same shape, and the same answer:
     #: state the condition, convert nothing, and leave the reader to judge what
     #: the comparison is worth. (ADR 0012 §3, amended 2026-09-18)
+    #:
+    #: **That paragraph was a promise the code kept only half of**, and the half
+    #: it kept was the half nobody could see. `outcome` still points wherever the
+    #: arithmetic points, so a moved denominator whose score happened to *drop*
+    #: was counted as `regressed`, which made `worse` true and exited 1 — the
+    #: very conversion this says never happens. It is enforced now rather than
+    #: described: `of` and `counts` leave these deltas out, exactly as they leave
+    #: out a calibration delta, so `worse` cannot read one in either direction.
+    #: The outcome is kept on the row because a reader who wants to know which
+    #: way the arithmetic pointed is owed it; what it may no longer do is count.
+    #: (the delta-pass over 0.15.1)
     denominator_moved: bool = False
 
 
@@ -270,10 +282,20 @@ class Comparison:
         between two gradings of an answer nobody generated, and selecting it as
         `regressed` is how "1 check got worse" would come to be said about a
         case the target was never asked. (ADR 0024 §4.4)
+
+        Neither is an incomparable one, and for a reason one step stronger: a
+        calibration delta measures something real that is not the system, while
+        this measures nothing at all — two scores over different case sets are
+        not a movement, so there is no direction to select on. Selecting it as
+        `improved` is how "recall got better, 1.000000 to 1.000000" came to be
+        printed under a line saying the two were not comparable.
+        (ADR 0012 §3, amended by the delta-pass over 0.15.1)
         """
         wanted = frozenset(outcomes)
         return tuple(
-            d for d in self.deltas if d.outcome in wanted and not d.calibration
+            d
+            for d in self.deltas
+            if d.outcome in wanted and not d.calibration and not d.denominator_moved
         )
 
     @property
@@ -296,11 +318,32 @@ class Comparison:
         counts, the `worse` flag and the wire's `counts` are all read from here,
         so a machine consumer reading the number and a person reading the
         sentence cannot be told two different things. (ADR 0024 §4.4)
+
+        Without the incomparable ones either, which is the single edit that
+        makes the paragraph on `AssertionDelta.denominator_moved` true: this is
+        the one place `worse` is computed from, so removing them here is what
+        stops a moved denominator from exiting 1 when its arithmetic points down
+        — and, at the same tally, what stops the document from counting one
+        under `improved` when it points up. The count of what was withheld is
+        `incomparable`, beside the six and never inside them.
         """
         tally: Counter[Outcome] = Counter(
-            d.outcome for d in self.deltas if not d.calibration
+            d.outcome
+            for d in self.deltas
+            if not d.calibration and not d.denominator_moved
         )
         return dict(tally)
+
+    @property
+    def incomparable(self) -> Sequence[AssertionDelta]:
+        """The deltas whose two sides were measured over different numbers of
+        cases, which `counts` and `of` leave out.
+
+        Beside `calibration_deltas` and read the same way: a reader or a
+        renderer that wants them asks for them, and nothing has to know the
+        predicate to find them.
+        """
+        return tuple(d for d in self.deltas if d.denominator_moved)
 
     @property
     def calibration_deltas(self) -> Sequence[AssertionDelta]:
@@ -405,8 +448,15 @@ class Noise:
         )
 
 
-def _considered(verdict: Verdict) -> int | None:
-    """How many cases the aggregate behind `verdict` was computed over.
+def considered_cases(verdict: Verdict) -> int | None:
+    """How many cases the aggregate behind `verdict` was computed over, or `None`
+    where the verdict is not an aggregate.
+
+    Public since the delta-pass over 0.15.1, because two renderers now print the
+    pair of numbers and the guard below is the part that is easy to get wrong:
+    `True` is an `int` in Python, so a metadata key holding a boolean would read
+    as an aggregate computed over one case. One definition, rather than that
+    subtlety copied into `report/`.
 
     `Matrix.as_metadata()` writes `considered` on every run-level aggregate and
     nothing else writes it, so its presence is also what identifies one. Read
@@ -436,7 +486,7 @@ _EXCLUSIONS = (
 def _seen(verdict: Verdict) -> int | None:
     """How many cases the aggregate behind `verdict` looked at — those it counted
     plus those it left out."""
-    considered = _considered(verdict)
+    considered = considered_cases(verdict)
     if considered is None:
         return None
     total = considered
@@ -465,7 +515,7 @@ def _denominator_moved(now: Verdict, before: Verdict) -> bool:
     reference written before aggregates recorded their matrix has no
     `considered`, and an absence is not a difference.
     """
-    here, there = _considered(now), _considered(before)
+    here, there = considered_cases(now), considered_cases(before)
     if here is None or there is None or here == there:
         return False
     return _seen(now) == _seen(before)
@@ -610,6 +660,17 @@ def compare(run: Run, baseline: Run) -> Comparison:
         was, is_now = f"{before.score.score:.6f}", f"{now.score.score:.6f}"
 
         if now.status != before.status:
+            # **A flip is never an incomparability either**, and it reaches this
+            # branch before `denominator_moved` is so much as computed. That is
+            # deliberate, and it is ADR 0006 §6's argument one register over: a
+            # flip is each side measured against *its own threshold*, which
+            # needs no reference to be true. A gate reading `fail 0.666667` is
+            # failing whatever the reference counted, so the run is red, exits
+            # 1, and says so. What a moved denominator withdraws is the claim
+            # that the *distance* between two scores means something — and
+            # where the status flipped, nothing downstream is reading the
+            # distance. (the delta-pass over 0.15.1)
+            #
             # No interval rides along here, and its absence is the point. A
             # flipped outcome is never within noise (ADR 0006 §6), so it was
             # not judged against an interval — and attaching one would invite
@@ -671,7 +732,8 @@ def compare(run: Run, baseline: Run) -> Comparison:
             moved_to: Outcome = "regressed" if delta < 0 else "improved"
             why = (
                 f"score moved from {was} to {is_now}, but it was measured over "
-                f"{_considered(now)} cases against {_considered(before)} in the "
+                f"{considered_cases(now)} cases against "
+                f"{considered_cases(before)} in the "
                 "reference: the two are not the same measurement"
             )
         elif within(abs(delta), now.tolerance):

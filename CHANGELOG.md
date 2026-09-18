@@ -6,6 +6,105 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.15.2 — 2026-09-18
+
+**The reading a gate gets when it was never compared.** digline **0.15.2**, the
+delta-pass patch over 0.15.1. `OUTPUT_VERSION` stays **2** and `SCHEMA_VERSION`
+stays **13**: no key is added to or removed from any `--json` document, no stored
+document changes, nothing needs migrating and no baseline needs re-promoting.
+
+0.15.1 closed a gate that could be raised from `fail` to `pass` by the operator
+of an endpoint ([GHSA-8c38-f965-cgww][adv]) and **did not say so in this file** —
+the fix is in that release's commit message and in `tests/test_denominator.py`,
+and the entry above it names only the escape work. This release finishes the fix
+and records both halves.
+
+[adv]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
+
+### Security
+
+- **A run-level gate that was never compared could still be read as a verdict,
+  in either direction.** A run-level aggregate — `recall`, `precision`,
+  `accuracy` — is computed over the cases that entered its denominator, and a
+  case leaves for five reasons: it errored, it was suspended, it carries no
+  label, it is a canary, it calibrates the judge. 0.15.1 taught `compare` to
+  notice when the two sides counted different numbers of cases and to refuse
+  `unchanged` for them, and it stated, on the field itself, that such a delta
+  "never makes `worse` true ... and moves no exit code". The code kept only the
+  half nobody could see. `outcome` still pointed wherever the arithmetic
+  pointed, and `counts` still counted it — so a gate whose score happened to
+  **fall** was counted as a regression, made the run `worse` and exited **1**,
+  which is the conversion that sentence promised never happens; and one whose
+  score **rose or stood still** was counted under `improved`, filed in the
+  report under *"What got better"* and, at 1.0 against 1.0, printed by `explain`
+  as `recall got better: 1.000000 to 1.000000` directly under a line saying the
+  two were not the same measurement.
+
+  `Comparison.counts` and `Comparison.of` now leave these deltas out, exactly as
+  they leave out a calibration delta, and that is the single place `worse` is
+  computed from. The direction stays on the row for a reader who wants it; what
+  it may no longer do is count. Found by the release delta-pass over 0.15.1. No
+  new advisory: [GHSA-8c38-f965-cgww][adv] covers the defect and its range
+  (`< 0.15.1`) is unchanged — what shipped in 0.15.1 was the fix to the reading,
+  and what was wrong afterwards could make a run **redder**, never greener.
+
+### Fixed
+
+- **The terminal `compare` said nothing about it, and neither did the report.**
+  0.15.1 reached `explain` and `--json` only, while the decision it implemented
+  names the terminal explicitly. `compare` now prints a clause beside the
+  sentence it qualifies — *"Nothing got worse compared with the reference. 1
+  run-level check was measured over a different number of cases than the
+  reference, so it is not a comparison."* — and names the check on its own line,
+  in a group between the regressions and the checks that could not run. The HTML
+  report gains a block under the aggregates, *"What was not compared"*, and the
+  row is gone from *"What got better"* and from the `improved` tally.
+
+  The block is a block and **not** a seventh section: every entry in the report's
+  section list renders even when it is empty, so a seventh would have added an
+  empty `(0)` to every report ever rendered, including the ten committed under
+  `examples/`. Nothing in this release changes a byte of a report whose
+  denominators held.
+
+- **`explain` stopped contradicting its own tally.** The check line now reads
+  *"the whole run · recall: measured over 3 cases here and 4 in the reference, so
+  1.000000 and 1.000000 are not a movement of one another."* — no verb of
+  movement in either direction. `denominator_moved` rides beside `kind` on each
+  check fact in `explain --json` rather than becoming a seventh `kind`, so a
+  consumer matching on the six it knows keeps working.
+
+### What deliberately did not move
+
+- **A flip is still a regression, and still exits 1.** A gate that read
+  `pass 1.0` and now reads `fail 0.666667` is failing against *its own*
+  threshold, which needs no reference to be true. It is classified before a
+  denominator is compared at all, and it stays red. What a moved denominator
+  withdraws is the meaning of a *distance*; a flip is not one.
+
+- **`digline log` will not name these runs, and the register is why.** The
+  register's line records a comparison as three numbers — worse, better, not
+  judged — and an incomparable delta is now in none of them, so a run whose gate
+  was not compared appears in `digline log` as a comparison in which nothing
+  happened. Adding a fourth number to that line moves `REGISTER_VERSION`, and a
+  register at a version this digline does not read is **refused**, not migrated:
+  every register written before the change would stop being readable. That is
+  not something a patch release may do to a file users already hold, so the gap
+  is declared here and is the first passenger on the next register move. Until
+  then, `compare`, `explain`, the report and `--json` all state it; only the
+  cross-run reading does not.
+
+- **`digline diff` still reads two such scores as `same`.** `diff` answers a
+  different question from `compare` — two runs, neither of them approved — and
+  it has its own closed vocabulary, in which `same` means "within tolerance". It
+  does not read `considered`, so two aggregates of `1.0` computed over four cases
+  and over three are still reported as the same, with no clause anywhere saying
+  otherwise. **This release does not cover it.** It is the same reasoning in a
+  second vocabulary rather than the same edit, it would change what `diff --json`
+  can return, and it is a decision rather than a patch. Until it is taken, read a
+  `diff` of runs whose case sets may differ the way you would have read a
+  `compare` before 0.15.1: check the `counted / not judged` line under each
+  aggregate before trusting `same`.
+
 ## pytest-digline 0.1.5 — 2026-09-18
 
 **A suite's own text could reach a terminal unescaped.** The plugin prints one

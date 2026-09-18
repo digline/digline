@@ -31,6 +31,7 @@ from digline.core import (
     Scope,
     SystemConfig,
     Verdict,
+    considered_cases,
     on_the_line,
     scale_lost,
 )
@@ -172,6 +173,19 @@ class CheckFact:
     #: it — the check really did pass or fail, and this says how firmly.
     #: (ADR 0018 §8)
     on_the_line: bool = False
+    #: This row sets two run-level scores side by side that were computed over
+    #: different numbers of cases. Beside the kind and **not** a kind of its own,
+    #: unlike `within_noise`: a seventh `CheckKind` is a seventh value in
+    #: `kind` on the wire, which a consumer already matches on, and this release
+    #: is a patch. What it changes is the sentence, which is where the defect
+    #: was — the line read "recall got better: 1.000000 to 1.000000" under a
+    #: tally saying the two were not comparable. (the delta-pass over 0.15.1)
+    denominator_moved: bool = False
+    #: How many cases each side counted, for the sentence that states both. Set
+    #: only where `denominator_moved` is, because they are the numbers that
+    #: disagree; `None` everywhere else, which is what every other check has.
+    considered: int | None = None
+    reference_considered: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,6 +498,22 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
         # against, while being on the line is a fact about the measurement this
         # run just took. (ADR 0018 §8)
         on_the_line=now is not None and on_the_line(now),
+        denominator_moved=delta.denominator_moved,
+        # Only where they are the point. A comparable aggregate has a
+        # `considered` too, and carrying it would put on every row a number
+        # nothing prints — and a field that is filled is a field a later edit
+        # finds a use for, which is how a reading starts saying more than it
+        # read. (the delta-pass over 0.15.1)
+        considered=(
+            considered_cases(now)
+            if delta.denominator_moved and now is not None
+            else None
+        ),
+        reference_considered=(
+            considered_cases(before)
+            if delta.denominator_moved and before is not None
+            else None
+        ),
     )
 
 
@@ -808,6 +838,24 @@ def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
     # "a drop of -0.130000" is the sort of double negative a reader has to
     # stop and unpick.
     moved = ABSENT if fact.delta is None else fmt_score(abs(fact.delta))
+
+    # Before the match and not a branch inside it, because it overrides the kind
+    # rather than qualifying it: `regressed` and `improved` are the two kinds a
+    # moved denominator can carry, and both of their sentences name a direction
+    # this comparison cannot establish. This is the line that stopped a reading
+    # from printing "recall got better: 1.000000 to 1.000000" under a tally
+    # saying the two were not the same measurement. (ADR 0012 §3; the delta-pass
+    # over 0.15.1)
+    if fact.denominator_moved:
+        return phrase(
+            locale,
+            "explain.check.incomparable",
+            where=where,
+            before=before,
+            now=now,
+            considered=fact.considered,
+            reference_considered=fact.reference_considered,
+        )
 
     match fact.kind:
         case "regressed" | "improved":

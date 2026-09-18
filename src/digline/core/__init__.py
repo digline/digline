@@ -60,6 +60,7 @@ from digline.core.compare import (
     artifact_deltas,
     compare,
     config_deltas,
+    considered_cases,
     index_verdicts,
     withhold_artifacts,
 )
@@ -284,6 +285,7 @@ __all__ = [
     "budget_score",
     "combine_samples",
     "compare",
+    "considered_cases",
     "directions",
     "on_the_line",
     "with_noise_interval",

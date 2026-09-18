@@ -254,6 +254,14 @@ COMPARE_KEYS = {
     # band exits 2. Only for a suite that declares one, which none could before
     # this release.
     "scale_lost",
+    # Joined by the delta-pass over 0.15.1, the same rule an eighth time, and
+    # the first addition that makes a number *already on this list* smaller: a
+    # delta whose two sides counted different cases is in none of `counts` now,
+    # so `improved` or `regressed` is one lower in the run where that happened,
+    # and `worse` is false where the arithmetic pointed down. The key set is
+    # what this golden set guards and it is untouched; the semantic change is
+    # written in `wire/contract.py`, beside the version it did not move.
+    "denominator_moved",
     "counts",
     "reasons_available",
     "sentence",
