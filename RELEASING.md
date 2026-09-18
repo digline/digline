@@ -487,17 +487,38 @@ tag* updates it on every tag.
 - **The wait inside the build runs on the release path.** Seen on v0.15.0: both
   `docker-publish.yml` legs printed `served` under `#… the index at
   https://pypi.org must serve`.
-- **The same-question fix is unproven on the release path until the next `v*`
-  tag.** So far it has run only in `ci.yml`'s `image` job, on the pull request
-  that added it. There it printed `served` for all four pins, on the runner and
-  inside the build, and `pip` in the same `RUN` then installed them. But those
-  versions had been on the index for half an hour, so there was no race to lose.
-  On the next tag, read `docker-publish.yml`'s `smoke` build step and both legs
-  of the multi-arch push for **the pair**: `served` for every pin, **and** a
-  clean `pip install` of the released versions in the same `RUN` after it. A
-  green run does not prove the fix. The pair seen together, on the tag that
-  races the upload, is what proves it. Record which legs showed it, then replace
-  this item with that record.
+- **The same-question fix is proven on the release path, on v0.15.1, in a live
+  race.** It published first time: `docker-publish` succeeded on attempt 1, with
+  no rerun, where v0.15.0 had needed one.
+
+  The race was real rather than arranged. The runner-level wait sat on
+  `digline==0.15.1` for **1471s** — the upload was behind the `pypi` reviewer
+  gate — and cleared at 09:17:04, so the build started roughly fifteen seconds
+  after the version first appeared on the index. That is the window v0.15.0 lost
+  in.
+
+  **The pair, per architecture, and one of them is not what it looks like:**
+
+  - **amd64 — proven in `smoke`'s build.** `#9 0.403 served digline==0.15.1
+    (after 0s)`, then `#9 1.515 Collecting digline==0.15.1` and `#9 8.948
+    Successfully installed … digline-0.15.1 …`. Same `RUN` (`#9`), install 1.1s
+    after `served`. This is the exact shape that failed on v0.15.0, where
+    `served` at 0s was followed 1.2s later by *No matching distribution found*.
+  - **arm64 — proven in the multi-arch push.** `#15 [linux/arm64 stage-0 3/5]`
+    printed `served digline==0.15.1 (after 0s)` and installed in the same `RUN`,
+    which the step's own command line shows is one `await_index.py … && pip
+    install …`.
+  - **amd64 in the multi-arch push proved nothing, and that is expected.**
+    `#12 [linux/amd64 stage-0 3/5]` is `CACHED` — the layer was reused from
+    `smoke`'s build on the same runner architecture. A cache hit is not a second
+    observation, and reading the multi-arch job alone would have shown one pair
+    and a silence. Both architectures are covered only because `smoke` runs the
+    amd64 one first.
+
+  So: two architectures, two independent pairs, across two jobs — not three
+  pairs in the job the checklist points at. The next tag needs the same reading
+  rather than a green, because a cache hit and a pass look identical from the
+  summary.
 
 ### What is not covered, stated rather than assumed
 
