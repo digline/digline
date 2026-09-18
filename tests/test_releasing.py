@@ -188,3 +188,31 @@ def test_the_nav_gates_are_forbidden_to_skip_where_ci_runs_them() -> None:
         "the negative half is part of the gate: a check that cannot fail has "
         "verified nothing, and this one's value is that it refuses to skip"
     )
+
+
+FOLLOWUP = ROOT / ".github" / "workflows" / "release-followup.yml"
+
+
+def test_no_workflow_step_pipes_a_verdict_into_tee_without_pipefail() -> None:
+    """A pipeline's exit status is its **last** command's, and `tee` succeeds.
+
+    Measured, not imagined: the first run of `release-followup.yml` found three
+    steps of the runbook undone, opened the issue that said so, and reported
+    success — the script's `exit 1` was swallowed by `| tee -a
+    "$GITHUB_STEP_SUMMARY"`. The issue was right and the run was green, which is
+    the pair this whole workflow exists to make impossible.
+
+    Written over every workflow rather than over the one that had it, because
+    the mistake is the shell's and not this file's: GitHub runs `run:` with
+    `bash -e`, which does not set `pipefail`.
+    """
+    offenders: list[str] = []
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        for block in path.read_text(encoding="utf-8").split("- name: "):
+            if "| tee" in block and "set -o pipefail" not in block:
+                offenders.append(f"{path.name}: {block.splitlines()[0]}")
+    assert not offenders, (
+        "these steps pipe into `tee`, so their exit status is tee's and a "
+        "failure inside them is silently green. Add `set -o pipefail`:\n  "
+        + "\n  ".join(offenders)
+    )
