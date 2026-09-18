@@ -1,6 +1,6 @@
 {
-  "digline_version": "0.15.0",
-  "captured_at": "2026-09-18T08:51:00+00:00",
+  "digline_version": "0.15.1",
+  "captured_at": "2026-09-18T09:08:05+00:00",
   "environment": {
     "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
     "stripped": [
@@ -191,20 +191,20 @@
   "scenarios": {
     "quickstart": {
       "run_ids": [
-        "2026-09-18T08-50-58-728343-00-00-282b0c02d6511fb4"
+        "2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4"
       ],
       "change": null,
       "band": "absent: samples=1",
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-50-58-728343-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-18T08-50-58-728343-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
@@ -218,8 +218,8 @@
     },
     "steady": {
       "run_ids": [
-        "2026-09-18T08-50-59-118862-00-00-85883581c2d6c45a",
-        "2026-09-18T08-50-59-407644-00-00-85883581c2d6c45a"
+        "2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a",
+        "2026-09-18T09-08-04-608175-00-00-85883581c2d6c45a"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply is billed for the prompt it was sent, plus a jitter that cycles through five values, so five samples of a case measure a band; the only edit between the two runs is one line of prompt.md, which the suite declares.",
       "change": {
@@ -244,19 +244,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-50-59-118862-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-18T08-50-59-118862-00-00-85883581c2d6c45a\n",
+          "stdout": "support baseline set to 2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-50-59-407644-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-18T09-08-04-608175-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\n",
           "exit": 0
         },
@@ -294,6 +294,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": -0.057101,
+            "denominator_moved": false,
             "noise_max": 0.919963,
             "noise_min": 0.672495,
             "noise_samples": 5,
@@ -309,6 +310,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -324,6 +326,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -339,6 +342,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": -0.056878,
+            "denominator_moved": false,
             "noise_max": 0.917852,
             "noise_min": 0.671366,
             "noise_samples": 5,
@@ -354,6 +358,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -369,6 +374,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -384,6 +390,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": -0.057415,
+            "denominator_moved": false,
             "noise_max": 0.922935,
             "noise_min": 0.674082,
             "noise_samples": 5,
@@ -399,6 +406,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -414,6 +422,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": 0.0,
+            "denominator_moved": false,
             "noise_max": 1.0,
             "noise_min": 1.0,
             "noise_samples": 5,
@@ -426,7 +435,7 @@
         "judge_config_changed": false,
         "judge_config_deltas": [],
         "on_the_line": 3,
-        "output_version": 1,
+        "output_version": 2,
         "reasons_available": true,
         "rejudged": false,
         "scale_lost": false,
@@ -462,8 +471,8 @@
     },
     "prompt_regression": {
       "run_ids": [
-        "2026-09-18T08-50-59-827477-00-00-282b0c02d6511fb4",
-        "2026-09-18T08-51-00-117070-00-00-282b0c02d6511fb4"
+        "2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4",
+        "2026-09-18T09-08-05-347714-00-00-282b0c02d6511fb4"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
       "change": {
@@ -488,19 +497,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-50-59-827477-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-18T08-50-59-827477-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-51-00-117070-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-05-347714-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
@@ -538,6 +547,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": -0.000332,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -553,6 +563,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": -0.6,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -568,6 +579,7 @@
             "canary": false,
             "case_id": "how-do-i-return",
             "delta": -1.0,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -583,6 +595,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": -0.000331,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -598,6 +611,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": -0.6,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -613,6 +627,7 @@
             "canary": false,
             "case_id": "is-it-waterproof",
             "delta": -1.0,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -628,6 +643,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": -0.000334,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -643,6 +659,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": -0.6,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -658,6 +675,7 @@
             "canary": false,
             "case_id": "where-is-my-order",
             "delta": -1.0,
+            "denominator_moved": false,
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
@@ -670,7 +688,7 @@
         "judge_config_changed": false,
         "judge_config_deltas": [],
         "on_the_line": 0,
-        "output_version": 1,
+        "output_version": 2,
         "reasons_available": true,
         "rejudged": false,
         "scale_lost": false,

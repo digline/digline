@@ -96,7 +96,7 @@ assertion references — and no sentences at all:
 
 ```json
 {
-  "output_version": 1,
+  "output_version": 2,
   "scope": "comparison",
   "exit_code": 1,
   "facts": [

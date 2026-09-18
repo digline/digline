@@ -127,7 +127,29 @@ RECORDED: dict[str, dict[str, str]] = {
     ".claude/skills/operating-digline/SKILL.md": {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
+    "src/digline/core/text.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
+    },
+    "src/digline/wire/contract.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
+    },
+    "src/digline/wire/text.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
+    },
     "RELEASING.md": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
         "25.0.1": "pip's version, not digline's: the pip in the image's base "
         "whose request headers the index wait copies (The index race, v0.15.0)",
         "0.14.1": "three sentences told as history once 0.15.0 is the tree's "
@@ -195,6 +217,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "section's other incidents",
     },
     "docs/explain.md": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
         "0.14.0": "'a reference written before 0.14.0' — the release the "
         "`judged` key first reached a document, which is what decides whether "
         "a shape line has a reference to set beside. History",
@@ -346,6 +372,10 @@ RECORDED: dict[str, dict[str, str]] = {
     # The rest of the 0.13.0 delta-pass, in the same shape: the pass named
     # where each finding is closed, history from the moment 0.13.1 shipped.
     "src/digline/cli/output.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
         "0.13.0": "'Until the 0.13.0 delta-pass this docstring said' and "
         "'(from the 0.13.0 delta-pass)' — the pass that found `emit()` "
         "trusting `json.dumps` to escape DEL and C1, named where the standing "
@@ -373,6 +403,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "that stopped replacing it. History, not a claim about now",
     },
     "src/digline/core/run.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
         "0.8.0": "'A run digline 0.8.0 wrote from a compatible endpoint' — the "
         "one release whose redacted documents this refusal actually rejects, "
         "named in the message's own comment so the next reader knows which "
@@ -433,6 +467,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "which a replay of an honest zero-call run stopped being refused",
     },
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
+        "0.15.0": "told as history now that 0.15.1 is the tree's version: "
+        "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
+        "the number says which pass it was. Moving it would claim the pass "
+        "audited its own output",
         "0.10.1": "'(0.10.1)' at three sites — the release in which the "
         "plugin's own terminal output began going through the shared "
         "sanitiser. One finding, three paths out of a document and into a "

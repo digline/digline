@@ -16,6 +16,7 @@ from typing import Any, cast
 from digline.core.aggregate import RunAssertion
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
+from digline.core.text import recordable
 from digline.core.types import (
     NOTHING_EXTRA,
     REDACTED,
@@ -1887,9 +1888,18 @@ def run_to_json(
     """
     if redacted:
         run = redact(run, disclosure)
+    # `ensure_ascii=False` stays, and `recordable()` is what lets it: a single
+    # unpaired surrogate anywhere in provider text makes the whole document
+    # un-encodable, so the run ended at exit 64 with **no file** after every
+    # call had been paid for, and `--resume` replayed and died at the same byte
+    # forever. `ensure_ascii=True` would fix that by escaping every accent and
+    # arrow in every recorded reason, in the one artifact a human reviews in a
+    # pull request — the readability that the whole escaping argument rests on.
+    # So the broken code point is neutralised and nothing else is touched.
+    # (from the release delta-pass over 0.15.0)
     return (
         json.dumps(
-            run_to_dict(run),
+            recordable(run_to_dict(run)),
             sort_keys=True,
             indent=2,
             ensure_ascii=False,

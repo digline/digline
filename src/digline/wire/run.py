@@ -13,6 +13,7 @@ from digline.core import Disclosure, Run, SystemConfig, Verdict
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.wire.contract import OUTPUT_VERSION
+from digline.wire.text import neutralised
 
 __all__ = ["run_document", "run_json", "runs_json"]
 
@@ -53,7 +54,7 @@ def run_json(
     # else, so no existing consumer sees a byte change. (ADR 0024 §5.4)
     if judge_reading is not None:
         payload["judge_reading"] = judge_reading
-    return payload
+    return neutralised(payload)
 
 
 def runs_json(
@@ -84,50 +85,54 @@ def runs_json(
     order to say something true. (ADR 0011 §4)
     """
     ordered = sorted(rows, key=lambda row: row[1].created_at, reverse=True)
-    return {
-        "output_version": OUTPUT_VERSION,
-        "tenant": tenant,
-        "suite": suite,
-        "baseline_key": baseline_key,
-        "runs": [
-            {
-                "key": key,
-                "created_at": run.created_at,
-                "environment": run.environment,
-                "git_commit": run.git_commit,
-                "cases": len(run.results),
-                # Which digline wrote each one. A caller choosing between runs
-                # can see that one of them came from a release it does not have,
-                # which is the same fact the CLI prints on stderr. (ADR 0014 §3)
-                "digline_version": run.digline_version,
-                # The column `digline view`'s grid already shows, so the machine
-                # surface is no thinner than the human one. Fixed decision 9's
-                # crossing list and nothing more: no `metadata`, so no
-                # `Disclosure` is needed here — the counts are one `get_run`
-                # away — and no `reason`, because none crosses. (ADR 0020 §7)
-                "aggregate": [
-                    {
-                        "name": verdict.score.name,
-                        "assertion_id": verdict.assertion_id,
-                        "status": verdict.status,
-                        "score": verdict.score.score,
-                        "threshold": verdict.threshold,
-                        "tolerance": verdict.tolerance,
-                    }
-                    for verdict in run.aggregate
-                ],
-            }
-            for key, run in ordered
-        ],
-        "note": listing.note(),
-        # What to do about what was left out, in the direction the versions say
-        # — a list, because a store can owe both sentences at once. Beside the
-        # note rather than inside it: the note is what happened, this is what
-        # follows from it. (ADR 0014 §5)
-        "advice": list(listing.advice()),
-        "skipped": {str(version): n for version, n in sorted(listing.skipped.items())},
-        "unreadable": len(listing.unreadable),
-    }
+    return neutralised(
+        {
+            "output_version": OUTPUT_VERSION,
+            "tenant": tenant,
+            "suite": suite,
+            "baseline_key": baseline_key,
+            "runs": [
+                {
+                    "key": key,
+                    "created_at": run.created_at,
+                    "environment": run.environment,
+                    "git_commit": run.git_commit,
+                    "cases": len(run.results),
+                    # Which digline wrote each one. A caller choosing between runs
+                    # can see that one of them came from a release it does not have,
+                    # which is the same fact the CLI prints on stderr. (ADR 0014 §3)
+                    "digline_version": run.digline_version,
+                    # The column `digline view`'s grid already shows, so the machine
+                    # surface is no thinner than the human one. Fixed decision 9's
+                    # crossing list and nothing more: no `metadata`, so no
+                    # `Disclosure` is needed here — the counts are one `get_run`
+                    # away — and no `reason`, because none crosses. (ADR 0020 §7)
+                    "aggregate": [
+                        {
+                            "name": verdict.score.name,
+                            "assertion_id": verdict.assertion_id,
+                            "status": verdict.status,
+                            "score": verdict.score.score,
+                            "threshold": verdict.threshold,
+                            "tolerance": verdict.tolerance,
+                        }
+                        for verdict in run.aggregate
+                    ],
+                }
+                for key, run in ordered
+            ],
+            "note": listing.note(),
+            # What to do about what was left out, in the direction the versions say
+            # — a list, because a store can owe both sentences at once. Beside the
+            # note rather than inside it: the note is what happened, this is what
+            # follows from it. (ADR 0014 §5)
+            "advice": list(listing.advice()),
+            "skipped": {
+                str(version): n for version, n in sorted(listing.skipped.items())
+            },
+            "unreadable": len(listing.unreadable),
+        }
+    )
 
 
 def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, object]:
@@ -198,65 +203,69 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     `tests/test_wire_boundary.py` will ask for one. Found in the 0.14.0
     delta-pass; ADR 0024, *Not decided here*.
     """
-    return {
-        "output_version": OUTPUT_VERSION,
-        "tenant": run.tenant,
-        "environment": run.environment,
-        "suite": run.suite,
-        "config_hash": run.config_hash,
-        "created_at": run.created_at,
-        "git_commit": run.git_commit,
-        # A fact about our own instrument, never about the end company, so it
-        # crosses like a measurement does. It is also what makes a document that
-        # reaches a model's context traceable back to the release that wrote it.
-        # (ADR 0014 §3)
-        "digline_version": run.digline_version,
-        # On a baseline, when a person approved it — `created_at` is when it was
-        # measured. A fact about our own process, so it crosses; empty where it
-        # was not recorded, and on any document that is not a baseline.
-        # (ADR 0014 §3)
-        "promoted_at": run.promoted_at,
-        "results": [
-            {
-                "case_id": case.case_id,
-                "suspended": case.suspended is not None,
-                "verdicts": [_verdict_document(v, disclosure) for v in case.verdicts],
-            }
-            for case in run.results
-        ],
-        "aggregate": [_verdict_document(v, disclosure) for v in run.aggregate],
-        # Measurements of the system, by ADR 0005's ruling: a model id and a
-        # temperature are what decided how it answered, and a document that
-        # named neither could not say which model produced the run it describes.
-        "target_config": _config_document(run.target_config),
-        "judge_config": _config_document(run.judge_config),
-        # The digest leaves **with** the text or not at all. A digest is a
-        # verifier: prompts live in a small, guessable space, so a few thousand
-        # candidates hashed against a leaked one recover the text in
-        # milliseconds, and with it the end company's business rules. A digest
-        # travelling beside a withheld prompt would defeat the withholding it
-        # travelled beside (ADR 0003 §4).
-        #
-        # The path stays either way, and `withheld` says which absence it is:
-        # "this suite kept it back" and "this run declared no artifacts" are
-        # different facts and a reader is owed both.
-        "artifacts": {
-            path: (
-                {"sha": artifact.sha, "text": artifact.text}
-                if disclosure.artifacts
-                else {"withheld": True}
-            )
-            for path, artifact in sorted(run.artifacts.items())
-        },
-        "metadata": _disclosed(run.metadata, disclosure.run_metadata),
-        # So a reader can tell what this document was allowed to carry, rather
-        # than inferring it from what happens to be absent.
-        "disclosure": {
-            "run_metadata": sorted(disclosure.run_metadata),
-            "score_metadata": sorted(disclosure.score_metadata),
-            "artifacts": disclosure.artifacts,
-        },
-    }
+    return neutralised(
+        {
+            "output_version": OUTPUT_VERSION,
+            "tenant": run.tenant,
+            "environment": run.environment,
+            "suite": run.suite,
+            "config_hash": run.config_hash,
+            "created_at": run.created_at,
+            "git_commit": run.git_commit,
+            # A fact about our own instrument, never about the end company, so it
+            # crosses like a measurement does. It is also what makes a document that
+            # reaches a model's context traceable back to the release that wrote it.
+            # (ADR 0014 §3)
+            "digline_version": run.digline_version,
+            # On a baseline, when a person approved it — `created_at` is when it was
+            # measured. A fact about our own process, so it crosses; empty where it
+            # was not recorded, and on any document that is not a baseline.
+            # (ADR 0014 §3)
+            "promoted_at": run.promoted_at,
+            "results": [
+                {
+                    "case_id": case.case_id,
+                    "suspended": case.suspended is not None,
+                    "verdicts": [
+                        _verdict_document(v, disclosure) for v in case.verdicts
+                    ],
+                }
+                for case in run.results
+            ],
+            "aggregate": [_verdict_document(v, disclosure) for v in run.aggregate],
+            # Measurements of the system, by ADR 0005's ruling: a model id and a
+            # temperature are what decided how it answered, and a document that
+            # named neither could not say which model produced the run it describes.
+            "target_config": _config_document(run.target_config),
+            "judge_config": _config_document(run.judge_config),
+            # The digest leaves **with** the text or not at all. A digest is a
+            # verifier: prompts live in a small, guessable space, so a few thousand
+            # candidates hashed against a leaked one recover the text in
+            # milliseconds, and with it the end company's business rules. A digest
+            # travelling beside a withheld prompt would defeat the withholding it
+            # travelled beside (ADR 0003 §4).
+            #
+            # The path stays either way, and `withheld` says which absence it is:
+            # "this suite kept it back" and "this run declared no artifacts" are
+            # different facts and a reader is owed both.
+            "artifacts": {
+                path: (
+                    {"sha": artifact.sha, "text": artifact.text}
+                    if disclosure.artifacts
+                    else {"withheld": True}
+                )
+                for path, artifact in sorted(run.artifacts.items())
+            },
+            "metadata": _disclosed(run.metadata, disclosure.run_metadata),
+            # So a reader can tell what this document was allowed to carry, rather
+            # than inferring it from what happens to be absent.
+            "disclosure": {
+                "run_metadata": sorted(disclosure.run_metadata),
+                "score_metadata": sorted(disclosure.score_metadata),
+                "artifacts": disclosure.artifacts,
+            },
+        }
+    )
 
 
 def _config_document(config: SystemConfig) -> dict[str, object]:

@@ -1326,7 +1326,7 @@ The reasoning in full is
 ## What `--json` promises
 
 `digline compare --json` and `digline run --json` print an object whose first
-key is `output_version`, currently `1`. It is bumped when the shape changes and
+key is `output_version`, currently `2`. It is bumped when the shape changes and
 is **not** `SCHEMA_VERSION`: that one versions documents already on disk and
 comes with migrations, because a run file written last month must still be
 readable. This one versions what a pipeline parses on stdout today, where
@@ -1334,6 +1334,23 @@ nothing is migrated and the only question is whether the consumer knows the
 shape moved. A reworded sentence must not bump the storage schema, and a new
 field inside a `Run` must not bump the output contract for consumers who saw no
 change.
+
+**Version 2 is the first bump, and the first change that is not an added key.**
+Every earlier addition was something a consumer could ignore while parsing the
+same bytes it parsed before. This one rewrites bytes inside values you already
+read: DEL (U+007F) and the C1 block (U+0080–U+009F) are written as their JSON
+escape spelling — six ASCII characters where there used to be one — in every
+string digline renders for a program, keys included. So a pipeline that pulled a
+control character out of a provider-supplied string, such as a tool name or a
+model id, now reads `` where it used to read the character itself. Nothing
+else moves: no key added or removed, no number changed, and any text without
+those two ranges is byte-identical.
+
+The reason is that the same fact must not read differently at two front ends.
+`digline-mcp` hands its documents to an SDK that serialises them itself, so
+escaping the finished text — which is what the CLI used to do, invisibly to a
+parser — could never cover it, and a tool name carrying U+009B reached an MCP
+client raw. The only surface both front ends share is the value.
 
 At version 1, `compare --json` carries `worse`, `unjudged`, `suspended`,
 `config_changed`, `artifacts_changed`, `target_config_changed`,

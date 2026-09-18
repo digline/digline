@@ -166,6 +166,49 @@ three shapes:
   that omitted it would describe an identity as confirmed that the record does
   not confirm.*
 
+  *Amended 2026-09-18 by the release delta-pass over 0.15.0 — the fifth time this
+  closed list has moved, and the first time it moved because a reading was found
+  saying something **false** rather than saying nothing. `denominator_moved`
+  joins it: a run-level aggregate measured over a different number of cases than
+  the reference it is set beside. It passes this section's test twice over — the
+  report already prints `N counted · M not judged` under the score, and a reading
+  that omitted it described a gate as `unchanged` when it had been computed over
+  a smaller suite.*
+
+  *The predicate is `considered` changed — **not** "a case errored".* A case
+  leaves the matrix for five reasons and `errored_excluded` is one of them:
+  `suspended_excluded`, `unlabelled_excluded`, `canary_excluded` and
+  `calibration_excluded` shrink the same denominator and move the same score. A
+  rule keyed on the error would leave four doors open and would need rewriting
+  the first time somebody suspended a case; a rule keyed on the denominator
+  closes all five at once and needs no list. `Matrix.considered` is already the
+  number, already crosses as an integer, and is already what the two sides must
+  agree on for their scores to be comparable at all.
+
+  *A moved denominator is an **incomparability**, not a regression.* Two scores
+  over different case sets are not a movement, because the thing measured is not
+  the same thing. So it never counts as *worse*: `worse` stays false on its
+  account, no check is reclassified as a regression, and the exit code is
+  unchanged by it — a run whose exclusion was an error already exits 2 on the
+  errored check, and a suspension already has its own accounting. What it removes
+  is `unchanged` as an available answer: a delta whose two sides were computed
+  over different denominators may not be reported as `unchanged`, because that is
+  an affirmative claim about a comparison that was never valid.
+
+  *The precedent is `config_changed`*, and it is exact. That flag exists for the
+  same shape of problem — two runs whose scores are real but whose comparison is
+  weakened by something outside the scores — and it answers it the same way: it
+  states the condition, it never converts a check into a regression, and it
+  leaves the reader to judge what the comparison is worth. `denominator_moved` is
+  that idea one level down, applied to a single aggregate rather than to a run.
+
+  *It must be visible in both locales*, by this section's own exhaustiveness
+  rule: a `TallyKind` added without a sentence in `TEXT` for every locale and a
+  line in the JSON fails at type-check. That is not a nicety here. The defect
+  being closed is precisely that the terminal `compare` and `explain` said
+  **nothing** while `--json full` said `unchanged`, so a fix reaching only the
+  JSON would leave the two surfaces disagreeing in the other direction.*
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,
