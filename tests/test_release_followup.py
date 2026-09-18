@@ -390,3 +390,34 @@ def test_this_repository_is_the_shape_the_checks_assume() -> None:
     assert followup.status_block((ROOT / "RELEASING.md").read_text(encoding="utf-8")), (
         "RELEASING.md has no Status block for step 4 to update"
     )
+
+
+# --------------------------------------------------------------------------- #
+# The scope: which open issue a run is allowed to touch
+# --------------------------------------------------------------------------- #
+
+
+def test_the_report_carries_the_prefix_that_scopes_its_issue() -> None:
+    """One open issue per **release**, not per repository.
+
+    The first cut kept one issue for the whole repository and closed it on any
+    green run: a run about 0.15.3 closed an issue naming 0.15.2, marking done a
+    step nobody had done. The prefix is emitted here, where the title is built,
+    so the workflow matches on a string it was given rather than on one it
+    reinvents.
+    """
+    written = followup.report([unsound("the example locks")], "0.15.3")
+    assert written["scope"] == "Release follow-up for v0.15.3:"
+    assert str(written["title"]).startswith(str(written["scope"]))
+
+
+def test_the_scope_is_a_prefix_and_not_a_search() -> None:
+    """The case that makes the difference, and it is the real one: the issue
+    opened for 0.15.2 has *0.15.3* in its title — "the example locks still name
+    0.15.3" — so a substring search for the version would match the wrong issue
+    and close it."""
+    older = followup.report([unsound("the example locks")], "0.15.2")
+    older_title = "Release follow-up for v0.15.2: the example locks still name 0.15.3"
+    assert "0.15.3" in older_title
+    assert not older_title.startswith(followup.report([sound("a")], "0.15.3")["scope"])
+    assert older_title.startswith(str(older["scope"]))
