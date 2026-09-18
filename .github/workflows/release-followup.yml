@@ -162,6 +162,14 @@ jobs:
         if: steps.version.outputs.released == 'yes'
         continue-on-error: true
         run: |
+          # `pipefail`, and it is not a precaution: without it the exit status
+          # of this pipeline is `tee`'s, which always succeeds. The first run
+          # of this workflow found three steps of the runbook undone, opened
+          # the issue that said so — and reported **success**, because the
+          # script's `exit 1` died in the pipe. A check that cannot fail has
+          # verified nothing, which is the sentence this file is built out of,
+          # and it was true of the file itself.
+          set -o pipefail
           uv run --quiet python .github/release_followup.py \
             --version "${{ steps.version.outputs.version }}" \
             --root . --releasing RELEASING.md \
