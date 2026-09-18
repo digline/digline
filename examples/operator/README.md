@@ -23,6 +23,12 @@ your own repository. It runs with no API key.
 
 The suite is not the point. The loop is.
 
+`loop.py` writes `cycle.json` at `cycle_format` 5, and everything downstream
+reads that number: 4 added the tenant and the policy a decision is taken under,
+5 adds `canaries_declared` — how many canaries the suite declares, which
+`explain` never states, since it reports a canary only when one moved and is
+silent alike about one that held and a suite that has none.
+
 ## The two answers, which is the whole story
 
 Run the loop against a system having a bad day:
