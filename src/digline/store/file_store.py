@@ -38,6 +38,7 @@ from digline.core.register import (
 )
 from digline.core.run import (
     SCHEMA_VERSION,
+    CallTotals,
     CaseProgress,
     CaseResult,
     Run,
@@ -48,6 +49,8 @@ from digline.core.run import (
     config_to_dict,
     run_from_json,
     run_to_json,
+    totals_from_dict,
+    totals_to_dict,
     without_responses,
 )
 from digline.core.types import Cause
@@ -610,6 +613,7 @@ class FileResultStore:
         header: JournalHeader | None = None
         done: dict[str, CaseResult] = {}
         causes: dict[str, str] = {}
+        spent = CallTotals()
         observed_target = SystemConfig()
         observed_judge = SystemConfig()
 
@@ -676,6 +680,13 @@ class FileResultStore:
                         # retried, and the file is append-only.
                         done[result.case_id] = result
                         causes[result.case_id] = str(raw.get("cause") or "")
+                        # And **every** record counts towards the bill, not the
+                        # last one per case: `done` keeps one outcome because a
+                        # case has one, while a case that was paid for twice
+                        # cost twice. Mandatory at journal format 2 — a `case`
+                        # line without it is malformed and the leg is refused,
+                        # rather than resumed with a leg's money missing.
+                        spent = spent + totals_from_dict(raw["usage"], "journal")
                     else:
                         return refused(
                             f"leg {leg} of {key} holds a record of kind "
@@ -697,6 +708,7 @@ class FileResultStore:
             key=key,
             header=header,
             legs=len(legs),
+            spent=spent,
             done=done,
             errored=errored,
             causes={
@@ -1084,6 +1096,12 @@ class FileJournal:
                 "kind": "case",
                 "cause": progress.cause,
                 "case": case_to_dict(progress.result, redacted=False),
+                # What this case's calls consumed, written whatever the suite
+                # records. It is the journal's own fact about work already paid
+                # for, not a recording of the answer: a resume that could not
+                # add up the legs it did not run would write a document whose
+                # bill omits them, and omit them in silence. (ADR 0025 §11)
+                "usage": totals_to_dict(progress.usage),
             }
         )
 

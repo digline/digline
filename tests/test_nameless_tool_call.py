@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from tests._helpers import stamp_journal_format
 from tests.test_recorded_output import CREATED, LATER, suite
 
 from digline.core import (
@@ -302,10 +303,15 @@ def test_it_does_not_cross_a_boundary_or_reach_a_baseline() -> None:
 
 
 def test_the_step_to_thirteen_writes_nothing() -> None:
-    """No schema-12 writer could omit `tool`, so there is nothing to add."""
+    """No schema-12 writer could omit `tool`, so there is nothing to add.
+
+    Read from 12 all the way to the current version, so the claim survives every
+    later bump: 13 -> 14 writes nothing either, because `usage` has no honest
+    value in a document that recorded none (ADR 0025 §7).
+    """
     run = execute(nameless_suite(), unnamed_then_lookup(), created_at=CREATED)
     current = run_to_dict(run)
-    assert SCHEMA_VERSION == 13
+    assert SCHEMA_VERSION == 14
     assert upgrade_document({**current, "schema_version": 12}) == current
 
 
@@ -370,8 +376,13 @@ READ_RUN = (
 )
 
 
-def test_0_14_1_refuses_a_schema_13_document_on_its_version(tmp_path: Path) -> None:
-    """The outer lock, and the bump's: *a newer schema*, not a damaged file."""
+def test_0_14_1_refuses_a_newer_document_on_its_version(tmp_path: Path) -> None:
+    """The outer lock, and the bump's: *a newer schema*, not a damaged file.
+
+    The expected number is read off `SCHEMA_VERSION` rather than written in, so
+    this keeps asserting the lock instead of the day's constant — it was pinned
+    to 13 and went stale the moment ADR 0025 opened 14.
+    """
     source = old_source(tmp_path)
     document = tmp_path / "run.json"
     document.write_text(
@@ -382,9 +393,9 @@ def test_0_14_1_refuses_a_schema_13_document_on_its_version(tmp_path: Path) -> N
     )
     read = run_old(source, READ_RUN, str(document))
     assert read.returncode != 0
-    assert "schema_version 13 is not supported (expected 12)" in read.stderr, (
+    assert f"schema_version {SCHEMA_VERSION} is not supported (expected 12)" in (
         read.stderr
-    )
+    ), read.stderr
 
 
 def test_0_14_1_refuses_the_omitted_tool_by_name_at_any_schema(tmp_path: Path) -> None:
@@ -452,11 +463,23 @@ class Dying:
 
 
 def test_0_14_1_refuses_a_journal_leg_carrying_one_by_name(tmp_path: Path) -> None:
-    """The journals' only protection. `JOURNAL_VERSION` did not move with
-    `SCHEMA_VERSION`, so an older digline finding this leg meets no version
-    refusal at all: what keeps it from resuming a call as a tool named "None"
-    is the omitted `tool`, refused by name. Asserted as that sentence, not as
-    a non-empty refusal."""
+    """The journals' only protection, for every journal that has only it.
+
+    **Rewritten 2026-09-18.** This test used to open by saying `JOURNAL_VERSION`
+    does not move with `SCHEMA_VERSION`, so a journal of ours meets no version
+    refusal. That is still true of the *constant* — the two are independent by
+    design — but it is no longer true of this file: ADR 0025 §11 moved the
+    journal to format 2 for its bill line, so a current leg is refused on its
+    format before a call is read.
+
+    What that does **not** do is retire the inner refusal, and this is the test
+    that says so. Every journal written at format 1 — every 0.15.x journal in
+    existence, and they hold nameless calls — still meets no outer lock, so the
+    omitted `tool` refused by name is all that stands between an older digline
+    and resuming a call as a tool named "None". The leg here is stamped back to
+    format 1 to be exactly that file. Asserted as the sentence, not as a
+    non-empty refusal.
+    """
     source = old_source(tmp_path)
     declared = nameless_suite(cases=[Case(id="one"), Case(id="two")])
     target = Dying(die_at=2)
@@ -469,6 +492,7 @@ def test_0_14_1_refuses_a_journal_leg_carrying_one_by_name(tmp_path: Path) -> No
     key = journal_key(prepared.header)
     (here,) = store.pending("acme", "qa")
     assert here.key == key and not here.refusal, here.refusal
+    stamp_journal_format(tmp_path, "acme", "qa", key, 1)
 
     read = run_old(
         source,

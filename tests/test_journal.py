@@ -383,6 +383,9 @@ def test_a_journalled_case_the_suite_does_not_declare_is_refused_before_anything
                 "kind": "case",
                 "cause": "",
                 "case": {"case_id": "ghost", "suspended": False, "verdicts": []},
+                # A well-formed line at journal format 2, so what is refused
+                # below is the forged *case* and not the missing bill.
+                "usage": {"calls": 1, "counted": 0, "spent_usd": 0.0},
             }
         )
         + "\n",
@@ -409,7 +412,13 @@ def test_a_finished_journal_is_not_resumable(tmp_path: Path) -> None:
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     journal = store.open_journal(prepared.header)
-    run = execute(a_suite(), Counting(), created_at=CREATED, done=prepared.done)
+    run = execute(
+        a_suite(),
+        Counting(),
+        created_at=CREATED,
+        done=prepared.done,
+        spent=prepared.spent,
+    )
     store.write_run(run)
     journal._handle.close()  # pyright: ignore[reportPrivateUsage]
 
@@ -681,8 +690,24 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     thing this test does not see and `test_nameless_tool_call.py` does: the
     journal's own version did not move with it, so an older digline reading a
     journal line is kept honest by refusing the omitted `tool` by name.
+
+    It moved to 14 under ADR 0025 for `Run.usage`, and the condition holds a
+    fourth time — but this is the first bump where the **journal's own version
+    moved too**, to 2, so the sentence has to be said more carefully than
+    before. `usage` is on the document as a declared passenger of ADR 0025, not
+    because a resume needs it: an uninterrupted run carries exactly the same
+    key. What the journal gained is a *bill line of its own*, which lives in the
+    journal file and in no run document — so the key set below is unchanged by
+    it, which is the whole claim.
+
+    The two versions moving in one release is a coincidence of one train and not
+    a coupling: `JOURNAL_VERSION` is independent of `SCHEMA_VERSION` by design
+    (ADR 0017 §2) and stood still through 11, 12 and 13. Here it moves for its
+    own reason — a 0.15.x reader that ignored a bill line would resume and write
+    a document under-billing every leg it did not run, so it must refuse by
+    name, the way `sample_means` had to.
     """
-    assert SCHEMA_VERSION == 13
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (14, 2)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
@@ -693,7 +718,14 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
         config_hash=a_suite().config_hash(),
         created_at=CREATED,
     )
-    assert set(run_to_dict(resumed)) - set(run_to_dict(plain)) == {"digline_version"}
+    # Both extras are things the **driver** stamps and a hand-built `Run` does
+    # not: which digline wrote the document, and what the run consumed. An
+    # uninterrupted run carries the same two, which is the claim being made —
+    # the journal adds nothing of its own to the document.
+    assert set(run_to_dict(resumed)) - set(run_to_dict(plain)) == {
+        "digline_version",
+        "usage",
+    }
     assert "resumed" not in json.dumps(run_to_dict(resumed))
 
 

@@ -143,10 +143,13 @@ good news, and there are two ordinary ways to get one:
   path and has no token counts at all; a plain-function target has whatever its
   author built. Their calls are real and their counts are absent, and a bill
   that silently summed them as zeros would state a number that is not the bill.
-- **A resumed leg (ADR 0017).** A journal line holds `case_to_dict(...)`, so a
-  resumed run recovers the earlier legs' counts **only where responses were
-  recorded**. Without recording, the first leg's calls were paid and their
-  counts are gone.
+- **A resumed leg (ADR 0017).** ~~A journal line holds `case_to_dict(...)`, so
+  a resumed run recovers the earlier legs' counts **only where responses were
+  recorded**.~~ **Corrected 2026-09-18, before this ever shipped: the journal
+  carries a bill line of its own**, so a resumed run recovers every leg's calls
+  whatever the suite records, and this is no longer a way to get a partial
+  total. See §11. What remains is the first cause alone, plus a library caller
+  who resumes by hand and declares `CallTotals(calls=n)` with no counts.
 
 Both produce the same fact — *this total covers `counted` of `calls`* — and a
 reader acts on it identically: do not read this as the whole bill. So one field
@@ -377,11 +380,76 @@ records them, so the document will show the count the money was computed from �
 which is the first thing anyone needs to notice the money is wrong. Written up
 in the findings file.
 
-**No journal totals.** A resumed run restates the earlier legs' counts only
-where responses were recorded (§3). Giving the journal a totals line of its own
-would move `JOURNAL_VERSION`, which is independent of `SCHEMA_VERSION` (ADR 0017
-§2) and would move on its own schedule. It waits for somebody to be bitten by a
-partial total that `counted` already declares.
+**Journal totals — parked here, then ruled the same day. Corrected
+2026-09-18.**
+
+What this section said, and it is left in the record rather than tidied away:
+*a resumed run restates the earlier legs' counts only where responses were
+recorded; giving the journal a totals line of its own would move
+`JOURNAL_VERSION`; it waits for somebody to be bitten by a partial total that
+`counted` already declares.*
+
+**The bite was immediate, and it came from a committed gate rather than from a
+user.** `tests/test_journal.py::test_the_resumed_run_is_the_document_the_kill_prevented`
+asserts a resumed run is byte for byte the document the kill prevented — the
+assertion that, in its own words, makes ADR 0017 §10 true rather than intended.
+The first implementation of this ADR failed it on one field: a six-case run
+killed at case four reported `spent_usd: 0.03` where the uninterrupted run
+reported `0.06`. The money of the legs that were not re-run was simply gone,
+because a journal line holds `case_to_dict(...)` and that carries responses only
+when `record_responses` is on — which is off in the ordinary case.
+
+So a parked decision was not available. Either the journal keeps its own bill,
+or ADR 0017 §10 stops being true the day this ships; and a record that leaves
+two of its own decisions contradicting each other is not a record. **The journal
+keeps its own bill**:
+
+1. **Every `case` record carries what that case's target calls consumed**, and
+   it is written **regardless of `record_responses`.** That flag governs the
+   *answer* — payload, the end company's data, opt-in for that reason. A bill
+   line is the journal's own fact about work already paid for: four integers and
+   a figure in dollars, about our own calls. A suite that records no answers
+   still spent the money, and a resume that could not say so would write a
+   document under-billing every leg it did not run.
+2. **`JOURNAL_VERSION` goes 1 → 2, and the refusal is what justifies the
+   move.** An added key alone would be *ignored* by a 0.15.x reader — it would
+   resume, write a run whose totals omit whole legs, and say nothing. That is
+   the `sample_means` shape exactly (ADR 0024 §6.5): where a reader that ignores
+   a key would **misread** rather than merely miss, the version moves so the
+   refusal is by name. A journal has no migration (ADR 0017 §2): the leg is
+   refused, named, and left on disk, because it holds paid work.
+3. **`calls` stops being derived.** The first implementation reconstructed a
+   reused case's calls from the suite's `samples`, and the correction removes
+   that arithmetic: the journal states what was called. A number reconstructed
+   by arithmetic is one that eventually disagrees with the calls that were made,
+   and the one place it would have disagreed — a case that errored before its
+   last sample — is exactly where a bill is read most carefully.
+4. **The carry is a run-level figure, not a per-case map.** `Pending.spent` sums
+   **every** `case` record in every leg, not the last one per case: `done` keeps
+   one outcome because a case has one, while a case retried after an error was
+   paid for twice and cost twice. `execute(spent=…)` starts the target line from
+   it, and a reused case adds nothing of its own — its calls are already inside
+   that figure, and reading them again out of its recorded answers would bill
+   them twice.
+5. **A caller who resumes by hand must say what it spent.** `execute()` refuses
+   a non-empty `done` with no `spent` beside it, rather than defaulting to zero:
+   the default would be a silent undercount in the one direction this whole
+   record is about. A caller that genuinely kept no figures declares
+   `CallTotals(calls=n)` — *n calls, none counted* — which is a statement
+   somebody made rather than one digline invented.
+
+**Two format versions move inside one train, and they stay uncoupled.**
+`SCHEMA_VERSION` goes to 14 and `JOURNAL_VERSION` to 2 for the same ADR, and
+that is a **coincidence of one release, not a new rule**. They are independent
+by design (ADR 0017 §2): the journal stood still through schemas 11, 12 and 13,
+and nothing here makes it move for 15. They move together now because one
+decision happened to touch both files, and each move is justified on its own
+ground — the document's by the passenger rule (§7), the journal's by the
+refusal above. Anyone reading this later should not infer a habit: if a future
+bump moves both again, it needs its own two reasons.
+
+**The rest of what this section parked stands.** No `TokenBudget`, and no repair
+to the cache-write rate.
 
 ### 12. What the bump costs downstream, in order
 
@@ -529,4 +597,5 @@ online driver does not yet build.
 
 **Cache-write lifetimes.** §11, and the findings file.
 
-**Whether the journal keeps totals of its own.** §11.
+~~**Whether the journal keeps totals of its own.**~~ Ruled 2026-09-18, the same
+day: it does. §11.

@@ -9,6 +9,7 @@ from typing import Protocol, runtime_checkable
 from digline.core.register import RegisterEntry
 from digline.core.run import (
     SCHEMA_VERSION,
+    CallTotals,
     CaseProgress,
     CaseResult,
     Run,
@@ -43,7 +44,26 @@ __all__ = [
 #: *work file* and not a document, so it has no migration. A journal this
 #: digline cannot read is one it does not resume — it is left on disk, named,
 #: and the run it belongs to is started again. (ADR 0017 §2)
-JOURNAL_VERSION = 1
+#:
+#: **2 — the bill line** (ADR 0025 §11, corrected 2026-09-18). Every `case`
+#: record carries what that case's target calls consumed, so a resumed run
+#: states the whole run's bill instead of the last leg's.
+#:
+#: The move is what makes the refusal exist, and the refusal is the point. An
+#: added key alone would be *ignored* by a 0.15.x reader, which would then
+#: resume and write a run whose totals silently omit every leg it did not run —
+#: an undercount in the good-news direction, and invisible in the document it
+#: produces. With the version moved, that reader refuses the journal by name,
+#: says which format it met, and leaves the paid work on disk. Same shape as
+#: `sample_means` (ADR 0024 §6.5): where a reader that ignores a key would
+#: misread rather than miss, the version moves.
+#:
+#: **Two format versions move inside one release, and they stay uncoupled.**
+#: `SCHEMA_VERSION` goes to 14 for the same ADR. That is a coincidence of one
+#: train and not a new rule: this constant is independent of that one by
+#: design (ADR 0017 §2), it did not move for schemas 11, 12 or 13, and nothing
+#: here makes it move for 15.
+JOURNAL_VERSION = 2
 
 #: The register's own format version, independent of `SCHEMA_VERSION` and of
 #: the journal's. A register is a **format** and not a document: nothing
@@ -400,6 +420,15 @@ class Pending:
     #: away. (ADR 0017 §7)
     observed_target: SystemConfig = field(default_factory=SystemConfig)
     observed_judge: SystemConfig = field(default_factory=SystemConfig)
+    #: What the earlier legs' target calls consumed, summed over every `case`
+    #: record in every leg.
+    #:
+    #: **Every record, not the last one per case.** `done` keeps the last result
+    #: for a case because a retried case has one outcome; the bill keeps both,
+    #: because a case that was paid for twice cost twice. It is carried into the
+    #: new leg's totals so the finished document states the whole run's bill and
+    #: is byte for byte the one the kill prevented (ADR 0017 §10).
+    spent: CallTotals = field(default_factory=CallTotals)
     #: The run file already exists: the process was killed after `write_run` and
     #: before the delete. Not resumable and not evidence of anything.
     finished: bool = False

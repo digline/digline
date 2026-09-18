@@ -24,7 +24,7 @@ from collections.abc import Mapping
 from time import perf_counter
 from typing import Any, ClassVar, cast
 
-from digline.core import ClaimReply, ConfigValue, Finish, JudgeReply
+from digline.core import NO_USAGE, ClaimReply, ConfigValue, Finish, JudgeReply, Usage
 from digline.targets.completion import (
     WHY_SILENT,
     Completion,
@@ -236,6 +236,14 @@ class JudgeBase(ABC):
         self.calls = 0
         self.spent_usd = 0.0
         self.latency_ms = 0.0
+        #: What this judge has consumed, by the same rule as `spent_usd`:
+        #: monotone for the life of the object, never reset, and a caller
+        #: wanting a per-run figure reads twice and subtracts — which is what
+        #: `execute()` does to put the judge's line on the run (ADR 0025 §4).
+        #: Until now the instrument's half of the bill reached no document at
+        #: all, and money without counts cannot be reconciled with anyone's
+        #: invoice.
+        self.tokens: Usage = NO_USAGE
         #: Which instrument actually graded, as the provider reported it. Empty
         #: until the judge has been asked something, which is why `execute()`
         #: reads `judge_config` after the last case as well as before the first
@@ -258,6 +266,10 @@ class JudgeBase(ABC):
         self.calls += 1
         self.latency_ms += elapsed_ms
         self.spent_usd += self.pricing.cost(self.model, reply.usage)
+        # Beside the money and under the same rule stated above it: a call that
+        # raises reaches none of these lines, because its cost is unknown and
+        # counting it at zero is the undercount that reads as good news.
+        self.tokens = self.tokens + reply.usage
         self.observed.see(reply)
         if not self._said_something(reply.text):
             raise ValueError(_no_text(reply, self.max_tokens))

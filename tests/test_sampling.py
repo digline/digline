@@ -11,6 +11,7 @@ import pytest
 
 from digline import __version__
 from digline.core import (
+    CallTotals,
     CaseResult,
     Contains,
     CostBudget,
@@ -19,6 +20,7 @@ from digline.core import (
     LlmRubric,
     Repeated,
     Run,
+    RunUsage,
     Score,
     Verdict,
     combine_samples,
@@ -101,12 +103,18 @@ def test_a_suite_at_one_sample_produces_the_bytes_it_produced_before() -> None:
         suite="qa",
         config_hash=suite.config_hash(),
         created_at=CREATED,
-        # The one header the driver stamps and a hand-built `Run` does not
-        # (ADR 0014 §3). Written in rather than compared away, because what this
-        # test is about is the *fold*: everything below this line is what the
-        # driver produced before sampling existed, and the promise being kept is
-        # that it still is.
+        # The two headers the driver stamps and a hand-built `Run` does not:
+        # which digline wrote the document (ADR 0014 §3), and what the run
+        # consumed (ADR 0025 §1). Written in rather than compared away, because
+        # what this test is about is the *fold*: everything below this line is
+        # what the driver produced before sampling existed, and the promise
+        # being kept is that it still is.
         digline_version=__version__,
+        # Two calls at 0.01 each, and no counts: this target reports a cost
+        # and no tokens, which is exactly the `counted < calls` case.
+        usage=RunUsage(
+            target=CallTotals(calls=len(suite.cases), counted=0, spent_usd=0.02)
+        ),
         results=tuple(
             CaseResult(
                 case.id,

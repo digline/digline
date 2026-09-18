@@ -167,6 +167,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.15.3": "the release this tree was at when ADR 0025 opened schema 14 "
+        "and moved the version to 0.16.0: the site-queue paragraph, the "
+        "delta-pass reading and the served-index evidence all date themselves "
+        "to it. History, and moving the numbers would claim a release that has "
+        "not happened said them",
         "0.15.2": "'until 0.15.2 this section did not exist' — the release "
         "in which the version-bump ritual was written down, told as history",
         "0.15.1": "seven sentences about the release that proved the "

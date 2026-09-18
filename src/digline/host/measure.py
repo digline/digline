@@ -15,7 +15,7 @@ from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from digline import __version__
-from digline.core import Artifact, CaseResult, Run, SystemConfig
+from digline.core import Artifact, CallTotals, CaseResult, Run, SystemConfig
 from digline.run import (
     CallPlan,
     Mapper,
@@ -73,6 +73,10 @@ class Prepared:
     done: Mapping[str, CaseResult] = field(default_factory=dict[str, CaseResult])
     #: The journal being continued, or `None` for a fresh run.
     resume: Pending | None = None
+    #: What the earlier legs already spent, carried into this leg's totals so
+    #: the finished document bills the whole run. `None` on a fresh run, which
+    #: is what `execute()` requires beside an empty `done`. (ADR 0025 §11)
+    spent: CallTotals | None = None
     #: Errored cases being paid for a second time, `case_id` -> the layer that
     #: errored them. Named rather than counted so the announcement can say
     #: which, and digline can go on not deciding for the user. (ADR 0017 §9)
@@ -190,6 +194,11 @@ def prepare(
         ),
         plan=planned_calls(suite, done=keep, retried=len(retrying)),
         done=keep,
+        # The whole journal's bill, including the cases being retried: their
+        # earlier calls were paid for, and paying twice costs twice. `keep` is
+        # about what will not be *called* again, which is a different question
+        # from what has already been *spent*. (ADR 0025 §11)
+        spent=resume.spent,
         resume=resume,
         retrying=retrying,
     )
@@ -246,6 +255,7 @@ def measure(
         run_metadata=run_metadata,
         artifacts=artifacts,
         done=prepared.done,
+        spent=prepared.spent,
         on_case=journal.append,
     )
     ref = store.write_run(run)

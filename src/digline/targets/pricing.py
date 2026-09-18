@@ -14,6 +14,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
+# Re-exported, not redefined: `Usage` moved to the core when the document
+# learned to hold it, and a document field's type may not live above `core`
+# in the dependency chain. This keeps every plugin's
+# `from digline.targets.pricing import Usage` importing the *same class*,
+# so no plugin release is forced by the move. (ADR 0025 §5)
+from digline.core import Usage
+
 __all__ = ["ModelPrice", "Pricing", "Usage", "UnknownModelError", "free"]
 
 
@@ -25,32 +32,6 @@ class UnknownModelError(KeyError):
     is a bug — and it would fail silently, in the direction of "everything is
     fine", for as long as nobody read the numbers.
     """
-
-
-@dataclass(frozen=True, slots=True)
-class Usage:
-    """What one call consumed. Counts, never money: the arithmetic is here."""
-
-    input_tokens: int
-    output_tokens: int
-    cache_read_tokens: int = 0
-    #: Tokens written *into* a cache. A separate count because it is billed at
-    #: a separate rate and because — measured against the real API on
-    #: 2026-08-27 — a provider does **not** include them in `input_tokens`:
-    #: a cached call reported `input_tokens=10` beside `cache_write=9202`.
-    #: Folding them in would have reported that call as a thousandth of its
-    #: cost, in the direction of good news. (friction 25)
-    cache_write_tokens: int = 0
-
-    def __post_init__(self) -> None:
-        for name in (
-            "input_tokens",
-            "output_tokens",
-            "cache_read_tokens",
-            "cache_write_tokens",
-        ):
-            if getattr(self, name) < 0:
-                raise ValueError(f"Usage.{name} must not be negative")
 
 
 @dataclass(frozen=True, slots=True)

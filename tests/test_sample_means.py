@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from tests._helpers import stamp_journal_format
 
 from digline.core import (
     CaseResult,
@@ -209,7 +210,9 @@ def test_the_step_writes_nothing() -> None:
     for case in unstamped["results"]:
         for verdict in case["verdicts"]:
             del verdict["sample_means"]
-    assert SCHEMA_VERSION == 13
+    # 13 -> 14 writes nothing either (ADR 0025 §7), so a schema-12 document
+    # still arrives here unchanged but for its version.
+    assert SCHEMA_VERSION == 14
     assert upgrade_document({**unstamped, "schema_version": 12}) == unstamped
 
 
@@ -446,10 +449,21 @@ def test_this_reader_reads_the_fold_0_14_1_wrote_as_not_stamped(tmp_path: Path) 
 def test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway(
     tmp_path: Path,
 ) -> None:
-    """The journal gets no refusal: its version does not move. A 0.14.1 reading
-    a leg that holds a stamped verdict reads it without the key — the unstamped
-    fold 0.14.1 writes for that suite anyway, which this reading already treats
-    as not stamped. No new misreading, and no refusal to test for."""
+    """A 0.14.1 reading a leg that holds a stamped verdict reads it without the
+    key — the unstamped fold 0.14.1 writes for that suite anyway, which this
+    reading already treats as not stamped. No new misreading.
+
+    **Amended 2026-09-18.** The sentence this opened with — *the journal gets no
+    refusal: its version does not move* — was true of schema 13 and is not true
+    of a journal written now: ADR 0025 §11 moved the format to 2 for its bill
+    line, so a current leg is refused before any of this is reached, and the
+    test below asserts that first. The original scenario is kept underneath it,
+    on a leg stamped back to format 1: that is every 0.15.x journal, where the
+    stamp really is dropped in silence and nothing refuses. The two assertions
+    are different claims about different files, and losing the second one
+    because the first became true would have retired a residue ADR 0024 §6.5
+    still declares.
+    """
     source = old_source(tmp_path)
     declared = suite(
         twice(alternating()),
@@ -476,15 +490,25 @@ def test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway(
     assert here.key == key and not here.refusal
     assert all(r.verdicts[0].score.sample_means for r in here.done.values())
 
-    done = run_old(
-        source,
+    reading = (
         "import sys; from digline.store import FileResultStore; "
         "(p,) = FileResultStore(sys.argv[1]).pending('acme', 'qa'); "
         "print('REFUSAL', repr(p.refusal)); "
         "print('SAMPLES', "
-        "sorted(r.verdicts[0].score.samples for r in p.done.values()))",
-        str(tmp_path),
+        "sorted(r.verdicts[0].score.samples for r in p.done.values()))"
     )
-    assert done.returncode == 0, done.stderr
-    assert "REFUSAL ''" in done.stdout, done.stdout
-    assert "SAMPLES [(0.5, 0.5), (0.5, 0.5)]" in done.stdout, done.stdout
+
+    # The journal as this digline writes it: format 2, refused by name, and the
+    # cases are not handed over at all. This is the lock ADR 0025 §11 added.
+    at_two = run_old(source, reading, str(tmp_path))
+    assert at_two.returncode == 0, at_two.stderr
+    assert "journal format 2" in at_two.stdout, at_two.stdout
+    assert "SAMPLES []" in at_two.stdout, at_two.stdout
+
+    # And the same journal as 0.15.x wrote one: format 1, no outer lock, the
+    # stamp dropped in silence. The residue ADR 0024 §6.5 declares, still there.
+    stamp_journal_format(tmp_path, "acme", "qa", key, 1)
+    at_one = run_old(source, reading, str(tmp_path))
+    assert at_one.returncode == 0, at_one.stderr
+    assert "REFUSAL ''" in at_one.stdout, at_one.stdout
+    assert "SAMPLES [(0.5, 0.5), (0.5, 0.5)]" in at_one.stdout, at_one.stdout

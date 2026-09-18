@@ -9,13 +9,51 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from digline.core import Disclosure, Run, SystemConfig, Verdict
+from digline.core import Disclosure, Run, RunUsage, SystemConfig, Verdict
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
-__all__ = ["run_document", "run_json", "runs_json"]
+__all__ = ["run_document", "run_json", "runs_json", "usage_lines"]
+
+
+def usage_lines(usage: RunUsage | None) -> list[str]:
+    """The bill, one line per side, for a terminal.
+
+    Here and not in the CLI because both front ends say it, and a sentence
+    written twice is a sentence that drifts — the reason `digline.wire` exists.
+    Pure, like everything in this package: no clock, no I/O.
+
+    English and not localised: this is *terminal* output, which defaults to `en`
+    like every other line the CLI prints, not a document with a recipient who
+    did not choose the language.
+
+    **The `counted` clause appears only when the totals are partial.** A
+    parenthesis on every run is one a reader learns to skip, taking the rare one
+    with it — and the rare one is the whole point, because it says the figure
+    beside it is not the whole bill.
+
+    `None` — a document that recorded no bill — produces no lines at all rather
+    than a row of zeros, which would be a claim it never made.
+    """
+    if usage is None:
+        return []
+    lines: list[str] = []
+    for side, line in (("target", usage.target), ("judge", usage.judge)):
+        if not line.calls:
+            continue
+        counts = (
+            f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
+            if line.counted
+            else "no counts reported"
+        )
+        partial = f" (counted {line.counted} of {line.calls})" if line.partial else ""
+        lines.append(
+            f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}, "
+            f"{counts}, {line.spent_usd:.6f} USD{partial}"
+        )
+    return lines
 
 
 def run_json(
@@ -24,6 +62,7 @@ def run_json(
     *,
     resumed: bool = False,
     judge_reading: str | None = None,
+    usage: RunUsage | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -54,6 +93,11 @@ def run_json(
     # else, so no existing consumer sees a byte change. (ADR 0024 §5.4)
     if judge_reading is not None:
         payload["judge_reading"] = judge_reading
+    # What the run consumed, for the pipeline that reads this instead of
+    # stderr — the same two lines, structured. Absent on a document that
+    # recorded none, which is never a run that consumed nothing. (ADR 0025 §9)
+    if usage is not None:
+        payload["usage"] = _usage_document(usage)
     return neutralised(payload)
 
 
@@ -256,6 +300,15 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
                 )
                 for path, artifact in sorted(run.artifacts.items())
             },
+            # What the run consumed, as the two lines the document holds. It
+            # crosses because of its **grain**: a run total is the software
+            # house's own invoice for its own run — it names no case, no request
+            # and nobody — and world 2 is defined by needing the signal without
+            # holding the data. The per-call counts are payload and this
+            # projection never learns their name, which is the same split
+            # `redact()` makes. `null` where the document recorded none, which
+            # is every document written before schema 14. (ADR 0025 §8, §9)
+            "usage": None if run.usage is None else _usage_document(run.usage),
             "metadata": _disclosed(run.metadata, disclosure.run_metadata),
             # So a reader can tell what this document was allowed to carry, rather
             # than inferring it from what happens to be absent.
@@ -266,6 +319,31 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             },
         }
     )
+
+
+def _usage_document(usage: RunUsage) -> dict[str, object]:
+    """The bill, both lines, with `partial` computed rather than left to be
+    derived.
+
+    A consumer that had to compare two integers to learn whether a total covers
+    the whole run is a consumer that will forget to, and the one who forgets
+    reads a partial total as a complete one — the failure this field exists to
+    prevent. Same reason the CLI prints it rather than leaving it to be read off
+    two numbers. (ADR 0025 §3, §9)
+    """
+    return {
+        side: {
+            "calls": line.calls,
+            "counted": line.counted,
+            "partial": line.partial,
+            "input_tokens": line.tokens.input_tokens,
+            "output_tokens": line.tokens.output_tokens,
+            "cache_read_tokens": line.tokens.cache_read_tokens,
+            "cache_write_tokens": line.tokens.cache_write_tokens,
+            "spent_usd": line.spent_usd,
+        }
+        for side, line in (("target", usage.target), ("judge", usage.judge))
+    }
 
 
 def _config_document(config: SystemConfig) -> dict[str, object]:

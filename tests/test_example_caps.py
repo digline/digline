@@ -141,6 +141,11 @@ RELEASED: dict[str, int] = {
     # The delta-pass patch over 0.15.2: the same reading, on the flip the rule
     # had exempted. A count and a sentence, and no stored document changes.
     "0.15.3": 13,
+    # 14 — what the run consumed (ADR 0025): two lines of one bill on every run,
+    # and the four counts of a call beside the answer where the suite records
+    # one. The train is open — the first passenger is here and what else may
+    # ride is judged against ADR 0014 §1, not against convenience.
+    "0.16.0": 14,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

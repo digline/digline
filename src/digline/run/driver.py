@@ -19,6 +19,7 @@ from digline.core import (
     MAX_RECORDED_CHARS,
     Artifact,
     Assertion,
+    CallTotals,
     CaseOutcome,
     CaseProgress,
     CaseResult,
@@ -31,7 +32,9 @@ from digline.core import (
     RecordedResponse,
     Run,
     RunAssertion,
+    RunUsage,
     SystemConfig,
+    Usage,
     Verdict,
     combine_samples,
     error_verdict,
@@ -47,6 +50,7 @@ from digline.core.protocols import DeclaresPrice
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
+    "Billable",
     "HasArtifacts",
     "HasConfig",
     "Mapper",
@@ -56,6 +60,7 @@ __all__ = [
     "default_mapper",
     "execute",
     "judge_config",
+    "judge_totals",
     "judges",
     "target_config",
 ]
@@ -80,6 +85,15 @@ class Response:
     input: str | None = None
     cost_usd: float | None = None
     latency_ms: float | None = None
+    #: What the call consumed, where the target knows. `None` is a target that
+    #: reports no counts, which is an honest answer and not a zero.
+    #:
+    #: **Typed, and the only thing the document reads.** `ProviderTarget` also
+    #: copies the four counts into `metadata` for assertions that read them
+    #: live, and that copy stays — but a recorded fact whose source is a string
+    #: key is a fact one typo away from absent, so the run's totals and the
+    #: recorded response are built from this field alone. (ADR 0025 §5)
+    usage: Usage | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
 
 
@@ -108,6 +122,27 @@ class Preflight(Protocol):
     """
 
     def preflight(self, cases: Sequence[Case]) -> None: ...
+
+
+@runtime_checkable
+class Billable(Protocol):
+    """A judge that can say what it has spent since it was built.
+
+    Asked for rather than required, like every other optional thing a target or
+    a judge may answer: an assertion's judge is any object with a `config`, and
+    a suite may hold one somebody wrote by hand. `JudgeBase` satisfies this;
+    one that does not contributes no line, because a bill nobody kept cannot be
+    invented from the outside.
+
+    The three are **monotone for the life of the object and never reset**
+    (ADR 0004 §3), so a run's share of them is the difference between a reading
+    before the first case and one after the last — which is the only shape that
+    stays correct when a suite reuses a judge across runs. (ADR 0025 §4)
+    """
+
+    calls: int
+    spent_usd: float
+    tokens: Usage
 
 
 @runtime_checkable
@@ -193,6 +228,66 @@ def judge_config(suite: Suite) -> SystemConfig:
 
 #: Distinct from `None`, which is a value a config may legitimately hold.
 _MISSING = object()
+
+
+def judge_totals(suite: Suite) -> CallTotals:
+    """What every judge in the suite has spent **since it was built**.
+
+    A reading, not a run's share: `execute()` takes one before the first case
+    and one after the last, and the difference is what the run spent
+    (ADR 0025 §4).
+
+    **Deduplicated by object identity.** One judge instance bound to two
+    assertions is one instrument and one bill; counting it once per assertion
+    would double the judging cost of every suite that shares a judge, which is
+    most of them. Two distinct instances configured identically are two objects
+    and two bills, and they add — correct, and stated in ADR 0025 §4 because a
+    reader meets them as one identity in `judge_config` and a total that looks
+    like two.
+
+    A judge that cannot say what it spent is passed over entirely: it raises no
+    `calls`, so it never widens the gap between `calls` and `counted` with a
+    number nobody measured.
+    """
+    seen: dict[int, Billable] = {}
+    for judge in judges(suite.assertions):
+        if isinstance(judge, Billable):
+            seen.setdefault(id(judge), judge)
+    total = CallTotals()
+    for judge in seen.values():
+        total = CallTotals(
+            calls=total.calls + judge.calls,
+            counted=total.counted + judge.calls,
+            tokens=total.tokens + judge.tokens,
+            spent_usd=total.spent_usd + judge.spent_usd,
+        )
+    return total
+
+
+def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
+    """This run's share of what the judges have spent.
+
+    Subtraction, not the later reading: a judge object reused across two runs
+    would otherwise report the first run's calls on the second's document. The
+    counts cannot go backwards — every field is monotone — so a negative here
+    would mean a judge that reset itself, and `CallTotals` refuses it at
+    construction rather than recording a negative bill.
+    """
+    return CallTotals(
+        calls=after.calls - before.calls,
+        counted=after.counted - before.counted,
+        tokens=Usage(
+            input_tokens=after.tokens.input_tokens - before.tokens.input_tokens,
+            output_tokens=after.tokens.output_tokens - before.tokens.output_tokens,
+            cache_read_tokens=(
+                after.tokens.cache_read_tokens - before.tokens.cache_read_tokens
+            ),
+            cache_write_tokens=(
+                after.tokens.cache_write_tokens - before.tokens.cache_write_tokens
+            ),
+        ),
+        spent_usd=after.spent_usd - before.spent_usd,
+    )
 
 
 def judges(assertions: Sequence[object]) -> list[HasConfig]:
@@ -281,6 +376,9 @@ def recorded(response: Response) -> RecordedResponse:
             oversize=True,
             cost_usd=response.cost_usd,
             latency_ms=response.latency_ms,
+            # Kept with the other measurements: `oversize` is a refusal to store
+            # *text*, and four integers are not text.
+            usage=response.usage,
         )
     return RecordedResponse(
         output=text,
@@ -289,6 +387,7 @@ def recorded(response: Response) -> RecordedResponse:
         cost_usd=response.cost_usd,
         latency_ms=response.latency_ms,
         tool_calls=calls,
+        usage=response.usage,
     )
 
 
@@ -361,14 +460,33 @@ def _graded(
     )
 
 
+def _replaying(target: Target) -> bool:
+    """Whether this run is judging stored answers rather than calling anything.
+
+    The import is local because `digline.run.replay` imports this module — the
+    same reason `execute()` imports `Replay` inside its own body for
+    `judge_samples`.
+    """
+    from digline.run.replay import Replay
+
+    return isinstance(target, Replay)
+
+
 def _run_case(
     suite: Suite, target: Target, mapper: Mapper, case: Case, judge_samples: int = 0
-) -> tuple[CaseResult, Cause]:
-    """The case, and which layer errored it.
+) -> tuple[CaseResult, Cause, CallTotals]:
+    """The case, which layer errored it, and what its calls consumed.
 
-    The pair rather than the result alone because the journal records the cause
-    and the run document has no field for it (ADR 0017 §3). It is read once, by
-    the announcement before a resumed leg, and never acted on automatically.
+    The cause rather than the result alone because the journal records it and
+    the run document has no field for it (ADR 0017 §3). It is read once, by the
+    announcement before a resumed leg, and never acted on automatically.
+
+    The third element is this case's share of the target line. **A call that
+    raised is not on it** — neither its money nor a `calls` of its own — on the
+    rule `JudgeBase._ask` already follows for the judge: its cost is unknown,
+    and counting it at zero would be the undercount that reads as good news.
+    A call that returned and whose *mapping* then failed is on it, because the
+    target answered and was paid. (ADR 0025 §3)
     """
     if case.suspended is not None:
         # The skip belongs to the driver, not to the core: an assertion is never
@@ -382,10 +500,14 @@ def _run_case(
                 canary=case.canary,
             ),
             "",
+            # A case nobody called consumed nothing, and that is a measurement
+            # rather than an absence: the zero is right here.
+            CallTotals(),
         )
     if case.calibration is not None:
         return _calibrate(suite, mapper, case, case.calibration, judge_samples)
 
+    line = CallTotals()
     samples: list[EvaluatorInputs] = []
     # Collected beside the mapped inputs rather than derived from them: what a
     # re-judge replays is what the *target* answered, and `EvaluatorInputs` is
@@ -414,8 +536,10 @@ def _run_case(
                     canary=case.canary,
                 ),
                 "target",
+                line,
             )
 
+        line = line.plus(tokens=response.usage, spent_usd=response.cost_usd or 0.0)
         if suite.record_responses:
             answers.append(recorded(response))
 
@@ -431,6 +555,7 @@ def _run_case(
                     canary=case.canary,
                 ),
                 "mapper",
+                line,
             )
 
     # With one sample `combine_samples` is the identity function, so this is
@@ -451,6 +576,7 @@ def _run_case(
         # different bill from the one above and a different thing to tell a
         # reader about before retrying it.
         "assertion" if any(v.status == "error" for v in verdicts) else "",
+        line,
     )
 
 
@@ -460,7 +586,7 @@ def _calibrate(
     case: Case,
     calibration: Calibration,
     judge_samples: int = 0,
-) -> tuple[CaseResult, Cause]:
+) -> tuple[CaseResult, Cause, CallTotals]:
     """A calibration case: the author's answer, graded by one check.
 
     **The target is not called.** The answer is known to be partially correct
@@ -507,11 +633,16 @@ def _calibrate(
                     calibration=band,
                 ),
                 "mapper",
+                CallTotals(),
             )
     verdict = _graded(suite, check, samples, judge_samples)
     return (
         CaseResult(case_id=case.id, verdicts=(verdict,), calibration=band),
         "assertion" if verdict.status == "error" else "",
+        # The target is not called here, so the target line gets a zero. What
+        # the *judge* spent grading this case is on the judge line, where it
+        # belongs: a calibration case is paid for, just not by the target.
+        CallTotals(),
     )
 
 
@@ -587,6 +718,7 @@ def execute(
     on_case: Callable[[CaseProgress], None] | None = None,
     pricing: str | None = None,
     judge_samples: int = 0,
+    spent: CallTotals | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -616,6 +748,15 @@ def execute(
     and the failure this one would hide is a recorder that stopped recording
     while the run went on for another six hundred calls, which is the loss the
     journal exists to end.
+
+    `spent` is what the **earlier legs of this same run** consumed, read off
+    the journal and carried in so the finished document states the whole run's
+    bill rather than the last leg's (ADR 0025 §11). It is mandatory whenever
+    `done` is non-empty and refused otherwise: a resumed run whose earlier legs
+    had no bill beside them would under-bill in silence, and a caller that
+    genuinely kept no figures says so explicitly with `CallTotals(calls=n)`.
+    Nothing is derived from `done` itself — a number reconstructed by arithmetic
+    is one that eventually disagrees with the calls that were made.
 
     `judge_samples` asks each judged check that many times per answer. It is a
     measurement of the judge on answers that do not move, so it is refused on
@@ -653,6 +794,13 @@ def execute(
     # paid for. The answer recorded is the one taken after the last case.
     judge_config(suite)
 
+    # Read before the first case, because a judge's counters are monotone for
+    # the life of the object: what this run spent is the difference between
+    # this reading and the one after the last case. A suite that builds its
+    # judge fresh starts at zero and the subtraction is a no-op; one that
+    # reuses it across runs is the case this exists for. (ADR 0025 §4)
+    judging_before = judge_totals(suite)
+
     reuse = dict(done or {})
     unknown = sorted(set(reuse) - {case.id for case in suite.cases})
     if unknown:
@@ -666,14 +814,33 @@ def execute(
             f"({', '.join(unknown)}): a run may not be assembled out of two "
             "case sets"
         )
+    if reuse and spent is None:
+        # Checked after the wider invariant above, which is about whether these
+        # cases belong to this run at all — a question that comes before what
+        # they cost.
+        raise ValueError(
+            f"done names {len(reuse)} case(s) already run and no `spent` beside "
+            "them: their calls were paid for, and a run that cannot add them up "
+            "would report a bill missing a whole leg. Pass the journal's "
+            "`Pending.spent`, or `CallTotals(calls=…)` if you kept no figures"
+        )
+    # `spent` with an empty `done` is **not** refused: a resume where every
+    # journalled case is being retried reuses nothing and still owes the earlier
+    # legs' money. What was already paid does not depend on what will be called.
 
     results: list[CaseResult] = []
+    # Starts from what the earlier legs paid, so the total is the run's and not
+    # this leg's. A case reused from `done` adds nothing of its own here: its
+    # calls are already inside `spent`, and counting them again out of its
+    # recorded answers would bill them twice. (ADR 0025 §11)
+    billed = spent or CallTotals()
     for case in suite.cases:
         if case.id in reuse:
             results.append(reuse[case.id])
             continue
-        result, cause = _run_case(suite, target, mapper, case, judge_samples)
+        result, cause, line = _run_case(suite, target, mapper, case, judge_samples)
         results.append(result)
+        billed = billed + line
         if on_case is not None:
             # Asked per case rather than once at the end, because a recorder
             # that kept only the verdicts would resume into the averaging ADR
@@ -686,6 +853,10 @@ def execute(
                     observed_target=target_config(target),
                     observed_judge=judge_config(suite),
                     cause=cause,
+                    # Written to the journal whatever the suite records: the
+                    # money is spent either way, and a leg that did not say so
+                    # is a leg the resumed document cannot bill. (ADR 0025 §11)
+                    usage=line,
                 )
             )
     # And asked again, because a target may only be able to *learn* its
@@ -742,4 +913,16 @@ def execute(
         # its own provenance has one author — beside `created_at` and
         # `git_commit`, which arrive for the same reason. (ADR 0014 §3)
         digline_version=__version__,
+        # The bill, as two lines. Always recorded — even all zeros — because a
+        # run that was executed knows what it consumed, and `None` is reserved
+        # for a document nobody recorded one on. (ADR 0025 §1)
+        usage=RunUsage(
+            # A replay calls no target, so its target line is a zero and not a
+            # partial: the recorded `cost_usd` it replays was spent by the run
+            # that measured, and restating it here would bill this run for
+            # another's calls. The per-case figure still feeds `CostBudget`,
+            # which is what made it ride the record. (ADR 0025 §3)
+            target=CallTotals() if _replaying(target) else billed,
+            judge=_judge_share(judging_before, judge_totals(suite)),
+        ),
     )

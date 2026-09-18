@@ -715,9 +715,10 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     run = execute(suite(cases=[Case(id="one")]), Counting(), created_at=CREATED)
     current = run_to_dict(run)
     at_eleven = {**current, "schema_version": 11}
-    # Through 12 and on to 13, whose step writes nothing either (ADR 0018 §1,
-    # amended 2026-09-17): what 11 -> 12 adds is still nothing.
-    assert SCHEMA_VERSION == 13
+    # Through 12, 13 and on to 14, whose steps write nothing either (ADR 0018
+    # §1 amended 2026-09-17, ADR 0024 §6.5, ADR 0025 §7): what 11 -> 12 adds is
+    # still nothing.
+    assert SCHEMA_VERSION == 14
     assert upgrade_document(at_eleven) == current
 
 

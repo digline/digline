@@ -221,6 +221,31 @@ def _add_schema_thirteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_fourteen(raw: dict[str, Any]) -> dict[str, Any]:
+    """13 -> 14. One passenger, and the only honest value for it is absence.
+
+    `usage` is left absent on the run and on every recorded response, and here
+    the absence is not a default that happens to be right — it is the only
+    thing that is true. A run measured before this field **consumed tokens**:
+    somebody paid for them, and nothing in the document says how many. Writing
+    `0` would state that a paid run consumed nothing, which is an invention in
+    the good-news direction; deriving a count from `cost_usd` would be worse,
+    since it would need the price list that priced it and would put four
+    fabricated numbers where one real one exists.
+
+    So absent means **not recorded**, the way `digline_version = ""` does, and
+    never *nothing was consumed*. In a document written at 14 the distinction is
+    visible in the document itself: a run that recorded its bill and counted
+    nothing writes `counted: 0`, which is a measurement; a migrated run writes
+    no `usage` key at all. (ADR 0025 §7)
+
+    The step writes nothing and still has to **exist**, for the reason every
+    step since 9 gives: a version with no entry in `_STEPS` is one whose bump
+    was not additive, and that statement about 13 would be false.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -233,6 +258,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     10: _add_schema_eleven,
     11: _add_schema_twelve,
     12: _add_schema_thirteen,
+    13: _add_schema_fourteen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside
