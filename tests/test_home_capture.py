@@ -26,9 +26,37 @@ def _changelog(tmp_path: Path, *headings: str) -> Path:
     return path
 
 
-def _capture_file(tmp_path: Path, version: str) -> Path:
+#: A steady scenario as the capture writes one, with the four things the
+#: sentence on digline.dev/start/ says: green, a check inside the noise, a case
+#: set aside, a file under test changed under rules that did not.
+def _steady(**overrides: Any) -> dict[str, Any]:
+    facts: dict[str, Any] = {
+        "counts": {"regressed": 0, "unchanged": 9},
+        "deltas": [{"assertion": "cost_budget", "within_noise": True}],
+        "suspended": 1,
+        "artifacts_changed": True,
+        "config_changed": False,
+        "sentence": "Nothing got worse compared with the reference.",
+    }
+    facts.update(overrides)
+    return {
+        "commands": [{"cmd": "digline compare --suite support.py", "exit": 0}],
+        "compare_json": facts,
+    }
+
+
+def _capture_file(
+    tmp_path: Path, version: str, steady: dict[str, Any] | None = None
+) -> Path:
     path = tmp_path / "home.json"
-    path.write_text(json.dumps({"digline_version": version}))
+    path.write_text(
+        json.dumps(
+            {
+                "digline_version": version,
+                "scenarios": {"steady": _steady() if steady is None else steady},
+            }
+        )
+    )
     return path
 
 
@@ -39,6 +67,48 @@ def test_check_passes_when_the_capture_matches_the_newest_release(
         _capture_file(tmp_path, "1.2.3"), _changelog(tmp_path, "## 1.2.3 — 2026-01-01")
     )
     assert problems == []
+
+
+def test_check_fails_when_the_steady_scenario_is_missing(tmp_path: Path) -> None:
+    """The one /start/ reads. A capture without it is a page without a source."""
+    path = tmp_path / "home.json"
+    path.write_text(json.dumps({"digline_version": "1.2.3", "scenarios": {}}))
+    problems = home_capture.check(path, _changelog(tmp_path, "## 1.2.3 — 2026-01-01"))
+    assert len(problems) == 1
+    assert "no `steady` scenario" in problems[0]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "needle"),
+    [
+        ({"counts": {"regressed": 1}}, "green comparison"),
+        ({"deltas": [{"assertion": "cost_budget", "within_noise": False}]}, "noise"),
+        ({"suspended": 0}, "suspended case"),
+        ({"artifacts_changed": False}, "changed file under test"),
+        ({"config_changed": True}, "unchanged suite"),
+    ],
+)
+def test_check_fails_when_the_steady_scenario_lost_what_it_shows(
+    tmp_path: Path, overrides: dict[str, Any], needle: str
+) -> None:
+    """Each of the four claims /start/ makes, taken away one at a time."""
+    problems = home_capture.check(
+        _capture_file(tmp_path, "1.2.3", _steady(**overrides)),
+        _changelog(tmp_path, "## 1.2.3 — 2026-01-01"),
+    )
+    assert len(problems) == 1, problems
+    assert needle in problems[0]
+
+
+def test_check_fails_when_a_steady_command_did_not_exit_zero(tmp_path: Path) -> None:
+    scenario = _steady()
+    scenario["commands"] = [{"cmd": "digline compare --suite support.py", "exit": 1}]
+    problems = home_capture.check(
+        _capture_file(tmp_path, "1.2.3", scenario),
+        _changelog(tmp_path, "## 1.2.3 — 2026-01-01"),
+    )
+    assert len(problems) == 1
+    assert "exited 1, not 0" in problems[0]
 
 
 def test_check_fails_when_a_newer_release_is_dated(tmp_path: Path) -> None:
