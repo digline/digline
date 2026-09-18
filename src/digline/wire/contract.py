@@ -82,6 +82,20 @@ __all__ = [
 #:    exit code — and never true behind a named endpoint, where the answering
 #:    model is withheld.
 #:
+#:    `denominator_moved` on the headline and on each `explain` check fact: the
+#:    same rule an eighth time, and **it arrives with one change that is not an
+#:    added key**, stated here rather than left to be discovered. The `counts`
+#:    map no longer counts a delta whose two sides were measured over different
+#:    numbers of cases — the key set is untouched, but `improved` or `regressed`
+#:    is one lower in a run where that happened, and `worse` is false where the
+#:    arithmetic pointed down. That is not a shape change and it is not additive
+#:    either: it is the removal of a number that was an affirmative false claim,
+#:    which is the only reason this rule tolerates one. The precedent is exact —
+#:    ADR 0024 §4.4 took the calibration deltas out of the same map without a
+#:    bump, and for the same reason. A consumer that summed the six counts to
+#:    recover "how many deltas were there" was already wrong then.
+#:    (the delta-pass over 0.15.1)
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already

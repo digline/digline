@@ -209,6 +209,44 @@ three shapes:
   **nothing** while `--json full` said `unchanged`, so a fix reaching only the
   JSON would leave the two surfaces disagreeing in the other direction.*
 
+  *Amended 2026-09-18 by the delta-pass over 0.15.1, which found the paragraph
+  above describing behaviour the code did not have.* Three corrections, and the
+  third is the only new decision:
+
+  1. *"It never counts as worse" is now enforced rather than stated.* `outcome`
+     kept pointing wherever the arithmetic pointed, and `counts` counted it — so
+     an incomparability whose score fell was counted as `regressed`, made `worse`
+     true and exited 1. `Comparison.counts` and `Comparison.of` now leave these
+     deltas out, exactly as they leave out a calibration delta (ADR 0024 §4.4),
+     which is the single place `worse` is computed from. The outcome stays on the
+     row: a reader who wants to know which way the arithmetic pointed is owed it,
+     and what it may no longer do is count.
+  2. *The terminal `compare` and the document say it too.* Only `explain` and
+     `--json` were reached in 0.15.1, while the clause above names the terminal
+     explicitly. `Headline` carries the count and its clause sits next to the
+     `worse` clause it qualifies; `summary_lines` names the check in a group of
+     its own, selected by the flag and never by an outcome; and the report gives
+     it a block rather than a seventh `SECTIONS` entry, because a section renders
+     even when empty and a seventh would have rewritten every report ever
+     rendered — `calibration_section`'s shape, for `calibration_section`'s
+     reason.
+  3. *A flip is not an incomparability, and rule 3 keeps precedence over it.* A
+     gate that read `pass` and now reads `fail` is failing against **its own
+     threshold**, which needs no reference to be true, so it stays a regression
+     and still exits 1 with the denominator unmentioned. This is ADR 0006 §6's
+     argument about noise, one register over: what a moved denominator withdraws
+     is the meaning of a *distance*, and a flip is not one.
+
+  *What this amendment does not do, said so that the gap is declared rather than
+  discovered:* the register's line (ADR 0021 §3) is unchanged, so a run whose
+  gate was incomparable is recorded in none of its three outcome numbers and
+  `digline log` does not mention it. Adding a field there moves
+  `REGISTER_VERSION`, which refuses every register written before it — not a
+  patch's business. It is the next register move's first passenger. And
+  `diff()` still reads two scores over different denominators as `same`: it has
+  its own vocabulary and its own closed `DiffOutcome`, and teaching it this rule
+  is the same work again rather than the same edit.*
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

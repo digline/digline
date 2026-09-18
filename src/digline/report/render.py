@@ -31,6 +31,7 @@ from digline.core import (
     SystemConfig,
     Verdict,
     budget_exceedances,
+    considered_cases,
     directions,
     on_the_line,
     scale_lost,
@@ -195,6 +196,16 @@ class Headline:
     #: learns the scale is gone after reading "2 checks got worse" has already
     #: believed the 2. (ADR 0024 §4.5, §4.6)
     scale_lost: bool = False
+    #: How many run-level checks were measured over a different number of cases
+    #: than the reference they are set beside. The fourteenth fact, and the
+    #: first one added because a *sentence* was found saying something false
+    #: rather than saying nothing: "Nothing got worse." over a gate computed on
+    #: a smaller suite. It is counted in none of `counts` — an incomparability
+    #: is not an outcome — and it moves no exit code, which is what ADR 0012 §3
+    #: decided and what `Comparison.counts` now enforces rather than describes.
+    #: Its clause sits directly after the `worse` clause, because the sentence
+    #: it qualifies is that one. (the delta-pass over 0.15.1)
+    denominator_moved: int = 0
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -492,6 +503,21 @@ def headline(
     else:
         noise_text = phrase(locale, "fact.noise.many", count=within_noise)
 
+    # Silent at zero like the clause above it, and read from the comparison for
+    # the reason that one is read from the run: whether two aggregates counted
+    # the same cases is a fact about a pair, which no run alone can answer.
+    incomparable = sum(
+        1 for d in comparison.deltas if d.denominator_moved and not d.calibration
+    )
+    if incomparable == 0:
+        incomparable_text = ""
+    else:
+        incomparable_text = phrase(
+            locale,
+            f"fact.denominator_moved.{'one' if incomparable == 1 else 'many'}",
+            count=incomparable,
+        )
+
     if unjudged == 0:
         unjudged_text = phrase(locale, "fact.unjudged.none")
     elif unjudged == 1:
@@ -608,6 +634,7 @@ def headline(
         rejudged=run.rejudged_from is not None,
         canary_moved=comparison.canary_moved,
         scale_lost=bool(lost),
+        denominator_moved=incomparable,
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
@@ -620,6 +647,14 @@ def headline(
                 # a known answer where it cannot be. (ADR 0024 §4.6)
                 calibration_text,
                 worse_text,
+                # Before the noise clause and for a stronger version of its
+                # reason: noise says a movement was too small to count, this
+                # says there was no movement to measure — the two sides counted
+                # different cases. It is the clause that keeps "Nothing got
+                # worse." from being read as "every check was compared", which
+                # is what it was read as until it existed.
+                # (the delta-pass over 0.15.1)
+                incomparable_text,
                 # Straight after "nothing got worse", because it is what
                 # qualifies it: something did move, and it moved no further than
                 # the check moves by itself.
@@ -740,6 +775,49 @@ def _calibration_block(run: Run, locale: Locale, *, reasons: bool) -> str:
     """`calibration_section` with its own line break, or nothing — so a report
     of a suite with no calibration case gains not even an empty line."""
     section = calibration_section(run, locale, reasons=reasons)
+    return f"{section}\n" if section else ""
+
+
+def _incomparable_section(
+    comparison: Comparison, locale: Locale, *, reasons: bool
+) -> str:
+    """The gates that were set beside a reference they cannot be compared with.
+
+    **Deliberately not a seventh entry in `SECTIONS`.** Every section in that
+    list renders whether or not it has rows — `Regressions (0)` and its "nothing
+    in this group" line are part of the document's shape — so adding one there
+    would rewrite every report ever rendered, including the ten committed under
+    `examples/`, to carry an empty `(0)` that is empty in almost every run. This
+    is the shape `calibration_section` already chose for the same problem, in
+    the same document: nothing at all when there is nothing, so a report of a
+    suite whose denominators held stays byte for byte what it was.
+
+    Open, unlike the calibration section when its bands held: this exists only
+    when something is wrong with a comparison, so there is no quiet state of it
+    worth folding away.
+    """
+    rows = [
+        _row(d, locale, reasons=reasons)
+        for d in comparison.deltas
+        if d.denominator_moved and not d.calibration
+    ]
+    if not rows:
+        return ""
+    title = escape(phrase(locale, "section.incomparable"))
+    table = _table(
+        ("column.case", "column.check", "column.detail", "column.reason"),
+        rows,
+        locale,
+    )
+    return f"<details open><summary>{title} ({len(rows)})</summary>{table}</details>"
+
+
+def _incomparable_block(
+    comparison: Comparison, locale: Locale, *, reasons: bool
+) -> str:
+    """`_incomparable_section` with its own line break, or nothing — the rule
+    `_calibration_block` follows, for the reason it follows it."""
+    section = _incomparable_section(comparison, locale, reasons=reasons)
     return f"{section}\n" if section else ""
 
 
@@ -883,6 +961,23 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     assert now is not None and before is not None
     assert now.score.score is not None and before.score.score is not None
     was, is_now = fmt_score(before.score.score), fmt_score(now.score.score)
+
+    # Before every branch below, because every one of them describes a movement
+    # and there is no movement here: the two scores were computed over different
+    # numbers of cases. It states both numbers and no verb — "rose", "dropped"
+    # and "moved within" are all claims this comparison cannot support. The
+    # numbers themselves are already in the document, under every aggregate,
+    # which is what makes printing them here a second reading of one fact rather
+    # than a disclosure. (ADR 0012 §3; the delta-pass over 0.15.1)
+    if delta.denominator_moved:
+        return phrase(
+            locale,
+            "detail.incomparable",
+            before=was,
+            now=is_now,
+            considered=considered_cases(now),
+            reference_considered=considered_cases(before),
+        )
 
     if now.status != before.status:
         key = (
@@ -1047,25 +1142,41 @@ SUMMARY_OUTCOMES: Sequence[Outcome] = ("regressed", "errored")
 
 
 def _summarized(comparison: Comparison) -> Sequence[AssertionDelta]:
-    """Regressions first, then anything that could not run.
+    """Regressions first, then what could not be compared, then what could not
+    run.
 
-    The second group is *not* simply the `errored` outcome. A case added to the
+    The last group is *not* simply the `errored` outcome. A case added to the
     suite that fails on its first day is classified `new`, because rule 1 of
     `compare()` looks at presence before rule 2 looks at status — so selecting
     on the outcome alone would let the headline say "1 case could not be judged"
     while the list below it named nothing. The two must agree.
+
+    The middle group is selected by the **flag and never by an outcome**, which
+    is the whole of why it is a group: an incomparable delta keeps whichever
+    direction its arithmetic pointed, and neither direction may be read as a
+    finding. Before this it was invisible where the arithmetic pointed up — the
+    terminal named regressions only — and wrong where it pointed down, where it
+    was named as a drop. Second and not last, because a gate that was not
+    compared is a stronger fact about a *comparison* than a case that did not
+    run, and this list is read from the top. (the delta-pass over 0.15.1)
     """
     regressed = [
-        d for d in comparison.deltas if d.outcome == "regressed" and not d.calibration
+        d
+        for d in comparison.deltas
+        if d.outcome == "regressed" and not d.calibration and not d.denominator_moved
+    ]
+    incomparable = [
+        d for d in comparison.deltas if d.denominator_moved and not d.calibration
     ]
     unjudged = [
         d
         for d in comparison.deltas
         if d.outcome != "regressed"
+        and not d.denominator_moved
         and d.current is not None
         and d.current.status == "error"
     ]
-    return (*regressed, *unjudged)
+    return (*regressed, *incomparable, *unjudged)
 
 
 def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
@@ -1280,10 +1391,19 @@ def _section(
         # place under what got worse or better; its own section reads it against
         # its band. An unjudged one stays where unjudged checks are.
         # (ADR 0024 §4.4)
+        #
+        # An incomparable one is kept out of both for the reason it is kept out
+        # of `counts`: it is filed by its arithmetic, and "What got better" is a
+        # finding this comparison cannot make. It has a block of its own, above
+        # the sections, and this is the line that stopped the document from
+        # reporting a gate as improved on a score that never moved.
+        # (the delta-pass over 0.15.1)
         rows = [
             d
             for d in comparison.deltas
-            if d.outcome in wanted and (not d.calibration or _errored_now(d))
+            if d.outcome in wanted
+            and not d.denominator_moved
+            and (not d.calibration or _errored_now(d))
         ]
         body = (
             empty
@@ -1691,6 +1811,12 @@ def render_html(
         f'<ul class="tally">{tally}</ul>\n'
         "</section>\n"
         f"{aggregates}\n"
+        # Directly under the aggregates, because it is about them: the reader
+        # has just been shown a score with its `counted / not judged` line, and
+        # this says which of those scores may not be held against the reference
+        # at all. Nothing when every denominator held. (the delta-pass over
+        # 0.15.1)
+        f"{_incomparable_block(comparison, locale, reasons=head.reasons_available)}"
         f"{_artifacts(comparison, locale)}\n"
         f"{_configs(comparison, locale)}\n"
         f"{sections}\n"

@@ -100,6 +100,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nothing got worse compared with the reference.",
         "fact.worse.one": "1 check got worse compared with the reference.",
         "fact.worse.many": "{count} checks got worse compared with the reference.",
+        # Straight after the `worse` clauses, because it qualifies them: a
+        # gate measured over a different number of cases was not compared at
+        # all, so "Nothing got worse" is an answer about the checks that
+        # were. Silent at zero. (the delta-pass over 0.15.1)
+        "fact.denominator_moved.one": (
+            "1 run-level check was measured over a different number of cases "
+            "than the reference, so it is not a comparison."
+        ),
+        "fact.denominator_moved.many": (
+            "{count} run-level checks were measured over a different number "
+            "of cases than the reference, so they are not comparisons."
+        ),
         "fact.noise.one": "1 check moved within noise.",
         "fact.noise.many": "{count} checks moved within noise.",
         "fact.unjudged.none": "Every case could be judged.",
@@ -315,6 +327,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.improvements": "What got better",
         "section.unchanged": "What stayed the same",
         "section.calibration": "Where the judge placed the calibration answers",
+        "section.incomparable": (
+            "What was not compared: measured over a different number of cases"
+        ),
         "section.empty": "Nothing in this section.",
         "summary.truncated": (
             "showing the first {shown} of {total}; the full list is in the report"
@@ -329,6 +344,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.dropped": "Score fell from {before} to {now}.",
         "detail.rose": "Score rose from {before} to {now}.",
         "detail.unchanged": "Score unchanged at {now}.",
+        # No verb of movement, and both numbers: "rose", "fell" and "moved
+        # within" are each a claim about one measurement taken twice, which
+        # this is not. (the delta-pass over 0.15.1)
+        "detail.incomparable": (
+            "Measured over {considered} cases here and {reference_considered} "
+            "in the reference, so {before} and {now} are not a movement of one "
+            "another."
+        ),
         "noise.interval": "{low}–{high} across {count} samples",
         "detail.within_noise": (
             "Score moved from {before} to {now} — within the noise of this "
@@ -681,6 +704,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.check.improved": (
             "{where} got better: {before} to {now}, a rise of {delta}."
         ),
+        # The line the tally above it was contradicting: this one says the
+        # same thing about the same check, so a reader is not asked to decide
+        # which of two sentences to believe. (the delta-pass over 0.15.1)
+        "explain.check.incomparable": (
+            "{where}: measured over {considered} cases here and "
+            "{reference_considered} in the reference, so {before} and {now} "
+            "are not a movement of one another."
+        ),
         "explain.check.unchanged": (
             "{where} moved from {before} to {now}, inside the tolerance the "
             "suite declares."
@@ -818,6 +849,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nulla è peggiorato rispetto al riferimento.",
         "fact.worse.one": "1 controllo è peggiorato rispetto al riferimento.",
         "fact.worse.many": "{count} controlli sono peggiorati rispetto al riferimento.",
+        "fact.denominator_moved.one": (
+            "1 controllo di run è stato misurato su un numero di casi diverso "
+            "dal riferimento: non è un confronto."
+        ),
+        "fact.denominator_moved.many": (
+            "{count} controlli di run sono stati misurati su un numero di casi "
+            "diverso dal riferimento: non sono confronti."
+        ),
         "fact.noise.one": "1 controllo si è mosso entro il rumore.",
         "fact.noise.many": "{count} controlli si sono mossi entro il rumore.",
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
@@ -1017,6 +1056,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.calibration": (
             "Dove il giudice ha collocato le risposte di calibrazione"
         ),
+        "section.incomparable": (
+            "Che cosa non è stato confrontato: misurato su un numero di casi diverso"
+        ),
         "section.empty": "Niente in questa sezione.",
         "summary.truncated": (
             "mostrate le prime {shown} di {total}; l'elenco completo è nel rapporto"
@@ -1031,6 +1073,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",
         "detail.rose": "Il punteggio è salito da {before} a {now}.",
         "detail.unchanged": "Punteggio invariato a {now}.",
+        "detail.incomparable": (
+            "Misurato su {considered} casi qui e {reference_considered} nel "
+            "riferimento: {before} e {now} non sono un movimento l'uno "
+            "dell'altro."
+        ),
         "noise.interval": "{low}–{high} su {count} campioni",
         "detail.within_noise": (
             "Il punteggio si è spostato da {before} a {now} — entro il rumore "
@@ -1399,6 +1446,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.check.improved": (
             "{where} è migliorato: da {before} a {now}, un aumento di {delta}."
+        ),
+        "explain.check.incomparable": (
+            "{where}: misurato su {considered} casi qui e "
+            "{reference_considered} nel riferimento, quindi {before} e {now} "
+            "non sono un movimento l'uno dell'altro."
         ),
         "explain.check.unchanged": (
             "{where} si è spostato da {before} a {now}, entro la tolleranza "

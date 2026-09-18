@@ -58,6 +58,15 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "noise_min": fact.noise.low,
                 "noise_max": fact.noise.high,
                 "noise_samples": fact.noise.count,
+                # An added key, beside the kind rather than inside it: `kind`
+                # keeps the six values a consumer already matches on, and a
+                # check whose two sides counted different cases is now
+                # distinguishable from one that moved. The two `considered`
+                # numbers stay off the wire — they are on the row for the
+                # sentence that states them, and a program has the flag and
+                # `compare --json full` beside it.
+                # (the delta-pass over 0.15.1)
+                "denominator_moved": fact.denominator_moved,
             }
         case SettingFact():
             return {
