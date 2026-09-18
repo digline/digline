@@ -42,7 +42,17 @@ jobs:
       - name: Install the workspace
         # --all-packages: the plugin under packages/ is part of the build, and
         # the layering gate reads what is in packages/ to know what to forbid.
-        run: uv sync --all-packages --python ${{ matrix.python }}
+        #
+        # --locked: refuse a lock that does not match `pyproject.toml` rather
+        # than quietly fixing it. Without it `uv sync` **rewrites** `uv.lock` in
+        # the runner and exits 0, so a lock left behind by a version bump is
+        # reported as success — which is what happened on v0.15.1, whose tag
+        # points at a lock still naming 0.15.0. RELEASING.md had already warned
+        # in prose that such a lock "describes a release that does not exist",
+        # while this command silently undid the warning: prose loses to a
+        # command every time. Measured both ways on a drifted lock — exit 1 with
+        # the flag, exit 0 and a rewritten lock without it.
+        run: uv sync --all-packages --locked --python ${{ matrix.python }}
 
       - name: Tests
         # Never `live`. It needs a key and it spends money, and CI has neither

@@ -48,7 +48,7 @@ get no release from it.
 Run **exactly what CI runs**, from the repository root:
 
 ```sh
-uv sync --all-packages
+uv sync --all-packages --locked
 uv run pytest -q -m "not live"
 uv run ruff format --check .
 uv run ruff check .
@@ -92,13 +92,28 @@ remembered, and in this order:
 1. Date the heading: `## X.Y.Z — unreleased` becomes `## X.Y.Z — YYYY-MM-DD`.
 2. `uv run python tools/home_capture.py --check` now fails, naming the old
    capture. That failure is the step working.
-3. Regenerate and stage the file, on the same branch, before the tag:
+3. Regenerate and stage the file **and the lock**, on the same branch, before
+   the tag:
 
 ```sh
-uv sync --all-packages
+uv lock
+uv sync --all-packages --locked
 uv run python tools/home_capture.py
-git add docs/assets/home/home.json
+git add uv.lock docs/assets/home/home.json
 ```
+
+`uv lock` on its own line, and it is the **only** place in this file that moves
+the lock. Everywhere else asks for `--locked`, which refuses a lock that does
+not match `pyproject.toml` instead of rewriting it. That split is deliberate:
+the version has just been bumped, so this is the one moment the lock is
+*supposed* to change, and making it a named command rather than a side effect of
+`uv sync` is what stops the change from happening somewhere nobody is looking.
+
+v0.15.1 is why. Its tag points at a lock still naming 0.15.0: `uv sync` had
+refreshed the lock while the home capture was regenerated, only the capture was
+staged, and every gate went green over it — CI's own `uv sync` rewrote the lock
+in the runner and exited 0. `git add uv.lock` is in the command above for that
+reason.
 
 The script fails on its own if the regression it captures stops being red, or
 if no case comes back worse — a capture that went green would put a claim on
