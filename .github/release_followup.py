@@ -342,6 +342,12 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
 
     return {
         "ok": not unsound,
+        # The prefix every title for this release carries, and the only thing
+        # that decides which open issue this run may touch. Owned here, where
+        # the title is built, so the workflow greps for a string it was given
+        # rather than one it reinvents — two spellings of a title is how an
+        # issue about one release comes to be closed by a run about another.
+        "scope": f"Release follow-up for v{version}:",
         "title": title,
         "body": "\n".join(lines),
         "steps": [

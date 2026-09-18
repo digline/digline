@@ -835,10 +835,15 @@ Each is asked twice — once for the answer and once for something that must be
 false — because three of the four fail open by construction, and a check that
 cannot fail has verified nothing.
 
-**The finding is an issue, not a colour.** One open issue at a time, labelled
-`release-followup`, whose body is the current reading and whose title names the
-step that is undone; a later run rewrites it, and the run that finds everything
-done closes it. That shape is the point rather than a convenience: this
+**The finding is an issue, not a colour.** One open issue **per release**,
+labelled `release-followup`, whose body is the current reading and whose title
+names the step that is undone; a later run about the same release rewrites it,
+and the run that finds that release's follow-up done closes it. Per release
+rather than per repository, which is a correction rather than a preference: with
+one issue for the whole repository, a green run about 0.15.3 closed an issue
+naming 0.15.2 — a step nobody had done, marked done by a run that never looked
+at it. An issue about another release is left open and named in the run's
+notices, because a follow-up still outstanding is itself worth seeing. That shape is the point rather than a convenience: this
 checklist was skipped twice precisely because nothing stayed open, and the job
 cannot use a red instead — between the tag and the follow-up commit the
 repository is *supposed* to fail these, since a lock cannot name a version the

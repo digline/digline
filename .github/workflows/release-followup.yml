@@ -168,10 +168,19 @@ jobs:
             --approvals approvals.json --approvals-control no-gate.json \
             --digests digests.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # The channel. One open issue, whose body is always the current reading —
-      # rewritten rather than duplicated, and closed by the run that finds
-      # everything done, so nobody has to remember to close it.
-      - name: Open, rewrite or close the one issue
+      # The channel. One open issue **per release**, whose body is always the
+      # current reading — rewritten rather than duplicated, and closed by the
+      # run that finds that release's follow-up done.
+      #
+      # Per release, and not per repository, which is the correction this step
+      # needed: the first cut kept one open issue for the whole repository, so
+      # a green run about 0.15.3 closed an issue that named 0.15.2 — a step
+      # nobody had done, marked done by a run that never looked at it. The
+      # scope is the title prefix the script emits, so the two cannot spell it
+      # differently. An issue about another release is left alone and said out
+      # loud, because an older follow-up still outstanding is itself worth
+      # seeing.
+      - name: Open, rewrite or close this release's issue
         if: steps.version.outputs.released == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -183,23 +192,52 @@ jobs:
           gh label create release-followup --color B60205 \
             --description "A step of RELEASING.md after the tag is still undone" \
             --force > /dev/null 2>&1 || true
-          open_issue="$(gh issue list --label release-followup --state open \
-            --limit 1 --json number --jq '.[0].number // empty')"
+          scope="$(uv run --quiet python -c 'import json; print(json.load(open("report.json"))["scope"])')"
+          gh issue list --label release-followup --state open --limit 50 \
+            --json number,title > open.json
+          mine="$(uv run --quiet python - "$scope" <<'PY'
+          import json, sys
+          scope = sys.argv[1]
+          for issue in json.load(open("open.json")):
+              if issue["title"].startswith(scope):
+                  print(issue["number"])
+                  break
+          PY
+          )"
+          others="$(uv run --quiet python - "$scope" <<'PY'
+          import json, sys
+          scope = sys.argv[1]
+          print(
+              ", ".join(
+                  f"#{i['number']} ({i['title']})"
+                  for i in json.load(open("open.json"))
+                  if not i["title"].startswith(scope)
+              )
+          )
+          PY
+          )"
           if [ "$ok" = "True" ]; then
-            if [ -n "$open_issue" ]; then
-              gh issue comment "$open_issue" --body-file body.md
-              gh issue close "$open_issue" \
+            if [ -n "$mine" ]; then
+              gh issue comment "$mine" --body-file body.md
+              gh issue close "$mine" \
                 --comment "Every check above passes now; closed by release-followup.yml."
-              echo "closed #$open_issue"
+              echo "closed #$mine"
             else
-              echo "nothing open, nothing to close"
+              echo "nothing open for this release, nothing to close"
             fi
-          elif [ -n "$open_issue" ]; then
-            gh issue edit "$open_issue" --title "$title" --body-file body.md
-            echo "rewrote #$open_issue"
+          elif [ -n "$mine" ]; then
+            gh issue edit "$mine" --title "$title" --body-file body.md
+            echo "rewrote #$mine"
           else
             gh issue create --label release-followup --title "$title" --body-file body.md
             echo "opened an issue"
+          fi
+          # Said whichever way this run went: an open issue about another
+          # release is a follow-up nobody finished, and a run that quietly
+          # ignored it would be the silence this workflow exists to break.
+          if [ -n "$others" ]; then
+            echo "::notice::left open, because they name another release: $others"
+            echo "Left open, naming another release: $others" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # Last, so the issue exists before the run goes red: the red is for
