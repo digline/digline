@@ -19,6 +19,79 @@ new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
+## Before the tag: moving the number
+
+`version` in `pyproject.toml` is one line and **four edits**. Nothing here is
+optional and nothing is subtle; what it is, is unwritten — until 0.15.2 this
+section did not exist, and the six red tests below were the only instructions
+anybody got. They are good instructions. They are also a quarter of an hour
+spent rediscovering them, every time, by somebody who has done it before.
+
+Do them in this order, from the repository root:
+
+```sh
+# 1. The number itself, then the environment that reports it.
+#    Without the sync, `test_dunder_version_is_the_installed_version` fails on
+#    an editable install still naming the release before this one.
+uv sync --all-packages
+
+# 2. The three claims written by hand. Every occurrence in these three files is
+#    a live claim about what is released, so a plain substitution is right here
+#    and nowhere else.
+sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md
+```
+
+`tests/test_versions.py::LIVE` names those three and what it reads in each:
+`README.md`'s `## Status` line, `docker/Dockerfile`'s `ARG DIGLINE_VERSION`,
+and the tag table in `docker/README.md`. `test_the_minor_tag_follows_the_release`
+reads a fourth thing in that table — the `<major>.<minor>` tag, which has its
+own shape and went stale unnoticed once already.
+
+**3. Register what the old number became.** Every literal of the *previous*
+version left anywhere the sweep reads is now history, and history has to be
+declared with its reason in `tests/test_versions.py::RECORDED`, file by file.
+This is the step that takes the time, and it is the one worth taking: a version
+in a sentence is either a claim about now, which the release moves, or a record
+of what happened, which the release must not. There is no third kind, and the
+test refuses to guess.
+
+Two things fall out of it that are easy to miss. The comments written *during*
+the change — "(the delta-pass over X)", naming which release's pass found what
+— are literals like any other and need registering in the file they were
+written in. And the existing reasons that say *"told as history now that X is
+the tree's version"* are about the version that has just stopped being current:
+reword them, or the record explains itself with a number that has moved on.
+
+The sweep is wide on purpose: every root `*.md` but `CHANGELOG.md`, all of
+`src/`, `docs/` outside `adr/`, `packages/*/src` and every `README.md` under
+`packages/` and `examples/`. `CHANGELOG.md` and `docs/adr/` are out because
+they are dated history in every line, and `tests/` is out because a fixture
+names versions for a living.
+
+**4. Add the release's row to `RELEASED`** in `tests/test_example_caps.py` —
+`"<new version>": <SCHEMA_VERSION>`, the schema this tree writes. A patch that
+moves no schema still gets a row; the row is what lets the example caps be
+checked against a release rather than against a number in the air.
+
+### The six that stay red until you have done all four
+
+Run the gates once after the bump and read them as a checklist rather than as
+breakage. In the order they usually appear:
+
+| Test | Wants |
+|---|---|
+| `test_versions.py::test_the_live_claims_say_what_pyproject_says` | step 2 |
+| `test_versions.py::test_no_version_literal_is_left_unaccounted_for` | step 3 |
+| `test_readme.py::test_the_status_version_is_the_version_in_pyproject` | step 2, `README.md` |
+| `test_docker.py::test_the_image_pins_the_versions_this_workspace_declares` | step 2, `Dockerfile` |
+| `test_docker.py::test_the_image_readme_documents_the_version_it_ships` | step 2, `docker/README.md` |
+| `test_example_caps.py::test_the_schema_this_workspace_writes_belongs_to_a_release` | step 4 |
+
+A seventh failure is not part of this and comes later by design: once the
+changelog entry below is dated, `tools/home_capture.py --check` refuses the
+capture that names the previous version. That is the next section, and it is a
+step of the same pull request.
+
 ## Before the tag: the changelog
 
 `CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
