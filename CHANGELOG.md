@@ -73,6 +73,44 @@ and records both halves.
   check fact in `explain --json` rather than becoming a seventh `kind`, so a
   consumer matching on the six it knows keeps working.
 
+### Documentation
+
+- **The operator's design document claimed the payload never reaches your own
+  repository. It does, by design, and the sentence was false.**
+  `examples/operator/DESIGN.md`, in the *Designed with pilots* section, listed
+  four open questions about turning production traffic into cases and wrote the
+  fourth as an assertion: *"How redaction happens at birth, so the payload never
+  leaves the perimeter even toward your own repository."*
+
+  Two things are wrong with it. A committed case file **is** payload — this
+  repository's own `examples/classifier/cases.json` carries a merchant name and
+  a free-text note in git, and a promoted baseline carries every verdict's
+  `reason`, which with an LLM judge quotes what the model answered. That is
+  world 1 of [ADR 0002](docs/adr/0002-three-worlds-and-where-the-data-lives.md)
+  working as designed: fixed decision 9 governs what crosses a boundary toward
+  another world, and a commit into your own repository crosses none. The
+  sentence collapsed the two. And redaction at birth is not something digline
+  does — `src/digline/bridge/` is `[planned]` — so it described a mechanism
+  nobody has written, in the present indicative.
+
+  Thirty lines away, `examples/operator/README.md` already said the true thing
+  about the half that has shipped: *"the judgment layer on a hosted runner means
+  your model key lives in GitHub Actions secrets and the reasoning happens
+  there."* The fourth item is a question again, and it names the limit that
+  makes it hard: a judge that reads text needs the text.
+
+  **It appeared twice, and the other copy was not in this repository.**
+  `tools/sync-docs.sh` on digline.dev copies `docs/`, `CHANGELOG.md`,
+  `ROADMAP.md`, `docker/README.md` and `examples/*/README.md` — not
+  `DESIGN.md` — and the operator page there is written in that repository
+  rather than copied from this one. The same sentence was live on
+  `digline.dev/product/operator/` and is corrected there separately, in wording
+  for a reader who has no ADR beside them. The two texts are deliberately not
+  identical.
+
+  Found while reading what ADR 0023 (`proposed`, not merged) says it would have
+  to amend. No surface of that record is named here or there.
+
 ### What deliberately did not move
 
 - **A flip is still a regression, and still exits 1.** A gate that read
