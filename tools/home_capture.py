@@ -76,6 +76,39 @@ Answer the customer's question in one sentence.
 {SIGNATURE_LINE}
 """
 
+#: The steady scenario's prompt: the signature line the quickstart's answers are
+#: signed with, and a line of guidance that costs tokens and changes nothing
+#: else. The second is the one that moves between its two runs.
+GUIDANCE_LINE = "Keep the answer to one sentence."
+CHANGED_GUIDANCE = (
+    "Keep the answer to one sentence, say what the customer can do next, name "
+    "the policy it comes from, avoid jargon and internal codes, never promise a "
+    "date the order page does not already show, and do not repeat the question "
+    "back."
+)
+
+STEADY_PROMPT = f"""\
+You are the support assistant for Northwind.
+{GUIDANCE_LINE}
+{SIGNATURE_LINE}
+"""
+
+#: What one call costs, per sample, in the steady fixture: a canned model that
+#: bills the prompt it was sent and never the same twice to the last cent. Five
+#: numbers, cycled, so a run measures a band and two runs of the same prompt
+#: measure the same one. They add up to zero, so the mean is the prompt's own
+#: cost, and they are wider than the suite's declared tolerance — a band
+#: narrower than the tolerance can never absorb anything, because `compare`
+#: asks the tolerance first (ADR 0009).
+JITTER = (0.0, 0.004, -0.004, 0.003, -0.003)
+
+MODEL_STEADY = (
+    "The model and the judge are canned: no provider is called. The reply is "
+    "billed for the prompt it was sent, plus a jitter that cycles through five "
+    "values, so five samples of a case measure a band; the only edit between "
+    "the two runs is one line of prompt.md, which the suite declares."
+)
+
 MODEL = (
     "The model and the judge are canned: no provider is called. The reply "
     "depends on the prompt by construction — each canned answer is signed with "
@@ -117,6 +150,75 @@ def _replace_once(text: str, old: str, new: str, *, where: str) -> str:
             "from; the guide changed, so this derivation has to follow it"
         )
     return text.replace(old, new)
+
+
+def steady_fixture(files: dict[str, str]) -> dict[str, str]:
+    """The quickstart, with a prompt that is paid for and a case set aside.
+
+    Three differences from the quickstart, and each is a thing the home's
+    sentence has to be able to say:
+
+      * the reply is billed for the prompt it was sent — its cost is the
+        prompt's length plus a jitter that cycles through JITTER — so five
+        samples of a case measure a band rather than one number;
+      * `prompt.md` is declared as an artifact, so a change to it is a file
+        under test that changed;
+      * one case is suspended, with its reason, so nothing runs it.
+
+    The same rule as the other fixtures: every edit must match exactly once.
+    """
+    app = _replace_once(
+        files["app.py"],
+        '"""The system under test, and the judge. Both would be yours."""\n',
+        '"""The system under test, and the judge. Both would be yours."""\n\n'
+        "import itertools\n\n"
+        f"JITTER = {JITTER!r}\n"
+        "_SAMPLE = itertools.count()\n",
+        where="app.py",
+    )
+    app = _replace_once(
+        app,
+        "def reply(question_id: str) -> tuple[str, float]:\n"
+        '    """Your model call. Canned, so this page needs no key."""\n'
+        "    text = ANSWERS[question_id]\n"
+        "    return text, 0.004 + 0.001 * len(text) / 100\n",
+        "def reply(question_id: str, prompt: str) -> tuple[str, float]:\n"
+        '    """Your model call. Canned, and billed for the prompt it was sent."""\n'
+        "    text = ANSWERS[question_id]\n"
+        "    cost = 0.004 + 0.001 * (len(text) + len(prompt)) / 100\n"
+        "    return text, cost + JITTER[next(_SAMPLE) % len(JITTER)]\n",
+        where="app.py",
+    )
+    support = _replace_once(
+        files["support.py"],
+        "import app\n",
+        "from pathlib import Path\n\nimport app\n",
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        "app.reply(case.id)",
+        'app.reply(case.id, Path("prompt.md").read_text(encoding="utf-8"))',
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        f'    name="{SUITE}",\n',
+        f'    name="{SUITE}",\n'
+        '    artifacts=[Path("prompt.md")],\n'
+        "    samples=5,\n"
+        '    min_agreement="3/5",\n',
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        '        Case(id="is-it-waterproof"),\n',
+        '        Case(id="is-it-waterproof"),\n'
+        '        Case(id="refund-status", '
+        'suspended="the refund API is down, ticket 412"),\n',
+        where="support.py",
+    )
+    return {**files, "app.py": app, "support.py": support, "prompt.md": STEADY_PROMPT}
 
 
 def prompt_fixture(files: dict[str, str]) -> dict[str, str]:
@@ -303,6 +405,96 @@ def quickstart(root: Path, guide: str) -> dict[str, Any]:
         "band": band([space.run_document(key)]),
         "commands": space.commands,
     }
+
+
+def steady(root: Path, guide: str) -> dict[str, Any]:
+    """A green comparison with something in it.
+
+    The quickstart's compare says four things and three of them are "nothing".
+    This one moves what can move without anything getting worse: the prompt is
+    declared and paid for, so a line of it changing is a file under test that
+    changed and a cost that moves — and, five samples in, moves no further than
+    the band the reference measured. One case is suspended throughout.
+
+    It must end green, with a check inside the noise, a suspended case and a
+    changed artifact, or this script fails: a capture that lost any of the three
+    would put on /start/ a sentence the tool did not print.
+    """
+    space = workspace(root, steady_fixture(chapter_one_files(guide)))
+    before = space.run()
+    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    space.commit("Promote the baseline")
+
+    prompt = root / "prompt.md"
+    prompt.write_text(
+        _replace_once(
+            prompt.read_text(encoding="utf-8"),
+            GUIDANCE_LINE,
+            CHANGED_GUIDANCE,
+            where="prompt.md",
+        ),
+        encoding="utf-8",
+    )
+    space.commit("Reword the guidance line of the prompt")
+
+    after = space.run()
+    compared = space.digline("compare", "--suite", "support.py", "--run", "latest")
+    as_json = space.digline(
+        "compare", "--suite", "support.py", "--run", "latest", "--json", "full"
+    )
+    facts: dict[str, Any] = json.loads(as_json.pop("stdout"))
+    if compared["exit"] != 0 or as_json["exit"] != 0:
+        raise CaptureError(
+            f"the steady scenario did not stay green: exits {compared['exit']} "
+            f"and {as_json['exit']}\n{compared['stdout']}{compared['stderr']}"
+        )
+    for name, wrong in steady_problems(facts):
+        raise CaptureError(f"the steady scenario has no {name}: {wrong}")
+
+    return {
+        "run_ids": [before, after],
+        "model": MODEL_STEADY,
+        "change": {
+            "description": "One line of prompt.md, the guidance line, reworded.",
+            "files": prompt_diff(root, after),
+        },
+        "band": band([space.run_document(before), space.run_document(after)]),
+        "commands": space.commands,
+        "compare_json": {
+            "source": (
+                f"The stdout of `{as_json['cmd']}` above, decoded with "
+                "json.loads and otherwise unchanged: every key but this one "
+                "is digline's."
+            ),
+            **facts,
+        },
+    }
+
+
+def steady_problems(facts: dict[str, Any]) -> list[tuple[str, Any]]:
+    """What the steady scenario must show, read out of `compare --json full`.
+
+    Returned rather than raised so that both the capture and `--check` hold the
+    file to the same four claims: green, a check inside the noise, a case set
+    aside, and a file under test that changed under rules that did not.
+    """
+    counts = cast(dict[str, int], facts.get("counts") or {})
+    deltas = cast(list[dict[str, Any]], facts.get("deltas") or [])
+    within = [d for d in deltas if d.get("within_noise") and not d.get("calibration")]
+    problems: list[tuple[str, Any]] = []
+    if counts.get("regressed"):
+        problems.append(
+            ("green comparison", f"{counts['regressed']} check(s) regressed")
+        )
+    if not within:
+        problems.append(("check that moved within the noise", "none of the deltas did"))
+    if not facts.get("suspended"):
+        problems.append(("suspended case", f"suspended is {facts.get('suspended')!r}"))
+    if not facts.get("artifacts_changed"):
+        problems.append(("changed file under test", "artifacts_changed is false"))
+    if facts.get("config_changed"):
+        problems.append(("unchanged suite", "config_changed is true"))
+    return problems
 
 
 def prompt_diff(workdir: Path, key: str) -> list[dict[str, Any]]:
@@ -585,6 +777,7 @@ def capture(scratch: Path, guide: Path = GUIDE) -> dict[str, Any]:
     text = guide.read_text(encoding="utf-8")
     scenarios = {
         "quickstart": quickstart(scratch / "quickstart", text),
+        "steady": steady(scratch / "steady", text),
         "prompt_regression": prompt_regression(scratch / "prompt_regression", text),
     }
     # The version that actually ran, as the run file records it — not the one
@@ -646,7 +839,8 @@ def check(path: Path = OUTPUT, changelog: Path = CHANGELOG) -> list[str]:
     """
     if not path.is_file():
         return [f"{path} does not exist: run tools/home_capture.py"]
-    captured = json.loads(path.read_text(encoding="utf-8")).get("digline_version")
+    document = cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+    captured = document.get("digline_version")
     released = released_version(changelog)
     if released is None:
         return [
@@ -659,7 +853,38 @@ def check(path: Path = OUTPUT, changelog: Path = CHANGELOG) -> list[str]:
             f"dated release in {changelog.name} is {released}: run `uv run "
             "python tools/home_capture.py` and commit the result"
         ]
-    return []
+    return steady_check(document, path)
+
+
+def steady_check(document: dict[str, Any], path: Path) -> list[str]:
+    """The steady scenario in a committed capture, held to what it promises.
+
+    digline.dev reads its sentence on /start/, and a sentence that lost the
+    noise, the suspended case or the changed file would be a claim the page
+    makes and the tool did not: the same four conditions the capture refuses to
+    write are refused here when the file is read back.
+    """
+    scenarios = cast(dict[str, Any], document.get("scenarios") or {})
+    scenario = scenarios.get("steady")
+    if not isinstance(scenario, dict):
+        return [
+            f"{path.name} has no `steady` scenario: run `uv run python "
+            "tools/home_capture.py` and commit the result"
+        ]
+    scenario = cast(dict[str, Any], scenario)
+    problems = [
+        f"{path.name}: steady: `{command.get('cmd')}` exited "
+        f"{command.get('exit')!r}, not 0, and the scenario is the green one"
+        for command in cast(list[dict[str, Any]], scenario.get("commands") or [])
+        if command.get("exit") != 0
+    ]
+    facts = scenario.get("compare_json")
+    if not isinstance(facts, dict):
+        return [*problems, f"{path.name}: steady has no `compare_json`"]
+    return problems + [
+        f"{path.name}: steady shows no {name}: {wrong}"
+        for name, wrong in steady_problems(cast(dict[str, Any], facts))
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:

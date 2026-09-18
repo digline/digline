@@ -1,6 +1,6 @@
 {
   "digline_version": "0.15.1",
-  "captured_at": "2026-09-18T08:45:52+00:00",
+  "captured_at": "2026-09-18T09:08:05+00:00",
   "environment": {
     "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
     "stripped": [
@@ -191,20 +191,20 @@
   "scenarios": {
     "quickstart": {
       "run_ids": [
-        "2026-09-18T08-45-51-170264-00-00-282b0c02d6511fb4"
+        "2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4"
       ],
       "change": null,
       "band": "absent: samples=1",
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-45-51-170264-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-18T08-45-51-170264-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-18T09-08-03-914440-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
@@ -216,10 +216,263 @@
         }
       ]
     },
+    "steady": {
+      "run_ids": [
+        "2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a",
+        "2026-09-18T09-08-04-608175-00-00-85883581c2d6c45a"
+      ],
+      "model": "The model and the judge are canned: no provider is called. The reply is billed for the prompt it was sent, plus a jitter that cycles through five values, so five samples of a case measure a band; the only edit between the two runs is one line of prompt.md, which the suite declares.",
+      "change": {
+        "description": "One line of prompt.md, the guidance line, reworded.",
+        "files": [
+          {
+            "path": "prompt.md",
+            "outcome": "changed",
+            "diff": [
+              "--- a/prompt.md",
+              "+++ b/prompt.md",
+              "@@ -1,3 +1,3 @@",
+              " You are the support assistant for Northwind.",
+              "-Keep the answer to one sentence.",
+              "+Keep the answer to one sentence, say what the customer can do next, name the policy it comes from, avoid jargon and internal codes, never promise a date the order page does not already show, and do not repeat the question back.",
+              " Sign every reply as \"— Northwind Support\"."
+            ]
+          }
+        ]
+      },
+      "band": "measured: samples=5",
+      "commands": [
+        {
+          "cmd": "digline run --suite support.py",
+          "stdout": "2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a\n",
+          "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\n",
+          "exit": 0
+        },
+        {
+          "cmd": "digline promote --suite support.py --run latest",
+          "stdout": "support baseline set to 2026-09-18T09-08-04-315538-00-00-85883581c2d6c45a\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "cmd": "digline run --suite support.py",
+          "stdout": "2026-09-18T09-08-04-608175-00-00-85883581c2d6c45a\n",
+          "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\n",
+          "exit": 0
+        },
+        {
+          "cmd": "digline compare --suite support.py --run latest",
+          "stdout": "Nothing got worse compared with the reference. 3 checks moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\n\n  prompt.md · +1 −1 lines\n",
+          "stderr": "",
+          "exit": 0
+        },
+        {
+          "cmd": "digline compare --suite support.py --run latest --json full",
+          "stderr": "",
+          "exit": 0
+        }
+      ],
+      "compare_json": {
+        "source": "The stdout of `digline compare --suite support.py --run latest --json full` above, decoded with json.loads and otherwise unchanged: every key but this one is digline's.",
+        "artifacts_changed": true,
+        "canary_moved": false,
+        "config_changed": false,
+        "counts": {
+          "errored": 0,
+          "improved": 0,
+          "missing": 0,
+          "new": 0,
+          "regressed": 0,
+          "unchanged": 9
+        },
+        "deltas": [
+          {
+            "after": 0.731871,
+            "assertion": "cost_budget",
+            "before": 0.788972,
+            "calibration": false,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": -0.057101,
+            "denominator_moved": false,
+            "noise_max": 0.919963,
+            "noise_min": 0.672495,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": true
+          },
+          {
+            "after": 1.0,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 1.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "how-do-i-return",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.730517,
+            "assertion": "cost_budget",
+            "before": 0.787395,
+            "calibration": false,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": -0.056878,
+            "denominator_moved": false,
+            "noise_max": 0.917852,
+            "noise_min": 0.671366,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": true
+          },
+          {
+            "after": 1.0,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 1.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "is-it-waterproof",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 0.733776,
+            "assertion": "cost_budget",
+            "before": 0.791191,
+            "calibration": false,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": -0.057415,
+            "denominator_moved": false,
+            "noise_max": 0.922935,
+            "noise_min": 0.674082,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": true
+          },
+          {
+            "after": 1.0,
+            "assertion": "llm_rubric",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          },
+          {
+            "after": 1.0,
+            "assertion": "contains",
+            "before": 1.0,
+            "calibration": false,
+            "canary": false,
+            "case_id": "where-is-my-order",
+            "delta": 0.0,
+            "denominator_moved": false,
+            "noise_max": 1.0,
+            "noise_min": 1.0,
+            "noise_samples": 5,
+            "outcome": "unchanged",
+            "scope": "case",
+            "within_noise": false
+          }
+        ],
+        "exit_code": 0,
+        "judge_config_changed": false,
+        "judge_config_deltas": [],
+        "on_the_line": 3,
+        "output_version": 2,
+        "reasons_available": true,
+        "rejudged": false,
+        "scale_lost": false,
+        "sentence": "Nothing got worse compared with the reference. 3 checks moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.",
+        "shape": [
+          {
+            "assertion_id": "4e7ba5d3e226025c",
+            "check": "llm_rubric",
+            "reference": {
+              "claims_unrecorded": 0,
+              "extremes": 15,
+              "sample_means": 0,
+              "scores": 15,
+              "single_claim": 0
+            },
+            "run": {
+              "claims_unrecorded": 0,
+              "extremes": 15,
+              "sample_means": 0,
+              "scores": 15,
+              "single_claim": 0
+            }
+          }
+        ],
+        "suspended": 1,
+        "target_config_changed": false,
+        "target_config_deltas": [],
+        "target_echoed": false,
+        "unjudged": 0,
+        "within_noise": 3,
+        "worse": false
+      }
+    },
     "prompt_regression": {
       "run_ids": [
-        "2026-09-18T08-45-51-567976-00-00-282b0c02d6511fb4",
-        "2026-09-18T08-45-51-850209-00-00-282b0c02d6511fb4"
+        "2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4",
+        "2026-09-18T09-08-05-347714-00-00-282b0c02d6511fb4"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
       "change": {
@@ -244,19 +497,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-45-51-567976-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-18T08-45-51-567976-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-18T09-08-05-051847-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-18T08-45-51-850209-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-18T09-08-05-347714-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\n",
           "exit": 0
         },
