@@ -229,9 +229,9 @@ The second source — traffic into cases — is being designed with
 people who run LLM systems in production. What a capture looks like.
 How a request correlates to a run boundary. What makes one sample a
 candidate golden and another one noise. How redaction happens at
-birth, so the payload never leaves the perimeter even toward your own
-repository. These are questions your history answers better than our
-whiteboard.
+birth — and where it cannot help, because a judge that reads text
+needs the text. These are questions your history answers better than
+our whiteboard.
 
 If that is you, [open an issue](https://github.com/digline/digline/issues)
 — that is the fastest way to move this.
