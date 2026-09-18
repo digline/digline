@@ -13,14 +13,14 @@ wheels = [
 
 [[package]]
 name = "digline"
-version = "0.15.0"
+version = "0.15.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/ed/b2045e6aa67fcefd4026c8f2342d9cf7595405a5fe821ceb0f581ee3c816/digline-0.15.0.tar.gz", hash = "sha256:2c8d4dd638c8f702684ed1d7f7e2a77ba89daeea448813093a112c00fba5b35c", size = 1473965, upload-time = "2026-09-17T14:03:49.544Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/a8/f0db569d992f83082a19eae7dcf3ebdcd437dadd9bcce5a746253ac5d54d/digline-0.15.3.tar.gz", hash = "sha256:031cdff60d5800d2fbb85e3d88dea38a4d39d77519fb3fae7c2f00706730edce", size = 1513965, upload-time = "2026-09-18T14:51:06.98Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/9b/5f4db6f77a861a95389027811ae423be2abfefdc2eae791f2064fdd322e1/digline-0.15.0-py3-none-any.whl", hash = "sha256:a64c628524a7e83185a7cee801fa33923b5edfab142824e6557eda451770b6ab", size = 371299, upload-time = "2026-09-17T14:03:44.168Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/09/9bb4028dfe59942800af99884bedbb3b7b22b03943f0106c306969d873c0/digline-0.15.3-py3-none-any.whl", hash = "sha256:fa2bbb5df0ccee41443c42cc5eb6971b9178c5abd270b66ba38e9fdf82a71b85", size = 384548, upload-time = "2026-09-18T14:51:03.862Z" },
 ]
 
 [[package]]
