@@ -30,7 +30,18 @@ on:
   # work *is* a commit to `main`, so this is the moment to re-ask.
   push:
     branches: [main]
+  # By hand, optionally about a *previous* release. The version is normally read
+  # from `pyproject.toml`, which is the release just cut; naming an older tag
+  # asks the same four questions about it, which is how you re-check a release
+  # whose follow-up you are not sure of — and how this workflow's own channel
+  # was exercised in both directions without committing anything untrue to
+  # `main`.
   workflow_dispatch:
+    inputs:
+      version:
+        description: "A released version to ask about, instead of the tree's"
+        required: false
+        type: string
 
 concurrency:
   group: release-followup
@@ -68,7 +79,12 @@ jobs:
       - name: The version, and whether it is out
         id: version
         run: |
-          version="$(uv run --quiet python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          version="${{ inputs.version }}"
+          if [ -z "$version" ]; then
+            version="$(uv run --quiet python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          else
+            echo "asked by hand about v$version, not about the tree's version"
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if git tag --list "v$version" | grep -q .; then
             echo "released=yes" >> "$GITHUB_OUTPUT"
