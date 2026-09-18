@@ -156,6 +156,60 @@ jobs:
         working-directory: _site
         run: tools/check-sitemap.py site
 
+      # The three nav gates, in the one place they may not skip.
+      #
+      # `tests/_site.py` skips them wherever digline.dev is not on disk — the
+      # `gates` job included, which clones no site — and a skip at the bottom of
+      # 2400 passes is a silence, not a green: the nav line they exist for was
+      # checked by nothing and the run said so in a number nobody reads. Here
+      # the site is certainly present, because the step above just built with
+      # it, so `DIGLINE_SITE_REQUIRED` makes a skip a failure.
+      #
+      # It is also the only place they run on a **pull request**: the preview
+      # build sets `MKDOCS_OMITTED_FILES=info` and lets a page with no nav entry
+      # through, by the site's own runbook, so without this a new page is never
+      # red on the PR that adds it.
+      #
+      # By node id and not by file: this job syncs no workspace SDKs, and the
+      # rest of `test_examples.py` needs them. `test_releasing.py` holds this
+      # list to every test that reads the site config, so a fourth one cannot
+      # be written without landing here.
+      - name: The nav gates, where they may not skip
+        env:
+          DIGLINE_SITE_CONFIG: _site/mkdocs.yml
+          DIGLINE_SITE_REQUIRED: "1"
+        run: >
+          uv run pytest -q
+          tests/test_docs_pages.py::test_every_docs_page_is_in_the_site_nav
+          tests/test_adr.py::test_every_adr_has_a_page_in_the_site_nav
+          tests/test_examples.py::test_every_example_has_a_page_in_the_site_nav
+
+      # The negative half, on this build rather than in a selftest. A gate that
+      # cannot fail has verified nothing, and this one's entire value is that it
+      # refuses to skip — so the same command, pointed at a config that is not
+      # there, has to FAIL, and has to fail *for that reason*. Checking only the
+      # exit code would pass on a syntax error in the test file.
+      - name: And the control that must fail
+        env:
+          DIGLINE_SITE_CONFIG: _site/no-such-mkdocs.yml
+          DIGLINE_SITE_REQUIRED: "1"
+        run: |
+          if uv run pytest -q \
+            tests/test_docs_pages.py::test_every_docs_page_is_in_the_site_nav \
+            > control.log 2>&1; then
+            echo "::error::the nav gate passed with no site config to read:"
+            echo "::error::DIGLINE_SITE_REQUIRED is not being honoured."
+            cat control.log
+            exit 1
+          fi
+          if ! grep -q "DIGLINE_SITE_REQUIRED is set, so this check may not skip" control.log
+          then
+            echo "::error::the control failed, but not for the reason under test:"
+            cat control.log
+            exit 1
+          fi
+          echo "control failed as required, and named the variable"
+
   image-touched:
     name: Does this change the image?
     # The docker job below is gated on this rather than on `on: paths:`, which
