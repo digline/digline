@@ -6,6 +6,70 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.16.0 — unreleased
+
+**What a run consumed, written down.** digline **0.16.0** opens schema 14 with
+one passenger: the bill. Until now digline recorded **no token count
+anywhere**, for every provider: `ProviderTarget` priced the counts, kept
+the money on `Response.cost_usd` and copied the four numbers into
+`Response.metadata`, which is never persisted. `JudgeBase.spent_usd` reached no
+document at all, so one of the two lines of the bill had never been written
+down since the first release.
+
+`SCHEMA_VERSION` moves to **14** and `JOURNAL_VERSION` to **2**. Run
+`digline migrate` before comparing or promoting: a document at 13 is refused by
+name until it is migrated, and a **journal** at format 1 is refused and left on
+disk — start that run again rather than resuming it. The two versions moving in
+one release is a coincidence of one train, not a coupling: they are independent
+by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
+13.
+
+### Added
+
+- **`Run.usage`** — two lines of one bill, the **target's** and the **judge's**,
+  on every run whether or not it records responses. Each carries `calls`,
+  `counted`, the four token counts and `spent_usd`. `counted` below `calls` says
+  the total covers only part of the run — a target that reports no counts, or a
+  leg somebody resumed by hand without figures — and the CLI prints that
+  parenthesis only when it is true.
+- **`RecordedResponse.usage`** — the four counts of one call, beside the answer
+  it belongs to, under the existing `record_responses`. A bill is a total and a
+  discrepancy is found in the detail.
+- The totals cross a boundary and the per-call counts do not: a run total is
+  the software house's own invoice and names no case, while a per-call count is
+  a fact about one of the end company's requests. `redact()` keeps the first and
+  drops the second with its response; `--json` and MCP carry the first only.
+- **The journal keeps a bill line per case**, written whatever the suite
+  records, so a resumed run states the whole run's bill rather than the last
+  leg's — and is still byte for byte the document the kill prevented
+  (ADR 0017 §10).
+
+### Changed
+
+- **`Usage` moved to `digline.core`** and is re-exported from
+  `digline.targets.pricing`. It is the same class object, so
+  `from digline.targets.pricing import Usage` is unchanged and **no plugin needs
+  a release**.
+- `execute()` gained `spent=`, and refuses a non-empty `done` without it: a
+  resumed run that could not say what its earlier legs cost would under-bill in
+  silence.
+
+### Not moved
+
+- `OUTPUT_VERSION` stays **2**: keys are added to `--json`, none removed.
+- `config_hash` is untouched — what a run consumed cannot change what it was
+  asked to do — so **no baseline needs re-promoting**, and the migration writes
+  nothing: a run measured before this release consumed tokens nobody recorded,
+  and `0` would state that it consumed none.
+- No `TokenBudget`. This release records; a ceiling is a gate and would need its
+  own threshold, tolerance and exit code.
+- **Known, unchanged:** `ModelPrice` declares one `cache_write_per_mtok`, and a
+  provider that bills short- and long-lived cache writes at different rates
+  cannot be priced by one. Digline now records `cache_write_tokens`, so the
+  count the money was computed from is visible.
+
+The reasoning is [ADR 0025](docs/adr/0025-the-tokens-and-the-bill.md).
+
 ## pytest-digline 0.1.6 — 2026-09-18
 
 **The plugin failed a row that `digline compare` calls incomparable.** The
