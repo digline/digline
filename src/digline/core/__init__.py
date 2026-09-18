@@ -133,6 +133,7 @@ from digline.core.sampling import (
     judged,
     on_the_line,
 )
+from digline.core.text import json_visible
 from digline.core.types import (
     ALL_KINDS,
     CONVERSATION_ONLY,
@@ -272,6 +273,7 @@ __all__ = [
     "index_verdicts",
     "STORAGE_STEP",
     "at_precision",
+    "json_visible",
     "canonical",
     "fold_judgements",
     "judged",

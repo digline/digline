@@ -10,6 +10,7 @@ from __future__ import annotations
 from digline.core import CheckDifference, Difference, Noise, Run
 from digline.wire.compare import config_json
 from digline.wire.contract import OUTPUT_VERSION
+from digline.wire.text import neutralised
 
 __all__ = ["check_json", "diff_json", "interval_json"]
 
@@ -114,4 +115,4 @@ def diff_json(
         payload["target_config_deltas"] = [
             config_json(d) for d in difference.target_config_deltas
         ]
-    return payload
+    return neutralised(payload)

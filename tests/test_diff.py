@@ -30,6 +30,7 @@ from digline.core import (
 )
 from digline.report import LOCALES, Locale, pages
 from digline.report import diff as diff_report
+from digline.wire import OUTPUT_VERSION
 
 LEFT_AT = "2026-09-04T09:12:33+00:00"
 RIGHT_AT = "2026-09-04T11:40:07+00:00"
@@ -654,7 +655,7 @@ def test_the_json_is_symmetric_and_has_no_verdict_field(repo: Path) -> None:
 
     assert "worse" not in json.dumps(there)
     assert "unjudged" not in json.dumps(there)
-    assert there["output_version"] == 1
+    assert there["output_version"] == OUTPUT_VERSION
 
     assert there["counts"]["favours_left"] == back["counts"]["favours_right"]
     assert there["counts"]["favours_right"] == back["counts"]["favours_left"]

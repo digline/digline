@@ -40,7 +40,7 @@ from digline.report import (
     phrase,
 )
 from digline.store import Listing
-from digline.wire import log_json, runs_json
+from digline.wire import OUTPUT_VERSION, log_json, runs_json
 
 T1 = "2026-09-01T10:00:00.000000+00:00"
 T2 = "2026-09-02T10:00:00.000000+00:00"
@@ -517,7 +517,7 @@ def test_log_is_never_a_gate(repo: Path) -> None:
     emitted = cli(repo, "log", "--suite", "suite_qa.py", "--json")
     assert emitted.returncode == EXIT_OK, emitted.stderr
     document = json.loads(emitted.stdout)
-    assert document["output_version"] == 1
+    assert document["output_version"] == OUTPUT_VERSION
     assert document["runs"] == 1
     assert "exit_code" not in document
 

@@ -134,6 +134,7 @@ RELEASED: dict[str, int] = {
     # §6.5): `"sample_means": true` on a verdict whose samples are means of
     # judgements.
     "0.15.0": 13,
+    "0.15.1": 13,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
@@ -188,10 +189,43 @@ def admitted_by(cap: str) -> str:
     return max(below, key=as_tuple)
 
 
+def committed_documents(name: str) -> list[Path]:
+    """The `.digline` documents git actually holds for an example.
+
+    `rglob` answers a different question — *what is on this disk* — and the two
+    diverge exactly where it matters: each example's `.digline/.gitignore`
+    excludes `*/runs/`, so every local run of an example leaves artifacts behind
+    that no reader will ever receive. Asking the filesystem turned this gate red
+    for anyone who had run the examples — which is what the examples are for —
+    and told them to `digline migrate` and commit the result, when the files are
+    ignored by construction and there was nothing to commit, so the red would
+    not clear. A gate that is red for doing the right thing is one people learn
+    to skip.
+
+    Git is the authority for the word *committed*, and `git ls-files` reads the
+    index rather than the history, so it answers on the shallow clone CI checks
+    out as well as on a full one. (0.15.1, from the release delta-pass.)
+    """
+    listed = subprocess.run(  # noqa: S603
+        ["git", "ls-files", "-z", "--", f"examples/{name}"],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if listed.returncode != 0:
+        pytest.skip("not a git checkout, so nothing here can be called committed")
+    return sorted(
+        ROOT / entry
+        for entry in listed.stdout.split("\0")
+        if entry.endswith(".json") and "/.digline/" in entry
+    )
+
+
 def committed_schemas(name: str) -> dict[Path, int]:
     """Every run document the example ships, by the schema it was written at."""
     found: dict[Path, int] = {}
-    for path in sorted((EXAMPLES / name).rglob(".digline/**/*.json")):
+    for path in committed_documents(name):
         document: object = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict):
             # Read as `object` and narrowed here: a run file is written by

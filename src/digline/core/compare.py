@@ -145,6 +145,25 @@ class AssertionDelta:
     #: selection — a calibration case that moved is not a check of the system
     #: that got better or worse. (ADR 0024 §4.4, amended 2026-09-17)
     calibration: bool = False
+    #: This delta sets two run-level aggregates side by side that were computed
+    #: over **different numbers of cases**, so there is no movement to measure:
+    #: the thing measured is not the same thing. A fact beside the outcome for
+    #: the third time, and for the reason the first two give — but where
+    #: `within_noise` says a movement *is* `unchanged`, this one says
+    #: `unchanged` was never available.
+    #:
+    #: The predicate is `Matrix.considered`, never "a case errored": a case
+    #: leaves the denominator for five reasons — errored, suspended, unlabelled,
+    #: canary, calibration — and a rule keyed on the error would leave four doors
+    #: open and need rewriting the first time somebody suspended a case.
+    #:
+    #: It is an **incomparability, not a regression**: it never makes `worse`
+    #: true, never reclassifies a check, and moves no exit code. What it does is
+    #: stop a comparison that was never valid from being reported as `unchanged`.
+    #: `config_changed` is the precedent — the same shape, and the same answer:
+    #: state the condition, convert nothing, and leave the reader to judge what
+    #: the comparison is worth. (ADR 0012 §3, amended 2026-09-18)
+    denominator_moved: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -386,6 +405,72 @@ class Noise:
         )
 
 
+def _considered(verdict: Verdict) -> int | None:
+    """How many cases the aggregate behind `verdict` was computed over.
+
+    `Matrix.as_metadata()` writes `considered` on every run-level aggregate and
+    nothing else writes it, so its presence is also what identifies one. Read
+    rather than trusted: a run document is written by whoever holds it, and a
+    `considered` that is not a whole number tells us nothing, so it is treated
+    as *not an aggregate* rather than as a reason to raise — this is a reading,
+    and a reading that refuses a document cannot report on it.
+    """
+    value = verdict.score.metadata.get("considered")
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+#: Every count `Matrix.as_metadata()` writes for a case it left out. Named in
+#: full rather than derived, because the set is the rule: a case leaves the
+#: denominator for exactly these reasons and each one moves the score.
+_EXCLUSIONS = (
+    "suspended_excluded",
+    "errored_excluded",
+    "unlabelled_excluded",
+    "canary_excluded",
+    "calibration_excluded",
+)
+
+
+def _seen(verdict: Verdict) -> int | None:
+    """How many cases the aggregate behind `verdict` looked at — those it counted
+    plus those it left out."""
+    considered = _considered(verdict)
+    if considered is None:
+        return None
+    total = considered
+    for key in _EXCLUSIONS:
+        value = verdict.score.metadata.get(key)
+        if not isinstance(value, bool) and isinstance(value, int):
+            total += value
+    return total
+
+
+def _denominator_moved(now: Verdict, before: Verdict) -> bool:
+    """True where two aggregates looked at the same cases and **counted**
+    different numbers of them.
+
+    The second half is what keeps this from crying wolf, and it was not obvious:
+    a suite that gains a case grows every aggregate's denominator too, and that
+    is not an incomparability — it is a suite that grew, which `compare` already
+    reports as a new case and a reader already understands. Flagging it would
+    fire on the most ordinary edit anybody makes, and a fact that fires on
+    everything says nothing. Found by `tests/test_groups.py`, which had this
+    exact shape already written down.
+
+    So the predicate is: the same number of cases *seen*, a different number
+    *counted* — cases that dropped out of being judged, which is the movement
+    nobody declared. Both sides must be aggregates and both numbers known: a
+    reference written before aggregates recorded their matrix has no
+    `considered`, and an absence is not a difference.
+    """
+    here, there = _considered(now), _considered(before)
+    if here is None or there is None or here == there:
+        return False
+    return _seen(now) == _seen(before)
+
+
 def _noise(verdict: Verdict) -> Noise:
     score = verdict.score
     if not score.sampled:
@@ -568,12 +653,33 @@ def compare(run: Run, baseline: Run) -> Comparison:
         floor = _noise(before)
         within_noise = False
 
-        if within(abs(delta), now.tolerance):
+        # Before every branch below, because it decides whether `unchanged` is
+        # an answer this comparison is allowed to give at all. Two aggregates
+        # computed over different numbers of cases are not the same measurement,
+        # so there is no movement for a tolerance or an interval to excuse.
+        # (ADR 0012 §3, amended 2026-09-18)
+        denominator_moved = _denominator_moved(now, before)
+
+        if denominator_moved:
+            # Not a regression and not an improvement: the delta between two
+            # different measurements is not a number about the system. The
+            # outcome stays whichever direction the arithmetic points so that a
+            # reader who wants it still has it, except that `unchanged` — the
+            # one answer that would be an affirmative false claim — is off the
+            # table, and the reason says why rather than quoting a tolerance
+            # that never applied.
+            moved_to: Outcome = "regressed" if delta < 0 else "improved"
+            why = (
+                f"score moved from {was} to {is_now}, but it was measured over "
+                f"{_considered(now)} cases against {_considered(before)} in the "
+                "reference: the two are not the same measurement"
+            )
+        elif within(abs(delta), now.tolerance):
             # Declared before measured, and the reason says which one spoke. A
             # tolerance is what a reviewer decided is acceptable; the interval
             # is what the system does. A reader is never left to guess which of
             # the two called this unchanged.
-            moved_to: Outcome = "unchanged"
+            moved_to = "unchanged"
             why = f"delta {delta:+.6f} within tolerance {now.tolerance:.6f}"
         elif floor.covers(now.score.score):
             moved_to = "unchanged"
@@ -603,6 +709,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 before,
                 delta,
                 why,
+                denominator_moved=denominator_moved,
                 within_noise=within_noise,
                 noise_min=floor.low,
                 noise_max=floor.high,

@@ -135,7 +135,7 @@ for.
     "interval_pairs": 2, "left_exceeds": 2, "right_exceeds": 0, "total": 2
   },
   "judges": [],
-  "output_version": 1,
+  "output_version": 2,
   "systems_differ": true,
   "suite": "support",
   "tenant": "northwind"

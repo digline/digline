@@ -47,11 +47,8 @@ import sys
 
 __all__ = ["emit", "say", "visible"]
 
+from digline.core import json_visible
 from digline.report import visible
-
-#: DEL and C1 as JSON `\\u00XX` escapes — the two ranges `json.dumps` leaves raw.
-#: C0 is not here because `json.dumps` has already escaped it.
-_UNESCAPED_BY_JSON = {code: f"\\u{code:04x}" for code in (0x7F, *range(0x80, 0xA0))}
 
 
 def say(text: str = "", *, err: bool = False) -> None:
@@ -75,6 +72,12 @@ def emit(document: str) -> None:
     them raw, because `report.escape()` already wrote them as references. At the
     sink, so every `--json` command inherits it — including the next one.
     (from the 0.13.0 delta-pass)
+
+    **Now a second belt rather than the only one.** `digline.wire` neutralises
+    those two ranges in the *values* it renders, so a document arriving here
+    holds none of them raw and this call changes nothing. It stays because the
+    rule is the sink: an HTML document does not come through `wire`, and the next
+    thing printed here may not either. (from the release delta-pass over 0.15.0)
     """
-    safe = document.translate(_UNESCAPED_BY_JSON)
+    safe = json_visible(document)
     print(safe, end="" if safe.endswith("\n") else "\n")

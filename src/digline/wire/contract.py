@@ -81,7 +81,33 @@ __all__ = [
 #:    so what answered is not identified. A fact and not a verdict — it moves no
 #:    exit code — and never true behind a named endpoint, where the answering
 #:    model is withheld.
-OUTPUT_VERSION = 1
+#:
+#: 2: **the first bump, and the first change that is not an added key.** Every
+#:    entry above is something a consumer could ignore and go on parsing the
+#:    bytes it parsed before. This one rewrites bytes inside values it already
+#:    reads: DEL (U+007F) and the C1 block (U+0080–U+009F) are now written as
+#:    their JSON escape spelling — six ASCII characters where there used to be
+#:    one character — in every string this package renders, keys included.
+#:
+#:    **Why the value and not the serialised document.** `digline.cli` escaped
+#:    those two ranges on the finished JSON text, where the change is invisible
+#:    to a parser: `\\u009b` and the raw byte are one character to `json.loads`.
+#:    That cannot be done for every front end. `digline-mcp` hands dictionaries
+#:    to an SDK that serialises them itself, so digline never touches those
+#:    bytes, and a tool name carrying U+009B — which *is* CSI, and opens on a
+#:    terminal what ESC `[` opens — reached an MCP client raw. The only surface
+#:    both front ends share is the value, so the value is where the rule had to
+#:    go, and the cost moves from the terminal to the consumer.
+#:
+#:    **What it costs, stated plainly.** A pipeline that read a control character
+#:    out of a provider-supplied string — a tool name, a model id, a finish
+#:    reason — now reads its escape spelling instead. Nothing else moves: no key
+#:    added or removed, no number changed, and any text without those two ranges
+#:    is byte-identical. The trade is that a control byte inside text the
+#:    measured system chose is not data anybody needs verbatim, and that one fact
+#:    must not read differently at two front ends — which is the reason this
+#:    package exists. (from the release delta-pass over 0.15.0)
+OUTPUT_VERSION = 2
 
 EXIT_OK = 0
 EXIT_WORSE = 1

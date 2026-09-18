@@ -306,3 +306,62 @@ def test_a_verdict_without_a_reason_is_rejected() -> None:
 def test_an_out_of_range_score_is_rejected() -> None:
     with pytest.raises(ValueError, match=r"\[0, 1\]"):
         Score(name="x", score=1.5)
+
+
+# --------------------------------------------------------------------------- #
+# A paid run must always be writable (from the release delta-pass over 0.15.0)
+# --------------------------------------------------------------------------- #
+
+
+def _run_carrying(text: str) -> Run:
+    return Run(
+        tenant="acme",
+        environment="test",
+        suite="s",
+        config_hash="h",
+        created_at="2026-01-01T00:00:00+00:00",
+        results=(
+            CaseResult(
+                case_id="c1",
+                verdicts=(
+                    Verdict(
+                        score=Score(
+                            name="rubric", score=1.0, metadata={"called": [text]}
+                        ),
+                        threshold=0.5,
+                        tolerance=0.0,
+                        status="pass",
+                        reason=f"the model answered {text}",
+                        assertion_id="a#1",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_a_lone_surrogate_does_not_cost_a_run_that_was_paid_for() -> None:
+    """One unpaired surrogate anywhere in provider text used to make the whole
+    document un-encodable: `digline run` ended at exit 64 with **no run file**
+    after every call had been paid for, and `--resume` replayed the recorded
+    answers for free and died at the identical byte, every time.
+
+    A provider chooses that text and no plugin validates it, so this is reachable
+    without touching the repository.
+    """
+    document = run_to_json(_run_carrying("tool" + chr(0xD800)))
+    assert document.encode("utf-8")  # the write that used to raise
+    restored = run_from_json(document)
+    called = restored.results[0].verdicts[0].score.metadata["called"]
+    # Shown rather than stripped: the broken code point is still legible.
+    assert called == ["tool\\ud800"]
+
+
+def test_the_committed_baseline_stays_readable() -> None:
+    """The other half, and the reason `ensure_ascii=True` was refused. A baseline
+    is the artifact a human reviews in a pull request, and the readability of it
+    is the premise of the whole escaping argument: escaping every accent and
+    arrow to close a rare malformed byte is the wrong side of that trade."""
+    document = run_to_json(_run_carrying("il punteggio è sceso — 0.727 → 0.800"))
+    assert "il punteggio è sceso — 0.727 → 0.800" in document
+    assert "\\u00e8" not in document

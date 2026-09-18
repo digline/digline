@@ -575,6 +575,17 @@ release you just cut. A pass that finds nothing is worth recording too: 0.8.0's
 `finish_raw` and `ToolsCalled` metadata both came back clean, and saying so
 stops the next reader re-auditing them.
 
+**The report goes in `private/`, as `delta-pass-<version>.md`, and it goes there
+the same day.** It is the working material the next pass reads to know what it
+may skip, so where it is kept decides whether it exists at all: the 0.14.0
+report was left in a session scratchpad, a scratchpad is per session and
+temporary, and by the time the 0.15.0 pass went looking for the list of what had
+come back clean it was gone — that pass took "the declared price and the tool
+arguments" from a sentence in the brief rather than from the record. A findings
+file that is not committed somewhere is a findings file that expires. `private/`
+is the right somewhere: a separate repository, gitignored here, and already
+where the frictions log lives for the same reason.
+
 **When a finding earns a GHSA, the session creates the draft.** `SECURITY.md`
 draws the line between an advisory and a changelog entry; this says who does
 which half of the advisory. The session posts it to
