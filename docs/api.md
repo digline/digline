@@ -1342,7 +1342,7 @@ read: DEL (U+007F) and the C1 block (U+0080–U+009F) are written as their JSON
 escape spelling — six ASCII characters where there used to be one — in every
 string digline renders for a program, keys included. So a pipeline that pulled a
 control character out of a provider-supplied string, such as a tool name or a
-model id, now reads `` where it used to read the character itself. Nothing
+model id, now reads `\u009b` where it used to read the character itself. Nothing
 else moves: no key added or removed, no number changed, and any text without
 those two ranges is byte-identical.
 
