@@ -179,9 +179,11 @@ class AssertionDelta:
     #: It rides on a **flip from `fail` to `pass`** as well, which the release
     #: after that one had to add: `improved` is a claim about the pair, and a
     #: pair that counted different numbers of cases is not one. A flip the other
-    #: way never carries it — a gate failing its own threshold needs no
-    #: reference to be true, and that is the one reading a shrunken denominator
-    #: cannot corrupt. (the delta-pass over 0.15.2)
+    #: way never carries it, and that is an asymmetry rather than a proof: a
+    #: gate that fails over the cases it counted stays red because withdrawing
+    #: it would make a run *greener*. Below a threshold of 1.0 it can be a false
+    #: alarm — a case that passed leaves the count and takes the gate under its
+    #: bar — and that is accepted. (the delta-pass over 0.15.2; ADR 0012 §3)
     denominator_moved: bool = False
 
 
@@ -685,15 +687,18 @@ def compare(run: Run, baseline: Run) -> Comparison:
         if now.status != before.status:
             # **A flip is not a distance**, which is ADR 0006 §6's argument one
             # register over: a flip is each side measured against *its own
-            # threshold*, and a threshold needs no reference to be true. That
-            # decides the two directions differently, and 0.15.2 wrote it here
-            # as though it decided both the same way.
+            # threshold*. That decides the two directions differently, and
+            # 0.15.2 wrote it here as though it decided both the same way.
             #
-            # *Downward* it settles the matter: a gate reading `fail 0.666667`
-            # is failing whatever the reference counted, so the run is red,
-            # exits 1, and says so with the denominator unmentioned. Withdrawing
-            # that would be withdrawing the one reading a shrunken denominator
-            # cannot corrupt.
+            # *Downward* the run is red, exits 1, and says so with the
+            # denominator unmentioned — by an asymmetry, not a proof. A gate
+            # reading `fail 0.666667` over three cases is not failing whatever
+            # the reference counted: below a threshold of 1.0 the case that left
+            # the count may have been a pass, and with it counted the gate would
+            # hold. The reading stays because withdrawing it would make a run
+            # *greener*, and red is the side this product chooses to be wrong
+            # on. The false alarm is the price, paid knowingly, and
+            # `tests/test_denominator.py` pins it.
             #
             # *Upward* it settles nothing, and this is the sentence the advisory
             # is about. `fail` over four cases to `pass` over three is the shape
