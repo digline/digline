@@ -129,3 +129,62 @@ def test_releasing_tells_a_human_to_build_the_site_too() -> None:
     assert "make preview" in page
     # The consequence, without which nobody runs an optional-looking step.
     assert "after* PyPI" in page or "after PyPI" in page
+
+
+def site_reading_tests() -> dict[str, str]:
+    """`{test name: file}` for every test that reads the site config.
+
+    Derived by reading the test tree, so the list cannot go stale the way a
+    written one does — which is the failure this whole pair exists for.
+    """
+    found: dict[str, str] = {}
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        current = ""
+        for line in path.read_text(encoding="utf-8").splitlines():
+            # Reset on *any* top-level definition, not only on the next test: a
+            # helper written below a test would otherwise inherit its name, and
+            # this very file — whose helper names the call site in a string —
+            # was the first thing it misread.
+            if line.startswith(("def ", "class ")):
+                current = line[4:].split("(")[0] if line.startswith("def test_") else ""
+            elif "require_site_config()" in line and current:
+                found[current] = path.name
+    return found
+
+
+def test_ci_runs_every_test_that_reads_the_site_config() -> None:
+    """A nav gate that CI does not run is a gate that only ever skips.
+
+    The three these cover sat at the bottom of a green run as part of
+    `10 skipped`, which is a silence rather than an absence: nothing anywhere
+    had checked that a page carries its `nav` line. The `docs` job runs them by
+    node id now, with `DIGLINE_SITE_REQUIRED` set so they may not decline — and
+    this holds that list to the tree, because the next one written would
+    otherwise be skipped everywhere and nobody would learn it from a number.
+    """
+    workflow = CI.read_text(encoding="utf-8")
+    missing = [
+        f"{file}::{name}"
+        for name, file in site_reading_tests().items()
+        if f"{file}::{name}" not in workflow
+    ]
+    assert not missing, (
+        "these tests read digline.dev's config and the `docs` job does not run "
+        "them, so they skip everywhere and their check is performed by "
+        "nothing:\n  " + "\n  ".join(missing)
+    )
+
+
+def test_the_nav_gates_are_forbidden_to_skip_where_ci_runs_them() -> None:
+    """The variable is the whole mechanism, so it is pinned with the step.
+
+    Without `DIGLINE_SITE_REQUIRED`, a `docs` job whose site checkout silently
+    produced no `mkdocs.yml` would run the three, skip all three, and report
+    success — the same silence, one layer further in.
+    """
+    workflow = CI.read_text(encoding="utf-8")
+    assert "DIGLINE_SITE_REQUIRED" in workflow
+    assert "And the control that must fail" in workflow, (
+        "the negative half is part of the gate: a check that cannot fail has "
+        "verified nothing, and this one's value is that it refuses to skip"
+    )

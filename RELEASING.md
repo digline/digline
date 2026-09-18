@@ -318,6 +318,24 @@ rots quietly once it stops being true.
 leaves the packages correct and the site describing the version before them.
 Fix it on `main`, then re-run the failed `site` job. v0.3.0 went out that way.
 
+**The three nav gates run in CI now, and may not skip there.**
+`tests/test_docs_pages.py`, `tests/test_adr.py` and `tests/test_examples.py`
+each carry one check that reads digline.dev's `nav`, and `tests/_site.py` skips
+them wherever the site is not on disk — which was everywhere in CI, since the
+`gates` job clones no site. Ten skipped at the bottom of a green run is a
+silence, not an absence: nothing anywhere had checked that a page carries its
+nav line. The `docs` job, which clones the site to build it, now runs those
+three by node id with **`DIGLINE_SITE_REQUIRED=1`**, under which a skip is a
+failure — and beside them a control that points the config at nothing and must
+fail, because a gate whose whole value is that it refuses to skip has to be
+shown refusing. `tests/test_releasing.py` holds that list to every test that
+reads the site config, so a fourth cannot be written and quietly skip forever.
+
+Locally nothing changes: without digline.dev beside the repository the three
+still skip, and the skip now says what went unverified rather than only how to
+fix it. Set `DIGLINE_SITE_CONFIG` to run them, or do not; the variable that
+forbids the skip is set in one job, deliberately.
+
 CI also runs the gates on **3.12 and 3.13**. One locally is enough before a
 tag — the second is what CI is for — but a failure on 3.13 alone is a real
 failure, not a runner quirk.
@@ -806,6 +824,36 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
+
+**Four of these now have a machine asking, and one place the answer lands.**
+`release-followup.yml` runs after `publish` and on every push to `main`, and
+asks the four questions of this list that have an answer a machine can check:
+the example locks name the released version (step 3), the `publish` run's
+approvals record an `approved` (step 1), the three image tags resolve to one
+digest (step 2's other half), and the Status block names the release (step 4).
+Each is asked twice — once for the answer and once for something that must be
+false — because three of the four fail open by construction, and a check that
+cannot fail has verified nothing.
+
+**The finding is an issue, not a colour.** One open issue at a time, labelled
+`release-followup`, whose body is the current reading and whose title names the
+step that is undone; a later run rewrites it, and the run that finds everything
+done closes it. That shape is the point rather than a convenience: this
+checklist was skipped twice precisely because nothing stayed open, and the job
+cannot use a red instead — between the tag and the follow-up commit the
+repository is *supposed* to fail these, since a lock cannot name a version the
+index has not served yet. A second expected red would undo the work spent making
+the one expected red legible. The job does exit non-zero, for whoever is
+watching; the issue is for whoever is not.
+
+**What it does not check, and this is the important half.** It reads the image
+*digests*, which is one line of step 2. The rest of step 2 — the `served` lines
+in both legs, the clean `pip install` in the same `RUN`, and which of the pairs
+was `CACHED` and therefore proved nothing — is a **reading**, and no predicate
+holds it. Step 4 is the same: the job checks that the block names the release,
+never that what it says is true. Both stay yours. What the job removes is the
+possibility of the step being *forgotten*, which is a different thing from it
+being done well.
 
 Three of the paragraphs below look like problems and are not, and the fourth is
 the one check worth doing by hand.
