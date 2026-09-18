@@ -43,8 +43,11 @@ needs migrating and no baseline needs re-promoting.
   denominator is compared at all, on the argument that a flip is each side
   measured against its own threshold.
 
-  That argument is right downward and wrong upward. `pass` to `fail` needs no
-  reference to be true and stays a regression, red and exit 1. `fail` to `pass`
+  That argument holds downward only as an asymmetry, and is wrong upward.
+  `pass` to `fail` stays a regression, red and exit 1, because withdrawing it
+  would make a run greener — not because it needs no reference: below a
+  threshold of 1.0 a case that passed can leave the count and turn the gate red
+  on its own, a false alarm this release accepts. `fail` to `pass`
   is also the sentence *"the gate got better"* — a claim about the pair, and the
   pair was never a comparison. So a reference reading `recall fail 0.750000 =
   3/4`, held against a run reading `pass 1.000000 = 3/3` because the case it was

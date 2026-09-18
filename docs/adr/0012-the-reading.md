@@ -249,17 +249,28 @@ three shapes:
 
   *Amended again 2026-09-18 by the delta-pass over 0.15.2, which read correction
   3 and found it true of one direction and false of the other.* That a flip is
-  not a distance holds, and it is what keeps a gate reading `fail` red whatever
-  the reference counted. What does not hold is applying it to `improved`: `fail`
+  not a distance holds. What does not hold is applying it to `improved`: `fail`
   to `pass` is not only a statement about this run against its own threshold, it
   is the sentence *"the gate got better"*, and that is a claim about the **pair**
   — which is exactly what two different denominators withdraw. So rule 3 keeps
   precedence downward and yields upward:
 
   - **`pass` to `fail`** stays a regression with the denominator unmentioned, as
-    correction 3 said. It is the one reading a shrunken denominator cannot
-    corrupt, because the threshold it fails is its own — and withdrawing it
-    would be this rule making a run *greener*, which nothing here may do.
+    correction 3 said, and the reason is an asymmetry, not a proof.
+    Withdrawing it would be this rule making a run *greener*, which nothing
+    here may do: red is the side digline chooses to be wrong on. It is **not**
+    true that such a gate is failing whatever the reference counted. Below a
+    threshold of 1.0 a shrunken denominator can move this reading too, in the
+    one direction the rule allows: with the gate at 0.75 and one case failing
+    on both sides, three of four is `pass 0.750000`; if the fourth case, which
+    passed, errors or is suspended, two of three is `fail 0.666667`, and the
+    run reads *"1 check got worse"* and exits 1 although no case got worse.
+    That false alarm is accepted, and `tests/test_denominator.py` pins it so
+    that it stays a decision rather than a discovery.
+
+    *Corrected 2026-09-18: the first wording of this bullet said the gate was
+    red whatever the reference counted and that a shrunken denominator could
+    not corrupt it. Both are true only at a threshold of 1.0.*
   - **`fail` to `pass`** carries `denominator_moved` where the predicate holds,
     and therefore leaves `counts` and `of` like every other incomparability. The
     flip itself is untouched: this run's gate did pass, `now.status` still says

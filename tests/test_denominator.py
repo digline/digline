@@ -35,6 +35,7 @@ from digline.report import (
     summary_lines,
 )
 from digline.wire import (
+    EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_WORSE,
     compare_json,
@@ -258,10 +259,12 @@ def test_a_flip_down_is_not_an_incomparability_and_still_exits_one() -> None:
     """The half of rule 3 that survived the pass after this one.
 
     A gate that read `pass 1.0` and now reads `fail 0.666667` is failing against
-    **its own threshold**, which needs no reference to be true. So the run is red
-    and exits 1, with the denominator unmentioned: this is the one reading a
-    shrunken denominator cannot corrupt, and withdrawing it would be the rule
-    making a run *greener*.
+    **its own threshold** over the cases it counted. So the run is red and exits
+    1, with the denominator unmentioned — not because a shrunken denominator
+    cannot move this reading (below a threshold of 1.0 it can, and
+    `test_a_flip_down_can_be_a_false_alarm_and_still_exits_one` pins that), but
+    because withdrawing it would be the rule making a run *greener*, and red is
+    the side this product chooses to be wrong on.
 
     *The pass that wrote this test read that argument as covering both
     directions and it does not* — `fail` to `pass` is the sentence the advisory
@@ -614,10 +617,16 @@ def unjudgeable(case_id: str) -> CaseOutcome:
     )
 
 
-def run_of(*outcomes: CaseOutcome) -> Run:
+def set_aside(case_id: str) -> CaseOutcome:
+    """A case somebody suspended: no verdict, so it leaves the matrix as
+    `suspended_excluded` rather than being judged."""
+    return CaseOutcome(case_id, "positive", None)
+
+
+def run_of(*outcomes: CaseOutcome, threshold: float = 1.0) -> Run:
     """A run whose run-level `recall` is computed by the real assertion over the
     real confusion matrix, with the cases it was computed from beside it."""
-    recall = Recall(over=TRAJECTORY, threshold=1.0, tolerance=0.0)(outcomes)
+    recall = Recall(over=TRAJECTORY, threshold=threshold, tolerance=0.0)(outcomes)
     return Run(
         tenant="acme",
         environment="test",
@@ -628,6 +637,9 @@ def run_of(*outcomes: CaseOutcome) -> Run:
             CaseResult(
                 case_id=o.case_id,
                 verdicts=() if o.verdict is None else (o.verdict,),
+                suspended="set aside while it is investigated"
+                if o.verdict is None
+                else None,
             )
             for o in outcomes
         ),
@@ -697,3 +709,63 @@ def test_the_advisory_scenario_end_to_end_with_the_real_recall() -> None:
     # the reading was.
     assert head.unjudged == 1
     assert exit_code(head) == EXIT_UNJUDGED
+
+
+def test_a_flip_down_can_be_a_false_alarm_and_still_exits_one() -> None:
+    """The price of the asymmetry, pinned so that it stays a decision.
+
+    The gate is at 0.75 and `c3` fails on both sides, so the reference reads
+    `pass 0.750000 = 3/4`. Then `c4` — a case that *passed* — leaves the count,
+    and the run reads `fail 0.666667 = 2/3`. No case got worse, and with `c4`
+    counted the gate would hold; the run is red and exits 1 anyway, with the
+    denominator unmentioned. So a gate failing its own threshold is **not**
+    failing whatever the reference counted — below 1.0 it need not be — and the
+    reading stays only because withdrawing it would make a run *greener*.
+    (ADR 0012 §3, as corrected 2026-09-18; GHSA-8c38-f965-cgww)
+    """
+    held = (judged("c1", kept=True), judged("c2", kept=True))
+    failing = judged("c3", kept=False)
+    reference = run_of(*held, failing, judged("c4", kept=True), threshold=0.75)
+
+    # Errored and suspended are the two ways a case leaves the count without a
+    # repository edit, and the run would otherwise exit 2 and 0 respectively.
+    for leaving, would_exit in (
+        (unjudgeable("c4"), EXIT_UNJUDGED),
+        (set_aside("c4"), EXIT_OK),
+    ):
+        run = run_of(*held, failing, leaving, threshold=0.75)
+
+        # The premise, measured: the gate crosses its bar on the way down.
+        (was,) = reference.aggregate
+        (is_now,) = run.aggregate
+        assert (was.status, was.score.score) == ("pass", 0.75)
+        assert (is_now.status, is_now.score.score) == ("fail", 0.666667)
+
+        comparison = compare(run, reference)
+        (recall_delta,) = [d for d in comparison.deltas if d.assertion == "recall"]
+        assert recall_delta.outcome == "regressed"
+        assert recall_delta.denominator_moved is False
+        # No case got worse: the only regression in the run is the gate.
+        assert comparison.regressed == (recall_delta,)
+
+        head = headline(comparison, run, reference, locale="en")
+        assert head.worse is True
+        assert head.denominator_moved == 0
+        assert exit_code(head) == EXIT_WORSE
+
+        # The counterfactual, which is what makes it a false alarm rather than a
+        # regression: the same cases under a bar both sides clear are an
+        # incomparability, nothing is worse, and the run exits what it would
+        # have exited without the gate. The exit code moved because of the
+        # denominator and only because of it.
+        lenient = run_of(*held, failing, leaving, threshold=0.5)
+        lenient_reference = run_of(
+            *held, failing, judged("c4", kept=True), threshold=0.5
+        )
+        lenient_comparison = compare(lenient, lenient_reference)
+        lenient_head = headline(
+            lenient_comparison, lenient, lenient_reference, locale="en"
+        )
+        assert lenient_head.denominator_moved == 1
+        assert lenient_head.worse is False
+        assert exit_code(lenient_head) == would_exit
