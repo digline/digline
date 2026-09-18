@@ -134,6 +134,7 @@ RELEASED: dict[str, int] = {
     # §6.5): `"sample_means": true` on a verdict whose samples are means of
     # judgements.
     "0.15.0": 13,
+    "0.15.1": 13,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

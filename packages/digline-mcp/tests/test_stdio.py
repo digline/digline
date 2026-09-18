@@ -24,6 +24,8 @@ from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.types import CallToolResult, TextContent
 from tests._helpers import run_key
 
+from digline.wire import OUTPUT_VERSION
+
 ROOT = Path(__file__).resolve().parents[3]
 TIMEOUT = 60
 
@@ -86,7 +88,7 @@ def test_a_real_client_sees_eight_tools_and_no_promote(promoted: Path) -> None:
     assert compared.is_error is False
     assert compared.structured_content is not None
     assert compared.structured_content["exit_code"] == 0
-    assert compared.structured_content["output_version"] == 1
+    assert compared.structured_content["output_version"] == OUTPUT_VERSION
 
     # The refusal reaches the client as a tool error carrying digline's own
     # words. Without the ToolError translation this would read "Error executing

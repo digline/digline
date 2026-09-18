@@ -16,6 +16,7 @@ from __future__ import annotations
 from digline.core import RegisterEntry
 from digline.report.log import IdentityLog, IdentitySpan, Roll, Sighting
 from digline.wire.contract import OUTPUT_VERSION
+from digline.wire.text import neutralised
 
 __all__ = [
     "log_json",
@@ -128,36 +129,38 @@ def log_json(log: IdentityLog) -> dict[str, object]:
     system, and the verdict about a suite belongs to `compare` (ADR 0020 §5).
     """
     reference = log.reference
-    return {
-        "output_version": OUTPUT_VERSION,
-        "tenant": log.tenant,
-        "suite": log.suite,
-        "window": {"since": log.since or None, "until": log.until or None},
-        "runs": log.runs,
-        "first": log.first or None,
-        "last": log.last or None,
-        "spans": [span_json(span) for span in log.spans],
-        "rolls": [roll_json(roll) for roll in log.rolls],
-        "replays": [
-            {"key": r.key, "created_at": r.created_at, "source": r.source}
-            for r in log.replays
-        ],
-        "skipped": {str(version): n for version, n in sorted(log.skipped.items())},
-        "unreadable": log.unreadable,
-        "reference": (
-            None
-            if reference is None
-            else {
-                "key": reference.key,
-                "created_at": reference.created_at,
-                # Empty where the reference was promoted before the field
-                # existed: *not recorded*, and never filled in from git.
-                "promoted_at": reference.promoted_at or None,
-                "target": sighting_json(reference.target),
-                "judge": sighting_json(reference.judge),
-            }
-        ),
-        "register": [register_entry_json(entry) for entry in log.register],
-        "register_torn": log.register_torn,
-        "register_unreadable": log.register_unreadable,
-    }
+    return neutralised(
+        {
+            "output_version": OUTPUT_VERSION,
+            "tenant": log.tenant,
+            "suite": log.suite,
+            "window": {"since": log.since or None, "until": log.until or None},
+            "runs": log.runs,
+            "first": log.first or None,
+            "last": log.last or None,
+            "spans": [span_json(span) for span in log.spans],
+            "rolls": [roll_json(roll) for roll in log.rolls],
+            "replays": [
+                {"key": r.key, "created_at": r.created_at, "source": r.source}
+                for r in log.replays
+            ],
+            "skipped": {str(version): n for version, n in sorted(log.skipped.items())},
+            "unreadable": log.unreadable,
+            "reference": (
+                None
+                if reference is None
+                else {
+                    "key": reference.key,
+                    "created_at": reference.created_at,
+                    # Empty where the reference was promoted before the field
+                    # existed: *not recorded*, and never filled in from git.
+                    "promoted_at": reference.promoted_at or None,
+                    "target": sighting_json(reference.target),
+                    "judge": sighting_json(reference.judge),
+                }
+            ),
+            "register": [register_entry_json(entry) for entry in log.register],
+            "register_torn": log.register_torn,
+            "register_unreadable": log.register_unreadable,
+        }
+    )

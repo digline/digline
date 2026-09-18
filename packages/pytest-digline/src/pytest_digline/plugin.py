@@ -312,11 +312,17 @@ def _measure(
     function of them rather than of when it happened to look.
     """
     from digline.host import git_commit, load_target, read_artifacts, utc_now_iso
+    from digline.report import visible
     from digline.run import execute, planned_calls
 
     target = load_target(None, loaded, spec)
     plan = planned_calls(suite)
-    print(f"digline: {plan.sentence()}", file=sys.stderr)
+    # Through `visible()`, like every other sentence this plugin prints. The
+    # sentence names the model the suite configured, which is a string out of a
+    # file somebody else may have written, and this was the one direct terminal
+    # write left in any front end when the rule was widened past `digline.cli`.
+    # (from the release delta-pass over 0.15.0)
+    print(f"digline: {visible(plan.sentence())}", file=sys.stderr)
     commit = git_commit(root)
     created_at = utc_now_iso()
     run = execute(

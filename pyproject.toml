@@ -1,6 +1,6 @@
 [project]
 name = "digline"
-version = "0.15.0"
+version = "0.15.1"
 description = "Regression testing for LLM output, against a baseline committed in your own repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -152,6 +152,14 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # of them. The quickstart is not standalone and stays.
 include = ["src", "tests", "tools", "examples/quickstart", "packages"]
 extraPaths = [
+    # `src` itself, and it was missing until 0.15.1 — every plugin's `src` was
+    # listed and the core's own was not. An editable install leaves nothing in
+    # `site-packages/digline/` but `py.typed`; the code is reachable only through
+    # a `.pth`, which pyright does not read. So pyright resolved `digline` well
+    # enough for names that already existed and reported every **newly added**
+    # one as an unknown import symbol — a strict gate that was blind in exactly
+    # the case you need it, and silent about being blind.
+    "src",
     "tools",
     "examples/quickstart",
     "packages/digline-anthropic/src",

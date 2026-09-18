@@ -25,6 +25,7 @@ from typing import assert_never
 from digline.report.explain import CheckFact, Fact, SettingFact, TallyFact
 from digline.wire.compare import shape_json
 from digline.wire.contract import OUTPUT_VERSION
+from digline.wire.text import neutralised
 
 __all__ = ["explain_json", "fact_json"]
 
@@ -97,12 +98,14 @@ def explain_json(
     at all produce different readings, and the difference must not be something
     you deduce from an absence.
     """
-    return {
-        "output_version": OUTPUT_VERSION,
-        "scope": scope,
-        # The same number the process exits with, for the same reason it is on
-        # `compare --json`: over MCP there is no process to exit, and the two
-        # surfaces must not answer differently. (ADR 0011 §4)
-        "exit_code": exit_code,
-        "facts": [fact_json(fact) for fact in reading],
-    }
+    return neutralised(
+        {
+            "output_version": OUTPUT_VERSION,
+            "scope": scope,
+            # The same number the process exits with, for the same reason it is on
+            # `compare --json`: over MCP there is no process to exit, and the two
+            # surfaces must not answer differently. (ADR 0011 §4)
+            "exit_code": exit_code,
+            "facts": [fact_json(fact) for fact in reading],
+        }
+    )

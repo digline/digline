@@ -29,11 +29,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 from tests._helpers import cli, run_key
 
 from digline.cli.output import say, visible
+from digline.core import json_visible
+from digline.wire import OUTPUT_VERSION
 
 #: The two tricks, together: erase the line just printed and write a line that
 #: reads like a passing gate, then rename the terminal window.
@@ -244,7 +247,7 @@ def test_json_is_emitted_exactly_as_built(repo: Path) -> None:
 
     done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json")
     payload = json.loads(done.stdout)  # parses, which is the contract
-    assert payload["output_version"] == 1
+    assert payload["output_version"] == OUTPUT_VERSION
     assert clean(done.stdout)
 
 
@@ -274,8 +277,17 @@ def test_the_register_reaches_log_json_without_a_raw_c1(repo: Path) -> None:
     """The register is committed, so a pull request writes its strings — and
     `log --json` printed a C1 CSI from one straight to the terminal. In 0.13.0
     `emit()` believed `json.dumps` escapes every control character; it escapes
-    C0 and leaves DEL and C1 raw. Escaped, not stripped: the parsed value is
-    exactly what the file holds."""
+    C0 and leaves DEL and C1 raw.
+
+    **What the parsed value is changed in 0.15.1, and this is where that is
+    pinned.** It used to be exactly what the file holds, because `emit()` escaped
+    the *serialised text* and a parser read the raw character straight back. That
+    only ever worked for this front end: `digline-mcp` hands dictionaries to an
+    SDK that serialises them itself, so the rule had to move to the **value**, in
+    `digline.wire`, where both front ends inherit it. A reader therefore gets the
+    escape spelling — six characters where the file holds one — which is the cost
+    `OUTPUT_VERSION` 2 declares. Escaped, still never stripped: what the file
+    held stays legible in what the reader gets."""
     key = run_key(repo)
     assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
     recorded = cli(
@@ -298,7 +310,11 @@ def test_the_register_reaches_log_json_without_a_raw_c1(repo: Path) -> None:
     assert done.returncode == 0, done.stderr
     assert raw_del_or_c1(done.stdout) == []
     (shown,) = json.loads(done.stdout)["register"]
-    assert shown["run"]["environment"] == C1_FORGERY
+    assert shown["run"]["environment"] == json_visible(C1_FORGERY)
+    # The C0 half is untouched by the wire and still arrives raw through the
+    # parser, exactly as before: `json.dumps` escapes it on the way out, so it
+    # was never the hole. Only DEL and C1 changed hands.
+    assert "\r" in shown["run"]["environment"]
 
 
 def test_emit_escapes_del_and_c1_and_a_parser_reads_the_same_document(
@@ -346,4 +362,127 @@ def test_nothing_in_the_cli_prints_except_through_say_or_emit() -> None:
     assert offenders == [], (
         "these write to a terminal without going through digline.cli.output: "
         + ", ".join(offenders)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The rule, widened past `digline.cli` (from the release delta-pass over 0.15.0)
+# --------------------------------------------------------------------------- #
+#
+# The test above walks `digline.cli` for a direct terminal write, and it would
+# not have caught the hole this section exists for. `digline-mcp` never calls
+# `print`: it returns dictionaries and an SDK serialises them, so a tool name
+# carrying U+009B left on the wire raw with no `print` anywhere near it. An AST
+# scan is blind to that by construction, which is why the rule now has two halves
+# and why the second one is the one that matters.
+
+
+#: Every front end, and the module in each that is allowed to write.
+FRONT_ENDS: tuple[tuple[str, str | None], ...] = (
+    ("digline.cli", "output.py"),
+    ("digline_mcp", None),
+    ("pytest_digline", None),
+)
+
+
+@pytest.mark.parametrize(("module", "sanitiser"), FRONT_ENDS)
+def test_no_front_end_writes_to_a_terminal_except_through_the_sanitiser(
+    module: str, sanitiser: str | None
+) -> None:
+    """Half one, widened: the `print` scan, over **every** front end.
+
+    `digline.cli` had this to itself, and the reason it needed company is in the
+    section comment above: the rule was kept in the front end that happened to be
+    written first, so the second one inherited nothing. A front end may not import
+    another, so the escaping now lives in `digline.core` and `digline.wire`, and
+    this holds the other end of it.
+    """
+    import ast
+    import importlib
+
+    package = importlib.import_module(module)
+    # `__path__` rather than `__file__`: a namespace package has no `__file__`,
+    # and `digline_mcp` is one in this workspace.
+    roots = [Path(entry) for entry in package.__path__]
+    assert roots, f"{module} has no importable directory"
+    sources = sorted({s for root in roots for s in root.glob("*.py")})
+    offenders: list[str] = []
+    for source in sources:
+        if sanitiser is not None and source.name == sanitiser:
+            continue
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            called = node.func
+            name = (
+                called.id
+                if isinstance(called, ast.Name)
+                else ast.unparse(called)
+                if isinstance(called, ast.Attribute)
+                else ""
+            )
+            if name not in {"print", "sys.stdout.write", "sys.stderr.write"}:
+                continue
+            # A write is fine where what it writes has already been through the
+            # sanitiser: the rule is that nothing reaches a terminal unescaped,
+            # not that nothing is ever printed.
+            if "visible(" in ast.unparse(node):
+                continue
+            offenders.append(f"{module}/{source.name}:{node.lineno} {name}(...)")
+    assert offenders == [], (
+        f"these write to a terminal without going through a sanitiser: "
+        f"{', '.join(offenders)}"
+    )
+
+
+def test_the_wire_neutralises_del_and_c1_for_every_front_end() -> None:
+    """Half two, and the half that would have caught the hole.
+
+    Not an AST scan but the bytes themselves, because the failure it guards has
+    no `print` in it: `digline-mcp` hands a dictionary to an SDK, the SDK
+    serialises with pydantic, and pydantic writes DEL and C1 raw exactly as
+    `json.dumps` does under `ensure_ascii=False`. The only defence both front
+    ends can share is the value, so the value is what this checks.
+
+    Driven through the real serialisers — `json.dumps` for `--json`, pydantic's
+    for MCP — rather than through a description of them, and with the control
+    that must fail: the same document without the wire's pass **must** carry the
+    raw bytes, or this test is asserting nothing.
+    """
+    from pydantic import BaseModel
+
+    from digline.wire.text import neutralised
+
+    hostile = "".join(chr(code) for code in (0x7F, *range(0x80, 0xA0)))
+    document: dict[str, object] = {
+        "called": [hostile],
+        "tool": hostile,
+        hostile: "a key, too",
+    }
+
+    class Wire(BaseModel):
+        called: list[str]
+        tool: str
+
+    safe = neutralised(document)
+
+    # `--json`: what `json.dumps` writes, before `emit()` gets its second pass.
+    assert raw_del_or_c1(json.dumps(safe, ensure_ascii=False)) == []
+    # MCP: what the SDK's serialiser writes, which digline never touches.
+    called = cast("list[str]", safe["called"])
+    served = Wire(called=called, tool=cast("str", safe["tool"])).model_dump_json()
+    assert raw_del_or_c1(served) == []
+    # Keys as well as values.
+    assert raw_del_or_c1("".join(safe)) == []
+
+    # The control that must fail.
+    unsafe = Wire(called=[hostile], tool=hostile).model_dump_json()
+    assert raw_del_or_c1(unsafe) != [], (
+        "the serialiser escaped these on its own, so this test proves nothing"
+    )
+
+    # Both front ends read one value, which is the reason the rule sits in wire.
+    assert (
+        json.loads(json.dumps(safe, ensure_ascii=False))["tool"]
+        == (json.loads(served)["tool"])
     )

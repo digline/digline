@@ -6,6 +6,104 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.1.5 — 2026-09-18
+
+**A suite's own text could reach a terminal unescaped.** The plugin prints one
+line before a run — `digline: <the call plan>` — and that line names the model
+the suite configured, which is a string out of a file somebody else may have
+written. It was the only direct terminal write left in any front end once the
+escape rule was widened past `digline.cli`, and it did not go through
+`report.visible()` while every other sentence this plugin prints did.
+
+Escaped, not stripped: a value that carried an escape is still a value somebody
+should look at. Needs no digline upgrade — `visible()` has been exported since
+0.10.1.
+
+## 0.15.1 — 2026-09-18
+
+**The escape rule moves to the wire, and `--json` changes shape for the first
+time.** digline **0.15.1**, the delta-pass patch over 0.15.0, alongside
+pytest-digline 0.1.5. `OUTPUT_VERSION` moves to **2**. `SCHEMA_VERSION` stays
+13: no stored document changes, nothing needs migrating, and no baseline needs
+re-promoting.
+
+**What changed in `--json`, and what it costs you.** Every string digline renders
+for a program — through `digline compare --json`, `explain --json`, `diff
+--json`, `log --json` and every `digline-mcp` tool — now has DEL (U+007F) and the
+C1 block (U+0080–U+009F) written as their JSON escapes. Six ASCII characters
+where there used to be one character, in values and in keys.
+
+A pipeline that read a control character out of a provider-supplied string — a
+tool name, a model id, a finish reason — now reads its escape spelling instead.
+Nothing else moves: no key is added or removed, no number changes, and text
+without those two ranges is byte-identical.
+
+**Why it had to be the value.** `digline.cli` escaped those two ranges on the
+finished JSON text, where a parser cannot tell: `\u009b` and the raw byte are the
+same character to `json.loads`. That only ever worked for one front end.
+`digline-mcp` hands dictionaries to an SDK that serialises them itself, so
+digline never touches those bytes — and a tool name carrying U+009B, which *is*
+CSI and opens on a terminal exactly what `ESC [` opens, reached an MCP client
+raw. The only surface both front ends share is the value, so that is where the
+rule now lives, in `digline.wire`. A third front end inherits it without knowing
+it exists.
+
+The trade, stated rather than assumed: a control byte inside text the measured
+system chose is not data anybody needs verbatim, and one fact must not read
+differently at two front ends.
+
+### Security
+
+- **A tool name could carry a terminal escape onto the MCP wire.** Found by the
+  release delta-pass over 0.15.0. All three provider plugins pass any non-empty
+  string through as a tool name; `ToolsCalled` records it, and a suite declaring
+  `Disclosure(score_metadata={"called"})` put it on the wire, where `digline-mcp`
+  had no equivalent of the CLI's `emit()`. No advisory, by `SECURITY.md`'s rule:
+  the exposure needed a suite to disclose `called`, and the fix ships before the
+  surface was announced.
+
+### Fixed
+
+- **The structural escape rule only ever watched `digline.cli`.** It is now
+  enforced over every front end, in two halves: a scan for a direct terminal
+  write, and — the half that would have caught the MCP hole, which has no `print`
+  in it — a check that the bytes the real serialisers emit carry no raw DEL or
+  C1. It found one offender outside the core, released separately as
+  pytest-digline 0.1.5.
+- **A lone surrogate cost a run that had already been paid for.** One unpaired
+  surrogate anywhere in provider text made the whole run document un-encodable,
+  so `digline run` ended at exit 64 with **no run file** after every call had
+  been billed, and `--resume` replayed the recorded answers and died at the
+  identical byte, every time, naming neither the field nor the case. A provider
+  chooses that text and no plugin validates it, so it needed no repo access.
+
+  The broken code point is now written as its escape spelling and nothing else
+  is touched. `ensure_ascii=True` would also have fixed it, and was refused: it
+  escapes every accent and arrow in every recorded reason, in the one artifact a
+  human reviews in a pull request. A baseline nobody can read is a baseline
+  nobody can review, and that readability is the premise of the whole escaping
+  argument.
+
+- **`tests/test_example_caps.py` failed on files that were never committed.** It
+  gathered documents with `rglob`, while each example's `.digline/.gitignore`
+  excludes `*/runs/`, so anyone who had *run* an example went red after a schema
+  bump — and the message told them to commit files that are ignored by
+  construction. It asks git now.
+- **The strict type gate was blind to newly added symbols.** During the
+  delta-pass pyright reported every newly added public name in `digline` as an
+  unknown import symbol while names that already existed resolved normally — so
+  it was green because nobody had added a symbol, not because it was working.
+  `src` is now in `[tool.pyright] extraPaths`, which had listed every plugin's
+  source root and not the core's own.
+
+  Two things changed before it cleared — that path, and a rebuild of the editable
+  install — and the incident cannot be split between them after the fact; the
+  blind state could not be reproduced afterwards by removing the path alone. The
+  path is kept because it makes resolution independent of install state, not
+  because it was proven to be the cause. `tests/test_type_gate.py` now asks
+  pyright to accept names this project exports, which catches the symptom
+  whatever causes it next time, and is itself unproven for the same reason.
+
 ## 0.15.0 — 2026-09-17
 
 **A tool call nobody named is recorded as one.** digline **0.15.0**, with

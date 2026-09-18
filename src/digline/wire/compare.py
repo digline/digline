@@ -11,6 +11,7 @@ import dataclasses
 from digline.core import AssertionDelta, Comparison, ConfigDelta
 from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
+from digline.wire.text import neutralised
 
 __all__ = ["compare_json", "config_json", "delta_json"]
 
@@ -56,6 +57,13 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         # a pipeline reading every row can tell why this one is not among them.
         # (ADR 0024 §4.4)
         "calibration": delta.calibration,
+        # Two aggregates computed over different numbers of cases. It rides
+        # beside the outcome for the reason `within_noise` does, and it is the
+        # field a pipeline needed most: before it existed this row read
+        # `"outcome": "unchanged"` for a gate that had been measured over a
+        # smaller suite, which is not a silence a consumer can detect.
+        # (ADR 0012 §3, amended 2026-09-18)
+        "denominator_moved": delta.denominator_moved,
     }
 
 
@@ -130,4 +138,4 @@ def compare_json(
         payload["judge_config_deltas"] = [
             config_json(d) for d in comparison.judge_config_deltas
         ]
-    return payload
+    return neutralised(payload)

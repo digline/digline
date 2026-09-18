@@ -600,6 +600,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "which side they landed on is a property of the samples that were "
             "drawn."
         ),
+        "explain.tally.denominator_moved.one": (
+            "1 run-level check was measured over a different number of cases "
+            "than the reference it is set beside, so the two are not the same "
+            "measurement and neither is a movement of the other."
+        ),
+        "explain.tally.denominator_moved.many": (
+            "{count} run-level checks were measured over a different number of "
+            "cases than the reference they are set beside, so the two are not "
+            "the same measurement and neither is a movement of the other."
+        ),
         "explain.check.on_the_line": (
             " The band this run measured covers the threshold, so which side it "
             "landed on is a property of the samples that were drawn."
@@ -1305,6 +1315,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.on_the_line.many": (
             "{count} controlli hanno misurato una banda che copre la propria "
             "soglia: da quale lato siano caduti dipende dai campioni estratti."
+        ),
+        "explain.tally.denominator_moved.one": (
+            "1 controllo di esecuzione è stato misurato su un numero di casi "
+            "diverso da quello del riferimento accanto: le due non sono la "
+            "stessa misura, e nessuna è uno spostamento dell'altra."
+        ),
+        "explain.tally.denominator_moved.many": (
+            "{count} controlli di esecuzione sono stati misurati su un numero di "
+            "casi diverso da quello del riferimento accanto: le due non sono la "
+            "stessa misura, e nessuna è uno spostamento dell'altra."
         ),
         "explain.check.on_the_line": (
             " La banda misurata da questa esecuzione copre la soglia: da quale "

@@ -130,6 +130,14 @@ type TallyKind = Literal[
     # threshold for *more than the reference* is measured later. It gates
     # nothing, and it is not in the headline. (ADR 0024 §6.3)
     "shape",
+    # The seventh amendment to ADR 0012 §3, and the first made because a reading
+    # was found saying something **false** rather than saying nothing: a
+    # run-level aggregate measured over a different number of cases than the
+    # reference beside it, which the reading called `unchanged`. A count of the
+    # aggregates in that state. An **incomparability, not a regression** — it
+    # moves no exit code and reclassifies no check; what it withdraws is the
+    # claim that nothing moved. (ADR 0012 §3, amended 2026-09-18)
+    "denominator_moved",
 ]
 
 
@@ -265,6 +273,16 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     on_line = on_the_line_count(run)
     if on_line:
         out.append(TallyFact("on_the_line", count=on_line))
+    # Beside it, and read off the comparison rather than the run: it is a fact
+    # about two measurements not being the same measurement, which one run alone
+    # cannot know. (ADR 0012 §3, amended 2026-09-18)
+    incomparable = (
+        0
+        if comparison is None
+        else sum(1 for delta in comparison.deltas if delta.denominator_moved)
+    )
+    if incomparable:
+        out.append(TallyFact("denominator_moved", count=incomparable))
     # **First, before any number and before a moved judge**, and from the run
     # alone. A lost scale says the judged numbers below are not measurements at
     # all, which is a stronger caveat than a judge that moved — a moved judge
@@ -630,6 +648,13 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(locale, "explain.tally.canary")
         case "echoed":
             return phrase(locale, "explain.tally.echoed")
+        case "denominator_moved":
+            return phrase(
+                locale,
+                "explain.tally.denominator_moved."
+                f"{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
         case "calibration":
             return phrase(
                 locale,
