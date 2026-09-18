@@ -552,6 +552,21 @@ def _failing(delta: AssertionDelta) -> bool:
         # that moved inside its band is not a check of the system that got
         # worse, so it never fails a row. (ADR 0024 §4.4)
         return False
+    if delta.denominator_moved:
+        # Two aggregates computed over different numbers of cases, which
+        # `Comparison.counts` leaves out of every outcome — so `exit_code()`
+        # cannot read one, and this must not either. That is the drift the
+        # docstring above forbids, and digline 0.15.2 opened it: a plugin still
+        # reading `outcome == "regressed"` fails a row that the run it is
+        # reporting on calls incomparable, which is one fact answered twice.
+        #
+        # The row passes and the fact is still said, which is why passing is
+        # honest here rather than merely consistent: the suite's headline —
+        # printed once by `pytest_terminal_summary`, byte for byte, and carrying
+        # "N run-level checks were measured over a different number of cases"
+        # since digline 0.15.2 — says it for the listing the way `summary_lines`
+        # says it for the terminal. (ADR 0012 §3, amended 2026-09-18)
+        return False
     if delta.outcome == "regressed":
         return True
     return delta.canary and delta.outcome == "improved"

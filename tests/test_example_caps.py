@@ -138,6 +138,9 @@ RELEASED: dict[str, int] = {
     # The delta-pass patch over 0.15.1: a reading, its counts and two
     # sentences. No stored document changes, so the schema does not move.
     "0.15.2": 13,
+    # The delta-pass patch over 0.15.2: the same reading, on the flip the rule
+    # had exempted. A count and a sentence, and no stored document changes.
+    "0.15.3": 13,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

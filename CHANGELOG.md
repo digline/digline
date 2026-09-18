@@ -6,6 +6,77 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.1.6 — 2026-09-18
+
+**The plugin failed a row that `digline compare` calls incomparable.** The
+drift was opened by digline 0.15.2 rather than by this plugin:
+`Comparison.counts` stopped counting these deltas, so `exit_code()` cannot read
+one, while `_failing()` still read `outcome == "regressed"` straight off the
+row. A run-level gate that dropped
+over a denominator that moved therefore passed `digline compare` and failed
+`pytest` — one fact answered twice, which that function's own docstring exists
+to forbid.
+
+The row passes and nothing is swallowed: the suite's headline, which this
+plugin prints once verbatim, has carried *"N run-level checks were measured
+over a different number of cases"* since 0.15.2. A case that could not be
+judged is still an ERROR row, and a check that really got worse still fails.
+Needs digline **0.15.2 or later**, which is where the flag it reads arrives.
+
+## 0.15.3 — 2026-09-18
+
+**The gate the advisory is about, which two releases had gone past.**
+digline **0.15.3**, the delta-pass patch over 0.15.2, alongside pytest-digline
+**0.1.6**.
+`OUTPUT_VERSION` stays **2** and `SCHEMA_VERSION` stays **13**: no key is added
+to or removed from any `--json` document, no stored document changes, nothing
+needs migrating and no baseline needs re-promoting.
+
+### Security
+
+- **A gate raised from `fail` to `pass` was still reported as an improvement.**
+  [GHSA-8c38-f965-cgww][adv] describes one sentence: a run-level aggregate whose
+  denominator shrank because an endpoint made a case unjudgeable, read against a
+  reference that counted more cases. 0.15.1 gave that pair a name — an
+  incomparability — and 0.15.2 stopped it counting. **Both went past the case in
+  the advisory's own table**, because `compare()` classifies a *flip* before a
+  denominator is compared at all, on the argument that a flip is each side
+  measured against its own threshold.
+
+  That argument is right downward and wrong upward. `pass` to `fail` needs no
+  reference to be true and stays a regression, red and exit 1. `fail` to `pass`
+  is also the sentence *"the gate got better"* — a claim about the pair, and the
+  pair was never a comparison. So a reference reading `recall fail 0.750000 =
+  3/4`, held against a run reading `pass 1.000000 = 3/3` because the case it was
+  failing errored, was counted under `improved`, filed in the report under *"What
+  got better"* and read by `explain` as a rise. It now carries
+  `denominator_moved`, leaves `counts` like every other incomparability, and
+  states both numbers of cases: *"the whole run · recall: measured over 3 cases
+  here and 4 in the reference, so 0.750000 and 1.000000 are not a movement of one
+  another."*
+
+  No new sentence was written for it, in either locale: an incomparable flip
+  prints what an incomparable movement already printed. The advisory's range
+  moves to `< 0.15.3` and it now carries the fix history of all three releases.
+  Found by the delta-pass over 0.15.2. (ADR 0012 §3, amended again)
+
+[adv]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
+
+### What deliberately did not move
+
+- **No exit code changes, and that is the honest measure of this fix.**
+  `improved` has never made a run red, so what was corrupted was the reading and
+  only the reading — the count, the section of the report, the sentence. The run
+  in the advisory's table still exits **2**, because the case the endpoint broke
+  is still unjudged. This is the same `I:L` the advisory scores and the reason it
+  scores it.
+
+- **`digline diff` still reads two such scores as `same`**, unchanged from
+  0.15.2's note: it has its own closed vocabulary, does not read `considered`,
+  and teaching it this rule is a decision rather than a patch. The register's
+  line is unchanged too, so `digline log` still does not mention an incomparable
+  gate; it remains the first passenger on the next `REGISTER_VERSION` move.
+
 ## 0.15.2 — 2026-09-18
 
 **The reading a gate gets when it was never compared.** digline **0.15.2**, the
