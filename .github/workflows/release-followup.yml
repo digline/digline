@@ -1,0 +1,195 @@
+# The four things a machine can ask once the tag is out — and one issue.
+#
+# `RELEASING.md`'s *After the tag* checklist had no gate of any kind, and it was
+# skipped twice without anything noticing: the example locks were regenerated
+# for 0.15.0 and were still naming it at 0.15.3, and the *Status* block was two
+# releases behind on the same day. The caps admitted both versions and the stale
+# prose was registered as history, so every run stayed green.
+#
+# **Why this is not a check on a pull request.** Between the tag and the
+# follow-up commit the repository is *supposed* to be in the failing state: a
+# lock cannot name a version the index has not served yet. A red on `main` for
+# that window would be a second expected red, and the runbook has spent real
+# effort making the one expected red distinguishable from a defect. So the
+# finding goes somewhere that persists and is not a colour: an issue.
+#
+# **Reconciliation, not notification.** One open issue at a time, labelled
+# `release-followup`. A failing run opens it or rewrites its body; a passing run
+# closes it with a comment. That is the part that matters — the locks were stale
+# for two releases precisely because nothing stayed open, and an email nobody
+# answers is the same as no email. The job also exits non-zero, so the run is
+# red for whoever is looking; the red is not the channel.
+name: release-followup
+
+on:
+  # After a release, which is when the four become due.
+  workflow_run:
+    workflows: [publish]
+    types: [completed]
+  # And on every push to `main`, which is what closes the issue: the follow-up
+  # work *is* a commit to `main`, so this is the moment to re-ask.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-followup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # To open, rewrite and close the one issue. Nothing else is written.
+  issues: write
+
+jobs:
+  ask:
+    name: Was the runbook followed after the tag?
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The follow-up commits land on `main`, so `main` is the subject —
+          # never the tag's commit, which by construction predates them.
+          ref: main
+          persist-credentials: false
+          # `git tag --list` below decides whether a release has happened at
+          # all, and a shallow clone carries no tags.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # Before anything else: has this version been released? Between the
+      # release PR merging and the tag being pushed, `pyproject.toml` names a
+      # version that has no tag, no image and no publish run — and every check
+      # below would fail for the honest reason that there is nothing to check.
+      # That window is not a skipped step, so it opens no issue.
+      - name: The version, and whether it is out
+        id: version
+        run: |
+          version="$(uv run --quiet python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git tag --list "v$version" | grep -q .; then
+            echo "released=yes" >> "$GITHUB_OUTPUT"
+            echo "v$version is tagged; the follow-up is due"
+          else
+            echo "released=no" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$version has no tag yet, so the release has not happened and there is nothing to follow up"
+          fi
+
+      # Step 1's evidence. Two calls, and the second is the negative half: the
+      # approvals of *this* run, which has no gated environment and must
+      # therefore record none. If it reads as approved, the query is not
+      # reading approvals and the positive half proves nothing.
+      - name: The approvals, and a run that cannot have one
+        if: steps.version.outputs.released == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          run_id="$(gh run list --workflow=publish.yml --branch "v$VERSION" \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -z "$run_id" ]; then
+            echo "[]" > approvals.json
+            echo "::warning::no publish run found for v$VERSION"
+          else
+            gh api "repos/${{ github.repository }}/actions/runs/$run_id/approvals" \
+              > approvals.json || echo "[]" > approvals.json
+          fi
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/approvals" \
+            > no-gate.json || echo "[]" > no-gate.json
+          echo "publish run: ${run_id:-none}"
+
+      # Step 2's other half, the one a log cannot show. Four queries: the three
+      # tags a release publishes, and one that cannot exist. `null` is
+      # *not found*; the string `error` is *the registry did not answer*, and
+      # the script refuses to judge the second rather than reporting a release
+      # that shipped three different images.
+      - name: The image tags, and one that cannot exist
+        if: steps.version.outputs.released == 'yes'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          token="$(curl -fsS "https://ghcr.io/token?scope=repository:${{ github.repository }}:pull&service=ghcr.io" | uv run --quiet python -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+          minor="${VERSION%.*}"
+          : > digests.jsonl
+          for tag in "$VERSION" "$minor" latest "$VERSION-does-not-exist"; do
+            code_and_digest="$(curl -sS -o /dev/null -D - \
+              -H "Authorization: Bearer $token" \
+              -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+              -w '%{http_code}' \
+              "https://ghcr.io/v2/${{ github.repository }}/manifests/$tag" 2>/dev/null \
+              | tr -d '\r' || true)"
+            digest="$(printf '%s' "$code_and_digest" | grep -i '^docker-content-digest:' | awk '{print $2}')"
+            code="$(printf '%s' "$code_and_digest" | tail -c 3)"
+            if [ -n "$digest" ]; then
+              printf '%s\t%s\n' "$tag" "$digest" >> digests.jsonl
+            elif [ "$code" = "404" ]; then
+              printf '%s\t\n' "$tag" >> digests.jsonl
+            else
+              printf '%s\terror\n' "$tag" >> digests.jsonl
+            fi
+          done
+          uv run --quiet python - <<'PY' > digests.json
+          import json, pathlib
+          out: dict[str, object] = {}
+          for line in pathlib.Path("digests.jsonl").read_text().splitlines():
+              tag, _, value = line.partition("\t")
+              out[tag] = value or None
+          print(json.dumps(out))
+          PY
+          cat digests.json
+
+      - name: Ask the four, each with its control
+        id: ask
+        if: steps.version.outputs.released == 'yes'
+        continue-on-error: true
+        run: |
+          uv run --quiet python .github/release_followup.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --root . --releasing RELEASING.md \
+            --approvals approvals.json --approvals-control no-gate.json \
+            --digests digests.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The channel. One open issue, whose body is always the current reading —
+      # rewritten rather than duplicated, and closed by the run that finds
+      # everything done, so nobody has to remember to close it.
+      - name: Open, rewrite or close the one issue
+        if: steps.version.outputs.released == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ok="$(uv run --quiet python -c 'import json; print(json.load(open("report.json"))["ok"])')"
+          title="$(uv run --quiet python -c 'import json; print(json.load(open("report.json"))["title"])')"
+          uv run --quiet python -c 'import json; open("body.md","w").write(json.load(open("report.json"))["body"])'
+          gh label create release-followup --color B60205 \
+            --description "A step of RELEASING.md after the tag is still undone" \
+            --force > /dev/null 2>&1 || true
+          open_issue="$(gh issue list --label release-followup --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+          if [ "$ok" = "True" ]; then
+            if [ -n "$open_issue" ]; then
+              gh issue comment "$open_issue" --body-file body.md
+              gh issue close "$open_issue" \
+                --comment "Every check above passes now; closed by release-followup.yml."
+              echo "closed #$open_issue"
+            else
+              echo "nothing open, nothing to close"
+            fi
+          elif [ -n "$open_issue" ]; then
+            gh issue edit "$open_issue" --title "$title" --body-file body.md
+            echo "rewrote #$open_issue"
+          else
+            gh issue create --label release-followup --title "$title" --body-file body.md
+            echo "opened an issue"
+          fi
+
+      # Last, so the issue exists before the run goes red: the red is for
+      # whoever is watching, the issue is for whoever is not.
+      - name: Fail if a step of the runbook is still undone
+        if: steps.version.outputs.released == 'yes' && steps.ask.outcome != 'success'
+        run: |
+          echo "::error::a step of RELEASING.md after the tag is undone — see the issue labelled release-followup"
+          exit 1
