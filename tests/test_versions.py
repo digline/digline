@@ -128,22 +128,25 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
     "src/digline/core/text.py": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
     },
     "src/digline/wire/contract.py": {
+        "0.15.2": "the delta-pass over 0.15.2 — the pass that took the "
+        "incomparable flip out of `counts`, told as history beside the entry "
+        "above it. Moving the number would claim a later pass audited it",
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
     },
     "src/digline/wire/text.py": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -164,12 +167,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.15.2": "'until 0.15.2 this section did not exist' — the release "
+        "in which the version-bump ritual was written down, told as history",
         "0.15.1": "seven sentences about the release that proved the "
         "same-question index fix on the release path — the stale lock its tag "
         "points at, the 1471s wait behind the reviewer gate, and the amd64 "
         "build that served and installed it in one RUN. Timings and all, like "
         "the 0.7.1 entries below. History",
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -240,7 +245,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "section's other incidents",
     },
     "docs/explain.md": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -395,7 +400,7 @@ RECORDED: dict[str, dict[str, str]] = {
     # The rest of the 0.13.0 delta-pass, in the same shape: the pass named
     # where each finding is closed, history from the moment 0.13.1 shipped.
     "src/digline/cli/output.py": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -426,7 +431,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "that stopped replacing it. History, not a claim about now",
     },
     "src/digline/core/run.py": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -480,6 +485,10 @@ RECORDED: dict[str, dict[str, str]] = {
     # The 0.12.1 delta-pass, in the same shape: the release named where each
     # finding is closed, history from the moment 0.13.0 shipped.
     "src/digline/core/compare.py": {
+        "0.15.2": "the delta-pass over 0.15.2 — the pass that found rule 3 "
+        "exempting a flip in both directions when the argument holds in only "
+        "one. It dates the lesson; moving it would claim a later pass "
+        "audited it",
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
@@ -496,7 +505,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "which a replay of an honest zero-call run stopped being refused",
     },
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
-        "0.15.0": "told as history now that 0.15.2 is the tree's version: "
+        "0.15.2": "the digline release that stopped counting an incomparable "
+        "delta, named twice in `_failing`: once as the release that opened "
+        "the drift, once as the release the headline clause arrives in. Both "
+        "are statements about a shipped version, not about this one",
+        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
