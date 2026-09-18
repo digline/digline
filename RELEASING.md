@@ -289,13 +289,23 @@ back deliberately: `digline.dev` is on its default branch and this documentation
 is not merged yet, so adding the entries early would fail the site build on
 pages that do not exist. They land together.
 
-**Nothing is queued as of 0.15.0.** Read off `digline.dev`'s `origin/main`
-rather than remembered — `rejudge`, `log` and `register`, and ADRs 0014, 0015,
-0016 and 0024 each carry all three entries there: the `nav` line, `PRODUCT` in
-`tools/hooks/seo.py`, `DESCRIPTIONS` in `tools/hooks/llms.py`. The batch this
-section used to list went over with the pages themselves, and
-`tests/test_docs_pages.py` and `tests/test_adr.py` are green here, which is what
-an empty queue looks like from this side.
+**Nothing is queued as of 0.15.3.** Read off `digline.dev`'s `origin/main`
+rather than remembered — every `docs/` page and every ADR on this repository's
+`main` carries all three entries there: the `nav` line, `PRODUCT` in
+`tools/hooks/seo.py`, `DESCRIPTIONS` in `tools/hooks/llms.py`. Checked on
+2026-09-18 against the site's live `sitemap.xml` (99 URLs) and the `docs` job of
+the dispatch run on `main` after v0.15.3, which builds `--strict` and is green.
+
+0.15.1, 0.15.2 and 0.15.3 added no page between them: 0.15.2 and 0.15.3 amended
+ADR 0012, and an amendment needs no entry because the page already has its
+three. **`docs/adr/0023` is not a gap in the site — it is a number claimed on
+the `capture` branch and not yet on `main`**, which is what the ADR numbering
+does; it becomes this list's next line on the day that branch merges.
+
+This paragraph was dated *0.15.0* while the tree was at 0.15.3, which is the
+rot it warns about two lines below: three releases passed and the sentence
+still read as current. It says 0.15.3 because step 4 of *After the tag* moved
+it, not because anybody remembered.
 
 The next page added goes in this list with its destination, and comes out of it
 when the site has it: **three lines each**, per the table above, in three files.
@@ -608,6 +618,36 @@ tag* updates it on every tag.
   rather than a green, because a cache hit and a pass look identical from the
   summary.
 
+- **v0.15.3 read the same way, and the shape held — but the race was not
+  live.** The reading is the one above, a second time and in the same three
+  parts: `#9 [stage-0 3/5]` in `smoke` printed `every version is served (after
+  0s)`, then `#9 1.596 Collecting digline==0.15.3` and `#9 8.750 Successfully
+  installed … digline-0.15.3 …` — same `RUN`, install 1.2s after `served`, which
+  is **amd64** proven. `#11 [linux/amd64 stage-0 3/5]` in the multi-arch push is
+  `CACHED`, exactly as the paragraph above predicts, and proves nothing. `#15
+  [linux/arm64 stage-0 3/5]` printed `served` *(after 1s)*, `#15 23.22
+  Collecting` and `#15 132.9 Successfully installed`, which is **arm64** proven.
+  Two architectures, two pairs, two jobs.
+
+  **What this tag did not prove, said plainly.** `after 0s` and `after 1s` mean
+  the index was already serving when the build asked: there was nothing to wait
+  for. v0.15.1 sat on `digline==0.15.1` for 1471s behind the reviewer gate and
+  cleared fifteen seconds before the build; v0.15.3's approval came quickly
+  enough that the window never opened. So this tag proves the wait **costs
+  nothing when the index is ahead of it**, and it does not re-prove the fix
+  under a live race. One observation of the race remains one observation.
+
+  What it did prove, in the other direction, is the 0.15.1 improvement to the
+  *expected* red: the `image` job on PR #38 failed at `Wait for every pinned
+  version to be served to this runner`, naming `digline==0.15.3` and the shape
+  of the absence — `is served and lists 29 file version(s), none at 0.15.3` —
+  so a reader could tell it from a typo'd pin without opening anything else.
+
+  **What the next tag must show:** the same two-pair reading, and, if its
+  approval is slow again, a `served` measured in hundreds of seconds rather
+  than in one. A fast approval is not evidence that the race is gone; it is
+  evidence that it did not happen this time.
+
 ### What is not covered, stated rather than assumed
 
 The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves
@@ -717,6 +757,39 @@ same draft and no less correct.
 
 0.12.1's is the worked example: `GHSA-g25g-q7j3-jcgp`, drafted from the
 delta-pass over 0.12.0, `low` derived from a vector scoring 2.5.
+
+### These three have no gate, and must not be given one
+
+The pass itself, the report in `private/`, and the GHSA draft are the three
+steps of this file that nothing in the repository checks, and that is a decision
+rather than an omission. Written down because the alternative keeps suggesting
+itself, and because the audit that produced this paragraph listed all three as
+holes.
+
+**A check on a file's existence teaches the making of the file.** A gate that
+refused a release without `private/delta-pass-<version>.md` would be satisfied
+by a file containing one line, and satisfied *identically* by one containing the
+reading it is supposed to hold — so the first time the pass is skipped under
+time pressure, the cheap way past the gate is to write the file, and the gate
+now certifies the opposite of what it was built for. That is worse than no
+gate: it converts a step somebody knows they skipped into a step the record says
+they took.
+
+The same applies to the other two. There is no shape of "a delta-pass happened"
+a test can read — a pass that finds nothing looks, from outside, exactly like a
+pass nobody ran, and the difference is entirely in whether somebody adversarially
+read the diff. And a GHSA draft that exists is not a GHSA draft that says the
+right thing; `SECURITY.md` decides whether a finding earns one at all, which is
+a judgement about impact that no predicate holds.
+
+**What is gatable is the consequence, not the act.** Every finding a pass makes
+becomes a regression test that fails against the release just cut — that is the
+rule two paragraphs above, and it is the honest half: the tests in
+`tests/test_terminal_escapes.py`, `tests/test_wire_boundary.py` and
+`tests/test_journal.py` are the record that particular passes happened, and they
+hold forever without anybody being asked to prove diligence. The act stays
+human, unwatched and in this file, which is where a step belongs when the only
+thing that can verify it is the person doing it.
 
 ## After the tag: what to watch, and what to ignore
 
