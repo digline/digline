@@ -247,6 +247,48 @@ three shapes:
   its own vocabulary and its own closed `DiffOutcome`, and teaching it this rule
   is the same work again rather than the same edit.*
 
+  *Amended again 2026-09-18 by the delta-pass over 0.15.2, which read correction
+  3 and found it true of one direction and false of the other.* That a flip is
+  not a distance holds, and it is what keeps a gate reading `fail` red whatever
+  the reference counted. What does not hold is applying it to `improved`: `fail`
+  to `pass` is not only a statement about this run against its own threshold, it
+  is the sentence *"the gate got better"*, and that is a claim about the **pair**
+  — which is exactly what two different denominators withdraw. So rule 3 keeps
+  precedence downward and yields upward:
+
+  - **`pass` to `fail`** stays a regression with the denominator unmentioned, as
+    correction 3 said. It is the one reading a shrunken denominator cannot
+    corrupt, because the threshold it fails is its own — and withdrawing it
+    would be this rule making a run *greener*, which nothing here may do.
+  - **`fail` to `pass`** carries `denominator_moved` where the predicate holds,
+    and therefore leaves `counts` and `of` like every other incomparability. The
+    flip itself is untouched: this run's gate did pass, `now.status` still says
+    so, and what is withdrawn is the comparison, which was never taken.
+
+  The direction the *denominator* moved is not asked about. A reference that
+  counted fewer cases is the same incomparability as one that counted more:
+  what is unequal is what the two sides measured, and inequality has no
+  direction. Only the flip's own direction is asked about, and the asymmetry
+  above is the whole of why.
+
+  *Why this was the half that mattered.* The advisory this rule exists for,
+  [GHSA-8c38-f965-cgww](https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww),
+  describes a gate raised from `fail` to `pass` by the operator of an endpoint —
+  precisely the branch correction 3 exempted. 0.15.1 and 0.15.2 closed the
+  reading for every gate whose status held, while the gate that crossed its
+  threshold on the way up, the one in the advisory's own table, was still
+  counted under `improved` and filed in the report under *"What got better"*. A
+  rule that covers every case but the one it was written for is not a partial
+  fix. Stating correction 3 as a principle rather than as a measurement is what
+  let that through review, and it is the reason this amendment exists.
+
+  *What it changes, and what it cannot.* An upward flip never moved an exit code
+  — `improved` has never made a run red — so this converts nothing and closes no
+  gate. It removes a count and a sentence, which is the whole of what the defect
+  was: the reading. And it writes **no new phrase**. An incomparable flip prints
+  what an incomparable movement already prints, in both locales and on all four
+  surfaces, because a second wording for one fact is a second fact to reconcile.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

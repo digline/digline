@@ -96,6 +96,17 @@ __all__ = [
 #:    recover "how many deltas were there" was already wrong then.
 #:    (the delta-pass over 0.15.1)
 #:
+#:    `denominator_moved` **on a delta whose outcome flipped from `fail` to
+#:    `pass`**: the same rule a ninth time, and the same one number removed for
+#:    the same reason. The entry above took the incomparable *movements* out of
+#:    `counts`; this takes out the incomparable *flip upward*, which is the case
+#:    the advisory behind that entry is about and the one it left in. So
+#:    `improved` is one lower again in a run where a gate crossed its threshold
+#:    on a denominator that had moved, and the flag is now true on rows where it
+#:    read false. No key moves, and a flip the other way is untouched: it still
+#:    counts, still makes `worse` true and still exits 1. The precedent is the
+#:    one directly above, which is ADR 0024 §4.4's. (the delta-pass over 0.15.2)
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already

@@ -175,6 +175,13 @@ class AssertionDelta:
     #: The outcome is kept on the row because a reader who wants to know which
     #: way the arithmetic pointed is owed it; what it may no longer do is count.
     #: (the delta-pass over 0.15.1)
+    #:
+    #: It rides on a **flip from `fail` to `pass`** as well, which the release
+    #: after that one had to add: `improved` is a claim about the pair, and a
+    #: pair that counted different numbers of cases is not one. A flip the other
+    #: way never carries it — a gate failing its own threshold needs no
+    #: reference to be true, and that is the one reading a shrunken denominator
+    #: cannot corrupt. (the delta-pass over 0.15.2)
     denominator_moved: bool = False
 
 
@@ -521,6 +528,22 @@ def _denominator_moved(now: Verdict, before: Verdict) -> bool:
     return _seen(now) == _seen(before)
 
 
+def _incomparable_clause(now: Verdict, before: Verdict) -> str:
+    """The clause a reason earns once `_denominator_moved` is true, appended to
+    whatever said what the two scores did.
+
+    A function because two branches say it — a score that moved, and a gate that
+    flipped from `fail` to `pass` — and one fact said in two wordings is a fact
+    the reader has to reconcile before believing either. `Noise.beyond` is the
+    same shape for the same reason. (the delta-pass over 0.15.2)
+    """
+    return (
+        f", but it was measured over {considered_cases(now)} cases against "
+        f"{considered_cases(before)} in the reference: the two are not the same "
+        "measurement"
+    )
+
+
 def _noise(verdict: Verdict) -> Noise:
     score = verdict.score
     if not score.sampled:
@@ -660,16 +683,27 @@ def compare(run: Run, baseline: Run) -> Comparison:
         was, is_now = f"{before.score.score:.6f}", f"{now.score.score:.6f}"
 
         if now.status != before.status:
-            # **A flip is never an incomparability either**, and it reaches this
-            # branch before `denominator_moved` is so much as computed. That is
-            # deliberate, and it is ADR 0006 §6's argument one register over: a
-            # flip is each side measured against *its own threshold*, which
-            # needs no reference to be true. A gate reading `fail 0.666667` is
-            # failing whatever the reference counted, so the run is red, exits
-            # 1, and says so. What a moved denominator withdraws is the claim
-            # that the *distance* between two scores means something — and
-            # where the status flipped, nothing downstream is reading the
-            # distance. (the delta-pass over 0.15.1)
+            # **A flip is not a distance**, which is ADR 0006 §6's argument one
+            # register over: a flip is each side measured against *its own
+            # threshold*, and a threshold needs no reference to be true. That
+            # decides the two directions differently, and 0.15.2 wrote it here
+            # as though it decided both the same way.
+            #
+            # *Downward* it settles the matter: a gate reading `fail 0.666667`
+            # is failing whatever the reference counted, so the run is red,
+            # exits 1, and says so with the denominator unmentioned. Withdrawing
+            # that would be withdrawing the one reading a shrunken denominator
+            # cannot corrupt.
+            #
+            # *Upward* it settles nothing, and this is the sentence the advisory
+            # is about. `fail` over four cases to `pass` over three is the shape
+            # an endpoint can produce by erroring the case it was failing: the
+            # flip is true of this run — `now.status` is `pass`, and nothing
+            # here touches it — while `improved` is a claim about the pair, and
+            # the pair was never a comparison. So the flag is computed on the
+            # way up, the row stops counting, and `compare` says which two
+            # numbers of cases it is holding side by side.
+            # (ADR 0012 §3, amended by the delta-pass over 0.15.2)
             #
             # No interval rides along here, and its absence is the point. A
             # flipped outcome is never within noise (ADR 0006 §6), so it was
@@ -680,6 +714,14 @@ def compare(run: Run, baseline: Run) -> Comparison:
             # that shape: reported, and inside. The delta carries what decided
             # it, and nothing that did not.
             outcome: Outcome = "regressed" if before.status == "pass" else "improved"
+            # Read in whichever direction the denominator moved: a reference
+            # that counted *fewer* cases is the same incomparability as one that
+            # counted more, because what is unequal is what the two sides
+            # measured and inequality has no direction. Only the flip's own
+            # direction is asked about, on the line above.
+            flipped_incomparably = before.status == "fail" and _denominator_moved(
+                now, before
+            )
             # A flip caused by a moved threshold reads exactly like a flip
             # caused by a worse model. Saying so is the difference between a
             # reviewer blaming the prompt and a reviewer checking the config.
@@ -691,6 +733,8 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 )
             else:
                 why = f"outcome flipped from '{before.status}' to '{now.status}'"
+            if flipped_incomparably:
+                why += _incomparable_clause(now, before)
             deltas.append(
                 AssertionDelta(
                     case_id,
@@ -703,6 +747,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     why,
                     canary=case_id in canaries,
                     calibration=case_id in calibrated,
+                    denominator_moved=flipped_incomparably,
                 )
             )
             continue
@@ -730,11 +775,8 @@ def compare(run: Run, baseline: Run) -> Comparison:
             # table, and the reason says why rather than quoting a tolerance
             # that never applied.
             moved_to: Outcome = "regressed" if delta < 0 else "improved"
-            why = (
-                f"score moved from {was} to {is_now}, but it was measured over "
-                f"{considered_cases(now)} cases against "
-                f"{considered_cases(before)} in the "
-                "reference: the two are not the same measurement"
+            why = f"score moved from {was} to {is_now}" + _incomparable_clause(
+                now, before
             )
         elif within(abs(delta), now.tolerance):
             # Declared before measured, and the reason says which one spoke. A

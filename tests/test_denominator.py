@@ -17,7 +17,15 @@ from __future__ import annotations
 
 from typing import cast
 
-from digline.core import CaseResult, Run, Score, Verdict, compare
+from digline.core import (
+    CaseOutcome,
+    CaseResult,
+    Recall,
+    Run,
+    Score,
+    Verdict,
+    compare,
+)
 from digline.report import (
     SECTIONS,
     explain_text,
@@ -26,7 +34,13 @@ from digline.report import (
     render_html,
     summary_lines,
 )
-from digline.wire import EXIT_WORSE, compare_json, exit_code, explain_json
+from digline.wire import (
+    EXIT_UNJUDGED,
+    EXIT_WORSE,
+    compare_json,
+    exit_code,
+    explain_json,
+)
 
 CREATED = "2026-01-01T00:00:00+00:00"
 
@@ -240,14 +254,19 @@ def test_an_honest_drop_still_exits_one() -> None:
     assert exit_code(head) == EXIT_WORSE
 
 
-def test_a_flip_is_not_an_incomparability_and_still_exits_one() -> None:
-    """The decision this pass made explicit rather than changed.
+def test_a_flip_down_is_not_an_incomparability_and_still_exits_one() -> None:
+    """The half of rule 3 that survived the pass after this one.
 
     A gate that read `pass 1.0` and now reads `fail 0.666667` is failing against
-    **its own threshold**, which needs no reference to be true: the flip reaches
-    `compare()`'s rule 3 before a denominator is compared at all. So the run is
-    red and exits 1, with the denominator unmentioned — what a moved denominator
-    withdraws is the meaning of a *distance*, and a flip is not one.
+    **its own threshold**, which needs no reference to be true. So the run is red
+    and exits 1, with the denominator unmentioned: this is the one reading a
+    shrunken denominator cannot corrupt, and withdrawing it would be the rule
+    making a run *greener*.
+
+    *The pass that wrote this test read that argument as covering both
+    directions and it does not* — `fail` to `pass` is the sentence the advisory
+    is about, and it is the section below. What is asserted here is the
+    downward flip, which is unchanged. (ADR 0012 §3, amended again 2026-09-18)
     """
     run = run_with(aggregate(0.666667, 3, threshold=1.0))
     comparison = compare(run, REFERENCE)
@@ -360,3 +379,321 @@ def test_the_explain_row_carries_the_flag_to_a_program() -> None:
     (row,) = rows
     assert row["denominator_moved"] is True
     assert row["kind"] in ("improved", "regressed")
+
+
+# --------------------------------------------------------------------------- #
+# The delta-pass over 0.15.2: the flip the rule exempted
+# --------------------------------------------------------------------------- #
+#
+# Everything above this line passed on 0.15.2, and the sentence the advisory is
+# about was still being printed. `compare()`'s rule 3 classified every flip
+# before a denominator was so much as computed, on the argument that a flip is
+# not a distance. Downward that is right. Upward it is not: `fail` to `pass` is
+# also the sentence *"the gate got better"*, which is a claim about the pair,
+# and a pair that counted different numbers of cases is not one. The gate in
+# GHSA-8c38-f965-cgww's own table — recall raised from `fail` over four cases to
+# `pass` over three by an endpoint erroring the case it was failing — was
+# counted under `improved` and filed in the report under "What got better".
+
+
+#: The reference of the advisory's table: the gate is red, over four cases, and
+#: somebody is working on it. A failing run is a promotable baseline — `promote`
+#: refuses an *errored* run, never a failing one — so this is the ordinary shape
+#: of a suite with a known regression, not a contrived one.
+RED_REFERENCE = run_with(aggregate(0.75, 4))
+
+
+def test_a_flip_up_over_a_moved_denominator_is_not_an_improvement() -> None:
+    """The defect, in one row. `fail 0.75` over four cases against `pass 1.0`
+    over three: the score rose because the case it was failing left the
+    denominator, and `improved` says the system got better."""
+    run = run_with(aggregate(1.0, 3))
+    comparison = compare(run, RED_REFERENCE)
+    (delta,) = comparison.deltas
+
+    assert delta.denominator_moved is True
+    # The direction the arithmetic pointed stays on the row, as it does for a
+    # movement: what it may no longer do is count.
+    assert delta.outcome == "improved"
+    assert comparison.counts.get("improved", 0) == 0
+    assert comparison.incomparable == (delta,)
+    # The reason says both numbers, in the words the movement branch uses.
+    assert "outcome flipped from 'fail' to 'pass'" in delta.reason
+    assert "measured over 3 cases against 4 in the reference" in delta.reason
+
+
+def test_the_flip_itself_is_untouched_and_the_run_is_not_made_redder() -> None:
+    """What this rule may not do, in either direction.
+
+    The gate really did pass in this run — `now.status` is its own measurement
+    against its own threshold — and an incomparability withdraws the comparison,
+    never the verdict. So nothing here goes red: `improved` never made a run
+    `worse`, and removing it from the tally must not either.
+    """
+    run = run_with(aggregate(1.0, 3))
+    comparison = compare(run, RED_REFERENCE)
+    (delta,) = comparison.deltas
+    assert delta.current is not None and delta.current.status == "pass"
+
+    head = headline(comparison, run, RED_REFERENCE, locale="en")
+    assert head.worse is False
+    assert exit_code(head) != EXIT_WORSE
+
+
+def test_an_honest_flip_up_is_still_an_improvement() -> None:
+    """The control. Four cases counted on both sides and the gate crossed its
+    threshold: that is a system that got better, and it still says so."""
+    run = run_with(aggregate(1.0, 4))
+    comparison = compare(run, RED_REFERENCE)
+    (delta,) = comparison.deltas
+    assert delta.denominator_moved is False
+    assert comparison.counts["improved"] == 1
+    assert comparison.incomparable == ()
+
+
+def test_a_reference_that_counted_fewer_cases_is_incomparable_too() -> None:
+    """The denominator's own direction is not asked about.
+
+    Here the *reference* is the smaller measurement — three counted there, four
+    here — and the gate still flipped up. What is unequal is what the two sides
+    measured, and inequality has no direction: reading only the shrinking side
+    would leave a reference recorded through a bad afternoon as a licence to
+    call anything an improvement.
+    """
+    (delta,) = compare(
+        run_with(aggregate(1.0, 4)), run_with(aggregate(2 / 3, 3))
+    ).deltas
+    assert delta.denominator_moved is True
+    assert delta.outcome == "improved"
+    assert "measured over 4 cases against 3 in the reference" in delta.reason
+
+
+def test_the_flip_predicate_is_the_denominator_and_not_the_error() -> None:
+    """The same rule the movement branch has: five things take a case out of a
+    denominator, and keying on the error would leave the other four open."""
+    suspended = Verdict(
+        score=Score(
+            name="recall",
+            score=1.0,
+            metadata={"considered": 3, "suspended_excluded": 1},
+        ),
+        threshold=1.0,
+        tolerance=0.0,
+        status="pass",
+        reason="one case was set aside",
+        assertion_id="recall#tools",
+    )
+    (delta,) = compare(run_with(suspended), RED_REFERENCE).deltas
+    assert delta.denominator_moved is True
+
+
+def test_a_suite_that_grew_does_not_make_a_flip_incomparable() -> None:
+    """The cry-wolf guard reaches the flip branch too, because it is the same
+    predicate: two cases were added and the gate went green over six of them.
+    That is a bigger suite and a better system, and it is counted as one."""
+    grown = Verdict(
+        score=Score(
+            name="recall",
+            score=1.0,
+            metadata={"considered": 6, "errored_excluded": 0},
+        ),
+        threshold=1.0,
+        tolerance=0.0,
+        status="pass",
+        reason="two more cases were added to the suite",
+        assertion_id="recall#tools",
+    )
+    comparison = compare(run_with(grown), RED_REFERENCE)
+    (delta,) = comparison.deltas
+    assert delta.denominator_moved is False
+    assert comparison.counts["improved"] == 1
+
+
+def test_a_moved_threshold_and_a_moved_denominator_both_reach_the_reason() -> None:
+    """Two facts a reviewer needs and one sentence to hold them: the gate was
+    lowered *and* it was measured over fewer cases. Neither excuses leaving the
+    other out, and the clause is appended to the sentence rather than replacing
+    it."""
+    lowered = aggregate(1.0, 3, threshold=0.5)
+    (delta,) = compare(run_with(lowered), RED_REFERENCE).deltas
+    assert delta.denominator_moved is True
+    assert "the threshold moved from 1.000000 to 0.500000" in delta.reason
+    assert "measured over 3 cases against 4 in the reference" in delta.reason
+
+
+def test_the_surfaces_say_it_with_the_sentences_they_already_had() -> None:
+    """No new phrase was written for the flip, and this is what that means.
+
+    An incomparable flip is an incomparability, so the terminal, the document,
+    the reading and the wire each print what they already print for one. A
+    second wording for one fact would be a second fact to reconcile — and it
+    would have to be written in both locales, which is where a variant goes
+    stale first.
+    """
+    run = run_with(aggregate(1.0, 3))
+    comparison = compare(run, RED_REFERENCE)
+    head = headline(comparison, run, RED_REFERENCE, locale="en")
+
+    # The terminal sentence.
+    assert head.denominator_moved == 1
+    assert "1 run-level check was measured over a different number of cases" in (
+        head.sentence
+    )
+    # The terminal list: named in the incomparable group, not as an improvement.
+    (line,) = summary_lines(comparison, run, RED_REFERENCE, locale="en")
+    assert "easured over 3 cases here and 4 in the reference" in line
+    for claim in ("rose", "got better", "flipped"):
+        assert claim not in line
+
+    # The document.
+    document = render_html(comparison, run, RED_REFERENCE, locale="en")
+    assert "What was not compared" in document
+    assert "not a movement of one another" in document
+    assert "improved <b>0</b>" in document
+    better = document.split("What got better")[1]
+    assert better.startswith(' (0)</summary><p class="empty"')
+
+    # The reading.
+    said = "\n".join(explain_text(facts(run, comparison), locale="en"))
+    assert "measured over 3 cases here and 4 in the reference" in said
+    assert "got better" not in said
+
+    # The wire.
+    payload = explain_json(facts(run, comparison), scope="comparison", exit_code=0)
+    (row,) = [
+        f
+        for f in cast("list[dict[str, object]]", payload["facts"])
+        if f.get("about") == "check"
+    ]
+    assert row["denominator_moved"] is True
+    assert row["kind"] == "improved"
+
+
+# --------------------------------------------------------------------------- #
+# The whole chain, on the real assertion
+# --------------------------------------------------------------------------- #
+
+
+TRAJECTORY = "tools_called"
+
+
+def judged(case_id: str, *, kept: bool) -> CaseOutcome:
+    """A case the trajectory check judged, and the mark it carried."""
+    return CaseOutcome(
+        case_id,
+        "positive",
+        Verdict(
+            score=Score(name=TRAJECTORY, score=1.0 if kept else 0.0),
+            threshold=1.0,
+            tolerance=0.0,
+            status="pass" if kept else "fail",
+            reason="the tool call was named" if kept else "the wrong tool was called",
+            assertion_id=f"id-{TRAJECTORY}",
+        ),
+    )
+
+
+def unjudgeable(case_id: str) -> CaseOutcome:
+    """The same case after the endpoint returned a shape digline cannot read.
+
+    This is the whole of the attacker's move, and it needs no repository access:
+    the check errors, so the case leaves the matrix — which is `errored_excluded`
+    and not a judgement of any kind.
+    """
+    return CaseOutcome(
+        case_id,
+        "positive",
+        Verdict(
+            score=Score(name=TRAJECTORY, score=None),
+            threshold=1.0,
+            tolerance=0.0,
+            status="error",
+            reason="the provider returned a tool call with no name",
+            assertion_id=f"id-{TRAJECTORY}",
+        ),
+    )
+
+
+def run_of(*outcomes: CaseOutcome) -> Run:
+    """A run whose run-level `recall` is computed by the real assertion over the
+    real confusion matrix, with the cases it was computed from beside it."""
+    recall = Recall(over=TRAJECTORY, threshold=1.0, tolerance=0.0)(outcomes)
+    return Run(
+        tenant="acme",
+        environment="test",
+        suite="agent-suite",
+        config_hash="hash-a",
+        created_at=CREATED,
+        results=tuple(
+            CaseResult(
+                case_id=o.case_id,
+                verdicts=() if o.verdict is None else (o.verdict,),
+            )
+            for o in outcomes
+        ),
+        aggregate=(recall,),
+    )
+
+
+def test_the_advisory_scenario_end_to_end_with_the_real_recall() -> None:
+    """GHSA-8c38-f965-cgww's table, built by the code the advisory is about.
+
+    Four cases, all marked worth keeping. The reference is honest and red: the
+    system got `c4` wrong, so `recall` reads `fail 0.750000 = 3/4` and a team is
+    working on it. Then the endpoint returns a tool call with no name for `c4`,
+    that check errors, the case leaves the matrix, and `recall` reads
+    `pass 1.000000 = 3/3` — the gate raised from `fail` to `pass` by whoever
+    operates the endpoint, with no access to the repository.
+
+    Every number here is the real assertion's. The helpers above this section
+    write the matrix metadata by hand, which is the right economy for a rule
+    about reading it and the wrong one for the claim that the rule fires on what
+    digline actually records — `considered`, `errored_excluded` and the four
+    cells come out of `Matrix.as_metadata()` here, and nothing in the test
+    spells them.
+    """
+    reference = run_of(
+        judged("c1", kept=True),
+        judged("c2", kept=True),
+        judged("c3", kept=True),
+        judged("c4", kept=False),
+    )
+    attacked = run_of(
+        judged("c1", kept=True),
+        judged("c2", kept=True),
+        judged("c3", kept=True),
+        unjudgeable("c4"),
+    )
+
+    # The premise, measured rather than assumed: the gate really does flip.
+    (was,) = reference.aggregate
+    (is_now,) = attacked.aggregate
+    assert (was.status, was.score.score) == ("fail", 0.75)
+    assert (is_now.status, is_now.score.score) == ("pass", 1.0)
+    assert was.score.metadata["considered"] == 4
+    assert is_now.score.metadata["considered"] == 3
+    assert is_now.score.metadata["errored_excluded"] == 1
+
+    comparison = compare(attacked, reference)
+    (recall_delta,) = [d for d in comparison.deltas if d.assertion == "recall"]
+    assert recall_delta.denominator_moved is True
+    assert comparison.counts.get("improved", 0) == 0
+    assert comparison.incomparable == (recall_delta,)
+
+    # What a person reads. The gate is not among the improvements, and the
+    # sentence names the two numbers of cases instead of a direction.
+    head = headline(comparison, attacked, reference, locale="en")
+    assert head.denominator_moved == 1
+    assert "1 run-level check was measured over a different number of cases" in (
+        head.sentence
+    )
+    document = render_html(comparison, attacked, reference, locale="en")
+    assert "What was not compared" in document
+    assert "improved <b>0</b>" in document
+
+    # And what does not change: the case that could not be judged is still
+    # unjudged, so the run does not go green. That was true before this fix and
+    # is the reason the advisory scores I:L — the exit code was never the defect,
+    # the reading was.
+    assert head.unjudged == 1
+    assert exit_code(head) == EXIT_UNJUDGED
