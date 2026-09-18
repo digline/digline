@@ -48,7 +48,7 @@ get no release from it.
 Run **exactly what CI runs**, from the repository root:
 
 ```sh
-uv sync --all-packages
+uv sync --all-packages --locked
 uv run pytest -q -m "not live"
 uv run ruff format --check .
 uv run ruff check .
@@ -92,13 +92,28 @@ remembered, and in this order:
 1. Date the heading: `## X.Y.Z — unreleased` becomes `## X.Y.Z — YYYY-MM-DD`.
 2. `uv run python tools/home_capture.py --check` now fails, naming the old
    capture. That failure is the step working.
-3. Regenerate and stage the file, on the same branch, before the tag:
+3. Regenerate and stage the file **and the lock**, on the same branch, before
+   the tag:
 
 ```sh
-uv sync --all-packages
+uv lock
+uv sync --all-packages --locked
 uv run python tools/home_capture.py
-git add docs/assets/home/home.json
+git add uv.lock docs/assets/home/home.json
 ```
+
+`uv lock` on its own line, and it is the **only** place in this file that moves
+the lock. Everywhere else asks for `--locked`, which refuses a lock that does
+not match `pyproject.toml` instead of rewriting it. That split is deliberate:
+the version has just been bumped, so this is the one moment the lock is
+*supposed* to change, and making it a named command rather than a side effect of
+`uv sync` is what stops the change from happening somewhere nobody is looking.
+
+v0.15.1 is why. Its tag points at a lock still naming 0.15.0: `uv sync` had
+refreshed the lock while the home capture was regenerated, only the capture was
+staged, and every gate went green over it — CI's own `uv sync` rewrote the lock
+in the runner and exited 0. `git add uv.lock` is in the command above for that
+reason.
 
 The script fails on its own if the regression it captures stops being red, or
 if no case comes back worse — a capture that went green would put a claim on
@@ -487,17 +502,38 @@ tag* updates it on every tag.
 - **The wait inside the build runs on the release path.** Seen on v0.15.0: both
   `docker-publish.yml` legs printed `served` under `#… the index at
   https://pypi.org must serve`.
-- **The same-question fix is unproven on the release path until the next `v*`
-  tag.** So far it has run only in `ci.yml`'s `image` job, on the pull request
-  that added it. There it printed `served` for all four pins, on the runner and
-  inside the build, and `pip` in the same `RUN` then installed them. But those
-  versions had been on the index for half an hour, so there was no race to lose.
-  On the next tag, read `docker-publish.yml`'s `smoke` build step and both legs
-  of the multi-arch push for **the pair**: `served` for every pin, **and** a
-  clean `pip install` of the released versions in the same `RUN` after it. A
-  green run does not prove the fix. The pair seen together, on the tag that
-  races the upload, is what proves it. Record which legs showed it, then replace
-  this item with that record.
+- **The same-question fix is proven on the release path, on v0.15.1, in a live
+  race.** It published first time: `docker-publish` succeeded on attempt 1, with
+  no rerun, where v0.15.0 had needed one.
+
+  The race was real rather than arranged. The runner-level wait sat on
+  `digline==0.15.1` for **1471s** — the upload was behind the `pypi` reviewer
+  gate — and cleared at 09:17:04, so the build started roughly fifteen seconds
+  after the version first appeared on the index. That is the window v0.15.0 lost
+  in.
+
+  **The pair, per architecture, and one of them is not what it looks like:**
+
+  - **amd64 — proven in `smoke`'s build.** `#9 0.403 served digline==0.15.1
+    (after 0s)`, then `#9 1.515 Collecting digline==0.15.1` and `#9 8.948
+    Successfully installed … digline-0.15.1 …`. Same `RUN` (`#9`), install 1.1s
+    after `served`. This is the exact shape that failed on v0.15.0, where
+    `served` at 0s was followed 1.2s later by *No matching distribution found*.
+  - **arm64 — proven in the multi-arch push.** `#15 [linux/arm64 stage-0 3/5]`
+    printed `served digline==0.15.1 (after 0s)` and installed in the same `RUN`,
+    which the step's own command line shows is one `await_index.py … && pip
+    install …`.
+  - **amd64 in the multi-arch push proved nothing, and that is expected.**
+    `#12 [linux/amd64 stage-0 3/5]` is `CACHED` — the layer was reused from
+    `smoke`'s build on the same runner architecture. A cache hit is not a second
+    observation, and reading the multi-arch job alone would have shown one pair
+    and a silence. Both architectures are covered only because `smoke` runs the
+    amd64 one first.
+
+  So: two architectures, two independent pairs, across two jobs — not three
+  pairs in the job the checklist points at. The next tag needs the same reading
+  rather than a green, because a cache hit and a pass look identical from the
+  summary.
 
 ### What is not covered, stated rather than assumed
 
