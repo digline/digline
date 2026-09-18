@@ -86,6 +86,14 @@ jobs:
             echo "asked by hand about v$version, not about the tree's version"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # The newest released version, from the tags rather than from the
+          # tree: between a bump and its tag, `pyproject.toml` names a version
+          # that is not out yet, and it is the newest *released* one that
+          # decides which questions still apply.
+          newest="$(git tag --list 'v[0-9]*' | sed 's/^v//' \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+          echo "newest=$newest" >> "$GITHUB_OUTPUT"
+          echo "newest released: v$newest"
           if git tag --list "v$version" | grep -q .; then
             echo "released=yes" >> "$GITHUB_OUTPUT"
             echo "v$version is tagged; the follow-up is due"
@@ -172,6 +180,7 @@ jobs:
           set -o pipefail
           uv run --quiet python .github/release_followup.py \
             --version "${{ steps.version.outputs.version }}" \
+            --newest "${{ steps.version.outputs.newest }}" \
             --root . --releasing RELEASING.md \
             --approvals approvals.json --approvals-control no-gate.json \
             --digests digests.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"

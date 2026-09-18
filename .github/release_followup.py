@@ -103,9 +103,27 @@ class Finding:
     #: which part of the runbook has not been done.
     title: str
 
+    #: Whether this question has a meaningful answer about the release being
+    #: asked about. Two of the four are about **the current state of a moving
+    #: thing** — the locks in the tree, and the `<minor>` and `latest` image
+    #: tags — so asked about a superseded release they can only fail, and
+    #: failing is the wrong word: the locks naming the newest release and
+    #: `latest` pointing at it are correct, not undone. The other two are about
+    #: a **record of what happened at that release** — the approvals of its
+    #: publish run, and its paragraph in the Status block — and those keep their
+    #: meaning for ever.
+    #:
+    #: The distinction is not a convenience. Without it the issue opened for a
+    #: superseded release is immortal: two of its lines could never go green
+    #: without making the current tree wrong, so no run could close it, and a
+    #: red label open for ever is the signal people learn to ignore.
+    applicable: bool = True
+
     @property
     def sound(self) -> bool:
-        return self.ok and self.held
+        """Nothing to answer counts as nothing wrong — but only where the
+        question genuinely does not apply, never where it was not asked."""
+        return True if not self.applicable else (self.ok and self.held)
 
 
 def lock_versions(
@@ -129,8 +147,26 @@ def lock_versions(
     return found
 
 
-def locks_finding(root: Path, version: str) -> Finding:
-    """Post-tag step 3: the five locks name the version that was released."""
+def locks_finding(root: Path, version: str, *, current: bool = True) -> Finding:
+    """Post-tag step 3: the five locks name the version that was released.
+
+    Only about the newest release. Asked about a superseded one it would report
+    that the locks name something else — which is what they are supposed to do,
+    and calling that a skipped step would be a finding against the repair.
+    """
+    if not current:
+        return Finding(
+            step="the example locks",
+            ok=True,
+            held=True,
+            applicable=False,
+            said=(
+                f"not applicable: the locks track the newest release, so what "
+                f"they name is not a fact about {version}"
+            ),
+            control_said="not asked",
+            title="",
+        )
     pinned = lock_versions(root)
     stale = {name: got for name, got in pinned.items() if got != version}
     control = {name: got for name, got in pinned.items() if got != IMPOSSIBLE}
@@ -209,7 +245,9 @@ def _approved(payload: object) -> bool:
     return any(entry.get("state") == "approved" for entry in entries)
 
 
-def digests_finding(digests: Mapping[str, object], version: str) -> Finding:
+def digests_finding(
+    digests: Mapping[str, object], version: str, *, current: bool = True
+) -> Finding:
     """Post-tag step 2, the half a log cannot show: the three tags are one image.
 
     `null` means the registry answered *not found*; the string `"error"` means
@@ -218,6 +256,19 @@ def digests_finding(digests: Mapping[str, object], version: str) -> Finding:
     — that is a weather report dressed as a defect, and a defect nobody can
     reproduce is one everybody learns to ignore.
     """
+    if not current:
+        return Finding(
+            step="the image tags",
+            ok=True,
+            held=True,
+            applicable=False,
+            said=(
+                f"not applicable: `<minor>` and `latest` follow the newest "
+                f"release, so where they point is not a fact about {version}"
+            ),
+            control_said="not asked",
+            title="",
+        )
     minor = ".".join(version.split(".")[:2])
     wanted = (version, minor, "latest")
     unreachable = [tag for tag in wanted if digests.get(tag) == "error"]
@@ -306,7 +357,11 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
     """The issue an unsound run earns: a title naming the step, and a body that
     is the whole reading rather than a link to it."""
     unsound = [finding for finding in findings if not finding.sound]
-    broken = [finding for finding in findings if finding.ok and not finding.held]
+    broken = [
+        finding
+        for finding in findings
+        if finding.applicable and finding.ok and not finding.held
+    ]
     lines = [
         f"The four checks `RELEASING.md` calls *After the tag* ran against "
         f"**v{version}**. Each is asked twice: once for the answer, and once for "
@@ -315,6 +370,9 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
         "",
     ]
     for finding in findings:
+        if not finding.applicable:
+            lines.append(f"- [~] **{finding.step}** — {finding.said}.")
+            continue
         mark = "x" if finding.sound else " "
         lines.append(
             f"- [{mark}] **{finding.step}** — {finding.said}; {finding.control_said}."
@@ -366,6 +424,15 @@ def _load(path: str | None) -> object:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
+    parser.add_argument(
+        "--newest",
+        default=None,
+        help=(
+            "the newest released version, which decides whether the questions "
+            "about moving things apply. Defaults to --version, so a caller who "
+            "does not know asks about the present."
+        ),
+    )
     parser.add_argument("--root", default=".")
     parser.add_argument("--releasing", default="RELEASING.md")
     parser.add_argument("--approvals", required=True)
@@ -376,19 +443,27 @@ def main(argv: list[str]) -> int:
 
     root = Path(args.root)
     digests = _load(args.digests)
+    current = args.newest is None or args.newest == args.version
     findings = [
-        locks_finding(root, args.version),
+        locks_finding(root, args.version, current=current),
         approvals_finding(_load(args.approvals), _load(args.approvals_control)),
-        digests_finding(digests if isinstance(digests, dict) else {}, args.version),
+        digests_finding(
+            digests if isinstance(digests, dict) else {},
+            args.version,
+            current=current,
+        ),
         status_finding(Path(args.releasing).read_text(encoding="utf-8"), args.version),
     ]
     written = report(findings, args.version)
     Path(args.out).write_text(json.dumps(written, indent=2), encoding="utf-8")
 
     for finding in findings:
+        if not finding.applicable:
+            print(f"n/a  {finding.step}: {finding.said}")
+            continue
         mark = "ok  " if finding.sound else "FAIL"
         print(f"{mark} {finding.step}: {finding.said}; {finding.control_said}")
-    return 0 if written["ok"] and all(f.held for f in findings) else 1
+    return 0 if written["ok"] and all(f.held for f in findings if f.applicable) else 1
 
 
 if __name__ == "__main__":  # pragma: no cover
