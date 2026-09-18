@@ -7,7 +7,8 @@ produces today, byte for byte, by a test — a captured alert that nothing check
 is a screenshot, and screenshots rot in the direction that flatters.
 
     python dossier.py --cycle cycle.json --out alert.md
-    python dossier.py --cycle cycle.json --judgment judgment.md --out alert.md
+    python dossier.py --cycle cycle.json --judgment judgment.md \
+        --judgment-record judgment.json --out alert.md
 
 The layers are the ones `DESIGN.md` fixes, and the typography is the part that
 matters: layer 1 is machine truth, layer 2 is what the operator did, layer 3 is
@@ -413,7 +414,43 @@ def _dossier(
     return lines
 
 
-def _judgment(cycle: Mapping[str, Any], judgment: str | None) -> list[str]:
+def _ending(record: Mapping[str, Any] | None) -> list[str]:
+    """One line when the judgment may not be whole, and none when it is.
+
+    A document that stops mid-sentence without declaring it reads as a
+    conclusion the model never reached, so a cut is stated before the text and
+    not left for the reader to notice at its end. `end_turn` is the one reason
+    that says the model finished; anything else is declared, and so is a
+    judgment whose ending nobody recorded — an absence is stated, never faked.
+    """
+    if record is None:
+        return [
+            "",
+            "Whether this judgment finished was not recorded, so it may be incomplete.",
+        ]
+    reason = record["stop_reason"]
+    if reason == "end_turn":
+        return []
+    if reason == "max_tokens":
+        return [
+            "",
+            f"**This judgment was cut off.** The model reached its ceiling of "
+            f"{record['max_tokens']} output tokens (`stop_reason: max_tokens`), "
+            "so the text below ends where the ceiling fell, not where the model "
+            "finished.",
+        ]
+    return [
+        "",
+        f"**This judgment did not finish normally.** The model stopped with "
+        f"`stop_reason: {reason}`, so the text below may be incomplete.",
+    ]
+
+
+def _judgment(
+    cycle: Mapping[str, Any],
+    judgment: str | None,
+    record: Mapping[str, Any] | None = None,
+) -> list[str]:
     """Layer 3. The only layer a model writes, and it is labelled as such."""
     lines = ["## 3. The judgment", ""]
     if judgment is None:
@@ -433,6 +470,7 @@ def _judgment(cycle: Mapping[str, Any], judgment: str | None) -> list[str]:
         "> The operator's opinion, written by a model. It is **not** digline's "
         "verdict: the instrument measured layers 1 and 2, and this layer "
         "interprets them.",
+        *_ending(record),
         "",
         judgment.strip(),
     ]
@@ -456,8 +494,10 @@ def alert_body(
     *,
     decision: Mapping[str, Any] | None = None,
     judgment: str | None = None,
+    judgment_record: Mapping[str, Any] | None = None,
 ) -> str:
-    """The whole document. `judgment` is layer 3, or `None` when it did not run."""
+    """The whole document. `judgment` is layer 3, or `None` when it did not run;
+    `judgment_record` is how it ended, as `judgment.py` wrote it."""
     verdict = str(cycle["verdict"])
     proposed = bool(cycle["escalate"])
     escalate = proposed if decision is None else bool(decision["escalate"])
@@ -482,7 +522,7 @@ def alert_body(
         "",
         *_dossier(cycle, decision),
         "",
-        *_judgment(cycle, judgment),
+        *_judgment(cycle, judgment, judgment_record),
         "",
         "---",
         "",
@@ -505,6 +545,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cycle", default="cycle.json", type=Path)
     parser.add_argument("--decision", type=Path, help="the seat, when it ran")
     parser.add_argument("--judgment", type=Path, help="layer 3, when it ran")
+    parser.add_argument(
+        "--judgment-record", type=Path, help="how layer 3 ended, when it ran"
+    )
     parser.add_argument("--out", default="alert.md", type=Path)
     args = parser.parse_args(argv)
 
@@ -521,9 +564,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     judgment: str | None = None
     if args.judgment is not None and Path(args.judgment).is_file():
         judgment = Path(args.judgment).read_text(encoding="utf-8")
+    record: Mapping[str, Any] | None = None
+    if args.judgment_record is not None and Path(args.judgment_record).is_file():
+        record = cast(
+            "Mapping[str, Any]",
+            json.loads(Path(args.judgment_record).read_text(encoding="utf-8")),
+        )
 
     Path(args.out).write_text(
-        alert_body(cycle, decision=decision, judgment=judgment), encoding="utf-8"
+        alert_body(cycle, decision=decision, judgment=judgment, judgment_record=record),
+        encoding="utf-8",
     )
     return 0
 

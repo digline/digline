@@ -137,13 +137,13 @@ jobs:
           DIGLINE_LIVE: "1"
         run: |
           uv run python judgment.py --cycle cycle.json \
-            --decision decision.json --out judgment.md
+            --decision decision.json --out judgment.md --record judgment.json
 
       - name: Build the alert
         run: |
           if [ -f judgment.md ]; then
             uv run python dossier.py --cycle cycle.json --decision decision.json \
-              --judgment judgment.md --out alert.md
+              --judgment judgment.md --judgment-record judgment.json --out alert.md
           else
             uv run python dossier.py --cycle cycle.json --decision decision.json \
               --out alert.md
@@ -160,6 +160,7 @@ jobs:
             alert.md
             cycle.json
             decision.json
+            judgment.json
 
       # What the next cycle restores. Uploaded whenever the seat wrote to it,
       # whatever happens after: a journal that lost its newest line is the
