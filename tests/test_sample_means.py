@@ -271,6 +271,12 @@ def test_a_stamped_verdict_is_left_out_and_counted_never_read() -> None:
 
     The fixture therefore uses two identities, which is what it was always
     about: one stamped check left out and counted, one unstamped check read.
+
+    **That reachability was established before this fixture was touched, and
+    the order is the point.** A test whose numbers move is a loosened assertion
+    unless somebody first showed the old numbers described a document that
+    cannot be written. Read in six months, this paragraph is the difference
+    between a correction and a test quietly taught to agree with the code.
     (0.15.0 delta-pass §3)
     """
     now = as_run(
