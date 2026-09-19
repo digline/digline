@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import cast
 
 from digline.core.calibration import scale_lost
+from digline.core.reconcile import unreconciled
 from digline.core.register import (
     DISPOSITIONS,
     RecordedOutcome,
@@ -349,6 +350,20 @@ class FileResultStore:
                 "part in: its interval is the judge's wobble alone, and every "
                 "ordinary movement of the target would then read as beyond the "
                 "noise. Promote a run that measured"
+            )
+
+        # Before the general refusal below, which would also fire: this is the
+        # stronger statement and it names the checks, not only the cases. A run
+        # that does not reconcile does not know what it measured, and a
+        # reference nobody can say that of is no reference. (ADR 0027 §3)
+        gaps = unreconciled(run)
+        if gaps:
+            named = ", ".join(f"{case} · {check}" for case, check in gaps)
+            raise ErroredRunError(
+                f"run {ref.key} does not reconcile with what its suite asked, at "
+                f"{len(gaps)} check(s) ({named}): this is not a regression, and "
+                "what the run measured is not known. A baseline has to be a "
+                "measurement somebody can state; run the suite again"
             )
 
         errored = sorted(

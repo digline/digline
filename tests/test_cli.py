@@ -263,6 +263,11 @@ COMPARE_KEYS = {
     # what this golden set guards and it is untouched; the semantic change is
     # written in `wire/contract.py`, beside the version it did not move.
     "denominator_moved",
+    # ADR 0027 §7: how many checks the run recorded as gaps between what the
+    # suite asked and what came back. An added key, the same rule again; it
+    # moves no exit code of its own, because every gap is already an errored
+    # verdict and exits 2 as one.
+    "unreconciled",
     "counts",
     "reasons_available",
     "sentence",

@@ -183,6 +183,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "compared on."
         ),
         "fact.calibration.across": " across {count} samples ({values})",
+        # First in the sentence, before any count: a run that does not know what
+        # it measured qualifies every number after it. Named, because "1 check
+        # short" sends somebody hunting and the name ends the question.
+        # (ADR 0027 §3)
+        "fact.unreconciled.one": (
+            "The run does not reconcile with what the suite asked, at 1 check: "
+            "{gaps}. This is not a regression: what the run measured is not "
+            "known."
+        ),
+        "fact.unreconciled.many": (
+            "The run does not reconcile with what the suite asked, at {count} "
+            "checks: {gaps}. This is not a regression: what the run measured is "
+            "not known."
+        ),
         "fact.target_config.changed": (
             "The system under test answered under a different configuration: {changes}."
         ),
@@ -634,6 +648,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "; this suite declares no calibration case, and a judge that has "
             "lost its scale reads as perfectly repeatable"
         ),
+        "explain.tally.unreconciled.one": (
+            "1 check does not reconcile with what the suite asked. This is not "
+            "a regression: what the run measured is not known. It is named "
+            "below, among the checks that could not be judged."
+        ),
+        "explain.tally.unreconciled.many": (
+            "{count} checks do not reconcile with what the suite asked. This is "
+            "not a regression: what the run measured is not known. They are "
+            "named below, among the checks that could not be judged."
+        ),
         "explain.tally.calibration.one": (
             "1 calibration case scored outside its declared band: the judged "
             "scores in this run are not placed on the scale they are compared "
@@ -1006,6 +1030,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "vengono confrontati."
         ),
         "fact.calibration.across": " su {count} campioni ({values})",
+        "fact.unreconciled.one": (
+            "L'esecuzione non torna con ciò che la suite ha chiesto, in 1 "
+            "controllo: {gaps}. Non è una regressione: non si sa che cosa "
+            "l'esecuzione abbia misurato."
+        ),
+        "fact.unreconciled.many": (
+            "L'esecuzione non torna con ciò che la suite ha chiesto, in {count} "
+            "controlli: {gaps}. Non è una regressione: non si sa che cosa "
+            "l'esecuzione abbia misurato."
+        ),
         "fact.target_config.changed": (
             "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
         ),
@@ -1454,6 +1488,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "judged.calibration.none": (
             "; questa suite non dichiara un caso di calibrazione, e un giudice "
             "che ha perso la sua scala risulta perfettamente ripetibile"
+        ),
+        "explain.tally.unreconciled.one": (
+            "1 controllo non torna con ciò che la suite ha chiesto. Non è una "
+            "regressione: non si sa che cosa l'esecuzione abbia misurato. È "
+            "nominato sotto, tra i controlli non valutati."
+        ),
+        "explain.tally.unreconciled.many": (
+            "{count} controlli non tornano con ciò che la suite ha chiesto. Non "
+            "è una regressione: non si sa che cosa l'esecuzione abbia misurato. "
+            "Sono nominati sotto, tra i controlli non valutati."
         ),
         "explain.tally.calibration.one": (
             "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "

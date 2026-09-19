@@ -37,6 +37,7 @@ from digline.core import (
     directions,
     on_the_line,
     scale_lost,
+    unreconciled,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -69,6 +70,7 @@ __all__ = [
     "suspended_cases",
     "unjudged_cases",
     "unjudged_sentence",
+    "unreconciled_fact",
 ]
 
 #: What stands where a parameter has no value on one side. Not localized, for
@@ -210,6 +212,12 @@ class Headline:
     #: Its clause sits directly after the `worse` clause, because the sentence
     #: it qualifies is that one. (the delta-pass over 0.15.1)
     denominator_moved: int = 0
+    #: How many checks this run recorded as gaps between what the suite asked
+    #: and what came back. Its clause leads the sentence, before the calibration
+    #: one, because a run that does not reconcile does not know what it
+    #: measured. It moves the exit code only through the errored verdict each
+    #: gap already is, so it needs no branch in `exit_code()`. (ADR 0027 §3)
+    unreconciled: int = 0
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -660,6 +668,8 @@ def headline(
     canary_text = _canary_fact(comparison, locale)
     lost = scale_lost(run)
     calibration_text = calibration_fact(lost, locale)
+    gaps = unreconciled(run)
+    unreconciled_text = unreconciled_fact(gaps, locale)
     # Before the configuration clause, because it qualifies what the numbers
     # *are* rather than how the system was set up: a replay did not ask the
     # target anything. The configuration clause still prints below it — it
@@ -725,6 +735,7 @@ def headline(
         canary_moved=comparison.canary_moved,
         scale_lost=bool(lost),
         denominator_moved=incomparable,
+        unreconciled=len(gaps),
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
@@ -732,6 +743,10 @@ def headline(
         sentence=" ".join(
             part
             for part in (
+                # Before everything, the calibration clause included: that one
+                # says the scale moved, this one says the run does not know
+                # what it measured at all. (ADR 0027 §3)
+                unreconciled_text,
                 # First of all, before the counts and not only before the
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
@@ -766,6 +781,20 @@ def headline(
             )
             if part
         ),
+    )
+
+
+def unreconciled_fact(gaps: Sequence[tuple[str, str]], locale: Locale) -> str:
+    """The clause a run that does not reconcile earns, naming every gap as
+    *case · check*, or nothing at all. (ADR 0027 §3)"""
+    if not gaps:
+        return ""
+    named = ", ".join(f"{case}{SUMMARY_SEPARATOR}{check}" for case, check in gaps)
+    return phrase(
+        locale,
+        f"fact.unreconciled.{'one' if len(gaps) == 1 else 'many'}",
+        count=len(gaps),
+        gaps=named,
     )
 
 
@@ -2001,6 +2030,11 @@ def _run_answer(run: Run, locale: Locale) -> str:
     # that declares none. (ADR 0024 §4.5)
     lost = calibration_fact(scale_lost(run), locale)
     lost_line = f"<p>{escape(lost)}</p>\n" if lost else ""
+    # Above the calibration line, for the headline's reason. Absent on a run
+    # that reconciles, which is every run the shipped driver produced before
+    # it, so those documents are byte for byte what they were. (ADR 0027 §7)
+    gaps = unreconciled_fact(unreconciled(run), locale)
+    lost_line = (f"<p>{escape(gaps)}</p>\n" if gaps else "") + lost_line
     # The headline's clause, where the tally below would otherwise leave the
     # reader to divide "Could not be judged 7" by "Cases 50" themselves. Silent
     # on a run that judged every case, so that document is byte for byte what

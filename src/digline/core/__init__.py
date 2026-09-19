@@ -92,6 +92,14 @@ from digline.core.protocols import (
     JudgeAbstained,
 )
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
+from digline.core.reconcile import (
+    UNRECONCILED,
+    Gap,
+    GapKind,
+    reconcile,
+    unreconciled,
+    unreconciled_verdict,
+)
 from digline.core.register import (
     DISPOSITIONS,
     Disposition,
@@ -294,6 +302,12 @@ __all__ = [
     "fold_judgements",
     "judged",
     "scale_lost",
+    "reconcile",
+    "unreconciled",
+    "unreconciled_verdict",
+    "UNRECONCILED",
+    "Gap",
+    "GapKind",
     "meets",
     "within",
     "budget_exceedances",

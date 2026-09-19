@@ -36,6 +36,7 @@ from digline.core import (
     denominator,
     on_the_line,
     scale_lost,
+    unreconciled,
 )
 from digline.report.render import (
     ABSENT,
@@ -143,6 +144,12 @@ type TallyKind = Literal[
     # moves no exit code and reclassifies no check; what it withdraws is the
     # claim that nothing moved. (ADR 0012 §3, amended 2026-09-18)
     "denominator_moved",
+    # The eighth amendment, from ADR 0027 §7: how many checks this run recorded
+    # as gaps between what the suite asked and what came back. The headline says
+    # it first, and a reading that omitted it would describe a run whose exit
+    # code it could not account for. Read off the run alone, so it is stated
+    # with or without a reference, and it goes to the very top.
+    "unreconciled",
 ]
 
 
@@ -313,10 +320,13 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # still measures on a scale, just a different one. It is inserted last so
     # the comparability fact below cannot displace it. (ADR 0024 §4.6)
     lost = len(scale_lost(run))
+    gaps = len(unreconciled(run))
 
     if comparison is None:
         if lost:
             out.insert(0, TallyFact("calibration", count=lost))
+        if gaps:
+            out.insert(0, TallyFact("unreconciled", count=gaps))
         return out
 
     covered = sum(1 for delta in comparison.deltas if delta.within_noise)
@@ -353,6 +363,10 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         out.insert(0, TallyFact("comparability", state=True))
     if lost:
         out.insert(0, TallyFact("calibration", count=lost))
+    # Above even the lost scale: that one says what the numbers were measured
+    # on, this one says the run does not know what it measured. (ADR 0027 §7)
+    if gaps:
+        out.insert(0, TallyFact("unreconciled", count=gaps))
     return out
 
 
@@ -720,6 +734,12 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
             return phrase(
                 locale,
                 f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "unreconciled":
+            return phrase(
+                locale,
+                f"explain.tally.unreconciled.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
         case "shape":
