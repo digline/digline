@@ -344,8 +344,10 @@ def test_the_report_puts_the_aggregate_above_the_cases() -> None:
 
     assert document.index("Overall") < document.index("What got worse")
     assert "accuracy" in document
-    # The exclusions travel with the ratio, never under it.
-    assert "21 counted · 0 suspended · 0 not judged" in document
+    # The exclusions travel with the ratio, never under it — and a figure that
+    # left nothing out says so in a sentence, not in a row of zeros.
+    assert "All 21 cases counted." in document
+    assert "0 suspended" not in document
 
 
 def test_an_aggregate_regression_is_named_in_the_summary() -> None:

@@ -23,6 +23,7 @@ from digline.core import (
     Comparison,
     ConfigDelta,
     ConfigValue,
+    Denominator,
     Outcome,
     Run,
     ScaleLost,
@@ -32,6 +33,7 @@ from digline.core import (
     Verdict,
     budget_exceedances,
     considered_cases,
+    denominator,
     directions,
     on_the_line,
     scale_lost,
@@ -53,6 +55,7 @@ __all__ = [
     "config_changes",
     "on_the_line_count",
     "config_lines",
+    "denominator_sentence",
     "errored_verdicts",
     "fmt_value",
     "headline",
@@ -65,6 +68,7 @@ __all__ = [
     "summary_lines",
     "suspended_cases",
     "unjudged_cases",
+    "unjudged_sentence",
 ]
 
 #: What stands where a parameter has no value on one side. Not localized, for
@@ -421,6 +425,95 @@ def run_tally(run: Run) -> RunTally:
     )
 
 
+def unjudged_sentence(
+    cases: int, unjudged: int, suspended: int, *, locale: Locale, key: str
+) -> str:
+    """The count with its denominator: "43 of 50 cases judged, 7 could not be."
+
+    `key` is the table the sentence comes from, `fact.unjudged` for the
+    headline or `explain.tally.unjudged` for a reading: the two already word
+    the zero case differently in Italian, so each keeps its own and this only
+    chooses the form. Taking three integers rather than a `RunTally` is what
+    lets a reading call it with the counts off its own fact list, which is the
+    only place a reading may take a number from. (ADR 0012 §3)
+
+    `judged` leaves the suspended cases out as well as the unjudged ones: a
+    case set aside was not judged either, and the headline names it in the
+    clause after this one, so the three numbers add up across the two.
+
+    The bare form survives for a run of one case, where "0 of 1 cases" is
+    the arithmetic and not a sentence. A run with nothing unjudged says so in
+    the sentence it always said: no parenthesis of zeros on a clean run.
+    """
+    if unjudged == 0:
+        return phrase(locale, f"{key}.none")
+    if cases <= 1:
+        return phrase(locale, f"{key}.one")
+    return phrase(
+        locale,
+        f"{key}.of.{'one' if unjudged == 1 else 'many'}",
+        judged=cases - unjudged - suspended,
+        total=cases,
+        count=unjudged,
+    )
+
+
+def denominator_sentence(
+    counted: Denominator | None, *, locale: Locale, whole: bool
+) -> str:
+    """What an aggregate counted, as a sentence — or nothing.
+
+    "43 of 50 cases counted; 7 could not be judged."
+
+    The figure an aggregate prints is a ratio, and a ratio read without its
+    denominator is the trap the reader was never shown: 0.860000 over 50 and
+    0.860000 over 43 of 50 are different claims. So the sentence travels with
+    the figure, in every place the figure is read.
+
+    Every exclusion is named, the canary and the calibration case too: they are
+    left out on purpose, but leaving one unnamed would give two numbers that do
+    not add up, which is a denominator nobody can check.
+
+    `whole` asks for the sentence that says nothing was left out, and only a
+    table cell asks for it: a cell has to hold something, and "All 50 cases
+    counted." is shorter than a row of zeros. Everywhere else a figure that
+    left nothing out gets no clause at all. Empty, too, for `None` — a verdict
+    that is not an aggregate or that predates the recorded matrix.
+
+    It takes the `Denominator` rather than the verdict so that a reading, which
+    renders its fact list and nothing else, can call it too. (ADR 0012 §3)
+    """
+    if counted is None:
+        return ""
+    if not counted.excluded:
+        if not whole:
+            return ""
+        return phrase(
+            locale, f"denominator.whole.{_count_form(counted.seen)}", seen=counted.seen
+        )
+    excluded = ", ".join(
+        phrase(
+            locale,
+            f"denominator.{key}.{'one' if count == 1 else 'many'}",
+            count=count,
+        )
+        for key, count in counted.excluded
+    )
+    return phrase(
+        locale,
+        f"denominator.partial.{'one' if counted.seen == 1 else 'many'}",
+        considered=counted.considered,
+        seen=counted.seen,
+        excluded=excluded,
+    )
+
+
+def _count_form(count: int) -> str:
+    if count == 0:
+        return "none"
+    return "one" if count == 1 else "many"
+
+
 @dataclass(frozen=True, slots=True)
 class ErroredVerdict:
     """One check that could not be judged, and where it sits.
@@ -518,12 +611,9 @@ def headline(
             count=incomparable,
         )
 
-    if unjudged == 0:
-        unjudged_text = phrase(locale, "fact.unjudged.none")
-    elif unjudged == 1:
-        unjudged_text = phrase(locale, "fact.unjudged.one")
-    else:
-        unjudged_text = phrase(locale, "fact.unjudged.many", count=unjudged)
+    unjudged_text = unjudged_sentence(
+        len(run.results), unjudged, suspended, locale=locale, key="fact.unjudged"
+    )
 
     if suspended == 0:
         suspended_text = phrase(locale, "fact.suspended.none")
@@ -941,6 +1031,15 @@ def check_line(delta: AssertionDelta, *, locale: Locale, coincides: str = "") ->
     text = _detail_text(delta, locale)
     if coincides and delta.outcome == "regressed":
         text += phrase(locale, "config.coincides", changes=coincides)
+    # Last, after the coincidence: it qualifies the number the whole sentence
+    # is about, where the coincidence qualifies only the drop. This run's side,
+    # because that is the figure the sentence ends on.
+    if delta.scope == "run" and delta.current is not None:
+        counted = denominator_sentence(
+            denominator(delta.current), locale=locale, whole=False
+        )
+        if counted:
+            text += f" {counted}"
     return text
 
 
@@ -1445,12 +1544,13 @@ def _aggregates(
     for verdict in run.aggregate:
         score = verdict.score.score
         result = phrase(locale, "detail.errored") if score is None else fmt_score(score)
-        counted = phrase(
-            locale,
-            "aggregate.counted",
-            considered=verdict.score.metadata.get("considered", 0),
-            suspended=verdict.score.metadata.get("suspended_excluded", 0),
-            errored=verdict.score.metadata.get("errored_excluded", 0),
+        # A sentence, not three counts: the old cell printed "0 suspended · 0
+        # not judged" on every clean figure and still left the canary and the
+        # calibration case out of the sum. A verdict with no recorded matrix
+        # gets the dash, not a zero nobody measured.
+        counted = (
+            denominator_sentence(denominator(verdict), locale=locale, whole=True)
+            or ABSENT
         )
         why = verdict.reason if reasons else phrase(locale, "reason.unavailable")
         rows.append(
@@ -1901,11 +2001,28 @@ def _run_answer(run: Run, locale: Locale) -> str:
     # that declares none. (ADR 0024 §4.5)
     lost = calibration_fact(scale_lost(run), locale)
     lost_line = f"<p>{escape(lost)}</p>\n" if lost else ""
+    # The headline's clause, where the tally below would otherwise leave the
+    # reader to divide "Could not be judged 7" by "Cases 50" themselves. Silent
+    # on a run that judged every case, so that document is byte for byte what
+    # it was.
+    unjudged = (
+        unjudged_sentence(
+            tally_of.cases,
+            tally_of.unjudged,
+            tally_of.suspended,
+            locale=locale,
+            key="fact.unjudged",
+        )
+        if tally_of.unjudged
+        else ""
+    )
+    unjudged_line = f"<p>{escape(unjudged)}</p>\n" if unjudged else ""
     return (
         '<section class="answer">\n'
         f'<p class="verdict">{escape(phrase(locale, "noreference.title"))}</p>\n'
         f"{lost_line}"
         f"<p>{escape(phrase(locale, 'noreference.sentence'))}</p>\n"
+        f"{unjudged_line}"
         f'<ul class="tally">{tally}</ul>\n'
         "</section>"
     )

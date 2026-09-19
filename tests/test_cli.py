@@ -114,7 +114,8 @@ def test_compare_exits_unjudged_when_a_case_cannot_run(repo: Path) -> None:
         repo, "compare", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
     )
     assert compared.returncode == EXIT_UNJUDGED
-    assert "1 case could not be judged" in compared.stdout
+    # With the denominator it is a count of: the suite grew to three cases.
+    assert "2 of 3 cases judged, 1 could not be." in compared.stdout
 
 
 def test_the_exit_code_field_is_the_process_exit_code(repo: Path) -> None:

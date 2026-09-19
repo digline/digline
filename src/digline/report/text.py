@@ -116,7 +116,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.noise.many": "{count} checks moved within noise.",
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
-        "fact.unjudged.many": "{count} cases could not be judged.",
+        # The same count with the denominator it is a count of, and the form
+        # every run with more than one case takes: "7 cases could not be
+        # judged" leaves the reader to find the 50 somewhere else, which is the
+        # disclosure that existed and was never where anybody read it.
+        "fact.unjudged.of.one": "{judged} of {total} cases judged, 1 could not be.",
+        "fact.unjudged.of.many": (
+            "{judged} of {total} cases judged, {count} could not be."
+        ),
         "fact.suspended.none": "No case is suspended.",
         "fact.suspended.one": "1 case is suspended.",
         "fact.suspended.many": "{count} cases are suspended.",
@@ -309,9 +316,29 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "says it has not moved. Both are true, and only movement decides "
             "the answer above."
         ),
-        "aggregate.counted": (
-            "{considered} counted · {suspended} suspended · {errored} not judged"
+        # The denominator as a sentence, beside every figure computed over one
+        # and never as a column of zeros: "43 of 50 cases counted; 7 could not
+        # be judged" rather than a bare 0.860000. Every exclusion is named, the
+        # ones a suite declares on purpose too, so the two numbers always add
+        # up; a figure that left nothing out says so in four words where there
+        # is a cell to fill, and says nothing inside a sentence.
+        "denominator.whole.none": "No case to count.",
+        "denominator.whole.one": "The only case was counted.",
+        "denominator.whole.many": "All {seen} cases counted.",
+        "denominator.partial.one": "{considered} of 1 case counted; {excluded}.",
+        "denominator.partial.many": (
+            "{considered} of {seen} cases counted; {excluded}."
         ),
+        "denominator.errored_excluded.one": "1 could not be judged",
+        "denominator.errored_excluded.many": "{count} could not be judged",
+        "denominator.suspended_excluded.one": "1 suspended",
+        "denominator.suspended_excluded.many": "{count} suspended",
+        "denominator.unlabelled_excluded.one": "1 without a label",
+        "denominator.unlabelled_excluded.many": "{count} without a label",
+        "denominator.canary_excluded.one": "1 canary",
+        "denominator.canary_excluded.many": "{count} canaries",
+        "denominator.calibration_excluded.one": "1 calibration case",
+        "denominator.calibration_excluded.many": "{count} calibration cases",
         "column.measure": "Measure",
         "column.result": "Result",
         "scope.run": "whole run",
@@ -538,7 +565,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.checks.many": "{count} checks ran.",
         "explain.tally.unjudged.none": "Every case could be judged.",
         "explain.tally.unjudged.one": "1 case could not be judged.",
-        "explain.tally.unjudged.many": "{count} cases could not be judged.",
+        "explain.tally.unjudged.of.one": (
+            "{judged} of {total} cases judged, 1 could not be."
+        ),
+        "explain.tally.unjudged.of.many": (
+            "{judged} of {total} cases judged, {count} could not be."
+        ),
         "explain.tally.suspended.none": "No case is suspended.",
         "explain.tally.suspended.one": "1 case is suspended.",
         "explain.tally.suspended.many": "{count} cases are suspended.",
@@ -913,7 +945,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.noise.many": "{count} controlli si sono mossi entro il rumore.",
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
-        "fact.unjudged.many": "{count} casi non è stato possibile giudicarli.",
+        # A label and a colon rather than "{judged} casi giudicati": the
+        # participle would have to agree with the number, and "1 casi" is the
+        # sort of thing a reader stops trusting the rest of the page for.
+        "fact.unjudged.of.one": (
+            "Casi giudicati: {judged} su {total}; 1 non è stato possibile giudicarlo."
+        ),
+        "fact.unjudged.of.many": (
+            "Casi giudicati: {judged} su {total}; {count} non è stato possibile "
+            "giudicarli."
+        ),
         "fact.suspended.none": "Nessun caso è sospeso.",
         "fact.suspended.one": "1 caso è sospeso.",
         "fact.suspended.many": "{count} casi sono sospesi.",
@@ -1091,9 +1132,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "dice che non si è spostato. Sono vere entrambe, e la risposta qui "
             "sopra la decide solo lo spostamento."
         ),
-        "aggregate.counted": (
-            "{considered} contati · {suspended} sospesi · {errored} non giudicabili"
+        "denominator.whole.none": "Nessun caso da contare.",
+        "denominator.whole.one": "L'unico caso è stato contato.",
+        "denominator.whole.many": "Contati tutti i {seen} casi.",
+        "denominator.partial.one": "Casi contati: {considered} su 1; {excluded}.",
+        "denominator.partial.many": (
+            "Casi contati: {considered} su {seen}; {excluded}."
         ),
+        "denominator.errored_excluded.one": "1 non giudicabile",
+        "denominator.errored_excluded.many": "{count} non giudicabili",
+        "denominator.suspended_excluded.one": "1 sospeso",
+        "denominator.suspended_excluded.many": "{count} sospesi",
+        "denominator.unlabelled_excluded.one": "1 senza etichetta",
+        "denominator.unlabelled_excluded.many": "{count} senza etichetta",
+        "denominator.canary_excluded.one": "1 canary",
+        "denominator.canary_excluded.many": "{count} canary",
+        "denominator.calibration_excluded.one": "1 caso di calibrazione",
+        "denominator.calibration_excluded.many": "{count} casi di calibrazione",
         "column.measure": "Misura",
         "column.result": "Risultato",
         "scope.run": "intera esecuzione",
@@ -1333,7 +1388,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.tally.checks.many": "Sono stati eseguiti {count} controlli.",
         "explain.tally.unjudged.none": "Ogni caso è stato valutato.",
         "explain.tally.unjudged.one": "1 caso non è stato valutato.",
-        "explain.tally.unjudged.many": "{count} casi non sono stati valutati.",
+        "explain.tally.unjudged.of.one": (
+            "Casi valutati: {judged} su {total}; 1 non lo è stato."
+        ),
+        "explain.tally.unjudged.of.many": (
+            "Casi valutati: {judged} su {total}; {count} non lo sono stati."
+        ),
         "explain.tally.suspended.none": "Nessun caso è sospeso.",
         "explain.tally.suspended.one": "1 caso è sospeso.",
         "explain.tally.suspended.many": "{count} casi sono sospesi.",

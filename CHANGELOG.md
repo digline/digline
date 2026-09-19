@@ -8,6 +8,25 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed
+
+- **The count of unjudged cases now comes with the number it is out of.** The
+  headline that `compare` prints and the report opens with, the reading
+  `explain` gives, and the single-run document all used to say *"7 cases could
+  not be judged."* Now they say *"43 of 50 cases judged, 7 could not be."* Every
+  run-level figure that left cases out also says how many and why, wherever
+  that figure is named: *"43 of 50 cases counted; 7 could not be judged."* That
+  applies to `compare`'s line for it, the report's "what happened" column and
+  `explain`. Every exclusion is named, including the canary, the calibration
+  case and the unlabelled case, so the two numbers always add up. The report's
+  column of counts (*"43 counted · 0 suspended · 7 not judged"*) is now the same
+  sentence, and it used to leave those last three out of the sum. The counts
+  were always recorded. They just were not where people read. This is
+  presentation only: no new fact, no schema change, and no field added to
+  `--json` or MCP. The headline string they already carry is the new sentence. **A run that judged every case reads exactly as before.**
+  The zero case keeps its sentence, *"Every case could be judged."*, and no
+  figure gets a clause saying it left nothing out.
+
 ### Fixed
 
 - **A cost that was neither a number nor an error passed the guard beside it.**

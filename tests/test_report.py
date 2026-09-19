@@ -123,7 +123,7 @@ def test_a_new_case_that_could_not_run_is_still_counted_as_unjudged() -> None:
     assert comparison.counts.get("errored", 0) == 0  # the outcome says `new`
     head = headline(comparison, run, baseline, locale="en")
     assert head.unjudged == 1
-    assert "1 case could not be judged" in head.sentence
+    assert "1 of 2 cases judged, 1 could not be." in head.sentence
 
 
 def test_unjudged_counts_cases_not_checks() -> None:
