@@ -1066,6 +1066,17 @@ a number nobody can check. Nothing here refuses the command.
 | `environment` | reported | never splits the set (decision 8) |
 | `digline_version` | reported | the range printed; a release that changed no score changes no measurement |
 
+*Amended 2026-09-19, from building it: the **identity** row is subsumed by the
+**target configuration** row in all but one corner, and the table is left as it
+is. A sighting is derived from the configuration — `resolved_model` is a value
+in it — so a run another model answered differs in `target_config` and is
+excluded three rows earlier, under that name. What reaches the identity check is
+the residue: equal configurations whose `digline_version` differs. The row's
+intent is met, and more strictly; what it uniquely contributes is the count of
+runs that identified the answering model, not the exclusion. Reordering would
+relabel an exclusion that already happens and change no behaviour, so the next
+reader meets this line rather than an apparent redundancy.*
+
 **The latest run is never in the N.** ADR 0006 §5's asymmetry: a noisy new run
 must not widen its own excuse.
 
