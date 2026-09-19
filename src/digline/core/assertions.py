@@ -18,7 +18,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from digline.core.pii import ITALIAN_PII, PiiPattern
-from digline.core.protocols import Assertion, ClaimJudge, Judge
+from digline.core.protocols import Assertion, ClaimJudge, Judge, JudgeAbstained
 from digline.core.types import (
     ALL_KINDS,
     STORAGE_STEP,
@@ -845,6 +845,12 @@ class LlmRubric(AssertionBase):
             return self._unrenderable(exc)
         try:
             reply = self.judge(prompt)
+        except JudgeAbstained as declined:
+            # An answer, not a failure: the judge read the output and says it
+            # cannot be scored. Caught before the handler below so the two are
+            # never one sentence, and the judge's own words are the reason.
+            # (ADR 0004 §7)
+            return self._error(f"the judge declined to score: {declined}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
@@ -1004,13 +1010,24 @@ class Faithfulness(AssertionBase):
             return self._unrenderable(exc)
         try:
             reply = self.judge(prompt)
+        except JudgeAbstained as declined:
+            # The judge could not work out what the output claims, and says so.
+            # Distinct from the zero below, which is the answer *none* — and the
+            # sentence below may only claim the judge counted because this line
+            # exists. (ADR 0004 §7.6)
+            return self._error(f"the judge declined to count the claims: {declined}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
         if reply.total == 0:
+            # One world, not two. Until a judge could decline, this sentence
+            # covered both "the output asserts nothing" and "the judge could not
+            # tell what it asserts", and nothing in the data told them apart.
+            # (ADR 0004 §7.6)
             return self._error(
-                "the judge found no claims in the output: there is no fraction "
-                "to report, and a perfect score would reward saying nothing"
+                "the judge counted the claims in this output and found none: "
+                "there is no fraction to report, and a perfect score would "
+                "reward saying nothing"
             )
         if reply.supported > reply.total:
             return self._error(

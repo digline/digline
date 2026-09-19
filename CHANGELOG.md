@@ -54,6 +54,36 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
   resumed run that could not say what its earlier legs cost would under-bill in
   silence.
 
+### Added — the judge may say it cannot answer
+
+- **A judge can now decline instead of inventing a number.** Asked to score an
+  output it cannot score — a refusal, an empty answer, text the rubric does not
+  apply to — a model used to have two ways out: guess, or crash. A guess is
+  usually a `0`, and a `0` is a **fail**: the system under test marked down for
+  the instrument's inability. A judge replies `{"abstain": true, "reason": "…"}`
+  instead, and the check is *unjudged* carrying the judge's own sentence.
+- **A judge that never abstains behaves exactly as today.** A missing `score`,
+  a `"score": null` and an `"abstain": false` all stay broken replies. Declining
+  is the thing a judge has to say on purpose: it is unreachable by omission, by
+  a malformed value, and without a reason.
+- **`Faithfulness` can tell its two zeros apart.** *"The judge found no claims"*
+  used to cover both an output that asserts nothing and a judge that could not
+  tell what it asserts. A judge that cannot decompose now declines, so the
+  remaining zero says what it means: *the judge counted the claims in this
+  output and found none*.
+- It adds no status (`error` is already *a judgement that could not be given*),
+  no field to any stored document, and no schema move.
+
+  **If judged scores move on this upgrade, it is neither your system nor your
+  model — it is our instruction to the judge.** `SCORE_SYSTEM` and
+  `CLAIM_SYSTEM` changed, and a model told it may decline will sometimes decline
+  where it used to guess. Nothing records that: the judge's instruction is in
+  neither `config_hash` nor `judge_config`, so a comparison across this upgrade
+  reports `judge_config_changed` **false**. Read the movement, and **re-promote
+  if it is acceptable**.
+
+  The reasoning is [ADR 0004 §7](docs/adr/0004-every-plugin-is-a-target-and-a-judge.md).
+
 ### Fixed
 
 - **A judging prompt that could not be composed was reported as the judge

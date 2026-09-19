@@ -1220,6 +1220,38 @@ A judge that raises, that returns a score out of range or that gives no reason
 produces a verdict in **`error`**, not a failure: not having been able to judge
 is a different thing from having judged badly.
 
+### A judge that cannot answer
+
+Since 0.16.0 a judge can **decline** rather than invent a score. It raises
+`JudgeAbstained(reason)`, imported from `digline.core`, and the check is
+`error` carrying the judge's own sentence — *the judge declined to score: …* —
+instead of our sentence about a judge that blew up.
+
+The shipped `ScoreJudge` and `ClaimCountJudge` raise it when the model's reply
+declares it, and only then:
+
+```json
+{"abstain": true, "reason": "the answer is a refusal, so there is nothing to score"}
+```
+
+Three rules, and they are the contract rather than an implementation detail:
+
+- **`abstain` absent is not an abstention.** A judge that never declines
+  behaves exactly as it did: a missing `score` and a `"score": null` are still
+  broken replies.
+- **A value that is not `true`/`false` is a broken reply**, not a declining.
+- **`reason` is mandatory.** A declining with no reason is refused, because the
+  sentence is the whole of what an abstention is worth.
+
+A reply that declines *and* scores has declined: a judge that supplied both has
+not scored.
+
+Declining is not a low score. `0` says the output was read and failed the
+rubric; declining says it could not be read against the rubric at all. For
+`ClaimCountJudge` the distinction is sharper: an output that asserts nothing is
+`"total": 0`, which is an answer, while declining says the judge could not tell
+what it asserts. (ADR 0004 §7)
+
 ### The prompt a judge receives
 
 **One shape, for every assertion that asks a judge anything.** This is interface,

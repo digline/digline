@@ -87,6 +87,7 @@ from digline.core.protocols import (
     DeclaresPrice,
     HasConfig,
     Judge,
+    JudgeAbstained,
 )
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
 from digline.core.register import (
@@ -232,6 +233,7 @@ __all__ = [
     "IsJson",
     "JsonSchema",
     "Judge",
+    "JudgeAbstained",
     "JudgeReply",
     "Label",
     "LatencyBudget",
