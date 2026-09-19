@@ -30,11 +30,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from digline.core import RegisterEntry, Run, SystemConfig
+from digline.core import RegisterEntry, Run, SystemConfig, Verdict
+from digline.core.calibration import scale_lost
+from digline.report.render import fmt_score, unjudged_cases
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
     "ABSENCES",
+    "EXCLUSIONS",
+    "AggregateSpread",
     "SIDES",
     "AbsenceKind",
     "IdentityLog",
@@ -44,6 +48,7 @@ __all__ = [
     "Roll",
     "Side",
     "Sighting",
+    "ExclusionKind",
     "identity_log",
     "log_text",
     "sighting",
@@ -159,6 +164,89 @@ class Reference:
     judge: Sighting
 
 
+#: Why a stored run is not in the N, in the order §7.2's table checks them. A
+#: closed vocabulary: a run excluded for a reason nobody named is a number
+#: nobody can check, which is ADR 0016 §3's rule and the seven absences'.
+type ExclusionKind = Literal[
+    "rejudged",
+    "unjudged",
+    "scale_lost",
+    "config_hash",
+    "population",
+    "artifacts",
+    "target_config",
+    "judge_config",
+    "identity",
+]
+
+EXCLUSIONS: tuple[ExclusionKind, ...] = (
+    "rejudged",
+    "unjudged",
+    "scale_lost",
+    "config_hash",
+    "population",
+    "artifacts",
+    "target_config",
+    "judge_config",
+    "identity",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AggregateSpread:
+    """How much one run-level aggregate moved across the comparable runs.
+
+    **A type of its own, sharing no row with `IdentitySpan`.** ADR 0020 §4 says
+    the row has no score by type, and its hazard was a reader deducing a roll
+    from scores printed beside identities. This uses that juxtaposition in the
+    one direction the amendment permits: *identity decides which runs are
+    grouped; scores never decide identity.*
+
+    `low` and `high` are a **range**, not a standard deviation: the house reads
+    noise as `sample_min`–`sample_max` (ADR 0006 §2, §5), a deviation over four
+    stored runs is itself noise, and a second definition of *inside the noise*
+    would answer with a different rule from the one `compare` applies per case.
+
+    `within_low` and `within_high` are the **other** interval — the aggregate
+    re-evaluated per sample index inside the latest run (ADR 0006 §7). They are
+    a different quantity from `low`/`high` and are printed labelled and never
+    compared with them: the folded aggregate is steadier than any single-sample
+    one, and on a real store the between-run range came out *narrower* than the
+    within-run interval (ADR 0024 §10).
+
+    `runs` never counts the latest run: ADR 0006 §5's asymmetry, a noisy new run
+    must not widen its own excuse.
+    """
+
+    name: str
+    latest: float
+    reference: float | None
+    #: The range **over the counted runs only**. `None` where nothing was
+    #: comparable, which is a reading with exclusions and no range rather than a
+    #: range of one number. The latest run is never in it: a spread that
+    #: contained the value it is read against would make *inside* true by
+    #: construction, which is the excuse ADR 0024 §7.4 refuses to promote to a
+    #: feature.
+    low: float | None
+    high: float | None
+    runs: int
+    excluded: Mapping[ExclusionKind, int] = field(
+        default_factory=dict[ExclusionKind, int]
+    )
+    #: Of the runs in `runs`, how many did not identify the answering model.
+    #: Named because a roll inside the set is absorbed into the spread, and
+    #: where the provider does not name the model the canary is the only
+    #: instrument that sees one.
+    unidentified: int = 0
+    #: Distinct `git_commit` values across the counted runs, reported and never
+    #: a constraint: commonly `-dirty`, and excluding on it collapses N to one.
+    commits: int = 0
+    #: The releases that wrote the counted runs, lowest to highest.
+    versions: tuple[str, ...] = ()
+    within_low: float | None = None
+    within_high: float | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class IdentityLog:
     """The whole reading of one suite in one tenant, oldest first.
@@ -191,6 +279,11 @@ class IdentityLog:
     register: tuple[RegisterEntry, ...] = ()
     register_torn: bool = False
     register_unreadable: bool = False
+    #: One per run-level aggregate the latest run measured, or empty — a suite
+    #: that declares none gets no section and the reading says so, rather than
+    #: a suite-wide number built out of the checks, which would be inventing a
+    #: summary. (ADR 0024 §7.1)
+    spread: tuple[AggregateSpread, ...] = ()
 
 
 def sighting(config: SystemConfig, *, writer: str) -> Sighting:
@@ -322,6 +415,160 @@ def _rolls(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[Roll]:
     return rolls
 
 
+def _population(run: Run) -> tuple[frozenset[str], ...]:
+    """What the aggregate counted over, as four sets the document can verify.
+
+    The case ids, and the three kinds of case that leave a denominator without
+    being a failure. Read off the results rather than out of an aggregate's
+    metadata: a set the reader can rebuild from the document beats a count it
+    has to trust, and `Matrix`'s own numbers are derived from exactly these.
+    """
+    return (
+        frozenset(case.case_id for case in run.results),
+        frozenset(c.case_id for c in run.results if c.suspended is not None),
+        frozenset(c.case_id for c in run.results if c.canary),
+        frozenset(c.case_id for c in run.results if c.calibration is not None),
+    )
+
+
+def _artifacts(run: Run) -> Mapping[str, str]:
+    """Each declared artifact's digest. A run that declares none compares equal
+    to another that declares none — counted, and the reading says so."""
+    return {path: item.sha for path, item in sorted(run.artifacts.items())}
+
+
+def _why_not(latest: Run, run: Run, *, in_span: bool) -> ExclusionKind | None:
+    """Why this run may not be measured beside the latest one, or `None`.
+
+    §7.2's table, in its order. Every answer is verifiable from the two
+    documents: nothing here infers, and what cannot be held — the case content
+    behind a stable id, the mapper, every other line of code — is reported
+    elsewhere rather than guessed at.
+    """
+    if run.rejudged_from is not None:
+        # Zero target variance would narrow the spread with a run that asked
+        # the target nothing (ADR 0015 §7).
+        return "rejudged"
+    if unjudged_cases(run):
+        return "unjudged"
+    if scale_lost(run):
+        return "scale_lost"
+    if run.config_hash != latest.config_hash:
+        return "config_hash"
+    if _population(run) != _population(latest):
+        return "population"
+    if _artifacts(run) != _artifacts(latest):
+        return "artifacts"
+    if run.target_config.redacted() != latest.target_config.redacted():
+        return "target_config"
+    if run.judge_config.redacted() != latest.judge_config.redacted():
+        return "judge_config"
+    if not in_span:
+        # The set is the **latest identity span** only. What answered is mostly
+        # not verifiable (ADR 0020 §3), so it is never inferred: the span is the
+        # run of consecutive sightings the latest run belongs to, and how many
+        # of them identified the model is said rather than assumed.
+        #
+        # **Subsumed in all but one corner, and kept anyway.** A sighting is
+        # derived from the configuration — `resolved_model` is a value in it —
+        # so a run a different model answered differs in `target_config` and is
+        # excluded three rows above, under that name. What reaches here is the
+        # residue: equal configurations whose `digline_version` differs, where
+        # one absence reads `not_reported` and the other `not_recorded`. The
+        # row's own contribution is the count `unidentified` carries, not this
+        # exclusion. (ADR 0024 §7.2)
+        return "identity"
+    return None
+
+
+def _aggregate(run: Run, name: str) -> Verdict | None:
+    return next((v for v in run.aggregate if v.score.name == name), None)
+
+
+def _spread(
+    ordered: Sequence[tuple[str, Run]], reference: Run | None
+) -> tuple[AggregateSpread, ...]:
+    """One reading per run-level aggregate of the latest run.
+
+    The latest run is never in the N — ADR 0006 §5's asymmetry, a noisy new run
+    must not widen its own excuse — so a store holding one run reads `runs=0`
+    and a range of that single value, which the sentence states rather than
+    dresses up.
+
+    **Silent on a flip.** Where an aggregate's status differs between the
+    reference and the latest run, no spread is produced for it: ADR 0006 §6, a
+    flip carries no interval, and printing one invites the reader to argue it
+    away. (ADR 0024 §7.5)
+    """
+    if not ordered:
+        return ()
+    _key, latest = ordered[-1]
+    earlier = ordered[:-1]
+
+    # The trailing group of runs whose target sighting is the latest run's. A
+    # replay is not a sighting of the target at all, so it stops nothing.
+    latest_sighting = sighting(_config(latest, "target"), writer=latest.digline_version)
+    in_span: set[str] = set()
+    for key, run in reversed(earlier):
+        if run.rejudged_from is not None:
+            continue
+        if sighting(_config(run, "target"), writer=run.digline_version) != (
+            latest_sighting
+        ):
+            break
+        in_span.add(key)
+
+    counted: list[Run] = []
+    excluded: dict[ExclusionKind, int] = {}
+    for key, run in earlier:
+        why = _why_not(latest, run, in_span=key in in_span)
+        if why is None:
+            counted.append(run)
+        else:
+            excluded[why] = excluded.get(why, 0) + 1
+
+    found: list[AggregateSpread] = []
+    for verdict in latest.aggregate:
+        name = verdict.score.name
+        if verdict.score.score is None:
+            continue
+        before = None if reference is None else _aggregate(reference, name)
+        if before is not None and before.status != verdict.status:
+            continue
+        scores = [
+            other.score.score
+            for run in counted
+            if (other := _aggregate(run, name)) is not None
+            and other.score.score is not None
+        ]
+        found.append(
+            AggregateSpread(
+                name=name,
+                latest=verdict.score.score,
+                reference=None if before is None else before.score.score,
+                low=min(scores) if scores else None,
+                high=max(scores) if scores else None,
+                runs=len(scores),
+                excluded=dict(sorted(excluded.items())),
+                unidentified=sum(
+                    1
+                    for run in counted
+                    if sighting(
+                        _config(run, "target"), writer=run.digline_version
+                    ).answered
+                    is None
+                ),
+                commits=len({run.git_commit for run in counted if run.git_commit}),
+                versions=tuple(
+                    sorted({r.digline_version for r in counted if r.digline_version})
+                ),
+                within_low=verdict.score.sample_min,
+                within_high=verdict.score.sample_max,
+            )
+        )
+    return tuple(found)
+
+
 def identity_log(
     rows: Sequence[tuple[str, Run]],
     *,
@@ -403,6 +650,7 @@ def identity_log(
         ),
         register_torn=register_torn,
         register_unreadable=register_unreadable,
+        spread=_spread(ordered, None if baseline is None else baseline[1]),
     )
 
 
@@ -441,6 +689,109 @@ def _span_line(span: IdentitySpan, locale: Locale) -> str:
         runs=span.runs,
         environments=environments,
     )
+
+
+def _excluded_text(spread: AggregateSpread, locale: Locale) -> str:
+    """The exclusions, in §7.2's order and never as a total.
+
+    A run excluded silently is a number nobody can check, and a single figure
+    for *excluded* would be exactly that: which reason is what a reader acts on.
+    """
+    said = [
+        phrase(locale, f"log.spread.excluded.{kind}", count=spread.excluded[kind])
+        for kind in EXCLUSIONS
+        if spread.excluded.get(kind)
+    ]
+    if not said:
+        return ""
+    return phrase(locale, "log.spread.excluded", excluded=", ".join(said))
+
+
+def _spread_lines(log: IdentityLog, locale: Locale) -> list[str]:
+    """The spread section: the set once, then one line per aggregate.
+
+    The set-level facts — how many runs, what was excluded and why, how many
+    identified the model, the commits and the releases — are one statement
+    about one set, so they are said once. Repeating them under every aggregate
+    would read as several measurements where there is one.
+
+    **The inside/outside clause is withheld**, and the reading says it is: a
+    range over two runs is a single difference, and until the least N that makes
+    *inside* mean anything is measured on real history, claiming either branch
+    would be the excuse ADR 0024 §7.4 refuses to promote to a feature.
+    """
+    if not log.spread:
+        return [phrase(locale, "log.spread.none")]
+    first = log.spread[0]
+    lines = [
+        phrase(
+            locale,
+            "log.spread.set",
+            count=first.runs,
+            excluded=_excluded_text(first, locale),
+        )
+    ]
+    if first.unidentified:
+        lines.append(
+            phrase(
+                locale,
+                "log.spread.unidentified",
+                count=first.unidentified,
+                total=first.runs,
+            )
+        )
+    if first.commits:
+        lines.append(phrase(locale, "log.spread.commits", count=first.commits))
+    if first.versions:
+        lines.append(
+            phrase(locale, "log.spread.versions", versions=", ".join(first.versions))
+        )
+    for item in log.spread:
+        if item.low is None or item.high is None:
+            # Exclusions and no range. The reader is told which runs were left
+            # out and why, which is the whole of what this reading can say when
+            # nothing in the store was measured the same way.
+            lines.append(phrase(locale, "log.spread.no_comparable", name=item.name))
+            continue
+        if item.reference is None:
+            lines.append(
+                phrase(
+                    locale,
+                    "log.spread.range.alone",
+                    name=item.name,
+                    latest=fmt_score(item.latest),
+                    low=fmt_score(item.low),
+                    high=fmt_score(item.high),
+                )
+            )
+        else:
+            lines.append(
+                phrase(
+                    locale,
+                    "log.spread.range",
+                    name=item.name,
+                    latest=fmt_score(item.latest),
+                    reference=fmt_score(item.reference),
+                    difference=fmt_score(item.latest - item.reference),
+                    low=fmt_score(item.low),
+                    high=fmt_score(item.high),
+                )
+            )
+        # Printed where it exists and labelled as the other measurement: the
+        # folded aggregate is steadier than any single-sample one, so the two
+        # intervals answer different questions and are never set against each
+        # other. (ADR 0024 §7.3)
+        if item.within_low is not None and item.within_high is not None:
+            lines.append(
+                phrase(
+                    locale,
+                    "log.spread.within",
+                    low=fmt_score(item.within_low),
+                    high=fmt_score(item.within_high),
+                )
+            )
+    lines.append(phrase(locale, "log.spread.floor"))
+    return lines
 
 
 def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
@@ -517,6 +868,10 @@ def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
                 lines.append(
                     "  " + phrase(locale, "log.roll.silence", count=roll.silent_between)
                 )
+
+    lines.append("")
+    lines.append(phrase(locale, "log.spread.heading"))
+    lines.extend(_spread_lines(log, locale))
 
     lines.append("")
     reference = log.reference

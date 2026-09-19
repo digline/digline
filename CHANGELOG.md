@@ -118,6 +118,36 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
   The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
 
+### Added — how much the suite moves between runs
+
+- **`digline log` reads the spread**, the fourth measurement of ADR 0024: for
+  each run-level aggregate, the range it took across the **comparable** runs in
+  this store and this window. Comparable is checked and never assumed — a run
+  is excluded, counted and named where it re-judged, where a case could not be
+  judged, where it lost its scale, or where its rules, its counted cases, its
+  prompt, the system it asked or the instrument that graded were not the
+  latest run's.
+- **The latest run is never in its own range.** A spread that contained the
+  value it is read against would answer *inside* by construction, which is an
+  excuse promoted to a feature.
+- **Whether the latest score is inside that spread is not said yet**, and the
+  reading says that it is not saying it: a range over two runs is a single
+  difference, and the least N that makes *inside* mean anything has to be
+  measured on real history first — the same way the shape and calibration
+  thresholds are declared to be measured rather than guessed.
+- Where the latest run also carries the aggregate's per-sample interval, both
+  are printed and **labelled apart**: they are different measurements, and the
+  reading never sets one against the other.
+- Silent on a flip, no new exit code, nothing in `compare`: `log` exits 0
+  whenever it read the store, and this adds no path to any other number.
+- `--json` gains `spread` beside `spans` and `rolls`, and the MCP `log` tool
+  returns the same value. `OUTPUT_VERSION` stays **2**: an added key.
+
+  The reasoning is [ADR 0024 §7](docs/adr/0024-the-judge-as-an-instrument.md),
+  with the one sentence it needed from
+  [ADR 0020 §4](docs/adr/0020-the-reading-across-runs.md) written there as a
+  dated amendment.
+
 ### Fixed
 
 - **A corrupt trajectory took the whole command down instead of refusing one

@@ -14,7 +14,13 @@ about the system, and has no reason to name a case.
 from __future__ import annotations
 
 from digline.core import RegisterEntry
-from digline.report.log import IdentityLog, IdentitySpan, Roll, Sighting
+from digline.report.log import (
+    AggregateSpread,
+    IdentityLog,
+    IdentitySpan,
+    Roll,
+    Sighting,
+)
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
@@ -24,6 +30,7 @@ __all__ = [
     "roll_json",
     "sighting_json",
     "span_json",
+    "spread_json",
 ]
 
 
@@ -64,6 +71,36 @@ def roll_json(roll: Roll) -> dict[str, object]:
         "last_before": roll.last_before,
         "first_after": roll.first_after,
         "silent_between": roll.silent_between,
+    }
+
+
+def spread_json(item: AggregateSpread) -> dict[str, object]:
+    """One aggregate's run-to-run range, for a program.
+
+    Every number the sentence uses, and the exclusions by name rather than as a
+    total: a consumer that had to sum them could not say *why* a run was left
+    out, which is the one thing the count exists to answer.
+
+    **No inside/outside field**, for the reason the sentence withholds the
+    clause: the least N that makes it mean anything is not measured yet, and a
+    boolean here would be read as the verdict the text refuses to give.
+    (ADR 0024 §7.4)
+    """
+    return {
+        "name": item.name,
+        "latest": item.latest,
+        "reference": item.reference,
+        "low": item.low,
+        "high": item.high,
+        "runs": item.runs,
+        "excluded": dict(item.excluded),
+        "unidentified": item.unidentified,
+        "commits": item.commits,
+        "versions": list(item.versions),
+        # The other interval, named so it cannot be mistaken for the range
+        # above: this one is inside the latest run, per sample index.
+        "within_run_low": item.within_low,
+        "within_run_high": item.within_high,
     }
 
 
@@ -140,6 +177,10 @@ def log_json(log: IdentityLog) -> dict[str, object]:
             "last": log.last or None,
             "spans": [span_json(span) for span in log.spans],
             "rolls": [roll_json(roll) for roll in log.rolls],
+            # Added key, beside `spans` and `rolls`, under the same
+            # `OUTPUT_VERSION`: a consumer that ignores it parses what it
+            # parsed before. (ADR 0024 §7.5)
+            "spread": [spread_json(item) for item in log.spread],
             "replays": [
                 {"key": r.key, "created_at": r.created_at, "source": r.source}
                 for r in log.replays
