@@ -44,17 +44,3 @@ quote = "Baselines, runs and reports stay in your repository."
 anchor = { path = "src/digline/store/file_store.py", contains = "self.root = Path(project_root).resolve() / STORE_DIRNAME" }
 why = "The file store writes under .digline/ in the project root it is given."
 since = "#48"
-
-[[claim]]
-file = "examples/langchain4j/README.md"
-quote = "No data leaves. The only network call is the one your suite makes, to your own service."
-anchor = { path = "examples/langchain4j/suite.py", contains = 'URL = os.environ.get("SUPPORT_URL") or stub.start()' }
-why = "The one target is an HttpTarget on SUPPORT_URL, or on the local stub when it is unset."
-since = "#49"
-
-[[claim]]
-file = "examples/langchain4j/README.md"
-quote = "Baselines, runs and reports stay in your repository."
-anchor = { path = "src/digline/store/file_store.py", contains = "self.root = Path(project_root).resolve() / STORE_DIRNAME" }
-why = "The file store writes under .digline/ in the project root it is given."
-since = "#49"
