@@ -10,8 +10,9 @@ protocol is the same at api.openai.com, at an Azure deployment, at OpenRouter,
 at Groq, at a vLLM in a VPC and at an Ollama on a laptop. A separate plugin per
 endpoint would be five copies of this file differing in a string, and — the
 part that matters — it would leave a customer running their own model with no
-way to evaluate it in their own perimeter. One target, one argument, and the
-payload never leaves the network it was generated on.
+way to evaluate it in their own perimeter. One target, one argument: the call
+goes only to the endpoint `base_url` names. The run file records the prompt and
+the reply, and it travels wherever the repository does.
 """
 
 from __future__ import annotations

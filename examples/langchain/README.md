@@ -145,5 +145,7 @@ And what it does not require:
 - **No key, no account, no network** on the default path.
 - **No server and no port.** The chain is imported and called; digline is a
   command that reads and writes files in your repository.
-- **No data leaves.** Baselines, runs and reports stay here.
+- **Nothing leaves on the default path.** With `DIGLINE_LIVE=1` the only network
+  calls are the ones your suite makes: the chain's and the judge's, to
+  Anthropic. Baselines, runs and reports stay in your repository.
 - **No rewrite.** `app.py` is the chain you already have.
