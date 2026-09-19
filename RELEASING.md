@@ -688,6 +688,40 @@ tag* updates it on every tag.
   than in one. A fast approval is not evidence that the race is gone; it is
   evidence that it did not happen this time.
 
+- **v0.16.0 showed exactly what that paragraph asked for: the race, live, a
+  second time.** The approval was slow — the runner-level wait sat on
+  `digline==0.16.0` for **571s** behind the `pypi` reviewer gate, printing
+  `waiting digline==0.16.0 — /simple/digline/ is served and lists 30 file
+  version(s), none at 0.16.0` throughout, which is the legible absence 0.15.1
+  bought — and then `served digline==0.16.0 (after 571s)`. The build started
+  about sixteen seconds later.
+
+  The same three parts, and the same verdict. **amd64 proven in `smoke`:**
+  `#9 0.533 served digline==0.16.0 (after 0s)`, then `#9 1.689 Collecting
+  digline==0.16.0` and `#9 8.633 Successfully installed … digline-0.16.0 …` —
+  one `RUN`, install **1.2s** after `served`. That is the shape that failed on
+  v0.15.0, where `served` at 0s was followed 1.2s later by *No matching
+  distribution found*. **`#11 [linux/amd64 stage-0 3/5]` in the multi-arch push
+  is `CACHED`**, as this list has predicted it will be every time, and proves
+  nothing. **arm64 proven in the multi-arch push:** `#15 5.099 served
+  digline==0.16.0 (after 0s)`, `#15 23.79 Collecting`, `#15 132.1 Successfully
+  installed … digline-0.16.0 …` — one `RUN`, on the job's single
+  `await_index.py … && pip install …` command line.
+
+  Two architectures, two pairs, two jobs. All three image tags — `0.16.0`,
+  `0.16`, `latest` — resolve to one digest, `sha256:02f7639b`.
+
+  **So the same-question fix now has two observations under a real race**,
+  v0.15.1 and this one, and the gap between them is worth naming: 0.15.2 and
+  0.15.3 were both approved fast enough that the window never opened. The race
+  is not reproducible on demand — it is produced by a human taking their time
+  at the reviewer gate — which is why this block records *whether it happened*
+  and never treats a green as an answer to that question.
+
+  **What the next tag must show:** the same two-pair reading, and the honest
+  note about whether the race was live. Three observations would be better than
+  two, and the way to get one is not to hurry the approval.
+
 ### What is not covered, stated rather than assumed
 
 The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves
