@@ -19,7 +19,7 @@ import pytest
 from digline.run import Case
 from digline.targets import ModelPrice, Pricing, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
-from digline_anthropic.client import tool_calls_of, tools_of
+from digline_anthropic.client import tool_calls_of, tools_of, usage_of
 
 
 @dataclass
@@ -52,6 +52,17 @@ class FakeUsage:
     output_tokens: int = 300
     cache_read_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
+    #: `None` is the shape an SDK too old to carry the container gives, and the
+    #: shape a reply without the split gives. The fake keeps them the same on
+    #: purpose: the plugin cannot tell them apart and must not pretend to.
+    output_tokens_details: object | None = None
+
+
+@dataclass
+class FakeThinking:
+    """`anthropic.types.OutputTokensDetails`, which has exactly this one field."""
+
+    thinking_tokens: int
 
 
 @dataclass
@@ -475,3 +486,82 @@ def test_a_reply_that_called_nothing_reports_an_empty_trajectory(prompt: Path) -
     target, _client = a_target(prompt)
     response = target(Case(id="it", vars={"country": "Italy"}))
     assert response.metadata["tools"] == [] and response.metadata["tool_calls"] == []
+
+
+# --------------------------------------------------------------------------- #
+# The thinking a model charged for (ADR 0026)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_thinking_split_is_recorded_where_the_provider_reports_it() -> None:
+    """`output_tokens_details.thinking_tokens`, read through the optional
+    container the SDK types."""
+    reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=10, output_tokens=300, output_tokens_details=FakeThinking(240)
+        ),
+    )
+
+    assert usage_of(reply).thinking_tokens == 240
+
+
+def test_a_reply_without_the_container_reports_nothing_rather_than_zero() -> None:
+    """The SDK floor, and the case that makes the third state real.
+
+    An `anthropic` too old to carry `output_tokens_details` gives `None` here,
+    and so does a reply that simply has no split. A plugin writing `0` would be
+    reporting the absence of a field as the absence of thinking — and a reader
+    cannot tell a model that thought nothing from a provider that said nothing.
+    (ADR 0026 §1)
+    """
+    reply = FakeReply(content=[FakeBlock("x")], usage=FakeUsage(10, 300))
+
+    assert usage_of(reply).thinking_tokens is None
+
+
+def test_a_reported_zero_is_a_measurement_and_is_kept() -> None:
+    """The other side of the same distinction: a provider that reported a split
+    and a reply that did no thinking is a `0`, not an absence."""
+    reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(10, 300, output_tokens_details=FakeThinking(0)),
+    )
+
+    assert usage_of(reply).thinking_tokens == 0
+
+
+def test_more_thinking_than_output_is_refused_by_name() -> None:
+    """Refused rather than clamped: the reply is malformed, and the two things
+    a clamp hides — a provider whose accounting drifted, and a plugin reading
+    the wrong field into the right one — both need somebody told. (ADR 0026 §3)
+    """
+    reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(10, 300, output_tokens_details=FakeThinking(301)),
+    )
+
+    with pytest.raises(ValueError, match="more thinking than output"):
+        usage_of(reply)
+
+
+def test_the_thinking_is_not_added_to_the_cost() -> None:
+    """The inverse of friction 25, asserted so nobody reaches for the wrong
+    analogy: these tokens are already inside `output_tokens`, so a call that
+    reports a split costs exactly what the same call without one costs.
+    (ADR 0026 §2)
+    """
+    from digline.targets.pricing import ModelPrice, Pricing
+
+    pricing = Pricing(
+        per_model={"m": ModelPrice(input_per_mtok=1.0, output_per_mtok=2.0)}
+    )
+    plain = usage_of(FakeReply(content=[FakeBlock("x")], usage=FakeUsage(10, 300)))
+    split = usage_of(
+        FakeReply(
+            content=[FakeBlock("x")],
+            usage=FakeUsage(10, 300, output_tokens_details=FakeThinking(240)),
+        )
+    )
+
+    assert pricing.cost("m", plain) == pricing.cost("m", split)

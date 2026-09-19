@@ -127,6 +127,16 @@ RECORDED: dict[str, dict[str, str]] = {
     ".claude/skills/operating-digline/SKILL.md": {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
     },
+    "src/digline/run/suite.py": {
+        "0.16.0": "'silent until 0.16.0' — when a wrapper that wraps no "
+        "assertion began being named instead of taken for answered. History: "
+        "it dates the change, not the current version",
+    },
+    "src/digline/wire/run.py": {
+        "0.16.0": "'The instrument's own flags cross, since 0.16.0' — the "
+        "release the MCP projection stopped being silent about a replay, a "
+        "canary, a calibration case and a judged check",
+    },
     "src/digline/core/text.py": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
@@ -167,6 +177,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.16.0": "the Status block's own paragraph, written from that tag's "
+        "logs: the 571s wait behind the reviewer gate, the served/install pair "
+        "per architecture, the CACHED layer that proved nothing. History, and "
+        "a release whose evidence moved would be a release nobody looked at",
         "0.15.3": "the release this tree was at when ADR 0025 opened schema 14 "
         "and moved the version to 0.16.0: the site-queue paragraph, the "
         "delta-pass reading and the served-index evidence all date themselves "
@@ -299,7 +313,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "target' — the release `rejudge` arrived in, said as history on its own "
         "page",
     },
+    "docs/mcp.md": {
+        "0.16.0": "'Since 0.16.0 the run document marks…' — the release the "
+        "instrument's own flags began crossing, told as history on the page "
+        "that also records, dated, what it used to promise instead",
+    },
     "docs/api.md": {
+        "0.16.0": "'Since 0.16.0 the run does carry it' — the release the "
+        "judge's own spending began reaching a document, told as history in "
+        "the judging-cost paragraph",
         "0.14.0": "'since 0.14.0 digline reads it in three more places' — the "
         "release KIND stopped being unread, in the Custom assertions section. "
         "History: it dates a change of behaviour, not the current version",
@@ -366,9 +388,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.5.1": "digline-openai's and digline-bedrock's versions, pinned to "
-        "their own pyproject files by tests/test_docker.py",
-        "0.5.2": "digline-anthropic's version, pinned to its own pyproject by "
+        "0.5.1": "digline-bedrock's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
+        "0.5.2": "digline-openai's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
+        "0.5.3": "digline-anthropic's version, pinned to its own pyproject by "
         "tests/test_docker.py",
     },
     "src/digline/store/migrate.py": {
@@ -420,6 +444,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "rule's guard caught on its first run, now through `say()`",
     },
     "src/digline/core/assertions.py": {
+        "0.16.0": "'Until 0.16.0 this exception was raised inside the try that "
+        "catches the judge' — the release that split the render from the judge "
+        "call, told as history beside the site that was contaminated",
         "0.13.0": "'(0.13.0 delta-pass)' — the pass that found one undecodable "
         "call erroring `ToolCalledWith` beside a match, named where unreadable "
         "calls are now stepped over",
@@ -442,6 +469,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "Moving the number would claim a later pass found it",
     },
     "src/digline/core/run.py": {
+        "0.16.0": "two sentences of history in one file: the schema-15 comment "
+        "says the field was mistaken for shipped in 0.16.0, and CallTotals' "
+        "finite guard says when a non-finite bill began reaching a run-level "
+        "total. Both date a lesson and neither claims what digline is at now",
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "

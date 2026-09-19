@@ -59,6 +59,79 @@ notes under them are this file, verbatim.
     resumed journal entry with no verdict and no suspension was accepted and
     counted as suspended. It is now refused where the journal is read, before
     the first call, beside the refusal of case ids the suite does not declare.
+## 0.17.0 — unreleased
+
+### Added — the thinking a model charged for
+
+digline **0.17.0** opens schema 15 with one passenger.
+
+- **`Usage.thinking_tokens`**, the output tokens a model spent thinking where
+  the provider reports the split. `SCHEMA_VERSION` moves to **15**; run
+  `digline migrate` before comparing or promoting. `OUTPUT_VERSION` stays 2.
+- **Three states, and `None` is not `0`.** `None` is *not reported* — a
+  provider that says nothing, or an SDK too old to carry the field; `0` is a
+  provider that reported a split and a reply that did no thinking. A `0`
+  written for the first would report the absence of a field as the absence of
+  thinking.
+- **It is a breakdown, not a new billable quantity**, and that is the **inverse
+  of the cache-write case**: both providers report it *inside* the output
+  count, so `Pricing.cost` does not read it and nothing is added. Adding it
+  would bill every reasoning call twice.
+- **A reply claiming more thinking than output is refused by name**, never
+  clamped: a clamp hides a provider whose accounting drifted and a plugin
+  reading the wrong field into the right one, and both need somebody told.
+- **The count is re-tokenised and therefore approximate** — derived after the
+  fact rather than counted as the model emitted — so it may not reconcile to
+  the digit, and nothing derives anything from it.
+- **A total that folds an unreported split is unreported**, not the smaller
+  number it could print: a call that said nothing did an unknown amount of
+  thinking, not none. An empty line is the one exception — a line that counted
+  nothing is *no* measurement rather than an unreported one — and the three
+  folds that build a bill each apply that distinction.
+- In a run total the field crosses a boundary; on a recorded response it does
+  not. The same grain rule as the four counts beside it.
+
+  The reasoning is
+  [ADR 0026](docs/adr/0026-the-thinking-a-model-charged-for.md), which also
+  records that this field was mistaken for shipped: the 0.16.0 reconnaissance
+  proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was found
+  by somebody sitting down to write the plugin patch.
+
+## digline-anthropic 0.5.3 — unreleased
+
+- Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
+  An `anthropic` too old to carry the container, and a reply without the
+  split, both record **not reported** rather than a zero.
+- Needs digline **0.17.0 or later**, which is where the field arrives.
+
+## digline-openai 0.5.2 — unreleased
+
+- Reads `completion_tokens_details.reasoning_tokens` into
+  `Usage.thinking_tokens`, the same way.
+- **Only that one of the type's five fields.** `audio_tokens`,
+  `accepted_prediction_tokens`, `rejected_prediction_tokens` and `text_tokens`
+  answer different questions and are left alone — named here so the next reader
+  knows they were seen.
+- `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS` is **unchanged at `None`**. A user on
+  a compatible endpoint confirmed `prompt_tokens_details.cache_write_tokens` is
+  present in a live reply, and presence was never the open question: whether
+  those tokens sit inside `prompt_tokens` still needs the committed three-call
+  probe, so cache writes are still reported as 0 and still stated as a known
+  undercount.
+- Needs digline **0.17.0 or later**.
+
+## digline-bedrock — no release, and this is why
+
+- **Converse reports no reasoning split at all.** Its `TokenUsage` carries
+  `inputTokens`, `outputTokens`, `cacheReadInputTokens` and
+  `cacheWriteInputTokens`, and nothing else — so this plugin can only ever
+  record `thinking_tokens` as **not reported**, which is what it does by
+  writing nothing.
+- It is **not bumped**, because a no-op is not a release: there would be
+  nothing for a user to install. The absence is written down here rather than
+  left silent, so the next reader learns it from the changelog instead of
+  rediscovering it from the provider's API.
+
 
 ### Fixed
 

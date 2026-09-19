@@ -88,6 +88,24 @@ class FakeUsage:
     prompt_tokens: int = 1200
     completion_tokens: int = 300
     prompt_tokens_details: FakeDetails = field(default_factory=FakeDetails)
+    #: `None` is what an older SDK and a reply with no split both give, and the
+    #: plugin cannot tell them apart — so the fake does not either.
+    completion_tokens_details: FakeReasoning | None = None
+
+
+@dataclass
+class FakeReasoning:
+    """`openai.types.CompletionTokensDetails`, which carries five fields.
+
+    Only `reasoning_tokens` is read (ADR 0026 §5); the other four are here so a
+    test can prove that the siblings are left alone rather than missed.
+    """
+
+    reasoning_tokens: int = 0
+    audio_tokens: int = 0
+    accepted_prediction_tokens: int = 0
+    rejected_prediction_tokens: int = 0
+    text_tokens: int = 0
 
 
 @dataclass

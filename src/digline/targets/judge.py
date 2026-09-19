@@ -291,7 +291,14 @@ class JudgeBase(ABC):
         # Beside the money and under the same rule stated above it: a call that
         # raises reaches none of these lines, because its cost is unknown and
         # counting it at zero is the undercount that reads as good news.
-        self.tokens = self.tokens + reply.usage
+        #
+        # `self.calls == 1` because the seed is **not** an unreported
+        # measurement: `NO_USAGE.thinking_tokens` is `None`, and
+        # `Usage.__add__` unreports a total whose other side said nothing
+        # (ADR 0026 §3). Folding the seed in would report every judge's
+        # thinking split as *not reported*. The first reply replaces it; the
+        # rest add to it.
+        self.tokens = reply.usage if self.calls == 1 else self.tokens + reply.usage
         self.observed.see(reply)
         if not self._said_something(reply.text):
             raise ValueError(_no_text(reply, self.max_tokens))
