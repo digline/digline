@@ -201,6 +201,18 @@ def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, obj
         "samples": list(verdict.score.samples),
         "sample_min": verdict.score.sample_min,
         "sample_max": verdict.score.sample_max,
+        # What those samples **are**, beside them. Absent, a reader cannot tell
+        # two judgements from two means of judgements — the misreading schema 13
+        # was spent to stop (ADR 0024 §6.5), shipped by the one surface built
+        # for a model to read. It travels with `samples` because a reading of
+        # the instrument that cannot say what its numbers are is not a reading.
+        # (ADR 0011 §5, amended 2026-09-19)
+        "sample_means": verdict.score.sample_means,
+        # A model placed this score, so a movement here may be the judge's noise
+        # and the same movement on a deterministic check cannot be. Not
+        # derivable from anything else that crosses: the `shape` list needs a
+        # reference and omits folds.
+        "judged": verdict.judged,
         "metadata": {
             k: v
             for k, v in verdict.score.metadata.items()
@@ -237,15 +249,18 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     coverage and belongs here; the sentence explaining it is payload and does
     not. A developer writes things like "fails on the Rossi account".
 
-    **A known gap, recorded rather than closed.** This projection has not
-    followed the instrument's own flags: it carries no `Verdict.judged`, no
-    `CaseResult.calibration`, no `CaseResult.canary`, no `Run.judge_samples` and
-    no `Run.rejudged_from`. None is a leak by being absent. But a model reading
-    `get_run` cannot tell a judged check, a calibration case, a canary or a
-    replay from its neighbours. Adding any of them is a change to what crosses a
-    boundary, so it waits for a decision about the wire (ADR 0011 §5), and
-    `tests/test_wire_boundary.py` will ask for one. Found in the 0.14.0
-    delta-pass; ADR 0024, *Not decided here*.
+    **The instrument's own flags cross, since 0.16.0** — the decision the gap
+    recorded here was waiting for (ADR 0011 §5, amended 2026-09-19). A caller
+    can tell a replay, a canary, a calibration case and a judged check from
+    their neighbours, and can tell two judgements from two means of them.
+
+    **`Run.judge_samples` is the one that does not cross, and it is ruled out
+    rather than pending.** The numbers it qualifies — `judge_min`, `judge_max`,
+    `judge_errored`, `judge_answer` — live in `Score.metadata`, which this
+    projection filters to the suite's `Disclosure` with no `travels()` fallback,
+    so a bare count would arrive with nothing to count against. It waits for the
+    decision that lets the range itself cross, and `tests/test_wire_boundary.py`
+    asserts its absence so this reads as a ruling and not as a gap.
     """
     return neutralised(
         {
@@ -266,10 +281,38 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             # was not recorded, and on any document that is not a baseline.
             # (ADR 0014 §3)
             "promoted_at": run.promoted_at,
+            # The run whose recorded answers this one was judged from, or empty.
+            # The sharpest of the six: a consumer that reads a replay as a fresh
+            # measurement concludes the system improved on a day nothing was
+            # asked of it. The **key** and not a boolean — `redact()` already
+            # rules it travels, being a timestamp and a config hash, and a caller
+            # can pass it straight back to `get_run`. `compare` carries the
+            # boolean; a caller reading one run had nothing.
+            # (ADR 0011 §5, amended 2026-09-19)
+            "rejudged_from": run.rejudged_from or "",
             "results": [
                 {
                     "case_id": case.case_id,
                     "suspended": case.suspended is not None,
+                    # The two ways a case is an **instrument** rather than a
+                    # measurement. A canary's score is a fingerprint of which
+                    # model answered (ADR 0016) and a calibration case's score
+                    # measures the judge against an answer the author wrote
+                    # (ADR 0024 §4) — so a reader that averaged either into
+                    # "quality" would be averaging the ruler into the thing
+                    # measured. Both are the suite author's own declarations and
+                    # carry no case data; the band is a check's name and two
+                    # numbers. (ADR 0011 §5, amended 2026-09-19)
+                    "canary": case.canary,
+                    "calibration": (
+                        None
+                        if case.calibration is None
+                        else {
+                            "check": case.calibration.check,
+                            "low": case.calibration.low,
+                            "high": case.calibration.high,
+                        }
+                    ),
                     "verdicts": [
                         _verdict_document(v, disclosure) for v in case.verdicts
                     ],

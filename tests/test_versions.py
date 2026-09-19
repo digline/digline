@@ -258,10 +258,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "`judged` key first reached a document, which is what decides whether "
         "a shape line has a reference to set beside. History",
     },
-    "src/digline/wire/run.py": {
-        "0.14.0": "'Found in the 0.14.0 delta-pass' — which release's pass "
-        "found the MCP run document's gap, told as history in its docstring",
-    },
+    # `src/digline/wire/run.py` held "Found in the 0.14.0 delta-pass" while the
+    # gap that pass found was open. ADR 0011 §5's 2026-09-19 amendment closed it,
+    # the docstring now states the ruling instead of the history, and the
+    # allowance goes with the sentence it allowed — which is this gate working:
+    # a registered literal that disappears is a file whose story moved.
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
         "declarative format landed. The Status line above it is the live claim "

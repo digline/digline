@@ -48,13 +48,28 @@ The reasoning in full is [ADR 0011](adr/0011-the-mcp-server.md).
 `explain` and `log` arrived together, so the surface moved once, from six to
 eight ([ADR 0020](adr/0020-the-reading-across-runs.md)). Neither writes.
 
-**What `get_run` and `get_baseline` do not say.** The run document they return is
-a projection chosen for the boundary, and it has not followed the instrument's
-own flags. It does not mark a judged check, a calibration case, a canary, or a
-run that was re-judged or measured the judge's range. None of those is withheld
-data; they are simply absent. Call `explain` or `compare` for them, which carry
-each as a fact. Closing the gap is a decision about what crosses, recorded in
-[ADR 0024](adr/0024-the-judge-as-an-instrument.md), *Not decided here*.
+**What `get_run` and `get_baseline` say about the instrument.** Since 0.16.0 the
+run document marks a judged check (`judged`), a canary (`canary`), a calibration
+case (`calibration`, with its band), a run judged from stored answers
+(`rejudged_from`, the key of the run it replayed) and scores that are means of
+judgements rather than judgements (`sample_means`, beside `samples`). They are
+facts about our own instrument, they carry none of the measured system's data,
+and a caller reading **one run with no reference** had no way to get them:
+`compare` and `explain` need a baseline, and two of the five were carried by
+neither. ([ADR 0011](adr/0011-the-mcp-server.md) §5, amended 2026-09-19.)
+
+**The one that does not travel** is `Run.judge_samples` — how many times a replay
+asked the judge per answer. It is ruled out rather than pending: the numbers it
+qualifies live in each verdict's metadata, which crosses only where the suite's
+`Disclosure` names it, so the count would arrive with nothing to count against.
+
+*Corrected 2026-09-19.* Until that date this paragraph said the five absent
+facts could be had by calling `explain` or `compare`, *"which carry each as a
+fact"*. That was true of `rejudged` and, with a reference, of `canary` and
+`calibration`; it was **not** true of `judged`, which no surface carried as a
+per-check fact, nor of `judge_samples`, which no surface carried at all. The
+sentence is replaced rather than quietly deleted, so the page shows it was
+checked.
 
 `promote`, `migrate`, `view` and `report` are absent. The first is the thesis;
 the second is upgrade maintenance somebody chose the moment for; the last two

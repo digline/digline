@@ -84,6 +84,30 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
   The reasoning is [ADR 0004 §7](docs/adr/0004-every-plugin-is-a-target-and-a-judge.md).
 
+### Added — what `get_run` says about the instrument
+
+- **The MCP run document follows the instrument's own flags.** `get_run` and
+  `get_baseline` now mark a judged check (`judged`), a canary (`canary`), a
+  calibration case (`calibration` with its band), a replay (`rejudged_from`, the
+  key of the run whose answers were re-judged) and scores that are means of
+  judgements rather than judgements (`sample_means`, beside `samples`). None of
+  them was ever withheld: they were absent, and a caller reading **one run with
+  no reference** could not get them anywhere — `compare` and `explain` need a
+  baseline, and two of the five were carried by neither surface.
+- `sample_means` is the one whose absence made a reader **misread** rather than
+  miss: `samples: [0.5, 0.5]` is two judgements or two means of them, and the
+  surface built for a model to read was shipping the misreading schema 13 was
+  spent to stop.
+- **`Run.judge_samples` deliberately does not travel**, and a test asserts its
+  absence so this reads as a ruling: the numbers it qualifies live in verdict
+  metadata, which crosses only by `Disclosure`, so the bare count would arrive
+  with nothing to count against.
+- `OUTPUT_VERSION` stays **2**. These are added keys, which this contract has
+  admitted nine times; the bump to 2 was for a change *inside values a consumer
+  already reads*, which is a different rule.
+
+  The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
+
 ### Fixed
 
 - **A judging prompt that could not be composed was reported as the judge
