@@ -8,6 +8,20 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Fixed
+
+- **A cost that was neither a number nor an error passed the guard beside it.**
+  `CallTotals.spent_usd` was refused when negative, and `inf` and `NaN` are not
+  negative — so a bill that is not a bill went through. Since 0.16.0 that figure
+  flows into a run-level total, where two journal bill lines at `1e308` summed
+  to `inf`, and the run document was then written carrying a bare `Infinity`.
+  CPython's `json` reads that as an extension; **no strict parser does**, so the
+  file round-tripped locally and was refused by the first conforming reader — a
+  parser in another language, a linter, or an MCP client's JSON layer. Refused
+  now where the number is made, which covers the sum as well as the literal,
+  because `+` builds a new line and revalidates it. Found by the 0.16.0
+  delta-pass (B-1).
+
 ## 0.16.0 — 2026-09-19
 
 **Four things a digline document could not say before this release, in the

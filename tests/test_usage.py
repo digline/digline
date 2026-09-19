@@ -381,6 +381,49 @@ def test_a_null_bill_is_refused_rather_than_read_as_nothing() -> None:
         run_from_json(json.dumps(document))
 
 
+@pytest.mark.parametrize("amount", [float("inf"), float("-inf"), float("nan")])
+def test_a_spend_that_is_not_a_number_is_refused(amount: float) -> None:
+    """B-1 of the 0.16.0 delta-pass, and the guard beside it was written for the
+    wrong half of the problem.
+
+    `spent_usd < 0` catches a negative bill and lets through the two values that
+    are not bills at all. Since 0.16.0 that matters more than it did: the figure
+    flows into a run-level total, and two forged journal lines at `1e308` summed
+    to `inf` — which `run_to_json` then wrote into the document as a bare
+    `Infinity`. CPython's `json` accepts that as an extension; **no strict
+    parser does**, so the run file round-tripped locally and was refused by the
+    first conforming reader.
+    """
+    with pytest.raises(ValueError, match="not a finite number"):
+        CallTotals(calls=1, counted=1, spent_usd=amount)
+
+
+def test_a_fold_cannot_overflow_into_one_either() -> None:
+    """The path the forgery actually took. `__add__` builds a new `CallTotals`,
+    so the refusal covers the sum and not only the literal — which is what makes
+    this a fix rather than a check at one call site."""
+    huge = CallTotals(calls=1, counted=1, spent_usd=1e308)
+
+    assert huge.spent_usd == 1e308, "a large but finite bill is still a bill"
+    with pytest.raises(ValueError, match="not a finite number"):
+        _ = huge + huge
+
+
+def test_the_document_carries_no_json_extension() -> None:
+    """The consequence, asserted where a reader meets it: whatever a run
+    records, the bytes are JSON a strict parser reads."""
+    run = execute(suite(), Counting(), created_at=CREATED)
+    written = run_to_json(run)
+
+    assert "Infinity" not in written
+    assert "NaN" not in written
+    json.loads(written, parse_constant=_refuse_constant)
+
+
+def _refuse_constant(name: str) -> float:
+    raise AssertionError(f"the document carries the JSON extension {name!r}")
+
+
 def test_a_line_that_counted_more_than_it_covered_is_refused() -> None:
     with pytest.raises(ValueError, match="cannot count more calls"):
         CallTotals(calls=1, counted=2)
