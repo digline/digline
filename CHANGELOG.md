@@ -6,7 +6,25 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.16.0 — unreleased
+## Unreleased
+
+## 0.16.0 — 2026-09-19
+
+**Four things a digline document could not say before this release, in the
+order you meet them.** The document can say **what a run consumed and what it
+cost** — both lines of it, the target's and the judge's. The judge can say
+**when it could not answer**, instead of guessing a number or crashing. The
+wire stops letting a model **read means as judgements**. And the instrument's
+own **four measurements are complete**: the calibration case, repeatability,
+the shape across the suite, and now the spread between runs.
+
+**If judged scores move on this upgrade, it is neither your system nor your
+model — it is our instruction to the judge.** `SCORE_SYSTEM` and `CLAIM_SYSTEM`
+changed so a judge may decline, and a model told it may decline will sometimes
+decline where it used to guess. Nothing records that: the judge's instruction
+is in neither `config_hash` nor `judge_config`, so a comparison across this
+upgrade reports `judge_config_changed` **false**. Read the movement, and
+**re-promote if it is acceptable**.
 
 **What a run consumed, written down.** digline **0.16.0** opens schema 14 with
 one passenger: the bill. Until now digline recorded **no token count
@@ -118,6 +136,36 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
   The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
 
+### Added — how much the suite moves between runs
+
+- **`digline log` reads the spread**, the fourth measurement of ADR 0024: for
+  each run-level aggregate, the range it took across the **comparable** runs in
+  this store and this window. Comparable is checked and never assumed — a run
+  is excluded, counted and named where it re-judged, where a case could not be
+  judged, where it lost its scale, or where its rules, its counted cases, its
+  prompt, the system it asked or the instrument that graded were not the
+  latest run's.
+- **The latest run is never in its own range.** A spread that contained the
+  value it is read against would answer *inside* by construction, which is an
+  excuse promoted to a feature.
+- **Whether the latest score is inside that spread is not said yet**, and the
+  reading says that it is not saying it: a range over two runs is a single
+  difference, and the least N that makes *inside* mean anything has to be
+  measured on real history first — the same way the shape and calibration
+  thresholds are declared to be measured rather than guessed.
+- Where the latest run also carries the aggregate's per-sample interval, both
+  are printed and **labelled apart**: they are different measurements, and the
+  reading never sets one against the other.
+- Silent on a flip, no new exit code, nothing in `compare`: `log` exits 0
+  whenever it read the store, and this adds no path to any other number.
+- `--json` gains `spread` beside `spans` and `rolls`, and the MCP `log` tool
+  returns the same value. `OUTPUT_VERSION` stays **2**: an added key.
+
+  The reasoning is [ADR 0024 §7](docs/adr/0024-the-judge-as-an-instrument.md),
+  with the one sentence it needed from
+  [ADR 0020 §4](docs/adr/0020-the-reading-across-runs.md) written there as a
+  dated amendment.
+
 ### Added — an autoevals scorer says whether it asks a model
 
 - **`FromAutoevals` was neither judged nor announced, and both halves are
@@ -149,36 +197,6 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
   The reasoning is [ADR 0024 §6.4](docs/adr/0024-the-judge-as-an-instrument.md),
   amended.
-
-### Added — how much the suite moves between runs
-
-- **`digline log` reads the spread**, the fourth measurement of ADR 0024: for
-  each run-level aggregate, the range it took across the **comparable** runs in
-  this store and this window. Comparable is checked and never assumed — a run
-  is excluded, counted and named where it re-judged, where a case could not be
-  judged, where it lost its scale, or where its rules, its counted cases, its
-  prompt, the system it asked or the instrument that graded were not the
-  latest run's.
-- **The latest run is never in its own range.** A spread that contained the
-  value it is read against would answer *inside* by construction, which is an
-  excuse promoted to a feature.
-- **Whether the latest score is inside that spread is not said yet**, and the
-  reading says that it is not saying it: a range over two runs is a single
-  difference, and the least N that makes *inside* mean anything has to be
-  measured on real history first — the same way the shape and calibration
-  thresholds are declared to be measured rather than guessed.
-- Where the latest run also carries the aggregate's per-sample interval, both
-  are printed and **labelled apart**: they are different measurements, and the
-  reading never sets one against the other.
-- Silent on a flip, no new exit code, nothing in `compare`: `log` exits 0
-  whenever it read the store, and this adds no path to any other number.
-- `--json` gains `spread` beside `spans` and `rolls`, and the MCP `log` tool
-  returns the same value. `OUTPUT_VERSION` stays **2**: an added key.
-
-  The reasoning is [ADR 0024 §7](docs/adr/0024-the-judge-as-an-instrument.md),
-  with the one sentence it needed from
-  [ADR 0020 §4](docs/adr/0020-the-reading-across-runs.md) written there as a
-  dated amendment.
 
 ### Fixed
 

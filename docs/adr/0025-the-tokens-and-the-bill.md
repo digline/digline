@@ -110,19 +110,22 @@ are recorded, under the rules each grain already has.
 
 ```python
 @dataclass(frozen=True, slots=True)
-class Usage:            # moved to digline.core — see §5
+class Usage:  # moved to digline.core — see §5
     input_tokens: int
     output_tokens: int
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
 
+
 @dataclass(frozen=True, slots=True)
 class CallTotals:
     """One line of the bill: what was asked, and how much of it was counted."""
-    calls: int = 0        # calls this line covers
-    counted: int = 0      # of those, how many reported usage
+
+    calls: int = 0  # calls this line covers
+    counted: int = 0  # of those, how many reported usage
     tokens: Usage = Usage(0, 0)
     spent_usd: float = 0.0
+
 
 @dataclass(frozen=True, slots=True)
 class RunUsage:
@@ -238,7 +241,7 @@ the same object:
 
 ```python
 # digline/targets/pricing.py
-from digline.core import Usage   # re-exported: the plugins' import is unchanged
+from digline.core import Usage  # re-exported: the plugins' import is unchanged
 ```
 
 `from digline.targets.pricing import Usage` — what all three published plugins

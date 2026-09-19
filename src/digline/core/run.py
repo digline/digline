@@ -2088,9 +2088,7 @@ def _recorded_calls(raw: Mapping[str, Any]) -> tuple[RecordedToolCall, ...] | No
             "list of calls: the trajectory is a list, and a reader cannot walk "
             "what is not one"
         )
-    return tuple(
-        _tool_call_from_dict(c) for c in cast("Sequence[object]", calls)
-    )
+    return tuple(_tool_call_from_dict(c) for c in cast("Sequence[object]", calls))
 
 
 def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
