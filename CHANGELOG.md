@@ -54,6 +54,17 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
   resumed run that could not say what its earlier legs cost would under-bill in
   silence.
 
+### Fixed
+
+- **A judging prompt that could not be composed was reported as the judge
+  failing.** `LlmRubric` and `Faithfulness` built the prompt *inside* the `try`
+  that catches the judge, so a mapper handing in a context with a non-string in
+  it produced *the judge raised TypeError* — naming the one component that was
+  innocent, in the sentence somebody reads to decide between re-running and
+  investigating. The render now has its own site: *the judging prompt could not
+  be composed from these inputs: …*, with the cause still in the sentence. A
+  judge that really raises is still reported as the judge.
+
 ### Not moved
 
 - `OUTPUT_VERSION` stays **2**: keys are added to `--json`, none removed.

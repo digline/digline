@@ -176,6 +176,25 @@ class AssertionBase:
         # but every instance reaching here is a concrete assertion that is.
         return error_verdict(cast(Assertion, self), reason)
 
+    def _unrenderable(self, exc: Exception) -> Verdict:
+        """The judging prompt could not be composed out of these inputs.
+
+        A site of its own, beside the judge's and never inside it. Composing
+        the prompt reads what a **mapper** handed in — the context, the input,
+        the output's shape — so a failure here is the harness's or the case's,
+        and the judge has not been called at all.
+
+        Until 0.16.0 this exception was raised inside the `try` that catches
+        the judge, and a mapper putting a non-string in `context` was reported
+        as *the judge raised TypeError*. That sentence is read by somebody
+        deciding whether to re-run or to investigate, and it named the one
+        component that was innocent.
+        """
+        return self._error(
+            f"the judging prompt could not be composed from these inputs: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
     def _graded(
         self, value: float, reason: str, metadata: Mapping[str, object] | None = None
     ) -> Verdict:
@@ -817,8 +836,15 @@ class LlmRubric(AssertionBase):
         if (err := self._accept(inputs.output)) is not None:
             return err
 
+        # Two `try`s, and the split is the point: what the prompt is made of is
+        # not the judge's doing, and the reason a reader acts on must not say
+        # it is.
         try:
-            reply = self.judge(self._render(inputs))
+            prompt = self._render(inputs)
+        except Exception as exc:  # noqa: BLE001 — the inputs, not the instrument
+            return self._unrenderable(exc)
+        try:
+            reply = self.judge(prompt)
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
@@ -969,8 +995,15 @@ class Faithfulness(AssertionBase):
                 "context is empty: faithfulness needs something to be faithful to"
             )
 
+        # Split for the reason `LlmRubric`'s is: composing the prompt reads the
+        # context this check was given, and a context the mapper built wrong is
+        # not an instrument that failed.
         try:
-            reply = self.judge(self._render(inputs))
+            prompt = self._render(inputs)
+        except Exception as exc:  # noqa: BLE001 — the inputs, not the instrument
+            return self._unrenderable(exc)
+        try:
+            reply = self.judge(prompt)
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 

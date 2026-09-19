@@ -231,6 +231,54 @@ def test_llm_rubric_errors_when_the_judge_blows_up() -> None:
     assert "RuntimeError" in v.reason
 
 
+def test_a_prompt_that_cannot_be_composed_does_not_blame_the_judge() -> None:
+    """The sentence a reader acts on must name the component that failed.
+
+    A mapper that puts a non-string in `context` breaks the *render*, and until
+    0.16.0 that exception was caught by the `try` around the judge and reported
+    as *the judge raised TypeError* — naming the one component that was
+    innocent, in the one place somebody decides between re-running and
+    investigating.
+
+    The judge is asserted **never to have been called**, which is the claim; a
+    reason that merely reads differently could still be produced by a judge
+    that ran.
+    """
+    called = 0
+
+    def counting_judge(prompt: str) -> JudgeReply:
+        nonlocal called
+        called += 1
+        return JudgeReply(score=0.9, reason="because")
+
+    a = LlmRubric(
+        rubric="Is it polite?", judge=counting_judge, threshold=0.7, tolerance=0.05
+    )
+    v = a(inputs(output="anything", context=[1]))  # type: ignore[list-item]
+
+    assert called == 0, "the judge was called, so the render did not fail first"
+    assert v.status == "error"
+    assert "the judging prompt could not be composed" in v.reason
+    assert "the judge raised" not in v.reason
+    assert "TypeError" in v.reason, "the cause still reaches the reader"
+
+
+def test_a_judge_that_blows_up_is_still_the_judge() -> None:
+    """The other half of the split: narrowing the `try` must not stop a real
+    judge failure being attributed to the judge."""
+
+    def broken_judge(prompt: str) -> JudgeReply:
+        raise RuntimeError("timeout")
+
+    a = LlmRubric(
+        rubric="Is it polite?", judge=broken_judge, threshold=0.7, tolerance=0.05
+    )
+    v = a(inputs(output="anything"))
+    assert v.status == "error"
+    assert "the judge raised RuntimeError" in v.reason
+    assert "could not be composed" not in v.reason
+
+
 def test_llm_rubric_errors_on_an_out_of_range_score() -> None:
     a = LlmRubric(
         rubric="Is it polite?", judge=fixed_judge(7.0), threshold=0.7, tolerance=0.05
@@ -836,6 +884,27 @@ def claim_judge(supported: int, total: int, reason: str = "counted") -> ClaimJud
 
 def faithfulness(judge: ClaimJudge, threshold: float = 0.8) -> Faithfulness:
     return Faithfulness(judge=judge, threshold=threshold, tolerance=0.1)
+
+
+def test_faithfulness_does_not_blame_the_judge_for_an_unrenderable_context() -> None:
+    """`Faithfulness` composes its prompt out of the context it was given, so a
+    context the mapper built wrong is the clearest case of the fault this split
+    exists to stop mis-attributing."""
+    called = 0
+
+    def counting_judge(prompt: str) -> ClaimReply:
+        nonlocal called
+        called += 1
+        return ClaimReply(supported=1, total=1, reason="counted")
+
+    v = faithfulness(counting_judge)(
+        inputs(output="anything", context=[object()])  # type: ignore[list-item]
+    )
+
+    assert called == 0
+    assert v.status == "error"
+    assert "the judging prompt could not be composed" in v.reason
+    assert "the judge raised" not in v.reason
 
 
 def test_the_score_is_the_supported_fraction() -> None:
