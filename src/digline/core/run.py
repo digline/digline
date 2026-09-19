@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, cast
@@ -959,6 +960,27 @@ class CallTotals:
             raise ValueError(
                 f"CallTotals counted {self.counted} of {self.calls} calls: a "
                 "line cannot count more calls than it covers"
+            )
+        if not math.isfinite(self.spent_usd):
+            # **The guard above was written for the wrong half of the problem.**
+            # `NaN` and `inf` are not negative, so a cost that is neither a
+            # number nor an error passed it — and since 0.16.0 that value flows
+            # into a run-level total, where two lines at 1e308 sum to `inf`.
+            #
+            # What it costs is not arithmetic but readability: the document is
+            # written with a bare `Infinity` or `NaN`, which CPython's `json`
+            # accepts as an extension and **no strict parser does**. So the run
+            # file round-trips here and is refused by the first conforming
+            # reader — another language's parser, a linter, or the MCP client's
+            # JSON layer, which ADR 0011 §5 calls a worse destination than CI
+            # stdout. Refused here rather than at the serializer: a document
+            # that cannot be written is worse than one that cannot be read, and
+            # the honest place to stop a number that is not a number is where it
+            # is made. (B-1, the 0.16.0 delta-pass)
+            raise ValueError(
+                f"CallTotals.spent_usd is {self.spent_usd}, which is not a "
+                "finite number: a bill that is not a number is not a bill, and "
+                "it writes a document no strict JSON reader will parse"
             )
         if self.spent_usd < 0:
             raise ValueError("CallTotals.spent_usd must not be negative")
