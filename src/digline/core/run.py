@@ -1950,6 +1950,23 @@ def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     return payload
 
 
+def _no_null(entry: Mapping[str, Any], key: str) -> None:
+    """Refuse `"<key>": null` where an absent key already means something.
+
+    A document that omits the key is saying the ordinary thing; a document that
+    writes null is saying nothing at all, and the two must not arrive as one
+    value. No digline writer emits either null — `_tool_call_to_dict` omits what
+    it does not have — so this refuses a hand-written or forged document and
+    costs a well-formed one nothing.
+    """
+    if key in entry and entry[key] is None:
+        raise ValueError(
+            f"{key!r} is null: a call that reports no {key} omits the key, and "
+            "null is a document saying nothing where absence already says "
+            "something"
+        )
+
+
 def _tool_call_from_dict(raw: object) -> RecordedToolCall:
     """Straight into the value, which does the checking — `_response_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it.
@@ -1967,6 +1984,21 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
             f"{type(raw).__name__}"
         )
     entry = cast("Mapping[str, Any]", raw)
+    # **Absent and null are two different things, and `.get()` made them one.**
+    # `status` omitted means *success* — the convention the writer follows, since
+    # writing it on every call of every response would repeat the ordinary case
+    # (ADR 0018 §1). An explicit `"status": null` is a document that says
+    # nothing, and reading it as success forged the one field this record calls
+    # "the one field a fake cannot forge into vacuity". `tool_absence`, one line
+    # below in the same function, was already refused by name — the asymmetry
+    # was the finding.
+    #
+    # The same collapse bit again two days later on `"usage": null`, caught
+    # while building 0.16.0 and closed the same way: `in` decides whether a key
+    # is there, and its value is then read on its merits. One family.
+    # (0.15.0 delta-pass §3)
+    _no_null(entry, "status")
+    _no_null(entry, "result_absence")
     status = entry.get("status")
     absence = entry.get("result_absence")
     try:
@@ -2024,6 +2056,43 @@ def _recorded_tool(entry: Mapping[str, Any]) -> str | None:
 _OUTPUT_KINDS: frozenset[str] = frozenset({"text", "structured", "conversation"})
 
 
+def _recorded_calls(raw: Mapping[str, Any]) -> tuple[RecordedToolCall, ...] | None:
+    """The trajectory, with the **container** checked before it is walked.
+
+    0.12.1 shape-checked the elements — a `tool_calls` holding `["lookup"]` or
+    `[5]` is refused by name. The container itself was not, so a scalar reached
+    a `for` loop and raised a bare `TypeError`, which is **not** a `ValueError`
+    and so is in none of the CLI's handler lists: `digline migrate` aborted the
+    whole run instead of printing its per-file `refused <file>: <reason>` line,
+    and `digline view` unwound into `socketserver` — a traceback on the terminal
+    and *no response at all* in the browser. Same class as 0.12.1, one level up.
+    (0.15.0 delta-pass §3)
+
+    A string is refused rather than walked: iterating one yields characters, so
+    `"lookup"` would have become six refusals about the letters of a tool name.
+
+    Absent is `None` and `[]` is `()` — the two facts ADR 0018 §1 keeps apart —
+    and a null is neither, so it is refused by name like every other null here.
+    """
+    if "tool_calls" not in raw:
+        return None
+    calls = raw["tool_calls"]
+    if calls is None:
+        raise ValueError(
+            "recorded response: 'tool_calls' is null: a target that said nothing "
+            "about tools omits the key, and one that reported no calls writes []"
+        )
+    if isinstance(calls, str) or not isinstance(calls, Sequence):
+        raise ValueError(
+            f"recorded response: 'tool_calls' is a {type(calls).__name__}, not a "
+            "list of calls: the trajectory is a list, and a reader cannot walk "
+            "what is not one"
+        )
+    return tuple(
+        _tool_call_from_dict(c) for c in cast("Sequence[object]", calls)
+    )
+
+
 def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
     """Straight into the value, which does the checking — `_config_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it."""
@@ -2046,14 +2115,7 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             latency_ms=None if latency is None else float(latency),
             # Absent is `None` and `[]` is `()`: the two facts the document now
             # keeps apart. `or ()` would have collapsed them again.
-            tool_calls=(
-                None
-                if raw.get("tool_calls") is None
-                else tuple(
-                    _tool_call_from_dict(c)
-                    for c in cast(Sequence[Mapping[str, Any]], raw["tool_calls"])
-                )
-            ),
+            tool_calls=_recorded_calls(raw),
             # Absent is `None` — a target that reported no counts — and the
             # reader refuses a null rather than reading it as nothing counted.
             usage=(

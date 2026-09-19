@@ -254,10 +254,33 @@ def judged(
 
 def test_a_stamped_verdict_is_left_out_and_counted_never_read() -> None:
     """`(0.5, 0.5)` read as judgements is 0% at the extremes: the opposite of a
-    judge alternating 0 and 1."""
-    now = as_run([judged((0.5, 0.5), means=True), judged((0.0, 1.0))], LATER)
-    [item] = shape(compare(now, now))
-    assert (item.run.sample_means, item.run.scores, item.run.extremes) == (1, 2, 2)
+    judge alternating 0 and 1.
+
+    **The second verdict is a different identity since 0.16.0**, and the change
+    is worth its paragraph. This fixture used to give both verdicts the same
+    `assertion_id`, one stamped and one not, and compare the run with itself —
+    so once the compensation became symmetric the unstamped one was left out
+    too, and the numbers read `(2, 0, 0)` instead of `(1, 2, 2)`.
+
+    That shape cannot occur in a written document. `sample_means` is stamped in
+    `combine_samples`, so within one run it is uniform for a check: every case's
+    verdict of that identity is a fold or none is. The one verdict that escapes
+    the stamp is an all-errored fold, and `_count` never sees an errored verdict.
+    So a mixed identity means a document somebody edited — which is exactly what
+    the symmetric rule is there to refuse to read.
+
+    The fixture therefore uses two identities, which is what it was always
+    about: one stamped check left out and counted, one unstamped check read.
+    (0.15.0 delta-pass §3)
+    """
+    now = as_run(
+        [judged((0.5, 0.5), means=True), judged((0.0, 1.0), identity="id-other")],
+        LATER,
+    )
+    read = {item.assertion_id: item for item in shape(compare(now, now))}
+    stamped, plain = read["id-r"], read["id-other"]
+    assert (plain.run.sample_means, plain.run.scores, plain.run.extremes) == (0, 2, 2)
+    assert (stamped.run.sample_means, stamped.run.scores) == (1, 0)
 
 
 def test_the_reference_pairs_by_identity_with_the_run() -> None:
@@ -269,6 +292,41 @@ def test_the_reference_pairs_by_identity_with_the_run() -> None:
     [item] = shape(compare(now, before))
     assert item.reference is not None
     assert (item.reference.sample_means, item.reference.scores) == (2, 0)
+
+
+def test_a_stripped_run_stamp_is_recovered_from_the_reference() -> None:
+    """The pairing, the other way round — and the half that was missing.
+
+    The compensation was passed only on the reference branch, so a stripped
+    *baseline* stamp was recovered and a stripped *run* stamp was believed.
+    Measured before the fix, on this exact pair: the run side read
+    `sample_means=0, scores=4, extremes=0` — four means read as judgements at 0%
+    at the extremes, which is the precise opposite of a judge alternating 0 and
+    1, and the forgery form of the residue ADR 0024 §6.5 declares.
+
+    The rule is one rule and applies to both sides: err toward leaving a verdict
+    out, never toward misreading one. (0.15.0 delta-pass §3)
+    """
+    now = as_run([judged((0.5, 0.5))] * 2, LATER)
+    before = as_run([judged((0.5, 0.5), means=True)] * 2, CREATED)
+
+    [item] = shape(compare(now, before))
+
+    assert (item.run.sample_means, item.run.scores) == (2, 0)
+    assert item.run.extremes == 0
+
+
+def test_an_unstamped_run_against_an_unstamped_reference_is_still_read() -> None:
+    """The residue, asserted so the fix is not read as closing more than it
+    does. Where neither side stamped, nothing in the data says the samples are
+    means, and the reading has no way to know — which is what ADR 0024 §6.5
+    already states and what re-promotion fixes."""
+    now = as_run([judged((0.5, 0.5))] * 2, LATER)
+    before = as_run([judged((0.5, 0.5))] * 2, CREATED)
+
+    [item] = shape(compare(now, before))
+
+    assert (item.run.sample_means, item.run.scores) == (0, 4)
 
 
 def test_the_pairing_touches_no_other_identity() -> None:

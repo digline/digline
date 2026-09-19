@@ -122,6 +122,24 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
         for delta in counted
         if delta.current is not None and delta.current.score.sample_means
     }
+    # **And the same pairing the other way round**, because the compensation
+    # above was one-sided: it recovered a stripped *reference* stamp and not a
+    # stripped *run* one. A run verdict that is sampled and unstamped, whose
+    # identity the reference stamped, is the same unreadable pair seen from the
+    # other side — either a fold nobody stamped or a fold at a different suite
+    # `samples` — and reading it as judgements is how `(0.5, 0.5)` becomes 0% at
+    # the extremes, the exact opposite of a judge alternating 0 and 1.
+    #
+    # The asymmetry was the forgery form of ADR 0024 §6.5's residue: strip the
+    # baseline's stamp and the reading recovered it; strip the run's and the
+    # reading believed it, unannounced. The rule is one rule and applies to both
+    # sides — err toward leaving a verdict out, never toward misreading one.
+    # (0.15.0 delta-pass §3)
+    reference_folds = {
+        delta.baseline.assertion_id
+        for delta in counted
+        if delta.baseline is not None and delta.baseline.score.sample_means
+    }
     runs: dict[str, tuple[str, ShapeSide]] = {}
     references: dict[str, ShapeSide] = {}
     for delta in counted:
@@ -129,7 +147,7 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
         if now is not None and now.judged:
             _, side = runs.setdefault(now.assertion_id, (now.score.name, ShapeSide()))
             if now.status != "error":
-                _count(side, now)
+                _count(side, now, unstamped_fold=now.assertion_id in reference_folds)
         if before is not None and before.judged:
             side = references.setdefault(before.assertion_id, ShapeSide())
             if before.status != "error":

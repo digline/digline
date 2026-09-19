@@ -120,6 +120,39 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
 ### Fixed
 
+- **A corrupt trajectory took the whole command down instead of refusing one
+  file.** `tool_calls` had its *elements* shape-checked since 0.12.1 and its
+  **container** not, so a document holding `"tool_calls": 5` reached a `for`
+  loop and raised a bare `TypeError` — which is not a `ValueError`, and so was
+  in none of the CLI's handler lists. `digline migrate` aborted the whole run
+  rather than printing `refused <file>: <reason>` for that one file, and
+  `digline view` unwound into `socketserver`: a traceback on the terminal and
+  **no response at all** in the browser. The container is refused by name now,
+  like its elements, and a string is refused rather than walked — iterating one
+  yields characters, so the reader used to answer with six refusals about the
+  letters of a tool name.
+- **`"status": null` was read as `success` — and it is one family with
+  `"usage": null`, not two incidents.** `.get()` plus `is None` made an absent
+  key and an explicit null one value, so a document could forge a successful
+  tool call by writing nothing into the field this project calls *the one field
+  a fake cannot forge into vacuity*. `tool_absence`, on the same line of the
+  same function, was already refused by name; the asymmetry was the finding.
+  The same collapse appeared two days later on `"usage": null` while 0.16.0 was
+  being built, and both are closed the same way: `in` decides whether a key is
+  there, and its value is then read on its merits. `result_absence` and
+  `tool_calls` are closed with them. An omitted `status` still means `success`,
+  which is the convention the writer depends on.
+- **A stripped `sample_means` on the run side made means read as judgements,
+  unannounced.** The compensation that pairs an unstamped sampled verdict with
+  a stamped one of the same identity was passed only on the *reference* branch:
+  a stripped baseline stamp was recovered and a stripped run stamp was believed.
+  Measured on a document with the run's stamp removed, the reading called four
+  means four judgements at 0% at the extremes — the precise opposite of a judge
+  alternating 0 and 1. The rule is one rule and applies to both sides now: err
+  toward leaving a verdict out, never toward misreading one. Where **neither**
+  side is stamped nothing can tell, which is the residue ADR 0024 §6.5 already
+  declares and re-promotion closes.
+
 - **A judging prompt that could not be composed was reported as the judge
   failing.** `LlmRubric` and `Faithfulness` built the prompt *inside* the `try`
   that catches the judge, so a mapper handing in a context with a non-string in

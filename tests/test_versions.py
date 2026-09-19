@@ -436,6 +436,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "declared' — the release the sentence arrived in, said beside the code "
         "that stopped replacing it. History, not a claim about now",
     },
+    "src/digline/report/shape.py": {
+        "0.15.0": "'(0.15.0 delta-pass §3)' — which pass found the compensation "
+        "to be one-sided, told as history beside the rule that is now symmetric. "
+        "Moving the number would claim a later pass found it",
+    },
     "src/digline/core/run.py": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
