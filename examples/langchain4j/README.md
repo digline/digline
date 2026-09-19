@@ -185,9 +185,9 @@ And what it does not require:
 
 - **No port, no server, no account.** digline is a command that reads and writes
   files in your repository.
-- **Nothing leaves on the default path.** With `SUPPORT_URL` set the only network
-  call is the one your suite makes: the target's, to your own service.
-  Baselines, runs and reports stay in your repository.
+- **Nothing leaves on the default path.** With `SUPPORT_URL` set, the only call
+  your suite makes is to your own service, which talks to the model provider on
+  its own side. Baselines, runs and reports stay in your repository.
 - **No rewrite.** The endpoint calls a service you already have.
 
 ## Running a real service
