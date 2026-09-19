@@ -118,6 +118,38 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
 
   The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
 
+### Added — an autoevals scorer says whether it asks a model
+
+- **`FromAutoevals` was neither judged nor announced, and both halves are
+  closed.** It declares `wrapper`, meaning *read my nature through what I
+  wrap* — but it wraps an autoevals scorer, not a digline check, so there was
+  nothing to read through. A scorer that calls a model was invisible to the
+  shape reading, could not calibrate, was never repeated by `--judge-samples`,
+  and nothing on your terminal said so.
+- **The floor: an adapter that has not declared is named**, beside the
+  planned-calls line, in the channel that already names a check declaring no
+  `KIND`. `wrapper` is a declaration that *points*, and a pointer into a scorer
+  digline cannot inspect is unresolvable rather than answered.
+- **The declaration: `FromAutoevals(..., judged=True)`** puts the check in the
+  shape reading, makes it eligible for a calibration case and lets
+  `--judge-samples` repeat it. Three states: undeclared (the default) is named
+  until somebody answers, `False` is an answer too and silences the line, and
+  `True` is the one that changes the reading.
+- **No baseline moves.** The declaration is excluded from the check's identity,
+  beside `threshold` and `tolerance` and for their reason — it says *how* a
+  result is judged, not *what* is checked. Without that, declaring would have
+  changed `config_hash` and unpromoted every baseline of every suite using an
+  autoevals check, for a declaration that changed no number.
+- **What it still cannot do**, stated because it will not be closed by trying
+  harder: a declared-judged autoevals check is **judged but unidentified**. The
+  scorer holds its own client, so `judge_config` stays empty and *the instrument
+  moved* cannot see it. A hand-written configuration is refused rather than
+  offered — a second source of truth kept in sync by memory is confidently wrong
+  the first time the two diverge.
+
+  The reasoning is [ADR 0024 §6.4](docs/adr/0024-the-judge-as-an-instrument.md),
+  amended.
+
 ### Added — how much the suite moves between runs
 
 - **`digline log` reads the spread**, the fourth measurement of ADR 0024: for

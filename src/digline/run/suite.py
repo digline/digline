@@ -587,10 +587,26 @@ def undeclared_kinds(suite: Suite) -> tuple[str, ...]:
     §6.1, §6.4)
     """
     return tuple(
-        assertion.name
-        for assertion in suite.assertions
-        if getattr(type(_unwrapped(assertion)), "KIND", None) is None
+        assertion.name for assertion in suite.assertions if _unresolved(assertion)
     )
+
+
+def _unresolved(assertion: Assertion) -> bool:
+    """Whether the reading can learn what kind of check this is.
+
+    Two ways it cannot. The class declares **no** `KIND` — the original case.
+    Or it declares `wrapper` and wraps something with no kind of its own, so
+    there is nothing to read through: `wrapper` is a declaration that *points*,
+    and a pointer into a scorer digline cannot inspect is unresolvable rather
+    than absent. That second case was silent until 0.16.0, because the
+    machinery took `wrapper` for an answer. (ADR 0024 §6.4, amended
+    2026-09-19)
+    """
+    inner = _unwrapped(assertion)
+    kind = getattr(type(inner), "KIND", None)
+    if kind is None:
+        return True
+    return kind == "wrapper" and not isinstance(getattr(inner, "judged", None), bool)
 
 
 def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:

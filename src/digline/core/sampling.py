@@ -533,7 +533,18 @@ def judged(assertion: Assertion) -> bool:
     current: object = assertion
     while isinstance(current, Repeated):
         current = current.inner
-    return getattr(type(current), "KIND", None) == "judged"
+    kind = getattr(type(current), "KIND", None)
+    if kind == "wrapper":
+        # A wrapper's nature is the thing it wraps — and where the thing wrapped
+        # is not a digline value there is no `KIND` to read, so the wrapper may
+        # declare the answer on the **instance**. `FromAutoevals` is the case:
+        # an autoevals scorer has no kind of its own, and only the author knows
+        # whether it asks a model. Undeclared stays *not judged* here, and is
+        # named by `undeclared_kinds` so the default never decides in silence.
+        # (ADR 0024 §6.4, amended 2026-09-19)
+        declared = getattr(current, "judged", None)
+        return declared if isinstance(declared, bool) else False
+    return kind == "judged"
 
 
 def fold_judgements(

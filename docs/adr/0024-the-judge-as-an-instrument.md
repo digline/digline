@@ -893,6 +893,100 @@ byte for any other.
   its own, not taken here. A test pins the hole, so closing it is a decision
   someone makes rather than a side effect.
 
+##### Amendment, 2026-09-19: the hole is closed in two halves
+
+*The decision the bullet above said someone would have to make. It is here
+rather than in a record of its own, because that bullet named the hole and a
+reader chasing two texts for one fact is the cost of tidiness.*
+
+**Two halves, and the order between them is the argument.** The silence is
+closed for everyone; the reading is closed for whoever declares.
+
+- **The floor: a wrapper that wraps no assertion is announced as undeclared.**
+  `undeclared_kinds()` names a check whose class declares no `KIND`; it stays
+  silent for this one, because `wrapper` *is* a declaration. But `wrapper`
+  means *read my nature through what I wrap*, and here there is nothing to read
+  through — so the declaration is **unresolvable, not absent**, and the
+  machinery was treating unresolvable as answered. It is now named in the same
+  breath as a check that declared nothing, on stderr beside the planned-calls
+  line, for the reason that channel exists: defaulting either way guesses, and
+  the author is the only one who knows.
+- **The declaration: the adapter takes the author's word for what its scorer
+  is.** `FromAutoevals` gains a field saying whether the scorer asks a model,
+  and `judged()` consults the instance for this class. That is not a new kind
+  of lookup — `judged()` already walks `.inner` instances through `Repeated`;
+  what is new is that a wrapper's nature can be an instance fact, because the
+  thing wrapped is not a digline value with a `KIND` to read.
+
+**Why the floor comes first, and why neither alone.** An announcement with no
+way to act on it is a nag; a declaration nobody is prompted for is a feature
+with no users. The author who is never told has no reason to declare, and the
+author who declares silences the line — which is the same bargain `KIND` offers
+every other check: optional, and no longer unread.
+
+**Defaulted, not mandatory.** A mandatory field would break every existing
+`FromAutoevals(...)`, which is defensible before 1.0 and buys too little: the
+announcement already puts the question in front of the author on every run,
+which is most of the benefit at none of the cost.
+
+**And the default is `None`, meaning *undeclared* — not `False`.** Found while
+building it: a defaulted boolean cannot be told from an author who answered, so
+`undeclared_kinds()` would have fallen silent the moment the field existed and
+the floor would have closed nothing. Three states, and each is a different
+sentence: *undeclared* reads as not judged everywhere and is named until
+somebody answers; `False` is a declaration too, and silences the line for a
+scorer that computes rather than asks; `True` puts the check in the reading.
+Undeclared is safe **only because it is announced** — the default never decides
+anything in silence.
+
+**The `IDENTITY_EXCLUDED` widening, ruled here and not discovered later.**
+`AssertionBase.identity` is `dataclass_identity(self, IDENTITY_EXCLUDED)` over
+the **declared fields**, so a new field on `FromAutoevals` would enter
+`identity`, and `identity` is in `config_hash`. Every stored baseline of every
+suite using an autoevals check would stop pairing and need re-promoting — for a
+declaration that changed no number. `KIND` escapes this by being a `ClassVar`,
+which is why §9 could say that declaring it leaves every baseline promotable.
+
+So `FromAutoevals` widens `IDENTITY_EXCLUDED` to hold the new field, on the
+rationale already written for `threshold` and `tolerance`: **they describe how
+a result is judged, not what is checked**, and they already travel in every
+verdict. Whether a scorer asks a model is the same kind of fact — it says who
+produces the number, not which number is produced. A suite that declares it
+compares, pairs and promotes exactly as before.
+
+**The limit this does not close, stated rather than papered over.** Declaring
+makes the check **judged**; nothing here makes it **identified**. An autoevals
+scorer holds its own client and exposes no configuration digline can read, so
+`judge_config` stays empty whatever the author declares, and `digline log` goes
+on reading *declared no configuration* for that side. A declared-judged
+autoevals check is therefore **judged but unidentified**: it enters the shape
+reading, it may be calibrated, `--judge-samples` will repeat it — and ADR 0005
+§4's *the instrument moved*, the check that exists to catch a judge changing
+under you, cannot see it. That is a true limit of adapting a scorer whose
+client is its own business, and the honest thing is to carry it in the record.
+
+**A hand-written `judge_config` is refused.** The obvious close — let the suite
+declare the provider and model beside the scorer — is a **second source of
+truth for a value the scorer already holds**, kept in sync by memory. The first
+time they diverge the document is confidently wrong about which instrument
+graded, which is worse than the document saying it does not know: an empty
+`judge_config` is an absence a reader can act on, and a stale one is a fact they
+will act on wrongly. It is the same reason `digline_version` is stamped by the
+driver and never inferred from a dependency pin (ADR 0020 §3).
+
+**Against ADR 0014 §1**, since a field is added to a public value: the hash is
+untouched by the widening above; nothing migrates, because no stored document
+gains a key — `Verdict.judged` already exists and is written from `judged()`,
+which now answers differently for a declared adapter; and nothing new crosses a
+boundary, because what crosses is the boolean that already crossed.
+
+**The pinning test moves rather than goes.** The test named for the known hole
+asserted the silence — `undeclared_kinds(...) == ()` — and that assertion is now
+false by design. It becomes two: an undeclared adapter **is** named, and a
+declared one is judged and is not named. The hole was pinned so that closing it
+would be a decision someone makes; this is that decision, and the test records
+it instead of the hole.
+
 #### 6.5 Amendment, 2026-09-17: the stamp, its key, and its three answers
 
 *§6.2's amendment ruled the reading: a verdict whose `Score.samples` are folds
