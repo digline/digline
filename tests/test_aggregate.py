@@ -347,7 +347,9 @@ def test_the_report_puts_the_aggregate_above_the_cases() -> None:
     # The exclusions travel with the ratio, never under it — and a figure that
     # left nothing out says so in a sentence, not in a row of zeros.
     assert "All 21 cases counted." in document
-    assert "0 suspended" not in document
+    # The old cell, not the recorded reason beside it: that one still says
+    # "0 suspended", because rewording it would rewrite every committed baseline.
+    assert "0 suspended · 0 not judged" not in document
 
 
 def test_an_aggregate_regression_is_named_in_the_summary() -> None:

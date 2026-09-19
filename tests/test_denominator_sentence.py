@@ -146,6 +146,11 @@ def test_suspended_cases_are_not_counted_as_judged() -> None:
     assert "6 of 10 cases judged, 2 could not be. 2 cases are suspended." in (
         head.sentence
     )
+    # The reading takes the suspended count off its own `suspended` fact, and
+    # must arrive at the same six.
+    reading = explain_text(facts(run), locale="en")
+    assert "6 of 10 cases judged, 2 could not be." in reading
+    assert "2 cases are suspended." in reading
 
 
 def test_a_run_of_one_case_keeps_the_bare_sentence() -> None:
