@@ -106,6 +106,16 @@ by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
   admitted nine times; the bump to 2 was for a change *inside values a consumer
   already reads*, which is a different rule.
 
+- **The two front ends had stopped answering the same way, and neither had
+  shipped.** Between the change that put `usage` on a run and this one,
+  `digline run --json` carried what the run consumed and the same tool over MCP
+  did not — one fact, two answers, which is the thing `digline.wire` exists to
+  make impossible. Nobody outside saw it because neither change was released,
+  and it is recorded here rather than left in a commit message because the
+  reason it survived three branches is worth more than the fix: the gate for it
+  is this package's own parity test, and the narrowed `pytest tests/` that was
+  being run does not collect it.
+
   The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
 
 ### Fixed
