@@ -35,9 +35,14 @@ __all__ = [
 #: `prompt_tokens`, as `cached_tokens` is, or beside it. **Unmeasured**, and
 #: `None` says so: until it is a `bool`, `usage_of` reports no cache writes.
 #:
-#: The field exists — the SDK's `PromptTokensDetails` declares it, "the
-#: unadjusted number of prompt tokens written to cache" — and from GPT-5.6 the
-#: price list carries a
+#: **The field is confirmed, and only the convention is open.** It is declared
+#: by the SDK's `PromptTokensDetails` — "the unadjusted number of prompt tokens
+#: written to cache" — and, on 2026-09-18, was **observed in a live reply** by a
+#: user running against an OpenAI-compatible endpoint. So nothing here is
+#: waiting to find out whether the number arrives: it arrives, and
+#: `_cache_writes` returns `0` without so much as reading it — deliberately,
+#: because reading it would require this constant. From GPT-5.6 the price list
+#: carries a
 #: cache-write rate. But its convention decides whether the tokens are
 #: subtracted from the input or added to it, and a guess is money in one
 #: direction or the other (friction 25). Reading it from the neighbouring field
@@ -46,7 +51,9 @@ __all__ = [
 #: billed at the input rate if they sit inside `prompt_tokens`, and not at all if
 #: they sit beside it.
 #:
-#: What settles it is arithmetic, not field names — three calls with the same
+#: A field seen in a reply settles **presence, not position**, so the
+#: measurement below is still the only thing that can close this. What settles
+#: it is arithmetic, not field names — three calls with the same
 #: long prompt: caching off (`prompt_cache_options={"mode": "explicit"}` and no
 #: breakpoint) gives the prompt's size `N`; a cold call writes `W`; `prompt_tokens
 #: == N` there is **inside**, `prompt_tokens + W == N` is **beside**. The live

@@ -249,7 +249,7 @@
       ]
     }
   ],
-  "schema_version": 13,
+  "schema_version": 14,
   "suite": "replies",
   "target_config": {},
   "tenant": "bookshop"

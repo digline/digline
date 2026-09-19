@@ -30,6 +30,15 @@
   declares — holds that a digest is a *verifier*, prompts live in a small
   guessable space, and a digest that travelled would defeat the withholding it
   travelled beside
+- Amended: 2026-09-19 — **§5's projection gains the instrument's own flags**,
+  which it had never followed: `rejudged_from`, `canary`, `calibration`,
+  `judged`, `Run.judge_samples` and — the one the brief for this amendment did
+  not list, because only the code says it — `Score.sample_means`. None was ever
+  withheld data; all six were simply absent, and the sixth's absence makes a
+  reader misread a number rather than miss one. Registered in three places as a
+  gap to be closed "by a decision about the wire, not noticed by accident"
+  (ADR 0024, *Not decided here*), and this is that decision. `OUTPUT_VERSION`
+  does **not** move: added keys, which that contract has admitted nine times
 - Amended: 2026-09-09 — shipped with 0.6.0 rather than after it: the release
   was widened by decision. The reasoning above stands unchanged, including
   §12's rejected alternative and the paragraph in §7 that weighed it; only the
@@ -391,6 +400,182 @@ What does not cross, and is **absent rather than emptied**:
 about coverage and belongs in the projection — `AGENTS.md` says a suspension
 stays visible until it is lifted. The sentence explaining it is payload and does
 not.
+
+### The instrument's own flags — amendment, 2026-09-19
+
+The projection above states what a *verdict* is and what a *case* is. It has
+never stated what the **instrument** was doing, and six facts the run document
+already carries do not reach a caller:
+`Run.rejudged_from`, `CaseResult.canary`, `CaseResult.calibration`,
+`Verdict.judged`, `Run.judge_samples` and `Score.sample_means`.
+
+The gap was recorded in three places rather than fixed — ADR 0024's *Not decided
+here*, the docstring of `run_document`, and `docs/mcp.md` — each saying the same
+thing: none of them is withheld, they are simply absent, and closing it is a
+decision about what crosses. This is that decision.
+
+**Five were named in the brief; the sixth is `Score.sample_means`, and it is
+the one that matters most.** The other five cost a reader a fact. This one costs
+a reader a **wrong reading**: `samples: [0.5, 0.5]` is two judgements or two
+means of judgements, and nothing in the projection says which. Schema 13 was
+spent on that stamp precisely because no reading could tell them apart
+(ADR 0024 §6.5) — and the surface built for a *model* to read has been shipping
+the misreading the bump paid to stop. It joins here, or the bump bought the
+document a guarantee the wire does not keep.
+
+#### Each one, and what it lets a reader do
+
+Not a block. They are five different kinds of fact and one of them is ruled out.
+
+**`rejudged_from` — the sharpest, and it crosses whole.** A replay's answers
+were not taken from the target: its scores did not move because the system
+moved, and its interval is the judge's wobble with none of the target's in it.
+A consumer that reads a replay as a fresh measurement concludes the system got
+better on a day nothing was asked of it. It crosses as the **key**, not as a
+boolean: `redact()` already rules it travels — "a run key — a timestamp and a
+config hash — so it carries no payload" (ADR 0014 §3) — and the key is
+actionable, since a caller can pass it straight back to `get_run` and read what
+was replayed. `compare` already carries the boolean on its headline; this is the
+half a caller reading **one run** has no way to get.
+
+**`canary` — a case that is an instrument, not a measurement.** Its score is a
+fingerprint of which model answered, and re-running asks the same alias the same
+thing (ADR 0016). A consumer reading the case rows today averages it into
+"quality" with everything else. It crosses as a boolean on the case row, the way
+`suspended` does and for the same reason: which case watched the model is a fact
+about the suite's design, never about the end company's data.
+
+**`calibration` — the same family, with numbers.** The case carries an answer
+the author wrote and a band its score must land in, so its score measures the
+**judge** and not the system. The whole band crosses — the check's name and two
+numbers — which is what `redact()` already keeps, for a reason it states: a
+redacted document that lost them "would report an exit code its own contents
+could not account for" (ADR 0024 §9). The same sentence is true here: a caller
+that sees exit 2 and no calibration in the run cannot account for it.
+
+**`judged` — a model placed this score.** It is the per-check half of the
+judgement `AGENTS.md` §3 asks for: a movement on a judged check may be the
+judge's noise, and the same movement on a deterministic one cannot be. It
+crosses as a boolean, written only where true, exactly as the document writes
+it. It is **not** derivable from what crosses today: the `shape` list is on the
+comparison surface, needs a reference, and leaves out a `Repeated` fold by
+construction — so a caller reading one run has nothing.
+
+**`sample_means` — the sixth, and the one whose absence is a misreading.** It
+qualifies `samples`, which this projection has carried since its first
+amendment. It crosses with them, as a boolean, for the reason the intervals
+cross at all: a reading of the instrument that cannot say what its numbers *are*
+is not a reading.
+
+**`judge_samples` — ruled OUT, and the omission is the point.** It says how many
+times each judged check asked the judge per recorded answer, on a replay that
+measured the judge's own range. The numbers it qualifies — `judge_min`,
+`judge_max`, `judge_errored`, `judge_answer` — live in `Score.metadata`, and
+this projection filters metadata to the suite's `Disclosure` allowlist with
+**no `travels()` fallback**, so none of them crosses unless the suite names
+them. A
+bare `judge_samples: 5` would therefore reach a caller as a count with nothing
+to count against: it cannot say how far the judge ranged, only that somebody
+asked. `rejudged_from` and `sample_means` already tell the caller the two things
+it can act on — this run is a replay, and these scores are folds — and the
+count adds a number nobody can use. It waits for the decision that lets the
+range itself cross, which is a different decision and belongs with the 0.15.0
+finding that this projection is stricter than `travels()`.
+
+#### The boundary, per field rather than by assertion
+
+Each is checked against what a `Disclosure` governs and what `travels()` admits,
+because the 0.15.0 delta-pass found this projection **stricter** than
+`travels()` in exactly one place — `Score.metadata` is an opt-in allowlist
+here, so the
+numbers `aggregate.py` says cross do not — and a field placed in the wrong
+container is a field silently dropped where world 2 needs it.
+
+| field | what it is | why it crosses |
+|---|---|---|
+| `rejudged_from` | a run key: an ISO timestamp and a config hash | names a document of ours, never a case, an input or an answer. `redact()` already carries it in clear |
+| `canary` | a boolean the case author wrote | a fact about the suite's design. `travels()` admits booleans; it is a field, so it does not pass through the metadata filter at all |
+| `calibration` | a check name and two floats, declared in the suite | the author's own declaration. No customer data can reach it: the band is written in code and the answer it calibrates against stays in the case file, which does not cross |
+| `judged` | a boolean copied from the check's `KIND` | a property of the *class*, not of the case |
+| `sample_means` | a boolean about how the scores were stored | says what the numbers beside it are; carries no number of its own |
+
+None of the five is a string taken from data. The one string among them —
+`rejudged_from` — is a key digline composed, and the one place a customer's text
+could enter a key is the suite name, which this projection already carries as
+`suite`. Nothing here needs a `Disclosure`, and nothing here may be opened by
+one: a `Disclosure` widens what the *suite* releases, and these are facts about
+our own instrument.
+
+#### What it costs: `OUTPUT_VERSION` does not move
+
+The rule that applies is the contract's own first one — **an added key breaks no
+consumer** — and it has been applied nine times without a bump, most recently
+for `denominator_moved`. This change adds keys and does nothing else: no key is
+removed, no value is rewritten, no number changes, and a caller that ignores all
+six parses the bytes it parsed before.
+
+`OUTPUT_VERSION` moved to `2` for a different rule, and the distinction is worth
+stating because it is the one a future change will be judged against: the bump
+rewrote **bytes inside values a consumer already reads** — DEL and the C1 block
+as their escape spelling, in every string this package renders. That is not an
+added key, and it is why it cost a version. The two `counts` removals sit
+between the two and were tolerated without a bump for a stated reason of their
+own: they removed a number that was an affirmative false claim.
+
+This change is in the first category, without qualification.
+
+#### The reader on the other side
+
+Our own reasoning operator (ADR 0019) is the nearest consumer and it reads
+**`explain --json`**, not `get_run` — so it is not blocked today for the facts
+`explain` already carries as tallies. What this amendment serves is the caller
+reading **one run with no reference**, which is what `get_run` is for and what a
+first run, a pre-baseline suite and any agent inspecting a stored document
+actually have.
+
+And `docs/mcp.md` currently tells that caller something that is not true. It
+says of these fields: *"Call `explain` or `compare` for them, which carry
+each as a fact."* Checked against the code:
+
+- `rejudged` — true. `explain` emits the tally; `compare`'s headline carries it.
+- `canary`, `calibration` — true only with a reference, and only on the
+  comparison's deltas. A run read alone has neither.
+- `judged` — **not carried anywhere** as a per-check fact. Inferable only from
+  the `shape` list, which needs a reference and omits folds.
+- `judge_samples` — **carried nowhere at all**: zero occurrences in
+  `digline.wire` and in `digline.report.explain`.
+
+So the documented workaround is false for one field and unavailable for another,
+and the page is corrected by this amendment rather than left to be believed.
+
+*Corrected 2026-09-19, and dated in the page itself rather than rewritten
+silently: this is the third documentation defect in a week that promised
+something the code does not do, and a page whose history shows it was **checked**
+is worth more than one that reads as if it had always been right.*
+
+#### What this does not do
+
+It does not add a verdict, a gate or an exit code; it does not move
+`SCHEMA_VERSION` — nothing about the stored document changes; it does not widen
+any `Disclosure`; and it does not let `Score.metadata` cross by `travels()`,
+which stays the open question `judge_samples` is waiting on.
+
+#### Test plan
+
+`tests/test_wire_boundary.py` is where this is asked, since that file was named
+as the test that would ask for a decision:
+
+- each of the five crosses, asserted by key and value on a run that carries it;
+- `judge_samples` is asserted **absent**, so the ruled omission cannot be closed
+  by accident and a later reader meets the ruling rather than a gap;
+- a run carrying none of them projects exactly the keys it projects today, so
+  the ordinary document is unchanged;
+- `sample_means` travels **with** `samples`, asserted together: the pair is the
+  claim, and either alone is the misreading;
+- the negative half stands: no reason, no case inputs, no undisclosed metadata,
+  no artifact digest without its text;
+- `OUTPUT_VERSION` is asserted unchanged at `2`, beside the added keys, so the
+  rule and its application are read in one place.
 
 ### Why chosen and not inherited
 

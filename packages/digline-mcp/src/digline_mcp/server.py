@@ -360,7 +360,10 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             prepared=prepared,
             artifacts=artifacts,
         )
-        return run_json(measured.ref, measured.plan)
+        # `usage=` as the CLI passes it: what the run consumed is one fact, and
+        # a caller must not have to know which front end it asked. The parity
+        # test in this package is what noticed it was missing. (ADR 0011 §6)
+        return run_json(measured.ref, measured.plan, usage=measured.run.usage)
 
     # Registered here rather than through `@server.tool(...)` on each
     # definition. The decorator form leaves every tool a function that is

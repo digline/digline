@@ -6,6 +6,240 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.16.0 — unreleased
+
+**What a run consumed, written down.** digline **0.16.0** opens schema 14 with
+one passenger: the bill. Until now digline recorded **no token count
+anywhere**, for every provider: `ProviderTarget` priced the counts, kept
+the money on `Response.cost_usd` and copied the four numbers into
+`Response.metadata`, which is never persisted. `JudgeBase.spent_usd` reached no
+document at all, so one of the two lines of the bill had never been written
+down since the first release.
+
+`SCHEMA_VERSION` moves to **14** and `JOURNAL_VERSION` to **2**. Run
+`digline migrate` before comparing or promoting: a document at 13 is refused by
+name until it is migrated, and a **journal** at format 1 is refused and left on
+disk — start that run again rather than resuming it. The two versions moving in
+one release is a coincidence of one train, not a coupling: they are independent
+by design (ADR 0017 §2) and the journal stood still through schemas 11, 12 and
+13.
+
+### Added
+
+- **`Run.usage`** — two lines of one bill, the **target's** and the **judge's**,
+  on every run whether or not it records responses. Each carries `calls`,
+  `counted`, the four token counts and `spent_usd`. `counted` below `calls` says
+  the total covers only part of the run — a target that reports no counts, or a
+  leg somebody resumed by hand without figures — and the CLI prints that
+  parenthesis only when it is true.
+- **`RecordedResponse.usage`** — the four counts of one call, beside the answer
+  it belongs to, under the existing `record_responses`. A bill is a total and a
+  discrepancy is found in the detail.
+- The totals cross a boundary and the per-call counts do not: a run total is
+  the software house's own invoice and names no case, while a per-call count is
+  a fact about one of the end company's requests. `redact()` keeps the first and
+  drops the second with its response; `--json` and MCP carry the first only.
+- **The journal keeps a bill line per case**, written whatever the suite
+  records, so a resumed run states the whole run's bill rather than the last
+  leg's — and is still byte for byte the document the kill prevented
+  (ADR 0017 §10).
+
+### Changed
+
+- **`Usage` moved to `digline.core`** and is re-exported from
+  `digline.targets.pricing`. It is the same class object, so
+  `from digline.targets.pricing import Usage` is unchanged and **no plugin needs
+  a release**.
+- `execute()` gained `spent=`, and refuses a non-empty `done` without it: a
+  resumed run that could not say what its earlier legs cost would under-bill in
+  silence.
+
+### Added — the judge may say it cannot answer
+
+- **A judge can now decline instead of inventing a number.** Asked to score an
+  output it cannot score — a refusal, an empty answer, text the rubric does not
+  apply to — a model used to have two ways out: guess, or crash. A guess is
+  usually a `0`, and a `0` is a **fail**: the system under test marked down for
+  the instrument's inability. A judge replies `{"abstain": true, "reason": "…"}`
+  instead, and the check is *unjudged* carrying the judge's own sentence.
+- **A judge that never abstains behaves exactly as today.** A missing `score`,
+  a `"score": null` and an `"abstain": false` all stay broken replies. Declining
+  is the thing a judge has to say on purpose: it is unreachable by omission, by
+  a malformed value, and without a reason.
+- **`Faithfulness` can tell its two zeros apart.** *"The judge found no claims"*
+  used to cover both an output that asserts nothing and a judge that could not
+  tell what it asserts. A judge that cannot decompose now declines, so the
+  remaining zero says what it means: *the judge counted the claims in this
+  output and found none*.
+- It adds no status (`error` is already *a judgement that could not be given*),
+  no field to any stored document, and no schema move.
+
+  **If judged scores move on this upgrade, it is neither your system nor your
+  model — it is our instruction to the judge.** `SCORE_SYSTEM` and
+  `CLAIM_SYSTEM` changed, and a model told it may decline will sometimes decline
+  where it used to guess. Nothing records that: the judge's instruction is in
+  neither `config_hash` nor `judge_config`, so a comparison across this upgrade
+  reports `judge_config_changed` **false**. Read the movement, and **re-promote
+  if it is acceptable**.
+
+  The reasoning is [ADR 0004 §7](docs/adr/0004-every-plugin-is-a-target-and-a-judge.md).
+
+### Added — what `get_run` says about the instrument
+
+- **The MCP run document follows the instrument's own flags.** `get_run` and
+  `get_baseline` now mark a judged check (`judged`), a canary (`canary`), a
+  calibration case (`calibration` with its band), a replay (`rejudged_from`, the
+  key of the run whose answers were re-judged) and scores that are means of
+  judgements rather than judgements (`sample_means`, beside `samples`). None of
+  them was ever withheld: they were absent, and a caller reading **one run with
+  no reference** could not get them anywhere — `compare` and `explain` need a
+  baseline, and two of the five were carried by neither surface.
+- `sample_means` is the one whose absence made a reader **misread** rather than
+  miss: `samples: [0.5, 0.5]` is two judgements or two means of them, and the
+  surface built for a model to read was shipping the misreading schema 13 was
+  spent to stop.
+- **`Run.judge_samples` deliberately does not travel**, and a test asserts its
+  absence so this reads as a ruling: the numbers it qualifies live in verdict
+  metadata, which crosses only by `Disclosure`, so the bare count would arrive
+  with nothing to count against.
+- `OUTPUT_VERSION` stays **2**. These are added keys, which this contract has
+  admitted nine times; the bump to 2 was for a change *inside values a consumer
+  already reads*, which is a different rule.
+
+- **The two front ends had stopped answering the same way, and neither had
+  shipped.** Between the change that put `usage` on a run and this one,
+  `digline run --json` carried what the run consumed and the same tool over MCP
+  did not — one fact, two answers, which is the thing `digline.wire` exists to
+  make impossible. Nobody outside saw it because neither change was released,
+  and it is recorded here rather than left in a commit message because the
+  reason it survived three branches is worth more than the fix: the gate for it
+  is this package's own parity test, and the narrowed `pytest tests/` that was
+  being run does not collect it.
+
+  The reasoning is [ADR 0011 §5](docs/adr/0011-the-mcp-server.md), amended.
+
+### Added — an autoevals scorer says whether it asks a model
+
+- **`FromAutoevals` was neither judged nor announced, and both halves are
+  closed.** It declares `wrapper`, meaning *read my nature through what I
+  wrap* — but it wraps an autoevals scorer, not a digline check, so there was
+  nothing to read through. A scorer that calls a model was invisible to the
+  shape reading, could not calibrate, was never repeated by `--judge-samples`,
+  and nothing on your terminal said so.
+- **The floor: an adapter that has not declared is named**, beside the
+  planned-calls line, in the channel that already names a check declaring no
+  `KIND`. `wrapper` is a declaration that *points*, and a pointer into a scorer
+  digline cannot inspect is unresolvable rather than answered.
+- **The declaration: `FromAutoevals(..., judged=True)`** puts the check in the
+  shape reading, makes it eligible for a calibration case and lets
+  `--judge-samples` repeat it. Three states: undeclared (the default) is named
+  until somebody answers, `False` is an answer too and silences the line, and
+  `True` is the one that changes the reading.
+- **No baseline moves.** The declaration is excluded from the check's identity,
+  beside `threshold` and `tolerance` and for their reason — it says *how* a
+  result is judged, not *what* is checked. Without that, declaring would have
+  changed `config_hash` and unpromoted every baseline of every suite using an
+  autoevals check, for a declaration that changed no number.
+- **What it still cannot do**, stated because it will not be closed by trying
+  harder: a declared-judged autoevals check is **judged but unidentified**. The
+  scorer holds its own client, so `judge_config` stays empty and *the instrument
+  moved* cannot see it. A hand-written configuration is refused rather than
+  offered — a second source of truth kept in sync by memory is confidently wrong
+  the first time the two diverge.
+
+  The reasoning is [ADR 0024 §6.4](docs/adr/0024-the-judge-as-an-instrument.md),
+  amended.
+
+### Added — how much the suite moves between runs
+
+- **`digline log` reads the spread**, the fourth measurement of ADR 0024: for
+  each run-level aggregate, the range it took across the **comparable** runs in
+  this store and this window. Comparable is checked and never assumed — a run
+  is excluded, counted and named where it re-judged, where a case could not be
+  judged, where it lost its scale, or where its rules, its counted cases, its
+  prompt, the system it asked or the instrument that graded were not the
+  latest run's.
+- **The latest run is never in its own range.** A spread that contained the
+  value it is read against would answer *inside* by construction, which is an
+  excuse promoted to a feature.
+- **Whether the latest score is inside that spread is not said yet**, and the
+  reading says that it is not saying it: a range over two runs is a single
+  difference, and the least N that makes *inside* mean anything has to be
+  measured on real history first — the same way the shape and calibration
+  thresholds are declared to be measured rather than guessed.
+- Where the latest run also carries the aggregate's per-sample interval, both
+  are printed and **labelled apart**: they are different measurements, and the
+  reading never sets one against the other.
+- Silent on a flip, no new exit code, nothing in `compare`: `log` exits 0
+  whenever it read the store, and this adds no path to any other number.
+- `--json` gains `spread` beside `spans` and `rolls`, and the MCP `log` tool
+  returns the same value. `OUTPUT_VERSION` stays **2**: an added key.
+
+  The reasoning is [ADR 0024 §7](docs/adr/0024-the-judge-as-an-instrument.md),
+  with the one sentence it needed from
+  [ADR 0020 §4](docs/adr/0020-the-reading-across-runs.md) written there as a
+  dated amendment.
+
+### Fixed
+
+- **A corrupt trajectory took the whole command down instead of refusing one
+  file.** `tool_calls` had its *elements* shape-checked since 0.12.1 and its
+  **container** not, so a document holding `"tool_calls": 5` reached a `for`
+  loop and raised a bare `TypeError` — which is not a `ValueError`, and so was
+  in none of the CLI's handler lists. `digline migrate` aborted the whole run
+  rather than printing `refused <file>: <reason>` for that one file, and
+  `digline view` unwound into `socketserver`: a traceback on the terminal and
+  **no response at all** in the browser. The container is refused by name now,
+  like its elements, and a string is refused rather than walked — iterating one
+  yields characters, so the reader used to answer with six refusals about the
+  letters of a tool name.
+- **`"status": null` was read as `success` — and it is one family with
+  `"usage": null`, not two incidents.** `.get()` plus `is None` made an absent
+  key and an explicit null one value, so a document could forge a successful
+  tool call by writing nothing into the field this project calls *the one field
+  a fake cannot forge into vacuity*. `tool_absence`, on the same line of the
+  same function, was already refused by name; the asymmetry was the finding.
+  The same collapse appeared two days later on `"usage": null` while 0.16.0 was
+  being built, and both are closed the same way: `in` decides whether a key is
+  there, and its value is then read on its merits. `result_absence` and
+  `tool_calls` are closed with them. An omitted `status` still means `success`,
+  which is the convention the writer depends on.
+- **A stripped `sample_means` on the run side made means read as judgements,
+  unannounced.** The compensation that pairs an unstamped sampled verdict with
+  a stamped one of the same identity was passed only on the *reference* branch:
+  a stripped baseline stamp was recovered and a stripped run stamp was believed.
+  Measured on a document with the run's stamp removed, the reading called four
+  means four judgements at 0% at the extremes — the precise opposite of a judge
+  alternating 0 and 1. The rule is one rule and applies to both sides now: err
+  toward leaving a verdict out, never toward misreading one. Where **neither**
+  side is stamped nothing can tell, which is the residue ADR 0024 §6.5 already
+  declares and re-promotion closes.
+
+- **A judging prompt that could not be composed was reported as the judge
+  failing.** `LlmRubric` and `Faithfulness` built the prompt *inside* the `try`
+  that catches the judge, so a mapper handing in a context with a non-string in
+  it produced *the judge raised TypeError* — naming the one component that was
+  innocent, in the sentence somebody reads to decide between re-running and
+  investigating. The render now has its own site: *the judging prompt could not
+  be composed from these inputs: …*, with the cause still in the sentence. A
+  judge that really raises is still reported as the judge.
+
+### Not moved
+
+- `OUTPUT_VERSION` stays **2**: keys are added to `--json`, none removed.
+- `config_hash` is untouched — what a run consumed cannot change what it was
+  asked to do — so **no baseline needs re-promoting**, and the migration writes
+  nothing: a run measured before this release consumed tokens nobody recorded,
+  and `0` would state that it consumed none.
+- No `TokenBudget`. This release records; a ceiling is a gate and would need its
+  own threshold, tolerance and exit code.
+- **Known, unchanged:** `ModelPrice` declares one `cache_write_per_mtok`, and a
+  provider that bills short- and long-lived cache writes at different rates
+  cannot be priced by one. Digline now records `cache_write_tokens`, so the
+  count the money was computed from is visible.
+
+The reasoning is [ADR 0025](docs/adr/0025-the-tokens-and-the-bill.md).
+
 ## pytest-digline 0.1.6 — 2026-09-18
 
 **The plugin failed a row that `digline compare` calls incomparable.** The

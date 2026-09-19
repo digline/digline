@@ -791,6 +791,58 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.reference.none": "No reference is approved for this suite.",
         "log.reference.side": "  {side}: {sighting}",
+        # The spread: how much the suite moved between runs (ADR 0024 §7).
+        # *Across* and *runs* are multi-run words, which this reading alone is
+        # permitted. No advice word, and no *likely*.
+        "log.spread.heading": "Run-to-run spread",
+        "log.spread.none": (
+            "  This suite declares no run-level check, so there is nothing to "
+            "read across runs."
+        ),
+        "log.spread.set": (
+            "  Across {count} comparable run(s) in this store, in this window — "
+            "the latest not among them{excluded}."
+        ),
+        "log.spread.excluded": "; {excluded}",
+        "log.spread.excluded.rejudged": "{count} excluded as re-judged",
+        "log.spread.excluded.unjudged": "{count} as not fully judged",
+        "log.spread.excluded.scale_lost": "{count} as uncalibrated",
+        "log.spread.excluded.config_hash": "{count} as measuring other rules",
+        "log.spread.excluded.population": "{count} as counting other cases",
+        "log.spread.excluded.artifacts": "{count} as testing another prompt",
+        "log.spread.excluded.target_config": "{count} as asking another system",
+        "log.spread.excluded.judge_config": (
+            "{count} as grading with another instrument"
+        ),
+        "log.spread.excluded.identity": "{count} as answered by another model",
+        "log.spread.unidentified": (
+            "  {count} of the {total} run(s) did not identify the answering model."
+        ),
+        "log.spread.commits": "  The counted runs were written at {count} commit(s).",
+        "log.spread.versions": "  Written by digline {versions}.",
+        "log.spread.range": (
+            "  {name}: the latest run scored {latest} against the reference's "
+            "{reference}, a difference of {difference}. {name} ranged {low} to "
+            "{high} across the counted runs."
+        ),
+        "log.spread.range.alone": (
+            "  {name}: the latest run scored {latest}. {name} ranged {low} to "
+            "{high} across the counted runs."
+        ),
+        "log.spread.no_comparable": (
+            "  {name}: no run in this store was measured the same way, so there "
+            "is no range to read."
+        ),
+        "log.spread.within": (
+            "    Within the latest run, the same aggregate per sample ranged "
+            "{low} to {high} — a different measurement, not comparable with the "
+            "range above."
+        ),
+        "log.spread.floor": (
+            "  Whether the latest score is inside this spread is not stated: the "
+            "least number of runs that makes inside mean anything has not been "
+            "measured yet."
+        ),
         # The register's section of the same reading (ADR 0021 §8).
         "log.register.heading": "Dispositions recorded",
         "log.register.none": "  No disposition is recorded for this suite.",
@@ -1540,6 +1592,58 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.reference.none": "Nessun riferimento approvato per questa suite.",
         "log.reference.side": "  {side}: {sighting}",
+        "log.spread.heading": "Scarto fra run",
+        "log.spread.none": (
+            "  Questa suite non dichiara controlli di run, quindi non c'è nulla "
+            "da leggere fra run."
+        ),
+        "log.spread.set": (
+            "  Su {count} run confrontabili in questo store, in questa "
+            "finestra — l'ultima non è fra queste{excluded}."
+        ),
+        "log.spread.excluded": "; {excluded}",
+        "log.spread.excluded.rejudged": "{count} escluse perché rigiudicate",
+        "log.spread.excluded.unjudged": "{count} perché non giudicate del tutto",
+        "log.spread.excluded.scale_lost": "{count} perché non calibrate",
+        "log.spread.excluded.config_hash": "{count} perché misurano altre regole",
+        "log.spread.excluded.population": "{count} perché contano altri casi",
+        "log.spread.excluded.artifacts": "{count} perché provano un altro prompt",
+        "log.spread.excluded.target_config": (
+            "{count} perché interrogano un altro sistema"
+        ),
+        "log.spread.excluded.judge_config": (
+            "{count} perché giudicano con un altro strumento"
+        ),
+        "log.spread.excluded.identity": ("{count} perché ha risposto un altro modello"),
+        "log.spread.unidentified": (
+            "  {count} run su {total} non hanno identificato il modello che ha "
+            "risposto."
+        ),
+        "log.spread.commits": "  Le run contate sono state scritte da {count} commit.",
+        "log.spread.versions": "  Scritte da digline {versions}.",
+        "log.spread.range": (
+            "  {name}: l'ultima run ha ottenuto {latest} contro {reference} del "
+            "riferimento, una differenza di {difference}. {name} è andata da "
+            "{low} a {high} nelle run contate."
+        ),
+        "log.spread.range.alone": (
+            "  {name}: l'ultima run ha ottenuto {latest}. {name} è andata da "
+            "{low} a {high} nelle run contate."
+        ),
+        "log.spread.no_comparable": (
+            "  {name}: nessuna run in questo store è stata misurata allo stesso "
+            "modo, quindi non c'è un intervallo da leggere."
+        ),
+        "log.spread.within": (
+            "    Dentro l'ultima run, lo stesso aggregato per campione è andato "
+            "da {low} a {high} — un'altra misura, non confrontabile con "
+            "l'intervallo qui sopra."
+        ),
+        "log.spread.floor": (
+            "  Se il punteggio dell'ultima run stia dentro questo scarto non "
+            "viene detto: il numero minimo di run che rende «dentro» "
+            "significativo non è ancora stato misurato."
+        ),
         "log.register.heading": "Decisioni registrate",
         "log.register.none": "  Nessuna decisione registrata per questa suite.",
         "log.register.unreadable": (

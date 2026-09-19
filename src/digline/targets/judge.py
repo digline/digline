@@ -24,7 +24,15 @@ from collections.abc import Mapping
 from time import perf_counter
 from typing import Any, ClassVar, cast
 
-from digline.core import ClaimReply, ConfigValue, Finish, JudgeReply
+from digline.core import (
+    NO_USAGE,
+    ClaimReply,
+    ConfigValue,
+    Finish,
+    JudgeAbstained,
+    JudgeReply,
+    Usage,
+)
 from digline.targets.completion import (
     WHY_SILENT,
     Completion,
@@ -39,6 +47,7 @@ from digline.targets.pricing import Pricing
 
 __all__ = [
     "CLAIM_SYSTEM",
+    "ABSTAIN_KEY",
     "SCORE_SYSTEM",
     "ClaimCountJudge",
     "JudgeBase",
@@ -61,7 +70,14 @@ SCORE_SYSTEM = (
     "entirely. Use the range: a partial answer is not a 0 and not a 1. The "
     "reason is read by someone deciding whether to trust the score, so state "
     "what in the output decided it, and do not quote more of the output than "
-    "the sentence needs."
+    "the sentence needs.\n\n"
+    "If the output cannot be scored against this rubric at all — it is a "
+    "refusal, it is empty, or it is not the kind of thing the rubric applies "
+    "to — do not invent a score. Reply instead with one JSON object and "
+    "nothing else:\n"
+    '{"abstain": true, "reason": "<why it cannot be scored>"}\n\n'
+    "Declining is not a low score. A 0 says the output was read and failed the "
+    "rubric; declining says it could not be read against the rubric at all."
 )
 
 #: Asked of a `ClaimJudge`. Two counts, never a fraction: the core does the
@@ -78,7 +94,13 @@ CLAIM_SYSTEM = (
     "Reply with one JSON object and nothing else:\n"
     '{"supported": <integer>, "total": <integer>, "reason": "<one sentence>"}\n\n'
     "`total` is how many claims the output makes, `supported` how many of them "
-    "the context supports. `supported` can never exceed `total`."
+    "the context supports. `supported` can never exceed `total`.\n\n"
+    "If you cannot work out what the output claims at all, do not report "
+    "counts. Reply instead with one JSON object and nothing else:\n"
+    '{"abstain": true, "reason": "<why the claims cannot be counted>"}\n\n'
+    "This is not the same as finding no claims. An output that asserts nothing "
+    'is `"total": 0`, which is an answer; declining says you could not tell '
+    "what it asserts."
 )
 
 
@@ -236,6 +258,14 @@ class JudgeBase(ABC):
         self.calls = 0
         self.spent_usd = 0.0
         self.latency_ms = 0.0
+        #: What this judge has consumed, by the same rule as `spent_usd`:
+        #: monotone for the life of the object, never reset, and a caller
+        #: wanting a per-run figure reads twice and subtracts — which is what
+        #: `execute()` does to put the judge's line on the run (ADR 0025 §4).
+        #: Until now the instrument's half of the bill reached no document at
+        #: all, and money without counts cannot be reconciled with anyone's
+        #: invoice.
+        self.tokens: Usage = NO_USAGE
         #: Which instrument actually graded, as the provider reported it. Empty
         #: until the judge has been asked something, which is why `execute()`
         #: reads `judge_config` after the last case as well as before the first
@@ -258,6 +288,10 @@ class JudgeBase(ABC):
         self.calls += 1
         self.latency_ms += elapsed_ms
         self.spent_usd += self.pricing.cost(self.model, reply.usage)
+        # Beside the money and under the same rule stated above it: a call that
+        # raises reaches none of these lines, because its cost is unknown and
+        # counting it at zero is the undercount that reads as good news.
+        self.tokens = self.tokens + reply.usage
         self.observed.see(reply)
         if not self._said_something(reply.text):
             raise ValueError(_no_text(reply, self.max_tokens))
@@ -360,6 +394,56 @@ def _reason(data: Mapping[str, Any]) -> str:
     return reason
 
 
+#: The key a judge writes to decline. Its own name, and never a `score` of
+#: `null`: a model that omits a key or writes null is a model that produced a
+#: broken reply, and an abstention reachable by omission would be reached by
+#: omission. (ADR 0004 §7.3)
+ABSTAIN_KEY = "abstain"
+
+
+def _declined(data: Mapping[str, Any]) -> None:
+    """Raise `JudgeAbstained` where the reply declares one, and nowhere else.
+
+    Called **before** the score is read, so a reply that declines is not asked
+    for a number it did not give — and a reply carrying both is a declining,
+    because a judge that declined and then supplied a score has not scored, it
+    has decorated.
+
+    Three refusals, and each is the difference between an answer and an
+    accident:
+
+    - the key **absent** is not an abstention, which is what keeps every judge
+      written before this release behaving exactly as it did;
+    - the key holding anything but `true`/`false` is a **malformed reply**, on
+      the rule `_number` already applies to a score that is not a number: a key
+      that accepts anything means nothing;
+    - `true` with no reason is a **broken reply**, not a declining. An
+      abstention whose whole value is the judge's sentence is worth nothing
+      without one, and this is the one place where declining is held to a
+      stricter standard than scoring — a score can be contradicted by
+      arithmetic, a declining can only be read.
+    """
+    if ABSTAIN_KEY not in data:
+        return
+    declared = data[ABSTAIN_KEY]
+    if not isinstance(declared, bool):
+        raise ValueError(
+            f"the judge's {ABSTAIN_KEY!r} is {declared!r}, which is not true or "
+            "false: declining to score is a declaration, and a key that accepts "
+            "anything declares nothing"
+        )
+    if not declared:
+        return
+    reason = str(data.get("reason", "")).strip()
+    if not reason:
+        raise ValueError(
+            "the judge declined and gave no reason: an abstention is worth "
+            "nothing without the sentence saying why, so this is a broken reply "
+            "rather than a declining"
+        )
+    raise JudgeAbstained(reason)
+
+
 class ScoreJudge(JudgeBase):
     """Satisfies `digline.core.Judge`: a prompt in, a `JudgeReply` out."""
 
@@ -367,6 +451,7 @@ class ScoreJudge(JudgeBase):
 
     def __call__(self, prompt: str) -> JudgeReply:
         data = self._ask(prompt)
+        _declined(data)
         return JudgeReply(score=_number(data, "score", float), reason=_reason(data))
 
 
@@ -377,6 +462,7 @@ class ClaimCountJudge(JudgeBase):
 
     def __call__(self, prompt: str) -> ClaimReply:
         data = self._ask(prompt)
+        _declined(data)
         return ClaimReply(
             supported=_number(data, "supported", int),
             total=_number(data, "total", int),

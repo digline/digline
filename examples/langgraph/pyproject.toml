@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.12,<0.16",
+    "digline>=0.12,<0.17",
     # A floor, not a pin: 1.2.11 is the version this was written and tested
     # against, and the ceiling is the major. The weekly run in `check.yml` is
     # what tells you a minor moved under the agent — which is the whole question

@@ -311,6 +311,7 @@ single case.
 | `input` | `str \| None` | `None` |
 | `cost_usd` | `float \| None` | `None` |
 | `latency_ms` | `float \| None` | `None` |
+| `usage` | `Usage \| None` | `None` |
 | `metadata` | `Mapping[str, object]` | `{}` |
 
 `input` is the rendered prompt. It lives here and not on the `Case` because
@@ -397,13 +398,40 @@ would say so: disclosure governs what leaves the run *document*, not what an
 assertion did while producing it. `digline-openai` takes a `base_url`, so a
 customer's own Azure deployment or vLLM judges its own runs.
 
-**What judging cost.** `judge.calls`, `judge.spent_usd` and `judge.latency_ms`
-accumulate for the life of the object and are **never reset**: a per-run figure
-is a delta the caller takes. A call that raises is not counted — its cost is
-unknown, and counting it at zero is the undercount that reads as good news.
-`Response.cost_usd` is the *target's* call and does not include any of this;
-today the judging spend stays in the process and does not enter the run, the
-comparison or the report (ADR 0004 §3).
+**What judging cost.** `judge.calls`, `judge.spent_usd`, `judge.latency_ms` and
+`judge.tokens` accumulate for the life of the object and are **never reset**: a
+per-run figure is a delta the caller takes. A call that raises is not counted —
+its cost is unknown, and counting it at zero is the undercount that reads as
+good news. `Response.cost_usd` is the *target's* call and does not include any
+of this (ADR 0004 §3).
+
+Since 0.16.0 the run **does** carry it: `execute()` reads these counters before
+the first case and after the last, and writes the difference as the judge line
+of `Run.usage` — which is why the delta is the shape, and why a suite that
+reuses one judge object across runs still gets a per-run figure. Two assertions
+holding the *same* judge instance are one bill; two instances configured
+identically are two, and they add (ADR 0025 §4).
+
+### `Run.usage`, and what a line means
+
+`Run.usage` is two `CallTotals` — `target` and `judge` — or `None` on a document
+that recorded none, which is every document written before schema 14 and never
+a run that consumed nothing.
+
+| Field | Meaning |
+|---|---|
+| `calls` | calls this line covers |
+| `counted` | of those, how many reported their usage |
+| `tokens` | the four counts, summed over the counted calls |
+| `spent_usd` | what the line cost |
+
+`counted` below `calls` means the total covers **part** of the run — a target
+that reports no counts, or a leg somebody resumed by hand without figures — and
+`line.partial` says so. The CLI prints that parenthesis only when it is true,
+and `--json` carries `partial` as a field so nothing has to derive it.
+
+The totals cross a boundary; the per-call counts on a recorded response do not
+(ADR 0025 §8).
 
 **Reading a reply.** Lenient about the wrapping — a bare object, a ```` ```json ````
 fence, or an object with prose around it all read correctly, because
@@ -1191,6 +1219,38 @@ the system.
 A judge that raises, that returns a score out of range or that gives no reason
 produces a verdict in **`error`**, not a failure: not having been able to judge
 is a different thing from having judged badly.
+
+### A judge that cannot answer
+
+Since 0.16.0 a judge can **decline** rather than invent a score. It raises
+`JudgeAbstained(reason)`, imported from `digline.core`, and the check is
+`error` carrying the judge's own sentence — *the judge declined to score: …* —
+instead of our sentence about a judge that blew up.
+
+The shipped `ScoreJudge` and `ClaimCountJudge` raise it when the model's reply
+declares it, and only then:
+
+```json
+{"abstain": true, "reason": "the answer is a refusal, so there is nothing to score"}
+```
+
+Three rules, and they are the contract rather than an implementation detail:
+
+- **`abstain` absent is not an abstention.** A judge that never declines
+  behaves exactly as it did: a missing `score` and a `"score": null` are still
+  broken replies.
+- **A value that is not `true`/`false` is a broken reply**, not a declining.
+- **`reason` is mandatory.** A declining with no reason is refused, because the
+  sentence is the whole of what an abstention is worth.
+
+A reply that declines *and* scores has declined: a judge that supplied both has
+not scored.
+
+Declining is not a low score. `0` says the output was read and failed the
+rubric; declining says it could not be read against the rubric at all. For
+`ClaimCountJudge` the distinction is sharper: an output that asserts nothing is
+`"total": 0`, which is an answer, while declining says the judge could not tell
+what it asserts. (ADR 0004 §7)
 
 ### The prompt a judge receives
 

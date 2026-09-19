@@ -243,6 +243,20 @@ four days*.
 
 ### 4. The row has no score, by type
 
+*Amended 2026-09-19 by [ADR 0024](0024-the-judge-as-an-instrument.md) §7.1,
+which needs one sentence from this section and gets it here rather than
+quietly:*
+
+> **Identity decides which runs are grouped; scores never decide identity.**
+
+That is the whole of the permission. The hazard this section was written for is
+a reader deducing a roll from scores printed beside identities, and the spread
+uses the juxtaposition in the one direction that cannot produce it: the runs
+are grouped by what answered, and then a score is read across the group. It is
+a **new type**, `AggregateSpread`, sharing no row with `IdentitySpan` — so the
+test below, which asserts `IdentitySpan` and `Roll` by field set, stands
+unchanged and still means what it meant.
+
 The reading is two value types, both frozen, both in `digline.report` beside
 `history.CaseHistory`, and neither has a field a score could occupy:
 

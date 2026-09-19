@@ -9,13 +9,51 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from digline.core import Disclosure, Run, SystemConfig, Verdict
+from digline.core import Disclosure, Run, RunUsage, SystemConfig, Verdict
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
-__all__ = ["run_document", "run_json", "runs_json"]
+__all__ = ["run_document", "run_json", "runs_json", "usage_lines"]
+
+
+def usage_lines(usage: RunUsage | None) -> list[str]:
+    """The bill, one line per side, for a terminal.
+
+    Here and not in the CLI because both front ends say it, and a sentence
+    written twice is a sentence that drifts — the reason `digline.wire` exists.
+    Pure, like everything in this package: no clock, no I/O.
+
+    English and not localised: this is *terminal* output, which defaults to `en`
+    like every other line the CLI prints, not a document with a recipient who
+    did not choose the language.
+
+    **The `counted` clause appears only when the totals are partial.** A
+    parenthesis on every run is one a reader learns to skip, taking the rare one
+    with it — and the rare one is the whole point, because it says the figure
+    beside it is not the whole bill.
+
+    `None` — a document that recorded no bill — produces no lines at all rather
+    than a row of zeros, which would be a claim it never made.
+    """
+    if usage is None:
+        return []
+    lines: list[str] = []
+    for side, line in (("target", usage.target), ("judge", usage.judge)):
+        if not line.calls:
+            continue
+        counts = (
+            f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
+            if line.counted
+            else "no counts reported"
+        )
+        partial = f" (counted {line.counted} of {line.calls})" if line.partial else ""
+        lines.append(
+            f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}, "
+            f"{counts}, {line.spent_usd:.6f} USD{partial}"
+        )
+    return lines
 
 
 def run_json(
@@ -24,6 +62,7 @@ def run_json(
     *,
     resumed: bool = False,
     judge_reading: str | None = None,
+    usage: RunUsage | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -54,6 +93,11 @@ def run_json(
     # else, so no existing consumer sees a byte change. (ADR 0024 §5.4)
     if judge_reading is not None:
         payload["judge_reading"] = judge_reading
+    # What the run consumed, for the pipeline that reads this instead of
+    # stderr — the same two lines, structured. Absent on a document that
+    # recorded none, which is never a run that consumed nothing. (ADR 0025 §9)
+    if usage is not None:
+        payload["usage"] = _usage_document(usage)
     return neutralised(payload)
 
 
@@ -157,6 +201,18 @@ def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, obj
         "samples": list(verdict.score.samples),
         "sample_min": verdict.score.sample_min,
         "sample_max": verdict.score.sample_max,
+        # What those samples **are**, beside them. Absent, a reader cannot tell
+        # two judgements from two means of judgements — the misreading schema 13
+        # was spent to stop (ADR 0024 §6.5), shipped by the one surface built
+        # for a model to read. It travels with `samples` because a reading of
+        # the instrument that cannot say what its numbers are is not a reading.
+        # (ADR 0011 §5, amended 2026-09-19)
+        "sample_means": verdict.score.sample_means,
+        # A model placed this score, so a movement here may be the judge's noise
+        # and the same movement on a deterministic check cannot be. Not
+        # derivable from anything else that crosses: the `shape` list needs a
+        # reference and omits folds.
+        "judged": verdict.judged,
         "metadata": {
             k: v
             for k, v in verdict.score.metadata.items()
@@ -193,15 +249,18 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     coverage and belongs here; the sentence explaining it is payload and does
     not. A developer writes things like "fails on the Rossi account".
 
-    **A known gap, recorded rather than closed.** This projection has not
-    followed the instrument's own flags: it carries no `Verdict.judged`, no
-    `CaseResult.calibration`, no `CaseResult.canary`, no `Run.judge_samples` and
-    no `Run.rejudged_from`. None is a leak by being absent. But a model reading
-    `get_run` cannot tell a judged check, a calibration case, a canary or a
-    replay from its neighbours. Adding any of them is a change to what crosses a
-    boundary, so it waits for a decision about the wire (ADR 0011 §5), and
-    `tests/test_wire_boundary.py` will ask for one. Found in the 0.14.0
-    delta-pass; ADR 0024, *Not decided here*.
+    **The instrument's own flags cross, since 0.16.0** — the decision the gap
+    recorded here was waiting for (ADR 0011 §5, amended 2026-09-19). A caller
+    can tell a replay, a canary, a calibration case and a judged check from
+    their neighbours, and can tell two judgements from two means of them.
+
+    **`Run.judge_samples` is the one that does not cross, and it is ruled out
+    rather than pending.** The numbers it qualifies — `judge_min`, `judge_max`,
+    `judge_errored`, `judge_answer` — live in `Score.metadata`, which this
+    projection filters to the suite's `Disclosure` with no `travels()` fallback,
+    so a bare count would arrive with nothing to count against. It waits for the
+    decision that lets the range itself cross, and `tests/test_wire_boundary.py`
+    asserts its absence so this reads as a ruling and not as a gap.
     """
     return neutralised(
         {
@@ -222,10 +281,38 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             # was not recorded, and on any document that is not a baseline.
             # (ADR 0014 §3)
             "promoted_at": run.promoted_at,
+            # The run whose recorded answers this one was judged from, or empty.
+            # The sharpest of the six: a consumer that reads a replay as a fresh
+            # measurement concludes the system improved on a day nothing was
+            # asked of it. The **key** and not a boolean — `redact()` already
+            # rules it travels, being a timestamp and a config hash, and a caller
+            # can pass it straight back to `get_run`. `compare` carries the
+            # boolean; a caller reading one run had nothing.
+            # (ADR 0011 §5, amended 2026-09-19)
+            "rejudged_from": run.rejudged_from or "",
             "results": [
                 {
                     "case_id": case.case_id,
                     "suspended": case.suspended is not None,
+                    # The two ways a case is an **instrument** rather than a
+                    # measurement. A canary's score is a fingerprint of which
+                    # model answered (ADR 0016) and a calibration case's score
+                    # measures the judge against an answer the author wrote
+                    # (ADR 0024 §4) — so a reader that averaged either into
+                    # "quality" would be averaging the ruler into the thing
+                    # measured. Both are the suite author's own declarations and
+                    # carry no case data; the band is a check's name and two
+                    # numbers. (ADR 0011 §5, amended 2026-09-19)
+                    "canary": case.canary,
+                    "calibration": (
+                        None
+                        if case.calibration is None
+                        else {
+                            "check": case.calibration.check,
+                            "low": case.calibration.low,
+                            "high": case.calibration.high,
+                        }
+                    ),
                     "verdicts": [
                         _verdict_document(v, disclosure) for v in case.verdicts
                     ],
@@ -256,6 +343,15 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
                 )
                 for path, artifact in sorted(run.artifacts.items())
             },
+            # What the run consumed, as the two lines the document holds. It
+            # crosses because of its **grain**: a run total is the software
+            # house's own invoice for its own run — it names no case, no request
+            # and nobody — and world 2 is defined by needing the signal without
+            # holding the data. The per-call counts are payload and this
+            # projection never learns their name, which is the same split
+            # `redact()` makes. `null` where the document recorded none, which
+            # is every document written before schema 14. (ADR 0025 §8, §9)
+            "usage": None if run.usage is None else _usage_document(run.usage),
             "metadata": _disclosed(run.metadata, disclosure.run_metadata),
             # So a reader can tell what this document was allowed to carry, rather
             # than inferring it from what happens to be absent.
@@ -266,6 +362,31 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
             },
         }
     )
+
+
+def _usage_document(usage: RunUsage) -> dict[str, object]:
+    """The bill, both lines, with `partial` computed rather than left to be
+    derived.
+
+    A consumer that had to compare two integers to learn whether a total covers
+    the whole run is a consumer that will forget to, and the one who forgets
+    reads a partial total as a complete one — the failure this field exists to
+    prevent. Same reason the CLI prints it rather than leaving it to be read off
+    two numbers. (ADR 0025 §3, §9)
+    """
+    return {
+        side: {
+            "calls": line.calls,
+            "counted": line.counted,
+            "partial": line.partial,
+            "input_tokens": line.tokens.input_tokens,
+            "output_tokens": line.tokens.output_tokens,
+            "cache_read_tokens": line.tokens.cache_read_tokens,
+            "cache_write_tokens": line.tokens.cache_write_tokens,
+            "spent_usd": line.spent_usd,
+        }
+        for side, line in (("target", usage.target), ("judge", usage.judge))
+    }
 
 
 def _config_document(config: SystemConfig) -> dict[str, object]:

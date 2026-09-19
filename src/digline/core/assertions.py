@@ -18,7 +18,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from digline.core.pii import ITALIAN_PII, PiiPattern
-from digline.core.protocols import Assertion, ClaimJudge, Judge
+from digline.core.protocols import Assertion, ClaimJudge, Judge, JudgeAbstained
 from digline.core.types import (
     ALL_KINDS,
     STORAGE_STEP,
@@ -175,6 +175,25 @@ class AssertionBase:
         # The cast is safe in practice: `AssertionBase` alone is not callable,
         # but every instance reaching here is a concrete assertion that is.
         return error_verdict(cast(Assertion, self), reason)
+
+    def _unrenderable(self, exc: Exception) -> Verdict:
+        """The judging prompt could not be composed out of these inputs.
+
+        A site of its own, beside the judge's and never inside it. Composing
+        the prompt reads what a **mapper** handed in — the context, the input,
+        the output's shape — so a failure here is the harness's or the case's,
+        and the judge has not been called at all.
+
+        Until 0.16.0 this exception was raised inside the `try` that catches
+        the judge, and a mapper putting a non-string in `context` was reported
+        as *the judge raised TypeError*. That sentence is read by somebody
+        deciding whether to re-run or to investigate, and it named the one
+        component that was innocent.
+        """
+        return self._error(
+            f"the judging prompt could not be composed from these inputs: "
+            f"{type(exc).__name__}: {exc}"
+        )
 
     def _graded(
         self, value: float, reason: str, metadata: Mapping[str, object] | None = None
@@ -817,8 +836,21 @@ class LlmRubric(AssertionBase):
         if (err := self._accept(inputs.output)) is not None:
             return err
 
+        # Two `try`s, and the split is the point: what the prompt is made of is
+        # not the judge's doing, and the reason a reader acts on must not say
+        # it is.
         try:
-            reply = self.judge(self._render(inputs))
+            prompt = self._render(inputs)
+        except Exception as exc:  # noqa: BLE001 — the inputs, not the instrument
+            return self._unrenderable(exc)
+        try:
+            reply = self.judge(prompt)
+        except JudgeAbstained as declined:
+            # An answer, not a failure: the judge read the output and says it
+            # cannot be scored. Caught before the handler below so the two are
+            # never one sentence, and the judge's own words are the reason.
+            # (ADR 0004 §7)
+            return self._error(f"the judge declined to score: {declined}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
@@ -969,15 +1001,33 @@ class Faithfulness(AssertionBase):
                 "context is empty: faithfulness needs something to be faithful to"
             )
 
+        # Split for the reason `LlmRubric`'s is: composing the prompt reads the
+        # context this check was given, and a context the mapper built wrong is
+        # not an instrument that failed.
         try:
-            reply = self.judge(self._render(inputs))
+            prompt = self._render(inputs)
+        except Exception as exc:  # noqa: BLE001 — the inputs, not the instrument
+            return self._unrenderable(exc)
+        try:
+            reply = self.judge(prompt)
+        except JudgeAbstained as declined:
+            # The judge could not work out what the output claims, and says so.
+            # Distinct from the zero below, which is the answer *none* — and the
+            # sentence below may only claim the judge counted because this line
+            # exists. (ADR 0004 §7.6)
+            return self._error(f"the judge declined to count the claims: {declined}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
         if reply.total == 0:
+            # One world, not two. Until a judge could decline, this sentence
+            # covered both "the output asserts nothing" and "the judge could not
+            # tell what it asserts", and nothing in the data told them apart.
+            # (ADR 0004 §7.6)
             return self._error(
-                "the judge found no claims in the output: there is no fraction "
-                "to report, and a perfect score would reward saying nothing"
+                "the judge counted the claims in this output and found none: "
+                "there is no fraction to report, and a perfect score would "
+                "reward saying nothing"
             )
         if reply.supported > reply.total:
             return self._error(

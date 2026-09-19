@@ -19,6 +19,13 @@ changed its mind and **neither run-level figure moved** — precision went 0.727
 to 0.800, inside the declared tolerance. One case is a diagnosis; the aggregate
 is the gate.
 
+It is **curated, and deliberately not re-rendered** with the other examples'
+reports: the perturbation that made `dinner_client` change its mind is not in
+this repository, so a run of the committed application reproduces the baseline
+exactly and would render 0.727 with nothing moved — a weaker report than the one
+its own README explains. The commit it records is therefore marked `-dirty` and
+is not meant to be checked out.
+
 ## Two controls, and only one of them was chosen
 
 The tolerances above are **declared**: someone measured eight runs, decided

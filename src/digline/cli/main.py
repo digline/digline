@@ -112,6 +112,7 @@ from digline.wire import (
     explain_json,
     log_json,
     run_json,
+    usage_lines,
 )
 
 __all__ = [
@@ -295,10 +296,19 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.json:
         emit(
             json.dumps(
-                run_json(measured.ref, measured.plan, resumed=resume is not None)
+                run_json(
+                    measured.ref,
+                    measured.plan,
+                    resumed=resume is not None,
+                    usage=measured.run.usage,
+                )
             )
         )
     else:
+        # What it cost, to stderr, before the key: a bill is not a result and
+        # must not land in the shell variable below. (ADR 0025 §9)
+        for line in usage_lines(measured.run.usage):
+            say(f"digline: {line}", err=True)
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)

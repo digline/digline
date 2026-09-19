@@ -23,6 +23,7 @@ __all__ = [
     "DeclaresPrice",
     "HasConfig",
     "Judge",
+    "JudgeAbstained",
 ]
 
 
@@ -66,6 +67,32 @@ class HasConfig(Protocol):
         are different facts, and only absence states the first one honestly.
         """
         ...
+
+
+class JudgeAbstained(Exception):
+    """Raised by a judge that has read the output and cannot score it.
+
+    **An answer, not a failure.** A judge that raises anything else has broken;
+    a judge that raises this has *declined*, deliberately and with a sentence
+    saying why — which is the difference between *my thermometer broke* and
+    *this cannot be measured*. The assertion catches it before the handler that
+    reports a raise, and records the judge's own sentence as the reason.
+
+    It is an exception rather than a wider reply for two reasons stated in
+    ADR 0004 §7.4: a `score: float | None` would make the score optional for
+    every consumer in order to express a rare state, and the first consumer to
+    forget the `None` would read a declining as a zero; and a union return type
+    would change the `Judge` protocol's signature, so every hand-written judge
+    would stop satisfying it until its annotation was edited. An exception is
+    invisible to a judge that never raises it.
+
+    It lives here rather than in `digline.targets` because the **assertion**
+    catches it and the core may not import the layer above it. A plugin, or a
+    judge somebody wrote by hand, imports it from `digline.core`.
+
+    The message is the judge's reason, so `str(exc)` is what a reader sees.
+    (ADR 0004 §7)
+    """
 
 
 @runtime_checkable

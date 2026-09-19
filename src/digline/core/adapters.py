@@ -69,7 +69,42 @@ class FromAutoevals(AssertionBase):
     threshold: float
     tolerance: float
     name: str = "autoevals"
+    #: Whether the scorer asks a **model** for the number it returns.
+    #:
+    #: Only the author knows: an autoevals scorer is an opaque callable, and
+    #: `KIND` is a `ClassVar` that cannot vary with the scorer passed in. So
+    #: this class declares `wrapper` and `judged()` reads the answer here, on
+    #: the instance.
+    #:
+    #: **`None` is the default and means *undeclared*** — not `False`. A
+    #: defaulted boolean cannot be told from an author who answered, and this
+    #: field exists to be answered: `False` is a declaration too, and it
+    #: silences the line for a scorer that computes rather than asks. Undeclared
+    #: reads as not judged everywhere, and is safe only because it is
+    #: **announced**: `undeclared_kinds()` names it on every run, so the default
+    #: never decides anything in silence. Declaring `True` puts the check in the
+    #: shape reading, makes it eligible for a calibration case and lets
+    #: `--judge-samples` repeat it.
+    #:
+    #: **What it does not do is identify the instrument.** An autoevals scorer
+    #: holds its own client and exposes no configuration digline can read, so
+    #: `judge_config` stays empty and ADR 0005 §4's *the instrument moved*
+    #: cannot see this check. A hand-written configuration is refused rather
+    #: than offered: it would be a second source of truth for a value the
+    #: scorer already holds, and the first time the two diverge the document is
+    #: confidently wrong about which instrument graded — worse than a document
+    #: that says it does not know. (ADR 0024 §6.4, amended 2026-09-19)
+    judged: bool | None = None
     KIND: ClassVar[CheckKind] = "wrapper"
+    #: `judged` joins the two fields that describe **how** a result is judged
+    #: rather than **what** is checked, and for their reason. It is a *field*,
+    #: unlike `KIND`, so without this line it would enter `identity` and then
+    #: `config_hash` — and every stored baseline of every suite using an
+    #: autoevals check would stop pairing and need re-promoting, for a
+    #: declaration that changed no number. (ADR 0024 §6.4, amended 2026-09-19)
+    IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
+        {"threshold", "tolerance", "judged"}
+    )
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:

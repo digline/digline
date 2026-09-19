@@ -544,19 +544,8 @@ def test_redaction_keeps_the_count_and_drops_every_argument() -> None:
     assert "4711" not in run_to_json(hidden)
 
 
-@pytest.mark.parametrize(
-    "calls", [["lookup"], [5], {"tool": "lookup"}, "lookup"], ids=str
-)
-def test_a_corrupt_trajectory_is_refused_by_name(calls: object) -> None:
-    """A named refusal, not a traceback.
-
-    `tool_calls` holding anything but mappings reached `_required` and raised
-    `AttributeError`, which is not a `ValueError` and so escaped the CLI's
-    handlers — a user met a stack trace where every sibling field answers in a
-    sentence. The *writer* refused these same shapes by name all along; the
-    reader does now too. (0.12.1, from the release delta-pass)
-    """
-    document: dict[str, Any] = {
+def _trajectory_document(calls: object) -> dict[str, Any]:
+    return {
         "schema_version": SCHEMA_VERSION,
         "tenant": "acme",
         "environment": "staging",
@@ -579,8 +568,87 @@ def test_a_corrupt_trajectory_is_refused_by_name(calls: object) -> None:
             }
         ],
     }
+
+
+def a_document(calls: object) -> dict[str, Any]:
+    """A minimal run whose one recorded response carries `calls`."""
+    return _trajectory_document(calls)
+
+
+@pytest.mark.parametrize("calls", [["lookup"], [5], [None], [[]]], ids=str)
+def test_a_corrupt_trajectory_element_is_refused_by_name(calls: object) -> None:
+    """A named refusal, not a traceback.
+
+    `tool_calls` holding anything but mappings reached `_required` and raised
+    `AttributeError`, which is not a `ValueError` and so escaped the CLI's
+    handlers — a user met a stack trace where every sibling field answers in a
+    sentence. The *writer* refused these same shapes by name all along; the
+    reader does now too. (0.12.1, from the release delta-pass)
+
+    The two *container* shapes this case used to carry — a bare string and a
+    bare mapping — moved to the test below when 0.16.0 checked the container
+    too: they are refused by a sentence about the container, which is what they
+    are wrong about. (0.15.0 delta-pass §3)
+    """
     with pytest.raises(ValueError, match="expected a mapping with a 'tool' in it"):
-        run_from_json(json.dumps(document))
+        run_from_json(json.dumps(a_document(calls)))
+
+
+@pytest.mark.parametrize("calls", ["lookup", {"tool": "lookup"}, 5, 1.5, True], ids=str)
+def test_a_trajectory_that_is_not_a_list_is_refused_by_name(calls: object) -> None:
+    """The container, which 0.12.1 left unchecked while it checked the elements.
+
+    A scalar reached the `for` loop and raised a bare `TypeError` — not a
+    `ValueError`, so in none of the CLI's handler lists. `digline migrate`
+    aborted the whole run instead of printing `refused <file>: <reason>` for
+    that one file, and `digline view` unwound into `socketserver`: a traceback
+    on the terminal and **no response at all** in the browser.
+
+    A string is in the list because it is the shape that would otherwise be
+    *walked*: iterating `"lookup"` yields characters, so the reader would have
+    answered with six refusals about the letters of a tool name.
+    (0.15.0 delta-pass §3)
+    """
+    with pytest.raises(ValueError, match="not a list of calls"):
+        run_from_json(json.dumps(a_document(calls)))
+
+
+def test_a_null_trajectory_is_refused_rather_than_read_as_silence() -> None:
+    """Absent is `None` — the target said nothing about tools — and `[]` is
+    `()`, the target saying it called none. A null is a third spelling no writer
+    produces, and reading it as the first would let a forged document claim the
+    target was never asked."""
+    with pytest.raises(ValueError, match="'tool_calls' is null"):
+        run_from_json(json.dumps(a_document(None)))
+
+
+@pytest.mark.parametrize("key", ["status", "result_absence"])
+def test_a_null_where_absence_already_means_something_is_refused(key: str) -> None:
+    """`.get()` collapsed absent with null, and the two say different things.
+
+    An omitted `status` means **success** — the writer's convention, since
+    writing it on every call would repeat the ordinary case. So `"status": null`
+    was read as success: a forged vacuity in the one field this record calls the
+    one a fake cannot forge into vacuity. `tool_absence`, on the same line of
+    the same function, was already refused by name — the asymmetry was the
+    finding.
+
+    The same collapse bit again two days later on `"usage": null`, caught while
+    building 0.16.0. One family, closed the same way: `in` decides whether the
+    key is there. (0.15.0 delta-pass §3)
+    """
+    with pytest.raises(ValueError, match=f"{key!r} is null"):
+        run_from_json(json.dumps(a_document([{"tool": "lookup", key: None}])))
+
+
+def test_an_omitted_status_still_means_success() -> None:
+    """The other half: the fix must refuse the null without disturbing the
+    convention the writer depends on."""
+    run = run_from_json(json.dumps(a_document([{"tool": "lookup"}])))
+    call = run.results[0].responses[0].tool_calls
+    assert call is not None
+    assert call[0].status == "success"
+    assert call[0].result_absence is None
 
 
 # --------------------------------------------------------------------------- #

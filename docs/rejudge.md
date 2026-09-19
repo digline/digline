@@ -34,7 +34,14 @@ turning it on costs no baseline and no re-promotion — recording changes no
 score, pairs no verdict differently and moves no bar.
 
 What lands in the run file, per case and per sample: the answer, the rendered
-prompt that produced it, and what that call cost in money and in milliseconds.
+prompt that produced it, and what that call cost in money, in milliseconds and
+in tokens.
+
+A replay's own bill says what the *replay* spent: its target line is a zero,
+because it called no target, and its judge line is real, because the judging is
+what a replay pays for. The recorded `cost_usd` it replays still feeds a
+`CostBudget` — that is why it rides the record — and it never becomes this run's
+total (ADR 0025 §3).
 The prompt is recorded because most assertions that call a model read it — a
 stored answer with no stored question cannot be judged again.
 

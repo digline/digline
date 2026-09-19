@@ -10,13 +10,23 @@ test module imports another.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 from digline.cli import EXIT_OK
+from digline.store import FileResultStore
 
-__all__ = ["SUITE_SOURCE", "cli", "git", "run_key", "suite_source", "write_suite"]
+__all__ = [
+    "SUITE_SOURCE",
+    "cli",
+    "git",
+    "run_key",
+    "stamp_journal_format",
+    "suite_source",
+    "write_suite",
+]
 
 SUITE_SOURCE = """\
 from digline.core import Contains, CostBudget, Disclosure, JudgeReply, LlmRubric
@@ -101,3 +111,29 @@ def run_key(root: Path, *extra: str) -> str:
     done = cli(root, "run", "--suite", "suite_qa.py", *extra)
     assert done.returncode == EXIT_OK, done.stderr
     return done.stdout.strip()
+
+
+def stamp_journal_format(
+    root: Path, tenant: str, suite: str, key: str, version: int
+) -> None:
+    """Rewrite every leg's header to claim journal format `version`.
+
+    So a test can build the file an *older* digline wrote out of the one this
+    digline writes — a format-1 journal, of which every 0.15.x one is an
+    example. Only the header is edited: the case lines keep whatever they hold,
+    which is what a reader that ignores unknown keys would have met anyway.
+
+    It asserts that it found a leg. A rewrite that silently matched nothing
+    would leave the test asserting the *current* format while claiming to assert
+    the old one — a check that answers without having looked.
+    """
+    directory = FileResultStore(root).journal_dir(tenant, suite)
+    legs = sorted(directory.glob(f"{key}.*.jsonl"))
+    assert legs, f"no journal leg under {directory}: the stamp would do nothing"
+    for leg in legs:
+        lines = leg.read_text(encoding="utf-8").splitlines()
+        header = json.loads(lines[0])
+        header["journal_version"] = version
+        leg.write_text(
+            "\n".join([json.dumps(header), *lines[1:]]) + "\n", encoding="utf-8"
+        )

@@ -216,6 +216,12 @@ class ProviderTarget(ABC):
             input=prompt,
             cost_usd=self.pricing.cost(self.model, usage),
             latency_ms=elapsed_ms,
+            # The counts, typed, where the document reads them from. The four
+            # copies in `metadata` below stay for assertions that already read
+            # them live, but a recorded fact whose source is a string key is one
+            # typo away from absent, so nothing downstream reads them by name.
+            # (ADR 0025 §5)
+            usage=usage,
             metadata={
                 "model": self.model,
                 "input_tokens": usage.input_tokens,

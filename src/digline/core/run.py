@@ -18,6 +18,7 @@ from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.text import recordable
 from digline.core.types import (
+    NO_USAGE,
     NOTHING_EXTRA,
     REDACTED,
     Cause,
@@ -30,6 +31,7 @@ from digline.core.types import (
     Score,
     Status,
     ToolStatus,
+    Usage,
     Verdict,
     at_precision,
     canonical,
@@ -44,10 +46,12 @@ __all__ = [
     "PERIMETER_FIELDS",
     "identity_of",
     "Artifact",
+    "CallTotals",
     "CaseResult",
     "RecordedResponse",
     "RecordedToolCall",
     "Run",
+    "RunUsage",
     "SystemConfig",
     "CaseProgress",
     "artifacts_sha",
@@ -58,7 +62,11 @@ __all__ = [
     "config_to_dict",
     "record_output",
     "record_trajectory",
+    "totals_from_dict",
+    "totals_to_dict",
     "trajectory_chars",
+    "usage_from_dict",
+    "usage_to_dict",
     "redact",
     "release_tuple",
     "restore_output",
@@ -152,7 +160,24 @@ __all__ = [
 #    crosses with the samples it qualifies. Unlike the passenger before it, this
 #    one needs the bump's refusal: 0.14.x would ignore the key and read means
 #    as judgements.
-SCHEMA_VERSION = 13
+#
+# 14: an open train, and its first passenger is what a run consumed.
+#    `Run.usage` — two lines of one bill, the target's and the judge's, on
+#    every run; and `RecordedResponse.usage` — the four counts of one call,
+#    under the recording switch that already governs the answer they belong to.
+#    Until now digline recorded no token count anywhere: `ProviderTarget`
+#    priced `Completion.usage`, kept the money and copied the counts into
+#    `Response.metadata`, which is never persisted, and `JudgeBase.spent_usd`
+#    reached no document at all. Checked against ADR 0014 §1 in ADR 0025 §7:
+#    outside `config_hash` (what a run consumed cannot change what it was asked
+#    to do); the step writes **nothing**, because `None` is the only honest
+#    value for a run whose counts are gone and `0` would say a paid run
+#    consumed nothing; and the grain decides the boundary — the run total is
+#    the software house's own invoice and travels, the per-call count is
+#    payload and rides the response. The bump creates no refusal and needs
+#    none: an old reader ignoring `usage` misreads nothing, because no verdict
+#    depends on it. It rides on the train alone (ADR 0025 §10).
+SCHEMA_VERSION = 14
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
 #: not name the tool. The only value: digline records every name it is given, so
@@ -744,6 +769,21 @@ class RecordedResponse:
     #: reader that needs it, so an honest zero-call run could be measured and
     #: then not re-judged. Corrected in 0.12.1; see that ADR's dated note.
     tool_calls: tuple[RecordedToolCall, ...] | None = None
+    #: What this one call consumed, where the target reported it.
+    #:
+    #: `None` is a target that reported no counts — `HttpTarget` prices from a
+    #: JSON path and has none, and a plain-function target has whatever its
+    #: author built. It is never a zero: a call that consumed nothing is not a
+    #: call that was made.
+    #:
+    #: **Payload, unlike the run's totals.** A per-call count is a fact about
+    #: one of the end company's requests, so it rides the recorded answer it
+    #: belongs to: `redact()` drops it with the response, `promote_baseline`
+    #: strips it through `without_responses`, and `digline.wire` never learns
+    #: its name. It is recorded under the switch that already governs the
+    #: answer — `Suite.record_responses` — and gains none of its own, because a
+    #: second flag is a second thing to forget. (ADR 0025 §1, §8)
+    usage: Usage | None = None
     withheld: bool = False
     oversize: bool = False
 
@@ -764,6 +804,11 @@ class RecordedResponse:
                     self.input,
                     self.cost_usd,
                     self.latency_ms,
+                    # A withheld answer keeps back what it consumed too: the
+                    # counts are a measure of the text that was withheld, and
+                    # releasing them beside a withheld marker would be the
+                    # boundary leaking through the field that says it holds.
+                    self.usage,
                 )
             )
         ):
@@ -885,6 +930,102 @@ class CaseResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CallTotals:
+    """One line of the bill: what was asked for, and how much of it was counted.
+
+    `calls` is every call this line covers. `counted` is how many of those
+    reported their usage, and it is the field that keeps the rest honest: a
+    total with no count of what it totals is the undercount that reads as good
+    news. Two ordinary things make them differ — a target that reports no
+    counts at all (`HttpTarget` prices from a JSON path and has none), and a
+    resumed leg whose earlier calls were journaled without their answers. A
+    reader acts on both identically: do not read this as the whole bill.
+    (ADR 0025 §3)
+
+    `spent_usd` is on the line rather than left to be summed, because the sum
+    is only available where responses were recorded — that is, not on the
+    ordinary run, which is exactly the one whose cost gets asked about.
+    """
+
+    calls: int = 0
+    counted: int = 0
+    tokens: Usage = NO_USAGE
+    spent_usd: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.calls < 0 or self.counted < 0:
+            raise ValueError("CallTotals counts must not be negative")
+        if self.counted > self.calls:
+            raise ValueError(
+                f"CallTotals counted {self.counted} of {self.calls} calls: a "
+                "line cannot count more calls than it covers"
+            )
+        if self.spent_usd < 0:
+            raise ValueError("CallTotals.spent_usd must not be negative")
+
+    @property
+    def partial(self) -> bool:
+        """Whether this total covers only part of what it was asked to cover.
+
+        Derived, never stored: two sources of truth for one fact drift apart.
+        A line that made no calls is not partial — it is a zero, which is what
+        a replay's target line is (ADR 0025 §3).
+        """
+        return self.counted < self.calls
+
+    def __add__(self, other: CallTotals) -> CallTotals:
+        """Two lines of the same side, summed.
+
+        A run's line is a fold over its cases, and a fold written by hand at
+        each call site is a fold that drifts. `partial` survives the sum by
+        construction: a line that counted less than it covered keeps that gap.
+        """
+        return CallTotals(
+            calls=self.calls + other.calls,
+            counted=self.counted + other.counted,
+            tokens=self.tokens + other.tokens,
+            spent_usd=self.spent_usd + other.spent_usd,
+        )
+
+    def plus(self, *, tokens: Usage | None, spent_usd: float) -> CallTotals:
+        """This line with one more call on it.
+
+        `tokens=None` is a call that reported no counts: it raises `calls` and
+        leaves `counted` where it was, which is the whole mechanism behind
+        `partial`. The money is added either way — a call that could be priced
+        was paid for whether or not its counts arrived.
+        """
+        return CallTotals(
+            calls=self.calls + 1,
+            counted=self.counted + (0 if tokens is None else 1),
+            tokens=self.tokens if tokens is None else self.tokens + tokens,
+            spent_usd=self.spent_usd + spent_usd,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RunUsage:
+    """What the run consumed, as two lines of one bill.
+
+    Separate because they move for different reasons and mean different things:
+    the target line is what the *thing under test* cost, and the judge line is
+    what the *instrument* cost. A sum would hide the one substitution ADR 0005
+    §4 exists to catch, and the judge's half has never reached any document at
+    all. (ADR 0025 §2)
+
+    **Two judge instances configured identically are two bills, and they add.**
+    `judge_config` records them as one identity — the instrument, not the
+    instance — so a reader can meet one judge in the configuration and a total
+    that reads like two. That is correct and it is stated rather than smoothed:
+    equal configuration is not the same instrument, and merging the bill would
+    hide a suite paying twice for what it believes is one judge. (ADR 0025 §4)
+    """
+
+    target: CallTotals = CallTotals()
+    judge: CallTotals = CallTotals()
+
+
+@dataclass(frozen=True, slots=True)
 class CaseProgress:
     """One case as the driver finished it, for whoever is recording as it goes.
 
@@ -912,6 +1053,15 @@ class CaseProgress:
     observed_target: SystemConfig = field(default_factory=SystemConfig)
     observed_judge: SystemConfig = field(default_factory=SystemConfig)
     cause: Cause = ""
+    #: What this case's target calls consumed, for the journal to write down.
+    #:
+    #: **Written whatever the suite records.** It is the journal's own fact
+    #: about work already paid for, not a recording of the answer: a suite with
+    #: `record_responses` off still spent the money, and a resumed run that
+    #: could not say so would under-bill in silence. So it does not ride
+    #: `Suite.record_responses`, which governs the *answer*. (ADR 0025 §11,
+    #: corrected 2026-09-18)
+    usage: CallTotals = field(default_factory=CallTotals)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1010,6 +1160,20 @@ class Run:
     #: records; the range is in each judged verdict's metadata. A fact about our
     #: own instrument, so it survives `redact()`. (ADR 0024 §5.3, §9)
     judge_samples: int = 0
+    #: What this run consumed, as two lines — the target's and the judge's.
+    #:
+    #: `None` is **not recorded**: a migrated document, a `Run` built by hand in
+    #: a test, a library caller who built one directly. It is never read as
+    #: zero, on the rule `digline_version = ""` already follows — a run measured
+    #: last month consumed something, and nothing in its document can say what.
+    #: A run that *was* recorded and reported nothing is `CallTotals(calls=n,
+    #: counted=0)`, which is a different statement and looks like one.
+    #:
+    #: A fact about our own instrument and our own bill, so it survives
+    #: `redact()` in clear, like `digline_version` and `resumed_at`. The
+    #: per-call counts do not: they ride `RecordedResponse` and are payload.
+    #: (ADR 0025 §1, §8)
+    usage: RunUsage | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -1320,6 +1484,12 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # A count of our own judge calls, never anything about what was judged.
         # (ADR 0024 §9)
         judge_samples=run.judge_samples,
+        # Carried in clear. A run total is the software house's own invoice for
+        # its own run: it names no case, no request and nobody, and world 2 is
+        # defined by needing the signal without holding the data. The *per-call*
+        # counts are payload and go with the responses above, which is why the
+        # split is by grain and not by field. (ADR 0025 §8)
+        usage=run.usage,
     )
 
 
@@ -1494,6 +1664,10 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # all of them but one kind of replay, so no other document moves.
         # (ADR 0024 §9)
         **({"judge_samples": run.judge_samples} if run.judge_samples else {}),
+        # Absent where nothing recorded it, which is every document written
+        # before schema 14 and every `Run` built by hand. Absent is *not
+        # recorded* and never a run that consumed nothing. (ADR 0025 §7)
+        **({"usage": _run_usage_to_dict(run.usage)} if run.usage is not None else {}),
     }
 
 
@@ -1610,6 +1784,105 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     return payload
 
 
+def usage_to_dict(usage: Usage) -> dict[str, object]:
+    """The counts, with the cache fields absent where they are zero.
+
+    Absent is not a third meaning here, unlike everywhere else in this
+    document: the two cache counts *default* to zero on `Usage`, so a provider
+    that reports no cached tier and one that reports zero cached tokens are the
+    same record and read back the same. `input_tokens` and `output_tokens` are
+    always written — they have no default, and a call that reported usage
+    reported those two.
+    """
+    payload: dict[str, object] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+    }
+    if usage.cache_read_tokens:
+        payload["cache_read_tokens"] = usage.cache_read_tokens
+    if usage.cache_write_tokens:
+        payload["cache_write_tokens"] = usage.cache_write_tokens
+    return payload
+
+
+def usage_from_dict(raw: object, where: str) -> Usage:
+    """The counts back, refusing anything that is not a record of them.
+
+    Strict about `null` on purpose. A `"usage": null` that quietly became
+    *nothing was counted* would be the asymmetry the 0.15.x delta-pass found on
+    `status`, where an explicit null was indistinguishable from an omitted key
+    and read as success. Absent is the absence here; null is a malformed file.
+    """
+    if not isinstance(raw, Mapping):
+        raise ValueError(
+            f"{where}: usage is {raw!r}, which is not a record of token counts"
+        )
+    counts = cast(Mapping[str, Any], raw)
+    return Usage(
+        input_tokens=int(_required(counts, "input_tokens", where)),
+        output_tokens=int(_required(counts, "output_tokens", where)),
+        cache_read_tokens=int(counts.get("cache_read_tokens") or 0),
+        cache_write_tokens=int(counts.get("cache_write_tokens") or 0),
+    )
+
+
+def totals_to_dict(totals: CallTotals) -> dict[str, object]:
+    """One line of the bill.
+
+    `calls`, `counted` and `spent_usd` are written even at zero: they are what
+    makes the line self-describing, and a line that had to be reconstructed
+    from which keys are missing is not a bill. The token counts are omitted
+    when nothing was counted, because `counted: 0` has already said so.
+    """
+    payload: dict[str, object] = {
+        "calls": totals.calls,
+        "counted": totals.counted,
+        "spent_usd": _num(totals.spent_usd),
+    }
+    if totals.counted:
+        payload["tokens"] = usage_to_dict(totals.tokens)
+    return payload
+
+
+def totals_from_dict(raw: object, where: str) -> CallTotals:
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{where}: {raw!r} is not a line of the bill")
+    line = cast(Mapping[str, Any], raw)
+    tokens = line.get("tokens")
+    return CallTotals(
+        calls=int(_required(line, "calls", where)),
+        counted=int(_required(line, "counted", where)),
+        tokens=NO_USAGE if tokens is None else usage_from_dict(tokens, where),
+        spent_usd=float(line.get("spent_usd") or 0.0),
+    )
+
+
+def _run_usage_to_dict(usage: RunUsage) -> dict[str, object]:
+    return {
+        "target": totals_to_dict(usage.target),
+        "judge": totals_to_dict(usage.judge),
+    }
+
+
+def _run_usage_from_dict(raw: object) -> RunUsage:
+    """The two lines back.
+
+    Called only where the key is **present**, so `None` here is an explicit
+    `"usage": null` and is refused rather than read as *not recorded*. The
+    absence is the missing key and nothing else — the asymmetry the 0.15.x
+    delta-pass found on `status`, where `.get()` plus `is None` made an
+    explicit null indistinguishable from an omitted one and it read as
+    success. (ADR 0025 §7)
+    """
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"run: usage is {raw!r}, which is not two lines of a bill")
+    both = cast(Mapping[str, Any], raw)
+    return RunUsage(
+        target=totals_from_dict(_required(both, "target", "run usage"), "target"),
+        judge=totals_from_dict(_required(both, "judge", "run usage"), "judge"),
+    )
+
+
 def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
     """Whatever the recorder kept, and nothing standing in for the rest.
 
@@ -1633,6 +1906,8 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
         payload["cost_usd"] = _num(response.cost_usd)
     if response.latency_ms is not None:
         payload["latency_ms"] = _num(response.latency_ms)
+    if response.usage is not None:
+        payload["usage"] = usage_to_dict(response.usage)
     # Absent where the target said nothing about tools, `[]` where it said the
     # model called none. A suite whose target reports no trajectory writes the
     # file it wrote before this field existed; one whose agent answered without
@@ -1675,6 +1950,23 @@ def _tool_call_to_dict(call: RecordedToolCall) -> dict[str, object]:
     return payload
 
 
+def _no_null(entry: Mapping[str, Any], key: str) -> None:
+    """Refuse `"<key>": null` where an absent key already means something.
+
+    A document that omits the key is saying the ordinary thing; a document that
+    writes null is saying nothing at all, and the two must not arrive as one
+    value. No digline writer emits either null — `_tool_call_to_dict` omits what
+    it does not have — so this refuses a hand-written or forged document and
+    costs a well-formed one nothing.
+    """
+    if key in entry and entry[key] is None:
+        raise ValueError(
+            f"{key!r} is null: a call that reports no {key} omits the key, and "
+            "null is a document saying nothing where absence already says "
+            "something"
+        )
+
+
 def _tool_call_from_dict(raw: object) -> RecordedToolCall:
     """Straight into the value, which does the checking — `_response_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it.
@@ -1692,6 +1984,21 @@ def _tool_call_from_dict(raw: object) -> RecordedToolCall:
             f"{type(raw).__name__}"
         )
     entry = cast("Mapping[str, Any]", raw)
+    # **Absent and null are two different things, and `.get()` made them one.**
+    # `status` omitted means *success* — the convention the writer follows, since
+    # writing it on every call of every response would repeat the ordinary case
+    # (ADR 0018 §1). An explicit `"status": null` is a document that says
+    # nothing, and reading it as success forged the one field this record calls
+    # "the one field a fake cannot forge into vacuity". `tool_absence`, one line
+    # below in the same function, was already refused by name — the asymmetry
+    # was the finding.
+    #
+    # The same collapse bit again two days later on `"usage": null`, caught
+    # while building 0.16.0 and closed the same way: `in` decides whether a key
+    # is there, and its value is then read on its merits. One family.
+    # (0.15.0 delta-pass §3)
+    _no_null(entry, "status")
+    _no_null(entry, "result_absence")
     status = entry.get("status")
     absence = entry.get("result_absence")
     try:
@@ -1749,6 +2056,43 @@ def _recorded_tool(entry: Mapping[str, Any]) -> str | None:
 _OUTPUT_KINDS: frozenset[str] = frozenset({"text", "structured", "conversation"})
 
 
+def _recorded_calls(raw: Mapping[str, Any]) -> tuple[RecordedToolCall, ...] | None:
+    """The trajectory, with the **container** checked before it is walked.
+
+    0.12.1 shape-checked the elements — a `tool_calls` holding `["lookup"]` or
+    `[5]` is refused by name. The container itself was not, so a scalar reached
+    a `for` loop and raised a bare `TypeError`, which is **not** a `ValueError`
+    and so is in none of the CLI's handler lists: `digline migrate` aborted the
+    whole run instead of printing its per-file `refused <file>: <reason>` line,
+    and `digline view` unwound into `socketserver` — a traceback on the terminal
+    and *no response at all* in the browser. Same class as 0.12.1, one level up.
+    (0.15.0 delta-pass §3)
+
+    A string is refused rather than walked: iterating one yields characters, so
+    `"lookup"` would have become six refusals about the letters of a tool name.
+
+    Absent is `None` and `[]` is `()` — the two facts ADR 0018 §1 keeps apart —
+    and a null is neither, so it is refused by name like every other null here.
+    """
+    if "tool_calls" not in raw:
+        return None
+    calls = raw["tool_calls"]
+    if calls is None:
+        raise ValueError(
+            "recorded response: 'tool_calls' is null: a target that said nothing "
+            "about tools omits the key, and one that reported no calls writes []"
+        )
+    if isinstance(calls, str) or not isinstance(calls, Sequence):
+        raise ValueError(
+            f"recorded response: 'tool_calls' is a {type(calls).__name__}, not a "
+            "list of calls: the trajectory is a list, and a reader cannot walk "
+            "what is not one"
+        )
+    return tuple(
+        _tool_call_from_dict(c) for c in cast("Sequence[object]", calls)
+    )
+
+
 def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
     """Straight into the value, which does the checking — `_config_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it."""
@@ -1771,13 +2115,13 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             latency_ms=None if latency is None else float(latency),
             # Absent is `None` and `[]` is `()`: the two facts the document now
             # keeps apart. `or ()` would have collapsed them again.
-            tool_calls=(
+            tool_calls=_recorded_calls(raw),
+            # Absent is `None` — a target that reported no counts — and the
+            # reader refuses a null rather than reading it as nothing counted.
+            usage=(
                 None
-                if raw.get("tool_calls") is None
-                else tuple(
-                    _tool_call_from_dict(c)
-                    for c in cast(Sequence[Mapping[str, Any]], raw["tool_calls"])
-                )
+                if "usage" not in raw
+                else usage_from_dict(raw["usage"], "recorded response")
             ),
             withheld=bool(raw.get("withheld", False)),
             oversize=bool(raw.get("oversize", False)),
@@ -1873,6 +2217,9 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
             str(stamp) for stamp in cast(Sequence[Any], raw.get("resumed_at") or ())
         ),
         judge_samples=int(raw.get("judge_samples") or 0),
+        # `in`, not `.get()`: an absent key is *not recorded* and a null is a
+        # malformed document, and the two must not arrive here as one value.
+        usage=(None if "usage" not in raw else _run_usage_from_dict(raw["usage"])),
     )
 
 

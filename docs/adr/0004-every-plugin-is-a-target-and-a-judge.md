@@ -5,6 +5,11 @@
 - Amended: 2026-09-10 — §6, the completion record. Added rather than a new ADR:
   it widens the one method §2 gives a plugin and overturns nothing above it,
   which is the test ADR 0005 §8 was added under
+- Amended: 2026-09-19 — §7, the judge's abstention. It changes the judge
+  contract this record owns — `SCORE_SYSTEM`, `CLAIM_SYSTEM` and what a reply
+  may say — and overturns nothing above it, so it is an amendment by the same
+  test. **Schema-free**: no field reaches the run document, no version moves,
+  no baseline is re-promoted
 - Refines: fixed decision 6 (`CLAUDE.md`), "providers as plugins"
 - Assumes: [ADR 0001](0001-verdict-not-score.md) (the judge returns a reply, the
   core decides the verdict), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
@@ -419,6 +424,298 @@ value.
 - `Response.metadata` is a wider bag than it was, and it is still a bag nothing
   persists. Anyone reading a run file for a finish reason will not find one:
   the trajectory travels as a verdict, through an assertion that measured it.
+
+### 7. A judge may say it cannot answer
+
+*Amendment, 2026-09-19. §1–§6 stand unchanged. It widens what a reply may say,
+and nothing that reads a reply today reads it differently.*
+
+**It ships with its twin.** 0.16.0 already carries the fix that stopped
+`LlmRubric` and `Faithfulness` blaming the judge for a prompt it was never
+shown. That one stops the instrument being accused when it is innocent; this
+one gives the instrument a way to say it cannot answer. Both are about the same
+sentence — the one somebody reads to decide whether to **re-run** or to
+**investigate** — and neither needs a schema.
+
+#### 7.1 What a judge can say today, and what it cannot
+
+A judge has exactly two ways to end: return a `JudgeReply` it validated, or
+raise. So *"I cannot score this"* has to arrive as an exception, and the
+assertion reports it as **`the judge raised …`** — the same sentence as a
+timed-out HTTP client, a decoding failure, or a bug in the plugin. The judge's
+only declared answer is a number, and a model that is genuinely unable to score
+an output — a refusal, an empty answer, text in a language the rubric does not
+cover — must either invent a number or crash.
+
+Inventing is the worse of the two and it is the one models do. A score of `0`
+for *"I could not read this"* is a **fail**, and a fail is a statement about the
+system under test. That is the measured thing being marked down for the
+instrument's inability, which is the failure mode this whole record exists to
+keep apart from a real one.
+
+#### 7.2 Not a fourth status
+
+`Verdict` has three states and ADR 0001 fixed them. An abstention does **not**
+add a fourth, and it does not need one: `error` is already *"a judgement that
+could not be given"*, which is precisely what an abstention is.
+
+What changes is the **reason**. Today an unjudged check carries our sentence
+about the judge; after this it can carry **the judge's own sentence about the
+output** — *"the answer is a refusal to help, so there is nothing to score
+against the rubric"*. That is more information than today at the same status,
+which is the cheapest kind of improvement this project can buy.
+
+An abstention is also a **paid call**. `JudgeBase._ask` counts `calls`,
+`spent_usd` and `tokens` before it parses anything, so an abstaining judge is
+billed exactly like a scoring one — correctly, because the model was asked and
+answered. Only a call that *raises* goes uncounted, and that rule is unchanged
+(ADR 0025 §4).
+
+#### 7.3 The declared form: unreachable by accident
+
+The reply shape gains one key, and the rule about it is the whole of this
+section:
+
+    {"abstain": true, "reason": "<why this output cannot be scored>"}
+
+**Never `{"score": null}`, and never a missing `score`.** Those are what a
+confused model produces, and they must keep meaning *this reply is broken*. An
+abstention that could be reached by omitting a key would be reached by
+omission — and then every malformed reply in the world becomes a judge
+declining, which is the one reading that cannot be told from the truth.
+
+Three rules make it declarative rather than accidental:
+
+1. **`abstain` must be present and true.** Absent is not an abstention. A
+   `false` is not an abstention. A string, a number or `null` under that key is
+   a **malformed reply**, not an abstention — the same refusal `_number` already
+   gives a `score` that is not a number, and for the same reason: a key that
+   accepts anything is a key that means nothing.
+2. **`reason` is mandatory, and it is refused when empty** — by `_reason`,
+   which already exists and already says the sentence a debugger needs. An
+   abstention with no reason is refused as a broken reply, because an
+   abstention whose whole value is the judge's sentence is worth nothing
+   without one. This is the one place where abstaining is *stricter* than
+   scoring: a score can be checked by arithmetic, a declining can only be read.
+3. **It is checked before the score.** The parser looks for a declared
+   abstention first; only if there is none does it require a `score`. A reply
+   carrying both is an abstention — a judge that declined and then supplied a
+   number has not scored, it has decorated, and reading the number would be
+   reading a value nobody stood behind.
+
+#### 7.4 How it reaches the core: an exception, not a wider reply
+
+The mechanism is a dedicated exception, `JudgeAbstained`, declared in
+`digline.core` beside the reply types, raised by the judge and caught by the
+assertion **before** the generic `except Exception` that reports a raise.
+
+    try:
+        reply = self.judge(prompt)
+    except JudgeAbstained as declined:      # the judge answered: it cannot score
+        return self._error(f"the judge declined to score: {declined}")
+    except Exception as exc:                # the judge failed
+        return self._error(f"the judge raised {type(exc).__name__}: {exc}")
+
+It lives in `core` because the *assertion* catches it and `core` may not import
+`targets`; plugins and hand-written judges import it from there, which is one
+import and no signature change.
+
+**Two alternatives were weighed and refused.**
+
+*`JudgeReply.score: float | None`.* Rejected. It makes the score optional for
+every consumer of every reply in order to express a state that occurs rarely,
+and the first consumer that forgets the `None` reads an abstention as a zero —
+the exact confusion §7.1 is about, reintroduced one layer down. It would also
+weaken the type that exists to be the strictest boundary in the system.
+
+*A union return type, `JudgeReply | Abstention`.* Rejected on compatibility: it
+changes the `Judge` protocol's return type, so every hand-written judge in
+every suite — and the six test doubles in this repository — stops satisfying it
+until its annotation is edited. An exception is invisible to a judge that never
+raises it, which is what §7.5 needs to be true.
+
+*Why control flow is honest here.* An abstention ends where an exception ends —
+in an errored verdict — and it is the unusual path by construction. The
+objection to exceptions is that they hide an ordinary outcome; this outcome is
+not ordinary, and the handler that catches it is three lines from the handler
+that catches a raise, so a reader meets both at once.
+
+#### 7.5 Backward compatibility, in one line
+
+**A judge that never abstains behaves exactly as today** — because the parser
+goes on refusing a missing or null `score` as a broken reply, and nothing reads
+the new key unless the judge wrote it deliberately.
+
+That line is true only under §7.3's first rule. If absence ever came to mean
+abstention, every existing judge would begin abstaining the first time a model
+dropped a key, and this section would be false. It is therefore tested in that
+direction: a reply with no `score` is still an error and is **not** an
+abstention.
+
+#### 7.6 `CLAIM_SYSTEM`, and the zero that means two things
+
+`Faithfulness` has the one unattributable row in the product that this
+amendment can reach. Today, `total == 0` errors with *"the judge found no
+claims in the output"*, and that sentence is true of **two different worlds**:
+
+- the output genuinely asserts nothing — a refusal, a clarifying question, an
+  empty answer. The **target** produced something with no claims in it;
+- the judge could not decompose it — the text is in a language it handles
+  badly, or the context is unreadable to it. The **instrument** failed.
+
+Nothing in the data tells them apart, which is why the instrument-versus-target
+reconnaissance listed this site as unattributable in advance.
+
+**What a claim judge abstains on.** Not on finding zero claims — that is a
+count, and a count is an answer. It abstains on being unable to **do the
+decomposition at all**: it cannot determine what the output asserts, so it has
+no counts to report, supported or total. `CLAIM_SYSTEM` gains the instruction in
+those words, so the distinction the model is asked to make is the distinction
+the core reads.
+
+**What `Faithfulness` reports then.** Two errored verdicts where today there is
+one, still `error`, still no `side` field:
+
+| what happened | what the verdict says |
+|---|---|
+| the judge declined | the judge's own sentence, under *the judge declined to count the claims* |
+| `total == 0` with no abstention | *the judge counted the claims in this output and found none* — one world, not two |
+
+The second sentence is rewritten by this amendment, and the rewrite is the
+point: it may only be said once the first is available. Until a judge can
+decline, *"found no claims"* cannot honestly claim the judge counted.
+
+**This is the strongest argument for the feature**, and it should be stated as
+what it is: the abstention does not relabel rows we already understand — it
+turns a row nobody could attribute into one that can be. It does not *record*
+the attribution (§7.8); it makes it exist.
+
+#### 7.7 What the reader sees, confirmed from the code
+
+Nothing here needs a new surface, and one surface will not show it. Both were
+read rather than assumed:
+
+- **The report shows it.** `render.py` renders `verdict.reason` in the *Why*
+  column of the unjudged block, gated on `reasons_available`, which is
+  `not (run.redacted or baseline.redacted)`. So the judge's sentence reaches an
+  ordinary reader unchanged, and a **redacted** document shows
+  `reason.unavailable` instead — correct and unchanged: the reason is payload
+  (ADR 0002 decision 9), and a judge quoting an output is quoting the output.
+- **The terminal shows it.** `summary_lines` prints one line per unjudged check
+  through the same `check_line()` the report column uses, so the two cannot
+  describe one verdict in two ways.
+- **`pytest-digline` shows it.** The ERROR row's `longrepr` carries the reason
+  verbatim.
+- **A `Repeated` fold keeps it.** `_all_errored` groups the samples' own
+  sentences by cause with counts, so *"2 of 3: <the judge's sentence>; 1 of 3:
+  the judge raised …"* is what a folded abstention reads as. A judge that
+  declines twice and fails once is visible as both.
+- **`explain` will not show it, and that is deliberate.** `CheckFact` carries
+  no `reason` **by ADR 0012 §4** — *"absent rather than emptied, because a field
+  that exists is a field a later edit fills"*. So the one surface built for a
+  machine to read will say a check could not be judged and not why. This
+  amendment does **not** change that: the rule is about a boundary, not about
+  this feature, and a field added here for one sentence is the edit that rule
+  predicts. A reader who needs the sentence reads the report or the run
+  document.
+
+Nothing truncates it: `MAX_FAILURE_CHARS` clips reasons the *driver* builds
+from exceptions, and an assertion's `_error` is not clipped.
+
+#### 7.8 What this does not do
+
+Said plainly, because the feature is easy to oversell:
+
+- **It attributes no side.** No field on the verdict, nothing in the document,
+  nothing in `compare()`. The instrument-versus-target distinction stays a
+  sentence a human reads, and the field that would make it machine-readable
+  waits for the friction that names it.
+- **It moves no exit code.** An abstention is `error`, and an errored check
+  already exits 2. A suite whose judge declines everywhere exits exactly as a
+  suite whose judge raised everywhere.
+- **It changes no threshold, tolerance or denominator.** An abstaining check is
+  excluded from an aggregate under `errored_excluded`, which is where an
+  errored check has always gone.
+- **It leaves the other unattributable rows unattributable.** The aggregate's
+  empty denominator and both `combine_samples` exits are not reached by this
+  and are not helped by it. `total == 0` is the only one it closes.
+
+#### 7.9 The prompt moves, and nothing records that it did
+
+`SCORE_SYSTEM` and `CLAIM_SYSTEM` gain the instruction that tells a model it may
+decline. Two questions follow, and the answers are not symmetrical.
+
+**Does it change `artifacts_changed` for anyone? No.** `Run.artifacts` holds the
+files *the suite declares* — the prompt under test, keyed by the path the suite
+gave (ADR 0003). These constants are digline's own source. No suite declares
+them, so no artifact digest moves and no comparison reports a changed file.
+
+**Is a stored baseline affected? No.** The judge's system prompt is in neither
+`config_hash` — which covers assertion identities, thresholds, tolerances,
+`samples`, `min_agreement`, the aggregates and a declared price — nor
+`judge_config`, which records provider, model, `max_tokens`, temperature and the
+observed identity. `AssertionBase.identity` contributes a judge's **type name**
+and never its value. So nothing is unpromoted, nothing needs re-promoting, and
+`judge_config_changed` stays false.
+
+**And that last answer is the finding, not the reassurance.** The instrument's
+instruction changed and **no document records it**. Scores may move across this
+upgrade — a model told it may decline will sometimes decline where it used to
+guess — and a comparison across it will report that movement with
+`judge_config_changed` false, which reads as *the instrument is the same*. The
+only trace in the document is `digline_version` (ADR 0014 §3), which says which
+digline wrote it and not what that digline asked.
+
+ADR 0005 §4 exists to catch exactly this class — *the instrument moved, so the
+scores are less comparable than their difference suggests* — and it cannot
+catch this instance, because it watches the fields a plugin reports and not the
+words we send. This amendment does not close that; it is the first change to
+make it concrete rather than theoretical, and it is recorded here so the next
+person meets it as a known gap; it belongs with the record that gives the two
+sides names, on the day that friction names itself, and not with this one.
+
+The release note carries what a user can **act** on, which is more than the
+honest half: *if judged scores move on this upgrade, it is neither your system
+nor your model — it is our instruction to the judge. Read the movement, and
+re-promote if it is acceptable.* Honesty alone would leave a reader with a
+changed number and no next step, which is the shape of report this project
+refuses everywhere else.
+
+#### 7.10 Test plan
+
+Beyond a failing case per rule, which the conventions already require:
+
+**Abstention is unreachable by malformation.** A reply with no `score`, a reply
+with `"score": null`, and a reply with `"abstain": false` each stay an error and
+none produces an abstention. This is §7.5's line as a test, and it is the one
+that must never be weakened.
+
+**A declared abstention is one.** `{"abstain": true, "reason": "…"}` produces an
+errored verdict whose reason is the judge's sentence, for `LlmRubric` and for
+`Faithfulness`.
+
+**An abstention with no reason is refused as broken**, not accepted as an
+abstention.
+
+**Both at once is an abstention.** A reply carrying `abstain` and a `score` does
+not score.
+
+**The judge that never abstains is byte-identical.** An existing suite's run
+document is unchanged across this release — the compatibility line, asserted on
+the document rather than on a message.
+
+**The call is counted.** An abstaining judge raises `calls`, `spent_usd` and
+`tokens`, and the run's judge line bills it (ADR 0025 §4).
+
+**`Faithfulness` distinguishes the two zeros.** A judge that returns
+`total == 0` and one that abstains produce different sentences, and the first
+says the judge counted.
+
+**The fold keeps both.** A `Repeated` check whose samples abstain twice and
+raise once reports both causes with their counts.
+
+**The report prints it and `explain` does not.** Asserted in both directions, so
+the deliberate absence in `explain` cannot be closed by accident later.
 
 ## Not decided here
 

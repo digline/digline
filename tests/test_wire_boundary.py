@@ -291,6 +291,117 @@ def test_the_verdict_itself_travels_intact() -> None:
     assert verdict["assertion_id"]
 
 
+def instrumented() -> Run:
+    """A run carrying every instrument flag at once.
+
+    Built beside `loaded_run()` rather than inside it: that fixture is the
+    payload gate and must stay a run with data in every field that has ever
+    carried some. This one is the opposite question — our own facts, none of
+    them the customer's.
+    """
+    import dataclasses
+
+    from digline.core import CalibrationBand, Score
+
+    run = loaded_run()
+    judged = dataclasses.replace(
+        run.results[0].verdicts[0],
+        judged=True,
+        score=Score(
+            name=run.results[0].verdicts[0].score.name,
+            score=0.5,
+            samples=(0.5, 0.5),
+            sample_min=0.5,
+            sample_max=0.5,
+            sample_means=True,
+        ),
+    )
+    return dataclasses.replace(
+        run,
+        rejudged_from="2026-01-01T00-00-00-00-00-abcdef0123456789",
+        judge_samples=5,
+        results=(
+            dataclasses.replace(run.results[0], verdicts=(judged,), canary=True),
+            dataclasses.replace(
+                run.results[1],
+                calibration=CalibrationBand(check="llm_rubric", low=0.4, high=0.8),
+            ),
+        ),
+    )
+
+
+def test_the_instrument_flags_cross() -> None:
+    """ADR 0011 §5, amended 2026-09-19. Five facts a caller reading **one run**
+    could not get anywhere else."""
+    document = run_document(instrumented(), Disclosure())
+    cases = rows(document, "results")
+
+    assert document["rejudged_from"] == "2026-01-01T00-00-00-00-00-abcdef0123456789"
+    assert cases[0]["canary"] is True
+    assert cases[1]["calibration"] == {"check": "llm_rubric", "low": 0.4, "high": 0.8}
+    assert cases[0]["verdicts"][0]["judged"] is True
+    assert cases[0]["verdicts"][0]["sample_means"] is True
+
+
+def test_what_the_samples_are_travels_with_the_samples() -> None:
+    """The pair is the claim. `samples` alone cannot say whether it holds two
+    judgements or two means of judgements — the misreading schema 13 was spent
+    to stop, and this surface was shipping it."""
+    verdict = rows(run_document(instrumented(), Disclosure()), "results")[0][
+        "verdicts"
+    ][0]
+    assert verdict["samples"] == [0.5, 0.5]
+    assert verdict["sample_means"] is True
+
+
+def test_judge_samples_is_absent_and_that_is_a_ruling() -> None:
+    """Ruled out, not pending. The numbers it qualifies — `judge_min`,
+    `judge_max`, `judge_errored`, `judge_answer` — live in `Score.metadata`,
+    which this projection filters to the suite's `Disclosure` with no
+    `travels()` fallback, so a bare count would arrive with nothing to count
+    against.
+
+    Asserted so a later reader meets the ruling rather than the gap, and so that
+    closing it is a decision somebody makes rather than a key somebody adds.
+    """
+    run = instrumented()
+    assert run.judge_samples == 5, (
+        "the fixture must carry it for this to prove anything"
+    )
+    assert "judge_samples" not in json.dumps(run_document(run, Disclosure()))
+
+
+def test_a_run_with_no_instrument_flags_says_so_plainly() -> None:
+    """The ordinary document: the keys are there and each says *no*, so a
+    consumer reads one shape whatever the run was."""
+    document = run_document(loaded_run(), Disclosure())
+    cases = rows(document, "results")
+
+    assert document["rejudged_from"] == ""
+    assert cases[0]["canary"] is False
+    assert cases[0]["calibration"] is None
+    assert cases[0]["verdicts"][0]["judged"] is False
+    assert cases[0]["verdicts"][0]["sample_means"] is False
+
+
+def test_the_added_keys_did_not_move_the_output_version() -> None:
+    """The rule and its application, read in one place: an added key breaks no
+    consumer, and that is the rule this change is under — unlike the bump to 2,
+    which rewrote bytes inside values a consumer already read."""
+    from digline.wire import OUTPUT_VERSION
+
+    assert OUTPUT_VERSION == 2
+    assert run_document(instrumented(), Disclosure())["output_version"] == 2
+
+
+def test_the_instrument_flags_carry_none_of_the_customers_data() -> None:
+    """The boundary half. The flags are booleans, a band of our own numbers and
+    a key digline composed; the payload gate below them is unchanged."""
+    document = json.dumps(run_document(instrumented(), Disclosure()))
+    for marker in MARKERS:
+        assert marker not in document, f"{marker!r} crossed with the new keys"
+
+
 def test_score_metadata_travels_only_by_disclosure() -> None:
     """A measurement an assertion wrote is still the customer's data until the
     suite says otherwise."""

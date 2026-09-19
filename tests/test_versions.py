@@ -167,6 +167,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.15.3": "the release this tree was at when ADR 0025 opened schema 14 "
+        "and moved the version to 0.16.0: the site-queue paragraph, the "
+        "delta-pass reading and the served-index evidence all date themselves "
+        "to it. History, and moving the numbers would claim a release that has "
+        "not happened said them",
         "0.15.2": "'until 0.15.2 this section did not exist' — the release "
         "in which the version-bump ritual was written down, told as history",
         "0.15.1": "seven sentences about the release that proved the "
@@ -253,10 +258,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "`judged` key first reached a document, which is what decides whether "
         "a shape line has a reference to set beside. History",
     },
-    "src/digline/wire/run.py": {
-        "0.14.0": "'Found in the 0.14.0 delta-pass' — which release's pass "
-        "found the MCP run document's gap, told as history in its docstring",
-    },
+    # `src/digline/wire/run.py` held "Found in the 0.14.0 delta-pass" while the
+    # gap that pass found was open. ADR 0011 §5's 2026-09-19 amendment closed it,
+    # the docstring now states the ruling instead of the history, and the
+    # allowance goes with the sentence it allowed — which is this gate working:
+    # a registered literal that disappears is a file whose story moved.
     "README.md": {
         "0.5.0": "'since 0.5.0 the suite may be written as data' — when the "
         "declarative format landed. The Status line above it is the live claim "
@@ -429,6 +435,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.8.0": "'since 0.8.0 a mute judge says which ending the provider "
         "declared' — the release the sentence arrived in, said beside the code "
         "that stopped replacing it. History, not a claim about now",
+    },
+    "src/digline/report/shape.py": {
+        "0.15.0": "'(0.15.0 delta-pass §3)' — which pass found the compensation "
+        "to be one-sided, told as history beside the rule that is now symmetric. "
+        "Moving the number would claim a later pass found it",
     },
     "src/digline/core/run.py": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "

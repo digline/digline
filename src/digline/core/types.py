@@ -19,6 +19,7 @@ __all__ = [
     "STRUCTURED_ONLY",
     "FLOAT_PRECISION",
     "NOTHING_EXTRA",
+    "NO_USAGE",
     "REDACTED",
     "STORAGE_STEP",
     "Cause",
@@ -39,6 +40,7 @@ __all__ = [
     "TEXT_OR_CONVERSATION",
     "TEXT_OR_STRUCTURED",
     "ToolStatus",
+    "Usage",
     "Verdict",
     "at_precision",
     "canonical",
@@ -560,6 +562,59 @@ class Verdict:
     @property
     def name(self) -> str:
         return self.score.name
+
+
+@dataclass(frozen=True, slots=True)
+class Usage:
+    """What one call consumed. Counts, never money: the arithmetic is elsewhere.
+
+    It lives in the core because the **document** holds it (ADR 0025 §1), and a
+    document field's type may not live above `core` in the dependency chain.
+    `digline.targets.pricing` re-exports this very class, so every plugin's
+    `from digline.targets.pricing import Usage` keeps importing the same object
+    — the move costs no plugin a release (ADR 0025 §5).
+    """
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int = 0
+    #: Tokens written *into* a cache. A separate count because it is billed at
+    #: a separate rate and because — measured against the real API on
+    #: 2026-08-27 — a provider does **not** include them in `input_tokens`:
+    #: a cached call reported `input_tokens=10` beside `cache_write=9202`.
+    #: Folding them in would have reported that call as a thousandth of its
+    #: cost, in the direction of good news. (friction 25)
+    cache_write_tokens: int = 0
+
+    def __post_init__(self) -> None:
+        for name in (
+            "input_tokens",
+            "output_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
+        ):
+            if getattr(self, name) < 0:
+                raise ValueError(f"Usage.{name} must not be negative")
+
+    def __add__(self, other: Usage) -> Usage:
+        """Two calls' counts, summed field by field.
+
+        Addition on a frozen value returns a new one; nothing accumulates in
+        place. It exists because a run total is a fold over calls (ADR 0025 §3),
+        and a fold written by hand at three call sites is a fold that drifts.
+        """
+        return Usage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
+            cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+        )
+
+
+#: The zero of `Usage`, and the identity of `+`. Named because *nothing was
+#: counted* is written at several call sites, and `Usage(0, 0)` at each of them
+#: reads like a measurement rather than the absence of one.
+NO_USAGE = Usage(input_tokens=0, output_tokens=0)
 
 
 @dataclass(frozen=True, slots=True)

@@ -161,17 +161,64 @@ def test_a_class_with_no_kind_is_named_and_not_stamped() -> None:
     assert undeclared_kinds(suite([rubric(), Contains(needle="x")])) == ()
 
 
-def test_from_autoevals_is_the_known_hole() -> None:
-    """Pinned so that closing it is a decision someone makes, not a side effect:
-    an autoevals scorer that calls a model is neither judged nor announced, so
-    the shape reading cannot see it. (ADR 0024 §6.4)"""
+def a_scorer(output: Any, expected: Any = None, **kwargs: Any) -> Any:
+    return None
 
-    def scorer(output: Any, expected: Any = None, **kwargs: Any) -> Any:
-        return None
 
-    adapter = FromAutoevals(scorer=scorer, threshold=0.5, tolerance=0.0)
+def test_an_undeclared_autoevals_adapter_is_named() -> None:
+    """The hole this test used to pin, closed 2026-09-19.
+
+    It asserted the silence — `undeclared_kinds(...) == ()` — because
+    `FromAutoevals` declares `wrapper` and the machinery took that for an
+    answer. It is a declaration that *points*, and it points at a scorer
+    digline cannot inspect, so it is unresolvable rather than absent. The
+    author is now told, in the channel that exists for exactly this: defaulting
+    either way guesses, and only they know. (ADR 0024 §6.4, amended)
+    """
+    adapter = FromAutoevals(scorer=a_scorer, threshold=0.5, tolerance=0.0)
+
+    assert not judged(adapter), "undeclared stays not judged"
+    assert undeclared_kinds(suite([adapter])) == ("autoevals",)
+
+
+def test_a_declared_autoevals_adapter_is_judged_and_not_named() -> None:
+    """The other half: declaring answers the question and silences the line —
+    the same bargain `KIND` offers every other check."""
+    adapter = FromAutoevals(scorer=a_scorer, threshold=0.5, tolerance=0.0, judged=True)
+
+    assert judged(adapter)
+    assert undeclared_kinds(suite([adapter])) == ()
+
+
+def test_declaring_a_scorer_not_judged_is_also_a_declaration() -> None:
+    """Three states, three sentences. `False` is an answer — this scorer
+    computes rather than asks — and it silences the line, unlike the `None` the
+    field defaults to."""
+    adapter = FromAutoevals(scorer=a_scorer, threshold=0.5, tolerance=0.0, judged=False)
+
     assert not judged(adapter)
     assert undeclared_kinds(suite([adapter])) == ()
+
+
+def test_declaring_a_scorer_judged_moves_no_baseline() -> None:
+    """**The expensive failure mode, and the reason `IDENTITY_EXCLUDED` is
+    widened.**
+
+    `judged` is a *field*, unlike `KIND`, so without the widening it enters
+    `identity` and then `config_hash` — and every stored baseline of every suite
+    using an autoevals check stops pairing and needs re-promoting, for a
+    declaration that changed no number. Nothing would raise: the failure is a
+    day of re-promotions and a comparison that reports *the rules changed* over
+    a run where no rule did.
+
+    Asserted at both levels, because the hash is what a baseline pairs on and
+    the identity is what a verdict pairs on.
+    """
+    quiet = FromAutoevals(scorer=a_scorer, threshold=0.5, tolerance=0.0)
+    declared = FromAutoevals(scorer=a_scorer, threshold=0.5, tolerance=0.0, judged=True)
+
+    assert quiet.identity == declared.identity
+    assert suite([quiet]).config_hash() == suite([declared]).config_hash()
 
 
 # --------------------------------------------------------------------------- #
