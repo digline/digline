@@ -54,6 +54,7 @@ from digline.core.compare import (
     Comparison,
     ConfigDelta,
     ConfigOutcome,
+    Denominator,
     Noise,
     Outcome,
     Scope,
@@ -61,6 +62,7 @@ from digline.core.compare import (
     compare,
     config_deltas,
     considered_cases,
+    denominator,
     index_verdicts,
     withhold_artifacts,
 )
@@ -90,6 +92,14 @@ from digline.core.protocols import (
     JudgeAbstained,
 )
 from digline.core.ratio import Ratio, as_ratio, reachable_agreements
+from digline.core.reconcile import (
+    UNRECONCILED,
+    Gap,
+    GapKind,
+    reconcile,
+    unreconciled,
+    unreconciled_verdict,
+)
 from digline.core.register import (
     DISPOSITIONS,
     Disposition,
@@ -221,6 +231,7 @@ __all__ = [
     "JUDGE_OUTPUT_LABEL",
     "Contains",
     "CostBudget",
+    "Denominator",
     "Disclosure",
     "ClaimJudge",
     "ClaimReply",
@@ -291,6 +302,12 @@ __all__ = [
     "fold_judgements",
     "judged",
     "scale_lost",
+    "reconcile",
+    "unreconciled",
+    "unreconciled_verdict",
+    "UNRECONCILED",
+    "Gap",
+    "GapKind",
     "meets",
     "within",
     "budget_exceedances",
@@ -298,6 +315,7 @@ __all__ = [
     "combine_samples",
     "compare",
     "considered_cases",
+    "denominator",
     "directions",
     "on_the_line",
     "with_noise_interval",

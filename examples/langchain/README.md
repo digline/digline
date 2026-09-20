@@ -38,7 +38,7 @@ in a fence and every consumer downstream breaks, while the answer still reads
 perfectly in a log. Flip the stand-in to fence its replies and this suite says:
 
 ```
-14 checks got worse compared with the reference. 7 cases could not be judged. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
+14 checks got worse compared with the reference. 0 of 7 cases judged, 7 could not be. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
   … · not_contains · Went from passing to failing (1.000000 → 0.000000).
   … · json_schema  · The check could not run.
 ```

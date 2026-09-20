@@ -41,9 +41,11 @@ from digline.core import (
     fold_judgements,
     identity_of,
     judged,
+    reconcile,
     record_output,
     record_trajectory,
     trajectory_chars,
+    unreconciled_verdict,
     with_noise_interval,
 )
 from digline.core.protocols import DeclaresPrice
@@ -646,6 +648,112 @@ def _calibrate(
     )
 
 
+def _asked(suite: Suite, case: Case) -> frozenset[str]:
+    """The identities `_run_case` puts to `case`, read off the same conditions
+    that choose its branch, in the same order.
+
+    A suspended case is asked nothing, a calibration case its one check, and
+    every other case — a canary included — every declared assertion. This is
+    the dispatch read back rather than a list of exclusions, so a new kind of
+    case is a new branch here and in `_run_case`, side by side, and nothing
+    else has to learn about it. (ADR 0027 §1)
+    """
+    if case.suspended is not None:
+        return frozenset()
+    if case.calibration is not None:
+        check = case.calibration.check
+        return frozenset(a.identity for a in suite.assertions if a.name == check)
+    return frozenset(a.identity for a in suite.assertions)
+
+
+def _reconciled(suite: Suite, results: Sequence[CaseResult]) -> list[CaseResult]:
+    """`results`, with every gap between them and what was asked recorded as a
+    named errored verdict — or `results` itself, untouched, when there is none.
+
+    The run is kept rather than refused: its calls are paid for, and a resume
+    would meet the same gap. Each gap becomes an errored verdict carrying the
+    `unreconciled` marker, so the run exits 2 and cannot be promoted by the
+    paths that already exist, and every reader names it. (ADR 0027 §3)
+    """
+    questions = {case.id: _asked(suite, case) for case in suite.cases}
+    gaps = reconcile(questions, results)
+    if not gaps:
+        return list(results)
+
+    # The three shapes nothing can repair without inventing something. The loop
+    # in `execute` makes each of them unreachable, so meeting one is a defect
+    # in this module, and it says so rather than recording a guess.
+    by_id = {a.identity: a for a in suite.assertions}
+    for gap in gaps:
+        if gap.assertion_id:
+            continue
+        if gap.kind == "unasked":
+            raise RuntimeError(
+                f"the driver holds a result for case {gap.case_id!r} it should "
+                "not: either the suite does not declare it or it was run twice"
+            )
+        if not questions[gap.case_id]:
+            raise RuntimeError(
+                f"the driver lost the result of suspended case {gap.case_id!r}"
+            )
+
+    first: dict[str, CaseResult] = {}
+    for result in results:
+        first.setdefault(result.case_id, result)
+    repaired: list[CaseResult] = []
+    for case in suite.cases:
+        repaired.append(_repair(case, first.get(case.id), questions[case.id], by_id))
+    return repaired
+
+
+def _repair(
+    case: Case,
+    result: CaseResult | None,
+    identities: frozenset[str],
+    by_id: Mapping[str, Assertion],
+) -> CaseResult:
+    kept: list[Verdict] = []
+    seen: set[str] = set()
+    for verdict in () if result is None else result.verdicts:
+        if verdict.assertion_id in identities and verdict.assertion_id not in seen:
+            seen.add(verdict.assertion_id)
+            kept.append(verdict)
+            continue
+        kept.append(
+            unreconciled_verdict(
+                verdict,
+                f"a verdict for {verdict.score.name} was recorded on case "
+                f"{case.id} beside the one it was asked, or where it was asked "
+                "nothing: this is a gap in the record, not a judgement of the case",
+            )
+        )
+    for identity in sorted(identities - seen):
+        assertion = by_id[identity]
+        kept.append(
+            _stamped(
+                assertion,
+                unreconciled_verdict(
+                    error_verdict(assertion, "unreconciled"),
+                    f"{assertion.name} was asked of case {case.id} and no verdict "
+                    "came back: this is a gap in the record, not a judgement of "
+                    "the case",
+                ),
+            )
+        )
+    if result is not None and tuple(kept) == tuple(result.verdicts):
+        return result
+    return CaseResult(
+        case_id=case.id,
+        verdicts=tuple(kept),
+        # Kept only while the result still says nothing: a suspension that now
+        # has verdicts beside it was a result the suite did not ask to suspend.
+        suspended=None if kept or result is None else result.suspended,
+        responses=() if result is None else result.responses,
+        canary=case.canary,
+        calibration=None if result is None else result.calibration,
+    )
+
+
 def _outcomes(
     suite: Suite, results: Sequence[CaseResult], run_assertion: RunAssertion
 ) -> tuple[CaseOutcome, ...]:
@@ -671,6 +779,11 @@ def _outcomes(
     # Annotated: inferring the dict would widen the Literal to `str`.
     labels: dict[str, Label | None] = {c.id: c.label for c in suite.cases}
     over = run_assertion.over
+    # By identity, not by `score.name`: `Suite` resolved `over` to exactly one
+    # declared assertion by its *declared* name, and a third-party assertion
+    # may name its `Score` otherwise — which counted its cases as set aside
+    # when nobody had set them aside. (ADR 0027 §6)
+    over_id = next(a.identity for a in suite.assertions if a.name == over)
     # `getattr` rather than an attribute, for the reason `expand_by_group` reads
     # the flag that way: `RunAssertion` is a structural Protocol and a custom
     # aggregate that never heard of groups must go on satisfying it.
@@ -684,7 +797,9 @@ def _outcomes(
         CaseOutcome(
             case_id=result.case_id,
             label=labels.get(result.case_id),
-            verdict=next((v for v in result.verdicts if v.score.name == over), None),
+            verdict=next(
+                (v for v in result.verdicts if v.assertion_id == over_id), None
+            ),
             # Read off the *result* rather than the suite, because that is where
             # every other reader of this fact will find it — a stored run has no
             # suite beside it. (ADR 0016 §1)
@@ -865,6 +980,9 @@ def execute(
     # response and there is nothing to read until a case has run (ADR 0005 §8).
     # A target that declares statically gives the same answer both times.
     declared = target_config(target)
+    # Before the aggregates, so a gap is counted in them as what it is — a
+    # check that could not be judged — and never as a case set aside.
+    results = _reconciled(suite, results)
     # The judge is asked again too. Its observed identity — which instrument
     # *actually* graded, as the provider reported it — does not exist until it
     # has been asked something, and a judge whose alias rolled is ADR 0005 §4's

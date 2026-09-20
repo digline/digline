@@ -85,6 +85,24 @@ This is the opposite of [`digline diff`](diff.md), which always exits 0, and
 the difference is the reference: a verdict exists only against one that a
 person approved.
 
+## A run that does not reconcile
+
+Before any aggregate is computed, the driver checks that every question the
+suite put to the run came back as exactly one verdict. A suspended case is
+asked nothing, a calibration case is asked its one check, and every other case
+is asked every assertion. Where the answer is missing, or is an answer nobody
+asked for, the run records an errored verdict in its place and names the case
+and the check. The reading then opens with it:
+
+```text
+1 check does not reconcile with what the suite asked. This is not a regression: what the run measured is not known. It is named below, among the checks that could not be judged.
+```
+
+It exits `2` and cannot be promoted, and it is not a regression.
+[ADR 0027](adr/0027-the-run-reconciles.md) says why,
+and what it cannot see: a target that catches its own exception and returns an
+empty answer is a case that was scored, and only a check on content can tell.
+
 ## `--json`: the facts, not the prose
 
 ```console

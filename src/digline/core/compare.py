@@ -22,6 +22,7 @@ __all__ = [
     "AssertionDelta",
     "Comparison",
     "ConfigDelta",
+    "Denominator",
     "ConfigOutcome",
     "Noise",
     "Outcome",
@@ -30,6 +31,7 @@ __all__ = [
     "compare",
     "considered_cases",
     "config_deltas",
+    "denominator",
     "index_verdicts",
     "withhold_artifacts",
 ]
@@ -483,27 +485,65 @@ def considered_cases(verdict: Verdict) -> int | None:
 #: Every count `Matrix.as_metadata()` writes for a case it left out. Named in
 #: full rather than derived, because the set is the rule: a case leaves the
 #: denominator for exactly these reasons and each one moves the score.
+#:
+#: In the order a sentence names them, which is not the order the matrix writes
+#: them: a case that could not be judged is the exclusion the denominator trap
+#: is made of, so it is read first, and the two exclusions a suite declares on
+#: purpose come last.
 _EXCLUSIONS = (
-    "suspended_excluded",
     "errored_excluded",
+    "suspended_excluded",
     "unlabelled_excluded",
     "canary_excluded",
     "calibration_excluded",
 )
 
 
-def _seen(verdict: Verdict) -> int | None:
-    """How many cases the aggregate behind `verdict` looked at — those it counted
-    plus those it left out."""
+@dataclass(frozen=True, slots=True)
+class Denominator:
+    """The cases an aggregate counted, out of the cases it saw, and why the rest
+    were left out.
+
+    `excluded` holds only the non-zero counts, keyed by the metadata name, in
+    `_EXCLUSIONS` order: a renderer that walks it names every exclusion there
+    was and nothing that did not happen, which is what lets a run with none say
+    nothing at all.
+    """
+
+    considered: int
+    excluded: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def seen(self) -> int:
+        return self.considered + sum(count for _, count in self.excluded)
+
+
+def denominator(verdict: Verdict) -> Denominator | None:
+    """What the aggregate behind `verdict` was computed over, or `None` where
+    the verdict is not an aggregate.
+
+    One reading of the numbers `Matrix.as_metadata()` writes, for the renderers
+    that state them in a sentence and for `_seen` below, so that "43 of 50" in
+    a report and "the same cases seen" in `compare()` are one sum. A count that
+    is not a whole number is skipped rather than raised on, for the reason
+    `considered_cases` gives.
+    """
     considered = considered_cases(verdict)
     if considered is None:
         return None
-    total = considered
+    excluded: list[tuple[str, int]] = []
     for key in _EXCLUSIONS:
         value = verdict.score.metadata.get(key)
-        if not isinstance(value, bool) and isinstance(value, int):
-            total += value
-    return total
+        if not isinstance(value, bool) and isinstance(value, int) and value:
+            excluded.append((key, value))
+    return Denominator(considered, tuple(excluded))
+
+
+def _seen(verdict: Verdict) -> int | None:
+    """How many cases the aggregate behind `verdict` looked at — those it counted
+    plus those it left out."""
+    counted = denominator(verdict)
+    return None if counted is None else counted.seen
 
 
 def _denominator_moved(now: Verdict, before: Verdict) -> bool:

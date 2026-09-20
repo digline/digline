@@ -8,6 +8,58 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed
+
+- **The count of unjudged cases now comes with the number it is out of.** The
+  headline that `compare` prints and the report opens with, the reading
+  `explain` gives, and the single-run document all used to say *"7 cases could
+  not be judged."* Now they say *"43 of 50 cases judged, 7 could not be."* Every
+  run-level figure that left cases out also says how many and why, wherever
+  that figure is named: *"43 of 50 cases counted; 7 could not be judged."* That
+  applies to `compare`'s line for it, the report's "what happened" column and
+  `explain`. Every exclusion is named, including the canary, the calibration
+  case and the unlabelled case, so the two numbers always add up. The report's
+  column of counts (*"43 counted · 0 suspended · 7 not judged"*) is now the same
+  sentence, and it used to leave those last three out of the sum. The counts
+  were always recorded. They just were not where people read. This is
+  presentation only: no new fact, no schema change, and no field added to
+  `--json` or MCP. The headline string they already carry is the new sentence. **A run that judged every case reads exactly as before.**
+  The zero case keeps its sentence, *"Every case could be judged."*, and no
+  figure gets a clause saying it left nothing out.
+  Suggested by **nitish-kmr** on the Reddit thread about the denominator
+  article.
+- **A run now checks that it recorded an answer to every question it asked.**
+  Before any aggregate is computed, the driver reads its own dispatch back. A
+  suspended case is asked nothing, a calibration case is asked its one check,
+  and every other case, canary included, is asked every assertion. The driver
+  checks that each declared case has exactly one result and that each result
+  holds exactly one verdict per question and none it was not asked. A gap
+  becomes an errored verdict that **names the case and the check**. The run
+  exits 2 and cannot be promoted, and the headline, `explain` and the report
+  open with *"The run does not reconcile with what the suite asked, at 1
+  check: c2 · agrees. This is not a regression: what the run measured is not
+  known."* A run that reconciles, which is every run the shipped driver
+  produced before this, reads exactly as it did. No schema change: the marker
+  rides the errored verdict. `compare --json` gains an `unreconciled` count on
+  the headline, and `explain --json` gains an `unreconciled` tally kind.
+  - **Why it exists.** **nitish-kmr** pointed out, on the Reddit thread about
+    the denominator article, what our refusal of errored runs rewards: wrapping
+    the exception so that the run finishes, which turns the error into a skip
+    inside the user's own code. That is the denominator defect again, and our
+    own cure pushes people towards it. Nothing that counts verdicts can see an
+    exception the user's code caught; [ADR 0027](docs/adr/0027-the-run-reconciles.md)
+    §2 says so and says what can. This closes the losses digline could cause
+    itself. It is the eighth defect this week in the same family: **a case that
+    vanishes, rather than a number that fails to declare itself.**
+  - **Two losses it found, both fixed.** An aggregate found its verdict by
+    `score.name` while `Suite` resolves `over` by declared name. A third-party
+    assertion that names its `Score` otherwise had its cases counted as
+    *suspended* when nobody had suspended them, so a failing verdict named
+    that way silently left the count. It is now found by identity. And a
+    resumed journal entry with no verdict and no suspension was accepted and
+    counted as suspended. It is now refused where the journal is read, before
+    the first call, beside the refusal of case ids the suite does not declare.
+
 ### Fixed
 
 - **A cost that was neither a number nor an error passed the guard beside it.**

@@ -114,7 +114,8 @@ def test_compare_exits_unjudged_when_a_case_cannot_run(repo: Path) -> None:
         repo, "compare", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
     )
     assert compared.returncode == EXIT_UNJUDGED
-    assert "1 case could not be judged" in compared.stdout
+    # With the denominator it is a count of: the suite grew to three cases.
+    assert "2 of 3 cases judged, 1 could not be." in compared.stdout
 
 
 def test_the_exit_code_field_is_the_process_exit_code(repo: Path) -> None:
@@ -262,6 +263,11 @@ COMPARE_KEYS = {
     # what this golden set guards and it is untouched; the semantic change is
     # written in `wire/contract.py`, beside the version it did not move.
     "denominator_moved",
+    # ADR 0027 §7: how many checks the run recorded as gaps between what the
+    # suite asked and what came back. An added key, the same rule again; it
+    # moves no exit code of its own, because every gap is already an errored
+    # verdict and exits 2 as one.
+    "unreconciled",
     "counts",
     "reasons_available",
     "sentence",
