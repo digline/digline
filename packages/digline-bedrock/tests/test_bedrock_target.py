@@ -518,6 +518,23 @@ def test_text_of_and_usage_of_read_a_dict_not_an_object() -> None:
     assert usage.output_tokens == 7 and usage.cache_read_tokens == 40
 
 
+def test_converse_reports_no_thinking_split_and_this_plugin_says_so() -> None:
+    """The declared absence, with a test behind it (ADR 0026 §5).
+
+    Converse's `TokenUsage` has `inputTokens`, `outputTokens`,
+    `cacheReadInputTokens` and `cacheWriteInputTokens` and no reasoning split,
+    so this plugin can only ever record *not reported* — and `None` is how that
+    is spelled. A `0` here would say the model did no thinking, which is a
+    measurement nobody made. This test is the reason the absence is not a
+    release: there is nothing to install, and an absence nobody wrote down is
+    one the next reader rediscovers from the provider's API.
+    """
+    reply = converse_reply("Rome.", input_tokens=100, output_tokens=7)
+    assert "thinkingTokens" not in reply["usage"], "the shape this rests on moved"
+    usage = usage_of(reply, SONNET, bedrock_pricing("eu-west-1"))
+    assert usage.thinking_tokens is None
+
+
 # -- the trajectory (ADR 0018 §1, amended 2026-09-15) ------------------ #
 
 

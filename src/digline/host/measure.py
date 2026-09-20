@@ -175,6 +175,26 @@ def prepare(
             "may not be assembled out of two case sets"
         )
 
+    empty = sorted(
+        case_id
+        for case_id, result in resume.done.items()
+        if not result.verdicts and result.suspended is None
+    )
+    if empty:
+        # Beside the refusal above and for its reason: the record, not the
+        # suite, is what is wrong. A suite cannot declare a case with no
+        # questions — one with no assertions is refused outright — so an entry
+        # that answers nothing and was not set aside is a damaged record, and
+        # recording an error for it would be a verdict about a question the
+        # record does not say was asked. (ADR 0027 §5)
+        raise JournalRefusedError(
+            f"run {resume.key} cannot be resumed: its journal holds "
+            f"{len(empty)} case(s) with no verdict and no suspension "
+            f"({', '.join(empty)}). A case that ran answers every check it was "
+            "asked, and one set aside says so; an entry that does neither is a "
+            "journal edited by hand or cut short. Start a new run"
+        )
+
     keep = dict(resume.done)
     retrying: dict[str, str] = {}
     if retry_errors:

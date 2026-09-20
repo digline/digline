@@ -280,7 +280,7 @@
       ]
     }
   ],
-  "schema_version": 14,
+  "schema_version": 15,
   "suite": "hire",
   "target_config": {},
   "tenant": "kestrel"

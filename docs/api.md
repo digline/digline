@@ -422,7 +422,7 @@ a run that consumed nothing.
 |---|---|
 | `calls` | calls this line covers |
 | `counted` | of those, how many reported their usage |
-| `tokens` | the four counts, summed over the counted calls |
+| `tokens` | the `Usage` counts, summed over the counted calls |
 | `spent_usd` | what the line cost |
 
 `counted` below `calls` means the total covers **part** of the run — a target
@@ -432,6 +432,26 @@ and `--json` carries `partial` as a field so nothing has to derive it.
 
 The totals cross a boundary; the per-call counts on a recorded response do not
 (ADR 0025 §8).
+
+**`thinking_tokens` is a breakdown, not a fifth quantity.** A model that reasons
+before it answers is billed for tokens nobody reads, and since schema 15 `Usage`
+says how many of its `output_tokens` those were. They are **inside**
+`output_tokens` — both providers that report the split count them there — so the
+money is already counted and `Pricing.cost` does not read the field. That is the
+opposite of `cache_write_tokens`, which sits outside `input_tokens` and must be
+added (ADR 0026 §2).
+
+Three states, and the middle one is the reason there are three: `None` is *the
+provider, or this SDK, did not report a split*, `0` is *it reported one and this
+reply did no thinking*, and a count above `output_tokens` is refused as a
+malformed reply rather than clamped. A total folds two reported sides and stays
+`None` if either side is unreported — an unknown amount of thinking is not zero
+thinking, and a fold that treated it as zero would report less than the truth.
+
+Anthropic documents its count as **re-tokenised, and therefore approximate**: it
+is derived after the fact, so it may not reconcile to the digit with
+`output_tokens` or with anything else. Nothing downstream derives anything from
+it (ADR 0026 §4).
 
 **Reading a reply.** Lenient about the wrapping — a bare object, a ```` ```json ````
 fence, or an object with prose around it all read correctly, because

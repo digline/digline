@@ -57,7 +57,7 @@ believes any amount the customer states. Both are plausible mistakes rather than
 invented ones. Then this suite says:
 
 ```
-2 checks got worse compared with the reference. 1 case could not be judged. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
+2 checks got worse compared with the reference. 3 of 4 cases judged, 1 could not be. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
 
   amount-asserted-by-the-customer · tool_called_with · Went from passing to failing (1.000000 → 0.000000).
   amount-asserted-by-the-customer · contains · Went from passing to failing (1.000000 → 0.000000).

@@ -107,6 +107,13 @@ __all__ = [
 #:    counts, still makes `worse` true and still exits 1. The precedent is the
 #:    one directly above, which is ADR 0024 §4.4's. (the delta-pass over 0.15.2)
 #:
+#:    `unreconciled` on the headline, and `unreconciled` as a tally kind on
+#:    `explain --json`: added keys, under the same rule. It moves no exit code
+#:    of its own. A run that does not reconcile already exits 2 through the
+#:    errored verdict that each gap is recorded as. A run that reconciles, which
+#:    is every run the shipped driver produced before it, reads `0` here and
+#:    never meets the kind. (ADR 0027 §7)
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already

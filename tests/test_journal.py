@@ -406,6 +406,42 @@ def test_a_journalled_case_the_suite_does_not_declare_is_refused_before_anything
     )
 
 
+def test_a_journalled_case_with_no_verdict_and_no_suspension_is_refused(
+    tmp_path: Path,
+) -> None:
+    """ADR 0027 §5, beside the refusal above and asserted the same way.
+
+    A declared case this time, so it passes the check above. What is wrong is
+    the entry: it answers nothing and was not set aside, and no suite can ask a
+    case nothing. Refused before the first call, the journal left as it was,
+    and the case named.
+    """
+    key = killed(tmp_path, a_suite(), Counting(die_at=3))
+    leg = legs(tmp_path, key)[0]
+    leg.write_text(
+        leg.read_text(encoding="utf-8")
+        + json.dumps(
+            {
+                "kind": "case",
+                "cause": "",
+                "case": {"case_id": "c5", "suspended": False, "verdicts": []},
+                "usage": {"calls": 1, "counted": 0, "spent_usd": 0.0},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    before = [path.name for path in legs(tmp_path, key)]
+    target = Counting()
+
+    with pytest.raises(JournalRefusedError, match=r"\(c5\)") as caught:
+        launch(tmp_path, a_suite(), target, resume_key=key)
+
+    assert "no verdict and no suspension" in str(caught.value)
+    assert target.calls == []
+    assert [path.name for path in legs(tmp_path, key)] == before
+
+
 def test_a_finished_journal_is_not_resumable(tmp_path: Path) -> None:
     """Killed between `write_run` and the delete: the run exists, so there is
     nothing to finish."""
@@ -707,7 +743,11 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     a document under-billing every leg it did not run, so it must refuse by
     name, the way `sample_means` had to.
     """
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (14, 2)
+    # It moved to 15 under ADR 0026 for `Usage.thinking_tokens`, and the
+    # condition holds a fifth time: the journal's own version did **not** move
+    # with it, which is the independence ADR 0017 §2 states and 0.16.0's
+    # coincidence did not create.
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (15, 2)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

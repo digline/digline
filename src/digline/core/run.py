@@ -178,7 +178,27 @@ __all__ = [
 #    payload and rides the response. The bump creates no refusal and needs
 #    none: an old reader ignoring `usage` misreads nothing, because no verdict
 #    depends on it. It rides on the train alone (ADR 0025 §10).
-SCHEMA_VERSION = 14
+#
+# 15: one passenger, and the consumers were ready before the field was.
+#    `Usage.thinking_tokens` — the output tokens a model spent thinking, where
+#    the provider reports the split, as `int | None` where `None` is *not
+#    reported* and is never guessed as `0`. A breakdown and not a new billable
+#    quantity: both providers report it **inside** the output count, so
+#    `Pricing.cost` does not read it and adding it would bill a reasoning call
+#    twice — the inverse of `cache_write_tokens`, which is reported outside
+#    `input_tokens` and must be added. Checked against ADR 0014 §1 in ADR 0026
+#    §6: outside `config_hash` (what a call consumed is the thing measured);
+#    the step writes **nothing**, because a call measured before this release
+#    may well have thought and nothing in its document says how much; and the
+#    grain decides the boundary exactly as it does for the four beside it — in
+#    a total it crosses, on a recorded response it does not. The bump creates
+#    no refusal and needs none, so it rides the train alone (ADR 0026 §7).
+#
+#    It exists because it was mistaken for shipped: ADR 0025's reconnaissance
+#    proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was
+#    found by somebody sitting down to write the plugin patch that would fill
+#    it.
+SCHEMA_VERSION = 15
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
 #: not name the tool. The only value: digline records every name it is given, so
@@ -995,6 +1015,26 @@ class CallTotals:
         """
         return self.counted < self.calls
 
+    def _folded(self, tokens: Usage, *, counted: int) -> Usage:
+        """This line's counts with another call's — or with another line's.
+
+        **A line that counted nothing is not an unreported measurement, it is
+        no measurement**, and the difference matters for exactly one field.
+        `NO_USAGE` carries `thinking_tokens=None`, and `Usage.__add__` makes any
+        unreported side unreport the total (ADR 0026 §3) — correct between two
+        calls, wrong against the seed of a fold, where it would turn every
+        reported split in the run into *not reported*. The other four counts
+        are zeros and would not have noticed.
+
+        So the neutrality is decided by `counted`, which is the honest
+        predicate: nothing counted, nothing to fold, take the other side whole.
+        """
+        if self.counted == 0:
+            return tokens
+        if counted == 0:
+            return self.tokens
+        return self.tokens + tokens
+
     def __add__(self, other: CallTotals) -> CallTotals:
         """Two lines of the same side, summed.
 
@@ -1005,7 +1045,7 @@ class CallTotals:
         return CallTotals(
             calls=self.calls + other.calls,
             counted=self.counted + other.counted,
-            tokens=self.tokens + other.tokens,
+            tokens=self._folded(other.tokens, counted=other.counted),
             spent_usd=self.spent_usd + other.spent_usd,
         )
 
@@ -1020,7 +1060,7 @@ class CallTotals:
         return CallTotals(
             calls=self.calls + 1,
             counted=self.counted + (0 if tokens is None else 1),
-            tokens=self.tokens if tokens is None else self.tokens + tokens,
+            tokens=self.tokens if tokens is None else self._folded(tokens, counted=1),
             spent_usd=self.spent_usd + spent_usd,
         )
 
@@ -1824,6 +1864,12 @@ def usage_to_dict(usage: Usage) -> dict[str, object]:
         payload["cache_read_tokens"] = usage.cache_read_tokens
     if usage.cache_write_tokens:
         payload["cache_write_tokens"] = usage.cache_write_tokens
+    # Written whenever it was **reported**, zero included: a `0` a provider
+    # gave is a measurement, and dropping it as a default would turn *this
+    # reply did no thinking* into *nobody said*. Absent is the third state and
+    # means not reported. (ADR 0026 §1)
+    if usage.thinking_tokens is not None:
+        payload["thinking_tokens"] = usage.thinking_tokens
     return payload
 
 
@@ -1840,11 +1886,21 @@ def usage_from_dict(raw: object, where: str) -> Usage:
             f"{where}: usage is {raw!r}, which is not a record of token counts"
         )
     counts = cast(Mapping[str, Any], raw)
+    thinking = counts.get("thinking_tokens")
+    if "thinking_tokens" in counts and thinking is None:
+        raise ValueError(
+            f"{where}: 'thinking_tokens' is null: a provider that reported no "
+            "split omits the key, and null is a document saying nothing where "
+            "absence already says it"
+        )
     return Usage(
         input_tokens=int(_required(counts, "input_tokens", where)),
         output_tokens=int(_required(counts, "output_tokens", where)),
         cache_read_tokens=int(counts.get("cache_read_tokens") or 0),
         cache_write_tokens=int(counts.get("cache_write_tokens") or 0),
+        # `or 0` would read a reported zero as absent and vice versa, which is
+        # the one distinction this field exists for.
+        thinking_tokens=None if thinking is None else int(thinking),
     )
 
 

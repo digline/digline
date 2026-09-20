@@ -26,18 +26,22 @@ from digline.core import (
     ConfigDelta,
     ConfigOutcome,
     ConfigValue,
+    Denominator,
     Noise,
     Run,
     Scope,
     SystemConfig,
     Verdict,
     considered_cases,
+    denominator,
     on_the_line,
     scale_lost,
+    unreconciled,
 )
 from digline.report.render import (
     ABSENT,
     SECTIONS,
+    denominator_sentence,
     diff_lines,
     diff_tally,
     echoed_model,
@@ -46,6 +50,7 @@ from digline.report.render import (
     fmt_value,
     on_the_line_count,
     run_tally,
+    unjudged_sentence,
 )
 from digline.report.shape import Shape, ShapeSide, shape
 from digline.report.text import Locale, phrase, strings
@@ -139,6 +144,12 @@ type TallyKind = Literal[
     # moves no exit code and reclassifies no check; what it withdraws is the
     # claim that nothing moved. (ADR 0012 §3, amended 2026-09-18)
     "denominator_moved",
+    # The eighth amendment, from ADR 0027 §7: how many checks this run recorded
+    # as gaps between what the suite asked and what came back. The headline says
+    # it first, and a reading that omitted it would describe a run whose exit
+    # code it could not account for. Read off the run alone, so it is stated
+    # with or without a reference, and it goes to the very top.
+    "unreconciled",
 ]
 
 
@@ -186,6 +197,12 @@ class CheckFact:
     #: disagree; `None` everywhere else, which is what every other check has.
     considered: int | None = None
     reference_considered: int | None = None
+    #: What this run's aggregate counted and what it left out, by name, for the
+    #: sentence that says "43 of 50 cases counted; 7 could not be judged" after
+    #: the figure. Only on a run-level check, where there is a denominator to
+    #: state. Off the wire like the two numbers above: a program reads the
+    #: matrix off `compare --json full`, and this is the sentence's input.
+    counted: Denominator | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,10 +320,13 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # still measures on a scale, just a different one. It is inserted last so
     # the comparability fact below cannot displace it. (ADR 0024 §4.6)
     lost = len(scale_lost(run))
+    gaps = len(unreconciled(run))
 
     if comparison is None:
         if lost:
             out.insert(0, TallyFact("calibration", count=lost))
+        if gaps:
+            out.insert(0, TallyFact("unreconciled", count=gaps))
         return out
 
     covered = sum(1 for delta in comparison.deltas if delta.within_noise)
@@ -343,6 +363,10 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         out.insert(0, TallyFact("comparability", state=True))
     if lost:
         out.insert(0, TallyFact("calibration", count=lost))
+    # Above even the lost scale: that one says what the numbers were measured
+    # on, this one says the run does not know what it measured. (ADR 0027 §7)
+    if gaps:
+        out.insert(0, TallyFact("unreconciled", count=gaps))
     return out
 
 
@@ -514,7 +538,15 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
             if delta.denominator_moved and before is not None
             else None
         ),
+        counted=_counted(delta.scope, now),
     )
+
+
+def _counted(scope: Scope, verdict: Verdict | None) -> Denominator | None:
+    """The denominator a run-level verdict was computed over, where it has one."""
+    if scope != "run" or verdict is None:
+        return None
+    return denominator(verdict)
 
 
 def _checks_alone(run: Run) -> list[Fact]:
@@ -553,6 +585,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
             on_the_line=on_the_line(verdict),
+            counted=denominator(verdict),
         )
         for verdict in run.aggregate
         if verdict.status == "fail"
@@ -565,6 +598,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             found.verdict.score.name,
             found.verdict.assertion_id,
             threshold=found.verdict.threshold,
+            counted=_counted(found.scope, found.verdict),
         )
         for found in errored_verdicts(run)
     )
@@ -628,8 +662,11 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
     checks = [f for f in reading if isinstance(f, CheckFact)]
     where = "compared" if compared else "alone"
 
+    # The two counts the unjudged sentence divides by, read off the list like
+    # every other number here rather than off the run.
+    counts = {fact.kind: fact.count for fact in tallies}
     lines: list[str] = [phrase(locale, "explain.heading.tally")]
-    lines.extend(_tally_line(fact, locale) for fact in tallies)
+    lines.extend(_tally_line(fact, locale, counts) for fact in tallies)
 
     lines.append("")
     lines.append(phrase(locale, f"explain.heading.settings.{where}"))
@@ -647,9 +684,17 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
     return tuple(lines)
 
 
-def _tally_line(fact: TallyFact, locale: Locale) -> str:
+def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
     match fact.kind:
-        case "cases" | "checks" | "unjudged" | "suspended":
+        case "unjudged":
+            return unjudged_sentence(
+                counts.get("cases", 0),
+                fact.count,
+                counts.get("suspended", 0),
+                locale=locale,
+                key="explain.tally.unjudged",
+            )
+        case "cases" | "checks" | "suspended":
             return phrase(
                 locale,
                 f"explain.tally.{fact.kind}.{_count(fact.count)}",
@@ -689,6 +734,12 @@ def _tally_line(fact: TallyFact, locale: Locale) -> str:
             return phrase(
                 locale,
                 f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "unreconciled":
+            return phrase(
+                locale,
+                f"explain.tally.unreconciled.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
         case "shape":
@@ -831,6 +882,16 @@ def _where(fact: CheckFact, locale: Locale) -> str:
 
 
 def _check_line(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
+    """One check in a sentence, and then — for a run-level figure that left
+    cases out — the sentence that says how many and why."""
+    said = _check_said(fact, locale, compared=compared)
+    if fact.counted is None:
+        return said
+    counted = denominator_sentence(fact.counted, locale=locale, whole=False)
+    return f"{said} {counted}" if counted else said
+
+
+def _check_said(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
     where = _where(fact, locale)
     before = ABSENT if fact.before is None else fmt_score(fact.before)
     now = ABSENT if fact.after is None else fmt_score(fact.after)

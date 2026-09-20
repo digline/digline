@@ -247,6 +247,12 @@ three shapes:
   its own vocabulary and its own closed `DiffOutcome`, and teaching it this rule
   is the same work again rather than the same edit.*
 
+  *Amended 2026-09-19 by [ADR 0027](0027-the-run-reconciles.md) §7:
+  `unreconciled` joins the list. It counts the questions the suite put to the
+  run that came back as no verdict, or as one nobody asked. It passes this
+  section's test: the headline states it, and a reading that left it out would
+  describe a run whose exit code it could not account for.*
+
   *Amended again 2026-09-18 by the delta-pass over 0.15.2, which read correction
   3 and found it true of one direction and false of the other.* That a flip is
   not a distance holds. What does not hold is applying it to `improved`: `fail`

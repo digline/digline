@@ -1,6 +1,6 @@
 [project]
 name = "digline-anthropic"
-version = "0.5.2"
+version = "0.5.3"
 description = "Anthropic target and judges for digline: prompt file in, priced Response out."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -38,7 +38,7 @@ dependencies = [
     # be empty" and errors the case, and the document it needs, which omits
     # `tool` and writes `tool_absence`, is schema 13. (ADR 0018 §1, amended
     # 2026-09-17)
-    "digline>=0.15.0",
+    "digline>=0.17.0",
     "anthropic>=0.40",
 ]
 

@@ -8,6 +8,133 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed
+
+- **The count of unjudged cases now comes with the number it is out of.** The
+  headline that `compare` prints and the report opens with, the reading
+  `explain` gives, and the single-run document all used to say *"7 cases could
+  not be judged."* Now they say *"43 of 50 cases judged, 7 could not be."* Every
+  run-level figure that left cases out also says how many and why, wherever
+  that figure is named: *"43 of 50 cases counted; 7 could not be judged."* That
+  applies to `compare`'s line for it, the report's "what happened" column and
+  `explain`. Every exclusion is named, including the canary, the calibration
+  case and the unlabelled case, so the two numbers always add up. The report's
+  column of counts (*"43 counted · 0 suspended · 7 not judged"*) is now the same
+  sentence, and it used to leave those last three out of the sum. The counts
+  were always recorded. They just were not where people read. This is
+  presentation only: no new fact, no schema change, and no field added to
+  `--json` or MCP. The headline string they already carry is the new sentence. **A run that judged every case reads exactly as before.**
+  The zero case keeps its sentence, *"Every case could be judged."*, and no
+  figure gets a clause saying it left nothing out.
+  Suggested by **nitish-kmr** on the Reddit thread about the denominator
+  article.
+- **A run now checks that it recorded an answer to every question it asked.**
+  Before any aggregate is computed, the driver reads its own dispatch back. A
+  suspended case is asked nothing, a calibration case is asked its one check,
+  and every other case, canary included, is asked every assertion. The driver
+  checks that each declared case has exactly one result and that each result
+  holds exactly one verdict per question and none it was not asked. A gap
+  becomes an errored verdict that **names the case and the check**. The run
+  exits 2 and cannot be promoted, and the headline, `explain` and the report
+  open with *"The run does not reconcile with what the suite asked, at 1
+  check: c2 · agrees. This is not a regression: what the run measured is not
+  known."* A run that reconciles, which is every run the shipped driver
+  produced before this, reads exactly as it did. No schema change: the marker
+  rides the errored verdict. `compare --json` gains an `unreconciled` count on
+  the headline, and `explain --json` gains an `unreconciled` tally kind.
+  - **Why it exists.** **nitish-kmr** pointed out, on the Reddit thread about
+    the denominator article, what our refusal of errored runs rewards: wrapping
+    the exception so that the run finishes, which turns the error into a skip
+    inside the user's own code. That is the denominator defect again, and our
+    own cure pushes people towards it. Nothing that counts verdicts can see an
+    exception the user's code caught; [ADR 0027](docs/adr/0027-the-run-reconciles.md)
+    §2 says so and says what can. This closes the losses digline could cause
+    itself. It is the eighth defect this week in the same family: **a case that
+    vanishes, rather than a number that fails to declare itself.**
+  - **Two losses it found, both fixed.** An aggregate found its verdict by
+    `score.name` while `Suite` resolves `over` by declared name. A third-party
+    assertion that names its `Score` otherwise had its cases counted as
+    *suspended* when nobody had suspended them, so a failing verdict named
+    that way silently left the count. It is now found by identity. And a
+    resumed journal entry with no verdict and no suspension was accepted and
+    counted as suspended. It is now refused where the journal is read, before
+    the first call, beside the refusal of case ids the suite does not declare.
+## 0.17.0 — unreleased
+
+### Added — the thinking a model charged for
+
+digline **0.17.0** opens schema 15 with one passenger.
+
+- **`Usage.thinking_tokens`**, the output tokens a model spent thinking where
+  the provider reports the split. `SCHEMA_VERSION` moves to **15**; run
+  `digline migrate` before comparing or promoting. `OUTPUT_VERSION` stays 2.
+- **Three states, and `None` is not `0`.** `None` is *not reported* — a
+  provider that says nothing, or an SDK too old to carry the field; `0` is a
+  provider that reported a split and a reply that did no thinking. A `0`
+  written for the first would report the absence of a field as the absence of
+  thinking.
+- **It is a breakdown, not a new billable quantity**, and that is the **inverse
+  of the cache-write case**: both providers report it *inside* the output
+  count, so `Pricing.cost` does not read it and nothing is added. Adding it
+  would bill every reasoning call twice.
+- **A reply claiming more thinking than output is refused by name**, never
+  clamped: a clamp hides a provider whose accounting drifted and a plugin
+  reading the wrong field into the right one, and both need somebody told.
+- **The count is re-tokenised and therefore approximate** — derived after the
+  fact rather than counted as the model emitted — so it may not reconcile to
+  the digit, and nothing derives anything from it.
+- **A total that folds an unreported split is unreported**, not the smaller
+  number it could print: a call that said nothing did an unknown amount of
+  thinking, not none. An empty line is the one exception — a line that counted
+  nothing is *no* measurement rather than an unreported one — and the three
+  folds that build a bill each apply that distinction.
+- In a run total the field crosses a boundary; on a recorded response it does
+  not. The same grain rule as the four counts beside it.
+
+  The reasoning is
+  [ADR 0026](docs/adr/0026-the-thinking-a-model-charged-for.md), which also
+  records that this field was mistaken for shipped: the 0.16.0 reconnaissance
+  proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was found
+  by somebody sitting down to write the plugin patch.
+
+## digline-anthropic 0.5.3 — unreleased
+
+- Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
+  An `anthropic` too old to carry the container, and a reply without the
+  split, both record **not reported** rather than a zero. The old SDK is not a
+  hypothesis: `anthropic` 0.40.0, the oldest this package admits, has a `Usage`
+  of two fields and no container at all.
+- Needs digline **0.17.0 or later**, which is where the field arrives.
+
+## digline-openai 0.5.2 — unreleased
+
+- Reads `completion_tokens_details.reasoning_tokens` into
+  `Usage.thinking_tokens`, the same way.
+- **Only that one of the type's five fields.** `audio_tokens`,
+  `accepted_prediction_tokens`, `rejected_prediction_tokens` and `text_tokens`
+  answer different questions and are left alone — named here so the next reader
+  knows they were seen.
+- `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS` is **unchanged at `None`**. A user on
+  a compatible endpoint confirmed `prompt_tokens_details.cache_write_tokens` is
+  present in a live reply, and presence was never the open question: whether
+  those tokens sit inside `prompt_tokens` still needs the committed three-call
+  probe, so cache writes are still reported as 0 and still stated as a known
+  undercount.
+- Needs digline **0.17.0 or later**.
+
+## digline-bedrock — no release, and this is why
+
+- **Converse reports no reasoning split at all.** Its `TokenUsage` carries
+  `inputTokens`, `outputTokens`, `cacheReadInputTokens` and
+  `cacheWriteInputTokens`, and nothing else — so this plugin can only ever
+  record `thinking_tokens` as **not reported**, which is what it does by
+  writing nothing.
+- It is **not bumped**, because a no-op is not a release: there would be
+  nothing for a user to install. The absence is written down here rather than
+  left silent, so the next reader learns it from the changelog instead of
+  rediscovering it from the provider's API.
+
+
 ### Fixed
 
 - **A cost that was neither a number nor an error passed the guard beside it.**

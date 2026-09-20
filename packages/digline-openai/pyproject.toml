@@ -1,6 +1,6 @@
 [project]
 name = "digline-openai"
-version = "0.5.1"
+version = "0.5.2"
 description = "OpenAI target and judges for digline, at any OpenAI-compatible endpoint."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -38,7 +38,7 @@ dependencies = [
     # be empty" and errors the case, and the document it needs, which omits
     # `tool` and writes `tool_absence`, is schema 13. (ADR 0018 §1, amended
     # 2026-09-17)
-    "digline>=0.15.0",
+    "digline>=0.17.0",
     # The SDK and nothing else. No LiteLLM, no gateway, no abstraction over the
     # abstraction: `base_url` is what makes one SDK cover every compatible
     # provider, and a layer on top would only add a second thing to be wrong.

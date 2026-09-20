@@ -260,6 +260,35 @@ def test_the_counters_accumulate_and_are_never_reset() -> None:
     assert judge.spent_usd - before == pytest.approx(1.0)
 
 
+def test_the_first_reply_seeds_the_counts_rather_than_folding_into_them() -> None:
+    """`self.tokens` starts at `NO_USAGE`, whose `thinking_tokens` is `None`,
+    and `Usage.__add__` unreports a total whose other side said nothing
+    (ADR 0026 §3). Folding the seed in would report every judge's split as
+    *not reported* — a `None` that no provider ever sent."""
+    judge = FakeScoreJudge(
+        '{"score": 1, "reason": "ok"}',
+        usage=Usage(input_tokens=10, output_tokens=6, thinking_tokens=4),
+    )
+    judge("p")
+    assert judge.tokens.thinking_tokens == 4
+    judge("p")
+    assert judge.tokens == Usage(input_tokens=20, output_tokens=12, thinking_tokens=8)
+
+
+def test_a_reply_without_a_split_unreports_the_judges_total() -> None:
+    """The other direction, and the reason the seed is the only exception: a
+    real call that reported nothing is an unknown amount of thinking, so the
+    total is unknown rather than the smaller number it could print."""
+    judge = FakeScoreJudge(
+        '{"score": 1, "reason": "ok"}',
+        usage=Usage(input_tokens=10, output_tokens=6, thinking_tokens=4),
+    )
+    judge("p")
+    judge.usage = Usage(input_tokens=10, output_tokens=6)
+    judge("p")
+    assert judge.tokens.thinking_tokens is None
+
+
 def test_a_call_that_raises_is_not_counted() -> None:
     """Its cost is unknown, and counting it at zero would be the undercount
     that reads as good news."""

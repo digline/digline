@@ -25,6 +25,7 @@ from _openai_fakes import (
     FakeDetails,
     FakeFunction,
     FakeMessage,
+    FakeReasoning,
     FakeReply,
     FakeToolCall,
     FakeUsage,
@@ -779,4 +780,101 @@ def test_cache_writes_say_which_convention_chat_completions_follows() -> None:
         f"CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS = {inside} in "
         "digline_openai.client, with the date of this run in its comment, and "
         "move the changelog's undercount to a fix"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The thinking a model charged for (ADR 0026)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_reasoning_split_is_recorded_where_it_is_reported() -> None:
+    usage = FakeUsage(
+        prompt_tokens=1000,
+        completion_tokens=300,
+        completion_tokens_details=FakeReasoning(reasoning_tokens=250),
+    )
+
+    assert usage_of(_reply(usage), "gpt-5", _priced()).thinking_tokens == 250
+
+
+def test_a_reply_with_no_details_reports_nothing_rather_than_zero() -> None:
+    """The SDK floor and a model with no split are the same shape, and the
+    plugin must not invent a difference: `None` in both. (ADR 0026 §1)"""
+    usage = FakeUsage(prompt_tokens=1000, completion_tokens=300)
+
+    assert usage_of(_reply(usage), "gpt-5", _priced()).thinking_tokens is None
+
+
+def test_a_reported_zero_is_kept() -> None:
+    usage = FakeUsage(
+        prompt_tokens=1000,
+        completion_tokens=300,
+        completion_tokens_details=FakeReasoning(reasoning_tokens=0),
+    )
+
+    assert usage_of(_reply(usage), "gpt-5", _priced()).thinking_tokens == 0
+
+
+def test_the_four_sibling_fields_are_left_alone() -> None:
+    """`reasoning_tokens` is one of five. The others answer different questions
+    — a modality, speculative-decoding accounting — and none of them is
+    thinking the reader cannot see. Asserted so that leaving them is a decision
+    somebody reads rather than an omission. (ADR 0026 §5)
+    """
+    usage = FakeUsage(
+        prompt_tokens=1000,
+        completion_tokens=300,
+        completion_tokens_details=FakeReasoning(
+            reasoning_tokens=7,
+            audio_tokens=11,
+            accepted_prediction_tokens=13,
+            rejected_prediction_tokens=17,
+            text_tokens=19,
+        ),
+    )
+
+    read = usage_of(_reply(usage), "gpt-5", _priced())
+
+    assert read.thinking_tokens == 7
+    assert read.output_tokens == 300, "no sibling reached any other count"
+    assert read.input_tokens == 1000
+
+
+def test_more_reasoning_than_completion_is_refused_by_name() -> None:
+    usage = FakeUsage(
+        prompt_tokens=1000,
+        completion_tokens=300,
+        completion_tokens_details=FakeReasoning(reasoning_tokens=301),
+    )
+
+    with pytest.raises(ValueError, match="more thinking than output"):
+        usage_of(_reply(usage), "gpt-5", _priced())
+
+
+def test_reasoning_is_not_added_to_the_cost() -> None:
+    """Already inside `completion_tokens`: a split costs what no split costs.
+    The inverse of the cache-write case. (ADR 0026 §2)"""
+    priced = _priced()
+    plain = usage_of(_reply(FakeUsage(1000, 300)), "gpt-5", priced)
+    split = usage_of(
+        _reply(
+            FakeUsage(
+                1000, 300, completion_tokens_details=FakeReasoning(reasoning_tokens=250)
+            )
+        ),
+        "gpt-5",
+        priced,
+    )
+
+    assert priced.cost("gpt-5", plain) == priced.cost("gpt-5", split)
+
+
+def _reply(usage: FakeUsage) -> FakeReply:
+    return FakeReply(usage=usage)
+
+
+def _priced() -> Pricing:
+    return Pricing(
+        per_model={"gpt-5": ModelPrice(input_per_mtok=1.0, output_per_mtok=2.0)}
     )

@@ -87,7 +87,44 @@ def usage_of(reply: Any) -> Usage:
         output_tokens=int(getattr(usage, "output_tokens", 0)),
         cache_read_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
         cache_write_tokens=int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
+        thinking_tokens=_thinking(usage),
     )
+
+
+def _thinking(usage: Any) -> int | None:
+    """The output tokens the model spent thinking, or `None` for *not reported*.
+
+    Read through `output_tokens_details`, which the SDK types as optional — so
+    a reply without it gives `None`, and so does an `anthropic` too old to
+    carry the field at all. **The second case is this package's own floor, and
+    it was measured**: installed and read on 2026-09-20, `anthropic` 0.40.0 —
+    the version `anthropic>=0.40` admits — has a `Usage` with exactly two
+    fields, `input_tokens` and `output_tokens`, and no container to read. The
+    workspace pins 1.5.0, where the container exists and is `None` when the
+    reply reports no split.
+
+    `None` is the honest answer in each case: a plugin that wrote `0` would be
+    reporting the absence of a field as the absence of thinking, and `Usage`
+    keeps the two apart on purpose. (ADR 0026 §1)
+
+    **Anthropic documents the count as re-tokenised, and therefore
+    approximate**: it is derived after the fact rather than counted as the
+    model emitted, so it may not reconcile to the digit with `output_tokens` or
+    with anything else. Nothing downstream derives anything from it — and in
+    particular it is **not added to the cost**, because these tokens are output
+    tokens and are already inside `output_tokens`. That is the opposite of
+    `cache_creation_input_tokens` two lines up, which sits outside
+    `input_tokens` and must be added; reaching for friction 25's lesson here
+    would bill every thinking call twice. (ADR 0026 §2, §4)
+
+    A count larger than `output_tokens` is refused by `Usage` rather than
+    clamped here: the reply is malformed, and somebody has to be told.
+    """
+    details = getattr(usage, "output_tokens_details", None)
+    if details is None:
+        return None
+    found = getattr(details, "thinking_tokens", None)
+    return None if found is None else int(found)
 
 
 def tools_of(reply: Any) -> tuple[str | None, ...]:
