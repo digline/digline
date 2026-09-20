@@ -171,6 +171,12 @@ extraPaths = [
     "packages/digline-bedrock/tests",
     "packages/digline-mcp/src",
     "packages/pytest-digline/src",
+    # `tools/image_pins.py` imports `.github/await_index.py` — the one reader of
+    # the index in this repository — the way CI runs it, by path and at call
+    # time. Listed here so that import resolves and its types are read. Not in
+    # `include`: those scripts run under the runner's bare `python3`, and what
+    # holds them is `tests/test_await_index.py` driving them end to end.
+    ".github",
 ]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"

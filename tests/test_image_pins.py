@@ -69,9 +69,15 @@ CHANGELOG = """# Changelog
 """
 
 
-def _moved(pins, served, changelog=CHANGELOG, **kwargs):
+def _moved(
+    pins: list[tuple[str, str]],
+    served: dict[str, set[str]],
+    changelog: str = CHANGELOG,
+    *,
+    forced: bool = False,
+) -> tuple[dict[str, str], list[str]]:
     """The decision, as `{package: version built}` plus the notes."""
-    chosen, notes = decide(pins, served, declared_unreleased(changelog), **kwargs)
+    chosen, notes = decide(pins, served, declared_unreleased(changelog), forced=forced)
     return dict(chosen), notes
 
 
