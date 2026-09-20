@@ -117,14 +117,40 @@ because a check you cannot trust is a liability dressed as a control.
 It **records**, and recording is most of the value: the change is in the run
 file, in the baseline you committed, and in the diff a reviewer reads.
 
-It does **not gate**. A changed artifact is a fact, never an exit code —
+It does **not gate**, today. A changed artifact is a fact, never an exit code —
 `digline` exits non-zero on a regression, a moved canary, an unjudged case or a
 lost scale, and an artifact is none of those. Artifacts are also deliberately
 outside `config_hash`, so a rewritten description does not invalidate your
 baseline or block a promotion. That is the right default for a prompt, where
-changing the file *is* the experiment. Whether a tool definition wants the
-opposite default — an opt-in assertion that fails when a declared SHA moves —
-is an open question and not yet answered.
+changing the file *is* the experiment.
+
+Whether a tool definition wants the opposite default is **decided, and not yet
+built**. The shape it will take, so you can plan against it:
+
+- **Not an assertion.** An expected SHA written into an assertion would land in
+  its `identity` and from there in `config_hash`, which would un-promote your
+  baseline the moment the file moved — the same trap as putting artifacts in
+  the hash, reached by a different door. Neither `EvaluatorInputs` nor
+  `RunAssertion` can see an artifact in any case.
+- **A declaration read at compare time**, naming the paths that must not drift.
+  It follows the canary: a fact the headline names, never folded into *worse*,
+  because a drifted file is not a regression and calling it one would be untrue.
+- **Exit 2, not 1.** `Comparison.artifacts_changed` already refuses to read
+  `unknown` as a change, so failing with 1 would assert one layer up what the
+  layer below declines to assert. Both codes stop a pipeline, so 2 costs
+  nothing in enforcement.
+- **The rule sits on the comparison, not on the artifact.** A run redacted on
+  its own has no digest and cannot answer; a party holding *both* runs can,
+  because `withhold_artifacts` keeps the outcome and drops only the payload.
+  Stated on the artifact, redaction would silently disarm the declaration for
+  exactly the reader who most needs it.
+- **A declared path that names nothing recorded is refused when the suite
+  loads**, the way a declared artifact that is not a file already is. Otherwise
+  a typo is a control that never runs and never says so.
+
+Ruled 2026-09-20. No ADR written, no code — so until it exists, what turns this
+red is the behaviour assertions beside the artifact, which is why the example
+here ships both.
 
 ## Withholding it
 
