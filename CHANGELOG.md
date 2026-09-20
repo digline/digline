@@ -8,58 +8,7 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
-### Changed
-
-- **The count of unjudged cases now comes with the number it is out of.** The
-  headline that `compare` prints and the report opens with, the reading
-  `explain` gives, and the single-run document all used to say *"7 cases could
-  not be judged."* Now they say *"43 of 50 cases judged, 7 could not be."* Every
-  run-level figure that left cases out also says how many and why, wherever
-  that figure is named: *"43 of 50 cases counted; 7 could not be judged."* That
-  applies to `compare`'s line for it, the report's "what happened" column and
-  `explain`. Every exclusion is named, including the canary, the calibration
-  case and the unlabelled case, so the two numbers always add up. The report's
-  column of counts (*"43 counted · 0 suspended · 7 not judged"*) is now the same
-  sentence, and it used to leave those last three out of the sum. The counts
-  were always recorded. They just were not where people read. This is
-  presentation only: no new fact, no schema change, and no field added to
-  `--json` or MCP. The headline string they already carry is the new sentence. **A run that judged every case reads exactly as before.**
-  The zero case keeps its sentence, *"Every case could be judged."*, and no
-  figure gets a clause saying it left nothing out.
-  Suggested by **nitish-kmr** on the Reddit thread about the denominator
-  article.
-- **A run now checks that it recorded an answer to every question it asked.**
-  Before any aggregate is computed, the driver reads its own dispatch back. A
-  suspended case is asked nothing, a calibration case is asked its one check,
-  and every other case, canary included, is asked every assertion. The driver
-  checks that each declared case has exactly one result and that each result
-  holds exactly one verdict per question and none it was not asked. A gap
-  becomes an errored verdict that **names the case and the check**. The run
-  exits 2 and cannot be promoted, and the headline, `explain` and the report
-  open with *"The run does not reconcile with what the suite asked, at 1
-  check: c2 · agrees. This is not a regression: what the run measured is not
-  known."* A run that reconciles, which is every run the shipped driver
-  produced before this, reads exactly as it did. No schema change: the marker
-  rides the errored verdict. `compare --json` gains an `unreconciled` count on
-  the headline, and `explain --json` gains an `unreconciled` tally kind.
-  - **Why it exists.** **nitish-kmr** pointed out, on the Reddit thread about
-    the denominator article, what our refusal of errored runs rewards: wrapping
-    the exception so that the run finishes, which turns the error into a skip
-    inside the user's own code. That is the denominator defect again, and our
-    own cure pushes people towards it. Nothing that counts verdicts can see an
-    exception the user's code caught; [ADR 0027](docs/adr/0027-the-run-reconciles.md)
-    §2 says so and says what can. This closes the losses digline could cause
-    itself. It is the eighth defect this week in the same family: **a case that
-    vanishes, rather than a number that fails to declare itself.**
-  - **Two losses it found, both fixed.** An aggregate found its verdict by
-    `score.name` while `Suite` resolves `over` by declared name. A third-party
-    assertion that names its `Score` otherwise had its cases counted as
-    *suspended* when nobody had suspended them, so a failing verdict named
-    that way silently left the count. It is now found by identity. And a
-    resumed journal entry with no verdict and no suspension was accepted and
-    counted as suspended. It is now refused where the journal is read, before
-    the first call, beside the refusal of case ids the suite does not declare.
-## 0.17.0 — unreleased
+## 0.17.0 — 2026-09-20
 
 ### Added — the thinking a model charged for
 
@@ -97,6 +46,80 @@ digline **0.17.0** opens schema 15 with one passenger.
   proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was found
   by somebody sitting down to write the plugin patch.
 
+### Changed
+
+- **A run now checks that it recorded an answer to every question it asked.**
+  Before any aggregate is computed, the driver reads its own dispatch back. A
+  suspended case is asked nothing, a calibration case is asked its one check,
+  and every other case, canary included, is asked every assertion. The driver
+  checks that each declared case has exactly one result and that each result
+  holds exactly one verdict per question and none it was not asked. A gap
+  becomes an errored verdict that **names the case and the check**. The run
+  exits 2 and cannot be promoted, and the headline, `explain` and the report
+  open with *"The run does not reconcile with what the suite asked, at 1
+  check: c2 · agrees. This is not a regression: what the run measured is not
+  known."* A run that reconciles, which is every run the shipped driver
+  produced before this, reads exactly as it did. No schema change: the marker
+  rides the errored verdict. `compare --json` gains an `unreconciled` count on
+  the headline, and `explain --json` gains an `unreconciled` tally kind.
+  - **Why it exists.** **nitish-kmr** pointed out, on the Reddit thread about
+    the denominator article, what our refusal of errored runs rewards: wrapping
+    the exception so that the run finishes, which turns the error into a skip
+    inside the user's own code. That is the denominator defect again, and our
+    own cure pushes people towards it. Nothing that counts verdicts can see an
+    exception the user's code caught; [ADR 0027](docs/adr/0027-the-run-reconciles.md)
+    §2 says so and says what can. This closes the losses digline could cause
+    itself. It is the eighth defect this week in the same family: **a case that
+    vanishes, rather than a number that fails to declare itself.**
+  - **Two losses it found, both fixed.** An aggregate found its verdict by
+    `score.name` while `Suite` resolves `over` by declared name. A third-party
+    assertion that names its `Score` otherwise had its cases counted as
+    *suspended* when nobody had suspended them, so a failing verdict named
+    that way silently left the count. It is now found by identity. And a
+    resumed journal entry with no verdict and no suspension was accepted and
+    counted as suspended. It is now refused where the journal is read, before
+    the first call, beside the refusal of case ids the suite does not declare.
+
+- **The count of unjudged cases now comes with the number it is out of.** The
+  headline that `compare` prints and the report opens with, the reading
+  `explain` gives, and the single-run document all used to say *"7 cases could
+  not be judged."* Now they say *"43 of 50 cases judged, 7 could not be."* Every
+  run-level figure that left cases out also says how many and why, wherever
+  that figure is named: *"43 of 50 cases counted; 7 could not be judged."* That
+  applies to `compare`'s line for it, the report's "what happened" column and
+  `explain`. Every exclusion is named, including the canary, the calibration
+  case and the unlabelled case, so the two numbers always add up. The report's
+  column of counts (*"43 counted · 0 suspended · 7 not judged"*) is now the same
+  sentence, and it used to leave those last three out of the sum. The counts
+  were always recorded. They just were not where people read. This is
+  presentation only: no new fact, no schema change, and no field added to
+  `--json` or MCP. The headline string they already carry is the new sentence. **A run that judged every case reads exactly as before.**
+  The zero case keeps its sentence, *"Every case could be judged."*, and no
+  figure gets a clause saying it left nothing out.
+  Suggested by **nitish-kmr** on the Reddit thread about the denominator
+  article.
+
+### Fixed
+
+- **A cost that was neither a number nor an error passed the guard beside it.**
+  `CallTotals.spent_usd` was refused when negative, and `inf` and `NaN` are not
+  negative — so a bill that is not a bill went through. Since 0.16.0 that figure
+  flows into a run-level total, where two journal bill lines at `1e308` summed
+  to `inf`, and the run document was then written carrying a bare `Infinity`.
+  CPython's `json` reads that as an extension; **no strict parser does**, so the
+  file round-tripped locally and was refused by the first conforming reader — a
+  parser in another language, a linter, or an MCP client's JSON layer. Refused
+  now where the number is made, which covers the sum as well as the literal,
+  because `+` builds a new line and revalidates it. Found by the 0.16.0
+  delta-pass (B-1).
+
+### CI only
+
+- The two merges after ADR 0026 changed nothing a user installs: `codeql.yml`
+  and `scorecard.yml`, and a new `tools/actions.py` with the test that asserts
+  every action is pinned to a commit. No file under `src/`, and no format
+  version moved.
+
 ## digline-anthropic 0.5.3 — unreleased
 
 - Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
@@ -133,21 +156,6 @@ digline **0.17.0** opens schema 15 with one passenger.
   nothing for a user to install. The absence is written down here rather than
   left silent, so the next reader learns it from the changelog instead of
   rediscovering it from the provider's API.
-
-
-### Fixed
-
-- **A cost that was neither a number nor an error passed the guard beside it.**
-  `CallTotals.spent_usd` was refused when negative, and `inf` and `NaN` are not
-  negative — so a bill that is not a bill went through. Since 0.16.0 that figure
-  flows into a run-level total, where two journal bill lines at `1e308` summed
-  to `inf`, and the run document was then written carrying a bare `Infinity`.
-  CPython's `json` reads that as an extension; **no strict parser does**, so the
-  file round-tripped locally and was refused by the first conforming reader — a
-  parser in another language, a linter, or an MCP client's JSON layer. Refused
-  now where the number is made, which covers the sum as well as the literal,
-  because `+` builds a new line and revalidates it. Found by the 0.16.0
-  delta-pass (B-1).
 
 ## 0.16.0 — 2026-09-19
 
@@ -2192,7 +2200,6 @@ evidence as one checking what it does.
   langchain4j's rename; the two services now read the same, and the README
   paragraph that explained the difference is gone.
 
-
 ## pytest-digline 0.1.1 — 2026-09-10
 
 `pytest-digline` alone. digline stays at 0.9.0 and nothing else moves: this is
@@ -2334,7 +2341,6 @@ A GitHub Action, in its own repository because the Marketplace requires one.
   upload. This is that upload. The four plugin pages got theirs the same way and
   will show them on their next release.
 
-
 ## 0.8.1 — 2026-09-10
 
 digline 0.8.1. One security fix, **found by the release delta-pass over 0.8.0's
@@ -2385,7 +2391,6 @@ uv add --upgrade digline
 - The release runbook gains the standing rule the day earned: **a release that
   adds surface gets a delta-pass over that surface before the announcement
   round**, not after it.
-
 
 ## 0.8.0 — 2026-09-10
 
@@ -2514,7 +2519,6 @@ shape, nothing migrates, and no baseline is re-promoted.
   each one does not test. The dependency is `llama-index-core`, not the
   `llama-index` meta-package — no PyTorch, no model download, no key.
 
-
 ## 0.7.2 — 2026-09-10
 
 digline 0.7.2. Two more path-and-secrecy fixes, **found by our own adversarial
@@ -2572,7 +2576,6 @@ uv add --upgrade digline
   do, and [ADR 0011 §8](https://digline.dev/product/adr/0011-the-mcp-server/)
   now says that in as many words, so the next person to confirm it reads a
   decision rather than a miss.
-
 
 ## 0.7.1 — 2026-09-10
 
@@ -2643,7 +2646,6 @@ uv add --upgrade digline digline-mcp
   first. Not a security finding and it changes no output; it is the same defect
   underneath the check above, which is why it travels with it. The five reading
   tools always loaded once and are unchanged.
-
 
 ## 0.7.0 — 2026-09-09
 
