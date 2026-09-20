@@ -115,6 +115,18 @@ SPECULATION = (
 #: not say it answered. ADR 0020 §3 row 7 states the rule for the one case that
 #: looks hardest — an id echoed back is "what was asked for, not what answered".
 #:
+#: **What these gates govern is a sentence that asserts, never a question that
+#: titles.** The subject of the rule is a claim the record cannot support; a
+#: heading or a page title naming the question a reader arrived with claims
+#: nothing, and `docs/log.md`'s own title — *which model answered, down the
+#: stored runs* — is the live instance, correct because the page then answers
+#: it with "what the provider **said** answered". That is the same distinction
+#: that splits `EXECUTION_TITLE` off below: not an exception carved out of a
+#: rule, but the rule's actual shape, which is why the split is by *where the
+#: words sit* rather than by a list of things to skip. Before adding an entry,
+#: ask whether it could appear in a sentence that asserts nothing — if it can,
+#: it needs an anchor, not a broader list.
+#:
 #: Applied to `explain.*`, `fact.*`, `config.*` **and `log.*`**. `log.*` was
 #: held out when this list was written, because "answered as" there rested on
 #: ADR 0020's ruling that a *differing* reported id is a sighting, and that was
