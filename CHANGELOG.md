@@ -8,6 +8,42 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed — the verb on a reported identity, not the reading
+
+ADR 0020 is **amended, not revised**: §3's doctrine stands. An id that differs
+from the one we sent is a sighting, because no passthrough returns a string
+nobody supplied, and distinguishing it from an echo is right. The verb was
+wrong all the same.
+
+- **`digline log` said a model "answered as" a snapshot.** Nothing attests
+  that: a provider may report any string, and a proxy in front of it may
+  rewrite the one it did. The same field sits in `OBSERVED_FIELDS` — what a
+  provider **reported** rather than what the target **sent** — and the
+  configuration surface has said *reported* about it since ADR 0005 §9, so one
+  field was carrying two verbs in two renderings. `log.sighting.answered`,
+  `log.roll` and `log.spread.excluded.identity` now say *reported*, in both
+  locales.
+- **`docs/log.md` told a reader "Two verified sightings out of thirteen".**
+  Neither was verified. That line is now *reported*, and the paragraph under it
+  says why the word was reached for: digline has a vocabulary for *we cannot
+  identify what answered* — the seven absences — and **none at all for "we were
+  told and could not check"**. Everything that was not an absence fell into one
+  bucket and the bucket took the strongest available word. The amendment does
+  not fill that gap; it stops the strongest word standing in for it. The same
+  correction lands in ADR 0020's four prose locations.
+- **The wire key stays `answered`** (`wire/log.py`). It is older than the
+  distinction, and renaming it is an `OUTPUT_VERSION` bump for a word that
+  would break every consumer parsing it to tell them what they already knew.
+  The note saying so now sits beside the field, not only in the ADR, because
+  that is where somebody would go to "fix" it.
+- **`log.*` joins the `EXECUTION` gate.** It was held out when that gate landed
+  because the decision had not been taken; the comment pointing at the missing
+  decision is replaced by the decision. Headings are now checked **whole-string**
+  against `EXECUTION_TITLE` rather than as substrings, because as a clause the
+  identical words are how digline declines to claim: ADR 0020 §3 row 7 reads
+  "so what answered is not identified", and a substring rule would have forced
+  the most careful sentence in the product to be rewritten to satisfy a gate.
+
 ### Changed — four sentences the record could not support
 
 - **`explain` said the system under test "answered with" a configuration

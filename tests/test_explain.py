@@ -21,7 +21,14 @@ from html import escape
 from typing import cast
 
 import pytest
-from tests._vocabulary import ADVICE, EXECUTION, IDENTITY, MULTI_RUN, spoken
+from tests._vocabulary import (
+    ADVICE,
+    EXECUTION,
+    EXECUTION_TITLE,
+    IDENTITY,
+    MULTI_RUN,
+    spoken,
+)
 
 from digline.core import (
     Artifact,
@@ -332,7 +339,7 @@ def test_no_explain_string_claims_a_second_run(locale: Locale) -> None:
 #: `EXECUTION`. `fact.*` and `config.*` were behind no prefix gate at all until
 #: this one, which is where `config.title` "What answered" sat: an `<h2>` over
 #: a table of *sent* parameters.
-_CLAIMING = ("explain.", "fact.", "config.")
+_CLAIMING = ("explain.", "fact.", "config.", "log.")
 
 #: Sentences whose whole content is that the reading has nothing to say. They
 #: must not name the thing under test in any locale, because a reader takes
@@ -350,6 +357,24 @@ def test_no_string_claims_a_model_executed(locale: Locale) -> None:
             f"{key} in {locale} claims execution: {found} — "
             f"{TEXT[locale][key]!r}. The record holds what was sent and what "
             "was reported; say `configured` or `reported`."
+        )
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_no_heading_claims_the_table_under_it_describes_what_ran(
+    locale: Locale,
+) -> None:
+    """Whole-string, because as a clause the same words decline to claim.
+
+    `config.title` was "What answered" over a table of *sent* parameters, while
+    ADR 0020 §3 row 7 says "so what answered is not identified" — the same
+    three words, one asserting and one refusing.
+    """
+    for key in (k for k in TEXT[locale] if k.startswith(_CLAIMING)):
+        text = TEXT[locale][key]
+        assert text.strip().lower().rstrip(".") not in EXECUTION_TITLE, (
+            f"{key} in {locale} is a heading claiming execution: {text!r}. "
+            "The table under it holds configuration; name the set-up."
         )
 
 
@@ -380,10 +405,19 @@ def test_the_execution_gate_discriminates() -> None:
     caught = (
         "The system under test answered with {name} {after}.",
         "Il sistema sotto esame ha risposto con {name} {after}.",
-        "What answered",
+        "{who}, answered as {answered}",
     )
     for text in caught:
         assert spoken(EXECUTION, text), f"the gate missed {text!r}"
+
+    # The heading rule is whole-string, and the clause that shares its words
+    # must survive it — row 7's sentence is the one this gate must not touch.
+    assert "what answered" in EXECUTION_TITLE
+    row_seven = (
+        "the endpoint echoed the requested id, so what answered is not identified"
+    )
+    assert row_seven.strip().lower().rstrip(".") not in EXECUTION_TITLE
+    assert not spoken(EXECUTION, row_seven), "the gate reached row 7's sentence"
 
     allowed = (
         "The system under test answered under a different configuration: {changes}.",

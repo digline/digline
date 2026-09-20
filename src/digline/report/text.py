@@ -828,7 +828,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.side.judge": "Judge",
         "log.span": "  {sighting} — {first} to {last}, {runs} run(s){environments}",
         "log.environments": " ({environments})",
-        "log.sighting.answered": "{who}, answered as {answered}",
+        # `reported as`, never `answered as`. `resolved_model` is in
+        # `OBSERVED_FIELDS` — what a provider **reported** rather than what
+        # the target **sent** — and `config.change.*.observed` has said
+        # "reported" about that same field since ADR 0005 §9. This surface
+        # said "answered" about it, so one field had two verbs in two
+        # renderings. An id that differs from the one we sent is more than
+        # an echo and still only what the provider told us.
+        "log.sighting.answered": "{who}, reported as {answered}",
         "log.sighting.absent": "{who}: {absence}",
         "log.absence.declared_nothing": "declared no configuration",
         "log.absence.several_judges": "several judges; no single answering model",
@@ -852,7 +859,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.rolls.none": "No roll recorded.",
         "log.roll": (
-            "{side}: {sent} answered as {before} last at {last_before}, and as "
+            "{side}: {sent} reported {before} last at {last_before}, and "
             "{after} first at {first_after}."
         ),
         "log.roll.silence": (
@@ -890,7 +897,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.excluded.judge_config": (
             "{count} as grading with another instrument"
         ),
-        "log.spread.excluded.identity": "{count} as answered by another model",
+        "log.spread.excluded.identity": "{count} as another model was reported",
         "log.spread.unidentified": (
             "  {count} of the {total} run(s) did not identify the answering model."
         ),
@@ -1689,7 +1696,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "  {sighting} — da {first} a {last}, {runs} esecuzioni{environments}"
         ),
         "log.environments": " ({environments})",
-        "log.sighting.answered": "{who}, ha risposto come {answered}",
+        "log.sighting.answered": "{who}, ha riportato {answered}",
         "log.sighting.absent": "{who}: {absence}",
         "log.absence.declared_nothing": "nessuna configurazione dichiarata",
         "log.absence.several_judges": (
@@ -1716,8 +1723,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.rolls.none": "Nessun avvicendamento registrato.",
         "log.roll": (
-            "{side}: {sent} ha risposto come {before} l'ultima volta a "
-            "{last_before}, e come {after} la prima volta a {first_after}."
+            "{side}: {sent} ha riportato {before} l'ultima volta a "
+            "{last_before}, e {after} la prima volta a {first_after}."
         ),
         "log.roll.silence": (
             "{count} esecuzioni tra le due non hanno registrato il modello che ha "
@@ -1754,7 +1761,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.excluded.judge_config": (
             "{count} perché giudicano con un altro strumento"
         ),
-        "log.spread.excluded.identity": ("{count} perché ha risposto un altro modello"),
+        "log.spread.excluded.identity": (
+            "{count} perché è stato riportato un altro modello"
+        ),
         "log.spread.unidentified": (
             "  {count} run su {total} non hanno identificato il modello che ha "
             "risposto."
