@@ -246,6 +246,25 @@ def _add_schema_fourteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_fifteen(raw: dict[str, Any]) -> dict[str, Any]:
+    """14 -> 15. One passenger, and absence is the only honest value again.
+
+    `thinking_tokens` is left absent on every recorded response and in every
+    total, and absent means exactly what it means in a document written at 15:
+    **not reported**. A call measured before this release may well have spent
+    output tokens thinking — the provider reported the split or did not, and
+    nothing in the stored document says which. Writing `0` would state that a
+    reasoning model did none, which is the invention ADR 0014 §1's second
+    condition refuses; deriving one from `output_tokens` would be worse, since
+    it would put a fabricated breakdown beside a real total.
+
+    So the step writes nothing and still has to **exist**, for the reason every
+    step since 9 gives: a version with no entry in `_STEPS` is one whose bump
+    was not additive, and that statement about 14 would be false. (ADR 0026 §6)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -259,6 +278,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     11: _add_schema_twelve,
     12: _add_schema_thirteen,
     13: _add_schema_fourteen,
+    14: _add_schema_fifteen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

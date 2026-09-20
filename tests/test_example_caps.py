@@ -146,6 +146,11 @@ RELEASED: dict[str, int] = {
     # one. The train is open — the first passenger is here and what else may
     # ride is judged against ADR 0014 §1, not against convenience.
     "0.16.0": 14,
+    # 15 — the thinking a model charged for (ADR 0026): the output tokens spent
+    # thinking, where the provider reports the split, as a third state beside
+    # the count and the zero. One passenger, and the consumers were ready
+    # before the field was.
+    "0.17.0": 15,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

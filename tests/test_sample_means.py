@@ -212,7 +212,7 @@ def test_the_step_writes_nothing() -> None:
             del verdict["sample_means"]
     # 13 -> 14 writes nothing either (ADR 0025 §7), so a schema-12 document
     # still arrives here unchanged but for its version.
-    assert SCHEMA_VERSION == 14
+    assert SCHEMA_VERSION == 15
     assert upgrade_document({**unstamped, "schema_version": 12}) == unstamped
 
 

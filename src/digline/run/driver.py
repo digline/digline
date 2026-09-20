@@ -257,11 +257,14 @@ def judge_totals(suite: Suite) -> CallTotals:
             seen.setdefault(id(judge), judge)
     total = CallTotals()
     for judge in seen.values():
-        total = CallTotals(
-            calls=total.calls + judge.calls,
-            counted=total.counted + judge.calls,
-            tokens=total.tokens + judge.tokens,
-            spent_usd=total.spent_usd + judge.spent_usd,
+        # Through `CallTotals.__add__` rather than field by field, so a judge
+        # that has made no call stays neutral in the fold instead of unreporting
+        # the thinking split of the judges beside it (ADR 0026 §3).
+        total = total + CallTotals(
+            calls=judge.calls,
+            counted=judge.calls,
+            tokens=judge.tokens,
+            spent_usd=judge.spent_usd,
         )
     return total
 
@@ -286,6 +289,17 @@ def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
             ),
             cache_write_tokens=(
                 after.tokens.cache_write_tokens - before.tokens.cache_write_tokens
+            ),
+            # **An unreported total stays unreported through a subtraction**:
+            # if any call in this run reported no split, `after` is already
+            # `None` and the difference is unknown, not zero. A `before` that
+            # reported nothing subtracts nothing — it is a judge that had made
+            # no counted call, and `None` there is an absence rather than a
+            # number to take away. (ADR 0026 §3)
+            thinking_tokens=(
+                None
+                if after.tokens.thinking_tokens is None
+                else after.tokens.thinking_tokens - (before.tokens.thinking_tokens or 0)
             ),
         ),
         spent_usd=after.spent_usd - before.spent_usd,

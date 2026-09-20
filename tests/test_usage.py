@@ -339,7 +339,9 @@ def test_two_instances_of_the_same_judge_are_two_bills() -> None:
 def test_the_step_to_fourteen_writes_nothing() -> None:
     run = execute(suite(), Counting(), created_at=CREATED)
     current = run_to_dict(run)
-    assert SCHEMA_VERSION == 14
+    # 14 -> 15 writes nothing either (ADR 0026 §6), so a schema-13 document
+    # still arrives here unchanged but for its version.
+    assert SCHEMA_VERSION == 15
     assert upgrade_document({**current, "schema_version": 13}) == current
 
 
@@ -348,8 +350,8 @@ def test_a_migrated_document_records_no_bill_and_is_not_a_zero() -> None:
     reader must be able to tell them apart, which is the whole of §7's second
     condition."""
     run = execute(suite(), Counting(), created_at=CREATED)
-    at_thirteen = {k: v for k, v in run_to_dict(run).items() if k != "usage"}
-    migrated = run_from_json(json.dumps({**at_thirteen, "schema_version": 14}))
+    without = {k: v for k, v in run_to_dict(run).items() if k != "usage"}
+    migrated = run_from_json(json.dumps({**without, "schema_version": SCHEMA_VERSION}))
     assert migrated.usage is None
 
     quiet = execute(suite(), Counting(quiet_after=0), created_at=CREATED)

@@ -383,6 +383,9 @@ def _usage_document(usage: RunUsage) -> dict[str, object]:
             "output_tokens": line.tokens.output_tokens,
             "cache_read_tokens": line.tokens.cache_read_tokens,
             "cache_write_tokens": line.tokens.cache_write_tokens,
+            # `null` where no call in the line reported a split — the total's
+            # own third state, and never a zero. (ADR 0026 §3)
+            "thinking_tokens": line.tokens.thinking_tokens,
             "spent_usd": line.spent_usd,
         }
         for side, line in (("target", usage.target), ("judge", usage.judge))

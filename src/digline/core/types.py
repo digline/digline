@@ -585,6 +585,27 @@ class Usage:
     #: Folding them in would have reported that call as a thousandth of its
     #: cost, in the direction of good news. (friction 25)
     cache_write_tokens: int = 0
+    #: Output tokens the model spent thinking before it answered, where the
+    #: provider reports the split.
+    #:
+    #: **`None` is *not reported* and is never guessed as `0`.** Three states,
+    #: three different facts: `None` is a provider — or an SDK too old to carry
+    #: the field — that said nothing; `0` is a provider that reported a split
+    #: and a reply that did no thinking; `n` is the count. Writing `0` for the
+    #: first would report the absence of a field as the absence of thinking.
+    #:
+    #: **A breakdown, not a new billable quantity — the inverse of
+    #: `cache_write_tokens`.** Those are reported *outside* `input_tokens` and
+    #: must be added or the call is priced at a fraction of its cost (friction
+    #: 25). These are reported *inside* the output count by both providers, so
+    #: the money is already counted and adding them would bill every reasoning
+    #: call twice. `Pricing.cost` does not read this field. (ADR 0026 §2)
+    #:
+    #: **Re-tokenised, and therefore approximate**: it is derived after the
+    #: fact rather than counted as the model emitted, so it may not reconcile
+    #: to the digit with any other count. Nothing here derives anything from
+    #: it. (ADR 0026 §4)
+    thinking_tokens: int | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -595,6 +616,23 @@ class Usage:
         ):
             if getattr(self, name) < 0:
                 raise ValueError(f"Usage.{name} must not be negative")
+        if self.thinking_tokens is None:
+            return
+        if self.thinking_tokens < 0:
+            raise ValueError("Usage.thinking_tokens must not be negative")
+        if self.thinking_tokens > self.output_tokens:
+            # Refused by name, never clamped. A clamp hides two things somebody
+            # has to be told: a provider whose accounting has drifted, and a
+            # plugin reading the wrong field into the right one. It is
+            # `ClaimReply`'s rule for `supported > total`, one layer down — two
+            # counts can be contradicted by arithmetic, so the arithmetic is
+            # done. (ADR 0026 §3)
+            raise ValueError(
+                f"Usage says {self.thinking_tokens} of {self.output_tokens} "
+                "output tokens were thinking, which is more thinking than "
+                "output: the provider reports the split inside the output "
+                "count, so a larger one is a malformed reply"
+            )
 
     def __add__(self, other: Usage) -> Usage:
         """Two calls' counts, summed field by field.
@@ -603,11 +641,38 @@ class Usage:
         place. It exists because a run total is a fold over calls (ADR 0025 §3),
         and a fold written by hand at three call sites is a fold that drifts.
         """
+        # **`None` propagates.** Two reported sides add; any unreported side
+        # makes the total unreported. Folding an unreported split into a
+        # reported one would report a number *smaller than the truth*, in the
+        # good-news direction — the direction friction 25 and B-1 were both
+        # about. A call that reported no split did not think less; it thought
+        # an unknown amount, and the honest total of a known number and an
+        # unknown one is unknown. (ADR 0026 §3)
+        thinking = (
+            None
+            if self.thinking_tokens is None or other.thinking_tokens is None
+            else self.thinking_tokens + other.thinking_tokens
+        )
+        output = self.output_tokens + other.output_tokens
+        # **An assert, and deliberately not a refusal.** Both sides are bounded
+        # by their own output, so the sums are bounded too: there is no honest
+        # way for this to fire. `thinking > output` on one reply is a malformed
+        # *reply* and is refused by name, which says whose fault it is; a folded
+        # total exceeding its own output could only be this fold's arithmetic —
+        # our fault, the family B-1's finite guard belongs to. Promoting it to a
+        # named refusal would dress our own bug as a hostile input, and the
+        # message would blame a provider for it. (ADR 0026 §3)
+        assert thinking is None or thinking <= output, (
+            f"folding {self.thinking_tokens} and {other.thinking_tokens} "
+            f"thinking tokens gave {thinking} of {output} output tokens: this "
+            "fold is wrong, not the replies it added"
+        )
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
-            output_tokens=self.output_tokens + other.output_tokens,
+            output_tokens=output,
             cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
             cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+            thinking_tokens=thinking,
         )
 
 

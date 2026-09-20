@@ -718,7 +718,7 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     # Through 12, 13 and on to 14, whose steps write nothing either (ADR 0018
     # §1 amended 2026-09-17, ADR 0024 §6.5, ADR 0025 §7): what 11 -> 12 adds is
     # still nothing.
-    assert SCHEMA_VERSION == 14
+    assert SCHEMA_VERSION == 15
     assert upgrade_document(at_eleven) == current
 
 

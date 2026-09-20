@@ -148,6 +148,7 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
             "say so: `pricing=free(...)`"
         )
     prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+    reasoning = _reasoning(usage)
     details = getattr(usage, "prompt_tokens_details", None)
     cached = int(getattr(details, "cached_tokens", 0) or 0)
     written = _cache_writes(details)
@@ -157,7 +158,34 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
         output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
         cache_read_tokens=cached,
         cache_write_tokens=written,
+        thinking_tokens=reasoning,
     )
+
+
+def _reasoning(usage: Any) -> int | None:
+    """The output tokens spent reasoning, or `None` for *not reported*.
+
+    `completion_tokens_details.reasoning_tokens`, read through the optional
+    container so an absent one — an older SDK, or a model that reports no
+    split — gives `None` rather than a `0` nobody measured. (ADR 0026 §1)
+
+    **Only `reasoning_tokens`, of that type's five fields.** Its siblings
+    answer different questions: `audio_tokens` is a modality,
+    `accepted_prediction_tokens` and `rejected_prediction_tokens` are
+    speculative-decoding accounting, `text_tokens` is the other half of the
+    modality split. None of them is *thinking the model was charged for and the
+    reader cannot see*. Named here so the next reader knows they were seen and
+    left. (ADR 0026 §5)
+
+    **Not added to the cost**: reasoning tokens are part of `completion_tokens`
+    already, so adding them would bill a reasoning call twice — the inverse of
+    the cache-write case above, which sits outside its total. (ADR 0026 §2)
+    """
+    details = getattr(usage, "completion_tokens_details", None)
+    if details is None:
+        return None
+    found = getattr(details, "reasoning_tokens", None)
+    return None if found is None else int(found)
 
 
 def _cache_writes(details: Any) -> int:
