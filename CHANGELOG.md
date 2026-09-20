@@ -120,7 +120,7 @@ digline **0.17.0** opens schema 15 with one passenger.
   every action is pinned to a commit. No file under `src/`, and no format
   version moved.
 
-## digline-anthropic 0.5.3 — unreleased
+## digline-anthropic 0.5.3 — 2026-09-20
 
 - Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
   An `anthropic` too old to carry the container, and a reply without the
@@ -129,7 +129,7 @@ digline **0.17.0** opens schema 15 with one passenger.
   of two fields and no container at all.
 - Needs digline **0.17.0 or later**, which is where the field arrives.
 
-## digline-openai 0.5.2 — unreleased
+## digline-openai 0.5.2 — 2026-09-20
 
 - Reads `completion_tokens_details.reasoning_tokens` into
   `Usage.thinking_tokens`, the same way.
