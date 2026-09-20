@@ -990,6 +990,15 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
+5. **The example reports:** re-render every committed `report.html` against the
+   tagged release, in the order the ritual requires — commit the example,
+   render, commit the report on top, never amend — so each report records a
+   commit somebody can reach. A report is a photograph of the run that
+   produced it, which is why a string change does **not** regenerate one: four
+   of them carried a stale `What answered` heading from the moment that
+   heading was corrected, deliberately, until the next tag. This step is what
+   clears that debt, and it is a step so that it happens by procedure rather
+   than because somebody noticed a heading.
 
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and

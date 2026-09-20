@@ -181,6 +181,7 @@ STANDALONE = (
     "llamaindex",
     "quickstart-toml",
     "operator",
+    "mcp-tools",
 )
 
 #: The examples whose application has to be started from **outside** the suite,

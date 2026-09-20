@@ -1,0 +1,98 @@
+{
+  "aggregate": [],
+  "artifacts": {
+    "tools.json": {
+      "sha": "154fc81baa11b05f19af57ade4701bfcd459d7ad555b8522ab62df5735bf62f3",
+      "text": "[\n  {\n    \"description\": \"Look up a customer record by id. Use this whenever the user mentions a customer, an account or an order.\",\n    \"inputSchema\": {\n      \"properties\": {\n        \"customer_id\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"customer_id\"\n      ],\n      \"type\": \"object\"\n    },\n    \"name\": \"lookup_customer\"\n  },\n  {\n    \"description\": \"Search the product documentation for a phrase and return the matching passages.\",\n    \"inputSchema\": {\n      \"properties\": {\n        \"query\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"query\"\n      ],\n      \"type\": \"object\"\n    },\n    \"name\": \"search_docs\"\n  }\n]\n"
+    }
+  },
+  "config_hash": "439baca06ef32a29",
+  "created_at": "2026-09-20T12:54:53.800928+00:00",
+  "digline_version": "0.17.0",
+  "environment": "staging",
+  "git_commit": "8c77f33528f776b8d8f6c952fb298e0b1c9b9eb2-dirty",
+  "judge_config": {},
+  "metadata": {},
+  "promoted_at": "2026-09-20T12:54:53.923911+00:00",
+  "redacted": false,
+  "results": [
+    {
+      "case_id": "explicit-id",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "644f1d3dcf46f65b",
+          "metadata": {
+            "called": [
+              "lookup_customer"
+            ],
+            "tool_calls": 1
+          },
+          "reason": "called 'lookup_customer', expected 'lookup_customer'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "44d5ff749db47e38",
+          "metadata": {},
+          "reason": "'lookup_customer' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "case_id": "no-id",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "tools_called",
+          "assertion_id": "644f1d3dcf46f65b",
+          "metadata": {
+            "called": [
+              "lookup_customer"
+            ],
+            "tool_calls": 1
+          },
+          "reason": "called 'lookup_customer', expected 'lookup_customer'",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "assertion": "contains",
+          "assertion_id": "44d5ff749db47e38",
+          "metadata": {},
+          "reason": "'lookup_customer' found in the output",
+          "score": 1.0,
+          "status": "pass",
+          "threshold": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    }
+  ],
+  "schema_version": 15,
+  "suite": "agent-tools",
+  "target_config": {},
+  "tenant": "northwind",
+  "usage": {
+    "judge": {
+      "calls": 0,
+      "counted": 0,
+      "spent_usd": 0.0
+    },
+    "target": {
+      "calls": 2,
+      "counted": 0,
+      "spent_usd": 0.0
+    }
+  }
+}
