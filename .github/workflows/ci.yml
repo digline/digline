@@ -15,6 +15,15 @@ on:
   # construction *before* any example updated to depend on what that tag just
   # published. Run it by hand against `main` after such a change.
   workflow_dispatch:
+    inputs:
+      image_pins_as_written:
+        description: >-
+          Build the image with docker/Dockerfile's pins exactly as written,
+          even where CHANGELOG.md declares one of them unreleased. This is how
+          to ask for the real build before the tag, and how to see the red the
+          window suppresses on purpose.
+        type: boolean
+        default: false
 
 # A second push to the same branch cancels the first: CI that reports on a
 # commit nobody is looking at any more is CI that costs and says nothing.
@@ -267,6 +276,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      - name: Decide which versions this build installs
+        # Between the commit that bumps the version and the tag that releases
+        # it, `docker/Dockerfile` pins versions PyPI does not serve yet —
+        # `tests/test_docker.py` requires it to pin what the workspace
+        # declares, so the two move together and the index cannot follow until
+        # the release. Days of that is a red nobody can act on.
+        #
+        # So inside that window this builds the image against the last
+        # published versions and says so in the summary, rather than skipping
+        # the build: the window is exactly when `docker/` gets edited, and a
+        # skipped build says nothing about an edited Dockerfile.
+        #
+        # The window is read from the CHANGELOG's `— unreleased` heading, not
+        # from the index, so that a pin that is merely *wrong* still goes red.
+        # `tools/image_pins.py` has the whole ruling.
+        id: pins
+        env:
+          FORCE_REAL_PINS: ${{ inputs.image_pins_as_written }}
+        run: |
+          set -euo pipefail
+          .github/docker_pins.sh docker/Dockerfile > /tmp/pins.txt
+          python3 tools/image_pins.py --manifest /tmp/pins.txt --out /tmp/pins.txt
+
       - name: Wait for every pinned version to be served to this runner
         # This job is the most exposed consumer in the repository and had no
         # wait at all. It runs on `workflow_run: [publish] completed` — the
@@ -284,14 +316,13 @@ jobs:
         # step's fault.** `docker/Dockerfile` is bumped in the commit the tag
         # points at, so the push-triggered `ci` runs before the `pypi` job has
         # uploaded anything. The failure message says which of the two cases it
-        # is; the follow-on `ci` after `publish` is the run that counts.
+        # is; the follow-on `ci` after `publish` is the run that counts. The
+        # step above has already moved any pin the changelog declares
+        # unreleased, so what reaches here is what this build will install.
         env:
           TIMEOUT: "240"
           INTERVAL: "15"
-        run: |
-          set -euo pipefail
-          .github/docker_pins.sh docker/Dockerfile > /tmp/pins.txt
-          python3 .github/await_index.py --manifest /tmp/pins.txt
+        run: python3 .github/await_index.py --manifest /tmp/pins.txt
 
       - name: Build for this runner's architecture, load, do not push
         # `load: true` and no `push:`. One architecture because this one has to
@@ -309,7 +340,15 @@ jobs:
           cache-from: type=gha
           # The wait from inside the build, where `pip` resolves. The runner-side
           # step above passed on 0.14.1 and the install still failed 20s later.
-          build-args: AWAIT_INDEX_TIMEOUT=240
+          #
+          # The four versions come from the step that decided them, and are the
+          # Dockerfile's own `ARG` defaults everywhere except inside the window
+          # before a tag. Passing them always, rather than only when they
+          # differ, keeps one source for what this build installs — and the
+          # build log names it.
+          build-args: |
+            AWAIT_INDEX_TIMEOUT=240
+            ${{ steps.pins.outputs.build_args }}
 
       - name: The front page's quickstart, on a mounted volume
         # The same script the release runs, against an image built the same

@@ -92,6 +92,51 @@ changelog entry below is dated, `tools/home_capture.py --check` refuses the
 capture that names the previous version. That is the next section, and it is a
 step of the same pull request.
 
+### The window before the tag
+
+Step 2 above opens a window, and it can be days wide. `docker/Dockerfile` now
+pins a version **PyPI does not serve**, and it has to: the test in the table
+above requires the image to pin what the workspace declares, so the two move
+together and the index cannot follow until the release. Every build of that
+image in between fails at the index wait — not because anything in the tree is
+wrong, but because the thing it waits for does not exist yet.
+
+This is **not** the short red documented under *After the tag*, and the two are
+worth keeping apart. That one lasts minutes, sits on the release commit, and
+heals itself when `publish` finishes. This one lasts until the tag: 0.16.0 was
+pinned at 20:50 on 2026-09-18 and released at 13:17 the next day, sixteen and a
+half hours; 0.17.0 was pinned on 2026-09-19 and was still unreleased the day
+after. And it is not only the commits that touch `docker/`: the weekly
+scheduled `ci` has no base commit to diff against, so it builds the image every
+Monday, window or no window.
+
+A red that stands for days and that nobody is meant to act on is a red that
+stops being read, and it stops being read on the job that also reports the ones
+that matter. So `ci` handles the window rather than leaving it:
+
+- **`tools/image_pins.py` decides what the build installs.** A pin the index
+  does not serve, whose exact version `CHANGELOG.md` declares with an
+  `— unreleased` heading, is built at the newest version the index *does*
+  serve. The job summary names every version it moved and why.
+- **It reads a declaration, never the index alone.** A pin that is simply
+  wrong — `0.17.O`, a letter for a zero — is declared nowhere, so nothing is
+  substituted for it and the wait fails it by name, inside the window as
+  outside it. Same for a version no heading mentions: it reaches the wait
+  untouched, which is what tells *propagating* from *never uploaded*.
+- **The image is built, not skipped.** The window is exactly when `docker/` is
+  edited, so a skipped build would go dark precisely when it is needed. What a
+  window build stops proving is the pin itself, and the pin is proven twice
+  elsewhere: by `test_the_image_pins_the_versions_this_workspace_declares` in
+  the tree, and by the real build at release.
+- **To see the window's red on purpose**, run `ci` from the Actions tab with
+  `image_pins_as_written` set. Nothing is substituted, and an absence from the
+  index fails the job. That is the check to run by hand if you have edited
+  `docker/Dockerfile` itself during the window.
+
+Nothing here changes at release. The moment the heading below is dated, it
+stops being a declaration, the substitution stops with it, and the pins are
+waited for as written.
+
 ## Before the tag: the changelog
 
 `CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
@@ -952,6 +997,11 @@ found` from `pip`, which is the same sentence a typo'd pin produces. Now the
 and names the version and the shape of the absence, so the expected red and a
 real defect no longer read alike. **If that step reports a project that has
 never been published, that is not this race** — read it.
+
+This red is the *short* one, and it belongs to the release commit. The days
+between the version bump and the tag are the other window, and `ci` does not go
+red through them: see *The window before the tag*. Dating the changelog heading
+is what ends that window and hands the pins back to this race.
 
 **A red `docker-publish` on the release tag no longer means "re-run it".** It
 used to: the job's own wait asked only about `digline`, from the runner, and
