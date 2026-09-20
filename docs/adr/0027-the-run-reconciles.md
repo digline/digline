@@ -218,8 +218,15 @@ the declared count, and recording the count would board a schema train.
 
 ## Not decided here
 
-- **An errored aggregate blocks nothing.** Promotion and the exit code read
-  per-case verdicts only, so a run whose only run-level figure errored, for
-  example precision over nothing kept, exits 0 and is promotable. This was found
-  by the same investigation, and it is a separate ruling: it changes the exit
-  code of existing suites, which nothing in this record does.
+- **An errored aggregate blocks nothing, and that is this record's own family
+  one level up.** Promotion and the exit code read per-case verdicts only, so a
+  run whose only run-level figure errored — precision over nothing kept, say —
+  exits 0 and can be promoted. **An errored figure is a number we do not have**,
+  and exiting 0 asserts that nothing got worse on the strength of a measurement
+  that is missing. Where §1 catches a case that vanished, this is a gate that
+  vanished, and the run says nothing either way.
+
+  It is held back rather than open: it changes the exit code of suites that
+  have one today, which nothing in this record does. **It belongs in the next
+  minor, with a changelog line of its own.** It is not a question waiting for
+  an answer.
