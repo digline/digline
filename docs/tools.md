@@ -28,7 +28,7 @@ useful.
 import json
 from pathlib import Path
 
-tools = await session.list_tools()          # your MCP client
+tools = await session.list_tools()  # your MCP client
 payload = [
     {
         "name": t.name,
