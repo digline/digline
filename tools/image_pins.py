@@ -165,21 +165,60 @@ def decide(
     return chosen, notes
 
 
-def summary(notes: list[str], forced: bool) -> str:
+def contradicted(
+    pins: list[tuple[str, str]],
+    served: dict[str, set[str]],
+    declared: dict[str, str],
+) -> list[str]:
+    """Declarations the index disagrees with: unreleased, and yet served.
+
+    This cannot open a window — a version the index serves never reaches the
+    question — so it is said rather than failed. It is still worth saying. The
+    heading is what this gate trusts, and a stale one is a trap set for the day
+    that version stops being served: a real absence would then read as an
+    expected one. `v0.17.0` left two of these on `main`.
+
+    Not a failure *here*, for the reason the window exists at all: a changelog
+    somebody forgot to date is not the image's fault, and putting it on the
+    image job is the red this gate was written to remove. It fails offline
+    instead, in the pull request that writes it — `tests/test_versions.py::
+    test_a_dated_release_leaves_no_package_declared_unreleased`.
+    """
+    return [
+        f"`{package}=={version}` is declared unreleased in `CHANGELOG.md`, and "
+        "the index serves it: the declaration is stale."
+        for package, version in pins
+        if declared.get(package) == version and version in served.get(package, set())
+    ]
+
+
+def summary(notes: list[str], forced: bool, stale: list[str] | None = None) -> str:
     """What the job says about itself, in the words a reader needs.
 
     A build that installed something other than what the Dockerfile says has to
     declare it where the result is read, or the green is a lie by omission.
     """
+    said = ""
+    if stale:
+        said = (
+            "### A changelog heading the index contradicts\n\n"
+            + "".join(f"- {line}\n" for line in stale)
+            + "\nNothing was substituted for these and nothing failed: a "
+            "version the index serves never reaches that question. It is said "
+            "because this gate reads those headings, and a stale one is a trap "
+            "for the day the version stops being served. Date the heading — "
+            "`tests/test_versions.py` refuses it in the release pull "
+            "request.\n\n"
+        )
     if forced:
-        return (
+        return said + (
             "### The image was built with the pins as written\n\n"
             "`image_pins_as_written` was set, so no version was substituted "
             "and an absence from the index is a failure.\n"
         )
     if not notes:
-        return ""
-    return (
+        return said
+    return said + (
         "### The image was built against published versions\n\n"
         + "".join(f"- {note}\n" for note in notes)
         + "\nThis is the window between the version bump and the tag "
@@ -261,6 +300,11 @@ def main(argv: list[str]) -> int:
         print(f"  {package}=={version}{moved}")
     for note in notes:
         print(f"note: {note}")
+    # Only ever said, never fatal — see `contradicted`. `forced` skips asking
+    # the index at all, so there is nothing to disagree with.
+    disagreements = [] if forced else contradicted(pins, served, declared)
+    for line in disagreements:
+        print(f"stale: {line}")
 
     if out is not None:
         out.write_text(
@@ -274,7 +318,7 @@ def main(argv: list[str]) -> int:
         + "".join(f"{arg_name(p)}={v}\n" for p, v in chosen)
         + "IMAGE_PINS\n",
     )
-    _append("GITHUB_STEP_SUMMARY", summary(notes, forced))
+    _append("GITHUB_STEP_SUMMARY", summary(notes, forced, disagreements))
     return 0
 
 

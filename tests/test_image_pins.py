@@ -24,6 +24,7 @@ from pathlib import Path
 
 from image_pins import (
     arg_name,
+    contradicted,
     decide,
     declared_unreleased,
     newest,
@@ -200,6 +201,43 @@ def test_a_prerelease_is_never_what_the_fallback_picks():
     assert newest({"0.16.0", "0.17.0rc1", "0.17.0.dev1"}) == "0.16.0"
     assert newest({"0.17.0rc1"}) is None
     assert newest({"0.9.0", "0.10.0"}) == "0.10.0"
+
+
+# --------------------------------------------------------------------------
+# A declaration the index disagrees with
+
+
+def test_a_declaration_the_index_contradicts_is_said_in_the_summary():
+    # Declared unreleased, and served. The window never opens for it — the
+    # pin is left alone — but the heading is stale and the summary says so,
+    # because the day that version stops being served this gate would read a
+    # real absence as an expected one. This is the v0.17.0 state on main.
+    served = {"digline-anthropic": {"0.5.2", "0.5.3"}}
+    declared = {"digline-anthropic": "0.5.3"}
+    lines = contradicted([("digline-anthropic", "0.5.3")], served, declared)
+    assert lines == [
+        "`digline-anthropic==0.5.3` is declared unreleased in `CHANGELOG.md`, "
+        "and the index serves it: the declaration is stale."
+    ]
+    written = summary([], forced=False, stale=lines)
+    assert "A changelog heading the index contradicts" in written
+    assert "digline-anthropic==0.5.3" in written
+    assert "test_versions.py" in written
+
+
+def test_a_declaration_the_index_agrees_with_says_nothing():
+    # The ordinary window: declared unreleased, and genuinely not served.
+    # There is no contradiction to report — the substitution note is the
+    # whole story, and a second line about it would be noise.
+    served = {"digline": {"0.16.0"}}
+    assert contradicted([("digline", "0.17.0")], served, {"digline": "0.17.0"}) == []
+    # And a pin no heading mentions says nothing either.
+    assert contradicted([("digline", "0.17.0")], served, {}) == []
+
+
+def test_nothing_moved_and_nothing_contradicted_writes_no_summary():
+    assert summary([], forced=False, stale=[]) == ""
+    assert summary([], forced=False) == ""
 
 
 # --------------------------------------------------------------------------
