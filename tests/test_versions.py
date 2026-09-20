@@ -692,6 +692,188 @@ def test_every_recorded_file_is_swept_and_every_literal_is_still_there() -> None
 
 
 # --------------------------------------------------------------------------- #
+# What the release said it published
+# --------------------------------------------------------------------------- #
+
+#: `## 0.17.0 — 2026-09-20`, and `## digline-anthropic 0.5.3 — 2026-09-20`.
+#: The em dash is the changelog's. What follows it is read whole rather than
+#: matched against a date: `unreleased` is the only other thing written there,
+#: and a heading that says something a third way should be looked at, not
+#: silently treated as one of the two.
+HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
+
+#: Packages allowed to sit at `— unreleased` while the core's own heading is
+#: dated, each with the reason. Empty, and it should stay that way most of the
+#: time: the state it allows is real but narrow — a plugin bumped between two
+#: core releases, waiting for a named tag of its own. Registering one is a
+#: sentence somebody writes and somebody reads, which is the point. What it
+#: must not become is the way to make this red go away: the red it exists for
+#: is `v0.17.0` publishing two plugins and leaving both declared unreleased.
+UNRELEASED_ON_PURPOSE: dict[str, str] = {}
+
+
+def heading_of(changelog: str, name: str | None, version: str) -> str | None:
+    """What follows the em dash on that heading, or None if there is no such
+    heading. `name` is None for the core, whose headings carry no name."""
+    pattern = HEADING.format(
+        name=f"{re.escape(name)}[ \t]+" if name else "", version=re.escape(version)
+    )
+    found = re.search(pattern, changelog, re.M)
+    return found.group(1) if found else None
+
+
+def still_unreleased(
+    changelog: str,
+    version: str,
+    packages: list[tuple[str, str]],
+    allowed: dict[str, str] | None = None,
+) -> list[str]:
+    """The packages a dated release left declared unreleased, named.
+
+    Empty while the core's heading is `unreleased` — a branch ahead of its tag
+    publishes nothing, so nothing it carries can be late. Empty, too, once
+    every heading is dated. The one case it speaks for is a dated core beside
+    a package that is not.
+    """
+    allowed = allowed or {}
+    core = heading_of(changelog, None, version)
+    if core is None or core == "unreleased":
+        return []
+    return [
+        f"{name} {package_version} — {found or 'no heading at all'}"
+        for name, package_version in packages
+        if name not in allowed
+        and (found := heading_of(changelog, name, package_version)) != core
+        and (found is None or found == "unreleased")
+    ]
+
+
+def _workspace_packages() -> list[tuple[str, str]]:
+    """Every (distribution name, version) that `packages/` declares."""
+    found: list[tuple[str, str]] = []
+    for path in sorted((ROOT / "packages").glob("*/pyproject.toml")):
+        with path.open("rb") as handle:
+            project = tomllib.load(handle)["project"]
+        found.append((str(project["name"]), str(project["version"])))
+    return found
+
+
+def test_a_dated_release_leaves_no_package_declared_unreleased() -> None:
+    """What `v0.17.0` did, and nothing here caught: `publish.yml` builds the
+    whole workspace and uploads everything the index lacks, so that tag
+    released digline-anthropic 0.5.3 and digline-openai 0.5.2 beside the core —
+    and both headings still read `— unreleased` on `main` afterwards.
+
+    It is more than tidiness now. `tools/image_pins.py` reads those headings to
+    decide whether a pin the index does not serve is *expected*. A stale
+    `unreleased` cannot open that window by itself — the gate asks the index
+    first, and a version it serves ends the question — but if that version ever
+    stopped being served, a real absence would read as an expected one and the
+    image would quietly build against the release before it. This closes it
+    where it starts: offline, in the release pull request.
+
+    The core's own heading is the condition. Dated means this tree sits on a
+    release and everything that release carried is out; `unreleased` means the
+    branch is ahead of its tag, which is where `unreleased` is the right word.
+    """
+    version = current()
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    core = heading_of(changelog, None, version)
+    assert core is not None, (
+        f"CHANGELOG.md has no `## {version} — …` heading, and pyproject.toml "
+        f"says this workspace is at {version}. *Before the tag: the changelog* "
+        "writes it, on the commit the tag will point at."
+    )
+
+    undated = still_unreleased(
+        changelog, version, _workspace_packages(), UNRELEASED_ON_PURPOSE
+    )
+    assert not undated, (
+        f"CHANGELOG.md dates the core at `## {version} — {core}`, so this tree "
+        "is on a release — and these are still declared unreleased, or have no "
+        "heading at all:\n  "
+        + "\n  ".join(undated)
+        + "\n\nA workspace tag publishes every package the index lacks, not "
+        "only the core, so each of these went to PyPI with it. Date the "
+        "heading as the core's is dated, and say which tag published it: a "
+        "reader looking for a named tag of its own will not find one. If a "
+        "package is genuinely waiting for a tag of its own, register it in "
+        "UNRELEASED_ON_PURPOSE with that reason."
+    )
+
+
+#: The two states of one changelog, written out rather than generated, because
+#: what is under test is a shape somebody types by hand.
+_PACKAGES = [("digline-anthropic", "0.5.3"), ("digline-openai", "0.5.2")]
+_BEFORE_THE_TAG = (
+    "## 0.17.0 — unreleased\n\n"
+    "## digline-anthropic 0.5.3 — unreleased\n\n"
+    "## digline-openai 0.5.2 — unreleased\n"
+)
+_AFTER_THE_TAG = _BEFORE_THE_TAG.replace("unreleased", "2026-09-20")
+
+
+def test_a_branch_ahead_of_its_tag_may_declare_everything_unreleased() -> None:
+    """The state every branch is in between releases, and the one this must
+    not touch: the core says `unreleased`, so nothing it carries is out yet."""
+    assert still_unreleased(_BEFORE_THE_TAG, "0.17.0", _PACKAGES) == []
+
+
+def test_a_release_with_every_heading_dated_passes() -> None:
+    assert still_unreleased(_AFTER_THE_TAG, "0.17.0", _PACKAGES) == []
+
+
+def test_a_dated_core_beside_an_undated_package_is_refused_by_name() -> None:
+    """The v0.17.0 state exactly. The name is the point: a failure that said
+    "a package" would leave the reader to diff the file."""
+    changelog = _AFTER_THE_TAG.replace(
+        "## digline-openai 0.5.2 — 2026-09-20",
+        "## digline-openai 0.5.2 — unreleased",
+    )
+    late = still_unreleased(changelog, "0.17.0", _PACKAGES)
+    assert late == ["digline-openai 0.5.2 — unreleased"]
+
+
+def test_a_package_with_no_heading_at_all_is_refused_too() -> None:
+    """Deleting the heading is the other way to leave a release undeclared,
+    and it reads as silence rather than as a claim."""
+    changelog = _AFTER_THE_TAG.replace("## digline-openai 0.5.2 — 2026-09-20\n", "")
+    assert still_unreleased(changelog, "0.17.0", _PACKAGES) == [
+        "digline-openai 0.5.2 — no heading at all"
+    ]
+
+
+def test_a_registered_package_is_allowed_to_wait_for_its_own_tag() -> None:
+    """The narrow real case: a plugin bumped between two core releases, whose
+    named tag has not happened yet. It passes only once somebody has written
+    down why."""
+    changelog = _AFTER_THE_TAG.replace(
+        "## digline-openai 0.5.2 — 2026-09-20",
+        "## digline-openai 0.5.2 — unreleased",
+    )
+    assert (
+        still_unreleased(
+            changelog,
+            "0.17.0",
+            _PACKAGES,
+            {"digline-openai": "bumped after the tag; waits for its own"},
+        )
+        == []
+    )
+
+
+def test_a_heading_the_release_dated_later_is_not_read_as_unreleased() -> None:
+    """A package released on its own tag, days after the core's, is dated
+    differently and is not late. Only the word `unreleased` and an absent
+    heading are."""
+    changelog = _AFTER_THE_TAG.replace(
+        "## digline-openai 0.5.2 — 2026-09-20",
+        "## digline-openai 0.5.2 — 2026-09-24",
+    )
+    assert still_unreleased(changelog, "0.17.0", _PACKAGES) == []
+
+
+# --------------------------------------------------------------------------- #
 # What the number is for
 # --------------------------------------------------------------------------- #
 

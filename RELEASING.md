@@ -87,10 +87,13 @@ breakage. In the order they usually appear:
 | `test_docker.py::test_the_image_readme_documents_the_version_it_ships` | step 2, `docker/README.md` |
 | `test_example_caps.py::test_the_schema_this_workspace_writes_belongs_to_a_release` | step 4 |
 
-A seventh failure is not part of this and comes later by design: once the
-changelog entry below is dated, `tools/home_capture.py --check` refuses the
-capture that names the previous version. That is the next section, and it is a
-step of the same pull request.
+Two more failures are not part of this and come later by design, both fired by
+the same act — dating the changelog entry below. `tools/home_capture.py
+--check` then refuses the capture that names the previous version, and
+`test_versions.py::test_a_dated_release_leaves_no_package_declared_unreleased`
+refuses a package the tag carries whose own heading still says `unreleased`.
+That is the next section, and both are steps of the same pull request. Seven
+gates, six of them here.
 
 ### The window before the tag
 
@@ -150,6 +153,33 @@ release from a commit that is not in it: the file on PyPI and on `digline.dev`
 stays the one that says nothing about the version somebody just installed.
 Fixing that costs a re-tag, which is repeatable but only until the `pypi` job
 has run.
+
+**Date every package the tag carries, not only the core.** `publish.yml` builds
+the whole workspace and uploads everything the index lacks, so a `v*` tag
+releases each plugin whose version has moved since the last one — with no named
+tag of its own, and with nothing in its heading to say so. `v0.17.0` published
+`digline-anthropic 0.5.3` and `digline-openai 0.5.2` and left both headings
+reading `— unreleased` on `main`. Date them the way the core's is dated, and
+say which tag published them: a reader who goes looking for
+`digline-anthropic-v0.5.3` will not find it.
+
+`test_versions.py::test_a_dated_release_leaves_no_package_declared_unreleased`
+is the gate, and it belongs to *this* step rather than to the four above: it is
+green while the core's heading still says `unreleased`, and goes red the moment
+you date it with a package left behind — naming the package. A plugin genuinely
+waiting for a tag of its own goes in `UNRELEASED_ON_PURPOSE` with the reason,
+which is a sentence somebody writes and somebody reads.
+
+That makes two failures that arrive at this step and not at the bump: this one
+when the heading is dated, and `home_capture.py --check` right after it. Seven
+gates in all, six of them in the table above.
+
+It is no longer only tidiness. `tools/image_pins.py` reads those headings to
+decide whether a pin the index does not serve is expected (*The window before
+the tag*). A stale `unreleased` cannot open that window by itself — the gate
+asks the index first, and a version it serves ends the question — but it is a
+trap for the day that version stops being served, when a real absence would
+read as an expected one. The image job says so in its summary when it sees one.
 
 The entry is also the **GitHub Release**. On a `v*` tag the `github-release`
 job in `publish.yml` runs after PyPI, cuts the entry for that version out of the
