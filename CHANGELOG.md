@@ -120,7 +120,13 @@ digline **0.17.0** opens schema 15 with one passenger.
   every action is pinned to a commit. No file under `src/`, and no format
   version moved.
 
-## digline-anthropic 0.5.3 — unreleased
+## digline-anthropic 0.5.3 — 2026-09-20
+
+> Published by the **`v0.17.0`** tag rather than by a named tag of its own.
+> `publish.yml` builds the whole workspace and uploads everything the index
+> does not have, so a workspace tag releases a plugin whose version has moved.
+> That is the combined release the workflow is written for; recorded here
+> because the reader would otherwise look for a `digline-anthropic-v0.5.3` tag and find none.
 
 - Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
   An `anthropic` too old to carry the container, and a reply without the
@@ -129,7 +135,13 @@ digline **0.17.0** opens schema 15 with one passenger.
   of two fields and no container at all.
 - Needs digline **0.17.0 or later**, which is where the field arrives.
 
-## digline-openai 0.5.2 — unreleased
+## digline-openai 0.5.2 — 2026-09-20
+
+> Published by the **`v0.17.0`** tag rather than by a named tag of its own.
+> `publish.yml` builds the whole workspace and uploads everything the index
+> does not have, so a workspace tag releases a plugin whose version has moved.
+> That is the combined release the workflow is written for; recorded here
+> because the reader would otherwise look for a `digline-openai-v0.5.2` tag and find none.
 
 - Reads `completion_tokens_details.reasoning_tokens` into
   `Usage.thinking_tokens`, the same way.

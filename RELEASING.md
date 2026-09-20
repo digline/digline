@@ -767,6 +767,41 @@ tag* updates it on every tag.
   note about whether the race was live. Three observations would be better than
   two, and the way to get one is not to hurry the approval.
 
+- **v0.17.0 got the third observation, and it came from a *plugin* rather than
+  the core.** The approval was fast, so the core never raced: `served
+  digline==0.17.0 (after 0s)` and `pip` took it. What failed on attempt 1 was
+  `digline-anthropic==0.5.3` — **published by this same workspace tag**, since
+  `publish.yml` uploads everything the index lacks — where the wait printed
+  `served digline-anthropic==0.5.3 (after 0s)` and `pip`, **1.5s later in the
+  same `RUN`**, was told *Could not find a version that satisfies the
+  requirement digline-anthropic==0.5.3 (from versions: … 0.5.2)*. That is the
+  v0.15.0 shape exactly, on a package the same-question fix has never been
+  watched on: the plugins move rarely, and when they do it is usually on their
+  own tag, minutes after the core's.
+
+  **So the divergence is not specific to the core's name**, which is the thing
+  this observation adds. It also says what the fix cannot do: `PIP_HEADERS`
+  makes the wait ask pip's question, and two edges can still answer it
+  differently — the last paragraph of *What is not covered* is the standing
+  version of this, now with a release behind it.
+
+  Attempt 2, run by hand about twenty minutes later, read clean. **amd64 proven
+  in `smoke`:** `#9 0.569 served` for all four pins, `#9 1.686 Collecting
+  digline==0.17.0`, `#9 8.973 Successfully installed … digline-0.17.0
+  digline-anthropic-0.5.3 digline-bedrock-0.5.1 digline-openai-0.5.2 …` — one
+  `RUN`, install **1.1s** after `served`. **`#12 [linux/amd64 stage-0 3/5]` in
+  the multi-arch push is `CACHED`**, as predicted every time, and proves
+  nothing. **arm64 proven in the multi-arch push:** `#15 5.182 served`, `#15
+  23.94 Collecting`, `#15 135.2 Successfully installed …`. Two architectures,
+  two pairs, two jobs. All three image tags — `0.17.0`, `0.17`, `latest` —
+  resolve to one digest, `sha256:e4672e7e`.
+
+  **What the next tag must show:** the same two-pair reading; and, if it
+  publishes a plugin, whether the plugin's own pin was waited out on the first
+  attempt. One re-run is not a defect, but two releases in a row needing one on
+  a plugin pin would say the wait's budget is wrong for a package the edges
+  cache differently from the core.
+
 ### What is not covered, stated rather than assumed
 
 The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves

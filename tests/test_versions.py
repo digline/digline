@@ -177,6 +177,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.5.3": "digline-anthropic's version, quoted in the Status block's "
+        "v0.17.0 paragraph. It is the package the wait and pip disagreed "
+        "about on attempt 1, so the number is the evidence: a paragraph that "
+        "said 'a plugin' would not let the next reader check it",
+        "0.5.2": "digline-openai's version, and the last digline-anthropic "
+        "the index served while it disagreed with the wait — both quoted in "
+        "the same paragraph, for the same reason",
+        "0.5.1": "digline-bedrock's version, in the installed-packages line "
+        "quoted from the build that proved the pair",
         "0.16.0": "the Status block's own paragraph, written from that tag's "
         "logs: the 571s wait behind the reviewer gate, the served/install pair "
         "per architecture, the CACHED layer that proved nothing. History, and "
