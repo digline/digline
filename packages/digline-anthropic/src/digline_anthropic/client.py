@@ -95,10 +95,17 @@ def _thinking(usage: Any) -> int | None:
     """The output tokens the model spent thinking, or `None` for *not reported*.
 
     Read through `output_tokens_details`, which the SDK types as optional — so
-    a reply without it, and **an `anthropic` too old to carry the field at
-    all**, both give `None`. That is the honest answer in each case: a plugin
-    that wrote `0` would be reporting the absence of a field as the absence of
-    thinking, and `Usage` keeps the two apart on purpose. (ADR 0026 §1)
+    a reply without it gives `None`, and so does an `anthropic` too old to
+    carry the field at all. **The second case is this package's own floor, and
+    it was measured**: installed and read on 2026-09-20, `anthropic` 0.40.0 —
+    the version `anthropic>=0.40` admits — has a `Usage` with exactly two
+    fields, `input_tokens` and `output_tokens`, and no container to read. The
+    workspace pins 1.5.0, where the container exists and is `None` when the
+    reply reports no split.
+
+    `None` is the honest answer in each case: a plugin that wrote `0` would be
+    reporting the absence of a field as the absence of thinking, and `Usage`
+    keeps the two apart on purpose. (ADR 0026 §1)
 
     **Anthropic documents the count as re-tokenised, and therefore
     approximate**: it is derived after the fact rather than counted as the

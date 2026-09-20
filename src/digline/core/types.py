@@ -641,23 +641,38 @@ class Usage:
         place. It exists because a run total is a fold over calls (ADR 0025 §3),
         and a fold written by hand at three call sites is a fold that drifts.
         """
+        # **`None` propagates.** Two reported sides add; any unreported side
+        # makes the total unreported. Folding an unreported split into a
+        # reported one would report a number *smaller than the truth*, in the
+        # good-news direction — the direction friction 25 and B-1 were both
+        # about. A call that reported no split did not think less; it thought
+        # an unknown amount, and the honest total of a known number and an
+        # unknown one is unknown. (ADR 0026 §3)
+        thinking = (
+            None
+            if self.thinking_tokens is None or other.thinking_tokens is None
+            else self.thinking_tokens + other.thinking_tokens
+        )
+        output = self.output_tokens + other.output_tokens
+        # **An assert, and deliberately not a refusal.** Both sides are bounded
+        # by their own output, so the sums are bounded too: there is no honest
+        # way for this to fire. `thinking > output` on one reply is a malformed
+        # *reply* and is refused by name, which says whose fault it is; a folded
+        # total exceeding its own output could only be this fold's arithmetic —
+        # our fault, the family B-1's finite guard belongs to. Promoting it to a
+        # named refusal would dress our own bug as a hostile input, and the
+        # message would blame a provider for it. (ADR 0026 §3)
+        assert thinking is None or thinking <= output, (
+            f"folding {self.thinking_tokens} and {other.thinking_tokens} "
+            f"thinking tokens gave {thinking} of {output} output tokens: this "
+            "fold is wrong, not the replies it added"
+        )
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
-            output_tokens=self.output_tokens + other.output_tokens,
+            output_tokens=output,
             cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
             cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
-            # **`None` propagates.** Two reported sides add; any unreported side
-            # makes the total unreported. Folding an unreported split into a
-            # reported one would report a number *smaller than the truth*, in
-            # the good-news direction — the direction friction 25 and B-1 were
-            # both about. A call that reported no split did not think less; it
-            # thought an unknown amount, and the honest total of a known number
-            # and an unknown one is unknown. (ADR 0026 §3)
-            thinking_tokens=(
-                None
-                if self.thinking_tokens is None or other.thinking_tokens is None
-                else self.thinking_tokens + other.thinking_tokens
-            ),
+            thinking_tokens=thinking,
         )
 
 

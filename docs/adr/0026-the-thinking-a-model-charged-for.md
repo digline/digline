@@ -68,11 +68,19 @@ The three states, each a different sentence:
 | `0` | it reported one, and this reply did no thinking |
 | `n > 0` | it reported one, and `n` of the output tokens were thinking |
 
-**The SDK floor is the case that makes this real.** `digline-anthropic` runs
-against whatever `anthropic` the user installed. On a version without
-`output_tokens_details` the attribute is absent, `getattr` gives `None`, and the
-document says *not reported* — which is true. A plugin that wrote `0` there
-would be reporting the absence of a field as the absence of thinking.
+**The SDK floor is the case that makes this real, and it was measured rather
+than assumed.** `digline-anthropic` runs against whatever `anthropic` the user
+installed, and its declared floor is `anthropic>=0.40`. Installed and read on
+2026-09-20: **`anthropic` 0.40.0's `Usage` has exactly two fields**,
+`input_tokens` and `output_tokens`, and no `output_tokens_details` at all — so
+`getattr` gives `None` and the document says *not reported*, which is true. The
+workspace pins **1.5.0**, where the container exists and is `None` on a reply
+that reports no split.
+
+Both halves of *not reported* are therefore reachable by a supported install,
+not hypothetical: the field missing from the SDK, and the field present and
+empty. A plugin that wrote `0` for either would be reporting the absence of a
+field as the absence of thinking.
 
 ### 2. It is a **breakdown**, not a new billable quantity — and this is the
 ### inverse of friction 25
@@ -232,6 +240,15 @@ a zero that was measured is a measurement and is not dropped as a default.
 **The invariant refuses rather than clamps.** `Usage(output_tokens=2,
 thinking_tokens=3)` raises, by name, and the message says which count exceeded
 which. A clamped or repaired value is asserted **not** to occur.
+
+**The same arithmetic inside the fold is an `assert`, and must stay one.** A
+folded total cannot exceed its own output — both sides are bounded by theirs —
+so there is no honest way for it to fire: `thinking > output` on one reply is a
+malformed *reply* and naming the refusal names the provider's fault, while a
+total that broke the bound could only be this fold's arithmetic, our fault, the
+family B-1's finite guard belongs to. Promoting it to a named refusal would
+dress our own bug as a hostile input, so the test states it as a property and
+the code asserts it.
 
 **The sum keeps the state**, per §3: two reported sides add, and any unreported
 side makes the total unreported. Asserted in both directions, because a fold

@@ -514,6 +514,12 @@ def test_a_reply_without_the_container_reports_nothing_rather_than_zero() -> Non
     reporting the absence of a field as the absence of thinking — and a reader
     cannot tell a model that thought nothing from a provider that said nothing.
     (ADR 0026 §1)
+
+    **The old SDK is this package's own floor, measured rather than imagined**:
+    installed and read on 2026-09-20, `anthropic` 0.40.0 — the oldest version
+    `anthropic>=0.40` admits — has a `Usage` of exactly two fields,
+    `input_tokens` and `output_tokens`. There is no container to read on a
+    supported install, which is why this fake has none either.
     """
     reply = FakeReply(content=[FakeBlock("x")], usage=FakeUsage(10, 300))
 

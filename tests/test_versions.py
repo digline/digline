@@ -546,6 +546,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.12.1": "'(0.12.1, from the release delta-pass)' — the release in "
         "which a replay of an honest zero-call run stopped being refused",
     },
+    "packages/digline-anthropic/src/digline_anthropic/client.py": {
+        "0.40.0": "not a digline version: the oldest `anthropic` this package "
+        "admits, whose `Usage` has two fields and no `output_tokens_details`. "
+        "Installed and read on 2026-09-20, so the old-SDK branch of `_thinking` "
+        "is a measurement and not a hypothesis (ADR 0026 §1)",
+        "1.5.0": "not a digline version either: the `anthropic` this workspace "
+        "pins, where the container exists and is `None` on a reply that "
+        "reported no split. The other half of the same measurement",
+    },
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
         "0.15.2": "the digline release that stopped counting an incomparable "
         "delta, named twice in `_failing`: once as the release that opened "

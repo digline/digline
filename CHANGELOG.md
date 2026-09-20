@@ -101,7 +101,9 @@ digline **0.17.0** opens schema 15 with one passenger.
 
 - Reads `output_tokens_details.thinking_tokens` into `Usage.thinking_tokens`.
   An `anthropic` too old to carry the container, and a reply without the
-  split, both record **not reported** rather than a zero.
+  split, both record **not reported** rather than a zero. The old SDK is not a
+  hypothesis: `anthropic` 0.40.0, the oldest this package admits, has a `Usage`
+  of two fields and no container at all.
 - Needs digline **0.17.0 or later**, which is where the field arrives.
 
 ## digline-openai 0.5.2 — unreleased
