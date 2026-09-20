@@ -349,6 +349,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "found the fourth advisory — a fact about a shipped release",
         "0.12.1": "the release that fixed the fourth advisory. Same sentence, "
         "other end of it",
+        "0.15.1": "where the denominator article — the fifth advisory — was "
+        "first named as an incomparability. A fact about a shipped release",
+        "0.15.3": "the release that closed the fifth advisory. Same sentence, "
+        "other end of it",
         "0.7.1": "the release the first three published advisories were cut against, "
         "and the one whose four fixes the adversarial pass went back over. The "
         "advisory policy has to name a version or it is describing nothing",

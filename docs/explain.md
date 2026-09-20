@@ -60,7 +60,7 @@ No case is suspended.
 
 How it was set up
 prompts/system.txt was under test.
-The system under test answered with model claude-haiku-4-5.
+The system under test was configured with model claude-haiku-4-5.
 
 What it found
 opening-hours · levenshtein is under its bar at 0.636364. The bar is 0.750000.

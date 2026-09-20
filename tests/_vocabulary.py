@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["ADVICE", "MULTI_RUN", "SPECULATION", "spoken"]
+__all__ = ["ADVICE", "EXECUTION", "IDENTITY", "MULTI_RUN", "SPECULATION", "spoken"]
 
 #: Words that turn a reading into counsel. `AGENTS.md` holds the judgment
 #: digline does not encode, and a helpful sentence does not look like an
@@ -99,6 +99,48 @@ SPECULATION = (
     "presumably",
     "probabilmente",
     "presumibilmente",
+)
+
+#: Verbs that claim a **model executed**, where the record holds configuration.
+#: The run file says what the suite sent and what the provider reported; it
+#: never observes the running process, so a sentence built on a sent field may
+#: not say it answered. ADR 0020 §3 row 7 states the rule for the one case that
+#: looks hardest — an id echoed back is "what was asked for, not what answered".
+#:
+#: Applied to `explain.*`, `fact.*` and `config.*`. **Not to `log.*`**: there
+#: "answered as" rests on ADR 0020's ruling that a *differing* reported id is a
+#: sighting, which is doctrine to amend rather than prose to fix.
+#:
+#: Anchored to the placeholder, because the object is what decides. "Answered
+#: under a different configuration" is supportable and stays; so is "ha risposto
+#: con una configurazione diversa", which says the same thing in the same
+#: strength. What may not be said is the verb taking a configuration **value**:
+#: `answered with {name} {after}`, where `{name}` is usually a field this run
+#: sent. Both were live when this list was written, and a blunt list would have
+#: rewritten four honest sentences to catch two dishonest ones.
+EXECUTION = (
+    "answered with {",
+    "answered as {",
+    "graded with {",
+    "ha risposto con {",
+    "ha risposto come {",
+    "ha valutato con {",
+    # The same claim with no placeholder to anchor it: a heading over a table
+    # of sent parameters, which is where `config.title` hid.
+    "what answered",
+    "what judged",
+    "che cosa ha risposto",
+    "che cosa ha giudicato",
+)
+
+#: Nouns that name the thing under test rather than the reading. For the
+#: doctrine sentences a locale may not quietly strengthen: `log.rolls.none`
+#: means *there was almost nothing to compare*, never *the provider held
+#: still*, and the Italian said the second for as long as nothing compared the
+#: pair. (docs/log.md, "the absences")
+IDENTITY = (
+    "model",
+    "modello",
 )
 
 
