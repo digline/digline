@@ -1,13 +1,13 @@
 # `digline diff` — two runs, neither of them a baseline
 
-`digline compare` answers **did it get worse?** It holds a run against the
-baseline, the baseline is an *approved reference*, and the exit code gates your
-pipeline on the answer.
+`digline diff` answers **should I switch?** Prompt A or prompt B.
+`claude-haiku-4-5` or `gpt-5-mini`. Temperature 0.3 or 0.7. Two candidates,
+both measured, and **neither approved by anybody** — which is what separates it
+from `digline compare`, where one side is the approved reference and the exit
+code gates your pipeline on the answer.
 
-`digline diff` answers a different question: **should I switch?** Prompt A or
-prompt B. `claude-haiku-4-5` or `gpt-5-mini`. Temperature 0.3 or 0.7. Two
-candidates, both measured, and **neither approved by anybody** — because
-approving one of them is the decision you are trying to make.
+Neither side being approved is not an accident of how you ran it: approving one
+of them is the decision you are trying to make.
 
 It is a **report, never a verdict.** It always exits 0 on a completed report,
 whatever the report says. Nothing about it gates anything, and that is not a
