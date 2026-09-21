@@ -184,6 +184,91 @@ STANDALONE = (
     "mcp-tools",
 )
 
+#: Examples deliberately outside the `examples-from-pypi` matrix, each with the
+#: reason it is out. **Absent by decision has to be distinguishable from absent
+#: by oversight**, which is the distinction friction 38 named for the example
+#: locks and the one `thinking_tokens` makes between not reported and zero. An
+#: entry here is a sentence somebody wrote; a name missing from both this and
+#: the matrix is a mistake, and the gate below says so.
+#:
+#: Empty today, and that is a fact rather than a placeholder: every standalone
+#: example runs with no key, no JVM and no network, which is what makes the
+#: published-package question answerable for all of them.
+PYPI_EXCLUDED: dict[str, str] = {}
+
+#: The job that asks whether a reader who has only what is on PyPI can run each
+#: example. Its matrix is hand-written, so it is the kind of list that goes
+#: stale silently: `mcp-tools` was the eleventh example and ran in none of it.
+PYPI_JOB = "examples-from-pypi"
+
+
+def pypi_matrix() -> set[str]:
+    """The example names in `examples-from-pypi`'s matrix.
+
+    Read as text, like `tests/test_docker.py` reads the same file. PyYAML is in
+    the environment only transitively, and a gate that fails when an unrelated
+    dependency drops it is a gate that gets deleted.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    after = workflow.split(f"{PYPI_JOB}:", 1)
+    assert len(after) == 2, f"no `{PYPI_JOB}:` job in ci.yml"
+    opened = after[1].split("example:", 1)
+    assert len(opened) == 2, f"`{PYPI_JOB}` declares no `example:` matrix"
+    listing = opened[1].split("[", 1)[1].split("]", 1)[0]
+    return {name.strip() for name in listing.split(",") if name.strip()}
+
+
+def test_every_standalone_example_is_asked_the_published_package_question() -> None:
+    """An example in the tree and not in the matrix, which nothing tested.
+
+    The matrix is hand-written and the tree is not, so the two drift in one
+    direction only: somebody adds an example and the list does not move. That
+    is what happened to `mcp-tools`, and the release leg ran ten of eleven
+    without saying so — green because it was not looking that way.
+    """
+    matrix, excluded = pypi_matrix(), set(PYPI_EXCLUDED)
+    missing = sorted(set(STANDALONE) - matrix - excluded)
+    assert not missing, (
+        f"{', '.join(missing)} is a standalone example that the {PYPI_JOB} job "
+        "never runs, so nothing asks whether a reader with only what is on "
+        "PyPI can run it. Add it to the matrix in .github/workflows/ci.yml, "
+        "or — if it belongs out of that job — add it to PYPI_EXCLUDED above "
+        "with the reason, so the absence is a decision somebody wrote down."
+    )
+
+
+def test_the_published_package_matrix_names_only_real_examples() -> None:
+    """The other direction: a matrix entry for an example that is not there.
+
+    A renamed or deleted directory leaves a leg that checks out nothing and
+    passes, which reads as coverage and is not.
+    """
+    unknown = sorted(pypi_matrix() - set(STANDALONE))
+    assert not unknown, (
+        f"{', '.join(unknown)} is in the {PYPI_JOB} matrix and is not a "
+        "standalone example. A leg naming a directory that is not there is "
+        "not coverage."
+    )
+
+
+def test_every_declared_exclusion_is_real_and_is_actually_excluded() -> None:
+    """A declaration nobody checks decays into a comment.
+
+    Two ways it goes wrong: naming an example that no longer exists, and
+    naming one that is in the matrix anyway — which reads as "deliberately
+    out" while it runs, so the reason stops being true without anybody noticing.
+    """
+    for name, reason in PYPI_EXCLUDED.items():
+        assert name in STANDALONE, (
+            f"PYPI_EXCLUDED names {name!r}, which is not a standalone example."
+        )
+        assert name not in pypi_matrix(), (
+            f"PYPI_EXCLUDED says {name!r} is out of the {PYPI_JOB} job, but "
+            "the matrix runs it. One of the two is wrong."
+        )
+        assert reason.strip(), f"PYPI_EXCLUDED[{name!r}] has no reason."
+
+
 #: The examples whose application has to be started from **outside** the suite,
 #: with the port it listens on. There is exactly one, and the reason is the
 #: point of it: a suite that is data cannot import a module, so it cannot start
