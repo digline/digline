@@ -483,6 +483,76 @@ built on every tag, and `select_unpublished.py` uploads only what the index does
 not already have. So a plugin-only tag publishes only that plugin — because
 everything else is already released, not because the tag said so.
 
+### Plugins ride the core tag, and the annotation names them
+
+That sweep is **intended**: it is how a family ships in one run, and `v0.15.0`
+used it deliberately to release digline with three plugins at once. A plugin
+gets a named tag of its own when it needs a release of its own — between core
+releases, or at a version the core is not moving to.
+
+**What is not optional is naming them.** A tag is a signature, and the
+annotation is the only place the occasion is recorded in a ref. So the message
+lists **every package the run will publish, at its version**:
+
+```sh
+git tag -a v0.15.0 -m "digline 0.15.0, digline-anthropic 0.5.2, digline-openai 0.5.1, digline-bedrock 0.5.1"
+```
+
+Run the check before tagging, with the message you are about to use:
+
+```sh
+uv run tools/tag_names.py "digline <version>, digline-anthropic <version>"
+```
+
+It reads every workspace `pyproject.toml`, asks the index (the JSON API, not
+`/project/<name>/<version>/`, which answers 200 for anything) which of those
+versions it already serves, and prints what the run will upload. It exits
+non-zero when the message names fewer packages than the run publishes — and
+also when the run would publish **nothing at all**, which is a tag nobody
+should cut and the shape a re-tag of an already-released version takes.
+
+This is the same move as the counts at the `[GATE]`: a number read out loud
+rather than a memory trusted. `tests/test_tag_names.py` covers it offline, with
+`v0.17.0`'s real message as the control that must fail.
+
+### Four releases that no ref names
+
+Recorded here because the repository cannot answer it in refs, and **not**
+backfilled: pushing a tag runs `publish`, and a run against versions the index
+already serves is a run whose green means nothing. Read from PyPI's upload
+timestamps, which are the only surviving record.
+
+| package | version | uploaded (UTC) | carried by | that tag's message |
+|---|---|---|---|---|
+| `digline-anthropic` | 0.5.0 | 2026-09-15T14:57:35Z | `digline-openai-v0.5.0` | `digline-openai 0.5.0` |
+| `digline-bedrock` | 0.5.0 | 2026-09-15T14:57:36Z | `digline-openai-v0.5.0` | `digline-openai 0.5.0` |
+| `digline-anthropic` | 0.5.3 | 2026-09-20T09:43:57Z | `v0.17.0` | `digline 0.17.0` |
+| `digline-openai` | 0.5.2 | 2026-09-20T09:43:58Z | `v0.17.0` | `digline 0.17.0` |
+
+**And the same defect runs the other way, in the same window.**
+`digline-anthropic-v0.5.0` and `digline-bedrock-v0.5.0` were cut *after* their
+packages were already on the index — 14:59:35Z and 15:04:51Z against uploads at
+14:57 — so both runs **published nothing, and both went green**. A release
+ceremony was performed, a ref was written, `publish` ran to completion and
+reported success, and not one file moved.
+
+Read together with the four above, that is one defect with two faces. Above, a
+tag published more than it named; here, a tag named something and published
+nothing. In both the ref and the message stopped describing the run, and in
+both the green said only that the machinery had executed — never that it had
+done the thing the tag claimed. A green that cannot distinguish "uploaded four
+packages" from "uploaded none" is not evidence about either.
+
+`tools/tag_names.py` refuses **both** directions — a message naming fewer
+packages than the run will publish, and a tag whose run would publish nothing
+at all — and that is what makes it a gate rather than a reminder. A check that
+caught only the omission would have let these two through with the same
+meaningless success they already had.
+
+And the habit did work twice: `v0.15.0` named all four packages it carried, and
+`v0.15.3` named `pytest-digline 0.1.6` beside the core. It was a habit rather
+than a rule, which is why it lapsed at `v0.17.0`, and why it is a check now.
+
 ## Before the first tag of a *new* package
 
 **Configure its pending publisher on TestPyPI *and* on PyPI.** Both, before
