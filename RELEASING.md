@@ -364,6 +364,32 @@ back deliberately: `digline.dev` is on its default branch and this documentation
 is not merged yet, so adding the entries early would fail the site build on
 pages that do not exist. They land together.
 
+**And they land in one order: this repository first, the site immediately
+after.** Not the other way round, however much "never push digline alone"
+sounds like it. The two repositories are not symmetrical:
+
+- `digline.dev`'s `main` requires a pull request **and** a `Build` check, and
+  `docs.yml` checks out `digline/digline` at its **default branch** when no
+  dispatch payload names a ref. So a site pull request carrying a nav entry
+  **cannot go green** until the page is on this repository's `main`. Site-first
+  is not risky, it is impossible.
+- This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
+  neither sets `DIGLINE_SITE_CONFIG` — so `tests/_site.py` skips there and the
+  two nav checks never run. What runs them for real is the `docs` job, which
+  clones the site, and `docs` is **not a required check**.
+
+So merging here first is not blocked, and the whole cost is that `docs` on
+`main` is red for the window between the two merges. It blocks nobody: no
+required check, no release, no deploy — a failed site build does not deploy,
+and the live site keeps serving what it already had. Close the window, then
+re-run `docs`.
+
+This paragraph exists because the rule was stated backwards for three days
+running, from a memory that had recorded it correctly and was read the wrong
+way round. The direction is not intuitive — the repository whose required
+checks are *blind* to the site is the one that has to move first — so it is
+written down here rather than carried in anybody's head.
+
 **Nothing is queued as of 0.15.3.** Read off `digline.dev`'s `origin/main`
 rather than remembered — every `docs/` page and every ADR on this repository's
 `main` carries all three entries there: the `nav` line, `PRODUCT` in
