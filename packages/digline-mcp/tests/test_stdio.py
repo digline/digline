@@ -49,14 +49,16 @@ def served(root: Path, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
             },
         )
         with anyio.fail_after(TIMEOUT):
-            async with stdio_client(params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    listed = await session.list_tools()
-                    out: list[Any] = [sorted(t.name for t in listed.tools)]
-                    for name, arguments in calls:
-                        out.append(await session.call_tool(name, arguments))
-                    return out
+            async with (
+                stdio_client(params) as (read, write),
+                ClientSession(read, write) as session,
+            ):
+                await session.initialize()
+                listed = await session.list_tools()
+                out: list[Any] = [sorted(t.name for t in listed.tools)]
+                for name, arguments in calls:
+                    out.append(await session.call_tool(name, arguments))
+                return out
 
     return anyio.run(go)
 
