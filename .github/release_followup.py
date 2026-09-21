@@ -71,9 +71,15 @@ __all__ = [
 ]
 
 #: The examples that pin an exact version, and therefore the ones post-tag step
-#: 3 regenerates. Named rather than globbed: the other four resolve at install
-#: time and have no lock to be stale.
-PINNED_EXAMPLES = ("classifier", "langchain", "llamaindex", "prompt-first", "rag")
+#: 3 regenerates: whichever ones have a `uv.lock`, found by looking.
+#:
+#: This was a named tuple of five, on the reasoning that the others resolve at
+#: install time and have no lock to be stale. That reasoning was true when it
+#: was written and stopped being true when `mcp-tools` arrived with a lock: the
+#: tuple did not name it, so step 3 read five files, found them all at the new
+#: version, and reported green over a sixth that was a release behind. A list
+#: of what exists cannot be kept by hand in a repository that grows examples —
+#: and it does not have to be, since the thing it lists is on disk.
 
 #: The heading of the block post-tag step 4 updates, and the one after it.
 STATUS_HEADING = "### Status: what each path has proven"
@@ -126,14 +132,25 @@ class Finding:
         return True if not self.applicable else (self.ok and self.held)
 
 
+def pinned_examples(root: Path) -> tuple[str, ...]:
+    """Every example that carries a `uv.lock`, in a fixed order.
+
+    Sorted so that a report reads the same twice, and so that a new example
+    joins the check by being committed rather than by somebody remembering."""
+    return tuple(sorted(path.parent.name for path in root.glob("examples/*/uv.lock")))
+
+
 def lock_versions(
-    root: Path, examples: Sequence[str] = PINNED_EXAMPLES
+    root: Path, examples: Sequence[str] | None = None
 ) -> dict[str, str | None]:
     """The digline version each example's `uv.lock` pins, or `None` where the
     lock has no digline entry at all — which is a different defect and is
-    reported as one rather than as a mismatch."""
+    reported as one rather than as a mismatch.
+
+    `examples` is for the tests, which build a tree of their own. Left out, the
+    examples are the ones `root` actually has."""
     found: dict[str, str | None] = {}
-    for name in examples:
+    for name in pinned_examples(root) if examples is None else examples:
         path = root / "examples" / name / "uv.lock"
         if not path.is_file():
             found[name] = None
@@ -148,7 +165,7 @@ def lock_versions(
 
 
 def locks_finding(root: Path, version: str, *, current: bool = True) -> Finding:
-    """Post-tag step 3: the five locks name the version that was released.
+    """Post-tag step 3: every example lock names the version that was released.
 
     Only about the newest release. Asked about a superseded one it would report
     that the locks name something else — which is what they are supposed to do,
@@ -178,10 +195,17 @@ def locks_finding(root: Path, version: str, *, current: bool = True) -> Finding:
         ok=not stale,
         # Every lock must differ from a version nobody released. If this comes
         # back empty the comparison is not comparing.
-        held=len(control) == len(pinned),
+        #
+        # `pinned` itself must not be empty either, and that is new with the
+        # glob: a named tuple could not find nothing, but a pattern can — an
+        # examples/ that moved, a checkout without it — and "all 0 locks name
+        # 0.17.1" is true of every version there has ever been.
+        held=bool(pinned) and len(control) == len(pinned),
         said=(
             f"all {len(pinned)} locks name {version}"
-            if not stale
+            if not stale and pinned
+            else "no example carries a uv.lock, so this step read nothing"
+            if not pinned
             else f"{len(stale)} of {len(pinned)} do not name {version}: {listed}"
         ),
         control_said=(

@@ -1278,11 +1278,15 @@ same argument that took `seven so far` out of `SECURITY.md` one file over. The
 legs are whatever `examples-from-pypi` expands to: read the run, not this
 sentence.
 
-Five examples carry a `uv.lock` pinning the exact version — `classifier`,
-`langchain`, `llamaindex`, `prompt-first`, `rag` — and the rest resolve at
-install time. Regenerate the five with `uv lock --upgrade-package digline` in
-each, commit, then dispatch. Three of them — `langchain`, `llamaindex`,
-`prompt-first` — pin `digline-anthropic` as well, so the release that moves a
+The examples that carry a `uv.lock` pin the exact version; the rest resolve at
+install time. Regenerate every one of them — `ls examples/*/uv.lock` is the
+list, and `.github/release_followup.py` reads the same glob — with `uv lock
+--upgrade-package digline` in each, commit, then dispatch. Do not work from a
+list written here: this sentence named five for as long as five was right, and
+`mcp-tools` arrived with a sixth that the ritual then skipped for a release.
+
+Three of them — `langchain`, `llamaindex`, `prompt-first` — pin
+`digline-anthropic` as well, so the release that moves a
 plugin needs `--upgrade-package digline-anthropic` beside it or those locks come
 back naming a plugin version that is no longer current. *(Worth trying next release: regenerate the locks **before** the tag.
 They cannot resolve a version PyPI does not have yet, so it probably has to stay
