@@ -510,6 +510,48 @@ the reader is the only thing that is new.
    meets the refusal for a reason nobody would guess from the word *payload*,
    and that deserves to be met with a real journal in hand.
 
+**Amended 2026-09-21: reason 1 has lapsed. Reasons 2 and 3 have not.**
+
+Reason 1 said *there is no history; no `wanted` has been answered in either*.
+That is now false. Scout answered nine — every cycle of its shakedown week,
+2026-09-14 to 2026-09-21 — and committed them. It did not use the journal's
+`wanted` field to do it: they live in a `labels.jsonl` of its own, appended
+never rewritten, because the journal is gitignored and lives at most 90 days in
+an artifact while the labels are meant to outlast it. The field this record
+names is answered; the file it is answered into is not the one ADR 0019 §10
+imagined. Both facts belong here, because a reader checking whether the premise
+still holds will look at the journal and find `wanted: null` on every line.
+
+The premise lapsing is not the deferral ending, and the other two are untouched:
+
+- **Reason 2 has not lapsed, and is now partly answerable.** Scout split the
+  third answer differently — `cannot_say`, on the reading that it is this
+  vocabulary's `deferred` rather than its `unsure`: an answer, so the question
+  is not asked again, and one that mints no fact, ever. Nine rows say nothing
+  about whether it is capturable, because **it was never used**: all nine are
+  `yes` or `no`. The first real answers were supposed to show this and have
+  not, which is a weaker result than no answers at all would have suggested.
+- **Reason 3 has not lapsed at all.** The item is still a cycle, its facts still
+  name case ids, and those ids are still content in the dogfood (ADR 0021 §7).
+  Nothing about nine labels touches the payload refusal.
+
+**And the honest size of what arrived.** Nine is not a history; it is nine. The
+four-way split those labels record — *woken and wanted* 2, *held but wanted* 2,
+*held and right* 5, *woken unwanted* 0 — has a property worth writing into this
+record before anybody builds against it: a null predictor that always agrees
+with the operator scores **7 of 9**. The whole discriminating power of the set
+is two rows, both of them holds under a clause that has since been dropped, and
+the fourth quadrant is empty, so nothing here can yet measure a policy that
+wakes somebody too often. Scout's own reading went further and found three of
+its nine cycles with byte-identical layer 2 carrying different answers, which
+says the escalation judgement is not learnable from a single dossier at all.
+
+So: a premise that has lapsed, not a premise replaced by enough evidence to
+build on. A reader arriving at this section later should not read the amendment
+as permission. The reason the reader is deferred has changed from *there is
+nothing* to *there is not yet enough, and we can now say how much is missing* —
+which is the more useful of the two, and still a deferral.
+
 The one thing that is ruled now, because the table makes it cheap: ADR 0019's
 Consequences warned that *a policy calibrated against its own journal can drift
 toward whatever the person answering was feeling that month*. Elected exemplars,
