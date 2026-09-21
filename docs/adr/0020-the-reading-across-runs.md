@@ -17,6 +17,27 @@
   nothing gets a span like any other rather than a summary line. What §10 claims
   about the dogfood still holds; only its layout was a draft. `docs/log.md`
   quotes the shipped output
+- Amended: 2026-09-20 — **the verb, not the reading.** §3's doctrine stands
+  unchanged: an id that differs from the one we sent is a sighting, because no
+  passthrough returns a string nobody supplied, and distinguishing it from an
+  echo is right. What was wrong was calling it *verified* and rendering it as
+  what *answered*. Nothing attests it — a provider may report any string, and a
+  proxy in front of it may rewrite the one it did. That same field sits in
+  `OBSERVED_FIELDS`, glossed there as what a provider **reported** rather than
+  what the target **sent**, and `config.change.*.observed` has said "reported"
+  about it since §9 — while this record and the log surface said "answered"
+  about it, so one field carried two verbs in two renderings.
+  `log.sighting.answered`, `log.roll` and `log.spread.excluded.identity` now
+  say *reported* in both locales, and the four places below that said *verified*
+  no longer do. **Why *verified* was reached for, since it names the real gap:**
+  digline has a vocabulary for *we cannot identify what answered* — the seven
+  absences of §3 — and none at all for *we were told and could not check*.
+  Everything that was not an absence fell into one bucket, and the bucket took
+  the strongest available word. This amendment does not fill that gap; it stops
+  the strongest word standing in for it. The wire key stays `answered`, because
+  it is older than the distinction and renaming it is an `OUTPUT_VERSION` bump
+  for a word; the note saying so lives beside the field in `wire/log.py`, where
+  somebody would go to correct it
 - Amended: 2026-09-16 by [ADR 0024](0024-the-judge-as-an-instrument.md) §7 —
   §4 gains one sentence and loses nothing: a reading may group runs by identity
   and read their aggregates, in a type of its own. Identity decides which runs
@@ -81,7 +102,7 @@ written by a digline that did not name itself and record no answering model at
 all. Four record one, and **all four are echoes**: the provider returned the
 requested id, `claude-sonnet-5`, as the model that answered. One of the four is
 a replay, which asked the target nothing. So the target side reads **12 not
-recorded and 3 echoed, and zero verified identities** — the only answering model
+recorded and 3 echoed, and zero reported identities** — the only answering model
 this project has ever observed that was not the requested id is 0.8.0's haiku
 snapshot, `claude-haiku-4-5-20251001`, the one whose runs are gone. The alias
 story that store can tell is not a flat line; it is an absence all the way down,
@@ -467,7 +488,7 @@ Rendered in the terminal over the dogfood's store, in the shape §4 types:
 `claude-haiku-4-5` to `claude-sonnet-5` is not in the roll line, because it is
 not a roll: somebody changed the suite, on a date the suite's history records.
 And *no roll recorded* is scoped by the rows above it — **12 not recorded, 3
-echoed, zero verified identities** — rather than read as a property of the
+echoed, zero reported identities** — rather than read as a property of the
 provider. As first written, this sketch said `claude-sonnet-5` *answered as*
 `claude-sonnet-5` and counted three sightings; that was row 7 read as a
 presence, and it is the correction this record carries.
@@ -568,10 +589,10 @@ by a dated snapshot is *first seen*, not a roll; a snapshot, an echo, and a
 second snapshot is one roll with one silent run inside its window. Behind a named
 endpoint the same values read as *withheld* and the word *echoed* appears in no
 rendering. `compare`'s headline carries the echoed clause and `target_echoed`
-for a first-party echo, and neither for a verified snapshot or a withheld one;
+for a first-party echo, and neither for a reported snapshot or a withheld one;
 `explain` carries the `echoed` tally on the same fixtures and on no other. The
 corollary line appears beneath a span table holding any of rows 4–7, and not
-beneath one that holds only verified sightings.
+beneath one that holds only reported sightings.
 
 **The type has no score.** `IdentitySpan` and `Roll` are asserted by field set,
 so a field added by accident fails here.

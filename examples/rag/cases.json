@@ -1,8 +1,44 @@
 [
-  {"id": "opening-hours", "question": "When are you open on Saturday?"},
-  {"id": "joining", "question": "How much does a reader's card cost?"},
-  {"id": "borrowing", "question": "How many items can I borrow?"},
-  {"id": "late-return", "question": "What is the fine if I am late?"},
-  {"id": "study-room", "question": "Can I book a study room?"},
-  {"id": "wifi", "question": "Do I need a password for the wifi?"}
+  {
+    "id": "opening-hours",
+    "question": "When are you open on Saturday?",
+    "context": [
+      "The reading room is open Monday to Friday, 9:00 to 19:00, and on Saturday morning from 9:00 to 13:00. It is closed on Sundays."
+    ]
+  },
+  {
+    "id": "joining",
+    "question": "How much does a reader's card cost?",
+    "context": [
+      "A reader's card is free for residents and costs 12 EUR a year for everyone else. Bring an identity document to the desk."
+    ]
+  },
+  {
+    "id": "borrowing",
+    "question": "How many items can I borrow?",
+    "context": [
+      "Members may borrow six items at a time for twenty-eight days. Loans renew twice online unless another reader has reserved the item."
+    ]
+  },
+  {
+    "id": "late-return",
+    "question": "What is the fine if I am late?",
+    "context": [
+      "There is no fine for a late return. After sixty days the item is invoiced at its replacement cost."
+    ]
+  },
+  {
+    "id": "study-room",
+    "question": "Can I book a study room?",
+    "context": [
+      "Two study rooms seat six people each. They are booked at the desk or by telephone, up to two weeks ahead."
+    ]
+  },
+  {
+    "id": "wifi",
+    "question": "Do I need a password for the wifi?",
+    "context": [
+      "Wifi is open and needs no password. The network is called BIBLIO-OPEN and sessions last four hours."
+    ]
+  }
 ]

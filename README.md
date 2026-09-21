@@ -249,7 +249,7 @@ without a Python toolchain through `ghcr.io/digline/digline`.
 
 ## Examples
 
-Ten projects in [`examples/`](examples/), each answering a question somebody
+Eleven projects in [`examples/`](examples/), each answering a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
@@ -264,6 +264,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My RAG is LlamaIndex: is it still answering from the right page?**](examples/llamaindex/) — a live query engine, retrieval measured by `Faithfulness` against the page each case declares
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
 - [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, a declared policy that decides who is woken, and a probe proving each cycle that `promote` is still absent
+- [**My agent uses an MCP server I don't control: how do I know its tool descriptions haven't changed?**](examples/mcp-tools/) — a canonical `tools/list` dump declared as an artifact, and one added clause that stops a tool being called
 
 ## What digline is not
 

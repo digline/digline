@@ -364,6 +364,32 @@ back deliberately: `digline.dev` is on its default branch and this documentation
 is not merged yet, so adding the entries early would fail the site build on
 pages that do not exist. They land together.
 
+**And they land in one order: this repository first, the site immediately
+after.** Not the other way round, however much "never push digline alone"
+sounds like it. The two repositories are not symmetrical:
+
+- `digline.dev`'s `main` requires a pull request **and** a `Build` check, and
+  `docs.yml` checks out `digline/digline` at its **default branch** when no
+  dispatch payload names a ref. So a site pull request carrying a nav entry
+  **cannot go green** until the page is on this repository's `main`. Site-first
+  is not risky, it is impossible.
+- This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
+  neither sets `DIGLINE_SITE_CONFIG` — so `tests/_site.py` skips there and the
+  two nav checks never run. What runs them for real is the `docs` job, which
+  clones the site, and `docs` is **not a required check**.
+
+So merging here first is not blocked, and the whole cost is that `docs` on
+`main` is red for the window between the two merges. It blocks nobody: no
+required check, no release, no deploy — a failed site build does not deploy,
+and the live site keeps serving what it already had. Close the window, then
+re-run `docs`.
+
+This paragraph exists because the rule was stated backwards for three days
+running, from a memory that had recorded it correctly and was read the wrong
+way round. The direction is not intuitive — the repository whose required
+checks are *blind* to the site is the one that has to move first — so it is
+written down here rather than carried in anybody's head.
+
 **Nothing is queued as of 0.15.3.** Read off `digline.dev`'s `origin/main`
 rather than remembered — every `docs/` page and every ADR on this repository's
 `main` carries all three entries there: the `nav` line, `PRODUCT` in
@@ -990,6 +1016,15 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
+5. **The example reports:** re-render every committed `report.html` against the
+   tagged release, in the order the ritual requires — commit the example,
+   render, commit the report on top, never amend — so each report records a
+   commit somebody can reach. A report is a photograph of the run that
+   produced it, which is why a string change does **not** regenerate one: four
+   of them carried a stale `What answered` heading from the moment that
+   heading was corrected, deliberately, until the next tag. This step is what
+   clears that debt, and it is a step so that it happens by procedure rather
+   than because somebody noticed a heading.
 
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and

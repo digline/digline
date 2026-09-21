@@ -7,6 +7,14 @@ said — which is the failure your users report and your tests do not catch.
 The retrieval is frozen into the cases on purpose. A case carries the passages
 that were retrieved for it, so what is being measured here is the *generator*:
 if retrieval changes, that is a different experiment with a different baseline.
+
+Frozen means **written down**: the passages live in `cases.json`, beside the
+question. They used to be recomputed by calling the retriever here, at import,
+which left this paragraph asserting a property the file did not have — an edit
+to `corpus.py` moved every score with nothing in the run saying so, because
+cases are outside `config_hash` by design and no artifact was declared. A
+corpus is a resolved dependency, and a dependency you re-resolve on every run
+is not frozen.
 """
 
 from __future__ import annotations
@@ -82,9 +90,11 @@ suite = Suite(
         Case(
             id=item["id"],
             vars={"question": item["question"]},
-            # Frozen retrieval: what the retriever returned when this case was
-            # written. `Faithfulness` reads exactly this.
-            context=app.retrieve(item["question"]),
+            # Read, not recomputed: what the retriever returned when this case
+            # was written, recorded in `cases.json`. `Faithfulness` reads
+            # exactly this. Re-run `freeze.py` to retrieve again, which is a
+            # deliberate act that shows up as a diff.
+            context=list(item["context"]),
         )
         for item in QUESTIONS
     ],

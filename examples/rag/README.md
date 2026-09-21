@@ -1,9 +1,11 @@
 # I have a RAG: how do I check it doesn't make things up?
 
 Ten documents in `corpus.py`, a keyword retriever, six questions. The retrieved
-passages are frozen into each `Case`, so what is measured here is the
-**generator**: if retrieval changes, that is a different experiment and a
-different baseline.
+passages are frozen into each `Case` — written into `cases.json`, not
+recomputed at import — so what is measured here is the **generator**: if
+retrieval changes, that is a different experiment and a different baseline.
+`uv run python freeze.py` retrieves again and rewrites them, which is a
+deliberate act and leaves a diff.
 
 `Faithfulness` asks a judge to decompose rather than to score — how many claims
 the answer makes, how many the passages support — and digline does the division.

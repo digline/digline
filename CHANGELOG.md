@@ -8,6 +8,88 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed — the verb on a reported identity, not the reading
+
+ADR 0020 is **amended, not revised**: §3's doctrine stands. An id that differs
+from the one we sent is a sighting, because no passthrough returns a string
+nobody supplied, and distinguishing it from an echo is right. The verb was
+wrong all the same.
+
+- **`digline log` said a model "answered as" a snapshot.** Nothing attests
+  that: a provider may report any string, and a proxy in front of it may
+  rewrite the one it did. The same field sits in `OBSERVED_FIELDS` — what a
+  provider **reported** rather than what the target **sent** — and the
+  configuration surface has said *reported* about it since ADR 0005 §9, so one
+  field was carrying two verbs in two renderings. `log.sighting.answered`,
+  `log.roll` and `log.spread.excluded.identity` now say *reported*, in both
+  locales.
+- **`docs/log.md` told a reader "Two verified sightings out of thirteen".**
+  Neither was verified. That line is now *reported*, and the paragraph under it
+  says why the word was reached for: digline has a vocabulary for *we cannot
+  identify what answered* — the seven absences — and **none at all for "we were
+  told and could not check"**. Everything that was not an absence fell into one
+  bucket and the bucket took the strongest available word. The amendment does
+  not fill that gap; it stops the strongest word standing in for it. The same
+  correction lands in ADR 0020's four prose locations.
+- **The wire key stays `answered`** (`wire/log.py`). It is older than the
+  distinction, and renaming it is an `OUTPUT_VERSION` bump for a word that
+  would break every consumer parsing it to tell them what they already knew.
+  The note saying so now sits beside the field, not only in the ADR, because
+  that is where somebody would go to "fix" it.
+- **`log.*` joins the `EXECUTION` gate.** It was held out when that gate landed
+  because the decision had not been taken; the comment pointing at the missing
+  decision is replaced by the decision. Headings are now checked **whole-string**
+  against `EXECUTION_TITLE` rather than as substrings, because as a clause the
+  identical words are how digline declines to claim: ADR 0020 §3 row 7 reads
+  "so what answered is not identified", and a substring rule would have forced
+  the most careful sentence in the product to be rewritten to satisfy a gate.
+
+### Changed — four sentences the record could not support
+
+- **`explain` said the system under test "answered with" a configuration
+  field**, where that field is, outside `OBSERVED_FIELDS`, what the run
+  *sent*. ADR 0020 §3 row 7 is the rule it broke: a sent id says what was
+  asked for, not what answered. A sent parameter now reads *configured*, and
+  the fields a provider reported read *reported* — the split `render.py`
+  already made off the same set. `explain.setting.judge.missing` carried the
+  same verb and was found by the new gate rather than by reading.
+- **`config.title` was "What answered"** over a table of sent parameters, and
+  `config.judge.title` "What judged". Both now name the set-up.
+- **The Italian `log.rolls.none` said *no model change recorded*** where the
+  English says "No roll recorded." — the reading `docs/log.md` explicitly
+  refuses, because the sentence means *there was almost nothing to compare*
+  and not *the provider held still*. Nothing compared the two locales, so the
+  stronger one stood for as long as it was written.
+- **The gate is `EXECUTION` in `tests/_vocabulary.py`**, over `explain.*`,
+  `fact.*` and `config.*` in both locales. The last two were behind no prefix
+  gate at all, which is where `config.title` sat. It is anchored to the
+  placeholder because the object is what decides: *answered under a different
+  configuration* is supportable and stays, *answered with `{name}`* is the
+  claim itself. Both new gates ship with a control that must fail.
+- **`log.*` is deliberately outside that gate.** "Answered as" there rests on
+  ADR 0020's ruling that a *differing* reported id is a sighting — doctrine to
+  amend, not prose to fix.
+- **SECURITY.md said four published advisories and listed four.**
+  [GHSA-8c38-f965-cgww][adv-5] — the denominator article, closed in 0.15.3 —
+  is the fifth, and it was published. The page is the public security record,
+  so the omission was that record saying something untrue about our own
+  history.
+- **`examples/rag` claimed a frozen retrieval it did not have.** The docstring
+  and the README said the passages were frozen into the cases; `suite.py`
+  called the retriever at every import. An edit to `corpus.py` moved every
+  score with nothing in the run saying so — cases are outside `config_hash` by
+  design, the example declared no artifact, and `case.context` never reaches
+  the store. The passages are now written into `cases.json` and read from it,
+  with `freeze.py` to re-retrieve as a deliberate act that leaves a diff.
+- **The example `report.html` files still read the old headings, and that is
+  not an oversight.** A committed example report records the run that produced
+  it, at a commit somebody can reach; it is re-rendered with a release, under
+  the full ritual, and never amended in place to match a string change. Four
+  of them carry `What answered` until the next tag, where regenerating them is
+  a named step.
+
+[adv-5]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
+
 ## 0.17.0 — 2026-09-20
 
 ### Added — the thinking a model charged for

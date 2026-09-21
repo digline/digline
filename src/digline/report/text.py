@@ -213,7 +213,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # be the report asserting what it does not know.
         "fact.target_config.withheld_identity": (
             "The system under test answered under the same declared "
-            "configuration; what answered is withheld, so whether the model "
+            "configuration; the answering model is withheld, so whether it "
             "changed is not known."
         ),
         # An absence disguised as a presence, stated as a fact: the endpoint
@@ -277,8 +277,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "comparable with the reference: what moved is the measuring "
             "instrument, not only what it measured."
         ),
-        "config.title": "What answered",
-        "config.judge.title": "What judged",
+        "config.title": "How it was set up",
+        "config.judge.title": "How the judge was set up",
         "config.column.parameter": "Parameter",
         "config.column.value": "This run",
         "config.column.reference": "Reference",
@@ -693,9 +693,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             " The band this run measured covers the threshold, so which side it "
             "landed on is a property of the samples that were drawn."
         ),
+        # `{name}` is a configuration field, and outside `OBSERVED_FIELDS` it
+        # is what this run **sent**. "Answered with" made an execution claim
+        # out of it — the one ADR 0020 §3 row 7 forbids, since a sent id says
+        # what was asked for and not what answered. The `.observed` variants
+        # carry the fields a provider reported, where "reported" is the verb
+        # `config.change.*.observed` already uses for the same reason.
         "explain.setting.target.changed": (
-            "The system under test answered with {name} {after}; the reference "
-            "answered with {before}."
+            "The system under test was configured with {name} {after}; the "
+            "reference with {before}."
+        ),
+        "explain.setting.target.changed.observed": (
+            "The system under test reported {name} {after}; the reference "
+            "reported {before}."
         ),
         "explain.setting.target.new": (
             "The system under test recorded {name} {after}, which the "
@@ -709,14 +719,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "or it was withheld."
         ),
         "explain.setting.judge.changed": (
-            "The judge graded with {name} {after}; the reference was graded "
-            "with {before}."
+            "The judge was configured with {name} {after}; the reference's "
+            "judge with {before}."
+        ),
+        "explain.setting.judge.changed.observed": (
+            "The judge reported {name} {after}; the reference's judge "
+            "reported {before}."
         ),
         "explain.setting.judge.new": (
             "The judge recorded {name} {after}, which the reference did not record."
         ),
         "explain.setting.judge.missing": (
-            "The reference was graded with {name} {before}; this run recorded none."
+            "The reference's judge recorded {name} {before}; this run recorded none."
         ),
         "explain.setting.judge.unknown": (
             "Whether the judge's {name} changed is not known: one side did not "
@@ -741,9 +755,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "it changed is not known."
         ),
         "explain.setting.target.alone": (
-            "The system under test answered with {name} {after}."
+            "The system under test was configured with {name} {after}."
         ),
-        "explain.setting.judge.alone": "The judge graded with {name} {after}.",
+        "explain.setting.target.alone.observed": (
+            "The system under test reported {name} {after}."
+        ),
+        "explain.setting.judge.alone": (
+            "The judge was configured with {name} {after}."
+        ),
+        "explain.setting.judge.alone.observed": ("The judge reported {name} {after}."),
         "explain.setting.target.alone.withheld": (
             "The system under test recorded {name}; the value is not included."
         ),
@@ -808,7 +828,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.side.judge": "Judge",
         "log.span": "  {sighting} — {first} to {last}, {runs} run(s){environments}",
         "log.environments": " ({environments})",
-        "log.sighting.answered": "{who}, answered as {answered}",
+        # `reported as`, never `answered as`. `resolved_model` is in
+        # `OBSERVED_FIELDS` — what a provider **reported** rather than what
+        # the target **sent** — and `config.change.*.observed` has said
+        # "reported" about that same field since ADR 0005 §9. This surface
+        # said "answered" about it, so one field had two verbs in two
+        # renderings. An id that differs from the one we sent is more than
+        # an echo and still only what the provider told us.
+        "log.sighting.answered": "{who}, reported as {answered}",
         "log.sighting.absent": "{who}: {absence}",
         "log.absence.declared_nothing": "declared no configuration",
         "log.absence.several_judges": "several judges; no single answering model",
@@ -832,7 +859,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.rolls.none": "No roll recorded.",
         "log.roll": (
-            "{side}: {sent} answered as {before} last at {last_before}, and as "
+            "{side}: {sent} reported {before} last at {last_before}, and "
             "{after} first at {first_after}."
         ),
         "log.roll.silence": (
@@ -870,7 +897,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.excluded.judge_config": (
             "{count} as grading with another instrument"
         ),
-        "log.spread.excluded.identity": "{count} as answered by another model",
+        "log.spread.excluded.identity": "{count} as another model was reported",
         "log.spread.unidentified": (
             "  {count} of the {total} run(s) did not identify the answering model."
         ),
@@ -1113,8 +1140,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "punteggi sono meno confrontabili con il riferimento: a spostarsi "
             "è lo strumento di misura, non solo ciò che misura."
         ),
-        "config.title": "Che cosa ha risposto",
-        "config.judge.title": "Che cosa ha giudicato",
+        "config.title": "Com'era configurato",
+        "config.judge.title": "Com'era configurato il giudice",
         "config.column.parameter": "Parametro",
         "config.column.value": "Questa esecuzione",
         "config.column.reference": "Riferimento",
@@ -1534,8 +1561,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "lato sia caduto dipende dai campioni estratti."
         ),
         "explain.setting.target.changed": (
-            "Il sistema sotto esame ha risposto con {name} {after}; il "
-            "riferimento ha risposto con {before}."
+            "Il sistema sotto esame era configurato con {name} {after}; il "
+            "riferimento con {before}."
+        ),
+        "explain.setting.target.changed.observed": (
+            "Il sistema sotto esame ha riportato {name} {after}; il "
+            "riferimento ha riportato {before}."
         ),
         "explain.setting.target.new": (
             "Il sistema sotto esame ha registrato {name} {after}, che il "
@@ -1550,15 +1581,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "oppure è stato trattenuto."
         ),
         "explain.setting.judge.changed": (
-            "Il giudice ha valutato con {name} {after}; il riferimento è stato "
-            "valutato con {before}."
+            "Il giudice era configurato con {name} {after}; il giudice del "
+            "riferimento con {before}."
+        ),
+        "explain.setting.judge.changed.observed": (
+            "Il giudice ha riportato {name} {after}; il giudice del "
+            "riferimento ha riportato {before}."
         ),
         "explain.setting.judge.new": (
             "Il giudice ha registrato {name} {after}, che il riferimento non "
             "registrava."
         ),
         "explain.setting.judge.missing": (
-            "Il riferimento è stato valutato con {name} {before}; questa "
+            "Il giudice del riferimento registrava {name} {before}; questa "
             "esecuzione non ne registra alcuno."
         ),
         "explain.setting.judge.unknown": (
@@ -1584,9 +1619,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "cambiato non è noto."
         ),
         "explain.setting.target.alone": (
-            "Il sistema sotto esame ha risposto con {name} {after}."
+            "Il sistema sotto esame era configurato con {name} {after}."
         ),
-        "explain.setting.judge.alone": "Il giudice ha valutato con {name} {after}.",
+        "explain.setting.target.alone.observed": (
+            "Il sistema sotto esame ha riportato {name} {after}."
+        ),
+        "explain.setting.judge.alone": (
+            "Il giudice era configurato con {name} {after}."
+        ),
+        "explain.setting.judge.alone.observed": (
+            "Il giudice ha riportato {name} {after}."
+        ),
         "explain.setting.target.alone.withheld": (
             "Il sistema sotto esame ha registrato {name}; il valore non è incluso."
         ),
@@ -1653,7 +1696,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "  {sighting} — da {first} a {last}, {runs} esecuzioni{environments}"
         ),
         "log.environments": " ({environments})",
-        "log.sighting.answered": "{who}, ha risposto come {answered}",
+        "log.sighting.answered": "{who}, ha riportato {answered}",
         "log.sighting.absent": "{who}: {absence}",
         "log.absence.declared_nothing": "nessuna configurazione dichiarata",
         "log.absence.several_judges": (
@@ -1678,10 +1721,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{run} ha rivalutato {source} senza interrogare il sistema; non conta "
             "come avvistamento del sistema."
         ),
-        "log.rolls.none": "Nessun cambio di modello registrato.",
+        "log.rolls.none": "Nessun avvicendamento registrato.",
         "log.roll": (
-            "{side}: {sent} ha risposto come {before} l'ultima volta a "
-            "{last_before}, e come {after} la prima volta a {first_after}."
+            "{side}: {sent} ha riportato {before} l'ultima volta a "
+            "{last_before}, e {after} la prima volta a {first_after}."
         ),
         "log.roll.silence": (
             "{count} esecuzioni tra le due non hanno registrato il modello che ha "
@@ -1718,7 +1761,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.excluded.judge_config": (
             "{count} perché giudicano con un altro strumento"
         ),
-        "log.spread.excluded.identity": ("{count} perché ha risposto un altro modello"),
+        "log.spread.excluded.identity": (
+            "{count} perché è stato riportato un altro modello"
+        ),
         "log.spread.unidentified": (
             "  {count} run su {total} non hanno identificato il modello che ha "
             "risposto."

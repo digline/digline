@@ -35,7 +35,21 @@ __all__ = [
 
 
 def sighting_json(found: Sighting) -> dict[str, object]:
-    """One side of one run. `answered` is null exactly when `absence` names why."""
+    """One side of one run. `answered` is null exactly when `absence` names why.
+
+    **The key is `answered`, the rendered prose says *reported*, and that is
+    deliberate — do not "fix" it.** The field name is older than the
+    distinction. What it holds is `resolved_model`: an id the provider
+    *reported*, which is why it sits in `OBSERVED_FIELDS`, and which nothing
+    attests. The sentences were amended to say `reported as` because one field
+    was getting two verbs in two renderings; the key was not, because renaming
+    it is an `OUTPUT_VERSION` bump for a word and would break every consumer
+    parsing `answered` to tell them something they already knew.
+
+    A differing id is still more than an echo — no passthrough returns a string
+    nobody sent — so ADR 0020 §3's doctrine stands. The verb moved, not the
+    reading. (ADR 0020, amended)
+    """
     return {
         "provider": found.provider,
         "sent": list(found.sent),

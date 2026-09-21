@@ -24,9 +24,9 @@ Target
   anthropic claude-haiku-4-5: not recorded: the document does not name its writer — 2026-09-02T09:14:22.104553+00:00 to 2026-09-05T09:14:22.104553+00:00, 4 run(s) (staging)
   anthropic claude-sonnet-5: no answering model was reported — 2026-09-06T09:14:22.104553+00:00 to 2026-09-08T09:14:22.104553+00:00, 3 run(s) (staging)
   anthropic claude-sonnet-5: the endpoint echoed the requested id, so what answered is not identified — 2026-09-09T09:14:22.104553+00:00 to 2026-09-11T09:14:22.104553+00:00, 3 run(s) (staging)
-  anthropic claude-sonnet-5, answered as claude-sonnet-5-20260210 — 2026-09-12T09:14:22.104553+00:00 to 2026-09-12T09:14:22.104553+00:00, 1 run(s) (staging)
+  anthropic claude-sonnet-5, reported as claude-sonnet-5-20260210 — 2026-09-12T09:14:22.104553+00:00 to 2026-09-12T09:14:22.104553+00:00, 1 run(s) (staging)
   anthropic claude-sonnet-5: no answering model was reported — 2026-09-13T09:14:22.104553+00:00 to 2026-09-13T09:14:22.104553+00:00, 1 run(s) (staging)
-  anthropic claude-sonnet-5, answered as claude-sonnet-5-20260415 — 2026-09-15T09:14:22.104553+00:00 to 2026-09-15T09:14:22.104553+00:00, 1 run(s) (staging)
+  anthropic claude-sonnet-5, reported as claude-sonnet-5-20260415 — 2026-09-15T09:14:22.104553+00:00 to 2026-09-15T09:14:22.104553+00:00, 1 run(s) (staging)
   2026-09-15T11-02-07-551901-00-00-331b1cfd9709f0cd re-judged 2026-09-15T09-14-22-104553-00-00-331b1cfd9709f0cd and asked the target nothing; it is not counted as a sighting of the target.
 
 Judge
@@ -34,11 +34,11 @@ Judge
 
 Where what answered is not identified, only a canary sees whether the model's behaviour changed.
 
-Target: anthropic claude-sonnet-5 answered as claude-sonnet-5-20260210 last at 2026-09-12T09:14:22.104553+00:00, and as claude-sonnet-5-20260415 first at 2026-09-15T09:14:22.104553+00:00.
+Target: anthropic claude-sonnet-5 reported claude-sonnet-5-20260210 last at 2026-09-12T09:14:22.104553+00:00, and claude-sonnet-5-20260415 first at 2026-09-15T09:14:22.104553+00:00.
   1 run(s) between them recorded no answering model.
 
 Reference 2026-09-12T09-14-22-104553-00-00-331b1cfd9709f0cd, recorded 2026-09-12T09:14:22.104553+00:00, approved 2026-09-12T16:30:11+00:00.
-  Target: anthropic claude-sonnet-5, answered as claude-sonnet-5-20260210
+  Target: anthropic claude-sonnet-5, reported as claude-sonnet-5-20260210
   Judge: declared no configuration
 
 Dispositions recorded
@@ -51,8 +51,17 @@ That is one suite's fourteen runs, and the honest thing about it is how much of
 it is absence. Read the target side down: four runs written by a release that
 did not record what answered; three by one that did, against a provider that
 returned no id; three against an endpoint that returned the id it was sent; then
-two named snapshots with a silent run between them. **Two verified sightings out
+two named snapshots with a silent run between them. **Two reported sightings out
 of thirteen**, and the roll sits between them.
+
+*Reported*, not *verified*, and the distinction is the whole point of the page.
+A provider that names a snapshot we did not ask for has told us more than one
+that echoes the id we sent — no passthrough produces a string nobody supplied —
+but it has still only told us. Nothing here attests anything: the provider could
+report any string, and a proxy in front of it could rewrite the one it did.
+digline has a vocabulary for *we cannot identify what answered* — the seven
+absences below — and none for *we were told and could not check*, which is why
+this paragraph once said "verified". The gap is named, not filled.
 
 A **span** is consecutive runs whose sighting on one side was the same, with the
 first and last `created_at`, the number of runs, and the environments they ran
@@ -69,8 +78,8 @@ that side it is an ordinary sighting.
 
 The one sentence that matters:
 
-> Target: anthropic claude-sonnet-5 answered as claude-sonnet-5-20260210 last
-> at …, and as claude-sonnet-5-20260415 first at ….
+> Target: anthropic claude-sonnet-5 reported claude-sonnet-5-20260210 last
+> at …, and claude-sonnet-5-20260415 first at ….
 
 A **roll** is two sightings of the same *sent* model whose recorded *answering*
 models differ. Nothing in this reading looks at a score, a verdict or a canary,

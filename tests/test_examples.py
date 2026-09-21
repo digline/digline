@@ -181,6 +181,7 @@ STANDALONE = (
     "llamaindex",
     "quickstart-toml",
     "operator",
+    "mcp-tools",
 )
 
 #: The examples whose application has to be started from **outside** the suite,
@@ -1713,6 +1714,7 @@ NUMBER_WORDS = {
     8: "Eight",
     9: "Nine",
     10: "Ten",
+    11: "Eleven",
 }
 
 

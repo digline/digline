@@ -1,0 +1,10 @@
+[
+  {
+    "id": "explicit-id",
+    "request": "Show me customer 4711"
+  },
+  {
+    "id": "no-id",
+    "request": "I have a problem with my account"
+  }
+]

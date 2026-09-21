@@ -20,6 +20,7 @@ from typing import Literal, assert_never
 
 from digline.core import (
     IDENTITY_FIELD,
+    OBSERVED_FIELDS,
     ArtifactDelta,
     AssertionDelta,
     Comparison,
@@ -814,10 +815,9 @@ def _setting_line(fact: SettingFact, locale: Locale) -> str:
         # to have moved from. `_run_artifacts` says the same thing by leaving
         # the outcome column out rather than filling it with a dash.
         if fact.kind != "artifact":
-            withheld = ".withheld" if fact.withheld else ""
             return phrase(
                 locale,
-                f"explain.setting.{fact.kind}.alone{withheld}",
+                f"explain.setting.{fact.kind}.alone{_verb(fact)}",
                 name=fact.name,
                 after=after,
             )
@@ -838,11 +838,30 @@ def _setting_line(fact: SettingFact, locale: Locale) -> str:
             return phrase(locale, "explain.setting.judge.removed", before=before)
     return phrase(
         locale,
-        f"explain.setting.{fact.kind}.{fact.outcome}",
+        f"explain.setting.{fact.kind}.{fact.outcome}{_verb(fact)}",
         name=fact.name,
         before=before,
         after=after,
     )
+
+
+def _verb(fact: SettingFact) -> str:
+    """The suffix that picks the verb: withheld, reported, or configured.
+
+    A sent parameter is one the suite *configured*; an `OBSERVED_FIELDS` one is
+    one the provider *reported*, and saying the run "was configured with"
+    `resolved_model` would be as false as the "answered with" this replaces —
+    nobody configured it. `render.py` splits the same way off the same set, and
+    only where a verb is spoken: `new`, `missing` and `unknown` say "recorded",
+    which is true of both. (ADR 0005 §9; ADR 0020 §3, row 7)
+    """
+    if fact.outcome is None and fact.withheld:
+        # `.withheld` exists on the `alone` keys only. Compared, a withheld
+        # field is `unknown`, and that string already says "or it was withheld".
+        return ".withheld"
+    if fact.outcome in (None, "changed") and fact.name in OBSERVED_FIELDS:
+        return ".observed"
+    return ""
 
 
 def _artifact_line(fact: SettingFact, locale: Locale) -> str:

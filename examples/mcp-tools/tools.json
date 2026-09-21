@@ -1,0 +1,32 @@
+[
+  {
+    "description": "Look up a customer record by id. Use this whenever the user mentions a customer, an account or an order.",
+    "inputSchema": {
+      "properties": {
+        "customer_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_id"
+      ],
+      "type": "object"
+    },
+    "name": "lookup_customer"
+  },
+  {
+    "description": "Search the product documentation for a phrase and return the matching passages.",
+    "inputSchema": {
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_docs"
+  }
+]
