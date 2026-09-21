@@ -74,8 +74,8 @@ boundary, who wrote the value, and what does a hostile value do there.*
 Reproduce on the artifact that actually travels, not on the code that builds it,
 and write the regression test so that it fails against the release just cut.
 
-It has run on 0.7.1 and on every minor release since: seven so far, each in
-the changelog. The pass over 0.7.1's four fixes found two more, shipped the
+It has run on 0.7.1 and on every minor release since, each in the
+changelog. The pass over 0.7.1's four fixes found two more, shipped the
 same day as 0.7.2. The pass over 0.8.0 found `resolved_model` travelling in
 clear out of a redacted run — a boundary decided that morning and wrong by
 lunchtime — and 0.8.1 went out before the announcements. Neither became an
