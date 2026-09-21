@@ -32,8 +32,9 @@ from digline.core import (
     SystemConfig,
     Verdict,
     budget_exceedances,
+    case_count,
+    checked_denominator,
     considered_cases,
-    denominator,
     directions,
     on_the_line,
     scale_lost,
@@ -70,12 +71,21 @@ __all__ = [
     "suspended_cases",
     "unjudged_cases",
     "unjudged_sentence",
+    "reference_unreconciled_fact",
     "unreconciled_fact",
 ]
 
 #: What stands where a parameter has no value on one side. Not localized, for
 #: the reason ISO dates are not: two reports of one run must diff line by line.
 ABSENT = "—"
+
+#: How many gaps `unreconciled_fact` names before it stops naming and counts.
+#: Five rather than one: the shape a dispatch defect actually produces is one to
+#: three, and a cap that hid the second of three would cost every real run the
+#: names ADR 0027 §3 asked for to save a pathological one. And five rather than
+#: `SUMMARY_LIMIT`'s twenty, because this clause is not a list a reader scans —
+#: it is the opening of one sentence. (F-5, the second 0.17.0 delta-pass)
+NAMED_GAPS = 5
 
 #: How the CLI marks a commit taken from a tree with uncommitted changes. The
 #: report only reads it: reaching for git is the CLI's job alone.
@@ -218,6 +228,19 @@ class Headline:
     #: measured. It moves the exit code only through the errored verdict each
     #: gap already is, so it needs no branch in `exit_code()`. (ADR 0027 §3)
     unreconciled: int = 0
+    #: How many checks the **reference** recorded as gaps. The sixteenth fact,
+    #: and the second added because a sentence was found saying something false:
+    #: "Every case could be judged." over a comparison whose reference admits it
+    #: did not know what it measured.
+    #:
+    #: It moves **no exit code**, and that is deliberate rather than an
+    #: omission. This run is not wrong — it may be perfectly reconciled — and
+    #: failing it for the state of a document promoted weeks ago would punish
+    #: the wrong run. What the clause withdraws is the standing of the
+    #: comparison, which is `config_changed`'s shape and `denominator_moved`'s.
+    #: The reference needs re-promoting, and only a person can do that.
+    #: (F-10, the second 0.17.0 delta-pass)
+    reference_unreconciled: int = 0
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -670,6 +693,17 @@ def headline(
     calibration_text = calibration_fact(lost, locale)
     gaps = unreconciled(run)
     unreconciled_text = unreconciled_fact(gaps, locale)
+    # **And the reference's own gaps, which nothing read until now.** ADR 0027
+    # §3's ground for refusing to promote an unreconciled run is that "a
+    # reference nobody can say that of is no reference" — and the refusal fires
+    # once, on the machine that promoted. Every reader afterwards asked the run
+    # and never the baseline, so a reference that admits it did not know what it
+    # measured was used in silence, under a headline saying "Every case could be
+    # judged." `baselines/` is versioned in git, so that document's surface is a
+    # pull request rather than a local file. (F-10, the second 0.17.0
+    # delta-pass)
+    reference_gaps = unreconciled(baseline)
+    reference_unreconciled_text = reference_unreconciled_fact(reference_gaps, locale)
     # Before the configuration clause, because it qualifies what the numbers
     # *are* rather than how the system was set up: a replay did not ask the
     # target anything. The configuration clause still prints below it — it
@@ -736,6 +770,7 @@ def headline(
         scale_lost=bool(lost),
         denominator_moved=incomparable,
         unreconciled=len(gaps),
+        reference_unreconciled=len(reference_gaps),
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
@@ -747,6 +782,12 @@ def headline(
                 # says the scale moved, this one says the run does not know
                 # what it measured at all. (ADR 0027 §3)
                 unreconciled_text,
+                # And beside it, the reference's. Second rather than first: this
+                # run not knowing what it measured is the larger fact, and a
+                # reader who has just been told it does not need the reference's
+                # gaps to come first — but they must come before any count that
+                # was measured *against* that reference. (F-10)
+                reference_unreconciled_text,
                 # First of all, before the counts and not only before the
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
@@ -785,17 +826,66 @@ def headline(
 
 
 def unreconciled_fact(gaps: Sequence[tuple[str, str]], locale: Locale) -> str:
-    """The clause a run that does not reconcile earns, naming every gap as
-    *case · check*, or nothing at all. (ADR 0027 §3)"""
+    """The clause a run that does not reconcile earns, naming the gaps as
+    *case · check*, or nothing at all. (ADR 0027 §3)
+
+    **Capped at `NAMED_GAPS`, on `calibration_fact`'s precedent below.** ADR
+    0027 §3 argued for the names — "a count of them sends somebody hunting
+    while the names end the question" — and that is right for the one-to-three
+    gaps a dispatch defect actually produces. It does not survive the run that
+    gaps a whole suite: every pair joined, this clause leads `Headline.sentence`,
+    and `compare_json` copies the sentence whole, so a thousand gaps put twenty
+    kilobytes of names on the wire, into the report a customer reads, and
+    through the MCP `compare` tool into a model's context. Measured at 1 000
+    gaps: 20 131 characters of clause.
+
+    The names still end the question, because the count travels with them and
+    the run file has all of them. What the cap removes is a sentence nobody can
+    read. (F-5, the second 0.17.0 delta-pass)
+    """
     if not gaps:
         return ""
-    named = ", ".join(f"{case}{SUMMARY_SEPARATOR}{check}" for case, check in gaps)
-    return phrase(
-        locale,
-        f"fact.unreconciled.{'one' if len(gaps) == 1 else 'many'}",
-        count=len(gaps),
-        gaps=named,
+    named = ", ".join(
+        f"{case}{SUMMARY_SEPARATOR}{check}" for case, check in gaps[:NAMED_GAPS]
     )
+    # Three forms, not two, so that **every sentence a real run produces stays
+    # byte for byte what it was**: a run with one to `NAMED_GAPS` gaps names
+    # them all and reads exactly as it did, and only the run that overflows gets
+    # the "including" wording — which is `fact.calibration.many`'s word for the
+    # same job.
+    if len(gaps) == 1:
+        key = "fact.unreconciled.one"
+    elif len(gaps) <= NAMED_GAPS:
+        key = "fact.unreconciled.many"
+    else:
+        key = "fact.unreconciled.capped"
+    return phrase(locale, key, count=len(gaps), gaps=named)
+
+
+def reference_unreconciled_fact(gaps: Sequence[tuple[str, str]], locale: Locale) -> str:
+    """The clause a *reference* that does not reconcile earns, or nothing.
+
+    Its own clause rather than a plural of the run's: the two facts ask for
+    different actions. A run that does not reconcile is re-run; a reference that
+    does not is re-promoted, and until it is, every comparison against it stands
+    on a measurement nobody can state. Saying both in one sentence would leave
+    the reader to work out which document is the problem.
+
+    Capped like the run's, for the run's reason. (F-10, the second 0.17.0
+    delta-pass)
+    """
+    if not gaps:
+        return ""
+    named = ", ".join(
+        f"{case}{SUMMARY_SEPARATOR}{check}" for case, check in gaps[:NAMED_GAPS]
+    )
+    if len(gaps) == 1:
+        key = "fact.reference_unreconciled.one"
+    elif len(gaps) <= NAMED_GAPS:
+        key = "fact.reference_unreconciled.many"
+    else:
+        key = "fact.reference_unreconciled.capped"
+    return phrase(locale, key, count=len(gaps), gaps=named)
 
 
 def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:
@@ -1064,9 +1154,11 @@ def check_line(delta: AssertionDelta, *, locale: Locale, coincides: str = "") ->
     # is about, where the coincidence qualifies only the drop. This run's side,
     # because that is the figure the sentence ends on.
     if delta.scope == "run" and delta.current is not None:
-        counted = denominator_sentence(
-            denominator(delta.current), locale=locale, whole=False
-        )
+        # `delta.counted`, not `denominator(delta.current)`: the row already
+        # carries the number checked against the run it came from, and a delta
+        # holds no run of its own to check it against. This was the one of the
+        # three surfaces that could not. (F-4, the second 0.17.0 delta-pass)
+        counted = denominator_sentence(delta.counted, locale=locale, whole=False)
         if counted:
             text += f" {counted}"
     return text
@@ -1570,15 +1662,22 @@ def _aggregates(
         return ""
 
     rows: list[str] = []
+    # Read once off the run, and handed to every figure that claims a share of
+    # it: this cell is where "All 20 cases counted." was printed over a run
+    # holding five that nobody judged. (F-4, the second 0.17.0 delta-pass)
+    cases = case_count(run)
     for verdict in run.aggregate:
         score = verdict.score.score
         result = phrase(locale, "detail.errored") if score is None else fmt_score(score)
         # A sentence, not three counts: the old cell printed "0 suspended · 0
         # not judged" on every clean figure and still left the canary and the
         # calibration case out of the sum. A verdict with no recorded matrix
-        # gets the dash, not a zero nobody measured.
+        # gets the dash, not a zero nobody measured — and neither does one whose
+        # matrix the run disproves.
         counted = (
-            denominator_sentence(denominator(verdict), locale=locale, whole=True)
+            denominator_sentence(
+                checked_denominator(verdict, cases), locale=locale, whole=True
+            )
             or ABSENT
         )
         why = verdict.reason if reasons else phrase(locale, "reason.unavailable")

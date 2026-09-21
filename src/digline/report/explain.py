@@ -33,8 +33,9 @@ from digline.core import (
     Scope,
     SystemConfig,
     Verdict,
+    case_count,
+    checked_denominator,
     considered_cases,
-    denominator,
     on_the_line,
     scale_lost,
     unreconciled,
@@ -151,6 +152,14 @@ type TallyKind = Literal[
     # code it could not account for. Read off the run alone, so it is stated
     # with or without a reference, and it goes to the very top.
     "unreconciled",
+    # The ninth amendment, and the second made because a reading was found
+    # saying something **false**: how many checks the *reference* recorded as
+    # gaps. It earns its place by ADR 0012 §3's own test twice over — the
+    # headline says it, and a reading that omitted it described a comparison as
+    # standing on a measurement its own errored delta showed it did not. Stated
+    # only against a reference, because without one there is nothing to say.
+    # It moves no exit code. (F-10, the second 0.17.0 delta-pass)
+    "reference_unreconciled",
 ]
 
 
@@ -366,6 +375,21 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         out.insert(0, TallyFact("calibration", count=lost))
     # Above even the lost scale: that one says what the numbers were measured
     # on, this one says the run does not know what it measured. (ADR 0027 §7)
+    #
+    # The reference's gaps are inserted first so that the run's own end up above
+    # them: this run not knowing what it measured is the larger fact, and the
+    # reference's sits directly beneath it. Without this the reading printed
+    # "Every case could be judged." three lines above "c2 · contains could not
+    # be judged." — the second read off an errored delta whose error belonged to
+    # the reference, and nothing in the tally accounting for it.
+    # (F-10, the second 0.17.0 delta-pass)
+    if comparison.reference_unreconciled:
+        out.insert(
+            0,
+            TallyFact(
+                "reference_unreconciled", count=len(comparison.reference_unreconciled)
+            ),
+        )
     if gaps:
         out.insert(0, TallyFact("unreconciled", count=gaps))
     return out
@@ -539,15 +563,19 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
             if delta.denominator_moved and before is not None
             else None
         ),
-        counted=_counted(delta.scope, now),
+        counted=_counted(delta),
     )
 
 
-def _counted(scope: Scope, verdict: Verdict | None) -> Denominator | None:
-    """The denominator a run-level verdict was computed over, where it has one."""
-    if scope != "run" or verdict is None:
-        return None
-    return denominator(verdict)
+def _counted(delta: AssertionDelta) -> Denominator | None:
+    """The denominator this run's side of `delta` was computed over, where it
+    has one the run does not disprove.
+
+    Read off the row rather than recomputed from the verdict: `compare()` has
+    already checked the number against the run, and a delta carries no run of
+    its own to check it against. (F-4, the second 0.17.0 delta-pass)
+    """
+    return None if delta.scope != "run" else delta.counted
 
 
 def _checks_alone(run: Run) -> list[Fact]:
@@ -586,7 +614,10 @@ def _checks_alone(run: Run) -> list[Fact]:
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
             on_the_line=on_the_line(verdict),
-            counted=denominator(verdict),
+            # Checked against the run, which this reading holds: a figure whose
+            # matrix the run disproves states no denominator rather than a
+            # wrong one. (F-4, the second 0.17.0 delta-pass)
+            counted=checked_denominator(verdict, case_count(run)),
         )
         for verdict in run.aggregate
         if verdict.status == "fail"
@@ -599,7 +630,11 @@ def _checks_alone(run: Run) -> list[Fact]:
             found.verdict.score.name,
             found.verdict.assertion_id,
             threshold=found.verdict.threshold,
-            counted=_counted(found.scope, found.verdict),
+            counted=(
+                checked_denominator(found.verdict, case_count(run))
+                if found.scope == "run"
+                else None
+            ),
         )
         for found in errored_verdicts(run)
     )
@@ -741,6 +776,13 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
             return phrase(
                 locale,
                 f"explain.tally.unreconciled.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "reference_unreconciled":
+            return phrase(
+                locale,
+                "explain.tally.reference_unreconciled."
+                f"{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
         case "shape":

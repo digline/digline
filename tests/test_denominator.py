@@ -24,7 +24,10 @@ from digline.core import (
     Run,
     Score,
     Verdict,
+    case_count,
+    checked_denominator,
     compare,
+    denominator,
 )
 from digline.report import (
     SECTIONS,
@@ -769,3 +772,154 @@ def test_a_flip_down_can_be_a_false_alarm_and_still_exits_one() -> None:
         assert lenient_head.denominator_moved == 1
         assert lenient_head.worse is False
         assert exit_code(lenient_head) == would_exit
+
+
+# --------------------------------------------------------------------------- #
+# The number checked against its own parts, and against the run:
+# F-4 of the second 0.17.0 delta-pass
+# --------------------------------------------------------------------------- #
+
+
+def counted_verdict(**metadata: object) -> Verdict:
+    """A run-level verdict carrying exactly the metadata given."""
+    return Verdict(
+        score=Score(name="precision", score=1.0, metadata=metadata),
+        threshold=0.9,
+        tolerance=0.0,
+        status="pass",
+        reason="r",
+        assertion_id="id-precision",
+    )
+
+
+def run_of_cases(*, cases: int, suspended: int = 0) -> Run:
+    return Run(
+        tenant="acme",
+        environment="test",
+        suite="agent-suite",
+        config_hash="hash-a",
+        created_at=CREATED,
+        results=tuple(
+            CaseResult(
+                case_id=f"c{i:02}",
+                verdicts=(),
+                suspended="set aside" if i < suspended else None,
+            )
+            for i in range(cases)
+        ),
+    )
+
+
+def test_a_total_its_own_parts_contradict_is_not_read() -> None:
+    """`as_metadata()` writes the four cells beside `considered`, and
+    `considered` is their sum by construction — so the document carries the
+    total *and* the addition that produced it. Nothing checked that they agree.
+    """
+    assert denominator(counted_verdict(considered=4, **_cells(2, 0, 2, 0))) is not None
+    assert denominator(counted_verdict(considered=9, **_cells(2, 0, 2, 0))) is None
+
+
+def test_the_cells_are_checked_only_when_they_are_all_there() -> None:
+    """An aggregate is identified by `considered`, not by the cells: requiring
+    them would unmake every figure written by an assertion that records a total
+    and no matrix, which is a reading this pass had no mandate to withdraw."""
+    assert denominator(counted_verdict(considered=3, suspended_excluded=1)) is not None
+    # One cell missing and the addition cannot be done at all, which is not the
+    # same as an addition that disagrees.
+    assert (
+        denominator(counted_verdict(considered=9, true_positive=2, false_positive=0))
+        is not None
+    )
+
+
+def _cells(tp: int, fp: int, tn: int, fn: int) -> dict[str, object]:
+    return {
+        "true_positive": tp,
+        "false_positive": fp,
+        "true_negative": tn,
+        "false_negative": fn,
+    }
+
+
+def test_a_negative_count_is_refused_like_a_boolean() -> None:
+    """ "-5 of 2 cases counted" and "43 of 36 cases counted; -7 could not be
+    judged." were both printed. Both numbers add up; neither can be true."""
+    assert denominator(counted_verdict(considered=-5)) is None
+    assert denominator(counted_verdict(considered=43, errored_excluded=-7)) is None
+
+
+def test_a_denominator_larger_than_the_run_is_refused() -> None:
+    """The first run-aware check: a whole-run aggregate saw every case the run
+    holds, so 50 counted beside 7 excluded cannot come out of a 50-case run."""
+    verdict = counted_verdict(considered=50, errored_excluded=7)
+
+    assert denominator(verdict) is not None, "the verdict alone cannot tell"
+    assert checked_denominator(verdict, case_count(run_of_cases(cases=50))) is None
+
+
+def test_no_aggregate_may_count_a_suspended_case() -> None:
+    """The second, and the one that caught the sentence worth catching: a
+    suspended case carries no verdict, so nothing can have counted it. This is
+    the shape that printed "All 20 cases counted." over a run where five were
+    set aside."""
+    claiming_all = counted_verdict(considered=20)
+    run = run_of_cases(cases=20, suspended=5)
+
+    assert checked_denominator(claiming_all, case_count(run)) is None
+    honest = counted_verdict(considered=15, suspended_excluded=5)
+    assert checked_denominator(honest, case_count(run)) is not None
+
+
+def test_a_grouped_aggregate_is_not_asked_to_match_the_whole_run() -> None:
+    """The exception that keeps the first check honest. A `by_group` aggregate
+    is computed over its own group's cases, so its `seen` is *meant* to be
+    smaller — and a stored run records no group per case, so the run cannot
+    settle it. Checking anyway would strip the sentence from every grouped
+    figure in every report."""
+    grouped = Verdict(
+        score=Score(
+            name="precision[group=travel]", score=1.0, metadata={"considered": 4}
+        ),
+        threshold=0.9,
+        tolerance=0.0,
+        status="pass",
+        reason="r",
+        assertion_id="id-precision-travel",
+    )
+
+    assert checked_denominator(grouped, case_count(run_of_cases(cases=20))) is not None
+    # The suspension bound still applies to it, as an upper bound.
+    assert (
+        checked_denominator(grouped, case_count(run_of_cases(cases=20, suspended=18)))
+        is None
+    )
+
+
+def test_the_three_surfaces_state_the_checked_number_or_none_at_all() -> None:
+    """ADR 0012 §3's same-truth rule, over the number rather than the sentence:
+    the report's cell, `compare`'s line and `explain`'s reading now read one
+    checked figure. The delta carries it because a delta holds no run."""
+    run = run_of_cases(cases=20, suspended=5)
+    lying = counted_verdict(considered=20)
+    run = Run(
+        tenant=run.tenant,
+        environment=run.environment,
+        suite=run.suite,
+        config_hash=run.config_hash,
+        created_at=run.created_at,
+        results=run.results,
+        aggregate=(lying,),
+    )
+
+    comparison = compare(run, run)
+    (delta,) = [d for d in comparison.deltas if d.scope == "run"]
+    assert delta.counted is None, "the row carries the checked number"
+
+    document = render_html(comparison, run, run, locale="en")
+    assert "All 20 cases counted" not in document
+    assert "20 of 20" not in document
+
+    for line in summary_lines(comparison, run, run, locale="en"):
+        assert "All 20 cases counted" not in line
+    for line in explain_text(facts(run, comparison), locale="en"):
+        assert "All 20 cases counted" not in line

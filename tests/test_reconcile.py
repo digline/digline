@@ -13,8 +13,10 @@ can see; these tests are about what one can.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -24,6 +26,7 @@ from digline.core import (
     CallTotals,
     CaseResult,
     Contains,
+    Disclosure,
     EvaluatorInputs,
     Gap,
     OutputKind,
@@ -38,9 +41,16 @@ from digline.core import (
     unreconciled,
 )
 from digline.report import explain_text, facts, headline, render_run_html
+from digline.report.render import NAMED_GAPS, unreconciled_fact
 from digline.run import Case, Response, Suite, execute
 from digline.store import ErroredRunError, FileResultStore
-from digline.wire import EXIT_UNJUDGED, compare_json, exit_code, explain_json
+from digline.wire import (
+    EXIT_UNJUDGED,
+    compare_json,
+    exit_code,
+    explain_json,
+    run_document,
+)
 
 CREATED = "2026-09-19T10:00:00+00:00"
 ASKED = frozenset({"id-a", "id-b"})
@@ -323,3 +333,216 @@ def test_an_aggregate_counts_a_renamed_score_rather_than_setting_it_aside() -> N
     assert accuracy.score.metadata["considered"] == 3
     assert accuracy.score.score == pytest.approx(2 / 3)
     assert unreconciled(run) == ()
+
+
+# --------------------------------------------------------------------------- #
+# The clause has a ceiling: F-5 of the second 0.17.0 delta-pass
+# --------------------------------------------------------------------------- #
+
+
+def gapped(count: int) -> Run:
+    """A run carrying `count` gap verdicts, built directly."""
+    marked = Verdict(
+        score=Score(name="agrees", score=None, metadata={UNRECONCILED: True}),
+        threshold=1.0,
+        status="error",
+        reason="agrees was asked and no verdict came back",
+        assertion_id="id-agrees",
+    )
+    return Run(
+        tenant="acme",
+        environment="test",
+        suite="triage",
+        config_hash="cfg",
+        created_at=CREATED,
+        results=tuple(
+            CaseResult(case_id=f"case-{i:04}", verdicts=(marked,)) for i in range(count)
+        ),
+    )
+
+
+def test_a_run_within_the_cap_names_every_gap_as_it_always_did() -> None:
+    """The property the cap must not cost: the shape a dispatch defect actually
+    produces is one to three gaps, and those sentences are unchanged."""
+    clause = unreconciled_fact(unreconciled(gapped(3)), "en")
+    assert "case-0000 · agrees" in clause
+    assert "case-0001 · agrees" in clause
+    assert "case-0002 · agrees" in clause
+    assert "including" not in clause
+
+
+def test_a_run_that_gaps_a_whole_suite_stops_naming_and_counts() -> None:
+    """ADR 0027 §3 argued for the names and did not consider the thousand-gap
+    run. Every pair joined, this clause leads `Headline.sentence`, which
+    `compare_json` copies whole and the MCP `compare` tool returns — so the
+    names went into a model's context and into the document a customer reads.
+    Measured at 1 000 gaps before the cap: 20 131 characters."""
+    gaps = unreconciled(gapped(1000))
+    clause = unreconciled_fact(gaps, "en")
+
+    assert "1000 checks" in clause
+    assert len(clause) < 500, "the clause is bounded"
+    assert clause.count("agrees") == NAMED_GAPS
+    # The count is still there, which is what makes the naming a sample rather
+    # than a silence.
+    assert "case-0000 · agrees" in clause
+    assert "case-0999" not in clause
+
+
+def test_the_bounded_clause_bounds_the_headline_and_the_wire() -> None:
+    """The consequence where it was actually paid."""
+    run = gapped(1000)
+    head = headline(compare(run, run), run, run, locale="en")
+    payload = compare_json(compare(run, run), head, full=False)
+
+    assert head.unreconciled == 1000
+    assert len(head.sentence) < 1000
+    assert len(json.dumps(payload)) < 4000
+
+
+@pytest.mark.parametrize("locale", ["en", "it"])
+def test_both_locales_have_the_capped_wording(locale: str) -> None:
+    clause = unreconciled_fact(unreconciled(gapped(50)), locale)  # pyright: ignore[reportArgumentType]
+    assert clause
+    assert "{gaps}" not in clause and "{count}" not in clause
+
+
+# --------------------------------------------------------------------------- #
+# A reference that does not reconcile: F-10 of the second 0.17.0 delta-pass
+# --------------------------------------------------------------------------- #
+
+
+def test_the_reference_is_asked_the_same_question_as_the_run() -> None:
+    """`unreconciled()` was called on the run at every site and on the baseline
+    at none, so the refusal in `promote_baseline` was the only reader that ever
+    asked — and it runs once, on the machine that promoted."""
+    _suite, unreconciled_run = lost_one()
+    clean = execute(a_suite(), answering, created_at=CREATED)
+
+    assert compare(clean, unreconciled_run).reference_unreconciled == (
+        ("c2", "agrees"),
+    )
+    assert compare(clean, clean).reference_unreconciled == ()
+
+
+def test_the_headline_no_longer_claims_every_case_could_be_judged() -> None:
+    """The sharpest symptom: the document said "Every case could be judged."
+    about a comparison whose reference admits it did not know what it
+    measured."""
+    _suite, reference = lost_one()
+    clean = execute(a_suite(), answering, created_at=CREATED)
+    head = headline(compare(clean, reference), clean, reference, locale="en")
+
+    assert head.reference_unreconciled == 1
+    assert "The reference does not reconcile" in head.sentence
+    assert "c2 · agrees" in head.sentence
+    # And it says nothing about *this* run, which reconciled perfectly.
+    assert "The run does not reconcile" not in head.sentence
+
+
+def test_it_moves_no_exit_code() -> None:
+    """Deliberate, and the reason is whose fault it is: this run may reconcile
+    perfectly, and failing it for the state of a baseline promoted weeks ago
+    would fail the wrong run. The clause withdraws the standing of the
+    comparison, which is `config_changed`'s shape."""
+    _suite, reference = lost_one()
+    clean = execute(a_suite(), answering, created_at=CREATED)
+    head = headline(compare(clean, reference), clean, reference, locale="en")
+
+    assert head.worse is False
+    assert exit_code(head) != EXIT_UNJUDGED or head.unjudged > 0
+
+
+def test_the_reading_says_it_too_rather_than_contradicting_itself() -> None:
+    """`explain` printed "Every case could be judged." three lines above
+    "c2 · agrees could not be judged." — the second read off an errored delta
+    whose error belonged to the reference, and nothing in the tally accounting
+    for it."""
+    _suite, reference = lost_one()
+    clean = execute(a_suite(), answering, created_at=CREATED)
+    lines = explain_text(facts(clean, compare(clean, reference)), locale="en")
+
+    assert any("reference does not reconcile" in line for line in lines)
+
+
+def test_the_count_crosses_on_the_wire_as_an_added_key() -> None:
+    """An added key under `OUTPUT_VERSION`'s own rule, and a number rather than
+    a name: a pipeline that wants to refuse a comparison standing on a
+    measurement nobody can state now has something to refuse on."""
+    _suite, reference = lost_one()
+    clean = execute(a_suite(), answering, created_at=CREATED)
+    comparison = compare(clean, reference)
+    head = headline(comparison, clean, reference, locale="en")
+
+    payload = compare_json(comparison, head, full=False)
+    assert payload["reference_unreconciled"] == 1
+
+    reading = explain_json(facts(clean, comparison), scope="comparison", exit_code=0)
+    emitted = cast("list[dict[str, object]]", reading["facts"])
+    kinds = {fact["kind"] for fact in emitted if fact["about"] == "run"}
+    assert "reference_unreconciled" in kinds
+
+
+# --------------------------------------------------------------------------- #
+# What the prose now claims, pinned: F-6 and F-7 of the second 0.17.0 pass
+# --------------------------------------------------------------------------- #
+#
+# These two changed **no behaviour** — they corrected docstrings that described
+# a barrier and a wire route the code does not have. So they pass against
+# 0.17.0 by construction, and they are here for the other direction: the next
+# edit that makes either sentence true again has to come past them.
+
+
+def test_an_errored_verdict_is_not_a_barrier_because_it_is_forced() -> None:
+    """The old wording read as a guarantee: the marker "counts only on an
+    errored verdict: on anything else it would be a key an assertion happened to
+    write". But an errored verdict is not a state an assertion has to reach
+    for — `Verdict` forces it, because a missing score may carry neither `pass`
+    nor `fail`. So any assertion that declines to score produces exactly the
+    shape the marker is read off."""
+    for status in ("pass", "fail"):
+        with pytest.raises(ValueError, match="missing score must produce"):
+            Verdict(
+                score=Score(name="agrees", score=None),
+                threshold=1.0,
+                status=status,  # pyright: ignore[reportArgumentType]
+                reason="r",
+                assertion_id="id-agrees",
+            )
+
+
+@pytest.mark.parametrize("value", [1, "true", "True", [], {}, {"unreconciled": True}])
+def test_the_narrowing_that_does_work_is_the_identity_check(value: object) -> None:
+    """`is True`, so nothing truthy claims a gap and nothing falsy hides one."""
+    forged = Verdict(
+        score=Score(name="agrees", score=None, metadata={UNRECONCILED: value}),
+        threshold=1.0,
+        status="error",
+        reason="r",
+        assertion_id="id-agrees",
+    )
+    run = Run(
+        tenant="acme",
+        environment="test",
+        suite="triage",
+        config_hash="cfg",
+        created_at=CREATED,
+        results=(CaseResult(case_id="c1", verdicts=(forged,)),),
+    )
+    assert unreconciled(run) == ()
+
+
+def test_the_marker_does_not_cross_on_the_wire_unless_disclosed() -> None:
+    """`travels()` admits a boolean, and the note on `UNRECONCILED` used to say
+    so — but the run projection never consults `travels()`: it filters verdict
+    metadata to the suite's `Disclosure` alone. So a run read through MCP
+    carries `status: "error"` and nothing that tells a gap from a judge that
+    failed. The *readings* do carry the count, because they are computed from
+    the verdicts rather than projected from them."""
+    _suite, run = lost_one()
+
+    closed = run_document(run, Disclosure())
+    assert UNRECONCILED not in json.dumps(closed)
+
+    opened = run_document(run, Disclosure(score_metadata=frozenset({UNRECONCILED})))
+    assert UNRECONCILED in json.dumps(opened)

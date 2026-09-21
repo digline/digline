@@ -268,6 +268,13 @@ COMPARE_KEYS = {
     # moves no exit code of its own, because every gap is already an errored
     # verdict and exits 2 as one.
     "unreconciled",
+    # F-10, the second 0.17.0 delta-pass: the same count for the **reference**.
+    # An added key, the same rule again, and this one moves no exit code at all
+    # — the run being compared may itself reconcile perfectly, and failing it
+    # for the state of a document promoted weeks ago would fail the wrong run.
+    # A pipeline that wants to refuse a comparison standing on a reference
+    # nobody can state now has a number to refuse on.
+    "reference_unreconciled",
     "counts",
     "reasons_available",
     "sentence",
