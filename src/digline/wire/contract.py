@@ -172,6 +172,35 @@ __all__ = [
 #: reading's fact list, which is the other place in this repository that grows
 #: this way. (both written 2026-09-21, after six such totals were found already
 #: false, two of them contradicting their own paragraphs)
+#:
+#: **And no enumeration is written either: where the thing can be found by
+#: looking, find it by looking.** The other half of the rule above, added the
+#: same day it cost something.
+#:
+#: A stale *count* is visible — it says five where six exist. A stale *list* is
+#: invisible: it contradicts nothing, it simply never looks at the sixth, and a
+#: check written from it answers confidently about the members it knows. The
+#: count is the symptom; the list is the disease. Both were in one paragraph of
+#: `RELEASING.md` that morning, the count was removed, and four hours later the
+#: release's step 3 regenerated five example locks by reading five hand-written
+#: names instead of the directory — leaving `examples/mcp-tools/`, which has a
+#: lock and was in nobody's list, pinning the previous version. The follow-up
+#: check carried a copy of the same five names, so it did not miss the answer:
+#: it never asked the question.
+#:
+#: The list was *correct when written* and became false the moment the thing it
+#: enumerated grew. That is the same guarantee a total carries — an amendment
+#: procedure exists, so the claim will be falsified — with the loud failure
+#: taken away.
+#:
+#: The test is whether the thing is **discoverable**, which is what separates a
+#: copy from a definition. `examples/*/uv.lock` is a glob and any list of it is
+#: a cache nobody invalidates. The five exclusion names in
+#: `digline.core.compare` look like the same shape and are not: that tuple *is*
+#: the definition, the one place they exist, and every renderer walks it instead
+#: of repeating it. Enumerate where the enumeration is the source; look where
+#: the source is somewhere else — and where a list must be written because
+#: nothing can find it, say what it is a copy of.
 OUTPUT_VERSION = 2
 
 EXIT_OK = 0

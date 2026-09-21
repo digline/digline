@@ -369,6 +369,45 @@ So this is a sentence in the procedure that adds a kind, next to the chain that
 records the additions: when you amend this list, there is no total to update,
 because no total is written.
 
+**And no enumeration is written either — where the thing can be found by
+looking, find it by looking.** This is the other half of the rule above and it
+was missing for four hours, which is exactly what it cost.
+
+A stale **count** is visible: it says five where six exist, and the sixth is
+standing right there in the sentence's own subject. A stale **list** is
+invisible — it does not disagree with anything, it simply never looks at the
+sixth. Nothing contradicts it, no reader notices, and any check written from it
+answers confidently about the members it knows. The count is the symptom; the
+list is the disease.
+
+On 2026-09-21 the symptom was removed and the disease left standing, in the same
+paragraph. `RELEASING.md` said *"The nine example legs"* and the dispatch ran
+eleven, so the nine came out — and directly beneath it the same paragraph named
+five examples that carry a lock, which was **correct when it was written** and
+became false the moment the thing it enumerated grew: `examples/mcp-tools/`
+landed with a lock of its own and was in nobody's list. Four hours later the
+release's step 3 regenerated five locks by reading those five names instead of
+the directory, and left `mcp-tools` pinning the previous version. The check that
+should have caught it — `release_followup.py`'s `PINNED_EXAMPLES` — carried a
+copy of the same five, so it did not miss the answer: it never asked the
+question. A gate built on an enumeration cannot fail on what the enumeration
+omits.
+
+**That is the same guarantee the counts had, with the visible failure removed.**
+An amendment procedure exists for that directory — somebody adds an example —
+so any list of its members is a claim that procedure will falsify, exactly as a
+total is. The difference is only that the total falsifies loudly.
+
+**The test is whether the thing is discoverable**, and it is what separates a
+copy from a definition. `examples/*/uv.lock` is a glob: the filesystem holds the
+answer and any list of it is a cache nobody invalidates. `_EXCLUSIONS` in
+`digline.core.compare` looks like the same shape and is not — it *is* the
+definition, the one place the five names exist, and the renderers walk it rather
+than repeating it. Enumerate where the enumeration is the source; look where the
+source is somewhere else. And when a list must be written down because nothing
+can find it, say beside it what it is a copy of, so the next reader knows there
+is something to check against.
+
 ### 4. No reason travels, and the boundary is a type rather than a filter
 
 **No fact carries a reason. The field does not exist.**
