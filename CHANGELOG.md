@@ -223,6 +223,38 @@ wrong all the same.
 
 [adv-5]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
 
+### Changed — a listing that showed a replay as a measurement
+
+The same defect as the four above, on the surface a reader meets first. The
+others were a verb over a field; this one is a whole row.
+
+- **`digline list` did not mark a rejudged run as a replay.** `rejudge` writes
+  a run like any other — its own key, a date, an environment, a commit, a case
+  count — and the listing printed it like any other. Nothing in the row said
+  the answers under it were replayed from a stored run rather than measured;
+  only `rejudged_from`, inside the document, said so. A replay is also the
+  *newest* thing in the store the moment it is written, so it sorts to the top
+  of the listing and is what `--run latest` resolves to: the row most likely to
+  be read and reused was the one making the strongest unsupported claim.
+  Rejudged runs now carry `~`, with `~ = rejudged: another run's recorded
+  answers judged again, not a measurement` under the table.
+- **It shares the baseline's column rather than adding one.** The two markers
+  cannot collide — `promote` refuses a run that declares `rejudged_from`
+  (`ReplayedRunError`), so nothing listed is both the baseline and a replay —
+  and a sixth field on a row that already carries five would push the line past
+  a terminal, which is how a marker stops being read. That the baseline was
+  given a marker and not a column is the precedent, and it is the right one.
+- **The legend is built, not printed inline**, so the blank line above it
+  appears once whichever markers a listing actually used. A store with no
+  replay in it says nothing about replays, the same way it already said nothing
+  about a baseline it did not have.
+- **Found from outside.** A `rejudge --judge-samples` on another project's
+  suite left a replay at the top of that store's listing, indistinguishable
+  from the runs around it, and the reading that caught it was opening the JSON.
+  The regression test lists a real run and a replay of it together and fails on
+  the row, not on the legend: against 0.17.0 it fails saying *the rejudged run
+  is listed as an ordinary run*, which is the defect in one sentence.
+
 ## 0.17.0 — 2026-09-20
 
 ### Added — the thinking a model charged for

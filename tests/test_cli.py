@@ -508,6 +508,54 @@ def test_list_marks_nothing_when_there_is_no_baseline(repo: Path) -> None:
     run_key(repo)
     done = cli(repo, "list", "--suite", "suite_qa.py")
     assert "* = current baseline" not in done.stdout
+    # Nor the other marker: a store with no replay in it says nothing about
+    # replays, the same way it says nothing about a baseline it does not have.
+    assert "~ = rejudged" not in done.stdout
+
+
+def test_list_marks_a_rejudged_run_rather_than_showing_it_as_a_measurement(
+    repo: Path,
+) -> None:
+    """A replay used to be indistinguishable from a real run in this listing.
+
+    `rejudge` writes a run like any other and `list` printed it like any other:
+    same columns, a fresh key at the top because it is the newest thing in the
+    store, and nothing saying the answers were replayed. Only `rejudged_from`
+    inside the document said so, three commands away. That is a listing showing
+    something as what it is not, on the surface somebody reads first — and
+    `--run latest` resolves to exactly that row.
+    """
+    source = repo / "suite_qa.py"
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            'disclosure=Disclosure(run_metadata=frozenset({"model"})),',
+            'disclosure=Disclosure(run_metadata=frozenset({"model"})),\n'
+            "    record_responses=True,",
+        ),
+        encoding="utf-8",
+    )
+    measured = run_key(repo)
+    rejudged = cli(
+        repo, "rejudge", "--suite", "suite_qa.py", "--run", measured
+    ).stdout.strip()
+    assert rejudged and rejudged != measured
+
+    done = cli(repo, "list", "--suite", "suite_qa.py")
+    assert done.returncode == EXIT_OK, done.stderr
+    rows = done.stdout.splitlines()
+    replay_row = next(line for line in rows if rejudged in line)
+    measured_row = next(line for line in rows if measured in line)
+
+    assert replay_row.startswith("~"), (
+        "the rejudged run is listed as an ordinary run: this row is a replay of "
+        f"{measured} and the listing does not say so"
+    )
+    assert not measured_row.startswith("~")
+    assert "~ = rejudged" in done.stdout
+    # The marker rides the column the baseline already uses, so the row is no
+    # wider than it was. Guarded here because widening it is how the marker
+    # would stop being seen.
+    assert len(replay_row.rstrip()) == len(measured_row.rstrip())
 
 
 def test_list_on_an_empty_store_says_so(repo: Path) -> None:

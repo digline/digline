@@ -587,7 +587,14 @@ def _short_commit(commit: str | None) -> str:
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-    """Every stored run of this suite, newest first, with the baseline marked.
+    """Every stored run of this suite, newest first, marked for what it is.
+
+    The baseline carries `*` and a rejudged run carries `~`. The second is not
+    decoration: `rejudge` writes a run like any other — a key, a date, a
+    commit, a case count — and before this the only place that said its answers
+    were replayed rather than measured was `rejudged_from`, inside the JSON.
+    This listing is the surface somebody reads first, and it showed a replay as
+    a measurement.
 
     Deliberately without filters. `--run KEY` is mandatory everywhere else and
     only `run` prints a key, so without this a developer who came back the next
@@ -613,16 +620,40 @@ def cmd_list(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     say(f"  {'KEY':<49}  {'CREATED':<33}  {'ENV':<12}  {'COMMIT':<14}  CASES")
+    replayed = False
     for run in rows:
         key = store.key_for(run)
-        mark = "*" if key == baseline_key else " "
+        # Two markers sharing one column, which they can do because they cannot
+        # collide: `promote` refuses a run that declares `rejudged_from`
+        # (`ReplayedRunError`), so nothing listed here is both the baseline and
+        # a replay. One column rather than two is the baseline marker's own
+        # precedent — the row already carries a key, a date, an environment, a
+        # commit and a count, and a sixth field would push the line past a
+        # terminal, which is how a marker stops being read.
+        if run.rejudged_from is not None:
+            mark, replayed = "~", True
+        elif key == baseline_key:
+            mark = "*"
+        else:
+            mark = " "
         say(
             f"{mark} {key:<49}  {run.created_at:<33}  {run.environment:<12}  "
             f"{_short_commit(run.git_commit):<14}  {len(run.results)}"
         )
+    # Built rather than printed inline, so the blank line above the legend
+    # appears once whichever markers this listing actually used.
+    legend = []
     if baseline_key is not None:
+        legend.append("* = current baseline")
+    if replayed:
+        legend.append(
+            "~ = rejudged: another run's recorded answers judged again, "
+            "not a measurement"
+        )
+    if legend:
         say()
-        say("* = current baseline")
+        for line in legend:
+            say(line)
     if listing.skipped or listing.unreadable:
         # Below the table, because it is about what is *not* in it. Never
         # silent: a listing that quietly drops history reads exactly like a
