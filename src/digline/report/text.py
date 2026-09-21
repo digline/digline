@@ -197,6 +197,32 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "checks: {gaps}. This is not a regression: what the run measured is "
             "not known."
         ),
+        # More gaps than a sentence can carry. "including" is the word
+        # `fact.calibration.many` uses for the same job, and every one of them
+        # is in the run file. (F-5, the second 0.17.0 delta-pass)
+        "fact.unreconciled.capped": (
+            "The run does not reconcile with what the suite asked, at {count} "
+            "checks, including {gaps}. This is not a regression: what the run "
+            "measured is not known."
+        ),
+        # The reference's own gaps, and a clause of their own: a run that does
+        # not reconcile is re-run, a reference that does not is re-promoted.
+        # (F-10, the second 0.17.0 delta-pass)
+        "fact.reference_unreconciled.one": (
+            "The reference does not reconcile with what its suite asked, at 1 "
+            "check: {gaps}. What the reference measured is not known, and this "
+            "comparison is made against it."
+        ),
+        "fact.reference_unreconciled.many": (
+            "The reference does not reconcile with what its suite asked, at "
+            "{count} checks: {gaps}. What the reference measured is not known, "
+            "and this comparison is made against it."
+        ),
+        "fact.reference_unreconciled.capped": (
+            "The reference does not reconcile with what its suite asked, at "
+            "{count} checks, including {gaps}. What the reference measured is "
+            "not known, and this comparison is made against it."
+        ),
         "fact.target_config.changed": (
             "The system under test answered under a different configuration: {changes}."
         ),
@@ -658,6 +684,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "not a regression: what the run measured is not known. They are "
             "named below, among the checks that could not be judged."
         ),
+        "explain.tally.reference_unreconciled.one": (
+            "1 check of the reference does not reconcile with what its suite "
+            "asked. What the reference measured is not known, and this "
+            "comparison is made against it."
+        ),
+        "explain.tally.reference_unreconciled.many": (
+            "{count} checks of the reference do not reconcile with what its "
+            "suite asked. What the reference measured is not known, and this "
+            "comparison is made against it."
+        ),
         "explain.tally.calibration.one": (
             "1 calibration case scored outside its declared band: the judged "
             "scores in this run are not placed on the scale they are compared "
@@ -1066,6 +1102,26 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "L'esecuzione non torna con ciò che la suite ha chiesto, in {count} "
             "controlli: {gaps}. Non è una regressione: non si sa che cosa "
             "l'esecuzione abbia misurato."
+        ),
+        "fact.unreconciled.capped": (
+            "L'esecuzione non torna con ciò che la suite ha chiesto, in {count} "
+            "controlli, fra cui {gaps}. Non è una regressione: non si sa che "
+            "cosa l'esecuzione abbia misurato."
+        ),
+        "fact.reference_unreconciled.one": (
+            "Il riferimento non torna con ciò che la sua suite ha chiesto, in 1 "
+            "controllo: {gaps}. Non si sa che cosa il riferimento abbia "
+            "misurato, e questo confronto è fatto contro di esso."
+        ),
+        "fact.reference_unreconciled.many": (
+            "Il riferimento non torna con ciò che la sua suite ha chiesto, in "
+            "{count} controlli: {gaps}. Non si sa che cosa il riferimento abbia "
+            "misurato, e questo confronto è fatto contro di esso."
+        ),
+        "fact.reference_unreconciled.capped": (
+            "Il riferimento non torna con ciò che la sua suite ha chiesto, in "
+            "{count} controlli, fra cui {gaps}. Non si sa che cosa il "
+            "riferimento abbia misurato, e questo confronto è fatto contro di esso."
         ),
         "fact.target_config.changed": (
             "Il sistema in prova ha risposto con una configurazione diversa: {changes}."
@@ -1525,6 +1581,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} controlli non tornano con ciò che la suite ha chiesto. Non "
             "è una regressione: non si sa che cosa l'esecuzione abbia misurato. "
             "Sono nominati sotto, tra i controlli non valutati."
+        ),
+        "explain.tally.reference_unreconciled.one": (
+            "1 controllo del riferimento non torna con ciò che la sua suite ha "
+            "chiesto. Non si sa che cosa il riferimento abbia misurato, e il "
+            "confronto è fatto contro di esso."
+        ),
+        "explain.tally.reference_unreconciled.many": (
+            "{count} controlli del riferimento non tornano con ciò che la sua "
+            "suite ha chiesto. Non si sa che cosa il riferimento abbia "
+            "misurato, e il confronto è fatto contro di esso."
         ),
         "explain.tally.calibration.one": (
             "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "

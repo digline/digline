@@ -200,6 +200,20 @@ when the aggregate went looking for it.
   is the fix, not a side effect.
 - The pressure nitish-kmr named is still there. §2 says where it goes, and the
   answer is a check on content, not on counts.
+- **The marker is a self-declaration, and exit 2 is not tamper-evidence.**
+  §4 puts the check at write time and rejects a load-time one, so `reconcile()`
+  runs in the driver and nowhere else: a **stored** run is never reconciled
+  again. Every reader afterwards — the headline, the reading, the report, the
+  promotion refusal — reads back a marker the document carries about itself.
+  Deleting the errored verdict that carries it removes the gap, the exit code
+  and the refusal together, and the run then reads green and promotes. That is
+  the price of §4's decision rather than a defect in it, and the alternative
+  stays rejected for the reasons given there; what is written down here is what
+  the decision leaves open, so that a red exit is not read as proof the file
+  was not edited. The one place this price was never meant to be paid is a
+  **reference**, whose document is the one versioned in git: `compare()` now
+  reads the baseline's gaps too, and the headline and the reading both name
+  them. (the second 0.17.0 delta-pass)
 
 ## Alternatives considered
 

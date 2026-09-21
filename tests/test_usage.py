@@ -608,3 +608,111 @@ def test_a_hand_built_run_records_no_bill() -> None:
     )
     assert plain.usage is None
     assert "usage" not in run_to_json(plain)
+
+
+# --------------------------------------------------------------------------- #
+# The same guard, one class over: F-3 of the second 0.17.0 delta-pass
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+        "thinking_tokens",
+    ],
+)
+def test_a_count_that_is_not_a_number_is_refused_by_name(name: str) -> None:
+    """B-1's guard was written for `spent_usd` and the counts beside it kept the
+    hole it closed.
+
+    `NaN` is not negative and no ordering comparison against it is true, so it
+    passed `< 0` here exactly as it passed `< 0` on the bill — and it passed
+    `thinking > output` too, which is why the one field added in 0.17.0 was the
+    one that could carry it furthest.
+    """
+    counts: dict[str, float] = {"input_tokens": 10, "output_tokens": 100}
+    counts[name] = float("nan")
+
+    with pytest.raises(ValueError, match=f"Usage.{name} is nan"):
+        Usage(**counts)  # pyright: ignore[reportArgumentType]
+
+
+@pytest.mark.parametrize("amount", [float("inf"), float("-inf"), float("nan")])
+def test_every_non_finite_count_is_refused_and_not_only_nan(amount: float) -> None:
+    """`inf` was refused before this, and for the wrong reason: it is *more
+    thinking than output*, which is the right answer to a different question and
+    no answer at all on `input_tokens`."""
+    with pytest.raises(ValueError, match="not a finite number"):
+        Usage(input_tokens=amount, output_tokens=1)  # pyright: ignore[reportArgumentType]
+
+
+def test_a_non_finite_split_never_reaches_a_document() -> None:
+    """The consequence this is really about, and it is worse than the bill's.
+
+    A `NaN` written into a run file is read back through `int()`, so the
+    document is refused by **its own reader**: written, listed, and unreadable
+    for good. The refusal is at the value, so no sink has to defend itself.
+    """
+    with pytest.raises(ValueError, match="not a finite number"):
+        Usage(input_tokens=10, output_tokens=5, thinking_tokens=float("nan"))  # pyright: ignore[reportArgumentType]
+
+
+def test_the_fold_raises_rather_than_asserting() -> None:
+    """It was an `assert`, on the argument that only our own arithmetic could
+    fire it. Two things were wrong with that: `NaN` reached it from a reply, and
+    `python -O` strips an assert — so the one release that needed the check had
+    none, and the `NaN` total went through in silence.
+
+    Constructed past `__post_init__` with `object.__setattr__`, because the
+    guard now closes the honest door in: this asserts the fold's own behaviour,
+    not that the value is reachable.
+    """
+    over = Usage(input_tokens=1, output_tokens=5, thinking_tokens=5)
+    object.__setattr__(over, "thinking_tokens", 9)
+
+    # `match` on the fold's **own** wording, not on "more thinking than
+    # output": the mutation control caught that. Remove the check from `__add__`
+    # and the `Usage` it returns refuses the same arithmetic at construction, so
+    # a test matching the shared phrase passes with the fix deleted — and the
+    # message a user then sees is the constructor's, which blames their
+    # provider. The fold's check earns its place by *whose fault it says it is*,
+    # so that is what is asserted.
+    with pytest.raises(ValueError, match="folding 9 and 1 thinking tokens"):
+        _ = over + Usage(input_tokens=1, output_tokens=1, thinking_tokens=1)
+
+
+def test_the_fold_blames_neither_side() -> None:
+    """The old message said "this fold is wrong, not the replies it added" — to
+    a user whose provider had just sent a malformed count. The new one states
+    the arithmetic and accuses nobody."""
+    over = Usage(input_tokens=1, output_tokens=5, thinking_tokens=5)
+    object.__setattr__(over, "thinking_tokens", 9)
+
+    with pytest.raises(ValueError) as caught:
+        _ = over + Usage(input_tokens=1, output_tokens=1, thinking_tokens=1)
+
+    message = str(caught.value)
+    assert "fold is wrong" not in message
+    assert "not the replies" not in message
+    # And it is not the constructor's message either, which says a provider sent
+    # a malformed reply — true of a single bad reply, false of a bad fold.
+    assert "malformed reply" not in message
+
+
+def test_an_honest_fold_still_folds() -> None:
+    """The guard is not a ceiling: two legal splits sum and stay legal."""
+    assert Usage(10, 100, thinking_tokens=60) + Usage(1, 5, thinking_tokens=3) == Usage(
+        11, 105, thinking_tokens=63
+    )
+
+
+def test_a_whole_float_and_a_bool_still_pass() -> None:
+    """F-1 is **not** closed here, and the line is drawn deliberately: a value
+    that is not a number is refused, and what a third-party target may hand us
+    is a separate decision about the type's contract."""
+    assert Usage(10, 100, thinking_tokens=True).thinking_tokens is True
+    assert Usage(10, 100, thinking_tokens=2.0).thinking_tokens == 2.0  # pyright: ignore[reportArgumentType]

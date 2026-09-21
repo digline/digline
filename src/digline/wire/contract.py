@@ -114,6 +114,19 @@ __all__ = [
 #:    is every run the shipped driver produced before it, reads `0` here and
 #:    never meets the kind. (ADR 0027 §7)
 #:
+#:    `reference_unreconciled` on the headline, and `reference_unreconciled` as
+#:    a tally kind on `explain --json`: added keys, under the same rule, and
+#:    without a bump for the reason every entry above gives. The same count for
+#:    the **reference** — the document that is versioned in git, and the one
+#:    whose gaps nothing read until now. It moves **no exit code at all**, which
+#:    is where it differs from the entry above it: the run being compared may
+#:    itself reconcile perfectly, and failing it for the state of a baseline
+#:    promoted weeks ago would fail the wrong run. What the number is for is a
+#:    pipeline that wants to refuse a comparison standing on a measurement
+#:    nobody can state. A comparison against a reference that reconciles, which
+#:    is every one the shipped promotion path allows, reads `0` here and never
+#:    meets the kind. (F-10, the second 0.17.0 delta-pass)
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already

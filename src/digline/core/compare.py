@@ -12,6 +12,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
+from digline.core.aggregate import split_grouped_name
+from digline.core.reconcile import unreconciled
 from digline.core.run import Run, SystemConfig
 from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 
@@ -20,6 +22,7 @@ __all__ = [
     "ArtifactDelta",
     "ArtifactOutcome",
     "AssertionDelta",
+    "CaseCount",
     "Comparison",
     "ConfigDelta",
     "Denominator",
@@ -28,6 +31,8 @@ __all__ = [
     "Outcome",
     "Scope",
     "artifact_deltas",
+    "case_count",
+    "checked_denominator",
     "compare",
     "considered_cases",
     "config_deltas",
@@ -187,6 +192,19 @@ class AssertionDelta:
     #: alarm — a case that passed leaves the count and takes the gate under its
     #: bar — and that is accepted. (the delta-pass over 0.15.2; ADR 0012 §3)
     denominator_moved: bool = False
+    #: What this run's side of the pair counted, **checked against the run it
+    #: came from** — or `None` where no aggregate stands behind it, or where the
+    #: run disproves the number it claimed.
+    #:
+    #: Carried rather than re-derived, and that is the whole reason it exists:
+    #: the report's per-delta sentence called `denominator(delta.current)`
+    #: itself, and a delta does not hold its run, so it was the one surface that
+    #: could not check the arithmetic. Reading the fact off the row puts the
+    #: three places a denominator is stated — `compare`'s line, the report's
+    #: cell and `explain`'s reading — back on one number, which is the property
+    #: `denominator()`'s own docstring claims for them. (F-4, the second 0.17.0
+    #: delta-pass)
+    counted: Denominator | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +233,17 @@ class Comparison:
     #: judge that moved makes the scores less comparable with the baseline
     #: whatever the target did. (ADR 0005 §4)
     judge_config_deltas: Sequence[ConfigDelta] = ()
+    #: The `(case_id, check)` gaps the **reference** recorded, in its own order.
+    #:
+    #: On the comparison rather than read off the baseline by each renderer,
+    #: because `facts()` is handed a run and a comparison and never the
+    #: baseline: a fact only one of the two readers could see is how the report
+    #: and the reading come to say different things. ADR 0027 §3 refuses to
+    #: *promote* a run that does not reconcile, and that refusal runs once, on
+    #: the machine that promoted; nothing asked the question again, so a
+    #: reference admitting it did not know what it measured was compared against
+    #: in silence. (F-10, the second 0.17.0 delta-pass)
+    reference_unreconciled: tuple[tuple[str, str], ...] = ()
 
     @property
     def artifacts_changed(self) -> bool:
@@ -475,11 +504,48 @@ def considered_cases(verdict: Verdict) -> int | None:
     `considered` that is not a whole number tells us nothing, so it is treated
     as *not an aggregate* rather than as a reason to raise — this is a reading,
     and a reading that refuses a document cannot report on it.
+
+    `considered` is also **checked against its own parts.** `as_metadata()`
+    writes the four cells beside it and `considered` is exactly their sum, so a
+    document carries the total and the addition that produced it; nothing used
+    to check that the two agree. Where all four are present and do not sum to
+    it, the number is not read: a total contradicted by its own parts is not a
+    denominator, and reading it would put a figure in a sentence that the same
+    document disproves. Where they are absent it is read as before — the cells
+    are not what identifies an aggregate, `considered` is. (F-4, the second
+    0.17.0 delta-pass)
     """
     value = verdict.score.metadata.get("considered")
     if isinstance(value, bool) or not isinstance(value, int):
         return None
+    # A negative count is refused for the reason a `bool` is: it is arithmetic
+    # that cannot have happened, and "-5 of 2 cases counted" is a sentence
+    # nobody can act on.
+    if value < 0:
+        return None
+    cells: list[int] = []
+    for name in _CELLS:
+        cell = verdict.score.metadata.get(name)
+        if isinstance(cell, bool) or not isinstance(cell, int):
+            # One cell missing or not a number and the addition cannot be done
+            # at all, which is not the same as an addition that disagrees.
+            break
+        cells.append(cell)
+    else:
+        if sum(cells) != value:
+            return None
     return value
+
+
+#: The four cells of the confusion matrix, as `Matrix.as_metadata()` writes
+#: them. Their sum is `considered` by construction, which makes them the one
+#: check on it a single verdict can carry out on its own.
+_CELLS = (
+    "true_positive",
+    "false_positive",
+    "true_negative",
+    "false_negative",
+)
 
 
 #: Every count `Matrix.as_metadata()` writes for a case it left out. Named in
@@ -527,6 +593,13 @@ def denominator(verdict: Verdict) -> Denominator | None:
     a report and "the same cases seen" in `compare()` are one sum. A count that
     is not a whole number is skipped rather than raised on, for the reason
     `considered_cases` gives.
+
+    An exclusion that is **negative** takes the whole reading down rather than
+    being skipped, and the asymmetry with a non-integer one is the point: a
+    string tells us nothing and is ignorable, while `-7` is a number that makes
+    `seen` smaller than `considered` and produced "43 of 36 cases counted; -7
+    could not be judged." — two numbers that add up and cannot both be true.
+    (F-4, the second 0.17.0 delta-pass)
     """
     considered = considered_cases(verdict)
     if considered is None:
@@ -534,9 +607,78 @@ def denominator(verdict: Verdict) -> Denominator | None:
     excluded: list[tuple[str, int]] = []
     for key in _EXCLUSIONS:
         value = verdict.score.metadata.get(key)
-        if not isinstance(value, bool) and isinstance(value, int) and value:
+        if isinstance(value, bool) or not isinstance(value, int):
+            continue
+        if value < 0:
+            return None
+        if value:
             excluded.append((key, value))
     return Denominator(considered, tuple(excluded))
+
+
+@dataclass(frozen=True, slots=True)
+class CaseCount:
+    """How many cases a run holds, and how many of them nobody judged.
+
+    The two numbers an aggregate's own denominator can be checked against, read
+    off the run rather than off the aggregate that is making the claim. A value
+    rather than the `Run` itself so that `denominator` stays a function of
+    numbers and the core keeps one direction of dependency. (F-4, the second
+    0.17.0 delta-pass)
+    """
+
+    held: int
+    suspended: int
+
+
+def case_count(run: Run) -> CaseCount:
+    """What `run` can be asked about any aggregate's denominator."""
+    return CaseCount(
+        held=len(run.results),
+        suspended=sum(1 for case in run.results if case.suspended),
+    )
+
+
+def checked_denominator(verdict: Verdict, cases: CaseCount) -> Denominator | None:
+    """`denominator(verdict)`, refused where the run it came from disproves it.
+
+    Two checks, and both are arithmetic the run can settle on its own:
+
+    1. a whole-run aggregate saw every case the run holds, so `seen` must equal
+       `held`. A `considered` of 50 beside a 7-case exclusion, in a run of 50,
+       was accepted and printed "50 of 57 cases counted" — a denominator larger
+       than the suite it was measured on;
+    2. a suspended case has no verdict, so no aggregate can have counted it:
+       `considered` cannot exceed the cases that were not suspended. This is
+       the one that caught the sentence worth catching — "All 20 cases
+       counted." over a run where five were set aside.
+
+    **The first check does not apply to a grouped aggregate**, and the exception
+    is load-bearing rather than cautious: a `by_group` aggregate is computed
+    over its own group's cases alone, so its `seen` is *meant* to be smaller
+    than the run. A stored run records no group per case — which is why
+    `split_grouped_name` exists at all — so the run cannot settle this one, and
+    checking it anyway would strip the sentence from every grouped figure in
+    every report. The second check still holds there, as an upper bound: a
+    group's unsuspended cases cannot outnumber the run's.
+
+    Refused means **not read**, never raised: a reading that refuses a document
+    cannot report on it, which is `considered_cases`' rule and the reason the
+    contradicted figure simply loses its clause rather than taking the report
+    down with it. What it does not do is decide comparability — a denominator
+    nobody can read is absent, and an absent one has always compared. That is
+    the question this pass left open, not one it answers. (F-4, the second
+    0.17.0 delta-pass)
+    """
+    counted = denominator(verdict)
+    if counted is None:
+        return None
+    _, group = split_grouped_name(verdict.score.name)
+    if group is None and counted.seen != cases.held:
+        return None
+    if counted.considered > cases.held - cases.suspended:
+        return None
+    return counted
 
 
 def _seen(verdict: Verdict) -> int | None:
@@ -868,6 +1010,18 @@ def compare(run: Run, baseline: Run) -> Comparison:
             )
         )
 
+    # Once, over every row, rather than at the five places a delta is built:
+    # the check needs the run, every branch above has already decided what the
+    # row says, and a fact attached in one place cannot be forgotten by the
+    # sixth branch somebody adds. (F-4, the second 0.17.0 delta-pass)
+    cases = case_count(run)
+    deltas = [
+        delta
+        if delta.current is None
+        else replace(delta, counted=checked_denominator(delta.current, cases))
+        for delta in deltas
+    ]
+
     return Comparison(
         tenant=run.tenant,
         environment=run.environment,
@@ -878,6 +1032,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
         artifact_deltas=artifact_deltas(run, baseline),
         target_config_deltas=config_deltas(run.target_config, baseline.target_config),
         judge_config_deltas=config_deltas(run.judge_config, baseline.judge_config),
+        reference_unreconciled=unreconciled(baseline),
     )
 
 

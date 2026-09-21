@@ -613,6 +613,42 @@ class Usage:
             "output_tokens",
             "cache_read_tokens",
             "cache_write_tokens",
+            "thinking_tokens",
+        ):
+            value = getattr(self, name)
+            # **The guard below was written for the wrong half of the problem**,
+            # and `CallTotals.spent_usd` learned that one release earlier: `NaN`
+            # is not negative, and every ordering comparison against it is
+            # false, so it passed both checks here and `thinking > output` too.
+            # `inf` was refused only by accident, for being more thinking than
+            # output — the right answer for the wrong reason, and no answer at
+            # all in `input_tokens`.
+            #
+            # A count that is not a number writes a document with a bare `NaN`
+            # in it, which CPython's `json` accepts as an extension and **no
+            # strict parser does** — and this one is worse than the bill was:
+            # `usage_from_dict` reads it back through `int()`, so the run file
+            # is written and then refused by *its own reader*. Written, listed,
+            # and unreadable for good. Refused where the number is made, which
+            # is the same place and the same reason. (F-3, the second 0.17.0
+            # delta-pass)
+            #
+            # Only a non-finite `float` is named here. A `bool` or a whole
+            # `float` still passes, as it did before: that is F-1, and it is a
+            # question about what a third-party target may hand us rather than
+            # a value that is not a number.
+            if isinstance(value, float) and not math.isfinite(value):
+                raise ValueError(
+                    f"Usage.{name} is {value}, which is not a finite number: a "
+                    "count that is not a number is not a count, and it writes a "
+                    "document no strict JSON reader will parse and this reader "
+                    "will refuse"
+                )
+        for name in (
+            "input_tokens",
+            "output_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
         ):
             if getattr(self, name) < 0:
                 raise ValueError(f"Usage.{name} must not be negative")
@@ -654,19 +690,32 @@ class Usage:
             else self.thinking_tokens + other.thinking_tokens
         )
         output = self.output_tokens + other.output_tokens
-        # **An assert, and deliberately not a refusal.** Both sides are bounded
-        # by their own output, so the sums are bounded too: there is no honest
-        # way for this to fire. `thinking > output` on one reply is a malformed
-        # *reply* and is refused by name, which says whose fault it is; a folded
-        # total exceeding its own output could only be this fold's arithmetic —
-        # our fault, the family B-1's finite guard belongs to. Promoting it to a
-        # named refusal would dress our own bug as a hostile input, and the
-        # message would blame a provider for it. (ADR 0026 §3)
-        assert thinking is None or thinking <= output, (
-            f"folding {self.thinking_tokens} and {other.thinking_tokens} "
-            f"thinking tokens gave {thinking} of {output} output tokens: this "
-            "fold is wrong, not the replies it added"
-        )
+        # **A raise, and it used to be an assert.** Both sides are bounded by
+        # their own output, so the sums are bounded too: there is no honest way
+        # for this to fire, and an internal invariant is what it says it is.
+        #
+        # It was an `assert` on the argument that a folded total exceeding its
+        # own output could only be this fold's arithmetic — our fault, not a
+        # reply's — and that a named refusal would dress our own bug as a
+        # hostile input. Both halves were wrong in the same way. `NaN` reached
+        # here through `__post_init__`, so the one value that *did* fire it was
+        # a hostile reply, and the message told the user their fold was wrong;
+        # and `-O` strips an assert, so the release that could least afford it
+        # had no check at all — the `NaN` total went through in silence. The
+        # message names the fold without blaming either side. (F-3, the second
+        # 0.17.0 delta-pass)
+        #
+        # `ValueError`, like every other refusal on this type: a caller already
+        # guarding usage arithmetic keeps catching it, where a `RuntimeError`
+        # would turn a handled error into a crashed run.
+        if thinking is not None and thinking > output:
+            raise ValueError(
+                f"folding {self.thinking_tokens} and {other.thinking_tokens} "
+                f"thinking tokens gave {thinking} of {output} output tokens, "
+                "which is more thinking than output: two counts each bounded by "
+                "their own output cannot sum past theirs, so this total is not "
+                "a measurement of anything"
+            )
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=output,

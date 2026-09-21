@@ -32,9 +32,22 @@ __all__ = [
 ]
 
 #: The `Score.metadata` key the driver sets on the errored verdict it records
-#: in place of an answer that never came back. A boolean, so it travels under
-#: `travels()` like every other measurement and survives `redact()` without a
-#: schema bump. (ADR 0027 §3)
+#: in place of an answer that never came back. A boolean, so it survives
+#: `redact()` without a schema bump. (ADR 0027 §3)
+#:
+#: **It does not cross on the wire, and this note used to imply it did.**
+#: `travels()` admits a boolean, but the run projection never consults
+#: `travels()`: `_verdict_document` filters verdict metadata to the suite's
+#: `Disclosure` alone, which `digline/wire/run.py` says in as many words — "with
+#: no `travels()` fallback". So a run read through MCP carries `status: "error"`
+#: and nothing that tells a gap from a judge that failed, unless the suite
+#: discloses this key by name. The *readings* on `compare --json` and
+#: `explain --json` do carry the count, because they are computed from the
+#: verdicts rather than projected from them.
+#:
+#: Recorded rather than changed: widening a projection is a boundary decision,
+#: and not one a docstring gets to make by describing it.
+#: (F-7, the second 0.17.0 delta-pass)
 UNRECONCILED = "unreconciled"
 
 #: `missing`: asked and not answered. `unasked`: answered and not asked — a
@@ -132,6 +145,20 @@ def unreconciled(run: Run) -> tuple[tuple[str, str], ...]:
     promotion all say it without a reference. The marker counts only on an
     errored verdict: on anything else it would be a key an assertion happened to
     write, and it would be claiming a gap where an answer came back.
+
+    **That last sentence is a narrowing and not a barrier**, and the difference
+    is worth having straight. An errored verdict is not a state an assertion has
+    to reach for: `Verdict` *forces* it, because a missing score may not carry
+    `pass` or `fail`, so any assertion that declines to score produces exactly
+    the shape this reads. The check that does the work is `is True` — an
+    identity, so `1`, `"true"`, `[]` and a nested mapping all fail to claim a
+    gap, in either direction.
+
+    What a suite's own code can therefore do is claim a gap that did not happen.
+    It buys nothing: the run reads as unreconciled, exits 2 and cannot be
+    promoted, so the forgery is self-inflicted and in the direction of *less*
+    explicable. It is stated here because the sentence above it read as a
+    guarantee. (F-6, the second 0.17.0 delta-pass)
     """
     return tuple(
         (case.case_id, verdict.score.name)

@@ -6,7 +6,133 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.17.1 — 2026-09-21
+
+digline **0.17.1**, the delta-pass patch over 0.17.0, and the core alone: every
+plugin version in the workspace is already served by the index, so this tag
+publishes nothing beside it. **No schema change** — it writes schema 15 exactly
+as 0.17.0 did, so no `digline migrate` and no re-promotion — and no
+`OUTPUT_VERSION` bump: one key is added to `compare --json` and one tally kind
+to `explain --json`, which the contract's own rule has always allowed.
+
+Five fixes, and what they have in common is the thing being fixed: **a sentence
+a reader could act on that was not true.** Four came out of a second
+adversarial pass over 0.17.0's own new surface, read back against the code
+rather than against the report it produces; the fifth is the row a listing
+printed for a replay. A run that reconciles, against a reference that
+reconciles, reads exactly as it did.
+
+### Fixed — four readings that said something false
+
+The second delta-pass over 0.17.0, an internal adversarial review, read the
+release's own new surface back against the code rather than against the report
+it produces. Four findings — one of them in two parts — and each is a sentence
+a reader could act on that was not true. No schema change, no `OUTPUT_VERSION` bump, and a run
+that reconciles against a reference that reconciles reads exactly as it did.
+
+- **A reference that does not reconcile is now named every time it is used, not
+  only when it was promoted.** This is the one with the sharpest symptom: the
+  report opened with *"Every case could be judged."* while its own reading said
+  *"c2 · agrees could not be judged."* three lines below, and the comparison
+  exited 0. ADR 0027 §3 refuses to promote a run that does not reconcile
+  because *"a reference nobody can say that of is no reference"* — and that
+  refusal fires once, on the machine that promoted. Every reader afterwards
+  asked the run and none of them asked the baseline, so a reference admitting
+  it did not know what it measured was compared against in silence. It matters
+  more than the run's own case because `.digline/<tenant>/baselines/` is
+  **versioned in git**: that document's surface is a pull request, and
+  `config_hash` cannot catch it, because it hashes the suite and not the
+  results. `compare()` now reads the baseline's gaps into
+  `Comparison.reference_unreconciled`, the headline and `explain` both name
+  them, and `compare --json` and `explain --json` carry the count as an added
+  key. It moves **no exit code**: the run being compared may reconcile
+  perfectly, and failing it for the state of a document promoted weeks ago
+  would fail the wrong run — what the clause withdraws is the standing of the
+  comparison, which is `config_changed`'s shape.
+
+- **A token count that is not a number is refused where the number is made.**
+  0.17.0 shipped exactly this guard for `CallTotals.spent_usd` and wrote the
+  reason into the code — *"the honest place to stop a number that is not a
+  number is where it is made"* — while `Usage` kept the `< 0` pattern that same
+  comment calls *"written for the wrong half of the problem"*. `NaN` is not
+  negative and no ordering comparison against it is true, so it passed both
+  checks on all five counts, including the `thinking_tokens` the release had
+  just added; `inf` was refused only by accident, for being more thinking than
+  output. A `NaN` reaching a run file is worse than it was for the bill: the
+  document is written carrying a bare `NaN`, which no strict parser reads, and
+  `usage_from_dict` then refuses it through `int()` — so the run was written,
+  listed, and unreadable for good, by its own reader. `Usage.__post_init__` now
+  refuses a non-finite count by name. What a third-party target may hand us
+  otherwise — a `bool`, a whole `float` — is unchanged and remains a separate
+  question about the type's contract.
+
+- **The fold raises instead of asserting.** `Usage.__add__` guarded its
+  invariant with an `assert`, on the argument that only digline's own
+  arithmetic could fire it. Both halves of that were wrong: `NaN` reached it
+  from a reply, so the one value that did fire it told the user *"this fold is
+  wrong, not the replies it added"*; and `python -O` strips an assert, so the
+  release that could least afford the check had none at all and the `NaN` total
+  went through in silence. It is a `ValueError` now, with a message that states
+  the arithmetic and blames neither side.
+
+- **An aggregate's denominator is checked against its own parts and against the
+  run.** `compare()` decides whether two run-level figures are comparable by
+  reading `considered` out of the verdict's metadata, and checked only its
+  *type*. `as_metadata()` writes the four matrix cells beside it and
+  `considered` is exactly their sum, so the document carries the total and the
+  addition that produced it, and nothing compared the two. Three sentences came
+  out of that: *"-5 of 2 cases counted"*, *"43 of 36 cases counted; -7 could
+  not be judged."*, and — the one worth catching — *"All 20 cases counted."*
+  over a run holding five cases nobody judged. A negative count is refused like
+  a boolean, a total its own cells contradict is not read, and a figure is
+  refused where the run disproves it: a whole-run aggregate saw every case the
+  run holds, and no aggregate can have counted a suspended one. A **grouped**
+  aggregate is exempt from the first of those, deliberately — it is computed
+  over its own group's cases, so its count is meant to be smaller, and a stored
+  run records no group per case. The report's per-delta sentence now reads the
+  checked figure off the row rather than recomputing it, because a delta holds
+  no run to check against and was the one of the three surfaces that could not.
+
+  **This is a correctness fix and not an advisory.** The route to a
+  mis-declared `considered` is a run-level assertion, which is suite code, and
+  `SECURITY.md` already declares that writing `suite.py` is the capability to
+  execute code. GHSA-8c38-f965-cgww's `I:L` bound is untouched and still
+  correct: it rests on the excluded case being an **error**, which is what an
+  endpoint can cause without touching the repository.
+
+- **The unreconciled clause has a ceiling.** It named every gap, and that
+  clause leads `Headline.sentence`, which `compare_json` copies whole and the
+  MCP `compare` tool returns — so a run that gapped a whole suite put 20 131
+  characters of names into the document a customer reads and into a model's
+  context. ADR 0027 §3's argument for the names is right for the one to three
+  gaps a dispatch defect produces and does not survive the thousand-gap run, so
+  five are named and the count carries the rest, which is `calibration_fact`'s
+  precedent one function above it. **A run with five gaps or fewer reads byte
+  for byte what it did.**
+
+### Documentation
+
+- **Two docstrings claimed a barrier and a wire route the code does not have.**
+  `UNRECONCILED` said the marker *"travels under `travels()` like every other
+  measurement"*; `travels()` does admit a boolean, but the run projection never
+  consults it — `_verdict_document` filters verdict metadata to the suite's
+  `Disclosure` alone, which `wire/run.py` states in as many words. So a run read
+  through MCP carries `status: "error"` and nothing telling a gap from a judge
+  that failed, unless the suite discloses the key by name; the readings do carry
+  the count. And `unreconciled()` said the marker *"counts only on an errored
+  verdict"* as though that were a barrier — `Verdict` **forces** an errored
+  status on any verdict with no score, so it is the shape any assertion that
+  declines to score produces. The narrowing that does work is `is True`.
+  Recorded rather than changed: widening a projection is a boundary decision,
+  and not one a docstring gets to make by describing it.
+- **ADR 0027's *Consequences* now says what §4 leaves open.** The check runs in
+  the driver and nowhere else, by that section's own decision, so a stored run
+  is never reconciled again and every reader reads back a marker the document
+  carries about itself. Deleting the errored verdict that carries it removes
+  the gap, the exit code and the promotion refusal together. That is the price
+  of the decision rather than a defect in it, and the alternative stays
+  rejected — what is written down is that **exit 2 is not tamper-evidence**, so
+  that nobody reads a red exit as proof the file was not edited.
 
 ### Declared — `digline-bedrock` reports no thinking split
 
@@ -110,6 +236,38 @@ wrong all the same.
   a named step.
 
 [adv-5]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
+
+### Changed — a listing that showed a replay as a measurement
+
+The same defect as the four above, on the surface a reader meets first. The
+others were a verb over a field; this one is a whole row.
+
+- **`digline list` did not mark a rejudged run as a replay.** `rejudge` writes
+  a run like any other — its own key, a date, an environment, a commit, a case
+  count — and the listing printed it like any other. Nothing in the row said
+  the answers under it were replayed from a stored run rather than measured;
+  only `rejudged_from`, inside the document, said so. A replay is also the
+  *newest* thing in the store the moment it is written, so it sorts to the top
+  of the listing and is what `--run latest` resolves to: the row most likely to
+  be read and reused was the one making the strongest unsupported claim.
+  Rejudged runs now carry `~`, with `~ = rejudged: another run's recorded
+  answers judged again, not a measurement` under the table.
+- **It shares the baseline's column rather than adding one.** The two markers
+  cannot collide — `promote` refuses a run that declares `rejudged_from`
+  (`ReplayedRunError`), so nothing listed is both the baseline and a replay —
+  and a sixth field on a row that already carries five would push the line past
+  a terminal, which is how a marker stops being read. That the baseline was
+  given a marker and not a column is the precedent, and it is the right one.
+- **The legend is built, not printed inline**, so the blank line above it
+  appears once whichever markers a listing actually used. A store with no
+  replay in it says nothing about replays, the same way it already said nothing
+  about a baseline it did not have.
+- **Found from outside.** A `rejudge --judge-samples` on another project's
+  suite left a replay at the top of that store's listing, indistinguishable
+  from the runs around it, and the reading that caught it was opening the JSON.
+  The regression test lists a real run and a replay of it together and fails on
+  the row, not on the legend: against 0.17.0 it fails saying *the rejudged run
+  is listed as an ordinary run*, which is the defect in one sentence.
 
 ## 0.17.0 — 2026-09-20
 
