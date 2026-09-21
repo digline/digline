@@ -6,7 +6,21 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.17.1 — 2026-09-21
+
+digline **0.17.1**, the delta-pass patch over 0.17.0, and the core alone: every
+plugin version in the workspace is already served by the index, so this tag
+publishes nothing beside it. **No schema change** — it writes schema 15 exactly
+as 0.17.0 did, so no `digline migrate` and no re-promotion — and no
+`OUTPUT_VERSION` bump: one key is added to `compare --json` and one tally kind
+to `explain --json`, which the contract's own rule has always allowed.
+
+Five fixes, and what they have in common is the thing being fixed: **a sentence
+a reader could act on that was not true.** Four came out of a second
+adversarial pass over 0.17.0's own new surface, read back against the code
+rather than against the report it produces; the fifth is the row a listing
+printed for a replay. A run that reconciles, against a reference that
+reconciles, reads exactly as it did.
 
 ### Fixed — four readings that said something false
 

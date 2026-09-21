@@ -151,6 +151,11 @@ RELEASED: dict[str, int] = {
     # the count and the zero. One passenger, and the consumers were ready
     # before the field was.
     "0.17.0": 15,
+    # A patch that moves no schema still gets a row: what the row is for is
+    # checking the example caps against a release rather than against a number
+    # in the air. 0.17.1 writes 15 exactly as 0.17.0 did — it fixes four
+    # readings and a listing, and touches no document.
+    "0.17.1": 15,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

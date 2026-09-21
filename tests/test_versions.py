@@ -118,6 +118,26 @@ RECORDED: dict[str, dict[str, str]] = {
     "AGENTS.md": {
         "0.4.0": "'the one case in 0.4.0' — the state of a shipped release",
     },
+    "src/digline/core/reconcile.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
+    },
+    "src/digline/core/types.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
+    },
     "src/digline/host/measure.py": {
         "0.11.0": "'the delta-pass over 0.11.0 found it missing' — which "
         "release's delta-pass earned the refusal, told as history. The refusal "
@@ -144,6 +164,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "audited its own output",
     },
     "src/digline/wire/contract.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
         "0.15.2": "the delta-pass over 0.15.2 — the pass that took the "
         "incomparable flip out of `counts`, told as history beside the entry "
         "above it. Moving the number would claim a later pass audited it",
@@ -162,11 +190,27 @@ RECORDED: dict[str, dict[str, str]] = {
         "audited its own output",
     },
     "src/digline/report/explain.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
     },
     "src/digline/report/text.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
@@ -177,6 +221,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.17.0": (
+            "the release v0.17.0 itself, quoted throughout as evidence: the "
+            "pin that was still unreleased the day after, the tag that "
+            "published two plugins and left their headings undated, the "
+            "annotation used as the control that must fail, the served-index "
+            "table with its timestamps, and the three image tags. History in "
+            "every instance, and a release whose evidence moved would be a "
+            "release nobody looked at"
+        ),
         "0.1.6": "pytest-digline's version, named in v0.15.3's tag "
         "message — the worked example of the annotation naming every "
         "package its run published. A fact about a shipped release",
@@ -530,6 +583,14 @@ RECORDED: dict[str, dict[str, str]] = {
     # that closes the finding, so a reader knows which stored documents and
     # which terminals the sentence is about.
     "src/digline/report/render.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
@@ -543,6 +604,14 @@ RECORDED: dict[str, dict[str, str]] = {
     # The 0.12.1 delta-pass, in the same shape: the release named where each
     # finding is closed, history from the moment 0.13.0 shipped.
     "src/digline/core/compare.py": {
+        "0.17.0": (
+            "the second delta-pass over 0.17.0 — which release's pass found "
+            "what this file now does, told as history. There were two passes "
+            "over that release and the word 'second' is load-bearing: the "
+            "first, a day earlier, is the one that called the thinking split "
+            "proven. Moving the number would claim a later pass audited its "
+            "own output"
+        ),
         "0.15.2": "the delta-pass over 0.15.2 — the pass that found rule 3 "
         "exempting a flip in both directions when the argument holds in only "
         "one. It dates the lesson; moving it would claim a later pass "
