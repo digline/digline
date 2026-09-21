@@ -529,11 +529,25 @@ timestamps, which are the only surviving record.
 | `digline-anthropic` | 0.5.3 | 2026-09-20T09:43:57Z | `v0.17.0` | `digline 0.17.0` |
 | `digline-openai` | 0.5.2 | 2026-09-20T09:43:58Z | `v0.17.0` | `digline 0.17.0` |
 
-Two further oddities from the same window, kept because they read as errors
-otherwise. `digline-anthropic-v0.5.0` and `digline-bedrock-v0.5.0` were cut
-*after* their packages were already on the index — 14:59:35Z and 15:04:51Z
-against uploads at 14:57 — so both runs published nothing. That is exactly what
-`tools/tag_names.py` now refuses.
+**And the same defect runs the other way, in the same window.**
+`digline-anthropic-v0.5.0` and `digline-bedrock-v0.5.0` were cut *after* their
+packages were already on the index — 14:59:35Z and 15:04:51Z against uploads at
+14:57 — so both runs **published nothing, and both went green**. A release
+ceremony was performed, a ref was written, `publish` ran to completion and
+reported success, and not one file moved.
+
+Read together with the four above, that is one defect with two faces. Above, a
+tag published more than it named; here, a tag named something and published
+nothing. In both the ref and the message stopped describing the run, and in
+both the green said only that the machinery had executed — never that it had
+done the thing the tag claimed. A green that cannot distinguish "uploaded four
+packages" from "uploaded none" is not evidence about either.
+
+`tools/tag_names.py` refuses **both** directions — a message naming fewer
+packages than the run will publish, and a tag whose run would publish nothing
+at all — and that is what makes it a gate rather than a reminder. A check that
+caught only the omission would have let these two through with the same
+meaningless success they already had.
 
 And the habit did work twice: `v0.15.0` named all four packages it carried, and
 `v0.15.3` named `pytest-digline 0.1.6` beside the core. It was a habit rather
