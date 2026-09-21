@@ -69,7 +69,7 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "denominator_moved": fact.denominator_moved,
             }
         case SettingFact():
-            return {
+            setting: dict[str, object] = {
                 "about": "setting",
                 "kind": fact.kind,
                 "name": fact.name,
@@ -82,6 +82,17 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "added": fact.added,
                 "removed": fact.removed,
             }
+            # Only on a rule that has one, so every configuration, judge and
+            # artifact fact is byte for byte what it was — `shape`'s rule, one
+            # shape over. An empty direction is *no verb*, which is a different
+            # statement from *unchanged*, and a key that carried `""` on every
+            # fact in the list would invite a reader to read it as the latter.
+            # (ADR 0028 §4, §8)
+            if fact.direction:
+                setting["direction"] = fact.direction
+            if fact.expansion:
+                setting["expansion"] = fact.expansion
+            return setting
         case TallyFact():
             payload: dict[str, object] = {
                 "about": "run",

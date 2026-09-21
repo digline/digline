@@ -15,6 +15,7 @@ from html import escape as _html_escape
 from typing import Literal
 
 from digline.core import (
+    AGREEMENT_FIELD,
     IDENTITY_FIELD,
     OBSERVED_FIELDS,
     ArtifactDelta,
@@ -29,6 +30,7 @@ from digline.core import (
     ScaleLost,
     Scope,
     Status,
+    SuiteDelta,
     SystemConfig,
     Verdict,
     budget_exceedances,
@@ -57,6 +59,7 @@ __all__ = [
     "config_changes",
     "on_the_line_count",
     "config_lines",
+    "rule_lines",
     "denominator_sentence",
     "errored_verdicts",
     "fmt_value",
@@ -319,6 +322,55 @@ def config_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
         if changes:
             lines.append(f"{phrase(locale, f'config.terminal.{key}')} · {changes}")
     return tuple(lines)
+
+
+def rule_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
+    """One compact line per rule that moved, for the terminal.
+
+    `rules · threshold of contains 0.60 → 0.50 (looser)`. Beside
+    `config_lines` and read the same way: short enough to print above the
+    regressions rather than in place of them, because a moved bar is the tally.
+
+    **The loosened rules come first**, which is the one ordering decision here.
+    A suite that tightened three bars and loosened one has nothing to net out —
+    there is no *tightened on balance* — and a reader scanning the first line is
+    owed the edit that lets more through, not the alphabetically first one.
+    (ADR 0028 §4)
+    """
+    ordered = sorted(comparison.suite_deltas, key=lambda d: (not d.loosened, d.rule))
+    parts = [_rule_change(delta, locale) for delta in ordered]
+    if not parts:
+        return ()
+    return (f"{phrase(locale, 'rules.terminal')} · {', '.join(parts)}",)
+
+
+def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
+    """One rule in the terminal's grammar, with the direction in a suffix.
+
+    The bare `0.60 → 0.50` of the configuration line is not enough here and that
+    is the whole point of the record: a number with no verb beside it is what
+    let a lowered bar read like an added test. `samples` is the one row that
+    prints without a verb, deliberately — see `SuiteDelta.direction`.
+    """
+    if delta.rule == AGREEMENT_FIELD:
+        # Its own sentence: this row is not a rule that moved, it is the one
+        # member of `config_hash` no document records. "not recorded on both
+        # sides" would read as a rule half the runs forgot. (ADR 0028 §5)
+        return phrase(locale, "rules.unnameable")
+    if not delta.field:
+        key = f"rules.{delta.outcome}"
+        if delta.expansion:
+            key = f"{key}.{delta.expansion}"
+        return phrase(locale, key, name=delta.rule)
+    suffix = f".{delta.direction}" if delta.direction else ""
+    return phrase(
+        locale,
+        f"rules.moved{suffix}",
+        name=delta.rule,
+        field=phrase(locale, f"rules.field.{delta.field}"),
+        before=fmt_value(delta.before),
+        after=fmt_value(delta.after),
+    )
 
 
 #: Every C0 control character, `DEL`, and the C1 block — including `\n`, `\r`
@@ -1905,7 +1957,82 @@ def _configs(comparison: Comparison, locale: Locale) -> str:
         key="config.judge.title",
         note=judge_note,
     )
-    return "\n".join(part for part in (target, judge) if part)
+    return "\n".join(
+        part for part in (target, judge, _rules(comparison, locale)) if part
+    )
+
+
+def _rules(comparison: Comparison, locale: Locale) -> str:
+    """The rules that moved, under what answered and what judged.
+
+    **Only the ones that moved**, which is where this parts company with the
+    configuration tables above it. Those print every recorded parameter, because
+    a reader in world 3 wants to know what answered; a suite prints tens of
+    checks and a table of every bar would bury the one that moved under the
+    ninety that did not. What moved is the finding here; what is in force is in
+    the run's own document.
+
+    Nothing in it is ever withheld, so there is no withheld column and no
+    `unknown` from redaction: a threshold and a tolerance survive `redact()`
+    whole. The `unknown` that does appear is the agreement floor, which no
+    document records at all. (ADR 0028 §1, §5)
+    """
+    deltas = sorted(comparison.suite_deltas, key=lambda d: (not d.loosened, d.rule))
+    if not deltas:
+        return ""
+    rows = "".join(_rule_row(delta, locale) for delta in deltas)
+    heads = "".join(
+        f"<th>{escape(phrase(locale, column))}</th>"
+        for column in (
+            "rules.column.rule",
+            "rules.column.moved",
+            "rules.column.direction",
+        )
+    )
+    return (
+        f'<section class="config rules">\n'
+        f"<h2>{escape(phrase(locale, 'rules.title'))}</h2>\n"
+        f"<p>{escape(phrase(locale, 'rules.note'))}</p>\n"
+        f"<table><thead><tr>{heads}</tr></thead><tbody>{rows}</tbody></table>\n"
+        "</section>"
+    )
+
+
+def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
+    """One rule: what it is, what moved, and which way.
+
+    The direction gets a column of its own rather than a word inside the middle
+    cell, so that a reader scanning the table sees the verbs in a line. An empty
+    cell there is `samples`, and it is empty because no verb is true of it —
+    which the column header's own note says, rather than leaving a blank to be
+    read as an oversight.
+    """
+    moved = (
+        phrase(
+            locale,
+            "rules.cell.moved",
+            field=phrase(locale, f"rules.field.{delta.field}"),
+            before=fmt_value(delta.before),
+            after=fmt_value(delta.after),
+        )
+        if delta.field
+        else phrase(
+            locale,
+            "rules.cell.unnameable"
+            if delta.rule == AGREEMENT_FIELD
+            else f"rules.cell.{delta.outcome}",
+        )
+    )
+    direction = (
+        phrase(locale, f"rules.direction.{delta.direction}") if delta.direction else ""
+    )
+    return (
+        "<tr>"
+        f"<td><code>{escape(delta.rule)}</code></td>"
+        f"<td>{escape(moved)}</td>"
+        f"<td>{escape(direction)}</td>"
+        "</tr>"
+    )
 
 
 #: Above this many changed lines the diff opens closed. A prompt rewritten from

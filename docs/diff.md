@@ -84,11 +84,18 @@ assertions, the same thresholds, the same tolerances, the same `samples`.
 
 ```console
 $ digline diff --suite suite.py <run-a> <run-b>
-digline: DifferentSuitesError: the two runs were produced under different suites (config_hash 331b1cfd9709f0cd against 8c1d0a44be71f209): a diff between them would compare the rulers, not the systems — re-run one side under the other's suite
+digline: DifferentSuitesError: the two runs were produced under different suites (config_hash 331b1cfd9709f0cd against 8c1d0a44be71f209): a diff between them would compare the rulers, not the systems — re-run one side under the other's suite. What differs: contains threshold 0.6 -> 0.5 (loosened).
 ```
 
 You will meet this one. Tuning a threshold between two candidate runs moves the
 hash, and the two runs then measure against different bars.
+
+**It names them.** The refusal stands — a difference measured across two sets of
+rules compares the rulers and not the systems — but it says *which* rule moved
+and which way, rather than leaving you to find it. Five at most, then a count of
+the rest. The one it cannot name is the agreement floor: `min_agreement` is not
+recorded in a run, so two suites can differ in it and the refusal will say
+nothing about it (ADR 0028 §5).
 
 **Different judges.** The set of `provider/model` identities that graded must
 match. A judge that moved is a *scale* that moved, and a difference measured on

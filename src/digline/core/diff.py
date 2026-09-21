@@ -25,13 +25,16 @@ from dataclasses import dataclass
 from typing import Literal
 
 from digline.core.compare import (
+    AGREEMENT_FIELD,
     ArtifactDelta,
     ConfigDelta,
     Noise,
     Scope,
+    SuiteDelta,
     artifact_deltas,
     config_deltas,
     index_verdicts,
+    suite_deltas,
 )
 from digline.core.run import Run
 from digline.core.types import Verdict, at_precision, within
@@ -67,6 +70,49 @@ class DifferentSuitesError(ValueError):
     without new plumbing, and so a caller that catches `ValueError` around
     `diff()` — as it already does around `compare()` — keeps working.
     """
+
+
+#: How many rules a refusal names before it counts the rest. A suite rewritten
+#: wholesale must not print a hundred rows into an exception: a refusal nobody
+#: reads is a refusal that did not say what differs after all, which is the
+#: defect this naming exists to fix. (ADR 0028 §7)
+NAMED_RULES = 5
+
+
+def _what_differs(now: Run, before: Run) -> str:
+    """The rules behind a refused diff, named rather than left to be hunted.
+
+    `diff()` holds both documents at the moment it refuses, which is the only
+    thing `suite_deltas` needs — so the refusal can say *which* rule moved
+    instead of only that one did. Nothing else about the refusal changes: it
+    still refuses, because a difference measured across two sets of rules
+    compares the rulers and not the systems. (ADR 0028 §7)
+
+    Empty where nothing is nameable. Two suites can differ in the one member of
+    `config_hash` no document records, and a refusal that promised to say what
+    differs and then said nothing would be worse than the one that promised
+    nothing.
+    """
+    rows = [d for d in suite_deltas(now, before) if d.rule != AGREEMENT_FIELD]
+    if not rows:
+        return ""
+    named = ", ".join(_named(d) for d in rows[:NAMED_RULES])
+    rest = len(rows) - NAMED_RULES
+    more = f", and {rest} more" if rest > 0 else ""
+    return f" What differs: {named}{more}."
+
+
+def _named(delta: SuiteDelta) -> str:
+    """One rule in a sentence, with its direction where it has one.
+
+    The two runs of a `diff` are peers — neither was approved — so `right` is
+    read as *now* and `left` as *before*, which is the reading `config_deltas`
+    is already given here.
+    """
+    verb = f" ({delta.direction})" if delta.direction else ""
+    if not delta.field:
+        return f"{delta.rule} {delta.outcome}{verb}"
+    return f"{delta.rule} {delta.field} {delta.before} -> {delta.after}{verb}"
 
 
 class DifferentJudgesError(ValueError):
@@ -329,7 +375,7 @@ def _refuse(left: Run, right: Run) -> None:
             f"the two runs were produced under different suites (config_hash "
             f"{left.config_hash} against {right.config_hash}): a diff between "
             "them would compare the rulers, not the systems — re-run one side "
-            "under the other's suite"
+            f"under the other's suite.{_what_differs(right, left)}"
         )
     _refuse_judges(left, right)
 

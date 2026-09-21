@@ -333,6 +333,43 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "config.judge.added": "{judge} was added as a judge",
         "config.judge.removed": "{judge} no longer judges",
         "config.coincides": " This drop coincides with {changes}.",
+        # The rules, for the terminal. `rules` and not `suite`, because the
+        # line stands beside `system` and `judge` and names the same grain: what
+        # this run was held to. (ADR 0028 §8)
+        "rules.title": "What the rules were",
+        "rules.note": (
+            "Only the rules that moved. A looser bar lets a run pass where the "
+            "reference would not have; the rules in force are in the run's own "
+            "document."
+        ),
+        "rules.column.rule": "Rule",
+        "rules.column.moved": "What moved",
+        "rules.column.direction": "Which way",
+        "rules.cell.moved": "{field} {before} → {after}",
+        "rules.cell.new": "added",
+        "rules.cell.missing": "removed",
+        "rules.cell.unknown": "not recorded on both sides",
+        "rules.direction.loosened": "looser",
+        "rules.direction.tightened": "stricter",
+        "rules.terminal": "rules",
+        "rules.field.threshold": "threshold of",
+        "rules.field.tolerance": "tolerance of",
+        "rules.field.samples": "samples of",
+        "rules.moved.loosened": "{field} {name} {before} → {after} (looser)",
+        "rules.moved.tightened": "{field} {name} {before} → {after} (stricter)",
+        # No parenthesis, and it is the decision of ADR 0028 §4 rather than a
+        # gap: more samples is a better-founded score and a wider measured
+        # interval at once, and neither word is true of both halves.
+        "rules.moved": "{field} {name} {before} → {after}",
+        "rules.new": "{name} added",
+        "rules.new.new_group": "{name} added, over a group the reference lacked",
+        "rules.new.now_grouped": "{name} added, this aggregate is now per group",
+        "rules.missing": "{name} removed",
+        "rules.unknown": "{name} not recorded on both sides",
+        "rules.unnameable": (
+            "the agreement floor is not recorded, so it cannot be compared"
+        ),
+        "rules.cell.unnameable": "not recorded in a run, so it cannot be compared",
         "config.terminal.target": "system",
         "config.terminal.judge": "judge",
         "artifacts.title": "What was under test",
@@ -777,6 +814,43 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.setting.judge.removed": (
             "{before} graded the reference and did not grade this run."
+        ),
+        # The rules that moved, beside the things under test. ADR 0028 §4: the
+        # direction is in the sentence, because a reader who is shown
+        # `0.6 -> 0.5` and no verb has been shown a number and not a fact.
+        "explain.setting.rule.changed.loosened": (
+            "{name} moved from {before} to {after}, which is a looser bar than "
+            "the reference was approved under."
+        ),
+        "explain.setting.rule.changed.tightened": (
+            "{name} moved from {before} to {after}, which is a stricter bar "
+            "than the reference was approved under."
+        ),
+        # No verb, and that is the decision rather than an omission: more
+        # samples is a better-founded score and a wider measured interval at
+        # once, so neither "looser" nor "stricter" is true of it. (ADR 0028 §4)
+        "explain.setting.rule.changed": "{name} moved from {before} to {after}.",
+        "explain.setting.rule.new.tightened": (
+            "{name} is a check this run was held to and the reference was not."
+        ),
+        "explain.setting.rule.new.new_group": (
+            "{name} gates a group the reference did not have. The aggregate was "
+            "already gated per group, so a case was labelled rather than a rule "
+            "rewritten."
+        ),
+        "explain.setting.rule.new.now_grouped": (
+            "{name} is here because this aggregate is now gated per group, "
+            "which the reference was not."
+        ),
+        "explain.setting.rule.missing.loosened": (
+            "{name} no longer applies; the reference was held to it."
+        ),
+        "explain.setting.rule.unknown": (
+            "Whether {name} changed is not known: one side did not record it."
+        ),
+        "explain.setting.rule.unnameable": (
+            "The agreement floor is not recorded in a run, so whether it moved "
+            "cannot be told from these two."
         ),
         "explain.setting.artifact.changed": "{name} changed: {tally}.",
         "explain.setting.artifact.changed.untallied": "{name} changed.",
@@ -1258,6 +1332,41 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "config.judge.added": "{judge} è stato aggiunto come giudice",
         "config.judge.removed": "{judge} non giudica più",
         "config.coincides": " Questo calo coincide con {changes}.",
+        "rules.title": "Quali erano le regole",
+        "rules.note": (
+            "Solo le regole che si sono mosse. Un'asticella più bassa lascia "
+            "passare un'esecuzione dove il riferimento non sarebbe passato; le "
+            "regole in vigore sono nel documento dell'esecuzione."
+        ),
+        "rules.column.rule": "Regola",
+        "rules.column.moved": "Che cosa si è mosso",
+        "rules.column.direction": "In che direzione",
+        "rules.cell.moved": "{field} {before} → {after}",
+        "rules.cell.new": "aggiunta",
+        "rules.cell.missing": "rimossa",
+        "rules.cell.unknown": "non registrata su entrambi i lati",
+        "rules.direction.loosened": "più larga",
+        "rules.direction.tightened": "più stretta",
+        "rules.terminal": "regole",
+        "rules.field.threshold": "soglia di",
+        "rules.field.tolerance": "tolleranza di",
+        "rules.field.samples": "campioni di",
+        "rules.moved.loosened": "{field} {name} {before} → {after} (più larga)",
+        "rules.moved.tightened": "{field} {name} {before} → {after} (più stretta)",
+        "rules.moved": "{field} {name} {before} → {after}",
+        "rules.new": "{name} aggiunta",
+        "rules.new.new_group": (
+            "{name} aggiunta, su un gruppo che il riferimento non aveva"
+        ),
+        "rules.new.now_grouped": ("{name} aggiunta, questo aggregato ora è per gruppo"),
+        "rules.missing": "{name} rimossa",
+        "rules.unknown": "{name} non registrata su entrambi i lati",
+        "rules.unnameable": (
+            "la soglia di accordo non è registrata, quindi non è confrontabile"
+        ),
+        "rules.cell.unnameable": (
+            "non registrata in un'esecuzione, quindi non confrontabile"
+        ),
         "config.terminal.target": "sistema",
         "config.terminal.judge": "giudice",
         "artifacts.title": "Che cosa era in prova",
@@ -1703,6 +1812,38 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.setting.judge.removed": (
             "{before} ha valutato il riferimento e non ha valutato questa esecuzione."
+        ),
+        "explain.setting.rule.changed.loosened": (
+            "{name} è passato da {before} a {after}, un'asticella più bassa di "
+            "quella con cui è stato approvato il riferimento."
+        ),
+        "explain.setting.rule.changed.tightened": (
+            "{name} è passato da {before} a {after}, un'asticella più alta di "
+            "quella con cui è stato approvato il riferimento."
+        ),
+        "explain.setting.rule.changed": "{name} è passato da {before} a {after}.",
+        "explain.setting.rule.new.tightened": (
+            "{name} è un controllo a cui questa esecuzione è sottoposta e il "
+            "riferimento no."
+        ),
+        "explain.setting.rule.new.new_group": (
+            "{name} controlla un gruppo che il riferimento non aveva. "
+            "L'aggregato era già controllato per gruppo, quindi è stato "
+            "etichettato un caso, non riscritta una regola."
+        ),
+        "explain.setting.rule.new.now_grouped": (
+            "{name} è qui perché questo aggregato ora è controllato per gruppo, "
+            "mentre nel riferimento non lo era."
+        ),
+        "explain.setting.rule.missing.loosened": (
+            "{name} non si applica più; il riferimento vi era sottoposto."
+        ),
+        "explain.setting.rule.unknown": (
+            "Se {name} sia cambiato non è noto: un lato non l'ha registrato."
+        ),
+        "explain.setting.rule.unnameable": (
+            "La soglia di accordo non è registrata in un'esecuzione, quindi da "
+            "queste due non si può dire se sia cambiata."
         ),
         "explain.setting.artifact.changed": "{name} è cambiato: {tally}.",
         "explain.setting.artifact.changed.untallied": "{name} è cambiato.",

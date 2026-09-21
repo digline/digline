@@ -73,6 +73,7 @@ from digline.report import (
     log_text,
     render_html,
     render_run_html,
+    rule_lines,
     scale_lost,
     summary_lines,
     unjudged_cases,
@@ -488,6 +489,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
     # 0.3 → 0.7` fits on one line and is what the reader would have gone to the
     # report for. (ADR 0005 §5)
     moved = (*moved, *config_lines(comparison, locale=args.locale))
+    # And the rules last of the three, because they are the ruler rather than
+    # the thing measured: what was under test, what it was measured with, then
+    # the bar it was held to. (ADR 0028 §8)
+    moved = (*moved, *rule_lines(comparison, locale=args.locale))
     if moved:
         say()
         for line in moved:

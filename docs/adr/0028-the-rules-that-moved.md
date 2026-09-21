@@ -258,10 +258,17 @@ that. *Loosened* is a fact about what was declared, in the register *coincides*
 was chosen in for ADR 0005 §5 — the strongest word the data supports, and not
 one syllable past it.
 
-**`samples` has no direction, and inventing one would be an opinion.** More
-samples is a better-founded score *and* a wider measured interval, which the
-noise floor then forgives more movement inside. Both are true and neither
-dominates, so the row prints `samples 3 → 5` and stops.
+**`samples` takes no verb, and this is the line a later reader will want to
+'fix'.** It reads like a tightening — more samples, a better measurement — and
+half of that is true. The other half runs the opposite way: the interval a
+sampled check records is **measured**, so more samples usually means a *wider*
+noise floor, and a wider floor is exactly what `compare()` then forgives more
+movement inside. `samples 3 → 5` therefore raises the confidence in the score
+and lowers the bar the next comparison judges it against, in one edit. Neither
+half dominates the other, and no arithmetic here can weigh them, so the row
+prints `samples 3 → 5` and stops. **A future release that gives this a
+direction is making a claim this record examined and refused**; if it is made,
+it is made in an amendment that says which half it decided wins, and why.
 
 **The two directions are not summed.** A suite that tightened three bars and
 loosened one is not *tightened on balance*: there is no such quantity, and
@@ -312,16 +319,27 @@ exist adds an aggregate, and **moves `config_hash`**. The statement in §3 —
 adding a case produces no rule row — has this one shape standing against it, and
 it has to be written down rather than met in a pull request.
 
-The obvious ruling is to name the gate and put the case that introduced it
-beside it. **That cannot be done, and the reason is worth more than the
-ruling.** `CaseResult` records no group, `Verdict` has no field for one, and
-`case_to_dict` writes neither — ADR 0010 §1 deliberately keeps group membership
-in the repository. Neither document holds it. And the case would usually be the
-wrong answer anyway: **re-labelling an existing case creates a group without
-adding a case**, so on the most ordinary path there is no new case to point at.
+The ruling this section was given was to name the gate and put **the case that
+introduced it** beside it, so that a new gate could not read as somebody
+rewriting the rules. That ruling was right about the danger and wrong about the
+remedy, and **the derivation below replaces it.** Two reasons, and the second is
+the one that matters:
 
-What *is* derivable is the discrimination that was actually wanted, and it needs
-no suite and no case. `grouped_name` writes `precision[group=hotel]` as a public
+1. **Neither document holds the membership.** `CaseResult` records no group,
+   `Verdict` has no field for one, and `case_to_dict` writes neither — not an
+   omission but ADR 0010 §1 deliberately keeping group membership in the
+   repository, where the cases are. `split_grouped_name` exists *because* of
+   that decision, and says so in its own docstring: a stored run carries the
+   group only inside the name.
+2. **The case would often be the wrong answer even if it were held.**
+   **Re-labelling an existing case creates a group with no new case behind it.**
+   On that path — the most ordinary one, since a group usually arrives by
+   labelling what is already there — there is no case to point at, and pointing
+   at the nearest new one would be the fabricated causation the whole of §3
+   forbids. Naming a case here would be wrong more often than absent.
+
+So the case is not named, and what replaces it answers the same question
+better, needing no suite and no case. `grouped_name` writes `precision[group=hotel]` as a public
 string and `split_grouped_name` reads it back — which exists, as its own
 docstring says, precisely because a stored run carries the group only inside the
 name. So, for a new `[group=…]` row over base aggregate *A*:
@@ -335,9 +353,10 @@ name. So, for a new `[group=…]` row over base aggregate *A*:
   group*: a rule change, and the author's.
 
 Both causes are named, neither is guessed, and no case is accused of anything.
-The gate is a `new` rule in the table either way — suppressing it would hide a
-real new gate, which is what the ruling was protecting against — and it is the
-sentence beside it that differs.
+That is what the original ruling wanted — a new gate that does not read as a
+rewritten rule — delivered by the one fact both documents actually carry. The
+gate is a `new` rule in the table either way, because suppressing it would hide
+a real new gate; it is the sentence beside it that differs.
 
 Recording `group` on the `CaseResult` would settle it exactly, name the cases,
 and cost a schema passenger. It does not board here, for §5's reason. When it

@@ -47,6 +47,7 @@ from digline.core.assertions import (
 )
 from digline.core.calibration import CalibrationBand, ScaleLost, scale_lost
 from digline.core.compare import (
+    AGREEMENT_FIELD,
     IDENTITY_FIELD,
     ArtifactDelta,
     ArtifactOutcome,
@@ -56,9 +57,12 @@ from digline.core.compare import (
     ConfigDelta,
     ConfigOutcome,
     Denominator,
+    Direction,
+    Expansion,
     Noise,
     Outcome,
     Scope,
+    SuiteDelta,
     artifact_deltas,
     case_count,
     checked_denominator,
@@ -67,6 +71,7 @@ from digline.core.compare import (
     considered_cases,
     denominator,
     index_verdicts,
+    suite_deltas,
     withhold_artifacts,
 )
 from digline.core.diff import (
@@ -228,8 +233,12 @@ __all__ = [
     "Cause",
     "CheckKind",
     "Comparison",
+    "AGREEMENT_FIELD",
     "ConfigDelta",
     "ConfigOutcome",
+    "Direction",
+    "Expansion",
+    "SuiteDelta",
     "ConfigValue",
     "JUDGE_OUTPUT_LABEL",
     "Contains",
@@ -297,6 +306,7 @@ __all__ = [
     "artifact_deltas",
     "as_ratio",
     "config_deltas",
+    "suite_deltas",
     "diff",
     "index_verdicts",
     "STORAGE_STEP",

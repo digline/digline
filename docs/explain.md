@@ -122,6 +122,10 @@ assertion references — and no sentences at all:
     {"about": "setting", "kind": "artifact", "name": "prompts/system.txt",
      "outcome": "changed", "before": null, "after": null,
      "withheld": false, "added": 1, "removed": 0},
+    {"about": "setting", "kind": "rule", "name": "llm_rubric.threshold",
+     "outcome": "changed", "before": 0.7, "after": 0.6,
+     "withheld": false, "added": 0, "removed": 0,
+     "direction": "loosened"},
     {"about": "check", "kind": "regressed", "scope": "case",
      "case_id": "gift-wrap", "assertion": "llm_rubric",
      "assertion_id": "llm_rubric:…", "before": 1.0, "after": 0.7,
@@ -134,6 +138,17 @@ assertion references — and no sentences at all:
 Three shapes, and you discriminate on `about` first and then on `kind`: two of
 them have a kind called `within_noise` and they mean different things — one
 check that moved inside its interval, and the count of every check that did.
+
+**`"kind": "rule"` is the odd setting**, and the discriminator is what keeps it
+honest. The other three settings are things *under test* — how the system was
+configured, which instrument graded, which file was the subject. A rule is the
+bar they were held to, and it carries `direction`: `"loosened"` where this run
+is held to less than the reference was approved under, `"tightened"` where it is
+held to more. The key is **absent** where the movement has no direction, which
+is every `samples` row and is a different statement from *unchanged*
+(ADR 0028 §4). `withheld` is always `false` here: nothing a rule is made of can
+be kept back, which is why this is the one part of the reading that is complete
+at a boundary.
 
 `scope` is `"comparison"` or `"run"` and is stated rather than left to be
 inferred: a run whose comparison found nothing and a run with no reference at
