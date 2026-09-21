@@ -131,7 +131,7 @@ OUTCOME_ORDER: Sequence[Outcome] = (
 class Headline:
     """The first screen, and what a CLI exits on.
 
-    It carries **eight** facts, and they are deliberately not merged into one.
+    The facts it carries are deliberately not merged into one.
 
     A regression, a case the suite could not judge, and a case someone chose to
     set aside are three different events needing three different actions: an
@@ -1653,7 +1653,7 @@ def _aggregates(
     while individual cases moved by three votes. The aggregate is the answer,
     the cases are the diagnosis.
 
-    The two exclusions are printed **beside** every figure, never under it.
+    The exclusions are printed **beside** every figure, never under it.
     `suspended_excluded` is the one number in this product that improves by
     doing less work — setting aside a failing case raises the ratio without
     anyone lying — so it travels with the ratio wherever the ratio goes.

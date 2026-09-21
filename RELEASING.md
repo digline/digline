@@ -92,8 +92,8 @@ the same act — dating the changelog entry below. `tools/home_capture.py
 --check` then refuses the capture that names the previous version, and
 `test_versions.py::test_a_dated_release_leaves_no_package_declared_unreleased`
 refuses a package the tag carries whose own heading still says `unreleased`.
-That is the next section, and both are steps of the same pull request. Seven
-gates, six of them here.
+That is the next section, and both are steps of the same pull request: the
+table above is the part that belongs to the bump.
 
 ### The window before the tag
 

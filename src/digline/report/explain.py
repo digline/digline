@@ -95,8 +95,8 @@ type CheckKind = Literal[
 type SettingKind = Literal["target", "judge", "artifact"]
 
 #: The run-level counts and states, and this list is closed by ADR 0012 §3. A
-#: reading that wanted a ninth would be saying something the report does not,
-#: which is the thing the same-truth rule forbids.
+#: reading that wanted a kind this list does not carry would be saying something
+#: the report does not, which is the thing the same-truth rule forbids.
 type TallyKind = Literal[
     "cases",
     "checks",

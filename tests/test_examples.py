@@ -1789,22 +1789,8 @@ def test_every_example_admits_the_versions_this_workspace_declares() -> None:
             )
 
 
-#: Spelt out, because the front page spells them out. Only as far as the number
-#: of examples could plausibly reach — a longer table would be inventing a
-#: problem nobody has.
-NUMBER_WORDS = {
-    5: "Five",
-    6: "Six",
-    7: "Seven",
-    8: "Eight",
-    9: "Nine",
-    10: "Ten",
-    11: "Eleven",
-}
-
-
-def test_the_front_page_counts_the_examples_it_lists() -> None:
-    """One source of truth for how many examples there are: the directories.
+def test_the_front_page_lists_every_example_and_only_those() -> None:
+    """One source of truth for which examples there are: the directories.
 
     `README.md` said "Six projects in `examples/`" and listed six for the whole
     of 0.5.0 and 0.6.0, while `quickstart-toml` was the seventh — present in the
@@ -1813,21 +1799,20 @@ def test_the_front_page_counts_the_examples_it_lists() -> None:
     nothing noticed. The example that went missing was the one for a reader who
     writes no Python, which is the one least able to find itself by browsing a
     directory of Python projects.
+
+    **This checked the count as well until v0.17.1, and the count was the weaker
+    half.** The page said "Eleven projects in `examples/`" and this test spelled
+    the number out to hold it there — which made the sentence *gated* rather
+    than *unable to go stale*, and gated only by an absence: eleven was right
+    because `examples/quickstart/` has no README and so is not a project. The
+    set comparison below is strictly stronger — equal sets imply equal counts —
+    and it is what would have caught `quickstart-toml`, which the number never
+    could have: the page said six and there were six projects it knew about.
+    So the number came out of the page, and this test keeps the half that found
+    the defect. (ADR 0012 §3 states the general rule)
     """
     names = examples_with_a_readme()
     text = (ROOT / "README.md").read_text(encoding="utf-8")
-
-    word = NUMBER_WORDS.get(len(names))
-    assert word is not None, (
-        f"{len(names)} examples, which NUMBER_WORDS above does not spell. Add "
-        "the word rather than changing the sentence to a digit: the page is "
-        "prose."
-    )
-    assert f"{word} projects in [`examples/`](examples/)" in text, (
-        f"README.md does not say “{word} projects in `examples/`”, and there "
-        f"are {len(names)}: {names}. If the sentence moved, move this pattern "
-        "with it — the number in it is written by hand."
-    )
 
     # Bullets only. The page links `examples/quickstart/` further down as the
     # guide's first chapter, and that directory is deliberately not one of the

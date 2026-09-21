@@ -331,6 +331,44 @@ consumer to parse English when the facts are right there, typed. The MCP
 server's `compare` tool makes the same argument from the other side when it
 hardcodes `locale="en"`: an agent is not the document's recipient.
 
+**No total is written for this list, and that is a rule about prose rather than
+about code.** This list is closed and it is *amended*, which means it grows: the
+chain above is eight amendments long and each one records which release added
+which kind. Keep that chain — it says when each fact arrived, and a record of
+when something happened cannot go stale. What must not be written beside it is a
+**count of the whole**: "eight kinds", "a ninth would be saying something the
+report does not". Such a sentence is true on the day it is written and false at
+the next amendment, and it goes stale in the direction that reads as complete —
+it under-reports, so nobody notices.
+
+This was not hypothetical. Both of this record's own lists carried one, and both
+were found contradicting themselves in the same afternoon: `TallyKind`'s note
+said a ninth kind would say something the report does not, directly above its
+own entries for *the ninth*, *the tenth* and *the eleventh*; and `Headline`'s
+docstring opened with "eight facts" and then numbered its way to *the
+sixteenth*. `SECURITY.md` had the same shape ("seven so far" for the delta-pass
+on every minor release) and `RELEASING.md` had it twice. Removed 2026-09-21,
+after v0.17.1.
+
+**The distinction is between a list that grows and a shape that is fixed**, and
+it matters because the cure is easy to over-apply. *"Three states — `pass`,
+`fail`, `error`"*, *"two counts, never a fraction"*, *"a case leaves the matrix
+for five reasons"*, *"the eight MCP tools"*: each of those counts a set that is
+closed by a decision rather than extended by a ritual, and each would have to be
+**re-decided** to change — at which point the prose around it is rewritten
+anyway. Those counts are load-bearing and must stay. The test is not *is there a
+number in this sentence* but **does an amendment procedure exist for the thing
+being counted**; if it does, the number is a claim that procedure is guaranteed
+to falsify.
+
+**And the cure belongs here, at the point of growth, rather than in a gate at
+the point of reading.** A mechanical check can look for numbers; it cannot ask
+whether a list has an amendment ritual, and asking the question it *can* ask
+produced roughly five hundred lines of prose to read by hand for six findings.
+So this is a sentence in the procedure that adds a kind, next to the chain that
+records the additions: when you amend this list, there is no total to update,
+because no total is written.
+
 ### 4. No reason travels, and the boundary is a type rather than a filter
 
 **No fact carries a reason. The field does not exist.**

@@ -201,7 +201,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         return _Opened(loaded=form, spec=verified, path=path)
 
     def loaded(spec: str) -> Suite:
-        """The suite alone, for the five tools that only read."""
+        """The suite alone, for the tools that only read."""
         return opened(spec).loaded.suite
 
     def named(suite: Suite, key: str) -> tuple[Run, str]:
@@ -396,7 +396,7 @@ def _acknowledge(plan: CallPlan, acknowledged: int | None) -> None:
     reader; there is no stderr here and no reader, so it is discharged by making
     the number a parameter that cannot be guessed past.
 
-    **The first call is the probe.** There is deliberately no seventh tool
+    **The first call is the probe.** There is deliberately no extra tool
     returning the plan: a tool an agent could call, read, and never act on the
     number of would make the acknowledgement a courtesy again. Here the only way
     to learn the number is to be refused for not knowing it, and the only way to

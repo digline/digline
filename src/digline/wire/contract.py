@@ -152,6 +152,26 @@ __all__ = [
 #:    measured system chose is not data anybody needs verbatim, and that one fact
 #:    must not read differently at two front ends — which is the reason this
 #:    package exists. (from the release delta-pass over 0.15.0)
+#:
+#: **This record grows by an added key, and no count of the keys is written
+#: anywhere.** Each entry above names what a release added and why it needed no
+#: bump; that is history and it cannot go stale. A *total* — "the headline
+#: carries eight facts", "eleven keys under `full`" — would be true when written
+#: and false at the next addition, and false in the direction that reads as
+#: complete, because it can only ever under-report. So when you add a key here,
+#: there is no number to correct: add the entry, leave the arithmetic to
+#: whoever counts the keys they actually parse.
+#:
+#: Not to be confused with the counts that describe a **fixed shape** and must
+#: stay: the three verdict states, the five exclusions that shrink a
+#: denominator, `ClaimReply`'s two counts rather than a fraction. Those are
+#: closed by a decision, not extended by a ritual, and changing one means
+#: rewriting the prose around it anyway. The test is whether an amendment
+#: procedure exists for the thing being counted — where it does, a total is a
+#: claim that procedure will falsify. ADR 0012 §3 states the same rule for the
+#: reading's fact list, which is the other place in this repository that grows
+#: this way. (both written 2026-09-21, after six such totals were found already
+#: false, two of them contradicting their own paragraphs)
 OUTPUT_VERSION = 2
 
 EXIT_OK = 0

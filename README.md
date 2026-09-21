@@ -249,7 +249,7 @@ without a Python toolchain through `ghcr.io/digline/digline`.
 
 ## Examples
 
-Eleven projects in [`examples/`](examples/), each answering a question somebody
+The projects in [`examples/`](examples/) each answer a question somebody
 actually arrives with. Every one runs with no API key, carries its committed
 `report.html`, and is a standalone project: copy the directory anywhere and
 `uv sync` works.
