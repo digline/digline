@@ -263,6 +263,18 @@ staged, and every gate went green over it — CI's own `uv sync` rewrote the loc
 in the runner and exited 0. `git add uv.lock` is in the command above for that
 reason.
 
+**And a dependabot lock PR open across the bump is not a merge conflict, which
+is the trap.** v0.17.1 was cut with #61 open — a `uv.lock` bump of five
+dependencies — and the version bump had moved the same file. `git merge-tree`
+reported it merges clean, because the two edits are in different regions of the
+file, and that proves nothing about whether the result *resolves*: **a
+three-way-merged lock is not a lock any tool generated.** `uv sync --locked` is
+the only thing that can answer it, and by then the lock is in the tree. The
+answer is to let dependabot rebase and regenerate against the new `main` rather
+than to take the clean merge, and to judge its gates afterwards on their own
+terms — a `ruff` bump finding new lint is a decision somebody makes, not a
+release blocker.
+
 The script fails on its own if the regression it captures stops being red, or
 if no case comes back worse — a capture that went green would put a claim on
 the home the tool did not make. Read the diff of the file before committing it:
@@ -927,6 +939,58 @@ tag* updates it on every tag.
   attempt. One re-run is not a defect, but two releases in a row needing one on
   a plugin pin would say the wait's budget is wrong for a package the edges
   cache differently from the core.
+
+- **v0.17.1 raced at the runner and not inside the build, and the distinction
+  is the whole of what it proved.** It published first time — no re-run — and
+  the plugin question the paragraph above asks does not apply: this tag carried
+  the core alone, every plugin version already served, checked with
+  `tools/tag_names.py` before the tag rather than assumed.
+
+  **The wait was real.** The runner-level step sat on `digline==0.17.1` for
+  **241s**, printing `waiting digline==0.17.1 — /simple/digline/ is served and
+  lists 32 file version(s), none at 0.17.1` eight times from 0s to 211s before
+  `served digline==0.17.1 (after 241s)`. The three plugin pins read `after 0s`
+  throughout, so the message did what it was written for: it named *which* pin
+  the run was waiting on, and said the index had answered and lacked the
+  version rather than failed to answer.
+
+  **But the build never met the race.** By the time `#9` asked from inside the
+  image it was `after 0s`, because the runner-level wait had already absorbed
+  it. The upload landed at 13:44:15Z, the runner's wait cleared at 13:44:43Z,
+  and the build asked about half a minute after the version first existed — a
+  window, but one nothing went wrong in. So the same-question fix was **not**
+  exercised here: **v0.15.1, v0.16.0 and v0.17.0 remain the three observations
+  under a real divergence, and this is not a fourth.** Written that way so four
+  greens do not come to read as four observations.
+
+  One corroboration from outside CI, kept because it is the same divergence
+  seen from the other side: minutes after the upload,
+  `pypi.org/pypi/digline/json` still named `0.17.0` as the latest and did not
+  list 0.17.1 at all, while `/simple/digline/` — what `pip` reads — already had
+  it, and a cache-busted request to the first endpoint then agreed. Two
+  endpoints, two answers, no failure. That is the shape the fix is for,
+  observed on a release where it cost nothing.
+
+  **The pair, per architecture.** **amd64 proven in `smoke`:** `#9 [stage-0
+  3/5]` printed `every version is served (after 0s)` for all four pins, then
+  `#9 1.799 Collecting digline==0.17.1` and `#9 10.55 Successfully installed …
+  digline-0.17.1 digline-anthropic-0.5.3 digline-bedrock-0.5.1
+  digline-openai-0.5.2 …`, `#9 DONE 11.3s` — one `RUN`, install **1.2s** after
+  `served`. **`#12 [linux/amd64 stage-0 3/5]` in the multi-arch push is
+  `CACHED`**, as this list has predicted every time since v0.15.1, and proves
+  nothing. **arm64 proven in the multi-arch push:** `#15 5.090 every version is
+  served (after 1s)`, `#15 23.87 Collecting`, `#15 138.4 Successfully installed
+  …`. Two architectures, two pairs, two jobs. All three image tags — `0.17.1`,
+  `0.17`, `latest` — resolve to one digest, `sha256:5c14eac4`, whose manifest
+  carries `linux/amd64` and `linux/arm64`.
+
+  **What the next tag must show:** the same two-pair reading, and — since the
+  runner-level wait has absorbed the race on three of the last four tags —
+  whether the in-build await ever prints a non-zero wait of its own. If it never
+  does, that is worth saying out loud rather than leaving implied: the in-build
+  `await_index.py` would be a belt whose braces have held every time, and the
+  case for keeping it would rest on the tags where the edges disagreed rather
+  than on anything since.
 
 ### What is not covered, stated rather than assumed
 
