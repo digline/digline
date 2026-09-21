@@ -1145,8 +1145,8 @@ names.
 2. **`docker-publish`:** read its log, not its green. That means the `served`
    lines and a clean `pip install` of the released versions in the same `RUN`,
    and all three image tags on one digest. See *The index race*.
-3. **The example locks:** regenerate them, then dispatch `ci.yml`. See *The nine
-   example legs* below.
+3. **The example locks:** regenerate them, then dispatch `ci.yml`. See *The example
+   legs* below.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
@@ -1252,7 +1252,7 @@ there, and the diagnostic described there is built before the next tag. Re-run t
 not the green**: `served` lines in both legs, `Successfully installed` with the
 released versions, and all three tags on one digest.
 
-**The nine example legs need a dispatch after the lock regen.** Two things
+**The example legs need a dispatch after the lock regen.** Two things
 combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
 != 'pull_request'`, so pushing the lock commit does not run it; and the
 `workflow_run` run that follows the tag checks out **the tag's commit**, which by
@@ -1270,8 +1270,16 @@ dispatch against `main` is the run that counts. Run it by hand against `main` on
 gh workflow run ci.yml --ref main
 ```
 
+**Every example that has a leg**, and the number is deliberately not written
+here. It said `nine` for as long as there were nine; by v0.17.1 the dispatch ran
+**eleven** while this section still said nine. A count in prose is a claim the
+repository can contradict, and this one did no work the rule does not do — the
+same argument that took `seven so far` out of `SECURITY.md` one file over. The
+legs are whatever `examples-from-pypi` expands to: read the run, not this
+sentence.
+
 Five examples carry a `uv.lock` pinning the exact version — `classifier`,
-`langchain`, `llamaindex`, `prompt-first`, `rag` — and the other four resolve at
+`langchain`, `llamaindex`, `prompt-first`, `rag` — and the rest resolve at
 install time. Regenerate the five with `uv lock --upgrade-package digline` in
 each, commit, then dispatch. Three of them — `langchain`, `llamaindex`,
 `prompt-first` — pin `digline-anthropic` as well, so the release that moves a
