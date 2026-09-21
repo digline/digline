@@ -177,6 +177,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.1.6": "pytest-digline's version, named in v0.15.3's tag "
+        "message — the worked example of the annotation naming every "
+        "package its run published. A fact about a shipped release",
         "0.5.3": "digline-anthropic's version, quoted in the Status block's "
         "v0.17.0 paragraph. It is the package the wait and pip disagreed "
         "about on attempt 1, so the number is the evidence: a paragraph that "

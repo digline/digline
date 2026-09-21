@@ -8,6 +8,27 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Declared — `digline-bedrock` reports no thinking split
+
+No version bump, and none is coming for this one: a declared absence does not
+earn its own release. The sentence rides `digline-bedrock`'s next real one, and
+is written now so the absence is on the record from the release that created
+the field rather than from whenever the plugin next moves.
+
+- **Bedrock Converse reports no thinking-token split, so `Usage.thinking_tokens`
+  is `None` from this plugin — never `0`.** The model may well have thought: a
+  reasoning budget goes in through `additionalModelRequestFields`, and the reply
+  carries `reasoningContent` blocks. What the `usage` object does not carry is
+  the count. 0.17.0's three states exist for exactly this — `None` is *not
+  reported*, `0` is a provider that reported a split and a reply that did no
+  thinking — and writing `0` here would report the absence of a field as the
+  absence of thinking, on the provider where the thinking is most likely to have
+  happened and least likely to be visible.
+- Same shape as the model id: Converse's reply names no model, and the plugin
+  leaves `resolved_model` unset rather than echoing the request back
+  (ADR 0005 §9). A provider that says nothing is recorded as having said
+  nothing.
+
 ### Changed — the verb on a reported identity, not the reading
 
 ADR 0020 is **amended, not revised**: §3's doctrine stands. An id that differs
