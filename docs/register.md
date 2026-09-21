@@ -1,9 +1,10 @@
 # `digline register` — what a person decided about a comparison
 
-`compare` answers the one question digline exists for and then forgets the
-answer. So do `explain` and `report`, which gate on the same comparison. The
-exit code reaches a pipeline, the sentence reaches a terminal, and **nothing
-reaches the repository**.
+`digline register` writes down what a person decided about a comparison —
+accepted, rejected or unsure — and commits it to the repository. `compare`
+answers the one question digline exists for and then forgets the answer;
+`explain` and `report` forget it too. The exit code reaches a pipeline, the
+sentence reaches a terminal, and **nothing reaches the repository**.
 
 A verdict is not a rejection: `compare` exiting 1 is the machine saying a check
 got worse; *rejected* is a person reading that and deciding the change does not

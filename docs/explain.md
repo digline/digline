@@ -1,14 +1,14 @@
 # `digline explain` — the run, read back at length
 
-`digline compare` gives you a sentence and at most twenty lines.
-`digline report` gives a customer a document with an answer in a box. Both are
-**compressions**: the report's whole craft is deciding what fits on the first
-screen.
+`digline explain` is the run read back at length: the same facts and the same
+numbers as `digline compare`, expanded instead of compressed into a sentence
+and at most twenty lines.
 
-`digline explain` is the other direction. Same facts, same numbers, expanded —
-what ran, what moved and by how much, inside or outside which measured
-interval, what was set aside, what could not be judged, and which of the three
-configurations differed underneath it all.
+What it reads back: what ran, what moved and by how much, inside or outside
+which measured interval, what was set aside, what could not be judged, and
+which of the three configurations differed underneath it all. `digline report`
+compresses the same facts the other way, into a document with a customer's
+answer in a box, and its whole craft is deciding what fits on the first screen.
 
 It **states, and never advises.** There is no "you should re-run this", no
 "this looks promotable". That boundary is deliberate and is the reason the
