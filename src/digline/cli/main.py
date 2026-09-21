@@ -642,7 +642,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         )
     # Built rather than printed inline, so the blank line above the legend
     # appears once whichever markers this listing actually used.
-    legend = []
+    legend: list[str] = []
     if baseline_key is not None:
         legend.append("* = current baseline")
     if replayed:
