@@ -42,7 +42,8 @@ it is drawn in one place:
   below is a copy, written out because nothing here can read it at build time;
   the source is this repository's own advisories, which
   `gh api repos/digline/digline/security-advisories` returns and the Security
-  tab shows. Five exist so far: three from the 0.7.1 and 0.7.2 pass —
+  tab shows. So far, grouped by the occasion that found them: three from the
+  0.7.1 and 0.7.2 pass —
   [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
   (high, `digline-mcp` executing a suite from anywhere on disk),
   [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
