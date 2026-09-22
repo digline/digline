@@ -17,11 +17,15 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   not a pull request that quietly works around them.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.
   Never required to contribute.
-- **One gate runs only in CI.** The `docs` job builds the digline.dev site
-  `--strict` on every push, from your branch's docs. An example or an ADR added
-  here needs a nav line in *that* repository, and without it the build fails —
-  `RELEASING.md` names the line to add. Nothing you run locally catches this
-  unless you have the site checked out beside this repository.
+- **One gate runs only in CI, and it is required.** The `docs` job builds the
+  digline.dev site `--strict` from your branch's docs, and `main` will not take
+  a pull request that breaks it. A link that resolves on GitHub and not on the
+  site fails here and nowhere else. An example or an ADR added here also needs
+  a nav line in *that* repository — but that one does not fail your pull
+  request: it is admitted as `info` precisely because the entry lands after the
+  record does. `RELEASING.md` names the line to add. Nothing you run locally
+  catches any of this unless you have the site checked out beside this
+  repository.
 
 Small commits, imperative English messages. Open an issue first if the change
 touches a boundary — it is cheaper to disagree before the code.
