@@ -2,11 +2,13 @@
   "aggregate": [],
   "artifacts": {},
   "config_hash": "772460469ef76182",
-  "created_at": "2026-08-27T09:52:41.183791+00:00",
+  "created_at": "2026-09-22T12:52:51.200872+00:00",
+  "digline_version": "0.18.0",
   "environment": "staging",
-  "git_commit": "b5870a655c776d75f8be518796bad8acf02fb08a-dirty",
+  "git_commit": "74f16739e913093784ee38aee55e3ae79235e9cc",
   "judge_config": {},
   "metadata": {},
+  "promoted_at": "2026-09-22T12:52:56.953883+00:00",
   "redacted": false,
   "results": [
     {
@@ -16,13 +18,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -66,13 +69,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -116,13 +120,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -166,13 +171,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -216,13 +222,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -266,13 +273,14 @@
         {
           "assertion": "faithfulness",
           "assertion_id": "50e57c1831bfeaed",
+          "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 1
+            "claims_total": 2
           },
-          "reason": "1 of 1 claims appear in the passages",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "1 of 2 claims appear in the passages",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -313,5 +321,17 @@
   "schema_version": 15,
   "suite": "rag",
   "target_config": {},
-  "tenant": "biblioteca"
+  "tenant": "biblioteca",
+  "usage": {
+    "judge": {
+      "calls": 0,
+      "counted": 0,
+      "spent_usd": 0.0
+    },
+    "target": {
+      "calls": 6,
+      "counted": 0,
+      "spent_usd": 0.003871
+    }
+  }
 }
