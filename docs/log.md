@@ -180,6 +180,13 @@ nothing to read across runs.`, and no suite-wide number is invented out of the
 per-case checks: a summary nobody asked for is the thing this product exists to
 argue against.
 
+It is read off the **latest run's** aggregates, which is why an empty store is a
+different sentence and not that one: with no run read, the reading says so and
+adds that whether the suite declares a run-level check is not something it can
+say. A reading of runs cannot report what a suite declares, and on a fresh
+clone or a hosted runner — where [decision 2](adr/0002-three-worlds-and-where-the-data-lives.md)
+means there is no history at all — the two are easy to confuse and were.
+
 ### Comparable is checked, never assumed
 
 A range is only worth reading over runs that measured the same thing, so every

@@ -492,8 +492,9 @@ def _spread(
 
     The latest run is never in the N — ADR 0006 §5's asymmetry, a noisy new run
     must not widen its own excuse — so a store holding one run reads `runs=0`
-    and a range of that single value, which the sentence states rather than
-    dresses up.
+    and **no range at all**, which the sentence states rather than dresses up.
+    An empty store reads no aggregate either, and the caller says *no run was
+    read* rather than anything about what the suite declares.
 
     **Silent on a flip.** Where an aggregate's status differs between the
     reference and the latest run, no spread is produced for it: ADR 0006 §6, a
@@ -731,7 +732,14 @@ def _spread_lines(log: IdentityLog, locale: Locale) -> list[str]:
     decide. (ADR 0024 §7.4, amended 2026-09-22)
     """
     if not log.spread:
-        return [phrase(locale, "log.spread.none")]
+        # **Two different facts, and the reading used to state the wrong one.**
+        # `spread` is derived from the latest run's aggregates, so with no run
+        # read there is nothing to derive it from — and saying *this suite
+        # declares no run-level check* there is a claim about the suite that a
+        # reading of runs cannot support. It was false on the first real store
+        # it met: `scout-judge` declares four. What the reading knows is that
+        # it has no run, so that is what it says. (ADR 0024 §7.1)
+        return [phrase(locale, "log.spread.none" if log.runs else "log.spread.no_runs")]
     first = log.spread[0]
     lines = [
         phrase(

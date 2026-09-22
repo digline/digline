@@ -918,6 +918,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "  This suite declares no run-level check, so there is nothing to "
             "read across runs."
         ),
+        # Read off the runs, so with none it says that and stops. The sentence
+        # above is a claim about the *suite*, and against an empty store it was
+        # false — `scout-judge` declares four run-level checks and the reading
+        # said it declared none. (ADR 0024 §7.1)
+        "log.spread.no_runs": (
+            "  No run was read in this store, in this window, so there is "
+            "nothing to read across runs. Whether this suite declares a "
+            "run-level check is not something this reading can say: it reads "
+            "the runs, and there are none."
+        ),
         "log.spread.set": (
             "  Across {count} comparable run(s) in this store, in this window — "
             "the latest not among them{excluded}."
@@ -1818,6 +1828,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.none": (
             "  Questa suite non dichiara controlli di run, quindi non c'è nulla "
             "da leggere fra run."
+        ),
+        "log.spread.no_runs": (
+            "  Nessuna run letta in questo store, in questa finestra, quindi "
+            "non c'è nulla da leggere fra run. Se questa suite dichiari un "
+            "controllo di run questa lettura non può dirlo: legge le run, e "
+            "non ce ne sono."
         ),
         "log.spread.set": (
             "  Su {count} run confrontabili in questo store, in questa "

@@ -326,6 +326,31 @@ def test_a_suite_with_no_run_level_check_says_so() -> None:
     assert "nothing to read across runs" in "\n".join(log_text(log, locale="en"))
 
 
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_no_run_read_never_claims_the_suite_declares_nothing(
+    locale: Locale,
+) -> None:
+    """The other half of the sentence above, and it used to be the same one.
+
+    `spread` is read off the latest run's aggregates, so an empty store leaves
+    nothing to read it from — and *this suite declares no run-level check* is a
+    claim about the suite that no reading of runs can support. It was false on
+    the first real store it met: the reading said `scout-judge` declared none,
+    and it declares four. The reading says what it knows, which is that it has
+    no run. (ADR 0024 §7.1)
+    """
+    log = read([])
+    table = strings(locale)
+
+    said = "\n".join(log_text(log, locale=locale))
+
+    assert log.runs == 0
+    assert table["log.spread.no_runs"] in said
+    assert table["log.spread.none"] not in said, (
+        "an empty store must not be told what the suite declares"
+    )
+
+
 # --------------------------------------------------------------------------- #
 # The two intervals, which must not be read as one (§7.3)
 # --------------------------------------------------------------------------- #

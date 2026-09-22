@@ -50,6 +50,27 @@ locales, where the Italian fragment was the worse of the two.
 No schema change, no `OUTPUT_VERSION` bump, and no number in any reading moves:
 the range, the count and the exclusion tallies are what they were.
 
+### Fixed — an empty store was told what its suite declares
+
+The spread section is read off the latest run's aggregates, so with no run read
+there is nothing to read it from. It said **"This suite declares no run-level
+check, so there is nothing to read across runs."** anyway — a claim about the
+suite that a reading of runs cannot support, and false on the first real store
+it met: `scout-judge` declares four run-level checks and the reading said it
+declared none.
+
+It now says what it knows. A fresh clone and a hosted runner have no history at
+all, by the same fixed decision that gitignores `runs/`, so this is the sentence
+they get:
+
+> No run was read in this store, in this window, so there is nothing to read
+> across runs. Whether this suite declares a run-level check is not something
+> this reading can say: it reads the runs, and there are none.
+
+Both locales. A suite that really declares no run-level check still gets the
+sentence that says so, unchanged — the point of the fix is that those were one
+sentence and are two facts.
+
 ### Documentation — the spread has a page at last
 
 [`docs/log.md`](docs/log.md) documented every section of `digline log` except
