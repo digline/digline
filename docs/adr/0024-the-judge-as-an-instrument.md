@@ -63,6 +63,18 @@
   range the narrower on three of four. The reading's exclusion clause is
   repaired in both locales: it elided its verb after the first reason and
   printed a fragment on the real store
+- Amended: 2026-09-22 — §7.5, the distinction it ruled without stating. It made
+  the spread **silent** in three places and never said what silence prints, and
+  the section's heading is unconditional, so silence printed whatever sentence
+  was already there. `log.spread` is empty for four reasons — no run read, the
+  suite declaring no run-level check, every aggregate flipped, every aggregate
+  scoreless — and only the second is a fact about the suite, while it was the
+  sentence printed for all four. Silent on a flip means **do not report a
+  range**, not print nothing: naming the flip is not printing an interval. Four
+  sentences for four facts, counted by cause the way §7.2 counts exclusions,
+  both sentences where both hold, and `declares_none` keeps its own wording
+  because it was the only one that was ever right. `--json` gains
+  `spread_absence`, an added key
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -1332,6 +1344,53 @@ By construction, not by convention:
 
 `--json` gains `spread` beside `spans` and `rolls`; the MCP `log` tool reads the
 same value. Added keys, `OUTPUT_VERSION` 1 (ADR 0011 §4).
+
+##### Amendment, 2026-09-22: what silence prints
+
+*This section ruled the spread **silent** in three places and never said what
+silence puts on the page. The reading has to print something — the section's
+heading is unconditional — so "silent" was read as *whatever sentence is
+already there*, and the sentence already there was a claim about the suite.*
+
+`log.spread` is empty for **four** different reasons, and three of them were
+borrowing the fourth's sentence:
+
+| cause | what it means | whose fact it is |
+|---|---|---|
+| `no_runs` | no run was read in this store, in this window | the reading's |
+| `declares_none` | the latest run recorded no run-level aggregate | **the suite's** |
+| `flipped` | every aggregate's status differs from the reference (§7.5) | the reading's |
+| `scoreless` | every aggregate recorded no score | the reading's |
+
+Only `declares_none` is a fact about the suite, and it is the one that was
+printed for all four. So a fresh clone was told that its suite declares no
+run-level check, and so was a run whose every aggregate had flipped — in both
+cases a **checkable sentence standing in for one that cannot be checked**,
+which is the defect §7.4's amendment closed one level in, on the exclusion
+clause.
+
+**Ruled: silent on a flip means do not report a range, not print nothing.** Not
+reporting an interval is the whole of ADR 0006 §6's rule — a flip carries no
+interval, and printing one invites the reader to argue it away. Naming the flip
+is not printing an interval. So the section prints, and names which of the four
+it is: four sentences for four facts, and a cause is never inferred from
+another's presence.
+
+**Counted by cause, never as a total**, which is §7.2's discipline applied one
+level out: the count is how many of the latest run's aggregates the cause
+accounts for. It is genuinely `0` for the two causes that mean there were no
+aggregates to account for, and above zero for the two that are facts about
+aggregates that do exist. A run with one flipped aggregate and one scoreless
+one prints **both** sentences, because both are true of it and picking one would
+reintroduce exactly the substitution this amendment removes.
+
+`declares_none` keeps its existing sentence unchanged. It was never the wrong
+sentence; it was the only right one, asked to cover three cases it was not
+about.
+
+`--json` gains `spread_absence` beside `spread`: a consumer reading an empty
+list could not tell the four apart either, and the seven absences of ADR 0020
+§3 cross for the same reason. Added key, `OUTPUT_VERSION` 1 (ADR 0011 §4).
 
 ### 8. What this record does not touch
 
