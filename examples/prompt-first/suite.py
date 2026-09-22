@@ -100,4 +100,5 @@ suite = Suite(
         Case(id=c["id"], vars=c["vars"], expected=c["expected"])
         for c in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
     ],
+    record_responses=True,
 )
