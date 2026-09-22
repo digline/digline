@@ -47,6 +47,34 @@
   writes nothing, and absent means *not stamped*, never *judgements*; the
   reading carries that difference by pairing, and names the one residue it
   cannot reach
+- Amended: 2026-09-22 — §7.4, and this one **withdraws a pending decision
+  instead of taking it.** The floor on N was measured on scout's first kept
+  operator history — twelve runs, four days, one `config_hash`, eight
+  comparable — and no floor exists: a min–max range is monotone in N, so it
+  cannot converge and *outside* reports a value not seen before rather than a
+  change, observed at 4 of 12 readings at N≥6 with every firing becoming the
+  next reading's new high. The clause is withheld **because the range describes
+  and cannot gate**, not because a number is missing; the range stays as the
+  reading, on §7.3's own reasons, which are reasons for describing. A
+  statistic that converges is named as the open door and left as its own
+  decision. Three findings ride along — a floor could not be one number across
+  aggregates whose denominators differ by 7×, the effective N grows at 67% of
+  the cycle count, and §7.3's between-vs-within reproduces with the between-run
+  range the narrower on three of four. The reading's exclusion clause is
+  repaired in both locales: it elided its verb after the first reason and
+  printed a fragment on the real store
+- Amended: 2026-09-22 — §7.5, the distinction it ruled without stating. It made
+  the spread **silent** in three places and never said what silence prints, and
+  the section's heading is unconditional, so silence printed whatever sentence
+  was already there. `log.spread` is empty for four reasons — no run read, the
+  suite declaring no run-level check, every aggregate flipped, every aggregate
+  scoreless — and only the second is a fact about the suite, while it was the
+  sentence printed for all four. Silent on a flip means **do not report a
+  range**, not print nothing: naming the flip is not printing an interval. Four
+  sentences for four facts, counted by cause the way §7.2 counts exclusions,
+  both sentences where both hold, and `declares_none` keeps its own wording
+  because it was the only one that was ever right. `--json` gains
+  `spread_absence`, an added key
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -1216,6 +1244,91 @@ that N is sized on real history, the reading prints the range, N and the
 exclusion counts, and **withholds the inside/outside clause**. The amendment
 that sets the floor adds the clause.
 
+##### Amendment, 2026-09-22: the clause is withheld because the range cannot carry it
+
+*The floor above was queued as a number to be measured. It was measured, on the
+first history that could answer, and the answer is not a floor: the statistic
+cannot carry the clause at any N. This replaces the pending framing rather than
+supplying the number it promised.*
+
+**The material.** scout's operator — pilot-zero — began keeping its run
+documents on 2026-09-17, which is the upload step §10 named as a finding of its
+own. Twelve runs over four days, 2026-09-17T10:33 to 2026-09-20T11:34, three
+cycles a day at one `config_hash`, 145 cases each, none replayed. Eight are
+comparable under §7.2, and the three exclusions are all *not fully judged*, one
+errored case each. The reading, as the shipped code printed it:
+
+| aggregate | latest | range over the 8 | width |
+|---|---|---|---|
+| accuracy | 0.861111 | 0.868056 – 0.888889 | 0.020833 |
+| precision | 0.518519 | 0.538462 – 0.600000 | 0.061538 |
+| recall | 0.700000 | 0.700000 – 0.800000 | 0.100000 |
+| tool_majority | 0.916667 | 0.916667 – 0.937500 | 0.020833 |
+
+**Why no N makes *outside* mean anything.** A min–max range over a growing
+sample is monotone non-decreasing: it cannot converge, it can only stop moving
+once both extremes have been drawn, and nothing in the record says when that has
+happened. So *outside* reports **discovery** — a value not seen before — and not
+a change. Replaying the reading after each of the twelve cycles shows it rather
+than argues it: the range was still widening at N=8 (accuracy 0.006944 at N=3–5
+to 0.020833 at N=7; precision 0.019705, 0.032967, 0.038461, 0.061538), *outside*
+fired on 4 of 12 readings at N≥6, and every firing above the high became the next
+reading's high. At N≤2 the range is degenerate — accuracy and recall both read
+width 0.000000 across the first five readings — and a clause there would have
+said *outside* four times in five about nothing.
+
+More history does not repair that. It is a property of the statistic and not of
+the sample, so §7.4's *until that N is sized on real history* was wrong in kind,
+and it is withdrawn.
+
+**Ruled: the clause is withheld because the range describes and cannot gate.**
+Not pending a measurement. `log.spread.floor` says that in both locales, and
+says what the range *is* instead of what it lacks.
+
+**The range stays as the reading.** §7.3's three reasons are reasons for
+*describing*, and they hold unchanged: the house already reads noise as a range,
+a standard deviation over a handful of stored runs is itself noise, and a second
+definition of *inside the noise* would answer with a different rule from the one
+`compare` applies per case. A range is honest about what was seen, which is what
+this reading is for. What it may not do is decide.
+
+**The open door, named so that nobody infers a different one.** If a reading is
+ever to say *inside* or *outside*, it needs a statistic that converges — and
+which one, over what sample, at what cost, is a decision of its own with its own
+reasons. It is not a threshold over this one, and nothing here reserves a number
+for it.
+
+Three findings from the same measurement, recorded because each would otherwise
+be re-derived:
+
+**A floor could not be one number across these four aggregates even if a floor
+were the answer.** `recall` is computed over 20 positives, so it moves in steps
+of 0.05 and its entire observed range is two steps wide; `accuracy` and
+`tool_majority` run on 144. One width is one step for the first and seven for
+the others, so what a given width means differs by 7× inside a single suite.
+
+**The effective N grows at 67% of the cycle count.** Twelve cycles yielded eight
+counted runs, and all three losses were a single errored case in a 145-case
+suite. At that error rate a counted run costs about 1.5 cycles of calendar,
+which is what any later decision about N is spending.
+
+**§7.3's between-vs-within observation reproduces, in the direction worth
+stating.** The between-run range is *narrower* than the latest run's own
+within-run interval on three of the four aggregates — accuracy 0.020833 against
+0.027778, precision 0.061538 against 0.108696, tool_majority 0.020833 against
+0.027778 — and equal on recall, 0.100000 both. The folded aggregate is steadier
+than any single-sample one, now measured on two different suites, which is why
+the two intervals are printed apart and never set against each other.
+
+**The sentence, as it now reads.** The exclusion clause above elided its verb
+after the first reason, so a reading whose exclusions did not begin with
+*re-judged* ended in a fragment — which is what scout's store printed: *"; 3 as
+not fully judged."* The verb is carried once by the clause itself, and every
+reason is a bare counted phrase after it:
+
+> Across 8 comparable run(s) in this store, in this window — the latest not
+> among them; excluded: 3 not fully judged.
+
 #### 7.5 The guard: it never turns a pass into a fail
 
 By construction, not by convention:
@@ -1231,6 +1344,53 @@ By construction, not by convention:
 
 `--json` gains `spread` beside `spans` and `rolls`; the MCP `log` tool reads the
 same value. Added keys, `OUTPUT_VERSION` 1 (ADR 0011 §4).
+
+##### Amendment, 2026-09-22: what silence prints
+
+*This section ruled the spread **silent** in three places and never said what
+silence puts on the page. The reading has to print something — the section's
+heading is unconditional — so "silent" was read as *whatever sentence is
+already there*, and the sentence already there was a claim about the suite.*
+
+`log.spread` is empty for **four** different reasons, and three of them were
+borrowing the fourth's sentence:
+
+| cause | what it means | whose fact it is |
+|---|---|---|
+| `no_runs` | no run was read in this store, in this window | the reading's |
+| `declares_none` | the latest run recorded no run-level aggregate | **the suite's** |
+| `flipped` | every aggregate's status differs from the reference (§7.5) | the reading's |
+| `scoreless` | every aggregate recorded no score | the reading's |
+
+Only `declares_none` is a fact about the suite, and it is the one that was
+printed for all four. So a fresh clone was told that its suite declares no
+run-level check, and so was a run whose every aggregate had flipped — in both
+cases a **checkable sentence standing in for one that cannot be checked**,
+which is the defect §7.4's amendment closed one level in, on the exclusion
+clause.
+
+**Ruled: silent on a flip means do not report a range, not print nothing.** Not
+reporting an interval is the whole of ADR 0006 §6's rule — a flip carries no
+interval, and printing one invites the reader to argue it away. Naming the flip
+is not printing an interval. So the section prints, and names which of the four
+it is: four sentences for four facts, and a cause is never inferred from
+another's presence.
+
+**Counted by cause, never as a total**, which is §7.2's discipline applied one
+level out: the count is how many of the latest run's aggregates the cause
+accounts for. It is genuinely `0` for the two causes that mean there were no
+aggregates to account for, and above zero for the two that are facts about
+aggregates that do exist. A run with one flipped aggregate and one scoreless
+one prints **both** sentences, because both are true of it and picking one would
+reintroduce exactly the substitution this amendment removes.
+
+`declares_none` keeps its existing sentence unchanged. It was never the wrong
+sentence; it was the only right one, asked to cover three cases it was not
+about.
+
+`--json` gains `spread_absence` beside `spread`: a consumer reading an empty
+list could not tell the four apart either, and the seven absences of ADR 0020
+§3 cross for the same reason. Added key, `OUTPUT_VERSION` 1 (ADR 0011 §4).
 
 ### 8. What this record does not touch
 
@@ -1338,6 +1498,12 @@ reading says in its own sentence what declining costs.
 
 **Two readings ship without their sentences.** Shape prints shares and spread
 prints a range, and neither says *more* or *inside* until the data sizes it.
+
+*Amended 2026-09-22: for spread, permanently. The data was read and it sized
+nothing: a min–max range is monotone in N, so *outside* reports a value not
+seen before rather than a change, and the clause is withheld because the
+statistic cannot carry it (§7.4). Shape's sentence is still pending; spread's
+is not coming back in this form.*
 That will read as unfinished. It is the cost of not setting a threshold in text.
 
 **Third-party assertions are undeclared** until their authors declare a scale,
@@ -1443,9 +1609,15 @@ baseline reports no delta.
 
 ## Not decided here
 
-**The two thresholds**: *more than the reference* for shape (§6.3) and the
-floor on N for spread (§7.4). Each arrives as a dated amendment to its section,
-sized on data, with the data named.
+**The shape threshold**: *more than the reference* (§6.3). It arrives as a
+dated amendment to its section, sized on data, with the data named.
+
+*Amended 2026-09-22: there were two thresholds here, and the second one is
+closed rather than pending. The floor on N for spread (§7.4) was measured and
+the answer was that no floor exists — a min–max range cannot converge, so it
+describes and cannot gate. What replaces it is not a number but a door: a
+reading that says `inside` needs a statistic that converges, which is its own
+decision with its own reasons and not a threshold over this one.*
 
 **The upload step that keeps pilot-zero's runs** (§10). A change to scout's
 workflow, queued separately; not a release and not a decision of this record.

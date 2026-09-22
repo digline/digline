@@ -118,6 +118,18 @@ RECORDED: dict[str, dict[str, str]] = {
     "AGENTS.md": {
         "0.4.0": "'the one case in 0.4.0' — the state of a shipped release",
     },
+    "docs/log.md": {
+        "0.16.0": (
+            "a worked transcript of the spread's 'Written by digline ...' line, "
+            "which reports the releases that wrote the counted runs. Two "
+            "different shipped numbers are the whole point of the line — one "
+            "would not show that a range can span releases — and neither is a "
+            "claim about what digline is at now. Moving them with each release "
+            "would make the example say a store holds only current runs, which "
+            "is the opposite of what it exists to show"
+        ),
+        "0.17.0": "the second number of that same transcript line",
+    },
     "src/digline/core/reconcile.py": {
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "

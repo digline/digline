@@ -2,21 +2,29 @@
 
 The record rules ten things and this file asserts them one at a time. Two carry
 the weight: the latest run is **never** in the range it is read against, and the
-inside/outside clause is **withheld** until the floor on N is measured on real
-history. A spread that contained its own value would make *inside* true by
-construction, which is `AGENTS.md` §5's excuse promoted to a feature.
+inside/outside clause is **withheld** — because a min-max range describes and
+cannot gate, ruled 2026-09-22 on the measurement, not pending a number. A
+spread that contained its own value would make *inside* true by construction,
+which is `AGENTS.md` §5's excuse promoted to a feature.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any, cast
 
 import pytest
 
 from digline.core import CaseResult, Run, Score, SystemConfig, Verdict
-from digline.report.log import ExclusionKind, identity_log, log_text
-from digline.report.text import LOCALES, Locale
+from digline.report.log import (
+    EXCLUSIONS,
+    SPREAD_ABSENCES,
+    ExclusionKind,
+    identity_log,
+    log_text,
+)
+from digline.report.text import LOCALES, Locale, strings
 from digline.wire.log import log_json
 
 TENANT, SUITE = "acme", "qa"
@@ -139,9 +147,14 @@ def test_the_latest_run_is_never_in_its_own_range() -> None:
 
 
 def test_the_inside_clause_is_withheld_and_the_reading_says_so() -> None:
-    """Until the floor on N is measured, neither branch may be claimed — and
-    the reading states that it is not claiming, rather than printing a range and
-    leaving a reader to draw the conclusion it refused to draw."""
+    """Neither branch may be claimed — and the reading states that it is not
+    claiming, rather than printing a range and leaving a reader to draw the
+    conclusion it refused to draw.
+
+    Ruled permanently on 2026-09-22, and the reason moved: a min-max range is
+    monotone in N, so it never converges and *outside* names a value not seen
+    before rather than a change. The clause is not waiting for a floor.
+    """
     lines = log_text(read(history(0.71, 0.86, 0.80)), locale="en")
     said = "\n".join(lines)
 
@@ -185,6 +198,50 @@ def test_a_run_that_is_not_comparable_is_excluded_by_name(
 
     assert item.excluded.get(reason) == 1, item.excluded
     assert item.runs == 2, "the two comparable runs, the latest not among them"
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_the_exclusion_clause_carries_its_own_verb(locale: Locale) -> None:
+    """The verb is the clause's, so it reads the same whichever reason is first.
+
+    It used to sit on the `rejudged` string alone, which read correctly only
+    while that reason happened to come first. It did not on the store the
+    measurement was made from: scout excludes three runs as *not fully judged*
+    and nothing else, and the reading ended in a verbless fragment — *"; 3 as
+    not fully judged."* (ADR 0024 §7.4, amended 2026-09-22)
+    """
+    table = strings(locale)
+
+    assert "{excluded}" in table["log.spread.excluded"]
+    verb = table["log.spread.excluded"].replace("{excluded}", "").strip("; ")
+    assert verb, "the clause carries a verb of its own"
+    for kind in EXCLUSIONS:
+        reason = table[f"log.spread.excluded.{kind}"]
+        assert verb not in reason, (
+            f"log.spread.excluded.{kind} repeats the clause's verb; the fragment "
+            "defect was this word living on one reason instead of the clause"
+        )
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_a_reading_excluded_only_as_unjudged_is_not_a_fragment(
+    locale: Locale,
+) -> None:
+    """scout's own shape, which is where the defect was found: every exclusion
+    is `unjudged`, and `rejudged` — which used to carry the verb — is absent."""
+    rows = history(0.71, 0.86, 0.80)
+    rows.insert(0, ("k9", a_run("2025-12-31T00:00:00+00:00", 0.55, errored=True)))
+    table = strings(locale)
+    expected = table["log.spread.excluded"].format(
+        excluded=table["log.spread.excluded.unjudged"].format(count=1)
+    )
+
+    said = "\n".join(log_text(read(rows), locale=locale))
+
+    assert expected in said, said
+    # The word itself, per locale: on the strings this replaced, the clause was
+    # bare and the reading said only "; 1 as not fully judged".
+    assert {"en": "excluded:", "it": "escluse:"}[locale] in said
 
 
 def test_a_population_that_differs_only_by_a_suspension_is_excluded() -> None:
@@ -274,6 +331,134 @@ def test_a_suite_with_no_run_level_check_says_so() -> None:
 
     assert log.spread == ()
     assert "nothing to read across runs" in "\n".join(log_text(log, locale="en"))
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_no_run_read_never_claims_the_suite_declares_nothing(
+    locale: Locale,
+) -> None:
+    """The other half of the sentence above, and it used to be the same one.
+
+    `spread` is read off the latest run's aggregates, so an empty store leaves
+    nothing to read it from — and *this suite declares no run-level check* is a
+    claim about the suite that no reading of runs can support. It was false on
+    the first real store it met: the reading said `scout-judge` declared none,
+    and it declares four. The reading says what it knows, which is that it has
+    no run. (ADR 0024 §7.1)
+    """
+    log = read([])
+    table = strings(locale)
+
+    said = "\n".join(log_text(log, locale=locale))
+
+    assert log.runs == 0
+    assert table["log.spread.no_runs"] in said
+    assert table["log.spread.none"] not in said, (
+        "an empty store must not be told what the suite declares"
+    )
+
+
+def test_a_flip_names_itself_rather_than_borrowing_another_sentence() -> None:
+    """*Silent on a flip* is **do not report a range**, not print nothing.
+
+    ADR 0006 §6's rule is that a flip carries no interval; naming the flip is
+    not printing one. Before 2026-09-22 a run whose every aggregate had flipped
+    printed *this suite declares no run-level check*, which is a statement
+    about the suite and was false. (ADR 0024 §7.5)
+    """
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(aggregate(status="fail", score=0.2),),
+            ),
+        )
+    )
+    baseline = ("b", a_run("2026-01-01T00:00:00+00:00"))
+    log = read(rows, baseline)
+    said = "\n".join(log_text(log, locale="en"))
+
+    assert log.spread == ()
+    assert log.spread_absence == {"flipped": 1}
+    assert "changed status against the reference" in said
+    assert strings("en")["log.spread.none"] not in said
+
+
+def test_a_scoreless_aggregate_names_itself() -> None:
+    """A check that recorded no score is not a suite that declares none."""
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(aggregate(score=None, status="error"),),  # pyright: ignore[reportArgumentType]
+            ),
+        )
+    )
+    log = read(rows)
+
+    assert log.spread_absence == {"scoreless": 1}
+    assert "recorded no score" in "\n".join(log_text(log, locale="en"))
+
+
+def test_both_causes_print_where_both_hold() -> None:
+    """Two facts about one run, and picking one would be the substitution the
+    amendment removed. Counted by cause, never as a total (§7.2's discipline)."""
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(
+                    aggregate(name="accuracy", status="fail", score=0.2),
+                    aggregate(
+                        name="precision",
+                        score=None,  # pyright: ignore[reportArgumentType]
+                        status="error",
+                    ),
+                ),
+            ),
+        )
+    )
+    baseline = ("b", a_run("2026-01-01T00:00:00+00:00"))
+    said = "\n".join(log_text(read(rows, baseline), locale="en"))
+
+    assert read(rows, baseline).spread_absence == {"flipped": 1, "scoreless": 1}
+    assert "changed status against the reference" in said
+    assert "recorded no score" in said
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_every_cause_has_a_sentence_of_its_own(locale: Locale) -> None:
+    """Four causes, four sentences, and no two of them the same: the defect was
+    three causes rendering the fourth's.
+
+    Asserted through the renderer rather than through the lookup table, so what
+    is pinned is what a reader sees. (ADR 0024 §7.5)
+    """
+    empty = read([])
+
+    said = [
+        "\n".join(log_text(replace(empty, spread_absence={kind: 1}), locale=locale))
+        for kind in SPREAD_ABSENCES
+    ]
+
+    assert len(set(said)) == len(SPREAD_ABSENCES), (
+        "two causes render the same reading, which is the substitution this closed"
+    )
+
+
+def test_the_wire_names_which_cause_left_the_spread_empty() -> None:
+    """`[]` alone cannot tell the four apart, which is why the absences of
+    ADR 0020 §3 cross too."""
+    payload = log_json(read([]))
+
+    assert payload["spread"] == []
+    assert payload["spread_absence"] == {"no_runs": 0}
 
 
 # --------------------------------------------------------------------------- #

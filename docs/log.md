@@ -155,6 +155,115 @@ do it, while the record measures identity and cannot see behaviour at all.
 is its own line between the two named snapshots, so *nothing was recorded that
 day* can never be read as *the same model answered that day*.
 
+## How much the suite moves between runs
+
+The identity half of this page answers *what answered*. This half answers a
+different question, and the only one in digline that needs a **store** rather
+than a pair of documents: **how much does this suite move when nothing
+changes?**
+
+```console
+Run-to-run spread
+  Across 10 comparable run(s) in this store, in this window — the latest not among them; excluded: 1 re-judged, 2 not fully judged.
+  9 of the 10 run(s) did not identify the answering model.
+  The counted runs were written at 4 commit(s).
+  Written by digline 0.16.0, 0.17.0.
+  accuracy: the latest run scored 0.810000 against the reference's 0.760000, a difference of 0.050000. accuracy ranged 0.710000 to 0.860000 across the counted runs.
+    Within the latest run, the same aggregate per sample ranged 0.780000 to 0.840000 — a different measurement, not comparable with the range above.
+  Whether the latest score is inside this spread is not stated: a range describes the runs it read and cannot carry that clause. A value under the low or over the high widens the range, so falling outside it names a score not seen before, not a change.
+```
+
+**Aggregates only.** One reading per run-level check the latest run measured —
+`Accuracy`, `Precision`, a `CostBudget`, whatever the suite declares. A suite
+that declares none gets `This suite declares no run-level check, so there is
+nothing to read across runs.`, and no suite-wide number is invented out of the
+per-case checks: a summary nobody asked for is the thing this product exists to
+argue against.
+
+It is read off the **latest run's** aggregates, and it comes out empty for four
+different reasons. Each gets its own sentence, because only one of them is a
+fact about the suite:
+
+| No spread because | and the reading says |
+|---|---|
+| no run was read in this store, in this window | so, and that whether the suite declares a run-level check is not something a reading of runs can say |
+| the suite declares no run-level check | exactly that — the one case that *is* about the suite |
+| every check changed status against the reference | how many, and that a changed status carries no interval |
+| every check recorded no score | how many |
+
+Where two hold at once — one check flipped, another scoreless — **both**
+sentences print, counted by cause and never as a total. Until 2026-09-22 all
+four printed the second one, so a fresh clone was told its suite declared no
+run-level check: on a fresh clone or a hosted runner, where
+[decision 2](adr/0002-three-worlds-and-where-the-data-lives.md) means there is
+no history at all, that is the first thing the command ever said. A checkable
+sentence standing in for one that cannot be checked.
+
+### Comparable is checked, never assumed
+
+A range is only worth reading over runs that measured the same thing, so every
+stored run is tested against the latest one and **every run left out is counted
+by its reason and printed**. A number excluded silently is a number nobody can
+check.
+
+| Excluded as | When |
+|---|---|
+| `re-judged` | it declared `rejudged_from`: a replay asked the target nothing, and zero target variance would narrow the spread |
+| `not fully judged` | a case could not be judged, which moves the denominator |
+| `uncalibrated` | its calibration case lost the scale, so it is not a measurement |
+| `measuring other rules` | a different `config_hash` |
+| `counting other cases` | a different case-id set, or different suspensions, canaries or calibration cases |
+| `testing another prompt` | a declared artifact's digest differs — a run declaring no artifacts is counted, and the reading says so |
+| `asking another system` | the target configuration differs, as sent |
+| `grading with another instrument` | the judge configuration differs |
+| `another model was reported` | equal configurations whose recorded sighting differs |
+
+Nothing here refuses the command, and `--since`/`--until` narrow this set like
+everything else on the page.
+
+Three things it **cannot** hold equal, so it reports them instead of pretending:
+the **commits** the counted runs were written at (commonly `-dirty`, and
+excluding on it would collapse the set to one run), the **releases** that wrote
+them, and how many of them **identified the answering model** — because a roll
+inside the set is absorbed into the range, and where the provider names nothing
+the [canary](adr/0016-the-canary-case.md) is the only instrument that sees one.
+
+### The latest run is never inside its own range
+
+It is not in the range and not in the count. A spread that contained the value
+it is read against would answer *inside* by construction, which is an excuse
+dressed as a measurement. So a store holding one run reads `0` comparable runs
+and prints no range — with the exclusions, which is exactly when you need them.
+
+### Two intervals, and they are not the same quantity
+
+The range is over the **recorded** aggregate of each run, which is computed from
+the folded verdicts. The indented line under it is the same aggregate
+re-evaluated per sample index **inside the latest run** — *what would one run at
+one sample have said, at this moment* — and at `samples > 1` those are different
+quantities. The folded aggregate is steadier than any single-sample one, and on
+both stores this has been measured on, the between-run range came out
+*narrower* than the within-run interval. They are printed labelled and never set
+against each other.
+
+### Why it does not say *inside* or *outside*
+
+Because a range cannot carry that clause. A min–max range over a growing sample
+only ever widens: it never converges, so a score outside it names **a value not
+seen before**, not a change. That is measured rather than assumed — on twelve
+runs of one suite at one configuration, *outside* fired on 4 of 12 readings, and
+every firing above the range became the next reading's range. Waiting for more
+runs does not fix a statistic that cannot settle.
+
+So the reading prints the range, the count and the exclusions, says that it is
+withholding the clause, and stops. If a reading is ever to say *inside*, it
+needs a statistic that converges, which is a decision nobody has taken.
+[ADR 0024 §7.4](adr/0024-the-judge-as-an-instrument.md) has the measurement.
+
+**Silent on a flip.** Where an aggregate's status differs between the reference
+and the latest run — pass against fail — no spread is printed for it at all. A
+flip carries no interval, and printing one invites the reader to argue it away.
+
 ## It is never a gate
 
 `log` **exits 0 whenever it could read the store**, whatever it found — a roll,
@@ -164,7 +273,13 @@ either, and its absence is the point.
 A roll is a fact about the system; the verdict about a suite is `compare`'s,
 where a changed `resolved_model` is already a named delta and a moved canary
 already exits 1. Two commands gating on one fact is how a pipeline learns to
-mute one of them. The one thing that exits 64 is a request it could not be
+mute one of them.
+
+The spread adds no path to any other code either, and no field to `compare`: it
+cannot feed the noise floor, move an outcome or reach `promote`. It is read
+where the store is, and a gitignored per-machine history must never decide
+whether a run passed — the same two runs would read differently on your laptop
+and on a runner with no history at all. The one thing that exits 64 is a request it could not be
 asked — a suite that will not load, or a window bound it will not accept:
 
 ```console
@@ -214,11 +329,22 @@ register is committed, so it is on every clone even where no run is.
 $ digline log --suite suite.py --json
 ```
 
-emits the same reading for a program: `spans`, `rolls`, `replays`, `reference`,
-`register`, the `window`, and the counts `runs`, `skipped` and `unreadable`.
-`answered` is `null` exactly when `absence` names why. **No score crosses**,
-because no type here has a field one could occupy, and no case id either — the
-reading is about the system and has no reason to name a case.
+emits the same reading for a program: `spans`, `rolls`, `replays`, `spread`,
+`spread_absence`, `reference`, `register`, the `window`, and the counts `runs`,
+`skipped` and `unreadable`. `spread_absence` is why `spread` is empty, counted
+by cause — a consumer reading `[]` could not tell a store with no runs from a
+suite with no run-level check from a run whose every check flipped, which is
+the same reason the absences above cross. `answered` is `null` exactly when `absence` names why.
+
+**No score crosses beside an identity**, and **no case id crosses at all** — the
+reading is about the system and has no reason to name a case. `spans` and
+`rolls` have no field a score could occupy, which is what keeps a reader from
+deducing a roll out of scores printed next to identities. `spread` is a
+type of its own that shares no row with them, and it uses that juxtaposition in
+the one direction that cannot produce the deduction: **identity decides which
+runs are grouped; scores never decide identity.** It carries the range, the
+count, the exclusion tallies by reason, and no `inside` boolean — a bit there
+would be read as the verdict the sentence declines to give.
 
 `runs` is the count read **in this store**, and a `0` is stated rather than
 folded into an empty list of rolls: a runner with no history and a history with
@@ -240,3 +366,4 @@ word belongs to the canary and a reading of the record does not speculate.
 - [`adr/0020-the-reading-across-runs.md`](adr/0020-the-reading-across-runs.md) — the record
 - [`adr/0005-the-configuration-of-the-system-under-test.md`](adr/0005-the-configuration-of-the-system-under-test.md) — what the provider *said* answered
 - [`adr/0016-the-canary-case.md`](adr/0016-the-canary-case.md) — the behavioural half of identity
+- [`adr/0024-the-judge-as-an-instrument.md`](adr/0024-the-judge-as-an-instrument.md) — §7, the spread, and why it withholds its clause

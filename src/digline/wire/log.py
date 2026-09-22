@@ -96,9 +96,9 @@ def spread_json(item: AggregateSpread) -> dict[str, object]:
     out, which is the one thing the count exists to answer.
 
     **No inside/outside field**, for the reason the sentence withholds the
-    clause: the least N that makes it mean anything is not measured yet, and a
-    boolean here would be read as the verdict the text refuses to give.
-    (ADR 0024 §7.4)
+    clause: a min-max range is monotone in N, so it cannot converge and
+    describes rather than gates, and a boolean here would be read as the verdict
+    the text refuses to give. (ADR 0024 §7.4, amended 2026-09-22)
     """
     return {
         "name": item.name,
@@ -195,6 +195,12 @@ def log_json(log: IdentityLog) -> dict[str, object]:
             # `OUTPUT_VERSION`: a consumer that ignores it parses what it
             # parsed before. (ADR 0024 §7.5)
             "spread": [spread_json(item) for item in log.spread],
+            # Why the list above is empty, counted by cause. A consumer reading
+            # `[]` could not tell a store with no runs from a suite with no
+            # run-level check from a run whose every aggregate flipped, and the
+            # seven absences of ADR 0020 §3 cross for exactly that reason.
+            # Added key, `OUTPUT_VERSION` 1. (ADR 0024 §7.5)
+            "spread_absence": dict(log.spread_absence),
             "replays": [
                 {"key": r.key, "created_at": r.created_at, "source": r.source}
                 for r in log.replays

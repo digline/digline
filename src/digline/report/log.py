@@ -47,8 +47,10 @@ __all__ = [
     "Replay",
     "Roll",
     "Side",
+    "SPREAD_ABSENCES",
     "Sighting",
     "ExclusionKind",
+    "SpreadAbsence",
     "identity_log",
     "log_text",
     "sighting",
@@ -192,6 +194,28 @@ EXCLUSIONS: tuple[ExclusionKind, ...] = (
 )
 
 
+#: Why there is no spread to read, in the order the fold decides it. Four
+#: facts, and only `declares_none` is a fact about the **suite** — it was the
+#: sentence printed for all four until 2026-09-22, so a fresh clone was told
+#: its suite declared no run-level check and so was a run whose every aggregate
+#: had flipped. A checkable sentence standing in for one that cannot be
+#: checked, which is the defect §7.4's amendment closed on the exclusion
+#: clause. (ADR 0024 §7.5, amended 2026-09-22)
+type SpreadAbsence = Literal[
+    "no_runs",
+    "declares_none",
+    "flipped",
+    "scoreless",
+]
+
+SPREAD_ABSENCES: tuple[SpreadAbsence, ...] = (
+    "no_runs",
+    "declares_none",
+    "flipped",
+    "scoreless",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class AggregateSpread:
     """How much one run-level aggregate moved across the comparable runs.
@@ -284,6 +308,19 @@ class IdentityLog:
     #: a suite-wide number built out of the checks, which would be inventing a
     #: summary. (ADR 0024 §7.1)
     spread: tuple[AggregateSpread, ...] = ()
+    #: Why `spread` is empty, counted by cause; empty when `spread` is not.
+    #:
+    #: The count is how many of the latest run's aggregates the cause accounts
+    #: for. It is genuinely `0` for the two causes that mean there were none to
+    #: account for — no run read, or a suite that declares no run-level check —
+    #: and above zero for the two that are facts about aggregates that do
+    #: exist. Both entries are present where both hold: a run with one flipped
+    #: aggregate and one scoreless one is two facts, and printing one of them
+    #: would be the substitution this field exists to end.
+    #: (ADR 0024 §7.5, amended 2026-09-22)
+    spread_absence: Mapping[SpreadAbsence, int] = field(
+        default_factory=dict[SpreadAbsence, int]
+    )
 
 
 def sighting(config: SystemConfig, *, writer: str) -> Sighting:
@@ -487,13 +524,14 @@ def _aggregate(run: Run, name: str) -> Verdict | None:
 
 def _spread(
     ordered: Sequence[tuple[str, Run]], reference: Run | None
-) -> tuple[AggregateSpread, ...]:
+) -> tuple[tuple[AggregateSpread, ...], dict[SpreadAbsence, int]]:
     """One reading per run-level aggregate of the latest run.
 
     The latest run is never in the N — ADR 0006 §5's asymmetry, a noisy new run
     must not widen its own excuse — so a store holding one run reads `runs=0`
-    and a range of that single value, which the sentence states rather than
-    dresses up.
+    and **no range at all**, which the sentence states rather than dresses up.
+    An empty store reads no aggregate either, and the caller says *no run was
+    read* rather than anything about what the suite declares.
 
     **Silent on a flip.** Where an aggregate's status differs between the
     reference and the latest run, no spread is produced for it: ADR 0006 §6, a
@@ -501,7 +539,9 @@ def _spread(
     away. (ADR 0024 §7.5)
     """
     if not ordered:
-        return ()
+        # Zero aggregates because there was no run to read them off, which is
+        # not a statement about what the suite declares.
+        return (), {"no_runs": 0}
     _key, latest = ordered[-1]
     earlier = ordered[:-1]
 
@@ -528,12 +568,15 @@ def _spread(
             excluded[why] = excluded.get(why, 0) + 1
 
     found: list[AggregateSpread] = []
+    absence: dict[SpreadAbsence, int] = {}
     for verdict in latest.aggregate:
         name = verdict.score.name
         if verdict.score.score is None:
+            absence["scoreless"] = absence.get("scoreless", 0) + 1
             continue
         before = None if reference is None else _aggregate(reference, name)
         if before is not None and before.status != verdict.status:
+            absence["flipped"] = absence.get("flipped", 0) + 1
             continue
         scores = [
             other.score.score
@@ -566,7 +609,13 @@ def _spread(
                 within_high=verdict.score.sample_max,
             )
         )
-    return tuple(found)
+    if found:
+        # Something is readable, so no cause is reported: the absences describe
+        # a section with nothing in it, not aggregates that were passed over.
+        return tuple(found), {}
+    if not latest.aggregate:
+        return (), {"declares_none": 0}
+    return (), dict(sorted(absence.items()))
 
 
 def identity_log(
@@ -623,6 +672,7 @@ def identity_log(
             target=sighting(approved.target_config, writer=approved.digline_version),
             judge=sighting(approved.judge_config, writer=approved.digline_version),
         )
+    readings, absence = _spread(ordered, None if baseline is None else baseline[1])
     return IdentityLog(
         tenant=tenant,
         suite=suite,
@@ -650,7 +700,8 @@ def identity_log(
         ),
         register_torn=register_torn,
         register_unreadable=register_unreadable,
-        spread=_spread(ordered, None if baseline is None else baseline[1]),
+        spread=readings,
+        spread_absence=absence,
     )
 
 
@@ -696,6 +747,12 @@ def _excluded_text(spread: AggregateSpread, locale: Locale) -> str:
 
     A run excluded silently is a number nobody can check, and a single figure
     for *excluded* would be exactly that: which reason is what a reader acts on.
+
+    The verb belongs to the **clause**, once, and each reason is a bare counted
+    phrase joined after it. It used to sit on the `rejudged` string alone, which
+    read correctly only while that reason came first: on scout's store, whose
+    exclusions are all `unjudged`, the reading ended *"; 3 as not fully
+    judged."* (ADR 0024 §7.4, amended 2026-09-22)
     """
     said = [
         phrase(locale, f"log.spread.excluded.{kind}", count=spread.excluded[kind])
@@ -707,6 +764,17 @@ def _excluded_text(spread: AggregateSpread, locale: Locale) -> str:
     return phrase(locale, "log.spread.excluded", excluded=", ".join(said))
 
 
+#: Each cause's sentence. `declares_none` keeps the string it always had: it was
+#: never the wrong sentence, it was the only right one asked to cover three
+#: cases it was not about. (ADR 0024 §7.5)
+_ABSENCE_STRING: Mapping[SpreadAbsence, str] = {
+    "no_runs": "log.spread.no_runs",
+    "declares_none": "log.spread.none",
+    "flipped": "log.spread.flipped",
+    "scoreless": "log.spread.scoreless",
+}
+
+
 def _spread_lines(log: IdentityLog, locale: Locale) -> list[str]:
     """The spread section: the set once, then one line per aggregate.
 
@@ -715,13 +783,33 @@ def _spread_lines(log: IdentityLog, locale: Locale) -> list[str]:
     about one set, so they are said once. Repeating them under every aggregate
     would read as several measurements where there is one.
 
-    **The inside/outside clause is withheld**, and the reading says it is: a
-    range over two runs is a single difference, and until the least N that makes
-    *inside* mean anything is measured on real history, claiming either branch
-    would be the excuse ADR 0024 §7.4 refuses to promote to a feature.
+    **The inside/outside clause is withheld**, and the reading says it is —
+    because the statistic cannot carry it, not because a number is missing. A
+    min-max range is monotone in N: it cannot converge, so a score outside it
+    names a value not seen before rather than a change. Measured on scout's
+    twelve operator runs, where *outside* fired on 4 of 12 readings at N >= 6
+    and every firing above the high became the next reading's high. The range
+    stays because it is honest about what was seen; what it may not do is
+    decide. (ADR 0024 §7.4, amended 2026-09-22)
     """
     if not log.spread:
-        return [phrase(locale, "log.spread.none")]
+        # **Four facts, and one sentence used to cover all of them.** `spread`
+        # is derived from the latest run's aggregates, and it comes out empty
+        # for four different reasons — of which only `declares_none` is a
+        # statement about the *suite*. That was the one printed for all four,
+        # so a fresh clone was told its suite declared no run-level check, and
+        # so was a run whose every aggregate had flipped: a checkable sentence
+        # standing in for one that cannot be checked.
+        #
+        # One sentence per cause present, in `SPREAD_ABSENCES` order, and both
+        # where both hold — a run with one flipped aggregate and one scoreless
+        # one is two facts, and naming one would be the substitution this
+        # replaced. (ADR 0024 §7.5, amended 2026-09-22)
+        return [
+            phrase(locale, _ABSENCE_STRING[kind], count=log.spread_absence[kind])
+            for kind in SPREAD_ABSENCES
+            if kind in log.spread_absence
+        ]
     first = log.spread[0]
     lines = [
         phrase(
