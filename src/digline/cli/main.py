@@ -5,13 +5,12 @@ composes it. The clock and git are still read once per command and passed down
 as values; they are now read through `digline.host` so that a second front end
 reads them the same way rather than growing its own. (ADR 0011 §7)
 
-Twelve commands, each doing one thing, and nothing promoting as a side effect of
-anything else: `run` writes a run and prints its key, `rejudge` judges stored
-answers again, `compare` reads and judges, `diff` reads two runs and judges
-neither, `promote` promotes, `register` records what a person decided about a
-comparison, `report` renders, `explain` reads the same facts back at length,
-`log` reads which model answered down the runs, `migrate` brings stored
-documents up to the current schema, `list` and `view` show.
+Each command does one thing, and nothing promotes as a side effect of anything
+else. Which commands there are, and what each one is for in a line, is
+`build_parser()` below: argparse's own list, which is what `tools/home_capture.py`
+reads for the site rather than a list kept beside it. This paragraph used to
+repeat them — a copy of something two hundred lines down in this same file, and
+a copy of a thing that grows (ADR 0012 §3).
 
 `compare` and `diff` are two commands and not one with a flag, because **the
 exit code is the contract**: `compare` gates and `diff` never does, and a user
