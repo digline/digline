@@ -220,20 +220,36 @@ does not prejudge it.
 
 ### 8. Promotion's conditions
 
-`promote_baseline` refuses in three cases. They are collected here because they are the
-same rule seen from three sides: **a baseline is an approved reference**, and each of the
-three conditions prevents approving something that is not a reference. Each exists because
-violating it produces a comparison that runs anyway and returns numbers anyway — the worst
-way to be wrong.
+`promote_baseline` refuses whenever the run it is handed is not a reference. The
+conditions are collected here because they are one rule seen from several sides:
+**a baseline is an approved reference**, and each condition prevents approving something
+that is not one. Each exists because violating it produces a comparison that runs anyway
+and returns numbers anyway — the worst way to be wrong.
 
-*Amended 2026-09-22: there are five. Two were added after this record was written, by the
-records that decided them, and neither came back to say so here — so this section went on
-saying three, in its heading and in the paragraph above, while `promote_baseline` refused
-in five cases. The three below are this record's, unchanged. The two that follow them are
-named where they were decided; `store/protocol.py` carries all five together. The count is
-out of the heading with them: a section that lists its conditions underneath itself does
-not need to say how many there are, and saying so is what let this one be wrong in the
-title for two releases.*
+*Amended 2026-09-22. This section said **three** — in its heading, and twice in the
+paragraph above — while `promote_baseline` refused on more than three. Conditions were
+added after this record was written, each by the record that decided it, and none came
+back to say so here. Every one of them is now named below, and the count is gone from the
+heading and from the paragraph rather than corrected: a section that lists its conditions
+underneath itself does not need to say how many, and saying so is what let this one be
+wrong in its own title for two releases. (ADR 0012 §3 and `digline.wire.contract` state
+the general form of that rule — no total, and no enumeration where the thing can be found
+by looking. A record's conditions cannot be found by looking, which is why they are
+enumerated here; what must not be written beside the enumeration is a number.)*
+
+*Amended again the same day, and the second pass is the instructive one: the first one
+corrected three to **five**, named five, and still missed one. `unreconciled` (6 below)
+was the most recently added and the easiest to miss, because it is the only condition that
+does **not** bring an exception type of its own — it raises `ErroredRunError`, like 3 does.
+Anyone counting exception types finds five and stops. That is the argument for naming
+conditions rather than counting them, made by the correction of a count.*
+
+*Where each is enforced, since it is not all one function: 2 to 6 are raised by
+`promote_baseline` itself, in the order 2, 4, 6, 3, 5. **1 is not** — a run addressed
+through the wrong tenant is refused by `read_run`, which `promote_baseline` calls first,
+so the condition holds on promotion without appearing in it. It is listed here because it
+is a condition on promoting, and a reader who went looking for it in `promote_baseline`
+would not find it.*
 
 1. **`TenantMismatchError`** — the run's tenant does not match the one it is addressed
    with. A perimeter is not crossed because of a wrong copy (§1).
@@ -260,6 +276,16 @@ title for two releases.*
    numbers exist and are not measurements.
    *Added by [ADR 0024](0024-the-judge-as-an-instrument.md) §4.5, which calls it "the
    fifth condition, beside tenant, configuration, errored".*
+
+6. **`ErroredRunError`, for a run that does not reconcile** — the run recorded a gap
+   between what its suite asked and what came back, so what it measured is not known. It
+   is raised **before** 3, because it is the stronger statement about the same document:
+   3 says a verdict errored, this says the record is incomplete, and the refusal names the
+   case and the check rather than only the case.
+   *Added by [ADR 0027](0027-the-run-reconciles.md) §3, which states the refusal and the
+   reason — "a reference nobody can say that of is no reference" — and did not come back
+   to add itself here. It shares an exception type with 3, which is why the amendment
+   above found five conditions by counting types and missed this one.*
 
 *Numbering note: this section is the eighth, not the sixth, because inserting §1-bis
 shifted the numbering after the initial draft. §6 remains the `case_id`.*

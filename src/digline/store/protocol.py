@@ -286,9 +286,13 @@ class ResultStore(Protocol):
 
         Promotion is a deliberate act and never a side effect of running: that
         is what makes the baseline a committed, reviewable artifact rather than
-        a file that updates itself. It has five conditions, and each of them
-        exists because breaking it produces a comparison that still runs and
-        still returns numbers, which is the worst way to be wrong.
+        a file that updates itself. Its conditions are named below, and each of
+        them exists because breaking it produces a comparison that still runs
+        and still returns numbers, which is the worst way to be wrong.
+
+        Named and not counted: this said "five conditions" and listed five while
+        there were six, because the sixth shares an exception type with the
+        third and is invisible to anyone counting types. (ADR 0002 §8)
 
         1. `TenantMismatchError` if the stored run's tenant does not match the
            reference it was addressed by — the perimeter must not be crossed by
@@ -304,6 +308,10 @@ class ResultStore(Protocol):
         5. `UncalibratedRunError` if a calibration case scored outside its
            declared band — the numbers exist and are not measurements
            (ADR 0024 §4.5).
+        6. `ErroredRunError` again, before 3, if the run recorded a gap between
+           what its suite asked and what came back — what it measured is not
+           known, and the refusal names the case and the check rather than only
+           the case (ADR 0027 §3).
 
         What is written carries `promoted_at`: `created_at` says when the run was
         measured, and this says when a person signed it off.
