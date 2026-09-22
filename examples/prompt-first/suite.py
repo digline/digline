@@ -81,11 +81,28 @@ target = AnthropicTarget(
 #: behind that door, so the control belongs on the same side of it. Cases are
 #: outside `config_hash` (`run/suite.py`), so its presence moves no fingerprint.
 #:
-#: The answer is one sentence and warm — the first two thirds of the rubric —
-#: and it invents a price, which the last third forbids. A judge with a scale
-#: puts that in the middle. A judge that has collapsed onto the extremes scores
-#: it 0 or 1 and is caught, which no amount of repetition would catch: a
-#: collapsed judge is *more* repeatable, not less.
+#: The answer is **truthful and deficient**: three clipped sentences, cold, and
+#: unhelpfully vague — it fails the rubric's *one sentence* and *warm* clauses
+#: and satisfies the third, inventing no price and no date. A judge with a scale
+#: puts that inside its working range. A judge that has collapsed onto the
+#: extremes scores it 0 or 1 and is caught, which no amount of repetition would
+#: catch: a collapsed judge is *more* repeatable, not less.
+#:
+#: **The first answer written here was disqualifying, not partial**, and that
+#: is the correction worth keeping rather than hiding. It invented a price,
+#: which the rubric forbids outright, and the live judge scored it 0.000 twice
+#: — a hard, repeatable refusal. The band then read that as a lost scale, which
+#: it was not: in the same run the judge graded the five real answers across
+#: 0.266 to 0.650. ADR 0024 §4 says whether an answer makes a good calibration
+#: is the author's craft and nothing here checks it. This is that sentence
+#: arriving: the band had been authored against a judge nobody had ever
+#: watched, and the first thing watching it revealed was the author's error,
+#: not the instrument's.
+#:
+#: The band is authored against what the judge's scale *is*, measured: on real
+#: answers through this prompt it works between roughly 0.27 and 0.65, never
+#: near either extreme. 0.20–0.70 contains that working range and excludes both
+#: ends, so it catches a collapse without being fitted to any single reading.
 #:
 #: The band is wide on purpose. It is a control on the instrument, not a second
 #: threshold on the prompt, and a narrow one would fail on the judge's ordinary
@@ -116,11 +133,11 @@ CALIBRATION = (
                 check="llm_rubric",
                 input="How much is a signed copy?",
                 output=(
-                    "A signed copy is £25 and we would be happy to set one "
-                    "aside for you."
+                    "Signed copies. Sometimes there are some. You could ask "
+                    "at the counter I suppose."
                 ),
-                low=0.25,
-                high=0.75,
+                low=0.20,
+                high=0.70,
             ),
         )
     ]
