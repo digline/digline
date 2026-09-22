@@ -312,6 +312,29 @@ cd ../digline.dev && uv sync
 make preview DIGLINE=../digline
 ```
 
+**When, and it is not where you would put it: after the last *docs* edit, not
+after the last *code* edit.** This check reads `docs/`, `CHANGELOG.md`,
+`ROADMAP.md` and one page per `examples/*/README.md`. None of those is code, so
+the moment the gates above go green is the wrong moment to run it — what
+decides whether it still holds is the last prose written, and on a release the
+last prose is usually written *after* the code is finished, in the commit that
+carries the fix or in the changelog entry that describes it.
+
+**So `make preview` before the tag does not cover an entry written after it.**
+That is not a hypothetical: on digline-mcp 0.1.4 this check ran, passed, and
+the `Security` entry was then written into `CHANGELOG.md` in the commit that
+carried the fix — with a relative `](SECURITY.md)` link, which resolves on
+GitHub and is not a page on the site. `mkdocs build --strict` aborted and the
+`docs` job went red on `main`, after a check that had genuinely looked and had
+genuinely been green when it looked.
+
+Run it again whenever a docs file moves after it, which on most releases means
+**last, immediately before the tag**, and always again after writing a
+changelog entry. The `docs` job is not a required check (see *the order they
+land in*), so nothing will stop a push that breaks it: the red sits on `main`
+until somebody reads it, which is the trade that section makes deliberately and
+the reason this one has to be run at the right time rather than merely run.
+
 **`make preview`, and not `tools/sync-docs.sh` followed by
 `uv run mkdocs build --strict`.** That is the target the `docs` job calls on a
 pull request — called rather than copied, so this block cannot drift from the
