@@ -94,3 +94,72 @@ def test_an_unexpected_exception_reaches_the_caller_as_one() -> None:
         assert MESSAGE not in str(caught.value)
 
     anyio.run(go)
+
+
+# --------------------------------------------------------------------------- #
+# The message is a rendered document, and this door is not `digline.wire`
+# --------------------------------------------------------------------------- #
+
+#: DEL and the C1 block, built from code points so this file stays readable and
+#: greppable. C0 is deliberately absent: a JSON encoder escapes it and the SDK
+#: serialises this message as JSON, which is the division of labour
+#: `json_visible` documents and the reason it covers exactly these two ranges.
+CSI = ""  # U+009B *is* CSI: it opens on a terminal what ESC [ opens
+DEL = ""
+HOSTILE = f"{CSI}2K{DEL}digline: everything matched"
+
+
+@pytest.mark.parametrize("kind", TRANSLATED, ids=lambda k: k.__name__)
+def test_a_refusal_carries_no_raw_control_byte_to_the_client(
+    kind: type[Exception],
+) -> None:
+    """Parametrized over the whole surface rather than over the one message that
+    was found to leak.
+
+    0.18.0 added the names of the moved rules to `DifferentSuitesError`, and
+    those arrive inside a stored run document somebody else may have written.
+    But the defect was never that string: a refusal's text is interpolated from
+    tenants, suite names, provider ids and now rule names, and **this door is
+    not `digline.wire`** — so the neutralising every rendered document gets had
+    never applied here. Pinning `DifferentSuitesError` alone would test the
+    instance and leave the door open.
+    """
+
+    @translated
+    def raises() -> None:
+        raise kind(f"refused: {HOSTILE}")
+
+    with pytest.raises(ToolError) as caught:
+        raises()
+    message = str(caught.value)
+    assert CSI not in message, "U+009B is CSI and reached the client raw"
+    assert DEL not in message, "DEL reached the client raw"
+    # Shown, not stripped: the escape spelling is what a reader should see.
+    assert "\\u009b" in message
+    assert "refused:" in message, "the sentence a reader needs is still there"
+
+
+def test_a_refusal_this_server_makes_is_neutralised_too() -> None:
+    """`refuse()` is the other door out of this module.
+
+    Its messages are this module's own sentences today, so this is belt beside
+    braces — and it is the door being closed, not the strings that happen to
+    walk through it now.
+    """
+    from digline_mcp.errors import refuse
+
+    with pytest.raises(ToolError) as caught:
+        refuse(f"no runs stored for suite {HOSTILE}")
+    assert CSI not in str(caught.value)
+
+
+def test_the_control_that_must_fail() -> None:
+    """The hostile string really does carry what the assertions look for.
+
+    Without it, every assertion above would pass just as well on a string that
+    never had a control byte in it — the vacuously green assertion, one level
+    up from the code it is checking.
+    """
+    assert CSI in HOSTILE
+    assert DEL in HOSTILE
+    assert len(CSI) == 1, "a single code point, not a six-character spelling"

@@ -6,6 +6,56 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-mcp 0.1.4 — 2026-09-22
+
+`digline-mcp` alone, on its own version line. digline stays at **0.18.0**: the
+defect is at this package's door and nothing in the core moves, so nothing in
+the core earns a version.
+
+```sh
+uv add --upgrade digline-mcp
+```
+
+### Security — a refusal reached an MCP client with its control bytes intact
+
+Found by the release delta-pass over 0.18.0, before the announcements. **A
+`Security` entry and no advisory**, under the second rule in
+[`SECURITY.md`](SECURITY.md): our own process caught it, and the exposure is
+the turnaround between a tag and its delta-pass. It is written here in full
+rather than called a hardening.
+
+`digline_mcp.errors.translated()` re-raised every deliberate refusal as
+`ToolError(str(exc))` — *message intact*, which is what its own docstring
+promised. A refusal's text is not all digline's own words: it interpolates
+tenants, suite names, provider ids, and **since 0.18.0 the names of the rules
+that moved**, which arrive inside a stored run document somebody else may have
+written. So DEL and the C1 block — and U+009B *is* CSI, which opens on a
+terminal what ESC `[` opens — reached the client raw. Both doors out of that
+module, `translated()` and `refuse()`, now pass their message through
+`json_visible`. C0 is not included and does not need to be: the SDK serialises
+this message as JSON and a JSON encoder escapes C0, which is the division of
+labour `json_visible` was written to.
+
+**What makes it worth recording is not the string.** 0.15.1 moved this exact
+rule out of `digline.cli` and into `digline.wire` *because* the CLI's approach
+— escaping the finished JSON text — could not cover MCP, which hands
+dictionaries to an SDK that serialises them itself. That fix was right and it
+holds: every rendered document still goes through `wire`, and the twelve
+reading sinks this release's pass walked are all clean. But an exception
+message is **not a rendered document**, and it never entered `wire`. 0.18.0
+then wrote free text into one for the first time.
+
+So the defect is not that somebody forgot to escape. **It is that a new path to
+the client was opened beside the one that was fixed** — the fifth time this
+family has bitten, and the second at a door built after the rule was written.
+The regression test is parametrized over the whole `TRANSLATED` surface rather
+than over the message that was found to leak, because pinning
+`DifferentSuitesError` would test the instance and leave the door: the next
+refusal to interpolate somebody else's string will not come back to ask.
+Whether that door can be made impossible to open — a type that carries the
+guarantee, a chokepoint, a test that walks the error surface by construction —
+is a question of its own and is not answered here.
+
 ## 0.18.0 — 2026-09-22
 
 digline **0.18.0**, and the core alone. **No schema change** — it writes

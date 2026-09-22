@@ -15,6 +15,14 @@ here rather than in front of somebody.
 Nothing else is caught. An unexpected exception should stay an unexpected
 exception: dressing one as a tool result hides a bug behind a sentence.
 (ADR 0011 §10)
+
+**And a message that travels is a rendered document.** Every refusal leaving
+here goes through `json_visible`, because a refusal's text is not all digline's
+own words: it quotes tenants, suite names, provider ids and — since 0.18.0 —
+the names of the rules that moved, each of which arrives in a stored run
+document somebody else may have written. `digline.wire` neutralises the
+documents it renders; an exception message is not one of them and reached the
+client raw. (the release delta-pass over 0.18.0)
 """
 
 from __future__ import annotations
@@ -25,7 +33,7 @@ from typing import NoReturn
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from digline.core import DifferentJudgesError, DifferentSuitesError
+from digline.core import DifferentJudgesError, DifferentSuitesError, json_visible
 from digline.host import UsageError
 from digline.store import ConfigMismatchError, ErroredRunError, TenantMismatchError
 from digline.targets import ProviderNotFound
@@ -50,19 +58,30 @@ TRANSLATED: tuple[type[Exception], ...] = (
 # parameter *list* of the wrapped function, so the decorator keeps each tool's
 # real signature — which is what the SDK reads to build the input schema.
 def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
-    """Re-raise digline's own refusals as `ToolError`, message intact."""
+    """Re-raise digline's own refusals as `ToolError`, message neutralised.
+
+    *Neutralised*, where this said *intact* — and the two differ only in the
+    two ranges `json_visible` names, DEL and C1. Everything a reader is meant
+    to read is untouched.
+    """
 
     @wraps(fn)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
             return fn(*args, **kwargs)
         except TRANSLATED as exc:
-            raise ToolError(str(exc)) from exc
+            raise ToolError(json_visible(str(exc))) from exc
 
     return wrapper
 
 
 def refuse(message: str) -> NoReturn:
     """A refusal this server itself makes, in the one shape that reaches an
-    agent."""
-    raise ToolError(message)
+    agent.
+
+    Neutralised like a translated one. These messages are this module's own
+    sentences today, so it is belt beside braces — but the door is what is being
+    closed, not the strings that happen to walk through it now, and the next
+    caller to interpolate a suite name into one will not come back here to ask.
+    """
+    raise ToolError(json_visible(message))

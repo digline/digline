@@ -185,6 +185,12 @@ INTRODUCED: dict[str, str] = {
     "ScaleLost": "0.14.0",
     "scale_lost": "0.14.0",
     "calibration_fact": "0.14.0",
+    # 0.15.1 — the escape rule moved off the serialised JSON and onto the value,
+    # so that both front ends inherit it instead of one remembering it.
+    # `digline-mcp` reaches for it directly from 0.1.4, because a refusal's
+    # *message* is not a rendered document: `digline.wire` never saw it, and it
+    # left for a client with its control bytes intact.
+    "json_visible": "0.15.1",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true
