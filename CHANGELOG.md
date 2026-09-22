@@ -6,6 +6,66 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Changed — the run-to-run spread says why it withholds its clause
+
+`digline log`'s spread section has printed a range and declined to say whether
+the latest score is inside it, on the grounds that the least N making *inside*
+mean anything had not been measured yet. **It has now been measured, and there
+is no such N.** A min–max range over a growing sample is monotone: it cannot
+converge, so a score outside it names a value not seen before rather than a
+change. On scout's first kept operator history — twelve runs over four days at
+one `config_hash`, eight comparable — *outside* fired on 4 of 12 readings at
+N≥6, and every firing above the high became the next reading's high.
+
+So the clause is withheld **because the range describes and cannot gate**, and
+the reading says that instead of promising a number:
+
+> Whether the latest score is inside this spread is not stated: a range
+> describes the runs it read and cannot carry that clause. A value under the
+> low or over the high widens the range, so falling outside it names a score
+> not seen before, not a change.
+
+The range itself does not move — it is honest about what was seen, which is
+what the reading is for. If a reading is ever to say *inside*, it needs a
+statistic that converges, and that is its own decision. ADR 0024 §7.4 carries
+the ruling, the measurement and three findings that would otherwise be
+re-derived: a floor could not be one number across aggregates whose
+denominators differ by 7×, the effective N grows at 67% of the cycle count, and
+the between-run range is *narrower* than the latest run's own within-run
+interval on three of four aggregates.
+
+### Fixed — a reading that ended in a verbless fragment
+
+The spread's exclusion clause carried its verb on a single one of its reasons,
+so it read as a sentence only when *re-judged* happened to come first. On the store
+the measurement was made from it did not: every exclusion there is *not fully
+judged*, and the reading ended **"; 3 as not fully judged."** The verb is the
+clause's now, once, with each reason a bare counted phrase after it — in both
+locales, where the Italian fragment was the worse of the two.
+
+    — the latest not among them; excluded: 3 not fully judged.
+
+No schema change, no `OUTPUT_VERSION` bump, and no number in any reading moves:
+the range, the count and the exclusion tallies are what they were.
+
+### Documentation — the spread has a page at last
+
+[`docs/log.md`](docs/log.md) documented every section of `digline log` except
+the spread, which ADR 0024's *Turns into surface* line had promised: a record
+promising something nobody could find. It now has the transcript, the exclusion
+table by reason, the latest-run asymmetry, the two intervals and why the
+sentence stops where it does.
+
+Two claims on that page went stale when the spread shipped and are corrected
+with it. `--json` said **"No score crosses"** — the spread's range makes that
+false, so it now says no score crosses *beside an identity*, names `spread` in
+the key list, and states the one direction the amendment permits. *It is never
+a gate* now says the spread adds no exit path and no field to `compare`,
+because a gitignored per-machine history must never decide whether a run
+passed.
+
 ## 0.17.1 — 2026-09-21
 
 digline **0.17.1**, the delta-pass patch over 0.17.0, and the core alone: every

@@ -696,6 +696,12 @@ def _excluded_text(spread: AggregateSpread, locale: Locale) -> str:
 
     A run excluded silently is a number nobody can check, and a single figure
     for *excluded* would be exactly that: which reason is what a reader acts on.
+
+    The verb belongs to the **clause**, once, and each reason is a bare counted
+    phrase joined after it. It used to sit on the `rejudged` string alone, which
+    read correctly only while that reason came first: on scout's store, whose
+    exclusions are all `unjudged`, the reading ended *"; 3 as not fully
+    judged."* (ADR 0024 §7.4, amended 2026-09-22)
     """
     said = [
         phrase(locale, f"log.spread.excluded.{kind}", count=spread.excluded[kind])
@@ -715,10 +721,14 @@ def _spread_lines(log: IdentityLog, locale: Locale) -> list[str]:
     about one set, so they are said once. Repeating them under every aggregate
     would read as several measurements where there is one.
 
-    **The inside/outside clause is withheld**, and the reading says it is: a
-    range over two runs is a single difference, and until the least N that makes
-    *inside* mean anything is measured on real history, claiming either branch
-    would be the excuse ADR 0024 §7.4 refuses to promote to a feature.
+    **The inside/outside clause is withheld**, and the reading says it is —
+    because the statistic cannot carry it, not because a number is missing. A
+    min-max range is monotone in N: it cannot converge, so a score outside it
+    names a value not seen before rather than a change. Measured on scout's
+    twelve operator runs, where *outside* fired on 4 of 12 readings at N >= 6
+    and every firing above the high became the next reading's high. The range
+    stays because it is honest about what was seen; what it may not do is
+    decide. (ADR 0024 §7.4, amended 2026-09-22)
     """
     if not log.spread:
         return [phrase(locale, "log.spread.none")]

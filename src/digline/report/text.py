@@ -922,18 +922,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "  Across {count} comparable run(s) in this store, in this window — "
             "the latest not among them{excluded}."
         ),
-        "log.spread.excluded": "; {excluded}",
-        "log.spread.excluded.rejudged": "{count} excluded as re-judged",
-        "log.spread.excluded.unjudged": "{count} as not fully judged",
-        "log.spread.excluded.scale_lost": "{count} as uncalibrated",
-        "log.spread.excluded.config_hash": "{count} as measuring other rules",
-        "log.spread.excluded.population": "{count} as counting other cases",
-        "log.spread.excluded.artifacts": "{count} as testing another prompt",
-        "log.spread.excluded.target_config": "{count} as asking another system",
-        "log.spread.excluded.judge_config": (
-            "{count} as grading with another instrument"
-        ),
-        "log.spread.excluded.identity": "{count} as another model was reported",
+        # The verb is carried **once, by the clause**, and every reason after
+        # it is a bare counted phrase. It used to sit on `rejudged` alone, so a
+        # reading whose exclusions began with any other reason ended in a
+        # verbless fragment — "; 3 as not fully judged." — which is what
+        # scout's store printed. (ADR 0024 §7.4, amended 2026-09-22)
+        "log.spread.excluded": "; excluded: {excluded}",
+        "log.spread.excluded.rejudged": "{count} re-judged",
+        "log.spread.excluded.unjudged": "{count} not fully judged",
+        "log.spread.excluded.scale_lost": "{count} uncalibrated",
+        "log.spread.excluded.config_hash": "{count} measuring other rules",
+        "log.spread.excluded.population": "{count} counting other cases",
+        "log.spread.excluded.artifacts": "{count} testing another prompt",
+        "log.spread.excluded.target_config": "{count} asking another system",
+        "log.spread.excluded.judge_config": ("{count} grading with another instrument"),
+        "log.spread.excluded.identity": ("{count} where another model was reported"),
         "log.spread.unidentified": (
             "  {count} of the {total} run(s) did not identify the answering model."
         ),
@@ -957,10 +960,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{low} to {high} — a different measurement, not comparable with the "
             "range above."
         ),
+        # Withheld because the statistic cannot carry it, never pending a
+        # number: a min-max range is monotone in N, so it cannot converge and
+        # falling outside it names a value not seen before. The sentence says
+        # what the range is instead of what it lacks.
+        # (ADR 0024 §7.4, amended 2026-09-22)
         "log.spread.floor": (
-            "  Whether the latest score is inside this spread is not stated: the "
-            "least number of runs that makes inside mean anything has not been "
-            "measured yet."
+            "  Whether the latest score is inside this spread is not stated: a "
+            "range describes the runs it read and cannot carry that clause. A "
+            "value under the low or over the high widens the range, so falling "
+            "outside it names a score not seen before, not a change."
         ),
         # The register's section of the same reading (ADR 0021 §8).
         "log.register.heading": "Dispositions recorded",
@@ -1814,21 +1823,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "  Su {count} run confrontabili in questo store, in questa "
             "finestra — l'ultima non è fra queste{excluded}."
         ),
-        "log.spread.excluded": "; {excluded}",
-        "log.spread.excluded.rejudged": "{count} escluse perché rigiudicate",
-        "log.spread.excluded.unjudged": "{count} perché non giudicate del tutto",
-        "log.spread.excluded.scale_lost": "{count} perché non calibrate",
-        "log.spread.excluded.config_hash": "{count} perché misurano altre regole",
-        "log.spread.excluded.population": "{count} perché contano altri casi",
-        "log.spread.excluded.artifacts": "{count} perché provano un altro prompt",
+        "log.spread.excluded": "; escluse: {excluded}",
+        "log.spread.excluded.rejudged": "{count} rigiudicate",
+        "log.spread.excluded.unjudged": "{count} non giudicate del tutto",
+        "log.spread.excluded.scale_lost": "{count} non calibrate",
+        "log.spread.excluded.config_hash": "{count} che misurano altre regole",
+        "log.spread.excluded.population": "{count} che contano altri casi",
+        "log.spread.excluded.artifacts": "{count} che provano un altro prompt",
         "log.spread.excluded.target_config": (
-            "{count} perché interrogano un altro sistema"
+            "{count} che interrogano un altro sistema"
         ),
         "log.spread.excluded.judge_config": (
-            "{count} perché giudicano con un altro strumento"
+            "{count} che giudicano con un altro strumento"
         ),
         "log.spread.excluded.identity": (
-            "{count} perché è stato riportato un altro modello"
+            "{count} in cui è stato riportato un altro modello"
         ),
         "log.spread.unidentified": (
             "  {count} run su {total} non hanno identificato il modello che ha "
@@ -1856,8 +1865,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.spread.floor": (
             "  Se il punteggio dell'ultima run stia dentro questo scarto non "
-            "viene detto: il numero minimo di run che rende «dentro» "
-            "significativo non è ancora stato misurato."
+            "viene detto: un intervallo descrive le run che ha letto e non può "
+            "portare quella frase. Un valore sotto il minimo o sopra il massimo "
+            "allarga l'intervallo, quindi restare fuori indica un punteggio non "
+            "ancora visto, non un cambiamento."
         ),
         "log.register.heading": "Decisioni registrate",
         "log.register.none": "  Nessuna decisione registrata per questa suite.",

@@ -96,9 +96,9 @@ def spread_json(item: AggregateSpread) -> dict[str, object]:
     out, which is the one thing the count exists to answer.
 
     **No inside/outside field**, for the reason the sentence withholds the
-    clause: the least N that makes it mean anything is not measured yet, and a
-    boolean here would be read as the verdict the text refuses to give.
-    (ADR 0024 §7.4)
+    clause: a min-max range is monotone in N, so it cannot converge and
+    describes rather than gates, and a boolean here would be read as the verdict
+    the text refuses to give. (ADR 0024 §7.4, amended 2026-09-22)
     """
     return {
         "name": item.name,
