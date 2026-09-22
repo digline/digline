@@ -330,9 +330,9 @@ genuinely been green when it looked.
 
 Run it again whenever a docs file moves after it, which on most releases means
 **last, immediately before the tag**, and always again after writing a
-changelog entry. The `docs` job is not a required check (see *the order they
-land in*), so nothing will stop a push that breaks it: the red sits on `main`
-until somebody reads it, which is the trade that section makes deliberately and
+changelog entry. The `docs` job is a required check on `main` since 2026-09-22, so a pull
+request that breaks it does not merge. A push that lands some other way leaves
+the red sitting on `main` until somebody reads it, which is the trade that
 the reason this one has to be run at the right time rather than merely run.
 
 **`make preview`, and not `tools/sync-docs.sh` followed by
@@ -420,16 +420,39 @@ sounds like it. The two repositories are not symmetrical:
   `pypi`, where everything irreversible has already happened, and a failure
   there would stop nothing while making a foreseeable wait look like a defect.
 
-- This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
-  neither sets `DIGLINE_SITE_CONFIG` — so `tests/_site.py` skips there and the
-  two nav checks never run. What runs them for real is the `docs` job, which
-  clones the site, and `docs` is **not a required check**.
+- This repository's `main` requires `gates (3.12)`, `gates (3.13)` and, since
+  2026-09-22, **`The site still builds from these docs`** — the `docs` job,
+  which clones the site and builds it. `gates` does not set
+  `DIGLINE_SITE_CONFIG`, so `tests/_site.py` skips there and the two nav
+  checks never run; `docs` is where they run for real.
 
-So merging here first is not blocked, and the whole cost is that `docs` on
-`main` is red for the window between the two merges. It blocks nobody: no
-required check, no release, no deploy — a failed site build does not deploy,
-and the live site keeps serving what it already had. Close the window, then
-re-run `docs`.
+So merging here first is still not blocked by a *missing nav entry* — the
+pull-request build is `make preview`, where `MKDOCS_OMITTED_FILES=info` lets a
+page with no nav line through, which is the whole reason the entry may land
+afterwards. The window's cost is that `docs` on `main` is red between the two
+merges. That blocks no release and no deploy: a failed site build does not
+deploy, and the live site keeps serving what it already had. Close the window,
+then re-run `docs`.
+
+**What the requirement covers, and what it does not.** It covers the files this
+repository sends to the site — `docs/`, `CHANGELOG.md`, `ROADMAP.md`,
+`docker/README.md`, `examples/*/README.md` — and it refuses what `--strict`
+refuses in them: a relative link that resolves on GitHub and not on the site, a
+dead anchor, a nav entry pointing at nothing, a hook's `PluginError`. It does
+**not** cover the site's own orphan pages: `omitted_files` is `info` on a pull
+request here, and a page of digline.dev's that no nav entry lists is
+digline.dev's `Build` to catch, not this one. Three site builds broke on
+2026-09-22 — ADR 0028 with no nav entry, a chapter that grew the Handbook, and
+a relative `SECURITY.md` link in the changelog — and all three came from this
+side of the line.
+
+**The way out when the site is red for its own reasons.** The `docs` job checks
+out digline.dev's default branch as it is, so a site that cannot build blocks
+pull requests here. Repair the site first: that is nearly always the right fix
+and usually a minute. When it is not, `gh pr merge --admin` merges over the red
+— the ruleset keeps `RepositoryRole: always` as a bypass for exactly this — and
+it is better than suspending the requirement, which is the thing nobody
+remembers to restore.
 
 This paragraph exists because the rule was stated backwards for three days
 running, from a memory that had recorded it correctly and was read the wrong
