@@ -310,6 +310,9 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
         "deltas",
         "target_config_deltas",
         "judge_config_deltas",
+        # ADR 0028 §8: the rules that moved, beside the two configuration lists
+        # and under `full` for their reason.
+        "suite_deltas",
         # ADR 0024 §6.3: the shape reading's counts, beside the deltas they are
         # read from, under `full` only.
         "shape",

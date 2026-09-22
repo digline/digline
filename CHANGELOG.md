@@ -227,6 +227,45 @@ that reconciles against a reference that reconciles reads exactly as it did.
   rejected — what is written down is that **exit 2 is not tamper-evidence**, so
   that nobody reads a red exit as proof the file was not edited.
 
+### The rules that moved are named, and so is the direction
+
+- **A comparison whose suite changed now says which rule moved and which way.**
+  Until now `config_hash` moving printed one boolean and one sentence — *the
+  suite changed since the reference, so these numbers compare different rules* —
+  so somebody who lowered a threshold from 0.6 to 0.5 and re-promoted produced a
+  report indistinguishable from somebody who added a test case. The comparison
+  carries `suite_deltas`: one row per moved value, with the rule named, both
+  numbers, and **`loosened` or `tightened`** beside it.
+- **The quietest edit is the one this was written for.** `compare()` judges
+  movement against the *current run's* tolerance, so a raised tolerance never
+  produces a flip — it turns a `regressed` into an `unchanged`. The one place a
+  moved bar was named before this fired only on a flip, and so could not see it.
+- **`samples` moves without a verb, deliberately.** More samples is a
+  better-founded score *and* a wider measured interval that the noise floor then
+  forgives more movement inside. Both are true, neither dominates, so the row
+  prints both counts and stops (ADR 0028 §4).
+- **Nothing was recorded to make this possible, and no schema moved.** Every
+  verdict has always carried `assertion_id`, `threshold` and `tolerance` as
+  mandatory fields, and the sample count rides the metadata — so the rows are
+  *derived* from the two documents, and a baseline promoted a year ago is read
+  as well as one promoted today. There is no migration and nothing to re-promote.
+- **It reports and it never gates.** Where the bar sits is a person's
+  declaration; the gate already exists and it is `promote_baseline` refusing
+  across a changed `config_hash`. No exit code moves, no check is reclassified,
+  and a run that was promotable still is.
+- **A redacted run gets the complete table.** Nothing a rule is made of can be
+  withheld, so the party holding the signal and none of the payload — the one
+  least able to see a bar quietly lowered — sees all of it.
+- **`digline diff` now says what differs** instead of only that something does.
+  The refusal stands; it names up to five rules and counts the rest.
+- **One thing it cannot say, and says so:** `min_agreement` is in `config_hash`
+  and in no document. Where either side sampled and the fingerprint moved, one
+  `unknown` row states that; it is never derived from the measured `agreement`.
+- Reading: a `rules` line in the terminal with the loosened rules first, a
+  *What the rules were* section in the report in both locales, a `"rule"` kind
+  in `explain`, and `suite_deltas` under `compare --json full` and over MCP —
+  added keys under `OUTPUT_VERSION = 2`'s rule, not a bump.
+
 ### Declared — `digline-bedrock` reports no thinking split
 
 No version bump, and none is coming for this one: a declared absence does not

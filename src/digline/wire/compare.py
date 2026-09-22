@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import dataclasses
 
-from digline.core import AssertionDelta, Comparison, ConfigDelta
+from digline.core import AssertionDelta, Comparison, ConfigDelta, SuiteDelta
 from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
 from digline.wire.text import neutralised
 
-__all__ = ["compare_json", "config_json", "delta_json"]
+__all__ = ["compare_json", "config_json", "delta_json", "rule_json"]
 
 
 def delta_json(delta: AssertionDelta) -> dict[str, object]:
@@ -106,6 +106,32 @@ def config_json(delta: ConfigDelta) -> dict[str, object]:
     }
 
 
+def rule_json(delta: SuiteDelta) -> dict[str, object]:
+    """A rule delta as a pipeline reads it.
+
+    Everything here travels and none of it is ever withheld: a threshold, a
+    tolerance and a sample count are the bars a suite declared, not anything the
+    system said, and `redact()` keeps all three. There is no `withheld` key for
+    that reason — `config_json` has one because a configuration can carry a
+    perimeter value, and a rule cannot. (ADR 0028 §1)
+
+    `direction` is `""` where the movement has no direction, which is every
+    `samples` row. A consumer that reads it as a verb must read the empty string
+    as *no verb* rather than as *unchanged*.
+    """
+    return {
+        "rule": delta.rule,
+        "assertion_id": delta.assertion_id,
+        "scope": delta.scope,
+        "outcome": delta.outcome,
+        "direction": delta.direction,
+        "field": delta.field,
+        "before": delta.before,
+        "after": delta.after,
+        "expansion": delta.expansion,
+    }
+
+
 def compare_json(
     comparison: Comparison, head: Headline, *, full: bool
 ) -> dict[str, object]:
@@ -138,4 +164,10 @@ def compare_json(
         payload["judge_config_deltas"] = [
             config_json(d) for d in comparison.judge_config_deltas
         ]
+        # Beside the two configuration lists, because it answers the same
+        # question about the other half of the comparison: those name the system
+        # that answered, this names the rules it was held to. Under `full` for
+        # their reason, and an added key under `OUTPUT_VERSION = 2`'s rule
+        # rather than a bump. (ADR 0028 §8)
+        payload["suite_deltas"] = [rule_json(d) for d in comparison.suite_deltas]
     return neutralised(payload)

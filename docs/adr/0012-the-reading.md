@@ -154,6 +154,17 @@ three shapes:
   parameter, a judge identity, or a file. Carries the name, the outcome in the
   five-word vocabulary `ConfigDelta` and `ArtifactDelta` deliberately share,
   the two values, `withheld`, and for a file the `+N −M` tally.
+
+  *Amended 2026-09-21 by [ADR 0028](0028-the-rules-that-moved.md) §8, the first
+  time this shape has moved: `SettingKind` gains `"rule"`, and the fact gains a
+  `direction`. It is the widening that keeps the count of shapes at three — the
+  rows ADR 0028 derives have exactly this one, and a fourth fact type for them
+  would have been a second name for one thing. The discriminator carries the
+  distinction ADR 0005 §5 fought for and this must not undo: a configuration is
+  how the system under test was set up, a **rule** is the bar it was held to,
+  and the two are never the same word. `direction` is a fact beside the outcome
+  and never a sixth word in it — `within_noise`'s shape, for `within_noise`'s
+  reason.*
 - **`TallyFact`** — one run-level count or state: how many cases, how many
   checks, how many could not be judged, how many were set aside, how many moved
   within noise, whether the suite's rules moved, whether comparability is

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Literal, assert_never
 
 from digline.core import (
+    AGREEMENT_FIELD,
     IDENTITY_FIELD,
     OBSERVED_FIELDS,
     ArtifactDelta,
@@ -28,9 +29,12 @@ from digline.core import (
     ConfigOutcome,
     ConfigValue,
     Denominator,
+    Direction,
+    Expansion,
     Noise,
     Run,
     Scope,
+    SuiteDelta,
     SystemConfig,
     Verdict,
     case_count,
@@ -93,7 +97,16 @@ type CheckKind = Literal[
 #: Which of the three things under examination a setting belongs to. Not the
 #: outcome — that is `ConfigOutcome`, and it is the same five words for a
 #: parameter and for a file, deliberately.
-type SettingKind = Literal["target", "judge", "artifact"]
+type SettingKind = Literal["target", "judge", "artifact", "rule"]
+"""What a `SettingFact` is about.
+
+`"rule"` is the odd one and the discriminator is what keeps it honest: the other
+three are things **under test** — how the system was configured, which
+instrument graded, which file was the subject — while a rule is the bar they
+were held to. ADR 0005 §5 separated those two words on purpose, and a rule
+filed as a configuration would put them back together. (ADR 0028 §8, amending
+ADR 0012 §3)
+"""
 
 #: The run-level counts and states, and this list is closed by ADR 0012 §3. A
 #: reading that wanted a kind this list does not carry would be saying something
@@ -242,6 +255,17 @@ class SettingFact:
     #: rather than as "no change".
     added: int = 0
     removed: int = 0
+    #: Which way a **rule** moved: `"loosened"`, `"tightened"`, or `""` where the
+    #: movement has no direction. Empty on every fact that is not a rule.
+    #:
+    #: A field beside the outcome and never a sixth word inside it, so the
+    #: five-word vocabulary this shares with `ConfigDelta` and `ArtifactDelta`
+    #: stays the one a reader has already learnt. `""` means *no verb*, which is
+    #: not the same statement as *unchanged*. (ADR 0028 §4)
+    direction: Direction = ""
+    #: Why a per-group gate is here, when it is a new one. `""` everywhere else,
+    #: including on every rule that is not an expanded aggregate. (ADR 0028 §6)
+    expansion: Expansion = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -448,6 +472,10 @@ def _settings(run: Run, comparison: Comparison | None) -> list[Fact]:
         out.extend(
             _setting_fact(kind, delta) for delta in deltas if delta.outcome != "same"
         )
+    # After the system and the instrument, because that is the order the
+    # documents read in and the order ADR 0003 §5 set: what was under test, then
+    # what it was measured with, then the bar it was held to.
+    out.extend(_rule_fact(delta) for delta in comparison.suite_deltas)
     return out
 
 
@@ -478,6 +506,30 @@ def _setting_fact(kind: SettingKind, delta: ConfigDelta) -> SettingFact:
         before=delta.before,
         after=delta.after,
         withheld=delta.withheld,
+    )
+
+
+def _rule_fact(delta: SuiteDelta) -> SettingFact:
+    """One rule that moved, as a fact.
+
+    The name carries the field where there is one — `contains.threshold` rather
+    than a second column nothing else in this list has — because a
+    `SettingFact`'s `name` is what the reading prints, and a rule with two
+    numbers that can move needs to say which one did.
+
+    No `withheld`, ever: nothing a rule is made of can be kept back. A
+    threshold, a tolerance and a sample count survive `redact()` whole, which is
+    why this table is complete at a boundary where the configuration table is
+    not. (ADR 0028 §1)
+    """
+    return SettingFact(
+        "rule",
+        f"{delta.rule}.{delta.field}" if delta.field else delta.rule,
+        outcome=delta.outcome,
+        before=delta.before,
+        after=delta.after,
+        direction=delta.direction,
+        expansion=delta.expansion,
     )
 
 
@@ -871,6 +923,8 @@ def _setting_line(fact: SettingFact, locale: Locale) -> str:
 
     if fact.kind == "artifact":
         return _artifact_line(fact, locale)
+    if fact.kind == "rule":
+        return _rule_line(fact, locale, before=before, after=after)
     # An identity row names an instrument rather than a parameter, so a judge
     # that appears or disappears is one that started or stopped grading — never
     # a value that moved. `config_deltas` fixes that; this only reads it.
@@ -882,6 +936,34 @@ def _setting_line(fact: SettingFact, locale: Locale) -> str:
     return phrase(
         locale,
         f"explain.setting.{fact.kind}.{fact.outcome}{_verb(fact)}",
+        name=fact.name,
+        before=before,
+        after=after,
+    )
+
+
+def _rule_line(fact: SettingFact, locale: Locale, *, before: str, after: str) -> str:
+    """One rule, with its direction where it has one.
+
+    The key carries the direction as a suffix rather than the sentence carrying
+    it as a clause, because the two directions are different sentences in both
+    locales and a clause bolted onto one sentence would have to be grammatical
+    in both. `""` falls through to the key with no suffix, which is the sentence
+    that names both values and no verb — `samples`, and only `samples`.
+    (ADR 0028 §4)
+
+    The agreement floor is its own key, because it is the one row here that is
+    not a rule that moved but a rule nobody can say moved. (ADR 0028 §5)
+    """
+    if fact.name == AGREEMENT_FIELD:
+        return phrase(locale, "explain.setting.rule.unnameable")
+    # The expansion wins where there is one: a gate that arrived because a case
+    # was labelled is a tightening, but *why* it arrived is the thing the reader
+    # would otherwise misread, and only one suffix fits in one key.
+    marker = fact.expansion or fact.direction
+    return phrase(
+        locale,
+        f"explain.setting.rule.{fact.outcome}{'.' + marker if marker else ''}",
         name=fact.name,
         before=before,
         after=after,

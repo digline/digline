@@ -8,7 +8,7 @@ threshold". See `docs/adr/0001-verdict-not-score.md`.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -18,6 +18,7 @@ from digline.core.run import Run, SystemConfig
 from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 
 __all__ = [
+    "AGREEMENT_FIELD",
     "IDENTITY_FIELD",
     "ArtifactDelta",
     "ArtifactOutcome",
@@ -27,9 +28,12 @@ __all__ = [
     "ConfigDelta",
     "Denominator",
     "ConfigOutcome",
+    "Direction",
+    "Expansion",
     "Noise",
     "Outcome",
     "Scope",
+    "SuiteDelta",
     "artifact_deltas",
     "case_count",
     "checked_denominator",
@@ -38,6 +42,7 @@ __all__ = [
     "config_deltas",
     "denominator",
     "index_verdicts",
+    "suite_deltas",
     "withhold_artifacts",
 ]
 
@@ -57,9 +62,32 @@ IDENTITY_FIELD = "judge"
 #: Deliberately the same five words as an artifact's. A parameter and a file are
 #: two things under test, and a reader who has learnt what `unknown` means in
 #: one place has learnt it in both.
+#:
+#: A **rule** wears them too, from ADR 0028 on. Three things under one
+#: vocabulary rather than three vocabularies: the fourth would have been the one
+#: that made a reader check which table they were looking at.
 type ConfigOutcome = ArtifactOutcome
 
+#: Which way a rule moved, where the movement has a way. A fact **beside** the
+#: outcome and never a sixth word inside it — `AssertionDelta.within_noise`'s
+#: shape, for `within_noise`'s reason: the five words are shared across
+#: configurations, artifacts and rules, and a reader who has learnt them must
+#: not have to learn a variant. (ADR 0028 §4)
+type Direction = Literal["loosened", "tightened", ""]
+
+#: Why a per-group gate is in the table, when it is new. `""` for every row that
+#: is not one. See `_expansion`, and ADR 0028 §6 for why the *case* behind it is
+#: not named here or anywhere.
+type Expansion = Literal["new_group", "now_grouped", ""]
+
+#: The `field` of the row that says the agreement floor cannot be compared. Not
+#: an assertion and not a parameter: it is the one member of `config_hash` no
+#: document holds, and the row exists to say exactly that. (ADR 0028 §5)
+AGREEMENT_FIELD = "min_agreement"
+
 type _Key = tuple[Scope, str, str, int]
+
+type _RuleKey = tuple[Scope, str, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +138,74 @@ class ConfigDelta:
     before: ConfigValue = None
     after: ConfigValue = None
     withheld: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SuiteDelta:
+    """What happened to one of the **rules** between two runs.
+
+    `ConfigDelta` names the system that answered; this names the bar it was
+    held to. Together they are the two halves of *why these numbers may not
+    compare*, and until ADR 0028 only one of them was ever said out loud: a
+    moved `config_hash` printed one sentence, so a lowered threshold and an
+    added test case read identically.
+
+    `rule` is the readable name, `assertion_id` the identity it was paired on —
+    the same split as `AssertionDelta`, and for the same reason: a name is for
+    the sentence, an identity is for the pairing.
+
+    `field` names the value that moved — `threshold`, `tolerance`, `samples` —
+    and is empty for a rule that arrived or left whole. One row per moved value
+    rather than per rule, because a check whose threshold and tolerance both
+    moved moved them in possibly opposite directions, and one row would have to
+    choose a verb.
+
+    `before` and `after` are floats or `None`, and `None` here means **not
+    established** rather than zero: the sample count of a rule whose verdicts
+    all errored before their fold is genuinely unknown, and the row says so.
+    """
+
+    rule: str
+    assertion_id: str
+    scope: Scope
+    outcome: ConfigOutcome
+    #: Which way the bar moved, where moving it has a way. Beside the outcome,
+    #: never inside it.
+    #:
+    #: A threshold lowered, a tolerance raised, a rule removed: **loosened** —
+    #: the run is held to less than the reference was approved under. The
+    #: inverses: **tightened**. And `""` for `samples`, which takes no verb: more
+    #: samples is a better-founded score *and*, because the interval a sampled
+    #: check records is measured rather than declared, usually a **wider** noise
+    #: floor — which `compare()` then forgives more movement inside. The two
+    #: halves run opposite ways, nothing here can weigh them, so the row prints
+    #: both counts and stops. (ADR 0028 §4)
+    direction: Direction = ""
+    field: str = ""
+    before: float | None = None
+    after: float | None = None
+    #: Why a per-group gate appeared, for the one edit that adds a rule without
+    #: anybody rewriting one. `""` everywhere else. (ADR 0028 §6)
+    expansion: Expansion = ""
+
+    @property
+    def loosened(self) -> bool:
+        """Derived, so nothing can claim a direction it was not given."""
+        return self.direction == "loosened"
+
+
+@dataclass(frozen=True, slots=True)
+class _Rule:
+    """One rule as the document remembers it: what it was called, and the three
+    numbers that decide how it judged.
+
+    `None` is *not established* in every one of them, never zero and never one.
+    """
+
+    name: str
+    threshold: float | None
+    tolerance: float | None
+    samples: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +329,7 @@ class Comparison:
     #: judge that moved makes the scores less comparable with the baseline
     #: whatever the target did. (ADR 0005 §4)
     judge_config_deltas: Sequence[ConfigDelta] = ()
+
     #: The `(case_id, check)` gaps the **reference** recorded, in its own order.
     #:
     #: On the comparison rather than read off the baseline by each renderer,
@@ -244,6 +341,14 @@ class Comparison:
     #: reference admitting it did not know what it measured was compared against
     #: in silence. (F-10, the second 0.17.0 delta-pass)
     reference_unreconciled: tuple[tuple[str, str], ...] = ()
+
+    #: What changed in the **rules** — the thresholds, tolerances, sample counts
+    #: and gates `config_hash` fingerprints. The other half of the sentence
+    #: `config_changed` has been saying alone since there was a comparison at
+    #: all: it says *the rules moved*, and these say which ones and which way.
+    #: Reported and never gated, because where the bar sits is a person's
+    #: declaration and `promote_baseline` is where they sign it. (ADR 0028)
+    suite_deltas: Sequence[SuiteDelta] = ()
 
     @property
     def artifacts_changed(self) -> bool:
@@ -314,6 +419,17 @@ class Comparison:
         nobody recorded, has no before-and-after to coincide with.
         """
         return tuple(d for d in self.target_config_deltas if d.outcome == "changed")
+
+    @property
+    def loosened_rules(self) -> Sequence[SuiteDelta]:
+        """The rules this run is held to less strictly than the reference was.
+
+        What the headline names, and it is named on its own rather than netted
+        against the tightenings. There is no *tightened on balance*: the
+        quantity does not exist, and computing one would let three cosmetic
+        tightenings bury the edit that matters. (ADR 0028 §4)
+        """
+        return tuple(d for d in self.suite_deltas if d.loosened)
 
     def of(self, *outcomes: Outcome) -> Sequence[AssertionDelta]:
         """The deltas about the system with these outcomes.
@@ -1033,6 +1149,12 @@ def compare(run: Run, baseline: Run) -> Comparison:
         target_config_deltas=config_deltas(run.target_config, baseline.target_config),
         judge_config_deltas=config_deltas(run.judge_config, baseline.judge_config),
         reference_unreconciled=unreconciled(baseline),
+        # Computed whatever `config_hash` says, rather than only when it moved.
+        # Gating it on the flag would make the flag the source of truth for the
+        # rows and the rows the explanation of the flag, which is two answers to
+        # one question; and it is `()` on an unchanged suite anyway, because
+        # there is nothing for it to find.
+        suite_deltas=suite_deltas(run, baseline),
     )
 
 
@@ -1137,6 +1259,311 @@ def _identity_delta(label: str, now: SystemConfig, before: SystemConfig) -> Conf
         before=label if there else None,
         after=label if here else None,
     )
+
+
+def suite_deltas(run: Run, baseline: Run) -> tuple[SuiteDelta, ...]:
+    """What moved in the **rules**, named, when `config_hash` moved.
+
+    The mirror of `config_deltas`, which names the system under test. This names
+    the ruler it was held against: the checks, their thresholds and tolerances,
+    how many times each case was sampled, and the aggregate gates. (ADR 0028 §2)
+
+    **Derived, never recorded.** Everything read here is already in both
+    documents and has been at every schema version: `assertion_id`, `threshold`
+    and `tolerance` are mandatory on every verdict, and the sample count rides
+    `metadata["samples"]`. So no field was added to the document for this, and a
+    baseline promoted a year ago is read as well as one promoted today
+    (ADR 0028 §1).
+
+    It inherits `config_deltas`' three rules against reporting a change nobody
+    established, and adds a fourth:
+
+    1. **Neither side recorded any rule** — which takes a run whose every case
+       is suspended — and the answer is `()`. Absent is not *every rule was
+       removed*.
+    2. **One side recorded nothing**: `unknown`, never `new` or `missing`. In
+       practice unreachable, for the mandatory fields above; kept because the
+       day a field here becomes optional is the day its absence in an old
+       baseline would otherwise render as an edit.
+    3. **A value not established on both sides** is `unknown` rather than
+       guessed. The one that arises is the sample count of a rule whose verdicts
+       all errored before the fold: an errored verdict may carry no metadata at
+       all, and reading its absence as *one sample* would report `5 -> 1` about
+       a suite nobody touched.
+    4. **`min_agreement` is never named.** It is the one thing in `config_hash`
+       that no document holds, and the measured `agreement` beside it is not it.
+       Deriving the floor from the vote would be the guess wearing a finding's
+       clothes that rule 3 exists to forbid. Where either side sampled, one
+       `unknown` row says so; where neither did, nothing is said, because a
+       floor that never gated anything is not a silence worth breaking.
+       (ADR 0028 §5)
+
+    **A case is not a rule.** The key is the assertion's identity and the rows
+    are unioned over the cases, so adding, removing or suspending a case
+    produces nothing here. That is the shape of the key rather than a
+    convention to be careful about; the case set is named by `compare()`'s own
+    `new` and `missing` deltas. §6's grouped gate is the one shape that looks
+    like an exception and is not — see `_expansion`.
+
+    Nothing read here is ever withheld: `redact()` keeps the threshold, the
+    tolerance and the identity, and a sample count is an `int` that travels on
+    its own merit. A redacted run therefore yields the **complete** set of rows,
+    which is the point rather than a bonus — the party that holds the signal and
+    none of the payload is the one least able to see a bar quietly lowered.
+    """
+    now, before = _rules(run), _rules(baseline)
+    if not now and not before:
+        return ()
+
+    deltas: list[SuiteDelta] = []
+    for key in sorted(now.keys() | before.keys()):
+        here, there = now.get(key), before.get(key)
+        if there is None:
+            assert here is not None
+            deltas.append(
+                SuiteDelta(
+                    rule=here.name,
+                    assertion_id=key[1],
+                    scope=key[0],
+                    outcome="new",
+                    # A rule that was not there is a bar this run is held to and
+                    # the reference was not. Direction is about the rule, never
+                    # about what it then measured. (ADR 0028 §4)
+                    direction="tightened",
+                    expansion=_expansion(here.name, key[0], before),
+                )
+            )
+            continue
+        if here is None:
+            deltas.append(
+                SuiteDelta(
+                    rule=there.name,
+                    assertion_id=key[1],
+                    scope=key[0],
+                    outcome="missing",
+                    direction="loosened",
+                )
+            )
+            continue
+        deltas.extend(_moved(key, here, there))
+
+    deltas.extend(
+        _agreement_row(now, before, moved=run.config_hash != baseline.config_hash)
+    )
+    return tuple(deltas)
+
+
+#: How each field moves when it is **loosened** — the bar admitting more than
+#: the reference approved. A threshold falling lets a lower score pass; a
+#: tolerance rising forgives a larger drop before it counts as a regression.
+#:
+#: `samples` is deliberately absent, and `_moved` reads that absence as *no
+#: verb*. See `SuiteDelta.direction`.
+_LOOSENS: dict[str, int] = {"threshold": -1, "tolerance": +1}
+
+
+def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
+    """One row per moved value, never one per rule.
+
+    A check whose threshold and tolerance both moved gets two rows, because they
+    may have moved in opposite directions and a single row would have to pick a
+    verb. Ordered as `_FIELDS` declares them, so two equivalent comparisons read
+    identically.
+    """
+    out: list[SuiteDelta] = []
+    for field in ("threshold", "tolerance", "samples"):
+        after, prior = getattr(here, field), getattr(there, field)
+        if after is None or prior is None:
+            # Rule 3: not established on both sides. The row still appears,
+            # because a reader who is told nothing cannot tell "unchanged" from
+            # "unknowable", and this is the one field that can be either.
+            if after != prior:
+                out.append(
+                    SuiteDelta(
+                        rule=here.name,
+                        assertion_id=key[1],
+                        scope=key[0],
+                        outcome="unknown",
+                        field=field,
+                        before=prior,
+                        after=after,
+                    )
+                )
+            continue
+        if after == prior:
+            continue
+        sign = _LOOSENS.get(field, 0)
+        direction: Direction = ""
+        if sign:
+            loosened = (after < prior) if sign < 0 else (after > prior)
+            direction = "loosened" if loosened else "tightened"
+        out.append(
+            SuiteDelta(
+                rule=here.name,
+                assertion_id=key[1],
+                scope=key[0],
+                outcome="changed",
+                direction=direction,
+                field=field,
+                before=prior,
+                after=after,
+            )
+        )
+    return tuple(out)
+
+
+def _expansion(name: str, scope: Scope, before: dict[_RuleKey, _Rule]) -> Expansion:
+    """Why a per-group gate is here, when the new rule is one.
+
+    `run_assertions` is the **expanded** list, so a case labelled into a group
+    that did not exist adds an aggregate and moves `config_hash`. Left
+    unexplained, that reads as somebody rewriting the rules, which is the one
+    thing §3 promises an ordinary edit will not do.
+
+    **The case that introduced the group is not named, because it cannot be and
+    because it would often be the wrong answer.** Neither document records
+    membership — `CaseResult` has no group and `case_to_dict` writes none, which
+    is ADR 0010 §1 keeping membership in the repository — and re-labelling an
+    existing case produces a group with no new case behind it at all. So the
+    question is answered from the one fact both documents do carry, the
+    `[group=...]` grammar `split_grouped_name` reads:
+
+    - the reference already gated this aggregate per group, and not on this
+      group -> the **group** is new, and a group exists only where a case
+      declares it, so a case was labelled and no rule was rewritten;
+    - the reference gated this aggregate as a whole and never per group ->
+      `by_group` was set on it, which is the author changing the rules.
+
+    Both are derived. Neither is a guess, and no case is accused of anything.
+    (ADR 0028 §6)
+    """
+    _, group = split_grouped_name(name)
+    if scope != "run" or group is None:
+        return ""
+    base, _ = split_grouped_name(name)
+    for rule in before.values():
+        prefix, other = split_grouped_name(rule.name)
+        if other is not None and prefix == base:
+            return "new_group"
+    return "now_grouped"
+
+
+def _agreement_row(
+    now: dict[_RuleKey, _Rule],
+    before: dict[_RuleKey, _Rule],
+    *,
+    moved: bool,
+) -> tuple[SuiteDelta, ...]:
+    """The one value in `config_hash` that no document holds.
+
+    Two conditions, and both are about not breaking a silence for nothing:
+
+    - **the fingerprint moved.** On a suite that did not change there is nothing
+      this row could be about, and printing *the agreement floor cannot be
+      compared* under *the suite is unchanged from the reference* would be the
+      table contradicting the sentence above it. Where the hash **did** move and
+      every other member of it is accounted for by a row, this is the reader's
+      answer to *then what moved?* — and it is the case the row is worth having
+      for.
+    - **either side sampled.** A floor below one sample gated nothing, so a
+      suite left at `samples=1` never meets a row about it.
+
+    The row is `unknown` and carries no values, because there are none to carry:
+    the measured `agreement` beside it is what the samples did, not the bar they
+    were held to. (ADR 0028 §5)
+    """
+    sampled = any(
+        rule.samples is not None and rule.samples > 1
+        for side in (now, before)
+        for rule in side.values()
+    )
+    if not (moved and sampled):
+        return ()
+    # `field` is left empty on purpose: it names the value of a rule that moved,
+    # and here the rule *is* the value. `rule` carries the name so the row reads
+    # like every other one, and `assertion_id` is empty because this is a
+    # parameter of the suite and not a check it declares.
+    return (
+        SuiteDelta(
+            rule=AGREEMENT_FIELD,
+            assertion_id="",
+            scope="run",
+            outcome="unknown",
+        ),
+    )
+
+
+def _rules(run: Run) -> dict[_RuleKey, _Rule]:
+    """Every rule the run was judged by, read back off its own verdicts.
+
+    Keyed `(scope, assertion_id, occurrence)`, which is `index_verdicts`' key
+    without the case: the driver asks every declared assertion of every case in
+    declaration order, so the n-th verdict of a given identity is the n-th
+    assertion of that identity in every case it appears on. The occurrence
+    matters because `identity` **excludes** threshold and tolerance, so two
+    assertions differing only in where their bar sits share one identity and
+    would otherwise collapse into a rule that appeared to contradict itself.
+    """
+    seen: dict[_RuleKey, list[Verdict]] = {}
+    for case in run.results:
+        counted: Counter[str] = Counter()
+        for verdict in case.verdicts:
+            ident = verdict.assertion_id
+            seen.setdefault(("case", ident, counted[ident]), []).append(verdict)
+            counted[ident] += 1
+    counted_run: Counter[str] = Counter()
+    for verdict in run.aggregate:
+        ident = verdict.assertion_id
+        seen.setdefault(("run", ident, counted_run[ident]), []).append(verdict)
+        counted_run[ident] += 1
+    return {key: _rule_from(verdicts) for key, verdicts in seen.items()}
+
+
+def _rule_from(verdicts: Sequence[Verdict]) -> _Rule:
+    """One rule, folded from every verdict that was judged by it.
+
+    Threshold and tolerance come off the assertion, so every case records the
+    same pair and folding is a formality — except for a document somebody built
+    by hand, where it is not. A value the sides of the run disagree about is
+    `None`, meaning *not established*, and the row it produces says `unknown`
+    rather than picking the first one it met.
+    """
+    return _Rule(
+        name=verdicts[0].score.name,
+        threshold=_agreed(v.threshold for v in verdicts),
+        tolerance=_agreed(v.tolerance for v in verdicts),
+        samples=_agreed(_samples_of(v) for v in verdicts),
+    )
+
+
+def _samples_of(verdict: Verdict) -> float | None:
+    """How many times this check was measured, or `None` where it cannot be told.
+
+    `combine_samples` writes the count into metadata whenever it folds, so its
+    absence means one sample — **unless the verdict errored before any fold
+    happened**, which is what a case whose target raised records. There the
+    count is genuinely unknown, and reading the absence as one would invent a
+    `5 -> 1` on a suite nobody edited. (ADR 0028 §1)
+    """
+    recorded = verdict.score.metadata.get("samples")
+    if isinstance(recorded, int) and not isinstance(recorded, bool):
+        # Kept an `int`. A count is a count, and `5.0 -> 3.0` in a report is a
+        # number wearing a threshold's clothes. The field is typed `float` for
+        # the two that really are fractions, and an `int` sits inside it.
+        return recorded
+    return None if verdict.status == "error" else 1
+
+
+def _agreed(values: Iterable[float | None]) -> float | None:
+    """The one value they all carry, or `None` if they do not agree on one.
+
+    A `None` among them is *not established*, so it does not outvote the rest:
+    one case that errored before its fold cannot unknow a sample count every
+    other case recorded. Disagreement between two **stated** values is different
+    and does produce `None`, because there is no honest way to choose.
+    """
+    distinct = {value for value in values if value is not None}
+    return distinct.pop() if len(distinct) == 1 else None
 
 
 def withhold_artifacts(comparison: Comparison) -> Comparison:
