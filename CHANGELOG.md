@@ -20,7 +20,7 @@ uv add --upgrade digline-mcp
 
 Found by the release delta-pass over 0.18.0, before the announcements. **A
 `Security` entry and no advisory**, under the second rule in
-[`SECURITY.md`](SECURITY.md): our own process caught it, and the exposure is
+`SECURITY.md`: our own process caught it, and the exposure is
 the turnaround between a tag and its delta-pass. It is written here in full
 rather than called a hardening.
 
