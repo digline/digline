@@ -7,6 +7,13 @@ and where the suite declares no calibration case it says what that costs —
 printed alone, a zero would be fixed decision 3's vacuous green, measured on the
 judge. (ADR 0024 §1, §5.4)
 
+**And never the range without saying what it is a range of.** A replay repeats
+the judge over *recorded* answers, and the answers a store holds are the ones
+that were produced, parsed and kept — not a sample of what a live run yields.
+Measured on brief's `brief-reason`, abstention ran 2.0% on replayed answers
+against 8–10.5% on live ones. So the sentence closes by stating that the figure
+is a lower bound (ADR 0024 §5.6).
+
 It belongs to the command that produced the measurement, `digline rejudge`, and
 to nothing else: not to every later report of a re-judged run, and not to
 `explain`, whose fact list ADR 0012 §3 closes. Amending that list a third time,
@@ -86,6 +93,17 @@ def judge_reading(run: Run, *, locale: Locale) -> str:
     if errored:
         key = "judged.errored.one" if errored == 1 else "judged.errored.many"
         text += phrase(locale, key, count=errored)
+    if widest is not None:
+        # The range is a floor, and the reading says so where the number is
+        # read. §5.6 states it in the record; a record nobody opens protects
+        # nobody, and the person who needs this is the one looking at the
+        # number. Same discipline as the seven absences: a reading declares
+        # what it cannot know.
+        #
+        # Only where a range was measured. `judged.range.none` reports that
+        # there was nothing to bound, and qualifying an absent number would be
+        # a caveat about a measurement that does not exist.
+        text += phrase(locale, "judged.floor")
     return text + _calibration(run, locale)
 
 

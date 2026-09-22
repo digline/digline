@@ -85,6 +85,25 @@
   repeatability alone called an intact judge broken. No decision is revisited;
   the argument is now bidirectional, and one bullet of §1 was weaker than the
   data
+- Amended: 2026-09-22 — §1 again, **the same answers measured a second time
+  across an instrument change**, because the first reading cited a figure that
+  came from the one case ADR 0004 §7's abstention path was built for and did not
+  say so. The same 105 recorded answers, the same `judge_samples 3`, digline
+  0.15.1 and then 0.18.0. The distribution tightened — median range 0.500 →
+  0.333, cases ranging ≥ 0.5 13 → 10 of 21 — and the extreme did not move: 1.000
+  both times, on `economics`. What moved is what the suite *says* about that
+  case: on 0.15.1 it **passed at 1.000** with five samples of five at 1.0, and
+  on 0.18.0 the judge declined 11 of 15 judgements and the case is `error`. The
+  calibration case read 0.500 in band on both. No decision is revisited; §1
+  gains a second reading and the caveat the first one owed
+- Amended: 2026-09-22 — §5.6, **a limit of the replay that §5.2 did not state.**
+  Measuring the judge on answers that do not move is what isolates it, and the
+  answers that do not move are not a sample of the answers a live run produces.
+  On brief's `brief-reason`: abstention 2.0% on replayed answers against
+  8–10.5% on live ones, four to five times. `judge_samples` therefore reports a
+  **lower bound** on the judge's variance in production. §5 is unchanged — the
+  figure is still the right one to print — and what is added is what it does not
+  cover
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -341,6 +360,58 @@ then mostly absorbs, which is why a suite carrying this much instrument noise
 gates usefully at all. And the repair for a case that does chatter is
 `Repeated`, not a wider tolerance: the ambiguity is in the question, so it is
 answered by asking more times, not by caring less.
+
+#### The same answers, across an instrument change (2026-09-22)
+
+The reading above was taken on digline 0.15.1, and its headline — a range of
+1.000 on `economics` — came from the one case [ADR 0004
+§7](0004-every-plugin-is-a-target-and-a-judge.md)'s abstention path was written
+for. That is a caveat the first reading owed and did not pay, so the measurement
+was repeated: **the same 105 recorded answers, the same `judge_samples 3`, the
+same suite, judged by 0.15.1 and then by 0.18.0.** Only the instruction to the
+judge is different — `CLAIM_SYSTEM` gained the licence to decline.
+
+| | 0.15.1 | 0.18.0 |
+|---|---|---|
+| widest range on one answer | **1.000** (`economics`) | **1.000** (`economics`) |
+| mean range | 0.464 | 0.417 |
+| median range | 0.500 | **0.333** |
+| cases ranging ≥ 0.5 | 13 of 21 | **10 of 21** |
+| judgements returning no score | 0 — not expressible | **17 of 315** |
+| the calibration case | 0.500, in band | 0.500, in band |
+
+**The middle tightened and the extreme did not.** Declining moved the median a
+third of the way down and took three cases out of the wide half, which is the
+noise that was the judge guessing rather than the judge disagreeing. What it did
+not do is close `economics`, and that is the finding: on the four judgements of
+fifteen where it still answered, it still ranged the whole scale. The range there
+was never an artefact of a missing abstention — the case is genuinely
+undecomposable, and the item is why. Its title is the single word *Economics*
+and its summary is the same word again.
+
+**What changed is what the suite says about it, and the direction is the one §1
+was written about.** On 0.15.1 `economics` **passed, at 1.000, with five samples
+of five at 1.000** — a green line, a perfect score and no interval, which is the
+most reassuring sentence this suite could have produced about the one case in it
+that cannot be judged at all. The per-answer range underneath was 1.000 the
+whole time and the fold absorbed it. On 0.18.0 the judge declines 11 judgements
+of 15, the case is `error`, and `promote` refuses the run by name.
+
+So the second reading demonstrates the same thesis as the first and one floor
+below it. The first said a repeatability figure alone can call an intact
+instrument broken. This says a **folded score** alone can call an unjudgeable
+case perfect — and that neither the fold nor the range could tell you which,
+while the calibration case read 0.500 in band on both instruments and was the
+only number in the experiment that did not move.
+
+**And nothing in either document says the instrument changed.** `CLAIM_SYSTEM`
+is in neither `config_hash` nor `judge_config`, so the comparison across this
+upgrade reports the configuration unchanged while the instruction moved
+underneath it. That is a known gap recorded before this measurement rather than
+after it, and this is its first sighting in a working tree; the release that
+moved the words predicted the movement and said to re-promote if it is
+acceptable. It is named here because a reader of this table would otherwise have
+no way to know the two columns were produced by two different instruments.
 
 ### 2. The order, which is the order of this record
 
@@ -758,6 +829,53 @@ per answer), a count of our own calls. It is refused unless `rejudged_from` is
 set, and `execute` refuses the parameter on any target but a replay, before the
 first call: on a live target the range would be the target's and the judge's
 together under the judge's name.
+
+#### 5.6 Amendment, 2026-09-22: what a replay cannot see
+
+§5.2 refuses `judge_samples` on anything but a replay, and the reason is sound:
+on a live target the range would be the target's variance and the judge's
+together, under the judge's name. What that section did not say is what the
+isolation costs, and it took a measurement to notice.
+
+**A replay measures the judge on the answers you already have, and those are not
+a sample of the answers you will get.** The stored set is the set that existed
+when the run was recorded. The judge has already coped with every one of them
+once. Nothing in it represents the answer the target has not produced yet, and
+the answers a judge finds hardest are exactly the ones it declines to say
+anything about — which a replay, by construction, never meets a new one of.
+
+Measured on brief's `brief-reason`, 21 cases, a `Faithfulness` check over a
+one-sentence reason, after ADR 0004 §7 gave the judge licence to decline:
+
+| | abstention rate |
+|---|---|
+| replayed answers, `judge_samples 3` over a stored run | **2.0%** (with one degenerate case set aside) |
+| live runs, the same suite, the same judge | **8–10.5%** |
+
+Four to five times, and it is not noise in the estimate: both live runs at 0.18
+had at least one case tip past `min_agreement` into `error`, where the replay
+modelled roughly one run in fourteen. The mechanism is the one above. The
+replayed sentences are sentences the judge scored before; the live ones are new,
+and the new ones include the heavily evaluative sentences that suite's prompt
+asks for and that a claim judge cannot decompose.
+
+**So `judge_samples` reports a lower bound.** It is the judge's variance *on
+answers already in hand*, which is not the judge's variance on the suite's next
+run, and a reader who takes the printed range for the second will under-read it.
+The direction is knowable and always the same — a replay can only be kinder,
+because it cannot serve an answer nobody has written — so the figure stays
+useful and stays honest as long as it is read as a floor.
+
+**Nothing here changes §5.** The range is still measured on a replay, still
+printed beside the calibration, still never fed to a threshold (§5.3). This
+section exists because a bound that is not written down is a bound a reader
+supplies for themselves, usually by assuming there isn't one.
+
+**And it sharpens §1's table rather than weakening it.** The demonstration above
+reads the judge's range across an instrument change, and both columns are
+replays: they are comparable with each other, which is what that experiment
+needed, and both are floors. The live rate is the number that decides whether a
+suite can gate, and only a live run reports it.
 
 ### 6. Shape: the distribution across the suite
 
