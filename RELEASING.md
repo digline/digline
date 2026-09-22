@@ -1242,6 +1242,43 @@ names.
    are not claims**, and the discriminator is in the file you are about to
    overwrite.
 
+   **The trap, and it is the step immediately before this one: `uv sync` writes
+   a `uv.lock` into the five examples that deliberately keep none.** That lock
+   is untracked, so the tree is dirty, and a report rendered from a dirty tree
+   is stamped `-dirty` — *the exact marker the rule above reads as "leave this
+   alone"*. Run the step as written and you curate, by accident, the reports it
+   told you to re-render; the next release then skips them, and the one after
+   that finds a report nobody can explain.
+
+   It is written here rather than left in a commit message because a rule the
+   preceding step can disarm needs the disarming named next to it. Two details
+   make it bite:
+
+   - **The report records the commit of the *run*, not of the render.** So
+     re-rendering from a clean tree does not repair a run made from a dirty
+     one: the whole example has to be run again.
+   - **`git status --porcelain` is what digline reads** (`host/environment.py`),
+     so the check is exactly that, from the repository root, and it must be
+     clean **before the run**, not before the render.
+
+   The order that works, per example:
+
+   ```sh
+   uv sync -q                       # may write a lock this example does not keep
+   git ls-files --error-unmatch examples/<name>/uv.lock >/dev/null 2>&1 \
+     || rm -f examples/<name>/uv.lock
+   git status --porcelain           # must print nothing
+   uv run --no-sync digline run    --suite <suite>
+   uv run --no-sync digline report --suite <suite> --run latest --locale en \
+       --out report.html
+   ```
+
+   `--no-sync` on the two digline calls is what keeps the lock from coming
+   back between the check and the run. And some examples need more than a
+   suite: `quickstart-toml` and `external-app` answer over HTTP, so their stub
+   has to be running or every case fails the same way — the refusal says so,
+   and says how many cases it would take with it.
+
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
 asks the four questions of this list that have an answer a machine can check:
