@@ -1204,15 +1204,43 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
-5. **The example reports:** re-render every committed `report.html` against the
-   tagged release, in the order the ritual requires — commit the example,
-   render, commit the report on top, never amend — so each report records a
-   commit somebody can reach. A report is a photograph of the run that
-   produced it, which is why a string change does **not** regenerate one: four
-   of them carried a stale `What answered` heading from the moment that
-   heading was corrected, deliberately, until the next tag. This step is what
-   clears that debt, and it is a step so that it happens by procedure rather
-   than because somebody noticed a heading.
+5. **The example reports:** re-render every committed `report.html` **whose
+   recorded commit is clean** against the tagged release, in the order the
+   ritual requires — commit the example, render, commit the report on top,
+   never amend — so each report records a commit somebody can reach. A report
+   is a photograph of the run that produced it, which is why a string change
+   does **not** regenerate one: four of them carried a stale `What answered`
+   heading from the moment that heading was corrected, deliberately, until the
+   next tag. This step is what clears that debt, and it is a step so that it
+   happens by procedure rather than because somebody noticed a heading.
+
+   **A report whose commit ends in `-dirty` is curated, and this step leaves it
+   alone.** Read it as a signature rather than as an accident: `-dirty` means
+   the tree held uncommitted changes when the run was made, so the state that
+   produced the report is **not in the repository and cannot be checked out**.
+   For an ordinary report that would be a defect — the whole point of recording
+   a commit is that a reader can reach it. For these it is the *declaration*:
+   the example is showing something the committed application does not do on
+   its own, and re-rendering it from a clean tree would silently replace the
+   report its README explains with a weaker one that agrees with nothing
+   written around it.
+
+   `examples/classifier` is the one today, and its README says so in the same
+   words: the perturbation that makes one case change its mind is not in this
+   repository, so a clean run reproduces the baseline exactly and would render
+   a report with nothing moved. The commit it records is marked `-dirty` and is
+   not meant to be checked out.
+
+   **Read the signature, do not keep a list.** `grep -l -- '-dirty' examples/*/
+   report.html` is the whole rule, and it is the rule rather than a list of
+   names for the reason this file has learned twice over — a count said `nine`
+   while eleven legs ran, and a sentence named three locks while six existed. A
+   name written here goes stale the day somebody curates a second report; the
+   signature is carried by the artefact and cannot.
+
+   So the step is not *re-render the examples*. It is **re-render the ones that
+   are not claims**, and the discriminator is in the file you are about to
+   overwrite.
 
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
