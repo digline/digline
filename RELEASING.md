@@ -1278,13 +1278,26 @@ same argument that took `seven so far` out of `SECURITY.md` one file over. The
 legs are whatever `examples-from-pypi` expands to: read the run, not this
 sentence.
 
-Five examples carry a `uv.lock` pinning the exact version — `classifier`,
-`langchain`, `llamaindex`, `prompt-first`, `rag` — and the rest resolve at
-install time. Regenerate the five with `uv lock --upgrade-package digline` in
-each, commit, then dispatch. Three of them — `langchain`, `llamaindex`,
-`prompt-first` — pin `digline-anthropic` as well, so the release that moves a
-plugin needs `--upgrade-package digline-anthropic` beside it or those locks come
-back naming a plugin version that is no longer current. *(Worth trying next release: regenerate the locks **before** the tag.
+The examples that carry a `uv.lock` pin the exact version; the rest resolve at
+install time. Regenerate every one of them — `ls examples/*/uv.lock` is the
+list, and `.github/release_followup.py` reads the same glob — with `uv lock
+--upgrade-package digline` in each, commit, then dispatch. Do not work from a
+list written here: this sentence named five for as long as five was right, and
+`mcp-tools` arrived with a sixth that the ritual then skipped for a release.
+
+Some of those locks pin a **plugin** as well, so a release that moves a plugin
+needs `--upgrade-package <plugin>` beside `digline` or they come back naming a
+plugin version that is no longer current. **Which ones is the same question as
+which locks exist, and it has the same answer — look:**
+
+```sh
+grep -l 'name = "digline-anthropic"' examples/*/uv.lock
+```
+
+This sentence named three of them by hand until 2026-09-22, and they were the
+right three. That is the point: so were the five above, until they were not.
+
+*(Worth trying next release: regenerate the locks **before** the tag.
 They cannot resolve a version PyPI does not have yet, so it probably has to stay
 a post-tag commit — but if a lock can be written against the version about to
 ship, the dispatch stops being necessary.)*

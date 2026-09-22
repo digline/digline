@@ -46,8 +46,14 @@ def lock(tmp_path: Path, example: str, version: str | None) -> None:
     (path / "uv.lock").write_text(body, encoding="utf-8")
 
 
+#: The shape the fixtures build. Not read from the repository: a fixture that
+#: tracks the tree cannot fail when the tree changes under it, which is the
+#: whole job of the real-tree test at the bottom of this file.
+FIXTURE_EXAMPLES = ("classifier", "langchain", "llamaindex", "prompt-first", "rag")
+
+
 def all_locks(tmp_path: Path, version: str | None) -> Path:
-    for example in followup.PINNED_EXAMPLES:
+    for example in FIXTURE_EXAMPLES:
         lock(tmp_path, example, version)
     return tmp_path
 
@@ -93,6 +99,44 @@ def test_a_lock_with_no_digline_entry_is_not_read_as_a_match(tmp_path: Path) -> 
     finding = followup.locks_finding(tmp_path, "0.15.3")
     assert not finding.ok
     assert "no digline entry" in finding.said
+
+
+def test_an_example_with_a_lock_is_read_without_anybody_listing_it(
+    tmp_path: Path,
+) -> None:
+    """The defect this glob exists for, in the direction that caused it.
+
+    `mcp-tools` arrived with a lock and the hand-written tuple did not name it,
+    so step 3 read the five it knew, found them all at the new version, and
+    reported green over a sixth that was a release behind. A new example has to
+    join the check by being committed, not by somebody remembering."""
+    all_locks(tmp_path, "0.15.3")
+    lock(tmp_path, "mcp-tools", "0.15.0")
+    assert "mcp-tools" in followup.pinned_examples(tmp_path)
+    finding = followup.locks_finding(tmp_path, "0.15.3")
+    assert not finding.ok, "the newcomer's stale lock must fail the step"
+    assert finding.held
+    assert "mcp-tools 0.15.0" in finding.said
+
+
+def test_an_example_without_a_lock_is_not_invented(tmp_path: Path) -> None:
+    """The other direction: the examples that resolve at install time have no
+    lock, and must not be reported as locks with no digline entry."""
+    all_locks(tmp_path, "0.15.3")
+    (tmp_path / "examples" / "external-app").mkdir(parents=True)
+    assert "external-app" not in followup.pinned_examples(tmp_path)
+    assert followup.locks_finding(tmp_path, "0.15.3").sound
+
+
+def test_a_tree_with_no_locks_at_all_does_not_pass(tmp_path: Path) -> None:
+    """New with the glob. A named tuple could not find nothing; a pattern can —
+    an examples/ that moved, a checkout without it — and `all 0 locks name
+    0.15.3` is true of every version there has ever been."""
+    (tmp_path / "examples").mkdir()
+    finding = followup.locks_finding(tmp_path, "0.15.3")
+    assert not finding.held, "nothing read must fail the control"
+    assert not finding.sound
+    assert "read nothing" in finding.said
 
 
 def test_the_lock_control_fails_when_the_comparison_is_blind(tmp_path: Path) -> None:
@@ -381,11 +425,34 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
 
 
 def test_this_repository_is_the_shape_the_checks_assume() -> None:
-    """The fixtures above are fixtures; this reads the real tree, so a renamed
-    example or a lock that stops carrying a digline entry fails here rather than
-    silently making a check unfalsifiable."""
+    """The fixtures above are fixtures; this reads the real tree, so a lock that
+    stops carrying a digline entry, or an `examples/` that stops holding locks
+    at all, fails here rather than silently making a check unfalsifiable.
+
+    **What the set comparison guards, said plainly, because it reads as though
+    it guarded more.** It does *not* fail when the tree gains an example: it
+    cannot, and it should not — a new example with a lock is found by the glob
+    and there is nothing to add it to, which is the whole point of the glob.
+    What it guards is `lock_versions` itself. Walk the directory by a different
+    route than the function does — `iterdir` and `is_file` against the
+    function's `glob` — and a filter reintroduced into the function, or a
+    pattern that stops matching what it used to, shows up as a disagreement
+    between two readings of one filesystem. That is worth a line; it is just
+    not the same line as "a new example fails here", which it used to claim.
+    """
     pinned = followup.lock_versions(ROOT)
-    assert set(pinned) == set(followup.PINNED_EXAMPLES)
+    # Deliberately not `ROOT.glob("examples/*/uv.lock")`: that is the function's
+    # own expression, and comparing it against itself compares nothing.
+    walked = {
+        directory.name
+        for directory in (ROOT / "examples").iterdir()
+        if (directory / "uv.lock").is_file()
+    }
+    assert set(pinned) == walked, (
+        "step 3 must read every example that has a lock, and only those — two "
+        "walks of one directory disagree, so one of them is filtering"
+    )
+    assert pinned, "no example carries a uv.lock: step 3 would pass over nothing"
     assert all(version is not None for version in pinned.values()), pinned
     assert followup.status_block((ROOT / "RELEASING.md").read_text(encoding="utf-8")), (
         "RELEASING.md has no Status block for step 4 to update"
