@@ -195,6 +195,12 @@ def log_json(log: IdentityLog) -> dict[str, object]:
             # `OUTPUT_VERSION`: a consumer that ignores it parses what it
             # parsed before. (ADR 0024 §7.5)
             "spread": [spread_json(item) for item in log.spread],
+            # Why the list above is empty, counted by cause. A consumer reading
+            # `[]` could not tell a store with no runs from a suite with no
+            # run-level check from a run whose every aggregate flipped, and the
+            # seven absences of ADR 0020 §3 cross for exactly that reason.
+            # Added key, `OUTPUT_VERSION` 1. (ADR 0024 §7.5)
+            "spread_absence": dict(log.spread_absence),
             "replays": [
                 {"key": r.key, "created_at": r.created_at, "source": r.source}
                 for r in log.replays

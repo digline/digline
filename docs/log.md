@@ -180,12 +180,24 @@ nothing to read across runs.`, and no suite-wide number is invented out of the
 per-case checks: a summary nobody asked for is the thing this product exists to
 argue against.
 
-It is read off the **latest run's** aggregates, which is why an empty store is a
-different sentence and not that one: with no run read, the reading says so and
-adds that whether the suite declares a run-level check is not something it can
-say. A reading of runs cannot report what a suite declares, and on a fresh
-clone or a hosted runner — where [decision 2](adr/0002-three-worlds-and-where-the-data-lives.md)
-means there is no history at all — the two are easy to confuse and were.
+It is read off the **latest run's** aggregates, and it comes out empty for four
+different reasons. Each gets its own sentence, because only one of them is a
+fact about the suite:
+
+| No spread because | and the reading says |
+|---|---|
+| no run was read in this store, in this window | so, and that whether the suite declares a run-level check is not something a reading of runs can say |
+| the suite declares no run-level check | exactly that — the one case that *is* about the suite |
+| every check changed status against the reference | how many, and that a changed status carries no interval |
+| every check recorded no score | how many |
+
+Where two hold at once — one check flipped, another scoreless — **both**
+sentences print, counted by cause and never as a total. Until 2026-09-22 all
+four printed the second one, so a fresh clone was told its suite declared no
+run-level check: on a fresh clone or a hosted runner, where
+[decision 2](adr/0002-three-worlds-and-where-the-data-lives.md) means there is
+no history at all, that is the first thing the command ever said. A checkable
+sentence standing in for one that cannot be checked.
 
 ### Comparable is checked, never assumed
 
@@ -318,8 +330,11 @@ $ digline log --suite suite.py --json
 ```
 
 emits the same reading for a program: `spans`, `rolls`, `replays`, `spread`,
-`reference`, `register`, the `window`, and the counts `runs`, `skipped` and
-`unreadable`. `answered` is `null` exactly when `absence` names why.
+`spread_absence`, `reference`, `register`, the `window`, and the counts `runs`,
+`skipped` and `unreadable`. `spread_absence` is why `spread` is empty, counted
+by cause — a consumer reading `[]` could not tell a store with no runs from a
+suite with no run-level check from a run whose every check flipped, which is
+the same reason the absences above cross. `answered` is `null` exactly when `absence` names why.
 
 **No score crosses beside an identity**, and **no case id crosses at all** — the
 reading is about the system and has no reason to name a case. `spans` and

@@ -11,12 +11,19 @@ which is `AGENTS.md` §5's excuse promoted to a feature.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any, cast
 
 import pytest
 
 from digline.core import CaseResult, Run, Score, SystemConfig, Verdict
-from digline.report.log import EXCLUSIONS, ExclusionKind, identity_log, log_text
+from digline.report.log import (
+    EXCLUSIONS,
+    SPREAD_ABSENCES,
+    ExclusionKind,
+    identity_log,
+    log_text,
+)
 from digline.report.text import LOCALES, Locale, strings
 from digline.wire.log import log_json
 
@@ -349,6 +356,109 @@ def test_no_run_read_never_claims_the_suite_declares_nothing(
     assert table["log.spread.none"] not in said, (
         "an empty store must not be told what the suite declares"
     )
+
+
+def test_a_flip_names_itself_rather_than_borrowing_another_sentence() -> None:
+    """*Silent on a flip* is **do not report a range**, not print nothing.
+
+    ADR 0006 §6's rule is that a flip carries no interval; naming the flip is
+    not printing one. Before 2026-09-22 a run whose every aggregate had flipped
+    printed *this suite declares no run-level check*, which is a statement
+    about the suite and was false. (ADR 0024 §7.5)
+    """
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(aggregate(status="fail", score=0.2),),
+            ),
+        )
+    )
+    baseline = ("b", a_run("2026-01-01T00:00:00+00:00"))
+    log = read(rows, baseline)
+    said = "\n".join(log_text(log, locale="en"))
+
+    assert log.spread == ()
+    assert log.spread_absence == {"flipped": 1}
+    assert "changed status against the reference" in said
+    assert strings("en")["log.spread.none"] not in said
+
+
+def test_a_scoreless_aggregate_names_itself() -> None:
+    """A check that recorded no score is not a suite that declares none."""
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(aggregate(score=None, status="error"),),  # pyright: ignore[reportArgumentType]
+            ),
+        )
+    )
+    log = read(rows)
+
+    assert log.spread_absence == {"scoreless": 1}
+    assert "recorded no score" in "\n".join(log_text(log, locale="en"))
+
+
+def test_both_causes_print_where_both_hold() -> None:
+    """Two facts about one run, and picking one would be the substitution the
+    amendment removed. Counted by cause, never as a total (§7.2's discipline)."""
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            a_run(
+                "2026-02-01T00:00:00+00:00",
+                aggregates=(
+                    aggregate(name="accuracy", status="fail", score=0.2),
+                    aggregate(
+                        name="precision",
+                        score=None,  # pyright: ignore[reportArgumentType]
+                        status="error",
+                    ),
+                ),
+            ),
+        )
+    )
+    baseline = ("b", a_run("2026-01-01T00:00:00+00:00"))
+    said = "\n".join(log_text(read(rows, baseline), locale="en"))
+
+    assert read(rows, baseline).spread_absence == {"flipped": 1, "scoreless": 1}
+    assert "changed status against the reference" in said
+    assert "recorded no score" in said
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_every_cause_has_a_sentence_of_its_own(locale: Locale) -> None:
+    """Four causes, four sentences, and no two of them the same: the defect was
+    three causes rendering the fourth's.
+
+    Asserted through the renderer rather than through the lookup table, so what
+    is pinned is what a reader sees. (ADR 0024 §7.5)
+    """
+    empty = read([])
+
+    said = [
+        "\n".join(log_text(replace(empty, spread_absence={kind: 1}), locale=locale))
+        for kind in SPREAD_ABSENCES
+    ]
+
+    assert len(set(said)) == len(SPREAD_ABSENCES), (
+        "two causes render the same reading, which is the substitution this closed"
+    )
+
+
+def test_the_wire_names_which_cause_left_the_spread_empty() -> None:
+    """`[]` alone cannot tell the four apart, which is why the absences of
+    ADR 0020 §3 cross too."""
+    payload = log_json(read([]))
+
+    assert payload["spread"] == []
+    assert payload["spread_absence"] == {"no_runs": 0}
 
 
 # --------------------------------------------------------------------------- #

@@ -928,6 +928,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "run-level check is not something this reading can say: it reads "
             "the runs, and there are none."
         ),
+        # The other two causes, and neither is a statement about the suite.
+        # "Silent on a flip" is *do not report a range*, not print nothing:
+        # naming the flip is not printing an interval.
+        # (ADR 0024 §7.5, amended 2026-09-22)
+        "log.spread.flipped": (
+            "  {count} run-level check(s) changed status against the "
+            "reference, so no range is read for them: a changed status carries "
+            "no interval."
+        ),
+        "log.spread.scoreless": (
+            "  {count} run-level check(s) recorded no score, so there is no "
+            "range to read for them."
+        ),
         "log.spread.set": (
             "  Across {count} comparable run(s) in this store, in this window — "
             "the latest not among them{excluded}."
@@ -1834,6 +1847,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "non c'è nulla da leggere fra run. Se questa suite dichiari un "
             "controllo di run questa lettura non può dirlo: legge le run, e "
             "non ce ne sono."
+        ),
+        "log.spread.flipped": (
+            "  {count} controlli di run hanno cambiato esito rispetto al "
+            "riferimento, quindi per loro non viene letto nessun intervallo: "
+            "un esito cambiato non porta un intervallo."
+        ),
+        "log.spread.scoreless": (
+            "  {count} controlli di run non hanno registrato un punteggio, "
+            "quindi per loro non c'è nessun intervallo da leggere."
         ),
         "log.spread.set": (
             "  Su {count} run confrontabili in questo store, in questa "

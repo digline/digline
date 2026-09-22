@@ -50,26 +50,38 @@ locales, where the Italian fragment was the worse of the two.
 No schema change, no `OUTPUT_VERSION` bump, and no number in any reading moves:
 the range, the count and the exclusion tallies are what they were.
 
-### Fixed — an empty store was told what its suite declares
+### Fixed — four reasons the spread is empty, and one sentence for all four
 
-The spread section is read off the latest run's aggregates, so with no run read
-there is nothing to read it from. It said **"This suite declares no run-level
-check, so there is nothing to read across runs."** anyway — a claim about the
-suite that a reading of runs cannot support, and false on the first real store
-it met: `scout-judge` declares four run-level checks and the reading said it
-declared none.
+`log.spread` comes out empty for four different reasons, and **only one of them
+is a fact about the suite** — which was the sentence printed for all four. So a
+fresh clone was told *"This suite declares no run-level check."*, and so was a
+run whose every check had flipped against the reference. A checkable sentence
+standing in for one that cannot be checked.
 
-It now says what it knows. A fresh clone and a hosted runner have no history at
-all, by the same fixed decision that gitignores `runs/`, so this is the sentence
-they get:
+ADR 0024 §7.5 had ruled the spread *silent* on a flip without saying what
+silence prints, and the section's heading is unconditional, so silence printed
+whatever sentence was already there. Ruled, dated: **silent on a flip means do
+not report a range, not print nothing** — naming the flip is not printing an
+interval. Four sentences for four facts now:
 
-> No run was read in this store, in this window, so there is nothing to read
-> across runs. Whether this suite declares a run-level check is not something
-> this reading can say: it reads the runs, and there are none.
+- no run read in this store and window, *and* that whether the suite declares a
+  run-level check is not something a reading of runs can say — which is the
+  sentence every first reading on a new machine now gets:
 
-Both locales. A suite that really declares no run-level check still gets the
-sentence that says so, unchanged — the point of the fix is that those were one
-sentence and are two facts.
+  > No run was read in this store, in this window, so there is nothing to read
+  > across runs. Whether this suite declares a run-level check is not something
+  > this reading can say: it reads the runs, and there are none.
+
+- the suite declares no run-level check — the one case that is about the suite,
+  and its sentence is unchanged;
+- how many checks changed status against the reference, and that a changed
+  status carries no interval;
+- how many checks recorded no score.
+
+Counted by cause and never as a total, so a run with one flipped check and one
+scoreless check prints both: picking one would be the substitution this
+removes. `--json` gains `spread_absence` beside `spread`, an added key with
+`OUTPUT_VERSION` unchanged — reading `[]` could not tell the four apart either.
 
 ### Documentation — the spread has a page at last
 
