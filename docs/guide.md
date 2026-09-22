@@ -708,6 +708,19 @@ profiles = {
     if (run := store.read_run(ref)).config_hash == suite.config_hash()
 }
 
+# A run where one case could not be judged has one fewer case in its profile,
+# and a median taken across profiles of different sizes is a median of
+# different things. `compare` refuses that comparison by name; a script like
+# this one has to refuse it too, or it silently answers a question nobody asked.
+widest = max(profiles.values(), key=len)
+partial = {key: sorted(set(widest) - set(scores))
+           for key, scores in profiles.items() if len(scores) < len(widest)}
+for key, missing in partial.items():
+    print(f"skipping {key}: {len(missing)} case(s) not judged ({missing[0]}, ...)")
+profiles = {k: v for k, v in profiles.items() if k not in partial}
+if not profiles:
+    sys.exit("no run judged every case: there is no median to take")
+
 typical = {
     case_id: statistics.median(p[case_id] for p in profiles.values())
     for case_id in next(iter(profiles.values()))
@@ -747,6 +760,51 @@ The bottom run is `0.240` away from typical. It was as green as the others and
 it is the one you must not keep. Note also the third line: the run promoted in
 chapter 5 — perfectly good, chosen because it happened to be there — is `0.160`
 off. Choosing the median cost one command.
+
+### Two things this chapter learned the hard way
+
+**A run that could not judge every case is not in the comparison, and the
+arithmetic will not tell you.** A case that errors leaves the confusion matrix,
+so `accuracy 16/20` and `accuracy 16/21` are different questions wearing the
+same units. digline refuses that comparison in as many words —
+
+```console
+2 run-level checks were measured over a different number of cases than the
+reference, so they are not comparisons.
+whole run · precision · Measured over 20 cases here and 21 in the reference,
+so 0.666667 and 0.727273 are not a movement of one another.
+```
+
+— and has since `0.15.3` closed [GHSA-8c38-f965-cgww][adv], the advisory about
+exactly this.
+
+**The refusal protects the reading digline produces. It cannot protect one you
+compute yourself**, and this chapter is the one that tells you to compute a
+median. Read off four runs of a real suite by hand, the median said accuracy
+`+0.019` and precision `+0.061` — a clear improvement. Two of the four runs had
+a case that could not be judged, so their denominator was 20 against 21, and on
+the numerator, which is the part that compares, the four runs read **15, 16, 16,
+16 against a baseline of 16**. Nothing had improved. The script above now names
+and skips those runs; it used to raise `KeyError` on the first one, which at
+least fails loudly, but says nothing about why.
+
+So: take the median over runs that judged the same cases, or read `compare` for
+each one and believe it over your own arithmetic.
+
+[adv]: https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww
+
+**And one run cannot tell a regression from a coin.** In the same experiment
+four cases moved down against the baseline. After one run, two of them had
+crossed the threshold and looked like regressions to be explained. After four
+runs: one was below the line in 4 of 4 and was real, one was below in 1 of 4 and
+was noise, and the two that had not crossed at all were noise too. An upward
+flip repeated in 4 of 4 and was real as well.
+
+Three of the four downward movers sat one or two votes from the line, which is
+where five-sample noise lives. Nothing about the first run said which of them
+was which, and the honest reading after one run is *not yet known* — which is
+why this chapter says to take the median before promoting, and why it is worth
+the runs it costs.
 
 ## 7. The aggregate gates, the cases diagnose
 
