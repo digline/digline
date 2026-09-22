@@ -410,6 +410,17 @@ exist and every renderer walks it. Look where the source is somewhere else:
 invalidates. A record's own conditions cannot be found by looking, which is why
 ADR 0002 §8 keeps its list — what must not sit beside it is a number.
 
+*And a count there is worse than staleness suggests, because it can be wrong at
+birth.* A total over a set with no one-to-one counterpart in the code gets
+derived by counting the nearest thing that has one — and the nearest thing is
+not the set. ADR 0002 §8 was corrected from three to five on 2026-09-21 by
+counting the exception types `promote_baseline` raises. There were six:
+`unreconciled` raises `ErroredRunError`, the same type as the errored-verdict
+condition, so the types count five and the conditions count six, and the
+derivation is confident and wrong. A stale number at least had a morning when it
+was right; this kind never did. Name them and the question does not arise —
+which is why the correction of a count is the argument for not writing one.
+
 **The cure belongs at the point of growth, not in a gate at the point of
 reading.** A mechanical check can look for numbers; it cannot ask whether a set
 has an amendment procedure, and asking the question it *can* ask produced some
