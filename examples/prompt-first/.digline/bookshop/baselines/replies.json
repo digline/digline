@@ -2,20 +2,22 @@
   "aggregate": [],
   "artifacts": {
     "prompts/system.txt": {
-      "sha": "9bb2bd77519e101f7ab7ed65506f468896426d4c8c76f7c32a8932260cee17cb",
-      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\n"
+      "sha": "06c2108bd85eb72888e9e5d1b85ac62688e3a3d179acc60293f40fe8b4c4a809",
+      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\nAlways remind the customer of the returns policy.\n"
     },
     "prompts/user.txt": {
       "sha": "96f7331433314f30ce6385279654a8c663906ca591561dd98283cd83ec63566a",
       "text": "Customer asks: {question}\n"
     }
   },
-  "config_hash": "0a303dce063a7ea5",
-  "created_at": "2026-08-27T10:38:04.854034+00:00",
+  "config_hash": "2df3c2b91c88e691",
+  "created_at": "2026-09-22T14:21:24.274125+00:00",
+  "digline_version": "0.18.0",
   "environment": "dev",
-  "git_commit": "c13fa540ae60828eabe000ed5c53b616d5606a4d-dirty",
+  "git_commit": "4e009bba5fae09174cbc3ead2d3bcb2e36710fc9",
   "judge_config": {},
   "metadata": {},
+  "promoted_at": "2026-09-22T14:21:24.414661+00:00",
   "redacted": false,
   "results": [
     {
@@ -26,38 +28,52 @@
           "assertion": "levenshtein",
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
-            "distance": 0,
-            "length": 70
+            "agreement": 1.0,
+            "distance": 40.0,
+            "errored_samples": 0,
+            "length": 110.0,
+            "samples": 2,
+            "scores": [
+              0.636364,
+              0.636364
+            ],
+            "spread": 0.0
           },
-          "reason": "0 edit(s) over 70 characters (similarity 1.000000)",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "mean of 2 samples (0.636364, 0.636364)",
+          "sample_max": 0.636364,
+          "sample_min": 0.636364,
+          "samples": [
+            0.636364,
+            0.636364
+          ],
+          "score": 0.636364,
+          "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
           "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 2,
             "scores": [
-              1.0,
-              1.0,
-              1.0
+              0.7,
+              0.7
             ],
             "spread": 0.0
           },
-          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
-          "sample_max": 1.0,
-          "sample_min": 1.0,
+          "reason": "mean of 2 samples (0.700000, 0.700000)",
+          "sample_max": 0.7,
+          "sample_means": true,
+          "sample_min": 0.7,
           "samples": [
-            1.0,
-            1.0,
-            1.0
+            0.7,
+            0.7
           ],
-          "score": 1.0,
+          "score": 0.7,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -72,38 +88,52 @@
           "assertion": "levenshtein",
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
-            "distance": 0,
-            "length": 80
+            "agreement": 1.0,
+            "distance": 40.0,
+            "errored_samples": 0,
+            "length": 120.0,
+            "samples": 2,
+            "scores": [
+              0.666667,
+              0.666667
+            ],
+            "spread": 0.0
           },
-          "reason": "0 edit(s) over 80 characters (similarity 1.000000)",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "mean of 2 samples (0.666667, 0.666667)",
+          "sample_max": 0.666667,
+          "sample_min": 0.666667,
+          "samples": [
+            0.666667,
+            0.666667
+          ],
+          "score": 0.666667,
+          "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
           "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 2,
             "scores": [
-              1.0,
-              1.0,
-              1.0
+              0.7,
+              0.7
             ],
             "spread": 0.0
           },
-          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
-          "sample_max": 1.0,
-          "sample_min": 1.0,
+          "reason": "mean of 2 samples (0.700000, 0.700000)",
+          "sample_max": 0.7,
+          "sample_means": true,
+          "sample_min": 0.7,
           "samples": [
-            1.0,
-            1.0,
-            1.0
+            0.7,
+            0.7
           ],
-          "score": 1.0,
+          "score": 0.7,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -118,38 +148,52 @@
           "assertion": "levenshtein",
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
-            "distance": 0,
-            "length": 51
+            "agreement": 1.0,
+            "distance": 40.0,
+            "errored_samples": 0,
+            "length": 91.0,
+            "samples": 2,
+            "scores": [
+              0.56044,
+              0.56044
+            ],
+            "spread": 0.0
           },
-          "reason": "0 edit(s) over 51 characters (similarity 1.000000)",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "mean of 2 samples (0.560440, 0.560440)",
+          "sample_max": 0.56044,
+          "sample_min": 0.56044,
+          "samples": [
+            0.56044,
+            0.56044
+          ],
+          "score": 0.56044,
+          "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
           "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 2,
             "scores": [
-              1.0,
-              1.0,
-              1.0
+              0.7,
+              0.7
             ],
             "spread": 0.0
           },
-          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
-          "sample_max": 1.0,
-          "sample_min": 1.0,
+          "reason": "mean of 2 samples (0.700000, 0.700000)",
+          "sample_max": 0.7,
+          "sample_means": true,
+          "sample_min": 0.7,
           "samples": [
-            1.0,
-            1.0,
-            1.0
+            0.7,
+            0.7
           ],
-          "score": 1.0,
+          "score": 0.7,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -164,38 +208,52 @@
           "assertion": "levenshtein",
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
-            "distance": 0,
-            "length": 76
+            "agreement": 1.0,
+            "distance": 40.0,
+            "errored_samples": 0,
+            "length": 116.0,
+            "samples": 2,
+            "scores": [
+              0.655172,
+              0.655172
+            ],
+            "spread": 0.0
           },
-          "reason": "0 edit(s) over 76 characters (similarity 1.000000)",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "mean of 2 samples (0.655172, 0.655172)",
+          "sample_max": 0.655172,
+          "sample_min": 0.655172,
+          "samples": [
+            0.655172,
+            0.655172
+          ],
+          "score": 0.655172,
+          "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
           "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 2,
             "scores": [
-              1.0,
-              1.0,
-              1.0
+              0.7,
+              0.7
             ],
             "spread": 0.0
           },
-          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
-          "sample_max": 1.0,
-          "sample_min": 1.0,
+          "reason": "mean of 2 samples (0.700000, 0.700000)",
+          "sample_max": 0.7,
+          "sample_means": true,
+          "sample_min": 0.7,
           "samples": [
-            1.0,
-            1.0,
-            1.0
+            0.7,
+            0.7
           ],
-          "score": 1.0,
+          "score": 0.7,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -210,38 +268,52 @@
           "assertion": "levenshtein",
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
-            "distance": 0,
-            "length": 67
+            "agreement": 1.0,
+            "distance": 40.0,
+            "errored_samples": 0,
+            "length": 107.0,
+            "samples": 2,
+            "scores": [
+              0.626168,
+              0.626168
+            ],
+            "spread": 0.0
           },
-          "reason": "0 edit(s) over 67 characters (similarity 1.000000)",
-          "score": 1.0,
-          "status": "pass",
+          "reason": "mean of 2 samples (0.626168, 0.626168)",
+          "sample_max": 0.626168,
+          "sample_min": 0.626168,
+          "samples": [
+            0.626168,
+            0.626168
+          ],
+          "score": 0.626168,
+          "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
           "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 2,
             "scores": [
-              1.0,
-              1.0,
-              1.0
+              0.7,
+              0.7
             ],
             "spread": 0.0
           },
-          "reason": "mean of 3 samples (1.000000, 1.000000, 1.000000)",
-          "sample_max": 1.0,
-          "sample_min": 1.0,
+          "reason": "mean of 2 samples (0.700000, 0.700000)",
+          "sample_max": 0.7,
+          "sample_means": true,
+          "sample_min": 0.7,
           "samples": [
-            1.0,
-            1.0,
-            1.0
+            0.7,
+            0.7
           ],
-          "score": 1.0,
+          "score": 0.7,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -251,6 +323,28 @@
   ],
   "schema_version": 15,
   "suite": "replies",
-  "target_config": {},
-  "tenant": "bookshop"
+  "target_config": {
+    "values": {
+      "max_tokens": 200,
+      "model": "claude-haiku-4-5",
+      "provider": "anthropic"
+    }
+  },
+  "tenant": "bookshop",
+  "usage": {
+    "judge": {
+      "calls": 0,
+      "counted": 0,
+      "spent_usd": 0.0
+    },
+    "target": {
+      "calls": 10,
+      "counted": 10,
+      "spent_usd": 0.0038,
+      "tokens": {
+        "input_tokens": 1800,
+        "output_tokens": 400
+      }
+    }
+  }
 }
