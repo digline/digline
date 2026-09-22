@@ -995,7 +995,7 @@ def _incomparable_section(
     **Deliberately not a seventh entry in `SECTIONS`.** Every section in that
     list renders whether or not it has rows — `Regressions (0)` and its "nothing
     in this group" line are part of the document's shape — so adding one there
-    would rewrite every report ever rendered, including the ten committed under
+    would rewrite every report ever rendered, including the ones committed under
     `examples/`, to carry an empty `(0)` that is empty in almost every run. This
     is the shape `calibration_section` already chose for the same problem, in
     the same document: nothing at all when there is nothing, so a report of a

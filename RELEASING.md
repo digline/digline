@@ -171,8 +171,8 @@ waiting for a tag of its own goes in `UNRELEASED_ON_PURPOSE` with the reason,
 which is a sentence somebody writes and somebody reads.
 
 That makes two failures that arrive at this step and not at the bump: this one
-when the heading is dated, and `home_capture.py --check` right after it. Seven
-gates in all, six of them in the table above.
+when the heading is dated, and `home_capture.py --check` right after it. They
+are gates of the table above, arriving later rather than gates of their own.
 
 It is no longer only tidiness. `tools/image_pins.py` reads those headings to
 decide whether a pin the index does not serve is expected (*The window before
@@ -996,10 +996,10 @@ tag* updates it on every tag.
 
 The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves
 against a different set of uploads — so nothing holds it to a version and a
-lagging index there can still resolve an older one. The five examples carrying
-a `uv.lock` pin exact versions that legitimately lag a release until the locks
-are regenerated, and the wait says nothing about what any individual lock
-resolves to. The ten `examples/*/.github/workflows/check.yml` are inert inside
+lagging index there can still resolve an older one. The examples carrying
+a `uv.lock` — `ls examples/*/uv.lock` — pin exact versions that legitimately lag
+a release until the locks are regenerated, and the wait says nothing about what any individual lock
+resolves to. The `examples/*/.github/workflows/check.yml` are inert inside
 this monorepo and are not reached by a release at all. `java-example.yml`
 installs no Python package and is not a consumer.
 

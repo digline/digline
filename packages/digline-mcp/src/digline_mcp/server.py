@@ -127,11 +127,11 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
 
         ADR 0011 §8 said "one server, one repository" and nothing enforced it:
         `spec` arrived from a tool call and went straight to `load_suite`, which
-        **executes** a `.py`. So every tool here — including the five annotated
-        `read_only_hint=True` — was a way to run a file from anywhere on the
-        disk. The annotation is what a client reads to decide it may call
-        something without asking, which is precisely why this had to become a
-        boundary rather than a caution in a docstring.
+        **executes** a `.py`. So every tool here — including the ones annotated
+        `read_only_hint=True`, which are the READS below — was a way to run a
+        file from anywhere on the disk. The annotation is what a client reads
+        to decide it may call something without asking, which is precisely why
+        this had to become a boundary rather than a caution in a docstring.
 
         The rule is stricter than the loader's on purpose: **the spec must name
         a file inside the root.** That refuses the traversal, and it also

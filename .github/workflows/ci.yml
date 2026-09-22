@@ -397,8 +397,10 @@ jobs:
         # This asks the index for the exact version this workspace declares and
         # fails naming it.
         #
-        # **What it does not cover, stated rather than assumed:** five examples
-        # carry a `uv.lock` pinning an exact version, and after a release those
+        # **What it does not cover, stated rather than assumed:** the examples
+        # that carry a `uv.lock` — `ls examples/*/uv.lock`, which is what
+        # `.github/release_followup.py` reads — pin an exact version, and after
+        # a release those
         # locks legitimately still name the *previous* one until they are
         # regenerated. This waits for the version in `pyproject.toml` — the one
         # the post-release dispatch exists to prove — and says nothing about
@@ -449,8 +451,8 @@ jobs:
         # example's own `check.yml` is inert inside this monorepo — the workflow
         # that runs is this one — so the two pins `examples/langgraph` declares
         # there would not be applied by the leg that actually runs it. Harmless
-        # for the nine examples that never import langchain, and set for all ten
-        # rather than conditionally: an `if` on the matrix value would be a
+        # for every example that never imports langchain, and set for all of
+        # them rather than conditionally: an `if` on the matrix value would be a
         # second place to forget the next framework example.
         # All four, and the reason is the 0.12.1 delta-pass: the lookup takes
         # the first non-empty of these in this order, so pinning a subset leaves
