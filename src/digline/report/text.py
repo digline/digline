@@ -696,6 +696,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "judged.errored.one": ", and 1 judgement returned no score",
         "judged.errored.many": ", and {count} judgements returned no score",
+        "judged.floor": (
+            "; measured on recorded answers, which are not a sample of what a "
+            "live run produces, so this is a lower bound on the judge's range "
+            "in production"
+        ),
         "judged.calibration.inside": (
             "; the calibration case {case} scored {score}, inside its declared "
             "band {low}–{high}"
@@ -1697,6 +1702,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "judged.errored.one": ", e 1 giudizio non ha restituito un punteggio",
         "judged.errored.many": (
             ", e {count} giudizi non hanno restituito un punteggio"
+        ),
+        "judged.floor": (
+            "; misurato su risposte registrate, che non sono un campione di ciò "
+            "che produce una run dal vivo, quindi questo è un limite inferiore "
+            "all'intervallo del giudice in produzione"
         ),
         "judged.calibration.inside": (
             "; il caso di calibrazione {case} ha ottenuto {score}, dentro la "

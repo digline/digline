@@ -171,6 +171,16 @@ carries the calibration result beside the range, and a suite with no
 *this suite declares no calibration case, and a judge that has lost its scale
 reads as perfectly repeatable*. The sentence is printed by `rejudge` on stderr,
 and is `judge_reading` in `--json`; later reports of the run do not repeat it.
+
+**And never the range without saying it is a floor.** A replay measures the
+judge on *recorded* answers, and what a store holds is what was produced,
+parsed and kept — not a sample of what a live run yields. So the sentence ends
+*measured on recorded answers, which are not a sample of what a live run
+produces, so this is a lower bound on the judge's range in production*. On one
+real suite the gap was four to five times; the figure stays the right one to
+print, and what the clause adds is what it does not cover
+([ADR 0024](adr/0024-the-judge-as-an-instrument.md) §5.6). It is absent where
+no range was measured: there is nothing to bound.
 The run records the count as `judge_samples`. Reasoning in
 [ADR 0024](adr/0024-the-judge-as-an-instrument.md) §5.
 

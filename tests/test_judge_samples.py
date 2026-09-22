@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -423,7 +424,9 @@ def test_the_sentence_names_the_widest_answer_and_the_calibration_inside() -> No
     )
     assert judge_reading(run, locale="en") == (
         "the judge's own range on these answers is at most 0.100000 across 5 "
-        "judgements (faithfulness, answer 3 of case refund-policy); the "
+        "judgements (faithfulness, answer 3 of case refund-policy); measured on "
+        "recorded answers, which are not a sample of what a live run produces, "
+        "so this is a lower bound on the judge's range in production; the "
         "calibration case half-supported scored 0.500000, inside its declared "
         "band 0.300000–0.700000"
     )
@@ -433,15 +436,65 @@ def test_a_suite_with_no_calibration_case_is_told_what_that_costs() -> None:
     run = judged_run(("steady", 1.0, 1.0, 1))
     assert judge_reading(run, locale="en") == (
         "the judge's own range on these answers is at most 0.000000 across 5 "
-        "judgements (faithfulness, answer 1 of case steady); this suite declares "
-        "no calibration case, and a judge that has lost its scale reads as "
-        "perfectly repeatable"
+        "judgements (faithfulness, answer 1 of case steady); measured on "
+        "recorded answers, which are not a sample of what a live run produces, "
+        "so this is a lower bound on the judge's range in production; this suite "
+        "declares no calibration case, and a judge that has lost its scale reads "
+        "as perfectly repeatable"
     )
 
 
 def test_a_lost_scale_is_named_first_among_calibration_cases() -> None:
     run = judged_run(("steady", 1.0, 1.0, 1), calibration=(1.0, False))
     assert "outside its declared band" in judge_reading(run, locale="en")
+
+
+# --------------------------------------------------------------------------- #
+# The range is a floor, and the reading says so (ADR 0024 §5.6)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_range_says_it_is_a_lower_bound_in_both_locales() -> None:
+    """A replay measures the judge on answers that did not move, and those are
+    not a sample of what a live run produces — 2.0% abstention on replayed
+    answers against 8–10.5% on live ones, on the suite that measured it.
+
+    The record states it; this is the line where somebody reads the number. A
+    record nobody opens protects nobody, which is the argument the seven
+    absences already make: a reading declares what it cannot know.
+    """
+    run = judged_run(("steady", 0.4, 0.9, 1))
+    assert (
+        "so this is a lower bound on the judge's range in production"
+        in judge_reading(run, locale="en")
+    )
+    assert (
+        "quindi questo è un limite inferiore all'intervallo del giudice in "
+        "produzione" in judge_reading(run, locale="it")
+    )
+
+
+def test_the_floor_clause_qualifies_the_range_it_is_about() -> None:
+    """It sits between the range and the calibration result, because it is a
+    caveat on the first and says nothing about the second. A reader who stops
+    at the semicolon has still read the qualifier."""
+    run = judged_run(("steady", 0.4, 0.9, 1), calibration=(0.5, True))
+    text = judge_reading(run, locale="en")
+    assert text.index("lower bound") < text.index("calibration case")
+
+
+def test_an_unmeasured_range_is_not_given_a_floor() -> None:
+    """The control that must fail, and the case that makes the clause wrong.
+
+    Where no answer returned two scores there is no range, and qualifying a
+    measurement that does not exist would be a caveat about nothing — the shape
+    the spread's four causes were split apart to avoid.
+    """
+    run = judged_run(("steady", 0.5, 0.5, 1))
+    bare = replace(run, results=(CaseResult("steady", ()),))
+    text = judge_reading(bare, locale="en")
+    assert "was not measured" in text
+    assert "lower bound" not in text
 
 
 def test_the_unmeasured_range_and_the_errored_judgements_are_said() -> None:
@@ -550,7 +603,9 @@ def test_rejudge_reports_the_range_beside_the_scale(repo: Path) -> None:
     assert "each recorded answer is judged 3 times by llm_rubric" in done.stderr
     assert (
         "digline: the judge's own range on these answers is at most 0.600000 across "
-        "3 judgements (llm_rubric, answer 1 of case one); this suite declares no "
+        "3 judgements (llm_rubric, answer 1 of case one); measured on recorded "
+        "answers, which are not a sample of what a live run produces, so this is a "
+        "lower bound on the judge's range in production; this suite declares no "
         "calibration case" in done.stderr
     )
     payload = json.loads(done.stdout)
