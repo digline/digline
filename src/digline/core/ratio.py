@@ -46,6 +46,7 @@ def reachable_agreements(samples: int) -> list[Fraction]:
     return [Fraction(k, samples) for k in range(1, samples + 1)]
 
 
+# Touched by a proof that the docs gate ignores code-only changes.
 def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
     """Parse, then refuse anything `samples` samples cannot produce.
 
