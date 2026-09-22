@@ -111,7 +111,7 @@ missing is the thesis.**
 tools chosen here became eight, once, for `explain` and `log` together. Neither
 writes, and the absent list below did not shrink.*
 
-The server exposes exactly eight tools:
+The server exposes exactly these tools, and no others:
 
 | tool | arguments | kind |
 |---|---|---|
@@ -187,7 +187,7 @@ counts, in those words, and the response carries `CallPlan.sentence()` — which
 *does* name each `Repeated` and its factor — so the agent that has to report the
 cost has the whole sentence and not just the part it acknowledged.
 
-**The first call is the probe, and there is no seventh tool.** A `run` called
+**The first call is the probe, and no tool returns the plan.** A `run` called
 without a correct `acknowledge_calls` is refused **with the plan in the
 refusal**: the count, the sentence, and the instruction to call again with the
 number. So the sequence is
@@ -607,7 +607,7 @@ tool on this surface, over a suite whose cases, verdicts, suspensions, artifacts
 **no response may contain any of them.** The withheld config value is in the
 marker suite deliberately: the projection must not leak what the delta rendering
 already withholds, and the two are built by different functions. Serialize the whole response, search it for each marker, fail on a
-hit. It runs over all six tools and not only the two that return runs, because
+hit. It runs over every tool and not only the two that return runs, because
 the point is the boundary and not the function.
 
 That gate is what makes "chosen" mean something: a field added to the projection
@@ -760,7 +760,7 @@ went to `load_suite`, which *executes* a `.py`. Every tool was therefore a way
 to run a file from anywhere on the disk — including the five annotated
 `read_only_hint=True`, which is the annotation a client reads to decide it may
 call one without asking a person. From 0.1.1 the spec must name a file inside
-`--root`, checked in the one function all six tools cross. The check is
+`--root`, checked in the one function every tool crosses. The check is
 deliberately stricter than the loader's: it also refuses the dotted-module
 form, which resolves through `sys.path` and so names something this server
 cannot place inside the repository at all. The CLI still takes that form — a
@@ -949,7 +949,7 @@ the day they disagree there is no answer to which one is digline's.
 **`get_run` returning `run_to_json(redacted=True)`.** §5. Two contracts, two
 lifetimes.
 
-**A seventh tool for the call plan.** §2. It would make the acknowledgement a
+**A tool for the call plan.** §2. It would make the acknowledgement a
 courtesy again.
 
 **A registry of projects.** §8. Machine-global state naming every tenant.
@@ -990,7 +990,7 @@ amendments named above.
 
 4. **The no-reason gate.** A suite whose verdict reasons, suspension reasons,
    case metadata, case vars and artifact text all carry distinct markers. Every
-   one of the six tools is called; each response is serialized whole and
+   one of the tools is called; each response is serialized whole and
    searched for every marker. Any hit fails, naming the marker and the tool.
 5. `Disclosure(artifacts=True)` lets artifact text through, and only then —
    the positive half, so the gate is proving a boundary and not proving that
