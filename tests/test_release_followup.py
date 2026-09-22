@@ -425,13 +425,32 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
 
 
 def test_this_repository_is_the_shape_the_checks_assume() -> None:
-    """The fixtures above are fixtures; this reads the real tree, so a renamed
-    example or a lock that stops carrying a digline entry fails here rather than
-    silently making a check unfalsifiable."""
+    """The fixtures above are fixtures; this reads the real tree, so a lock that
+    stops carrying a digline entry, or an `examples/` that stops holding locks
+    at all, fails here rather than silently making a check unfalsifiable.
+
+    **What the set comparison guards, said plainly, because it reads as though
+    it guarded more.** It does *not* fail when the tree gains an example: it
+    cannot, and it should not — a new example with a lock is found by the glob
+    and there is nothing to add it to, which is the whole point of the glob.
+    What it guards is `lock_versions` itself. Walk the directory by a different
+    route than the function does — `iterdir` and `is_file` against the
+    function's `glob` — and a filter reintroduced into the function, or a
+    pattern that stops matching what it used to, shows up as a disagreement
+    between two readings of one filesystem. That is worth a line; it is just
+    not the same line as "a new example fails here", which it used to claim.
+    """
     pinned = followup.lock_versions(ROOT)
-    on_disk = {path.parent.name for path in ROOT.glob("examples/*/uv.lock")}
-    assert set(pinned) == on_disk, (
-        "step 3 must read every example that has a lock, and only those"
+    # Deliberately not `ROOT.glob("examples/*/uv.lock")`: that is the function's
+    # own expression, and comparing it against itself compares nothing.
+    walked = {
+        directory.name
+        for directory in (ROOT / "examples").iterdir()
+        if (directory / "uv.lock").is_file()
+    }
+    assert set(pinned) == walked, (
+        "step 3 must read every example that has a lock, and only those — two "
+        "walks of one directory disagree, so one of them is filtering"
     )
     assert pinned, "no example carries a uv.lock: step 3 would pass over nothing"
     assert all(version is not None for version in pinned.values()), pinned
