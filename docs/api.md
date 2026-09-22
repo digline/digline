@@ -693,6 +693,8 @@ the one redaction keeps back.
 
 ## The assertions
 
+A link that resolves nowhere: [the missing page](no-such-page.md).
+
 Every assertion is an immutable dataclass and a pure function
 `(EvaluatorInputs) -> Verdict`. They apply **to every case**: each one states
 something that must hold for all of them.
