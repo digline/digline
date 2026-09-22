@@ -75,6 +75,16 @@
   both sentences where both hold, and `declares_none` keeps its own wording
   because it was the only one that was ever right. `--json` gains
   `spread_absence`, an added key
+- Amended: 2026-09-22 — §1, the frame, **demonstrated on a real suite for the
+  first time and in the direction this record did not argue.** brief's
+  `brief-reason` suite ran the calibration case and `judge_samples` together on
+  21 cases: the judge's range on a *fixed* answer reached **1.000** with 13 of
+  21 cases ranging 0.5 or more, while the calibration case scored **0.500** five
+  times out of five inside its 0.30–0.70 band. §1 argued the pairing one way —
+  repeatability alone would call a collapsed judge stable. This is the converse:
+  repeatability alone called an intact judge broken. No decision is revisited;
+  the argument is now bidirectional, and one bullet of §1 was weaker than the
+  data
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -279,6 +289,11 @@ table does hold is the argument for one record instead of four:
   and the most wrong.
 - **The calibration case sees collapse at one point** and is blind to noise,
   which its band absorbs, and to the population around that point.
+- **And it reads the other way too, which this list under-argued until it was
+  measured.** The bullet above says repeatability alone would call a broken
+  judge stable. The converse is that repeatability alone calls an *intact* judge
+  broken, and that is the case that actually occurred first. See the
+  demonstration below.
 - **Shape sees the population** and cannot tell a judge that lost its scale from
   a target that genuinely improved: 0.77 → 0.97 could have been either. The
   calibration case is what separates them — the shape moved and the calibration
@@ -286,6 +301,46 @@ table does hold is the argument for one record instead of four:
   extreme means the scale went.
 - **The spread sees time** — provider weather, a silent roll, a dirty commit —
   and is blind inside one run, where the other three live.
+
+#### The pairing, demonstrated (2026-09-22)
+
+The first suite to run two of these four together. brief's `brief-reason` —
+21 cases, a `Faithfulness` check over the one-sentence reason its digest prints
+under each article title, judged by Haiku over the same two prompt files the
+target is given.
+
+| measurement | reading |
+|---|---|
+| `judge_samples 3`, on a replay | the judge's range on one **fixed** answer reaches **1.000**; 13 of 21 cases range 0.5 or more; not one case had its three judgements agree |
+| the calibration case | **0.500**, five times out of five, inside its declared band 0.30–0.70, with five reasons that all named the same claim as the unsupported one |
+
+**Read alone, the first is an instrument coming apart.** A range of the whole
+scale, on an answer that did not move, is the reading you would stop a release
+over. The calibration case says the opposite and says it without ambiguity: the
+scale is intact, sitting exactly where a half-right answer belongs, and steadier
+than any real case in the suite.
+
+**What the range is measuring is the denominator, not the scale.**
+`Faithfulness` asks for two counts and divides, and `total` is the judge's own
+decision — the structural noise its own docstring warns about, here with a
+number beside it for the first time. The suite's sentences are genuinely
+ambiguous to decompose: *"rilevante per RAG in produzione"* is one claim or two
+depending on the reading, and a denominator of 2 that becomes 3 moves the score
+by 0.17 with the sentence untouched. The calibration answer is not ambiguous —
+two claims, one supported, nothing to read two ways — and its range is zero.
+
+So the two readings are not in tension and neither is wrong: **the instrument is
+intact and the question is ambiguous.** That is a third state neither
+measurement names on its own, and §1's table is what makes it readable. This is
+the first time the material has said so rather than the text.
+
+Two consequences, neither decided here. The five-sample fold already suppresses
+0.5 of per-answer range to **0.073** of per-case movement between two judgings
+of the same answers — so §5's isolation measures something real that the fold
+then mostly absorbs, which is why a suite carrying this much instrument noise
+gates usefully at all. And the repair for a case that does chatter is
+`Repeated`, not a wider tolerance: the ambiguity is in the question, so it is
+answered by asking more times, not by caring less.
 
 ### 2. The order, which is the order of this record
 

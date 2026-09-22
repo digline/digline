@@ -629,6 +629,25 @@ the baseline says "not worse than this". You get better by improving the system
 and *then* raising the bar — which is a change to the configuration, visible in
 `config_hash` and in a pull request.
 
+### Look at the whole suite, not the top of the file
+
+A judged run costs money, so the temptation is to price the level from a handful
+of cases first and set the bar from that. Do it on a handful drawn *at random*.
+
+The failure has a name and it is cheap to hit. On a real suite the first six
+cases were taken off the top of the cases file to size a `Faithfulness`
+threshold: they measured a mean of **0.47**. The full 21 measured **0.725**. The
+cases file was sorted by date, the six oldest were the worst, and a bar set from
+that probe would have sat so far under the suite that nothing could ever have
+tripped it.
+
+**A probe drawn from the head of a file is not a sample.** Case files are built
+in some order — by date, by import, by the query that generated them — and that
+order is almost never independent of the thing being measured. If you are going
+to look at a subset, shuffle it; if you cannot afford to, say out loud that the
+number is a floor on your uncertainty rather than an estimate of the level, and
+set the bar after the first full run rather than before it.
+
 ## 6. Promote the median, not the first green run
 
 A baseline freezes one run. Freeze the wrong one and you freeze its luck with
