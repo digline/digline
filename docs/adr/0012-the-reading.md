@@ -331,82 +331,70 @@ consumer to parse English when the facts are right there, typed. The MCP
 server's `compare` tool makes the same argument from the other side when it
 hardcodes `locale="en"`: an agent is not the document's recipient.
 
-**No total is written for this list, and that is a rule about prose rather than
-about code.** This list is closed and it is *amended*, which means it grows: the
-chain above is eight amendments long and each one records which release added
-which kind. Keep that chain — it says when each fact arrived, and a record of
-when something happened cannot go stale. What must not be written beside it is a
-**count of the whole**: "eight kinds", "a ninth would be saying something the
-report does not". Such a sentence is true on the day it is written and false at
-the next amendment, and it goes stale in the direction that reads as complete —
-it under-reports, so nobody notices.
+**No total is written for this list, and no enumeration of a set that can be
+found by looking. The criterion is narrower than either, and it is worth stating
+precisely, because most of the counts in this repository are fine.**
 
-This was not hypothetical. Both of this record's own lists carried one, and both
-were found contradicting themselves in the same afternoon: `TallyKind`'s note
-said a ninth kind would say something the report does not, directly above its
-own entries for *the ninth*, *the tenth* and *the eleventh*; and `Headline`'s
-docstring opened with "eight facts" and then numbered its way to *the
-sixteenth*. `SECURITY.md` had the same shape ("seven so far" for the delta-pass
-on every minor release) and `RELEASING.md` had it twice. Removed 2026-09-21,
-after v0.17.1.
+*A record saying what it decided is dated history and does not age.* ADR 0025
+says "the four counts" and there are five; it is not wrong, because it decided
+four and ADR 0026 decided the fifth and says so. The schema history in
+`core/run.py` says the same four under the entry for schema 14, which is what
+schema 14 added. Neither sentence describes now; both describe an occasion, and
+an occasion does not change. The same holds for an *alternative* a record
+rejected, and for a test plan that records what a test asserted and when it was
+edited.
 
-**The distinction is between a list that grows and a shape that is fixed**, and
-it matters because the cure is easy to over-apply. *"Three states — `pass`,
-`fail`, `error`"*, *"two counts, never a fraction"*, *"a case leaves the matrix
-for five reasons"*, *"the eight MCP tools"*: each of those counts a set that is
-closed by a decision rather than extended by a ritual, and each would have to be
-**re-decided** to change — at which point the prose around it is rewritten
-anyway. Those counts are load-bearing and must stay. The test is not *is there a
-number in this sentence* but **does an amendment procedure exist for the thing
-being counted**; if it does, the number is a claim that procedure is guaranteed
-to falsify.
+*The defect lives in one place only: where a record describes the **present
+state** of a set that other records grow.* That sentence is a claim about today,
+made in a document nobody revisits, about a set whose growth is somebody else's
+amendment. It is guaranteed to be falsified by a procedure that does not pass
+through it.
 
-**And the cure belongs here, at the point of growth, rather than in a gate at
-the point of reading.** A mechanical check can look for numbers; it cannot ask
-whether a list has an amendment ritual, and asking the question it *can* ask
-produced roughly five hundred lines of prose to read by hand for six findings.
-So this is a sentence in the procedure that adds a kind, next to the chain that
-records the additions: when you amend this list, there is no total to update,
-because no total is written.
+**This repository contains exactly two of that species, and both are named here
+so that a reader can check whether a third has appeared rather than re-derive
+the criterion:**
 
-**And no enumeration is written either — where the thing can be found by
-looking, find it by looking.** This is the other half of the rule above and it
-was missing for four hours, which is exactly what it cost.
+1. **ADR 0002 §8 — the conditions on promotion.** Grown by ADR 0015 §7, ADR 0024
+   §4.5 and ADR 0027 §3, none of which came back. It said three while the code
+   refused six, was corrected to five on 2026-09-22 and was still wrong, because
+   the sixth shares an exception type with the third and is invisible to anyone
+   counting types.
+2. **ADR 0011 — the MCP tools.** Grown by ADR 0020 §9. Its table was updated to
+   eight and five sentences elsewhere in the same record went on saying *six
+   tools* and *no seventh tool*, so the record contradicted itself for two
+   releases. Fixed 2026-09-22.
 
-A stale **count** is visible: it says five where six exist, and the sixth is
-standing right there in the sentence's own subject. A stale **list** is
-invisible — it does not disagree with anything, it simply never looks at the
-sixth. Nothing contradicts it, no reader notices, and any check written from it
-answers confidently about the members it knows. The count is the symptom; the
-list is the disease.
+**With those two fixed the sweep is complete rather than ongoing**, which is the
+useful thing to record: the question was asked of every record, the twelve other
+counts were checked and kept, and what is left is a criterion a reader can apply
+to the next one rather than a backlog.
 
-On 2026-09-21 the symptom was removed and the disease left standing, in the same
-paragraph. `RELEASING.md` said *"The nine example legs"* and the dispatch ran
-eleven, so the nine came out — and directly beneath it the same paragraph named
-five examples that carry a lock, which was **correct when it was written** and
-became false the moment the thing it enumerated grew: `examples/mcp-tools/`
-landed with a lock of its own and was in nobody's list. Four hours later the
-release's step 3 regenerated five locks by reading those five names instead of
-the directory, and left `mcp-tools` pinning the previous version. The check that
-should have caught it — `release_followup.py`'s `PINNED_EXAMPLES` — carried a
-copy of the same five, so it did not miss the answer: it never asked the
-question. A gate built on an enumeration cannot fail on what the enumeration
-omits.
+*The symptom and the disease.* A stale **count** is visible — it says five where
+six exist, and the sixth stands in the sentence's own subject. A stale
+**enumeration** is invisible: it contradicts nothing, it simply never looks at
+the sixth, and any check written from it answers confidently about the members
+it knows. A gate built on an enumeration cannot fail on what the enumeration
+omits — `release_followup.py`'s `PINNED_EXAMPLES` named five example locks, and
+step 3 skipped a sixth for a release without a red anywhere. So the count is the
+symptom and the list is the disease, and on 2026-09-21 the symptom was removed
+from a paragraph of `RELEASING.md` while the disease was left standing four lines
+below it, where it cost a lock the same afternoon.
 
-**That is the same guarantee the counts had, with the visible failure removed.**
-An amendment procedure exists for that directory — somebody adds an example —
-so any list of its members is a claim that procedure will falsify, exactly as a
-total is. The difference is only that the total falsifies loudly.
+*Where an enumeration is still right.* Enumerate where the enumeration **is the
+source**: `_EXCLUSIONS` in `digline.core.compare` is the one place those names
+exist and every renderer walks it. Look where the source is somewhere else:
+`examples/*/uv.lock` is a glob, and any list of it is a cache nobody
+invalidates. A record's own conditions cannot be found by looking, which is why
+ADR 0002 §8 keeps its list — what must not sit beside it is a number.
 
-**The test is whether the thing is discoverable**, and it is what separates a
-copy from a definition. `examples/*/uv.lock` is a glob: the filesystem holds the
-answer and any list of it is a cache nobody invalidates. `_EXCLUSIONS` in
-`digline.core.compare` looks like the same shape and is not — it *is* the
-definition, the one place the five names exist, and the renderers walk it rather
-than repeating it. Enumerate where the enumeration is the source; look where the
-source is somewhere else. And when a list must be written down because nothing
-can find it, say beside it what it is a copy of, so the next reader knows there
-is something to check against.
+**The cure belongs at the point of growth, not in a gate at the point of
+reading.** A mechanical check can look for numbers; it cannot ask whether a set
+has an amendment procedure, and asking the question it *can* ask produced some
+five hundred lines of prose to read by hand for six findings. So this is a
+sentence in the procedure that amends a list, beside the chain that records the
+amendments: when you add to one, there is no total to update, because no total
+is written — and if what you added can be found by looking, nothing needs
+listing either.
 
 ### 4. No reason travels, and the boundary is a type rather than a filter
 

@@ -412,3 +412,15 @@ a change to the configuration — visible in `config_hash` and in a pull request
 - Which `environment` values are canonical. The string is free on purpose: end companies
   name their own environments as they like, and imposing an enumeration would have
   produced an `other` that half the real world falls into.
+- **Whether the unreconciled condition earns an exception type of its own.** Conditions 3
+  and 6 of §8 both raise `ErroredRunError`, so a caller that catches it cannot tell which
+  of the two fired: *a verdict errored* and *the record is incomplete* arrive under one
+  name, and they ask for different things — the first says re-run or fix the case, the
+  second says the run does not know what it measured. The refusal messages differ and name
+  the case and the check, so a person reading stderr can tell; a program catching the type
+  cannot. **Two facts under one name**, in the exception hierarchy this time. Recorded as
+  a finding rather than fixed, because a new exception type is a change to what every caller may catch — it
+  belongs to whoever decides the store's error surface, not to a cleanup, and the
+  `TRANSLATED` table in `digline-mcp` would move with it. (Found 2026-09-22, while
+  correcting §8's count for the second time — the shared type is *why* the count was wrong:
+  five is what you get by counting exception types.)
