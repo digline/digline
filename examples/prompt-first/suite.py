@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 
 from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated
-from digline.run import Case, Suite
+from digline.run import Calibration, Case, Suite
 from digline_anthropic import AnthropicTarget
 
 import fake
@@ -75,6 +75,60 @@ target = AnthropicTarget(
     client=None if LIVE else fake.FakeAnthropic(),
 )
 
+#: The case that watches the judge instead of the model, and it is **behind
+#: `DIGLINE_LIVE` like the judge it watches**. A calibration case asks where a
+#: judge places an answer known to be half right; the real judge is already
+#: behind that door, so the control belongs on the same side of it. Cases are
+#: outside `config_hash` (`run/suite.py`), so its presence moves no fingerprint.
+#:
+#: The answer is one sentence and warm — the first two thirds of the rubric —
+#: and it invents a price, which the last third forbids. A judge with a scale
+#: puts that in the middle. A judge that has collapsed onto the extremes scores
+#: it 0 or 1 and is caught, which no amount of repetition would catch: a
+#: collapsed judge is *more* repeatable, not less.
+#:
+#: The band is wide on purpose. It is a control on the instrument, not a second
+#: threshold on the prompt, and a narrow one would fail on the judge's ordinary
+#: noise.
+#:
+#: **On its first outing it caught a judge with no scale, and the judge was
+#: ours.** The stand-in below scores this answer 1.0 — it checks sentence count
+#: and warmth, and cannot see the invented price at all — so it lands outside
+#: the band and the run exits 2. That is the instrument working, not a defect
+#: in it: the stand-in is honest about what it is, and nothing until now could
+#: *say* so. The calibration case said it in one run.
+#:
+#: **Do not fix this by teaching the stand-in to see the price.** A stand-in
+#: that can read the rubric is no longer standing in, and a calibration case it
+#: passes by construction is a gate that cannot fail — the vacuously green
+#: assertion fixed decision 3 forbids, pointed at the instrument instead of at
+#: the system. The control belongs behind the same door as the judge it
+#: controls, which is where it is.
+CALIBRATION = (
+    [
+        Case(
+            id="calibration-half-right",
+            # The target is never called for this case, but every case is still
+            # preflighted against the prompt template, so the variable has to
+            # be here. It is the question the calibration shows the judge.
+            vars={"question": "How much is a signed copy?"},
+            calibration=Calibration(
+                check="llm_rubric",
+                input="How much is a signed copy?",
+                output=(
+                    "A signed copy is £25 and we would be happy to set one "
+                    "aside for you."
+                ),
+                low=0.25,
+                high=0.75,
+            ),
+        )
+    ]
+    if LIVE
+    else []
+)
+
+
 suite = Suite(
     tenant="bookshop",
     environment="dev",
@@ -96,9 +150,19 @@ suite = Suite(
             min_agreement="2/3",
         ),
     ],
+    # Two, because a suite that declares a calibration case has to repeat: one
+    # judgement of a known answer is one draw of a noisy instrument, and every
+    # wobble outside the band would stop a release. Declared for both modes
+    # rather than only the live one, so that `config_hash` is the same
+    # question on both sides of the door — a suite that fingerprinted
+    # differently depending on an environment variable would report
+    # `config_changed` against its own baseline.
+    samples=2,
+    min_agreement="2/2",
     cases=[
         Case(id=c["id"], vars=c["vars"], expected=c["expected"])
         for c in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
-    ],
+    ]
+    + CALIBRATION,
     record_responses=True,
 )
