@@ -5,12 +5,12 @@ $ digline view --suite suite.py
 digline view on http://127.0.0.1:7373/ — ctrl-c to stop
 ```
 
-Four screens over `.digline/`, stdlib only, no JavaScript, no state of its own:
+Screens over `.digline/`, stdlib only, no JavaScript, no state of its own:
 no session, no preference, no cache. Restarting it loses nothing, because there
 was nothing to lose. `--host` and `--port` are available; `--port 0` lets the
 operating system choose and the printed line carries the bound port.
 
-## The four screens
+## The screens
 
 **Run list** (`/`) — key, date, environment, commit **and the aggregates**. It
 is the table you choose a run to promote from, reading precision and accuracy

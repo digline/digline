@@ -38,8 +38,11 @@ it is drawn in one place:
 
 - **A published advisory** — GitHub Security Advisory, with a CVE where one
   applies — for a vulnerability that **shipped**: a released version, on an
-  index somebody could install from, that a user could be hurt by. Five exist
-  so far: three from the 0.7.1 and 0.7.2 pass —
+  index somebody could install from, that a user could be hurt by. The list
+  below is a copy, written out because nothing here can read it at build time;
+  the source is this repository's own advisories, which
+  `gh api repos/digline/digline/security-advisories` returns and the Security
+  tab shows. Five exist so far: three from the 0.7.1 and 0.7.2 pass —
   [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
   (high, `digline-mcp` executing a suite from anywhere on disk),
   [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
