@@ -992,6 +992,48 @@ tag* updates it on every tag.
   case for keeping it would rest on the tags where the edges disagreed rather
   than on anything since.
 
+- **v0.18.0 answered the question the paragraph above asked, and the answer is
+  no.** Four of the last five tags now: **the race happened at the runner and
+  never inside the build.**
+
+  The runner-level step printed `waiting digline==0.18.0 — /simple/digline/ is
+  served and lists 33 file version(s), none at 0.18.0` **nine times** and
+  cleared at `every version is served (after 271s)`. That is a real race, and
+  the index answered it on the served/listed distinction the message was
+  written to make. By the time either build asked, there was nothing left to
+  wait for: `#9 0.559 every version is served (after 0s)` in `smoke`, `#15 3.963
+  … (after 1s)` on arm64.
+
+  The two pairs, in the same three parts as every entry above:
+
+  - **amd64 — proven in `smoke`'s build.** `#9 1.747 Collecting digline==0.18.0`
+    and `#9 10.73 Successfully installed … digline-0.18.0 …`, one `RUN` (`#9`).
+  - **amd64 in the multi-arch push proved nothing, as predicted.** `#11 [linux/
+    amd64 stage-0 3/5]` is `CACHED`. Fifth tag running.
+  - **arm64 — proven in the multi-arch push.** `#15 18.76 Collecting
+    digline==0.18.0`, `#15 99.75 Successfully installed … digline-0.18.0 …`,
+    `#15 DONE 104.8s` — a real install, not a cache hit.
+
+  Three tags, one digest: `0.18.0`, `0.18` and `latest` all resolve to
+  `sha256:a10d9bd7947a120dfe9324f62d96a741b40f8958ea99af4ba63df6d3b69a9a04`,
+  read from the registry rather than from the build's own summary.
+
+  **What this tag proves, and what it now costs to keep saying it.** The
+  in-build `await_index.py` has printed `after 0s` or `after 1s` on every tag
+  since v0.15.1 — the only one where it ever waited. The question above asked
+  whether it ever prints a non-zero wait of its own; on this tag it did not,
+  while the runner-level wait sat for 271s. So it is said out loud, as that
+  paragraph asked: **the in-build await is a belt whose braces have held five
+  tags running**, and the case for keeping it rests on v0.15.0, where the two
+  edges genuinely disagreed, and on nothing since.
+
+  **What the next tag must show:** the same two-pair reading, and whether a tag
+  ever arrives where the runner-level wait clears at 0s *and* the in-build one
+  does not. That is the only observation left that would re-earn the in-build
+  step, and if several more tags pass without it, removing it becomes a decision
+  somebody should take deliberately rather than a question this block re-asks
+  every release.
+
 ### What is not covered, stated rather than assumed
 
 The `testpypi` job installs unversioned names, on purpose — TestPyPI resolves
