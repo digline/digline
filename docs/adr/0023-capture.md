@@ -559,6 +559,59 @@ two per direction by default, permanent, are the answer to that warning, and the
 are an answer only if the operator's suite is built by capture rather than
 beside it.
 
+**Amended 2026-09-22: the table above still sends a reader to the journal, and
+that is where the labels are not.**
+
+The amendment of 2026-09-21 says in prose that the nine answers live in a
+`labels.jsonl` and not in the journal's `wanted` field. It says it forty lines
+below **the table**, which is the part of this section built to be read at a
+glance, and the table still gives *the person's label* as
+`wanted: yes | no | unsure` in the column headed *the operator*. The table is
+left standing, because it records what this record believed and deleting it
+would hide that the belief was held. This says what is true beside it.
+
+A reader who checks the premise against the journal does not find a stale
+number. They find `wanted: null` on every line, and a record telling them the
+labels are in that field — from which the conclusion is that **no label was
+ever given**, the opposite of the truth. That is worse than staleness, and it
+is why this is an amendment of its own rather than a sentence folded into the
+one above.
+
+**Where they actually are**, named so that nobody has to look twice:
+`labels.jsonl` **at the root of the scout repository, committed**, one JSON
+object per line, appended and never rewritten. The decision journal stays at
+`.digline/<tenant>/decisions/<suite>.jsonl`, gitignored, and its `wanted` is
+`null` on all nine and is expected to stay so: the two files are not two copies
+of one fact — they are the fact, and the empty seat it was meant to sit in.
+`examples/operator/answer.py`, *the label loop's seat*, still writes the
+journal's field, so the example and the fork have diverged; closing that is
+part of building the reader, not of this amendment.
+
+Three corrections to the table's row that follow from the file as it stands:
+
+- **The third answer is `cannot_say`, not `unsure`.** The amendment above
+  already ruled why; the table states the vocabulary this record invented
+  rather than the one in use.
+- **The row's key is not enough to pair a label with a cycle.** The file carries
+  `cycle_key`, `decided_at`, `policy` and `policy_digest` beside the answer, and
+  a reader needs all four: an answer is about a decision taken under a named
+  policy at a named digest, and the digest moved inside these nine.
+- **`woke` is recorded apart from `wanted`.** The four-way split counted above
+  is `woke` × `wanted` — two fields, not one — which is what makes the empty
+  fourth quadrant a fact read off the file rather than an inference.
+
+**And one qualification the paragraph above does not carry.** All nine rows are
+marked `recalled: true`, each with its reason written in: they were answered on
+2026-09-21, after the clause `unscorable-solid-evals` had been shown false and
+dropped that morning, and after the investigation had already explained the
+case. Knowing how the story ended contaminates the memory of how it looked at
+the time, so **these nine are recalled, not observed** — weaker evidence than a
+label given on the day, and not to be pooled with one. The file says so per
+row, and a line with no `recalled` key was answered without the ending known. A
+reader who counts nine labels and does not read that key will overstate what
+the set can carry, on top of the two rows of discriminating power already named
+above.
+
 ### 11. What capture never does
 
 The list is closed.
