@@ -506,8 +506,9 @@ answering differently, the answer is `Suite(samples=…)`.
 All four take `over` — the name of the one per-case assertion whose verdicts get
 counted — plus a mandatory `threshold` and `tolerance`, both readable as
 fractions. All four produce the same metadata: the four cells of the confusion
-matrix, `considered`, and the three exclusions. All four are `error`, never
-`1.0`, on an empty denominator.
+matrix, `considered`, and the exclusions of *What is left out of a
+denominator*, below. All four are `error`, never `1.0`, on an empty
+denominator.
 
 Every case must carry a `label` the moment one of these is declared, and `Suite`
 refuses `over` that names no assertion **or** two. Where to put the threshold:

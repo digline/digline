@@ -69,9 +69,10 @@ __all__ = [
     "facts",
 ]
 
-#: What a check-shaped fact can say. Eight of them, and the vocabulary is
-#: `Outcome`'s plus the three states a run has without a reference: a check
-#: under its bar, a check that errored, and a case somebody set aside.
+#: What a check-shaped fact can say: `Outcome`'s vocabulary, plus the states a
+#: run has without a reference — a check under its bar, a check within the noise,
+#: and a case somebody set aside. The list below is the list; it has grown twice
+#: and a number here only recorded when somebody last looked.
 #:
 #: `suspended` carries a case and **no check**, which is the one place this
 #: type bends. It bends the way the report already bends: `SECTIONS` puts the
