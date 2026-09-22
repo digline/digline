@@ -218,13 +218,22 @@ OTLP receiver is one more service to run; in-process is a dependency inside thei
 application) and must not be taken by inertia. All that is recorded here is that the core
 does not prejudge it.
 
-### 8. Promotion has three conditions
+### 8. Promotion's conditions
 
 `promote_baseline` refuses in three cases. They are collected here because they are the
 same rule seen from three sides: **a baseline is an approved reference**, and each of the
 three conditions prevents approving something that is not a reference. Each exists because
 violating it produces a comparison that runs anyway and returns numbers anyway — the worst
 way to be wrong.
+
+*Amended 2026-09-22: there are five. Two were added after this record was written, by the
+records that decided them, and neither came back to say so here — so this section went on
+saying three, in its heading and in the paragraph above, while `promote_baseline` refused
+in five cases. The three below are this record's, unchanged. The two that follow them are
+named where they were decided; `store/protocol.py` carries all five together. The count is
+out of the heading with them: a section that lists its conditions underneath itself does
+not need to say how many there are, and saying so is what let this one be wrong in the
+title for two releases.*
 
 1. **`TenantMismatchError`** — the run's tenant does not match the one it is addressed
    with. A perimeter is not crossed because of a wrong copy (§1).
@@ -240,6 +249,17 @@ way to be wrong.
    The remedy for an unstable case is to fix it or take it out of the suite, not to
    enshrine it. It is the natural sequel to ADR 0001's rule that `error` is not green and
    is not a regression: it is not a reference either.
+
+4. **`ReplayedRunError`** — the run declares `rejudged_from`. The answers must have been
+   *measured*, or the interval promoted with them was measured without the target in it.
+   *Added by [ADR 0015](0015-the-recorded-output-and-the-declared-re-judge.md) §7, which
+   calls it "the fourth condition on promotion" and sits it "with the other three" — while
+   its own `Assumes:` line, 255 lines up in the same file, still cited this section as
+   "promotion has three conditions".*
+5. **`UncalibratedRunError`** — a calibration case scored outside its declared band. The
+   numbers exist and are not measurements.
+   *Added by [ADR 0024](0024-the-judge-as-an-instrument.md) §4.5, which calls it "the
+   fifth condition, beside tenant, configuration, errored".*
 
 *Numbering note: this section is the eighth, not the sixth, because inserting §1-bis
 shifted the numbering after the initial draft. §6 remains the `case_id`.*
