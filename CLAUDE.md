@@ -108,6 +108,19 @@ artifacts that today exists in none of the audited competitors.
   that the core stays pure and importable from Plumbline without dragging storage
   along. It must not be weakened or made optional; if it fails, the change is
   wrong, not the test.
+- **A claim that cannot be sourced says so in the place it is made, never in a
+  footnote and never nowhere.** The qualification travels with the sentence,
+  because a reader who meets the claim and not the caveat has been told
+  something stronger than we can support — and a reader who goes looking for the
+  evidence and fails draws a worse conclusion than the one we could have handed
+  them. Two instances, one day apart, on the two kinds of thing we write:
+  [ADR 0024](docs/adr/0024-the-judge-as-an-instrument.md) §5.6 states the bound
+  on what a replay can measure inside §5, beside the figure it qualifies, rather
+  than leaving a reader to assume there is no bound; and the Handbook's chapter
+  0 says, in the paragraph that describes the system it was written from, that
+  the reading has no dated artefact behind it. The shape is the same on a
+  measurement and on prose: name the limit where the claim is, and let it be
+  read as a shape that recurs rather than as evidence.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.
