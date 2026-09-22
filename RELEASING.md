@@ -385,6 +385,18 @@ sounds like it. The two repositories are not symmetrical:
   dispatch payload names a ref. So a site pull request carrying a nav entry
   **cannot go green** until the page is on this repository's `main`. Site-first
   is not risky, it is impossible.
+- The window between the two merges is the one time that asymmetry costs
+  something. A tag dispatched while the site's entries are still in a pull
+  request rebuilds nothing: the site goes on describing the previous version
+  until somebody merges them, and the red run reads as a broken release rather
+  than as a wait somebody planned. Nothing is lost and no re-tag is needed —
+  that merge rebuilds the site from the tag — so the `site_nav` job in
+  `publish.yml` **says so and does not stop anything**. It compares this tag's
+  `docs/adr/` against the site's nav, with the token it already has, and warns
+  naming the records the site cannot show yet. It cannot block: it runs after
+  `pypi`, where everything irreversible has already happened, and a failure
+  there would stop nothing while making a foreseeable wait look like a defect.
+
 - This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
   neither sets `DIGLINE_SITE_CONFIG` — so `tests/_site.py` skips there and the
   two nav checks never run. What runs them for real is the `docs` job, which

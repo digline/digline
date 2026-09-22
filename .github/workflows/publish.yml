@@ -302,6 +302,64 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --verify-tag --title "digline $version" --notes-file /tmp/notes.md
           fi
 
+  # Before the rebuild is asked for: can the site build this tag at all?
+  #
+  # digline.dev builds from its own pages plus this repository's docs/, and
+  # `--strict` refuses a page that no nav entry lists. So an ADR recorded here
+  # cannot reach the site until digline.dev has three entries for it, which by
+  # its RUNBOOK go on a branch of their own and merge *after* the record lands
+  # here. Between those two merges the site cannot build — deliberately, and
+  # usually for minutes.
+  #
+  # A release dispatched inside that window is the one case where the window
+  # costs something: the rebuild fails, and the site goes on describing the
+  # previous version until somebody merges the entries. Nothing is lost — that
+  # merge rebuilds the site from this tag — but the delay is invisible, and the
+  # red run looks like a broken release rather than a known wait.
+  #
+  # So this says so, and says nothing else. It never fails: see the `site` job
+  # below for why nothing at this point can.
+  site_nav:
+    name: Can the site build this tag?
+    needs: pypi
+    if: startsWith(github.ref_name, 'v')
+    # Reading this repository's own docs/adr/ is all the checkout is for. The
+    # site's mkdocs.yml is read with the PAT, on the step, as in `site`.
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare this tag's records with the site's nav
+        env:
+          GH_TOKEN: ${{ secrets.DIGLINE_DEV_DISPATCH_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Contents: read is what this token has, and a file is what it reads.
+          # Listing digline.dev's pull requests would be the more direct
+          # question — "is an adr-*-site branch open?" — and needs a permission
+          # the token deliberately does not have. The nav is the same answer
+          # from the side the build actually reads, and it does not depend on
+          # what anybody named a branch.
+          nav="$(gh api repos/digline/digline.dev/contents/mkdocs.yml \
+                   --jq .content 2>/dev/null | base64 -d 2>/dev/null)" || nav=""
+          if [ -z "$nav" ]; then
+            echo "::notice title=The site's nav could not be read::Skipping the check. The rebuild below is unaffected."
+            exit 0
+          fi
+          missing=""
+          for record in docs/adr/*.md; do
+            page="product/adr/$(basename "$record")"
+            case "$nav" in *"$page"*) ;; *) missing="$missing $page" ;; esac
+          done
+          if [ -z "$missing" ]; then
+            echo "The site's nav lists every record of this tag; the rebuild can build it."
+            exit 0
+          fi
+          echo "::warning title=The site cannot build this tag yet::digline.dev's nav has no entry for:$missing — the rebuild dispatched below will fail, and the site will go on showing the previous version. Nothing is lost and this needs no re-tag: merging digline.dev's open adr-*-site pull request rebuilds the site from this tag. See digline.dev's RUNBOOK, 'An ADR'."
+
   site:
     name: Rebuild digline.dev
     needs: pypi
