@@ -156,6 +156,13 @@ RELEASED: dict[str, int] = {
     # in the air. 0.17.1 writes 15 exactly as 0.17.0 did — it fixes four
     # readings and a listing, and touches no document.
     "0.17.1": 15,
+    # Schema 15 for a third release, and a minor rather than a patch because
+    # `suite_deltas` is a feature: what moved on the suite side when
+    # `config_hash` changed, named and given a direction. It is *derived* from
+    # two stored documents out of fields every verdict has always carried, so
+    # it records nothing, migrates nothing and re-promotes nothing — a minor
+    # version is not a schema train, and this one is the proof.
+    "0.18.0": 15,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

@@ -233,6 +233,19 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.17.1": (
+            "the release v0.17.1 itself, quoted throughout as evidence and "
+            "history in every instance: the lock bump cut with #61 open, the "
+            "241s runner-level wait with the eight `waiting digline==0.17.1` "
+            "lines and the `served … (after 241s)` that closed it, the index "
+            "that did not list it while `/simple/` already did, the "
+            "`Collecting`/`Successfully installed` pair from the image build, "
+            "the three image tags, and the dispatch count that stopped being "
+            "`nine` by that version. It stopped being what digline is at now "
+            "on 2026-09-22, and every one of those lines is a fact about a "
+            "release that shipped — a release whose evidence moved would be a "
+            "release nobody looked at"
+        ),
         "0.17.0": (
             "the release v0.17.0 itself, quoted throughout as evidence: the "
             "pin that was still unreleased the day after, the tag that "

@@ -127,6 +127,26 @@ __all__ = [
 #:    is every one the shipped promotion path allows, reads `0` here and never
 #:    meets the kind. (F-10, the second 0.17.0 delta-pass)
 #:
+#:    `spread_absence` beside `spread` on `log --json`: an added key, under the
+#:    same rule. The spread comes out empty for four different reasons and only
+#:    one of them is a fact about the suite, so a consumer reading an empty
+#:    `spread` could not tell a fresh store from a suite that declares no
+#:    run-level check from a run whose aggregates all flipped. The key names
+#:    which, counted by cause and never as a total. It reaches no exit code —
+#:    `log` exits 0 whenever it read the store, and its `--json` has no
+#:    `exit_code` at all. (ADR 0024 §7.5, amended 2026-09-22)
+#:
+#:    `suite_deltas` under `compare --json full` and over MCP, and a `"rule"`
+#:    kind on `explain --json`: added keys, under the same rule. What moved on
+#:    the **suite** side when `config_hash` changed — each threshold, tolerance,
+#:    sample count and gate by value and by direction. Nothing is recorded to
+#:    make them: they are derived from two stored documents out of fields every
+#:    verdict has always carried, so no schema moves and a baseline promoted a
+#:    year ago is read as well as one promoted today. It moves no exit code and
+#:    gates nothing — where the bar sits is a person's declaration, and
+#:    `promote_baseline` refusing across a changed `config_hash` is where they
+#:    sign it. (ADR 0028)
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already

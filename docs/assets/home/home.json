@@ -1,6 +1,6 @@
 {
-  "digline_version": "0.17.1",
-  "captured_at": "2026-09-21T13:22:58+00:00",
+  "digline_version": "0.18.0",
+  "captured_at": "2026-09-22T10:08:49+00:00",
   "environment": {
     "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
     "stripped": [
@@ -191,20 +191,20 @@
   "scenarios": {
     "quickstart": {
       "run_ids": [
-        "2026-09-21T13-22-56-922677-00-00-282b0c02d6511fb4"
+        "2026-09-22T10-08-47-788185-00-00-282b0c02d6511fb4"
       ],
       "change": null,
       "band": "absent: samples=1",
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-21T13-22-56-922677-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-22T10-08-47-788185-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013570 USD (counted 0 of 3)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-21T13-22-56-922677-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-22T10-08-47-788185-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
@@ -218,8 +218,8 @@
     },
     "steady": {
       "run_ids": [
-        "2026-09-21T13-22-57-340572-00-00-85883581c2d6c45a",
-        "2026-09-21T13-22-57-642207-00-00-85883581c2d6c45a"
+        "2026-09-22T10-08-48-208109-00-00-85883581c2d6c45a",
+        "2026-09-22T10-08-48-502492-00-00-85883581c2d6c45a"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply is billed for the prompt it was sent, plus a jitter that cycles through five values, so five samples of a case measure a band; the only edit between the two runs is one line of prompt.md, which the suite declares.",
       "change": {
@@ -244,19 +244,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-21T13-22-57-340572-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-22T10-08-48-208109-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\ndigline: target: 15 calls, no counts reported, 0.086000 USD (counted 0 of 15)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-21T13-22-57-340572-00-00-85883581c2d6c45a\n",
+          "stdout": "support baseline set to 2026-09-22T10-08-48-208109-00-00-85883581c2d6c45a\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-21T13-22-57-642207-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-22T10-08-48-502492-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\ndigline: target: 15 calls, no counts reported, 0.115250 USD (counted 0 of 15)\n",
           "exit": 0
         },
@@ -462,6 +462,7 @@
             }
           }
         ],
+        "suite_deltas": [],
         "suspended": 1,
         "target_config_changed": false,
         "target_config_deltas": [],
@@ -474,8 +475,8 @@
     },
     "prompt_regression": {
       "run_ids": [
-        "2026-09-21T13-22-58-095035-00-00-282b0c02d6511fb4",
-        "2026-09-21T13-22-58-395834-00-00-282b0c02d6511fb4"
+        "2026-09-22T10-08-48-952422-00-00-282b0c02d6511fb4",
+        "2026-09-22T10-08-49-252773-00-00-282b0c02d6511fb4"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
       "change": {
@@ -500,19 +501,19 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-21T13-22-58-095035-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-22T10-08-48-952422-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013570 USD (counted 0 of 3)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest",
-          "stdout": "support baseline set to 2026-09-21T13-22-58-095035-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-22T10-08-48-952422-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-21T13-22-58-395834-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-22T10-08-49-252773-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013600 USD (counted 0 of 3)\n",
           "exit": 0
         },
@@ -718,6 +719,7 @@
             }
           }
         ],
+        "suite_deltas": [],
         "suspended": 0,
         "target_config_changed": false,
         "target_config_deltas": [],
