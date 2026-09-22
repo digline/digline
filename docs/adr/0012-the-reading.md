@@ -369,6 +369,29 @@ useful thing to record: the question was asked of every record, the twelve other
 counts were checked and kept, and what is left is a criterion a reader can apply
 to the next one rather than a backlog.
 
+**Why this needs a criterion and not a sweep, which is the reason the rule takes
+this shape rather than "no numbers".** ADR 0011 contradicted itself for two
+releases across five sentences, and nobody saw it — including two sweeps looking
+for exactly this. Each of the five read as coherent on its own: *"it runs over
+all six tools and not only the two that return runs"* is a complete, sensible
+sentence about a gate, and nothing inside it is wrong. The reviewer who read the
+diff adding the eighth tool saw a table gain a row and had no reason to grep the
+rest of a thousand-line record.
+
+*The defect is a relation between a sentence and a set the sentence does not
+mention, changed by a record it does not cite.* That is why careful reading
+misses it. Nothing is wrong where the count sits; what moved is somewhere else,
+in a document the reader is not holding, and no amount of attention to the
+paragraph can see it.
+
+*And the criterion is answerable one sentence at a time, without holding the
+repository in your head.* That is why it works where a sweep does not. "Is
+there a number here" can be asked mechanically and answers nothing — it produced
+some five hundred lines of prose to read by hand for six findings. "Does this
+sentence describe the present state of a set that other records grow" is a
+question about one sentence, answerable by one reader, and it is the question
+that has an answer.
+
 *The symptom and the disease.* A stale **count** is visible — it says five where
 six exist, and the sixth stands in the sentence's own subject. A stale
 **enumeration** is invisible: it contradicts nothing, it simply never looks at
