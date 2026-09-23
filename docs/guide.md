@@ -761,7 +761,7 @@ it is the one you must not keep. Note also the third line: the run promoted in
 chapter 5 — perfectly good, chosen because it happened to be there — is `0.160`
 off. Choosing the median cost one command.
 
-### Two things this chapter learned the hard way
+### Where a median across runs misleads
 
 **A run that could not judge every case is not in the comparison, and the
 arithmetic will not tell you.** A case that errors leaves the confusion matrix,
@@ -780,10 +780,11 @@ exactly this.
 
 **The refusal protects the reading digline produces. It cannot protect one you
 compute yourself**, and this chapter is the one that tells you to compute a
-median. Read off four runs of a real suite by hand, the median said accuracy
-`+0.019` and precision `+0.061` — a clear improvement. Two of the four runs had
-a case that could not be judged, so their denominator was 20 against 21, and on
-the numerator, which is the part that compares, the four runs read **15, 16, 16,
+median. The runs below tested a change to the judge's own prompt — the
+instrument, not the system it measures — and that matters further down. Read
+off four of them by hand, the median said accuracy `+0.019` and precision
+`+0.061` — a clear improvement. Two of the four runs had a case that could not
+be judged, so their denominator was 20 against 21, and on the numerator, which is the part that compares, the four runs read **15, 16, 16,
 16 against a baseline of 16**. Nothing had improved. The script above now names
 and skips those runs; it used to raise `KeyError` on the first one, which at
 least fails loudly, but says nothing about why.
@@ -796,33 +797,36 @@ each one and believe it over your own arithmetic.
 **And one run cannot tell a regression from a coin.** In the same experiment
 four cases moved down against the baseline. After one run, two of them had
 crossed the threshold and looked like regressions to be explained. After four
-runs: one was below the line in 4 of 4 and was real, one was below in 1 of 4 and
-was noise, and the two that had not crossed at all were noise too. An upward
-flip repeated in 4 of 4 and was real as well.
+runs: one was below the line in 4 of 4 and survived the noise, one was below in
+1 of 4 and was noise, and the two that had not crossed at all were noise too. An
+upward flip repeated in 4 of 4 and survived the noise as well.
 
 Three of the four downward movers sat one or two votes from the line, which is
 where five-sample noise lives. Nothing about the first run said which of them
-was which, and the honest reading after one run is *not yet known* — which is
-why this chapter says to take the median before promoting, and why it is worth
-the runs it costs.
+was which, and the honest reading after one run is *not yet known*.
 
-**And the limit of that, which the same experiment found two days later.**
-Repetition across runs separates a real movement from a coin. It does **not**
-separate a real movement from an artefact of the change you are testing, and the
-two look identical on the page.
-
-The case above that repeated below the line in 4 of 4 kept repeating: 7 of 8,
-across two variants of the same prompt change. It read as settled. When the
-change was removed altogether it came back at `1.00, 1.00, 1.00, 1.00` — it had
-never been a disagreement about that case at all. An improvement that had
-repeated 8 of 8 vanished the same way.
+Surviving the noise is all that repetition establishes. It separates a movement
+from a coin; it does **not** separate a movement in the cases from an artefact
+of the instrument you changed, and the two look identical on the page. The case
+that stayed below the line in 4 of 4 kept repeating: 7 of 8, across two
+variants of the same prompt change. It read as settled. When the change was
+removed altogether it came back at `1.00, 1.00, 1.00, 1.00` — it had never been a
+disagreement about that case at all. An improvement that had repeated 8 of 8
+vanished the same way.
 
 Every one of those eight runs shared the thing under test, so every repetition
 was drawn from inside it. The question is not how many times a finding repeated
-but **what every repetition had in common**: if the answer is the change you are
-evaluating, the count says nothing about whether the finding survives it. The
-only run that can speak is the one with the change taken out — and the reason to
-run it is precisely that you do not expect it to disagree.
+but **what every repetition had in common**. Here it was the judge's prompt, so
+the count said nothing about the cases, and the only run that could speak was
+the one with the change taken out — worth running precisely because you do not
+expect it to disagree. If what you changed is your own system, the same control
+reads the other way: a regression that disappears when the change is removed is
+the change's own regression, which is the one you were looking for.
+
+So take the median before promoting, because it is worth the runs it costs for
+what they can tell apart, a movement from a coin. What moved the needle, the
+system or the instrument, is a question no number of runs that share the change
+can answer. Only the control does.
 
 ## 7. The aggregate gates, the cases diagnose
 
