@@ -311,7 +311,13 @@ def _measure(
     The clock and git are read here and passed down as values, so the run is a
     function of them rather than of when it happened to look.
     """
-    from digline.host import git_commit, load_target, read_artifacts, utc_now_iso
+    from digline.host import (
+        git_commit,
+        load_target,
+        read_artifacts,
+        read_pinned,
+        utc_now_iso,
+    )
     from digline.report import visible
     from digline.run import execute, planned_calls
 
@@ -325,12 +331,17 @@ def _measure(
     print(f"digline: {visible(plan.sentence())}", file=sys.stderr)
     commit = git_commit(root)
     created_at = utc_now_iso()
+    artifacts = read_artifacts(suite, target, path.parent, root=root)
     run = execute(
         suite,
         target,
         created_at=created_at,
         git_commit=commit,
-        artifacts=read_artifacts(suite, target, path.parent, root=root),
+        artifacts=artifacts,
+        # Read here as the CLI reads them: `execute` refuses a suite that pins
+        # while being handed no pin set, so a front end that skipped this would
+        # be refused rather than silently recording no control. (ADR 0029 §4)
+        pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
     )
     store.write_run(run)
 

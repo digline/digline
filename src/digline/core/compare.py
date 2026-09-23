@@ -398,6 +398,24 @@ class Comparison:
         )
 
     @property
+    def pinned_unchecked_count(self) -> int:
+        """How many, and **this is what a renderer should reach for.**
+
+        `pinned_unchecked` returns paths, and a path is
+        `prompts/acme-underwriting-rules.md` often enough that a list of them
+        describes the customer. Every renderer today prints a count — and prints
+        it by calling `len()` on the paths, which is a guard held by habit rather
+        than by anything a reader of the next renderer would notice. A count with
+        a name of its own is the affordance: reaching for the paths becomes a
+        choice somebody made rather than the only thing available.
+
+        `artifact_lines` has an explicit `withheld` guard for the same hazard;
+        this is that guard's counterpart for the clause beside it. (the sharp edge
+        from the 0.19.0 delta-pass)
+        """
+        return len(self.pinned_unchecked)
+
+    @property
     def target_config_changed(self) -> bool:
         """Whether the system under test is known to have been configured
         differently. `unknown` is not a change, for the same reason as above."""

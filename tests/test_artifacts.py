@@ -21,6 +21,7 @@ import pytest
 from tests._helpers import cli, git
 
 from digline.core import (
+    NOTHING_EXTRA,
     Artifact,
     Contains,
     Disclosure,
@@ -33,9 +34,10 @@ from digline.core import (
 from digline.core.run import SCHEMA_VERSION, run_from_json, run_to_json
 from digline.host import read_artifacts
 from digline.report import artifact_lines, diff_lines, headline, render_html
-from digline.run import Case, Suite
+from digline.run import Case, Response, Suite, execute
 from digline.store import FileResultStore
 from digline.wire import exit_code
+from digline.wire.run import run_document
 
 SUITE = """\
 from pathlib import Path
@@ -780,4 +782,61 @@ def test_the_withheld_report_gives_the_pin_a_count_and_never_a_path() -> None:
     assert "underwriting" not in section, (
         "a pinned path was named in a withheld report: the clause put back the "
         "customer's vocabulary that dropping the table exists to remove"
+    )
+
+
+def test_a_pinning_suite_refuses_a_launch_that_hands_down_no_pin_set() -> None:
+    """The invariant that would have caught 0.19.0's inert feature.
+
+    Every unit test passed while `read_pinned` had **no caller at all**: the CLI
+    read the artifacts and never the pins, so `Run.pinned` was `()` in every run
+    digline wrote, the example declared a control that was never recorded, and no
+    comparison could exit 2. Tests that construct `Run(pinned=…)` cannot see
+    that; only the layer where the mistake is made can. (F-1, the 0.19.0
+    delta-pass)
+    """
+    suite = Suite(
+        tenant="t",
+        environment="staging",
+        name="qa",
+        assertions=[Contains(needle="x")],
+        cases=[Case(id="c", vars={"input": "x"})],
+        artifacts=[Path("tools.json")],
+        pinned=[Path("tools.json")],
+    )
+    with pytest.raises(ValueError, match="passed no resolved pin set"):
+        execute(
+            suite,
+            lambda case: Response(output="x", input="q"),
+            created_at="2026-08-26T10:00:00+00:00",
+        )
+
+
+def test_a_run_document_pinning_nothing_it_records_is_refused() -> None:
+    """The read side gets the write side's refusal. `read_pinned` runs only on the
+    machine that produced the run; `baselines/` is committed and git-mergeable, so
+    a dead pin arrives through an ordinary conflict resolution. Unrefused it is a
+    control that silently does not exist. (F-2, the 0.19.0 delta-pass)"""
+    document = json.loads(
+        run_to_json(
+            a_pinned_run(
+                ("tools.json",), **{"tools.json": Artifact(sha="a" * 64, text="x")}
+            )
+        )
+    )
+    document["pinned"] = ["no-such-file.json"]
+    with pytest.raises(ValueError, match="records no artifact for"):
+        run_from_json(json.dumps(document))
+
+
+def test_a_run_document_carries_the_pin_across_the_boundary() -> None:
+    """A run document plus an exit 2 and no field is the unaccountable pair ADR
+    0029 §3 recorded the field to prevent — and the boundary form left it out.
+    (F-4, the 0.19.0 delta-pass)"""
+    run = a_pinned_run(
+        ("tools.json",), **{"tools.json": Artifact(sha="a" * 64, text="x")}
+    )
+    assert run_document(redact(run), NOTHING_EXTRA)["pinned"] == ["tools.json"], (
+        "the boundary form dropped the declaration: a reader outside the "
+        "perimeter gets an exit code the document cannot account for"
     )

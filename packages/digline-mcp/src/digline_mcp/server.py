@@ -47,6 +47,7 @@ from digline.host import (
     need_baseline,
     prepare,
     read_artifacts,
+    read_pinned,
     read_run,
     resolve_key,
     utc_now_iso,
@@ -327,6 +328,12 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         artifacts = read_artifacts(
             loaded_suite, target, open_.path.parent, root=perimeter
         )
+        # And the pins, by the same reading: `execute` refuses a pinning suite
+        # handed no pin set, so this front end cannot record a control that
+        # cannot fire. (ADR 0029 §4)
+        pinned = read_pinned(
+            loaded_suite, open_.path.parent, root=perimeter, artifacts=artifacts
+        )
 
         # The composition the CLI already sits on, and that is the whole point
         # of it being here: journalling is wired once in `digline.host` rather
@@ -348,6 +355,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             now=created_at,
             git_commit=commit,
             artifacts=artifacts,
+            pinned=pinned,
         )
         # Still before anything is opened or called, and still the same number:
         # `prepare` plans the calls it is about to make, so the count a caller
@@ -359,6 +367,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             store=store,
             prepared=prepared,
             artifacts=artifacts,
+            pinned=pinned,
         )
         # `usage=` as the CLI passes it: what the run consumed is one fact, and
         # a caller must not have to know which front end it asked. The parity

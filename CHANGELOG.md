@@ -6,6 +6,49 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.2.0 — unreleased
+
+Published by digline's `v0.19.0` tag, with `digline-mcp 0.2.0` and the core.
+
+### Changed — the floor moves to `digline>=0.19.0`, and here is why
+
+Not "compatibility". The plugin **imports `digline.host.read_pinned`**, which
+arrived in digline 0.19.0 (ADR 0029). A user with an older core would install
+this plugin and get an `ImportError` on their first run, which is the exact trap
+`tests/test_plugin_floors.py` exists to catch, and it caught it.
+
+It imports it because `execute()` refuses a suite that declares `pinned` while
+being handed no resolved pin set. That refusal is deliberate — a run that
+recorded no pin would compare green whatever the watched file did — so a front
+end that did not read the pins would refuse every pinning suite instead of
+silently mis-recording one. **A pinned suite therefore works under `pytest`
+exactly as it does under the CLI**, which is the point: a control that works on
+one interface is a promise that breaks where somebody tries it, and running
+digline inside an existing pytest suite is the most natural way to use it.
+
+**The floor is stated with its reason so that it can be lowered by somebody who
+reads it.** If `read_pinned` is ever the only 0.19.0 name here, and a caller needs
+an older core, the honest move is to drop the feature from this front end — not
+to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
+that at length.
+
+## digline-mcp 0.2.0 — unreleased
+
+Published by digline's `v0.19.0` tag, with `pytest-digline 0.2.0` and the core.
+
+### Changed — the floor moves to `digline>=0.19.0`, and here is why
+
+The same reason, and it is worth stating twice rather than cross-referencing:
+this server **imports `digline.host.read_pinned`**, which arrived in digline
+0.19.0 (ADR 0029). A user with an older core would get an `ImportError`, so the
+floor names the version that carries the name.
+
+`digline_run` reads the pins beside the artifacts and hands both to `measure()`.
+Without that, `execute()`'s invariant would refuse every suite declaring `pinned`
+over this surface — correctly, and uselessly. With it, a comparison over MCP
+returns `pinned_drifted` and `pinned_unchecked` on the same headline the CLI
+prints, which is what `digline.wire` is for.
+
 ## 0.19.0 — unreleased
 
 digline **0.19.0**, and the core alone. A suite can now declare that a file
@@ -85,6 +128,21 @@ allowed.
 The reasoning is [ADR 0029](docs/adr/0029-the-artifact-that-must-not-drift.md);
 [`docs/tools.md`](docs/tools.md) is the guide, and it now describes this instead
 of promising it. The gap was found while reading EvalSeal's work.
+
+### Stopped twice by its own ritual
+
+Recorded because a release that ships smoothly teaches nothing.
+
+The delta-pass found the feature **inert**: `read_pinned` had no caller, so
+`Run.pinned` was empty in every run digline wrote and no comparison could exit 2
+— with **39 green tests** behind it, each constructing the record directly. Then
+the floor gate found **two plugins** importing a 0.19.0 name while declaring
+older floors, which would have broken for anyone resolving against PyPI.
+
+**Neither was reachable by a test.** The first was a wire that was never
+connected; the second a promise about versions not present. Both are checks now
+rather than memories: `execute()` refuses a suite that pins while being handed no
+pin set, and the floor table is what caught the second.
 
 ## digline-mcp 0.1.4 — 2026-09-22
 

@@ -15,7 +15,7 @@ dependencies = [
     # The interactive path: `.mcp.json` starts this, and a coding agent opened
     # in this directory gets the six reading tools — and no `promote`, because
     # there is no such tool to have.
-    "digline-mcp>=0.1,<0.2",
+    "digline-mcp>=0.2,<0.3",
     # The client half of the same protocol, for `loop.py`'s probe: it calls
     # `promote` by name on that server each cycle and expects to be told there
     # is no such tool. Named here rather than reached through `digline-mcp`,

@@ -348,6 +348,49 @@ less than the thresholds have, and it is the price of condition 1. The suite is
 versioned in git; a diff that removes a pin is a diff a reviewer can see, and
 that is the whole of the guarantee.
 
+### 9b. A stored document is trusted input, and the pin's integrity rests on the party it measures
+
+§9 declares one disarm — an author deleting the line — and stops there, which
+left the louder one undeclared. **That asymmetry was the defect, not the trust.**
+
+A comparison reads two documents. Everything it concludes, it concludes from
+them: the scores, `config_hash`, the canary flag, and now the pin. Nothing is
+signed and nothing is verified, so **a party who writes a run document can make
+it say anything**, and the party who writes it is exactly the party a pin
+measures. Measured against forged documents, three edits reach a green run:
+
+| edit | exit | said aloud? |
+|---|---|---|
+| remove the `pinned` key | 0 | **no** |
+| set the artifact's digest to the reference's | 0 | **no** |
+| mark the artifact `withheld` in a run that is not redacted | 0 | **yes** — `pinned_unchecked` counts it and the sentence prints it |
+
+The third is the design working: claiming *unanswerable* is loud, because §8
+made *cannot tell* a state of its own rather than a silence. The first two are
+silent, and no refusal can fix them — a document that lies consistently is
+indistinguishable from one that is true, which is what "unsigned" means.
+
+So this is **declared and not fixed**, and the declaration is the useful part:
+
+- **digline verifies nothing about the provenance of a stored document.** It is
+  not a security boundary and it must not be read as one. A pin is a control
+  over *drift somebody did not notice*, which is the threat it was built for —
+  a third party editing a tool description under an unchanged name — and not
+  over a counterparty choosing to deceive.
+- **The pin is no weaker than every other recorded fact**, and it is important
+  that it is no *stronger*, because a control that reads as tamper-proof would be
+  relied on as if it were. A forged score is the same class of problem and has
+  been since ADR 0001.
+- **What follows for the reader who needs more**: the guarantee has to come from
+  where the document was produced — the run in the same CI job that dumped the
+  file, the artifact kept as a build artifact, the repository the baseline is
+  committed to. The pin says *this moved*; only provenance says *this is what
+  ran*.
+
+The read-side refusal of §4 is not an exception to any of this. It refuses a
+document that is **incoherent** — pinning a path it records no artifact for —
+which is a mistake a conflict resolution makes, not a lie an adversary tells.
+
 ### 10. What does not move
 
 **The register gains nothing, and `REGISTER_VERSION` stays 1.** The temptation

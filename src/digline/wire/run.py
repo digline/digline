@@ -343,6 +343,14 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
                 )
                 for path, artifact in sorted(run.artifacts.items())
             },
+            # Which of them the suite declared must not drift. Ungated by
+            # `disclosure`, like the paths it names — which this document already
+            # carries whatever the disclosure says — and for `canary`'s reason: a
+            # document that reports an exit 2 its own contents cannot account for
+            # is the thing ADR 0029 §3 recorded the field to prevent, and leaving
+            # it out of the boundary form reintroduced exactly that pair.
+            # (F-4, the 0.19.0 delta-pass)
+            "pinned": sorted(run.pinned),
             # What the run consumed, as the two lines the document holds. It
             # crosses because of its **grain**: a run total is the software
             # house's own invoice for its own run — it names no case, no request

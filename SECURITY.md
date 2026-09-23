@@ -174,3 +174,48 @@ What is **not** out of scope, and was fixed in 0.7.2, is a path that escapes
 without any race at all — a symlink sitting in the store, checked once, read
 once, no timing involved. The line is whether digline can tell: it can see where
 a name leads at the moment it looks, and it is answerable for that.
+
+## Open and measured: bidirectional text controls are not neutralised
+
+**Not fixed, not out of scope, and written here so it is findable.** Found by the
+0.19.0 delta-pass, whose subject was something else entirely; it belongs to no
+release and is nobody's regression.
+
+digline neutralises control characters in two places, and both were written
+against one class. `report.visible()` guards a terminal; `core.json_visible()`
+guards a value a program parses, with JSON's own encoder covering C0 by an agreed
+division of labour (`wire/contract.py`, `OUTPUT_VERSION` 2). **Unicode
+bidirectional and format controls are in neither.** 0.10.1 closed DEL and the C1
+block; this class was never in scope, and nothing since has looked.
+
+What the measurement was and what it showed. One marker per hazard class,
+embedded in an **artifact path** — the text this surface carries — pushed through
+every sink that renders a comparison or a run:
+
+| marker | `visible()` | `json_visible()` | HTML `escape()` |
+|---|---|---|---|
+| U+009B (C1, and it *is* CSI) | neutralised | neutralised | — |
+| U+007F (DEL) | neutralised | neutralised | — |
+| U+001B `[` (ESC) | neutralised | raw, and JSON escapes it | — |
+| U+0001 (C0) | neutralised | raw, and JSON escapes it | — |
+| **U+202E (RTL override)** | **raw** | **raw** | **raw** |
+
+So the terminal, the report and the wire all render U+202E exactly as given. HTML
+escaping does not touch it either: it is not `<`, `>` or `&`, and it is not a
+control character by the definition either sanitiser uses.
+
+**Why it is worth closing eventually, and it is not about tidiness.** A path
+whose display order is reversed misleads the one reader who cannot check it any
+other way. A run document is read across a boundary — the software house holding
+a customer's redacted run, the end company reading a report somebody else
+rendered — and that reader is looking at the document *because they do not have
+the thing it describes*. Every other reader can open the file and see. They
+cannot. A rendering trick is cosmetic when the reader can verify around it, and
+it is the whole attack when they cannot, which is precisely the audience
+[ADR 0002](docs/adr/0002-three-worlds-and-where-the-data-lives.md) built worlds 2
+and 3 for.
+
+It is **not** a way in. It moves no payload, crosses no boundary, and reads no
+file it was not given: it changes what a human believes they are looking at. That
+is why it is recorded rather than embargoed, and why the fix is a sanitiser
+widened to the bidi and format categories rather than anything structural.

@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.1.4"
+version = "0.2.0"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -39,7 +39,7 @@ dependencies = [
     # and against an older core this package would import a name that is not
     # there. An ImportError is the failure `test_plugin_floors.py` exists to
     # make impossible, and it found this one before the tag.
-    "digline>=0.15.1",
+    "digline>=0.19.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

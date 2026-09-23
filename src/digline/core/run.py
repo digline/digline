@@ -493,6 +493,39 @@ class Artifact:
             )
 
 
+def _pinned_from(
+    raw: Mapping[str, Any], artifacts: Mapping[str, Artifact]
+) -> tuple[str, ...]:
+    """The declared must-not-drift paths, refused if one names nothing recorded.
+
+    **The same refusal the write side makes, on the read side.** `read_pinned`
+    catches a typo when the suite loads, and that is where the author is — but it
+    only ever runs on the machine that produced the run. A document is read
+    somewhere else and by somebody else: `<tenant>/baselines/` is committed and
+    git-mergeable, so a pin naming nothing recorded arrives through an ordinary
+    conflict resolution, no adversary required.
+
+    Left unchecked it is the exact failure ADR 0029 §4 exists to prevent, reached
+    by the other door: `artifact_deltas` iterates the paths the two runs recorded,
+    a pin outside that set produces no row at all, and the comparison is green
+    because the control silently does not exist. A refusal here costs a reader
+    nothing and turns *no such control* into a sentence. (F-2, the 0.19.0
+    delta-pass)
+    """
+    declared = tuple(
+        sorted(str(path) for path in cast(Sequence[Any], raw.get("pinned") or ()))
+    )
+    unknown = [path for path in declared if path not in artifacts]
+    if unknown:
+        raise ValueError(
+            f"run document pins {', '.join(unknown)}, which it records no "
+            "artifact for: a pinned path outside the recorded set produces no "
+            "comparison at all, so the document declares a control that cannot "
+            "fire. Fix the `pinned` list or record the artifact"
+        )
+    return declared
+
+
 def artifacts_sha(artifacts: Mapping[str, Artifact]) -> str:
     """One short digest for a whole artifact set.
 
@@ -2282,6 +2315,12 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         )
     results = cast(Sequence[Mapping[str, Any]], raw.get("results") or ())
     redacted = bool(_required(raw, "redacted", "run"))
+    artifacts = {
+        path: _artifact_from_dict(item, path)
+        for path, item in cast(
+            Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
+        ).items()
+    }
     return Run(
         tenant=str(_required(raw, "tenant", "run")),
         environment=str(_required(raw, "environment", "run")),
@@ -2298,15 +2337,8 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
             for v in cast(Sequence[Mapping[str, Any]], raw.get("aggregate") or ())
         ),
         metadata=dict(cast(Mapping[str, object], raw.get("metadata") or {})),
-        artifacts={
-            path: _artifact_from_dict(item, path)
-            for path, item in cast(
-                Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
-            ).items()
-        },
-        pinned=tuple(
-            sorted(str(path) for path in cast(Sequence[Any], raw.get("pinned") or ()))
-        ),
+        artifacts=artifacts,
+        pinned=_pinned_from(raw, artifacts),
         target_config=config_from_dict(
             cast(Mapping[str, Any], _required(raw, "target_config", "run")),
             "target_config",
