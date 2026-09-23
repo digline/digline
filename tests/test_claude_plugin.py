@@ -30,7 +30,7 @@ PLUGIN = ROOT / "plugins" / "digline"
 MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 MANIFEST = PLUGIN / ".claude-plugin" / "plugin.json"
 SERVE = PLUGIN / "scripts" / "serve"
-ASK = PLUGIN / "scripts" / "ask-before-promote"
+ASK = PLUGIN / "scripts" / "ask-a-person"
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="the plugin's scripts are POSIX sh"
@@ -85,8 +85,9 @@ def test_the_skill_is_the_same_file_as_the_repository_skill() -> None:
 
 def test_no_plugin_surface_can_promote() -> None:
     """No skill, command or agent in the plugin is about promoting, and the MCP
-    server it starts has no tool that could. The hook names `promote` in order
-    to ask a person about it, so the scripts are not swept."""
+    server it starts has no tool that could. The hook names `promote` and
+    `register` in order to ask a person about them, so the scripts are not
+    swept."""
     for path in PLUGIN.rglob("*"):
         if path.is_dir() or "scripts" in path.parts or path.suffix != ".md":
             continue
@@ -182,23 +183,41 @@ def ask(command: str) -> str:
 
 
 @pytest.mark.parametrize(
-    "command",
+    ("command", "names"),
     [
-        "digline promote --suite suite.py --run latest",
-        "uv run digline promote --suite suite.py --run k",
-        ".venv/bin/digline promote --suite s.py --run k",
-        "digline --root . promote --suite s.py --run k",
-        "python -m digline.cli promote --suite s.py --run k",
-        "DIGLINE_LIVE=1 digline promote --suite s.py --run k",
-        "digline compare --suite s.py && digline promote --suite s.py --run k",
+        (command, "promote")
+        for command in (
+            "digline promote --suite suite.py --run latest",
+            "uv run digline promote --suite suite.py --run k",
+            ".venv/bin/digline promote --suite s.py --run k",
+            "digline --root . promote --suite s.py --run k",
+            "python -m digline.cli promote --suite s.py --run k",
+            "DIGLINE_LIVE=1 digline promote --suite s.py --run k",
+            "digline compare --suite s.py && digline promote --suite s.py --run k",
+        )
+    ]
+    + [
+        (command, "register")
+        for command in (
+            "digline register --suite s.py --run k --disposition accepted",
+            "uv run digline register --suite s.py --run latest --disposition unsure",
+            "python -m digline.cli register --suite s --run k --disposition rejected",
+        )
     ],
 )
-def test_the_hook_asks_a_person_before_promote(command: str) -> None:
-    """`ask` and never `deny`: AGENTS.md lets the human tell the agent to."""
+def test_the_hook_asks_a_person_before_a_persons_decision(
+    command: str, names: str
+) -> None:
+    """`promote` and `register` both commit a person's judgement, and AGENTS.md
+    rule 1 holds them to one rule. `ask` and never `deny`: the human may tell
+    the agent to. The reason names the command, so the person approves the
+    decision they are actually looking at."""
     output = json.loads(ask(command))["hookSpecificOutput"]
     assert output["hookEventName"] == "PreToolUse"
     assert output["permissionDecision"] == "ask"
-    assert "not a wall" in output["permissionDecisionReason"]
+    reason = output["permissionDecisionReason"]
+    assert reason.startswith(f"digline {names} ")
+    assert "not a wall" in reason
 
 
 @pytest.mark.parametrize(
@@ -209,6 +228,8 @@ def test_the_hook_asks_a_person_before_promote(command: str) -> None:
         "digline compare --suite s.py && git commit -m 'promote later'",
         "digline-mcp --root .",
         "grep -rn promote src/",
+        "git commit -m 'register the new suite'",
+        "digline view --suite s.py",
     ],
 )
 def test_the_hook_stays_silent_on_everything_else(command: str) -> None:
@@ -217,11 +238,12 @@ def test_the_hook_stays_silent_on_everything_else(command: str) -> None:
     assert ask(command) == ""
 
 
-def test_the_command_the_hook_watches_is_one_the_cli_has() -> None:
-    """If `promote` were renamed, the hook would go on matching a word nobody
-    types and asking about nothing."""
+@pytest.mark.parametrize("subcommand", ["promote", "register"])
+def test_the_commands_the_hook_watches_are_ones_the_cli_has(subcommand: str) -> None:
+    """If one were renamed, the hook would go on matching a word nobody types
+    and asking about nothing."""
     subprocess.run(
-        [sys.executable, "-m", "digline.cli", "promote", "--help"],
+        [sys.executable, "-m", "digline.cli", subcommand, "--help"],
         capture_output=True,
         check=True,
     )

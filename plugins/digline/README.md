@@ -16,8 +16,8 @@ This plugin is how it reaches you. It ships:
   explains, and **cannot promote a baseline, because approval is a person's
   commit**. `promote` is not disabled there; it is absent, and there is no tool
   that could do it ([`docs/mcp.md`](../../docs/mcp.md));
-- **a hook that asks you before `digline promote`** — see below for what it is
-  and what it is not.
+- **a hook that asks you before `digline promote` and `digline register`** —
+  see below for what it is and what it is not.
 
 ## Install: two lines plus one dependency
 
@@ -65,17 +65,20 @@ supported.
 
 ## The hook is a preference, not a wall
 
-When a shell command runs `digline promote`, the hook stops and asks you. It
-**asks**, and never refuses outright, because a person may tell the agent to
-promote, and then the prompt is where that person approves.
+When a shell command runs `digline promote` or `digline register`, the hook
+stops and asks you. Both commit a person's judgement. `promote` makes a run the
+approved reference, and `register` records what somebody decided about a
+comparison, so an agent recording one is taking the same decision from you.
+The hook **asks**, and never refuses outright, because you may tell the agent
+to go ahead, and then the prompt is where you approve.
 
 It guarantees nothing. You, or anybody who can edit your settings, can disable
 the plugin. A command spelled in a way the pattern does not read goes through.
 It only makes the honest path the easy one. **The wall is the reviewed diff
-under `.digline/<tenant>/baselines/`**: a baseline is committed, so it reaches
-a reviewer as a change nobody can make silently. That is where approval lives,
-with or without this plugin.
+under `.digline/<tenant>/`**: baselines and the register are committed, so they
+reach a reviewer as changes nobody can make silently. That is where approval
+lives, with or without this plugin.
 
-The skill says the same from the other side: never promote on your own
-initiative, assemble the evidence, recommend, and let the human run the
+The skill says the same from the other side: never promote or register on your
+own initiative, assemble the evidence, recommend, and let the human run the
 command or tell you to.

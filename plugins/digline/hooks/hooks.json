@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/ask-before-promote"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/ask-a-person"
           }
         ]
       }

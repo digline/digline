@@ -109,7 +109,8 @@ port and no listening socket.
 
 The repository is also a Claude Code plugin marketplace. The plugin ships the
 `operating-digline` skill beside this server, started on the project it is
-installed in, and a hook that asks a person before `digline promote`: two lines
+installed in, and a hook that asks a person before `digline promote` or
+`digline register`: two lines
 plus one dependency, and what they install is described in
 [`plugins/digline/README.md`](https://github.com/digline/digline/blob/main/plugins/digline/README.md).
 

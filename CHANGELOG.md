@@ -19,8 +19,9 @@ What it ships first is the judgement layer. The `operating-digline` skill had
 reached nobody outside this repository, and now it loads in the repository that
 uses digline. Beside it: the MCP server, which measures, reads and explains and
 cannot promote a baseline, because approval is a person's commit; and a hook
-that **asks** before `digline promote`. The hook is a preference, not a wall:
-the wall is the reviewed diff under `baselines/`.
+that **asks** before `digline promote` and `digline register`, since both
+commit a person's judgement. The hook is a preference, not a wall: the wall is
+the reviewed diff under `.digline/<tenant>/`.
 
 The plugin's version is digline's, and the marketplace installs from the
 release tag rather than from `main`. Both are gated in `test_versions.py`,
