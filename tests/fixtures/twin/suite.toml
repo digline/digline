@@ -20,6 +20,9 @@ output_path = "data.answer"
 cost_path = "usage.cost_usd"
 latency_from_response = "usage.elapsed_ms"
 config_path = "config"
+tools_path = "trajectory.names"
+tool_calls_path = "trajectory.calls"
+usage_path = "usage.tokens"
 
   [target.body]
   question = "case.vars.question"

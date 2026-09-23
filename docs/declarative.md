@@ -254,9 +254,66 @@ Your application, on the other end of a URL. It can be written in anything.
 | `cost_path` | where the application reports what the call cost |
 | `latency_from_response` | where it reports its own time. Left out, digline times the round trip, which includes the network |
 | `config_path` | where it says which model answered and how it was set up. Worth writing: without it a run records nothing about the system under test |
+| `tools_path` | where it lists the tools the model called, by name and in order |
+| `tool_calls_path` | where it lists those calls with their arguments. See below |
+| `usage_path` | where it reports the token counts. See below |
 | `headers` | sent with every request |
 | `timeout` | seconds. Default 30 |
 | `[target.body]` | mandatory: the payload |
+
+#### The trajectory: `tools_path` and `tool_calls_path`
+
+Without one of these, `tools_called` and `tool_called_with` **load and then
+error on every case** — a check that cannot be answered rather than one that
+refuses, which is the worse of the two.
+
+Declare `tool_calls_path` alone and you are done: the names come from the calls,
+so the two cannot disagree. Declaring both is allowed, and they must agree in
+the same order — digline refuses the answer rather than choosing a reading.
+
+```json
+{"trajectory": {"calls": [
+  {"tool": "activate_skill",
+   "arguments": {"skill": "invoice"},
+   "status": "success",
+   "result": "ok"}
+]}}
+```
+
+`status` is **mandatory** on every call and is one of `success`, `error` or
+`not_reported`. There is no default: a tool that ran and failed must not be able
+to report as one that worked by saying nothing. Report `not_reported` — with
+`result_absence` beside it — where your application does not know.
+
+A call your application could not name is `"tool": null`, which keeps its
+position; `""` is refused rather than read as that absence. An argument never
+leaves your perimeter: `tool_called_with` records how much of what you declared
+matched, never what the model sent.
+
+#### The counts: `usage_path`
+
+An object, by digline's own names — `input_tokens` and `output_tokens` are
+mandatory, `cache_read_tokens`, `cache_write_tokens` and `thinking_tokens`
+optional. Any other key is refused, because a count under another name is a
+count nothing adds up.
+
+```json
+{"usage": {"input_tokens": 120, "output_tokens": 44, "cache_read_tokens": 9}}
+```
+
+Leave `usage_path` out and the run records no counts, which is an honest answer.
+It does not record zeros.
+
+!!! warning "What these paths do not fix"
+
+    A configuration your application reports is **not** reviewed the way a
+    suite is, and `model` travels in clear from it today.
+    [ADR 0030](adr/0030-the-configuration-an-application-reports.md) rules that
+    the suite should declare the system it expects and that a reported
+    configuration contradicting it should be refused — **that ruling is
+    accepted and not yet implemented.** Declaring these three paths does not
+    close it. Until it is written, treat `provider` and `model` as values your
+    application chose, not values anybody checked.
 
 `[target.body]` is shaped like the payload itself. A leaf string that starts
 with `case.` reads from the case; anything else is a literal:

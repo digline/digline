@@ -584,6 +584,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.7.2": "'Unguarded until 0.7.2' — the `InvalidURL` that escaped "
         "`preflight`'s handler and reached stderr quoting the credential. "
         "Same shape: the release the handler arrived in",
+        "0.17.0": (
+            "which release's second delta-pass recorded F-1 — a token count "
+            "that may be a JSON boolean — and graded it LOW because nothing "
+            "reachable could deliver one. `usage_path` is the path that could, "
+            "so the comment names the pass that parked the question in order to "
+            "say why this reader closes it. History, not a claim about now: "
+            "moving it would attribute the finding to a release that did not "
+            "make it"
+        ),
     },
     # Same shape again, from the other side: the release whose diagnosis the
     # fold was throwing away, named where the fold now keeps it.

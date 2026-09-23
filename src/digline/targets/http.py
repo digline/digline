@@ -21,11 +21,12 @@ from time import perf_counter
 from typing import Any, cast
 from urllib.parse import urlsplit
 
-from digline.core import ConfigValue, Output
+from digline.core import ConfigValue, Output, Usage
 from digline.run import Case, Response
+from digline.targets.completion import ToolCall
 from digline.targets.config import declared_config, endpoint_host
 
-__all__ = ["HttpTarget"]
+__all__ = ["USAGE_FIELDS", "HttpTarget"]
 
 #: What `urlopen` can raise about an endpoint. `OSError` covers the network;
 #: `http.client.HTTPException` is where `InvalidURL` lives and is **not** an
@@ -147,10 +148,24 @@ class HttpTarget:
             output_path="data.answer",
             cost_path="usage.cost_usd",
             config_path="config",
+            tool_calls_path="trajectory.calls",
+            usage_path="usage.tokens",
         )
 
     The application can be written in anything. What digline needs is a body it
     can post and a field it can read.
+
+    **`tools_path` and `tool_calls_path` are what make a trajectory check
+    answerable over HTTP.** Without them `ToolsCalled` and `ToolCalledWith` load
+    from a TOML suite and then *error* on every case — the honest third outcome,
+    for a question nothing could answer. Declaring only `tool_calls_path` is the
+    ordinary case: the names are derived from the calls, so the two cannot
+    disagree.
+
+    **`usage_path` reads the counts by `Usage`'s own names** (`USAGE_FIELDS`),
+    closed the way a reported configuration is closed. Absent, `Response.usage`
+    is `None` — a target that reports no counts, which is an honest answer and
+    not a zero.
     """
 
     #: Every `*_path` here is a **dotted path into the answer's JSON**, never a
@@ -172,6 +187,9 @@ class HttpTarget:
         cost_path: str | None = None,
         latency_from_response: str | None = None,
         config_path: str | None = None,
+        tools_path: str | None = None,
+        tool_calls_path: str | None = None,
+        usage_path: str | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float = 30.0,
     ) -> None:
@@ -227,6 +245,9 @@ class HttpTarget:
         #: the target declares nothing — which is what it has always done, and
         #: absent is not a change (ADR 0005 §6, §8).
         self.config_path = config_path
+        self.tools_path = tools_path
+        self.tool_calls_path = tool_calls_path
+        self.usage_path = usage_path
         self.headers = dict(headers or {})
         self.timeout = timeout
         #: Learned from the answers rather than declared at construction, so it
@@ -369,6 +390,44 @@ class HttpTarget:
         # keep asking. (ADR 0005 §8)
         if self.config_path is not None:
             self._record(_dig(payload, self.config_path))
+
+        calls = (
+            None
+            if self.tool_calls_path is None
+            else reported_tool_calls(
+                _dig(payload, self.tool_calls_path), self.tool_calls_path
+            )
+        )
+        if self.tools_path is not None:
+            names = reported_tools(_dig(payload, self.tools_path), self.tools_path)
+            if calls is not None and tuple(c.tool for c in calls) != names:
+                # Two readers, one trajectory: `ToolsCalled` reads the names and
+                # `ToolCalledWith` the calls, and an application whose two lists
+                # disagreed would have them judge different trajectories of the
+                # same answer. `Completion` enforces this for a plugin; the same
+                # invariant, checked where the values arrive instead.
+                raise ValueError(
+                    f"{self.tools_path!r} and {self.tool_calls_path!r} name "
+                    f"different trajectories: {names!r} against "
+                    f"{tuple(c.tool for c in calls)!r}. They are two readings of "
+                    "one answer and must agree, in the same order"
+                )
+        elif calls is not None:
+            # **Derived, not required.** Declaring only the calls is the common
+            # case, and making the suite repeat the names in a second path would
+            # be asking for the one thing that can then disagree. Nothing is
+            # invented: the names come from the calls.
+            names = tuple(call.tool for call in calls)
+        else:
+            names = None
+
+        metadata: dict[str, object] = {}
+        if names is not None:
+            found_tools: list[object] = list(names)
+            metadata["tools"] = found_tools
+        if calls is not None:
+            metadata["tool_calls"] = [call.as_reported() for call in calls]
+
         return Response(
             output=output,
             # What was sent, not what came back: `input` is the question a judge
@@ -376,6 +435,16 @@ class HttpTarget:
             input=sent,
             cost_usd=cost,
             latency_ms=latency,
+            usage=(
+                None
+                if self.usage_path is None
+                else reported_usage(_dig(payload, self.usage_path), self.usage_path)
+            ),
+            # A key here means the application said something, which is what lets
+            # `ToolsCalled` tell *called nothing* from *nobody reported*. An
+            # undeclared path writes no key, exactly as `Completion.as_metadata`
+            # omits what a provider did not report.
+            metadata=metadata,
         )
 
 
@@ -383,3 +452,193 @@ def _as_number(value: object, path: str) -> float:
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"{path!r} holds {value!r}, which is not a number")
     return float(value)
+
+
+def _sequence(found: object, path: str, what: str) -> Sequence[object]:
+    """A JSON array, and never a string — which is a `Sequence` and iterates."""
+    if isinstance(found, str) or not isinstance(found, list | tuple):
+        raise ValueError(
+            f"{path!r} holds a {type(found).__name__}, not a list of {what}: "
+            "there is no trajectory to read"
+        )
+    return cast("Sequence[object]", found)
+
+
+def reported_tools(found: object, path: str) -> tuple[str | None, ...]:
+    """The names the application said the model called, in order.
+
+    `null` at a position is **a call it did not name**, kept at its position
+    because that is what ADR 0018 §1 (amended 2026-09-17) makes it mean:
+    `ToolsCalled` never passes over one. `""` is refused rather than read as
+    that absence — an application that does not know says `null`, the same rule
+    `ToolCall` applies one layer down.
+    """
+    names: list[str | None] = []
+    for index, name in enumerate(_sequence(found, path, "tool names")):
+        if name is None:
+            names.append(None)
+        elif isinstance(name, str) and name:
+            names.append(name)
+        else:
+            raise ValueError(
+                f"{path}[{index}] is {name!r}, which is not a tool name: a name "
+                "is a non-empty string, and a call nobody named is null"
+            )
+    return tuple(names)
+
+
+def reported_tool_calls(found: object, path: str) -> tuple[ToolCall, ...]:
+    """The trajectory with its arguments, checked before it is believed.
+
+    **Stricter than `record_trajectory`, and that is the point.** The recorder
+    casts `status` to `ToolStatus` without looking, which is right for a target
+    written in this repository and reviewed with it; here the values arrive from
+    an application nobody here reviews, so the vocabularies are closed at the
+    boundary rather than downstream — `declared_config`'s rule, for
+    `declared_config`'s reason (ADR 0005 §8).
+
+    No default for `status`. A plain-function target defaults to `success`
+    because that was its contract from the day the trajectory arrived; an
+    application has no such history, and letting it write *success* by omission
+    is the vacuously green report fixed decision 3 refuses.
+    """
+    calls: list[ToolCall] = []
+    for index, entry in enumerate(_sequence(found, path, "tool calls")):
+        at = f"{path}[{index}]"
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"{at} is a {type(entry).__name__}, not an object with a 'tool' in it"
+            )
+        call = cast("Mapping[str, object]", entry)
+        if "tool" not in call:
+            raise ValueError(
+                f"{at} has no 'tool': a call whose tool nobody named says so "
+                'with "tool": null'
+            )
+        tool = call["tool"]
+        if not (tool is None or (isinstance(tool, str) and tool)):
+            raise ValueError(
+                f"{at}.tool is {tool!r}, which is not a tool name: a name is a "
+                "non-empty string, and a call nobody named is null"
+            )
+        status = call.get("status")
+        if status not in ("success", "error", "not_reported"):
+            raise ValueError(
+                f"{at}.status is {status!r}. Report 'success', 'error', or "
+                "'not_reported' where the application does not know — there is "
+                "no default, because a tool that failed must not be able to "
+                "report as one that worked by saying nothing"
+            )
+        absence = call.get("result_absence")
+        if absence is not None and absence not in ("not_reported", "not_recorded"):
+            raise ValueError(
+                f"{at}.result_absence is {absence!r}. Report 'not_reported', "
+                "'not_recorded', or leave it out"
+            )
+        arguments = call.get("arguments")
+        if not (arguments is None or isinstance(arguments, Mapping | str)):
+            raise ValueError(
+                f"{at}.arguments is a {type(arguments).__name__}: report the "
+                "object the model sent, the string it sent if it was not an "
+                "object, or null where the application does not report them"
+            )
+        result = call.get("result")
+        calls.append(
+            # `ToolCall` refuses a result beside a declared absence, and this
+            # constructor is where that refusal is wanted: one rule, checked in
+            # the place that already owns it.
+            ToolCall(
+                tool=tool,
+                arguments=cast("Mapping[str, object] | str | None", arguments),
+                # No cast on either: the membership checks above narrow these to
+                # `ToolStatus` and `ResultAbsence` on their own, which is pyright
+                # confirming that the refusal and the type say the same thing.
+                status=status,
+                result=None if result is None else str(result),
+                result_absence=absence,
+            )
+        )
+    return tuple(calls)
+
+
+#: The counts a `usage` object may hold: `Usage`'s own field names, closed the
+#: way `CONTRACT_FIELDS` closes a reported configuration and for the same
+#: reason. An open mapping here would put an application's own vocabulary into
+#: the run's totals, where nobody can check it.
+USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_write_tokens",
+    "thinking_tokens",
+)
+
+
+def _count(value: object, at: str) -> int:
+    """A token count, refused unless it is one.
+
+    **This is where F-1 stops being unreachable.** `Usage` accepts a `bool` and
+    a whole `float` — its own guards are ordering comparisons, which both
+    satisfy — and the second 0.17.0 delta-pass recorded that as LOW precisely
+    because nothing reachable could deliver one: the plugins coerce with
+    `int()`, and their SDKs hand over integers. An application's JSON is the
+    first path that can, so `usage_path` would make it reachable, and closing it
+    here is cheaper than widening `Usage` for one boundary. `true` reads as `1`
+    and rides into the document as `true`, which the document's own reader then
+    refuses — written, listed and unreadable.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(
+            f"{at} is {value!r}, which is not a token count: report a whole "
+            "number. A boolean is not a count, and a fraction of a token is not "
+            "a thing an endpoint can have produced"
+        )
+    return value
+
+
+def reported_usage(found: object, path: str) -> Usage:
+    """The counts an application reported, by `Usage`'s own names.
+
+    The names are digline's and not the application's, which is a real ask of
+    whoever writes the endpoint — and it is the same ask ADR 0005 §8 already
+    makes of the configuration. A per-field path each would spare them the
+    rename and cost the reader the one thing that makes the counts checkable:
+    that `input_tokens` means the same quantity in every run of every suite.
+
+    `input_tokens` and `output_tokens` are mandatory. The rest default to `0`
+    because that is what `Usage` means by them — `thinking_tokens` excepted,
+    where `None` is *not reported* and is never guessed as a zero (ADR 0026 §2).
+    """
+    if not isinstance(found, Mapping):
+        raise ValueError(
+            f"{path!r} holds a {type(found).__name__}, not an object of counts"
+        )
+    counts = cast("Mapping[str, object]", found)
+    unknown = sorted(set(counts) - set(USAGE_FIELDS))
+    if unknown:
+        raise ValueError(
+            f"{path!r} declares {', '.join(unknown)}, which is not a count "
+            f"digline records. Allowed: {', '.join(USAGE_FIELDS)}. A count "
+            "under another name is a count nothing adds up"
+        )
+    for name in ("input_tokens", "output_tokens"):
+        if counts.get(name) is None:
+            raise ValueError(
+                f"{path!r} gives no {name}: a usage that cannot say what the "
+                "call consumed reports nothing. Leave the whole object out "
+                "instead — no counts is an honest answer and a zero is not"
+            )
+    thinking = counts.get("thinking_tokens")
+    return Usage(
+        input_tokens=_count(counts["input_tokens"], f"{path}.input_tokens"),
+        output_tokens=_count(counts["output_tokens"], f"{path}.output_tokens"),
+        cache_read_tokens=_count(
+            counts.get("cache_read_tokens", 0), f"{path}.cache_read_tokens"
+        ),
+        cache_write_tokens=_count(
+            counts.get("cache_write_tokens", 0), f"{path}.cache_write_tokens"
+        ),
+        thinking_tokens=(
+            None if thinking is None else _count(thinking, f"{path}.thinking_tokens")
+        ),
+    )
