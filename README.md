@@ -17,6 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/digline/digline/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14570/badge)](https://www.bestpractices.dev/projects/14570)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/digline/digline/badge)](https://scorecard.dev/viewer/?uri=github.com/digline/digline)
 
 Your prompt worked on Tuesday. On Thursday it works a little less — not enough
 to break, enough for a user to notice in two weeks. No ordinary test catches it,
