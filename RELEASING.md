@@ -330,10 +330,13 @@ genuinely been green when it looked.
 
 Run it again whenever a docs file moves after it, which on most releases means
 **last, immediately before the tag**, and always again after writing a
-changelog entry. The `docs` job is a required check on `main` since 2026-09-22, so a pull
-request that breaks it does not merge. A push that lands some other way leaves
-the red sitting on `main` until somebody reads it, which is the trade that
-the reason this one has to be run at the right time rather than merely run.
+changelog entry. The `docs` job is a required check on `main` since 2026-09-22,
+so a pull request that breaks it does not merge — and since 2026-09-23 there is
+no longer a push that lands some other way, because `main` refuses a ref whose
+`gates` have not passed (`CLAUDE.md` § Conventions). That closes the route by
+which a red used to end up sitting on `main` until somebody read it. It does not
+make the timing optional: a green that looked at the wrong tree is still green,
+which is why this has to be run at the right moment rather than merely run.
 
 **`make preview`, and not `tools/sync-docs.sh` followed by
 `uv run mkdocs build --strict`.** That is the target the `docs` job calls on a
@@ -402,6 +405,17 @@ pages that do not exist. They land together.
 **And they land in one order: this repository first, the site immediately
 after.** Not the other way round, however much "never push digline alone"
 sounds like it. The two repositories are not symmetrical:
+
+Since 2026-09-23 "land" means the same thing in both: **push the branch, open a
+pull request, wait for green, then merge.** `main` here is protected by a
+ruleset nothing bypasses — the two `gates` checks on the ref, and the branch up
+to date before merging — so a direct push is refused and `git push origin main`
+is not a step in this file. The pull request is not the ruleset's doing: `ci.yml`
+runs on `pull_request` and on pushes to `main`, so a branch push produces no
+checks, and a ref with no checks cannot land. `CLAUDE.md` § Conventions is the
+rule and says why. What it changes is only how each of the two pushes below
+reaches its default branch; the order between the two repositories is
+unaffected, and is still this one.
 
 - `digline.dev`'s `main` requires a pull request **and** a `Build` check, and
   `docs.yml` checks out `digline/digline` at its **default branch** when no
