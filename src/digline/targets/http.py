@@ -153,6 +153,15 @@ class HttpTarget:
     can post and a field it can read.
     """
 
+    #: Every `*_path` here is a **dotted path into the answer's JSON**, never a
+    #: file, and the annotations say so on purpose: `str`, never `str | Path`.
+    #: The declarative loader decides what to resolve against the suite's
+    #: directory by testing for the word `Path` in the annotation string
+    #: (`host/toml_suite.py`, `_resolve_paths`), so annotating one of these with
+    #: `Path` would turn `data.answer` into a filename beside the suite, hand it
+    #: to the perimeter check, and refuse the suite for a file nobody named.
+    #: A parameter added below inherits the TOML form for free, and inherits
+    #: this too.
     def __init__(
         self,
         url: str,
