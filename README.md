@@ -69,6 +69,23 @@ or with pip in an existing environment: `pip install digline`.
 the pip path an older interpreter says `ERROR: No matching distribution found`
 with `from versions: none`, which does not say why — that is what it means.
 
+**If you use Claude Code**, digline also installs as a plugin. What it ships
+first is the judgement layer. The [`operating-digline`](plugins/digline/skills/operating-digline/SKILL.md)
+skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
+agent is about to run a suite or read a comparison. Beside it is the MCP server,
+which measures, reads and explains, and cannot promote a baseline. Two lines
+plus one dependency: the server imports your suite, so it runs from your
+project's `.venv`.
+
+```bash
+uv add --dev digline-mcp
+claude plugin marketplace add digline/digline
+claude plugin install digline@digline --scope project
+```
+
+What it installs, and what its hook does and does not guarantee:
+[`plugins/digline/README.md`](plugins/digline/README.md).
+
 `suite.py` — complete and runnable, no API key:
 
 ```python
@@ -243,7 +260,9 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
 
 The same comparison reaches an agent through [`digline-mcp`](docs/mcp.md) —
-eight tools that read and measure, and no `promote` to call — a test run through
+eight tools that read and measure, and no `promote` to call — and Claude Code
+through [the plugin](plugins/digline/README.md), which ships that server with
+the judgement layer beside it. It reaches a test run through
 [`pytest-digline`](docs/pytest.md), one row per check, a pull request through
 [`digline/digline-action`](https://github.com/digline/digline-action), and CI
 without a Python toolchain through `ghcr.io/digline/digline`.
@@ -316,6 +335,9 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/diff.md`](docs/diff.md) · [`docs/explain.md`](docs/explain.md) · [`docs/rejudge.md`](docs/rejudge.md) · [`docs/view.md`](docs/view.md) · [`docs/migrate.md`](docs/migrate.md) — each command with a surface of its own
 - [`docs/mcp.md`](docs/mcp.md) · [`docs/pytest.md`](docs/pytest.md) — the two front ends that are not the CLI
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
+- [`plugins/digline/`](plugins/digline/README.md) — the same rules as a Claude Code
+  plugin, with the MCP server and a hook that asks a person before `promote` or
+  `register`
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
 ## License

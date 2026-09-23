@@ -103,6 +103,7 @@ def swept() -> list[Path]:
     files += sorted((ROOT / "packages").glob("*/README.md"))
     files += sorted(p for p in (ROOT / "docs").rglob("*.md") if "adr" not in p.parts)
     files += sorted((ROOT / ".claude").rglob("*.md"))
+    files += sorted((ROOT / "plugins").rglob("*.md"))
     # The example READMEs. They were outside the sweep until the 0.6.0 audit,
     # which is backwards: an example is the page most likely to name a version,
     # because it is the one telling a reader what to install, and the class with
@@ -167,6 +168,10 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     ".claude/skills/operating-digline/SKILL.md": {
         "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
+    },
+    "plugins/digline/skills/operating-digline/SKILL.md": {
+        "0.4.0": "the plugin's byte copy of the skill above, gated by "
+        "test_claude_plugin.py",
     },
     "src/digline/run/suite.py": {
         "0.16.0": "'silent until 0.16.0' — when a wrapper that wraps no "
@@ -733,6 +738,12 @@ LIVE: dict[str, str] = {
     "README.md": r"^## Status\s*\n+`([^`]+)`",
     "docker/Dockerfile": r"^ARG DIGLINE_VERSION=(\S+)$",
     "docker/README.md": r"^\| `([\d.]+)` \| that version of digline",
+    # The Claude Code plugin: its version, and the tag the marketplace installs
+    # it from. Pinned rather than following `main`, which would ship the skill
+    # ahead of the release that justifies it — a playbook promising something
+    # the reader's installed digline cannot do yet.
+    "plugins/digline/.claude-plugin/plugin.json": r'^\s*"version": "([^"]+)"',
+    ".claude-plugin/marketplace.json": r'^\s*"ref": "v([^"]+)"',
 }
 
 

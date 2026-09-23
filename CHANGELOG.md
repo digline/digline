@@ -8,6 +8,28 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Added — a Claude Code plugin, pinned to the release it describes
+
+`claude plugin marketplace add digline/digline`, then `claude plugin install
+digline@digline --scope project`, with `digline-mcp` in the project's `.venv`:
+two lines plus one dependency. The dependency stays yours, because the server
+imports your suite and its providers.
+
+What it ships first is the judgement layer. The `operating-digline` skill had
+reached nobody outside this repository, and now it loads in the repository that
+uses digline. Beside it: the MCP server, which measures, reads and explains and
+cannot promote a baseline, because approval is a person's commit; and a hook
+that **asks** before `digline promote` and `digline register`, since both
+commit a person's judgement. The hook is a preference, not a wall: the wall is
+the reviewed diff under `.digline/<tenant>/`.
+
+The plugin's version is digline's, and the marketplace installs from the
+release tag rather than from `main`. Both are gated in `test_versions.py`,
+beside the other numbers written by hand. The launcher starts the server from
+the project's `.venv` and from nowhere else, because `uv run` wrote a
+`uv.lock` into a repository that lacked the dependency, and an activated
+environment put another project's server in its place.
+
 ### Added — an HTTP target can report its trajectory and its counts
 
 `HttpTarget` takes `tools_path`, `tool_calls_path` and `usage_path`. Until now it

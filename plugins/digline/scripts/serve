@@ -1,0 +1,28 @@
+#!/bin/sh
+# Start digline-mcp for one project, from that project's own environment.
+#
+# The server imports the project's suite and the provider packages it declares,
+# so it has to run where those are installed: `uvx digline-mcp` starts, lists
+# its tools, and then fails on the first call with the provider missing.
+#
+# Not `uv run --project` either, although it is the obvious line. Measured on
+# 2026-09-23: in a repository without the dependency it writes an untracked
+# `uv.lock` and creates a `.venv` before failing, and with another environment
+# active it finds that one's `digline-mcp` on PATH and runs it instead, at
+# whatever version it happens to be. A plugin that starts with every session
+# must not write into the repository, and must not answer from somebody else's
+# install. So: the project's `.venv`, or a refusal that says what to add.
+#
+# stdout is the protocol channel, so everything said here goes to stderr.
+
+project="${1:?usage: serve <project directory>}"
+server="$project/.venv/bin/digline-mcp"
+
+if [ ! -x "$server" ]; then
+    echo "digline: no digline-mcp in $project/.venv. The plugin starts the MCP server" \
+        "from the project's own environment, because it imports the project's suite." \
+        "Add it there: uv add --dev digline-mcp (or pip install digline-mcp into .venv)." >&2
+    exit 1
+fi
+
+exec "$server" --root "$project"

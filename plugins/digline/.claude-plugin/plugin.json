@@ -1,0 +1,13 @@
+{
+  "name": "digline",
+  "version": "0.19.0",
+  "description": "The judgement layer for reading an LLM eval result — when to re-run, when to investigate, what to recommend — and an MCP server that measures, reads and explains, and cannot promote a baseline, because approval is a person's commit.",
+  "author": {
+    "name": "digline",
+    "url": "https://github.com/digline"
+  },
+  "homepage": "https://digline.dev",
+  "repository": "https://github.com/digline/digline",
+  "license": "Apache-2.0",
+  "keywords": ["evaluation", "llm", "baseline", "regression", "mcp"]
+}
