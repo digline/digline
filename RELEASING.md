@@ -55,6 +55,15 @@ none of which a substitution will find:
   early makes it red the other way — captured with the new version, newest dated
   still the old one. Leave it alone until the release commit dates the heading.
 
+  **One rule, two opposite answers, both correct** — worth stating because the
+  history shows it twice in one day and the first will read as a mistake. On
+  2026-09-23 the capture was regenerated, then **reverted** to the previous
+  release's, then regenerated again. Nothing changed its mind: the file must
+  match the newest *dated* entry, and what moved was the heading. While 0.19.0
+  said `— unreleased` the 0.18.0 capture was the correct one; the release commit
+  dated the heading, and at that moment the 0.19.0 capture became correct. A
+  revert that looks like an undo is the same rule reading a different tree.
+
 - **The previous release's literals become unaccounted the moment the number
   moves.** They are evidence — build logs, digests, "since 0.X.0" — and they
   must go into `RECORDED` with a reason, never be rewritten: a release whose
@@ -194,6 +203,38 @@ that matter. So `ci` handles the window rather than leaving it:
 Nothing here changes at release. The moment the heading below is dated, it
 stops being a declaration, the substitution stops with it, and the pins are
 waited for as written.
+
+## Before the tag: the release commit is its own landing
+
+**The tag does not point at the commit that built the feature.** It points at a
+later one whose only job is to say the release happened — and today, 2026-09-23,
+that shape was nearly missed: the feature had merged, every gate was green, and
+the commit about to be tagged carried `## 0.19.0 — unreleased`. Tagging it would
+have published a release whose own notes deny it shipped.
+
+The precedent, and check it rather than trusting this paragraph: `v0.17.0` points
+at **`b70c5d4`, *Release digline 0.17.0***, which is not the commit that wrote
+any of that release's features. `a72a8c0` built one of them and wrote
+`## 0.17.0 — unreleased`; `b70c5d4` dated it and touched `CHANGELOG.md`,
+`docs/assets/home/home.json` and four example locks. Two landings, in that order.
+
+So after the feature merges and before the tag:
+
+1. **Date every heading the tag carries**, core and each plugin, in one commit.
+   `test_a_dated_release_leaves_no_package_declared_unreleased` is green while the
+   core still says `unreleased` and goes red the moment you date it with a package
+   left behind, naming the package.
+2. **Regenerate the home capture**, which becomes due at exactly that moment and
+   not before — see the rule above for why the two answers differ.
+3. **Expect the image job to go red on this commit** and read it as the short
+   post-tag red rather than a defect: dating the heading switches off
+   `image_pins.py`'s window substitution, so the build waits for a version the
+   index does not serve yet. It heals when `publish` finishes. This is not the
+   days-long window red described above.
+
+The reason this needs writing down at all is that the feature commit is *tempting*:
+it is green, it is the change everyone was working on, and nothing about it
+announces that it is not the release.
 
 ## Before the tag: the changelog
 
