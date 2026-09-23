@@ -111,6 +111,43 @@ artifacts that today exists in none of the audited competitors.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.
+- **`main` is protected, and nothing bypasses it.** A ruleset on the default
+  branch requires the two `gates` checks — `gates (3.12)` and `gates (3.13)` —
+  to have passed **on the ref** before it can land, requires a branch to be up
+  to date with `main` before merging, and blocks force pushes and deletions. No
+  actor bypasses those two checks: there is no `--admin` path, and asking for
+  one is not a route either. So every change has one shape — **push the branch,
+  wait for green, then merge.** A direct push to `main` is refused, and that
+  refusal is the rule working rather than an obstacle to get around.
+  `digline.dev` has worked this way all along, and the two are now the same in
+  the part that matters — neither default branch takes a direct push, and
+  neither has a bypass. They are not identical: `digline.dev` routes work
+  through a pull request (zero approvals required) and does not ask for an
+  up-to-date branch, where here it is the reverse.
+
+  **Why, and not only what.** It cost two incidents in the week of 2026-09-22.
+  One session swept another session's commit onto `main` behind a clean
+  fast-forward — a fast-forward is not evidence that only your own commit
+  moved, and requiring the branch to be up to date is what catches that. And a
+  red sat on `main`, because a check that nothing requires stops nothing once
+  the commit is already there; required status checks are what catch that, and
+  they catch it *before* the ref lands rather than after.
+
+  What it does **not** require, so nobody assumes more than is there: no
+  review, no signed commits, no linear history. Merge commits are still how
+  work lands.
+
+  It does not require a pull request either — but **open one anyway, because
+  nothing else can produce the checks.** `ci.yml` runs on `pull_request` and on
+  pushes to `main`, and a push to any other branch starts nothing at all: the
+  branch arrives green-looking with no checks on it, and a ref with no checks
+  is a ref that cannot land. So the shape above, in full: push the branch, open
+  a pull request, wait for the two gates, merge. That is the CI trigger
+  combining with the ruleset rather than either one alone, which is exactly the
+  kind of interaction neither page shows you.
+
+  The release push order is in [`RELEASING.md`](RELEASING.md) and this rule does
+  not change it — it changes only how each of those pushes reaches `main`.
 
 ## Relationship with Plumbline
 
