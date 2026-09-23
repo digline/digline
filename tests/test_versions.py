@@ -116,6 +116,20 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
+    "src/digline/cli/main.py": {
+        "0.19.0": (
+            "'how 0.19.0 came to build the whole feature and never connect it' — "
+            "the release whose pinned control shipped unwired, told as the reason "
+            "this call exists. History, not the current version"
+        ),
+    },
+    "src/digline/run/driver.py": {
+        "0.19.0": (
+            "'0.19.0 shipped that way through every unit test' — the release that "
+            "shipped the unwired pin set and the pass that caught it, told as the "
+            "reason the check sits here. History, not the current version"
+        ),
+    },
     "AGENTS.md": {
         "0.4.0": "'the one case in 0.4.0' — the state of a shipped release",
     },
@@ -179,6 +193,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "it dates the change, not the current version",
     },
     "src/digline/wire/run.py": {
+        "0.19.0": (
+            "the 0.19.0 delta-pass, which found what this file now does, told as "
+            "history. Moving the number would claim a later pass audited its own "
+            "output"
+        ),
         "0.16.0": "'The instrument's own flags cross, since 0.16.0' — the "
         "release the MCP projection stopped being silent about a replay, a "
         "canary, a calibration case and a judged check",
@@ -247,6 +266,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.19.0": (
+            "the release v0.19.0 itself, quoted as evidence: the "
+            "`Collecting`/`Successfully installed` pair from the arm64 leg, the "
+            "`served digline==0.19.0 (after 0s)` line that showed the race was "
+            "absorbed rather than met, and the three stops of its own ritual, "
+            "including the `## 0.19.0 — unreleased` heading on the commit nearly "
+            "tagged. It stopped being what digline is at now when 0.19.1 was cut, "
+            "and every line is a fact about a release that shipped"
+        ),
         "0.18.0": (
             "the release v0.18.0 itself, quoted as evidence: the runner-level "
             "`waiting digline==0.18.0` lines from the index race and the nine "
@@ -456,6 +484,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.19.0": (
+            "the 0.19.0 delta-pass, named as the pass that found the bidirectional-"
+            "control gap: which pass found it, told as history, and not a claim "
+            "about the current release"
+        ),
         "0.10.1": "'0.10.1 closed DEL and the C1 block' — which release covered "
         "which class of control character, in the entry recording that "
         "bidirectional controls were never in that scope. It dates the "
@@ -612,6 +645,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "Moving the number would claim a later pass found it",
     },
     "src/digline/core/run.py": {
+        "0.19.0": (
+            "the 0.19.0 delta-pass, which found what this file now does, told as "
+            "history. Moving the number would claim a later pass audited its own "
+            "output"
+        ),
         "0.16.0": "two sentences of history in one file: the schema-15 comment "
         "says the field was mistaken for shipped in 0.16.0, and CallTotals' "
         "finite guard says when a non-finite bill began reaching a run-level "
@@ -678,6 +716,11 @@ RECORDED: dict[str, dict[str, str]] = {
     # The 0.12.1 delta-pass, in the same shape: the release named where each
     # finding is closed, history from the moment 0.13.0 shipped.
     "src/digline/core/compare.py": {
+        "0.19.0": (
+            "the 0.19.0 delta-pass, which found what this file now does, told as "
+            "history. Moving the number would claim a later pass audited its own "
+            "output"
+        ),
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "
             "what this file now does, told as history. There were two passes "

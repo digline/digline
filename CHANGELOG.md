@@ -6,32 +6,23 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.19.1 — 2026-09-23
 
-### Added — a Claude Code plugin, pinned to the release it describes
+digline **0.19.1**, and on PyPI the core alone. An HTTP target can now report
+what the agent called and what it spent, so an application in any language can
+be measured the way a Python one is. And digline installs into Claude Code as a
+plugin that ships the judgement layer: the `operating-digline` skill, and a
+server that measures, reads and explains and cannot promote a baseline.
 
-`claude plugin marketplace add digline/digline`, then `claude plugin install
-digline@digline --scope project`, with `digline-mcp` in the project's `.venv`:
-two lines plus one dependency. The dependency stays yours, because the server
-imports your suite and its providers.
+**A patch, checked against the rule rather than assumed.** `RELEASING.md` moves
+the minor only when something a user relies on stops working as it did. Since
+0.19.0 no schema, public name or CLI option has moved. Three optional
+parameters and a plugin that did not exist before break nothing for anybody
+already on 0.19.0, the same as 0.10.1, 0.12.1 and 0.13.3.
 
-What it ships first is the judgement layer. The `operating-digline` skill had
-reached nobody outside this repository, and now it loads in the repository that
-uses digline. Beside it: the MCP server, which measures, reads and explains and
-cannot promote a baseline, because approval is a person's commit; and a hook
-that **asks** before `digline promote` and `digline register`, since both
-commit a person's judgement. The hook is a preference, not a wall: the wall is
-the reviewed diff under `.digline/<tenant>/`. It reads a command from its first
-word, so a `grep` for `digline register` is a grep, and it is silent in a
-project without `.digline/` at its root — which matters because `claude plugin
-install` without `--scope` installs at user scope, in every repository.
-
-The plugin's version is digline's, and the marketplace installs from the
-release tag rather than from `main`. Both are gated in `test_versions.py`,
-beside the other numbers written by hand. The launcher starts the server from
-the project's `.venv` and from nowhere else, because `uv run` wrote a
-`uv.lock` into a repository that lacked the dependency, and an activated
-environment put another project's server in its place.
+```sh
+uv add --upgrade digline
+```
 
 ### Added — an HTTP target can report its trajectory and its counts
 
@@ -65,6 +56,31 @@ configuration an application reports is still not reviewed the way a suite is:
 `model` travels in clear from it today. [ADR 0030](docs/adr/0030-the-configuration-an-application-reports.md)
 rules what to do about that and **is accepted, not implemented** — these three
 paths do not close it.
+
+### Added — a Claude Code plugin, pinned to the release it describes
+
+`claude plugin marketplace add digline/digline`, then `claude plugin install
+digline@digline --scope project`, with `digline-mcp` in the project's `.venv`:
+two lines plus one dependency. The dependency stays yours, because the server
+imports your suite and its providers.
+
+What it ships first is the judgement layer. The `operating-digline` skill had
+reached nobody outside this repository, and now it loads in the repository that
+uses digline. Beside it: the MCP server, which measures, reads and explains and
+cannot promote a baseline, because approval is a person's commit; and a hook
+that **asks** before `digline promote` and `digline register`, since both
+commit a person's judgement. The hook is a preference, not a wall: the wall is
+the reviewed diff under `.digline/<tenant>/`. It reads a command from its first
+word, so a `grep` for `digline register` is a grep, and it is silent in a
+project without `.digline/` at its root — which matters because `claude plugin
+install` without `--scope` installs at user scope, in every repository.
+
+The plugin's version is digline's, and the marketplace installs from the
+release tag rather than from `main`. Both are gated in `test_versions.py`,
+beside the other numbers written by hand. The launcher starts the server from
+the project's `.venv` and from nowhere else, because `uv run` wrote a
+`uv.lock` into a repository that lacked the dependency, and an activated
+environment put another project's server in its place.
 
 ## pytest-digline 0.2.0 — 2026-09-23
 
