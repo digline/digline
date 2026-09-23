@@ -806,6 +806,24 @@ was which, and the honest reading after one run is *not yet known* — which is
 why this chapter says to take the median before promoting, and why it is worth
 the runs it costs.
 
+**And the limit of that, which the same experiment found two days later.**
+Repetition across runs separates a real movement from a coin. It does **not**
+separate a real movement from an artefact of the change you are testing, and the
+two look identical on the page.
+
+The case above that repeated below the line in 4 of 4 kept repeating: 7 of 8,
+across two variants of the same prompt change. It read as settled. When the
+change was removed altogether it came back at `1.00, 1.00, 1.00, 1.00` — it had
+never been a disagreement about that case at all. An improvement that had
+repeated 8 of 8 vanished the same way.
+
+Every one of those eight runs shared the thing under test, so every repetition
+was drawn from inside it. The question is not how many times a finding repeated
+but **what every repetition had in common**: if the answer is the change you are
+evaluating, the count says nothing about whether the finding survives it. The
+only run that can speak is the one with the change taken out — and the reason to
+run it is precisely that you do not expect it to disagree.
+
 ## 7. The aggregate gates, the cases diagnose
 
 Chapter 4 ended with a check too noisy to gate on. This is the answer: when you
