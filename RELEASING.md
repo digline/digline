@@ -980,6 +980,47 @@ servers would confirm it.
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
 
+- **v0.19.0 — the pair proven on arm64 only, and the race absorbed rather than
+  met.** `docker-publish` succeeded on attempt 1.
+
+  - **amd64 — proved nothing, as predicted.** `#12 [linux/amd64 stage-0 3/5]` is
+    `CACHED`. It is written here rather than omitted, because a leg that proves
+    nothing and is not named reads afterwards as a leg that passed.
+  - **arm64 — the pair, in one `RUN`.** `#15 [linux/arm64 stage-0 3/5]` printed
+    `#15 18.32 Collecting digline==0.19.0` and `#15 99.85 Successfully installed
+    … digline-0.19.0 digline-anthropic-0.5.3 digline-bedrock-0.5.1
+    digline-openai-0.5.2 …`. So the 0.19.0 pin is proven on one architecture.
+
+  **The race was absorbed, not met, and this is not a fourth observation.**
+  `await_index` reported `served digline==0.19.0 (after 0s)`,
+  `digline-anthropic==0.5.3 (after 0s)`, `digline-openai==0.5.2 (after 1s)` —
+  no `waiting` line at all. The index was ahead of the build, so the fix was
+  never exercised. **Three real observations stand** (v0.15.0's failure,
+  v0.15.1's live race, v0.17.1's 241s wait) and a green that did not exercise
+  the fix is not one of them. Counting it would grow the sample with a run that
+  tested nothing, which is the shape this whole file exists to refuse.
+
+- **v0.19.0 — stopped three times by its own ritual, by three different
+  controls, none of them a test.** Worth the lines because a release that ships
+  smoothly teaches nothing, and the three failures are of three distinct kinds.
+
+  1. **The delta-pass found the feature inert.** `read_pinned` had no caller, so
+     `Run.pinned` was empty in every run digline wrote and no comparison could
+     exit 2 — behind **39 green tests**, each of which constructed the record
+     directly and so could not see the gap between the suite and the driver.
+  2. **The floor gate found two plugins that would have been broken** for anyone
+     resolving against PyPI: both imported a name that arrived in 0.19.0 while
+     declaring older floors. Unreachable by any test in this repository, because
+     the failure is about versions that are *not* present.
+  3. **The runbook caught a tag about to point at the wrong commit** — the
+     feature merge, whose changelog still said `## 0.19.0 — unreleased`. The
+     defect was not a forgotten rule: the wrong point looked like the right one.
+
+  The common property is what makes them worth recording together: **none was
+  reachable by a test**, and each needed a control that looks at something a
+  test cannot — a wiring, a promise about absent versions, and a commit's place
+  in a sequence.
+
 - **The wait inside the build runs on the release path.** Seen on v0.15.0: both
   `docker-publish.yml` legs printed `served` under `#… the index at
   https://pypi.org must serve`.
