@@ -37,10 +37,14 @@ claude plugin marketplace add digline/digline
 claude plugin install digline@digline --scope project
 ```
 
+**Without `--scope`, `claude plugin install` installs at user scope**, and
+then the plugin starts in every repository you open, including ones that have
+nothing to do with digline. The hook stays silent where there is no
+`.digline/` at the project root, but it still sees every shell command there.
+
 `--scope project` records the plugin in `.claude/settings.json`, which you
 commit: the plugin belongs to the repository that uses digline, like
-everything else digline keeps. Installed at user scope it would start in every
-repository you open.
+everything else digline keeps.
 
 The marketplace installs the plugin from the tag of the digline release it
 describes, never from `main`, so the skill does not describe anything your
@@ -66,14 +70,18 @@ supported.
 ## The hook is a preference, not a wall
 
 When a shell command runs `digline promote` or `digline register`, the hook
-stops and asks you. Both commit a person's judgement. `promote` makes a run the
+stops and asks you. It reads the command from its first word, so a `grep` or
+a commit message that mentions either one is not asked about. It only speaks
+in a project with `.digline/` at its root and a `.venv` to run in. Both commit a person's judgement. `promote` makes a run the
 approved reference, and `register` records what somebody decided about a
 comparison, so an agent recording one is taking the same decision from you.
 The hook **asks**, and never refuses outright, because you may tell the agent
 to go ahead, and then the prompt is where you approve.
 
 It guarantees nothing. You, or anybody who can edit your settings, can disable
-the plugin. A command spelled in a way the pattern does not read goes through.
+the plugin. A command the hook does not read goes through without a prompt:
+one handed to another program as a string (`bash -c`, `xargs`, `eval`), or
+spelled through a variable or an alias.
 It only makes the honest path the easy one. **The wall is the reviewed diff
 under `.digline/<tenant>/`**: baselines and the register are committed, so they
 reach a reviewer as changes nobody can make silently. That is where approval

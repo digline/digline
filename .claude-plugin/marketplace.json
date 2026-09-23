@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "digline",
-      "description": "The judgement layer for reading an LLM eval result, and an MCP server that measures, reads and explains — and cannot promote a baseline, because approval is a person's commit.",
+      "description": "The judgement layer for reading an LLM eval result, and an MCP server that measures, reads and explains — and cannot promote a baseline, because approval is a person's commit — and a hook that asks you before `digline promote` or `digline register` runs.",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/digline/digline.git",
