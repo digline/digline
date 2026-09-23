@@ -167,6 +167,9 @@ RELEASED: dict[str, int] = {
     # which declared files the suite said must not change, which is what lets
     # a comparison lift a `changed` on a named path into exit 2.
     "0.19.0": 16,
+    # A patch that moves no schema: the HTTP target's three paths and the
+    # Claude Code plugin add surface and store nothing new.
+    "0.19.1": 16,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

@@ -1,6 +1,6 @@
 {
   "name": "digline",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "The judgement layer for reading an LLM eval result — when to re-run, when to investigate, what to recommend — and an MCP server that measures, reads and explains, and cannot promote a baseline, because approval is a person's commit; and a hook that asks you before `digline promote` or `digline register` runs, in projects with a .digline/ directory.",
   "author": {
     "name": "digline",
