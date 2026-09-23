@@ -522,7 +522,15 @@ target = HttpTarget(
 | `cost_path` | dotted path to the cost, or `None` |
 | `latency_from_response` | dotted path to the time the service reports. Left out, digline measures the round trip instead — which includes the network, and is a different number measuring a different thing |
 | `config_path` | dotted path to an object saying which model answered and how it was set up, or `None`. See below |
+| `tools_path` | dotted path to the tool names the model called, in order, or `None` |
+| `tool_calls_path` | dotted path to those calls with their arguments, or `None`. Declared alone, the names are derived from it |
+| `usage_path` | dotted path to an object of token counts, by `Usage`'s own field names, or `None` |
 | `headers`, `timeout` | as you would expect |
+
+Every `*_path` is a dotted path **into the JSON answer**, never a file. Declared
+as `str`, deliberately: the declarative loader resolves a `Path`-annotated
+parameter against the suite's directory, which would turn `data.answer` into a
+filename nobody wrote.
 
 #### `config_path`: the configuration, when the model call is on the other side
 

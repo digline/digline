@@ -5,7 +5,8 @@
   [ADR 0015](0015-the-recorded-output-and-the-declared-re-judge.md) and
   [ADR 0018](0018-the-recorded-trajectory-and-the-agent-under-test.md) were.
   §4 is the ruling; §5 is what the implementation still has to settle, and
-  neither of its two items changes §4
+  neither of its two items changes §4. **§6 says what is true while §4 is
+  unwritten, and it is unwritten as of 2026-09-23**
 - Date: 2026-09-23
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);
@@ -186,6 +187,30 @@ the reason this record is text before code.
    by type and §4's declaration covers it at no extra cost if it is included —
    the open part is only whether it is mandatory to declare, and nobody has
    asked for it either way.
+
+### 6. Accepted is not implemented, and the gap is open while it is not
+
+**Stated here because a ruling nobody has written reads, three months on, as a
+thing that was done.** §4 is accepted. Nothing in it is implemented. So for as
+long as that is true:
+
+- an application's `provider` and `model` are whatever it reports, checked
+  against nothing a human declared;
+- `model` **crosses a boundary in clear**, today, on every HTTP run — the
+  measurement in §Context is not a prediction;
+- `resolved_model` is closed (ADR 0005 §9), so the field this record would
+  eventually reopen stays shut meanwhile, which is the conservative half working.
+
+**And it applies to the pilot that made the question answerable.** `flower`
+reaches digline through an HTTP target, so the first real non-Python application
+digline measures is also the first to report a configuration nobody reviewed. The
+release that gives it `tools_path`, `tool_calls_path` and `usage_path` does
+**not** close this, and the declarative documentation says so where those paths
+are described rather than leaving a reader to find this record.
+
+The honest summary, for whoever reads this next: the premise fell on
+2026-09-23, the consequence was named the same day, and the code is still owed.
+If this section is still here and §5 is still open, nothing has been done.
 
 ## Consequences
 

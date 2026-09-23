@@ -6,6 +6,41 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Added — an HTTP target can report its trajectory and its counts
+
+`HttpTarget` takes `tools_path`, `tool_calls_path` and `usage_path`. Until now it
+could read the answer and nothing else, so on a non-Python application
+`tools_called` and `tool_called_with` **loaded from a TOML suite and then errored
+on every case** — a check that cannot be answered rather than one that refuses,
+which is the worse of the two. `Response.usage` was always `None`, so a run
+against an application recorded no counts and no token totals.
+
+All three reach a data suite with no change to the loader: the `[target]` table
+is splatted and its allow-list is derived from the constructor's signature. A
+typo is refused at load, by name.
+
+**Declare `tool_calls_path` alone and the names are derived from it**, so the two
+readings of one answer cannot disagree. Declare both and they must agree in the
+same order, or the answer is refused rather than one reading chosen.
+
+**The vocabularies are closed at this boundary**, not downstream: `status` is
+mandatory on every call — `success`, `error` or `not_reported` — with no default,
+because a tool that ran and failed must not be able to report as one that worked
+by saying nothing. `usage_path` reads the counts by `Usage`'s own field names and
+refuses any other key, and refuses a boolean or a fractional count, which keeps
+F-1 of the 0.17.0 delta-pass unreachable: `Usage` accepts both, and an
+application's JSON would have been the first path able to deliver one.
+
+### Unchanged — and stated, because a reader will assume otherwise
+
+**`resolved_model` stays closed over HTTP** (ADR 0005 §9, amended). And the
+configuration an application reports is still not reviewed the way a suite is:
+`model` travels in clear from it today. [ADR 0030](docs/adr/0030-the-configuration-an-application-reports.md)
+rules what to do about that and **is accepted, not implemented** — these three
+paths do not close it.
+
 ## pytest-digline 0.2.0 — 2026-09-23
 
 Published by digline's `v0.19.0` tag, with `digline-mcp 0.2.0` and the core.
