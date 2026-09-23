@@ -1,8 +1,11 @@
 # ADR 0030 — The configuration an application reports
 
-- Status: proposed — **the question, the evidence that it is live, and a
-  recommended answer.** Nothing is implemented, and §5 is the part that needs
-  a ruling before anything is
+- Status: accepted — the text first, the implementation written against it,
+  the way [ADR 0014](0014-what-may-ride-a-schema-bump.md),
+  [ADR 0015](0015-the-recorded-output-and-the-declared-re-judge.md) and
+  [ADR 0018](0018-the-recorded-trajectory-and-the-agent-under-test.md) were.
+  §4 is the ruling; §5 is what the implementation still has to settle, and
+  neither of its two items changes §4
 - Date: 2026-09-23
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);
@@ -13,7 +16,7 @@
 - Touches: fixed decision 9 (`CLAUDE.md`) — **the question is which side of it
   §8's fields fall on.** Nothing here proposes moving the decision; it proposes
   reading it on a boundary that was added after it was written
-- Turns into surface, if accepted: `docs/declarative.md`, `docs/log.md`,
+- Turns into surface: `docs/declarative.md`, `docs/log.md`,
   `docs/adr/0005-…` §2's table
 
 ## Context
@@ -55,8 +58,8 @@ is word for word the failure the 2026-09-10 correction found — *"both fields
 arrive in the same reply from that same server"* — on the field that correction
 did not look at.
 
-A second measurement, because it decides §5. `declared_config` **deletes**
-`base_url` when its value has no parsable host, silently:
+A second measurement, because it is what §4 has to answer. `declared_config`
+**deletes** `base_url` when its value has no parsable host, silently:
 
 ```
 malformed base_url kept: {'provider': 'flower', 'model': 'gemini-2.5-flash'}
@@ -118,7 +121,7 @@ this month: §9's amendment refused the same move for `resolved_model` on the
 ground that a withheld field over HTTP is *recorded nowhere and rendered
 nowhere*.
 
-### 4. The recommended answer: restore the review, do not withhold the value
+### 4. The ruling: restore the review, do not withhold the value
 
 **The suite declares the system it expects; the application reports; digline
 refuses a mismatch.** One new key in `[target]`, and the partition §9 lost is
@@ -152,29 +155,37 @@ expect_config = { provider = "gemini", model = "gemini-2.5-flash" }
   becomes a field this repository could admit on the argument §9 actually makes
   — instead of one refused because the argument is unavailable.
 
-**Undeclared is not silently permissive.** A suite that declares no
-`expect_config` is the case every existing suite is in, so the refusal cannot be
-unconditional without breaking them. The honest shape is the one ADR 0005 §1
-already uses for an unset parameter: absence is a fact, and it is recorded as
-one. A run whose suite declared nothing records that its configuration is
-**unreviewed**, and that is what crosses — the reader is told the names came
-from the measured party, rather than being left to assume a review that did not
-happen.
+**Undeclared is not silently permissive, and it is recorded rather than
+refused.** A suite that declares no `expect_config` is the case every existing
+suite is in, so an unconditional refusal would break all of them. The shape is
+the one ADR 0005 §1 already uses for an unset parameter: absence is a fact, and
+it is recorded as one. A run whose suite declared nothing records that its
+configuration is **unreviewed**, and that is what crosses — the reader is told
+the names came from the measured party, rather than being left to assume a
+review that did not happen.
 
-### 5. What needs ruling before any of this is written
+Refusing instead was considered and is not the ruling: it is a cleaner perimeter
+bought by breaking every HTTP suite in existence, for a weakness that is legible
+once it is named. A fact a reader can see is worth more than a refusal that
+stops the reader being there at all.
 
-1. **Whether `unreviewed` is a recorded fact or a refusal.** Recording it keeps
-   every existing suite working and makes the weaker case legible. Refusing it
-   outright is a cleaner perimeter and breaks every HTTP suite in existence.
-   This record recommends recording, and does not consider it settled.
-2. **Whether the flag lands in the document.** It is a fact about the record, so
-   the candidates are a `SystemConfig` field or a `withheld`-style marker — and
-   a `SystemConfig` field is a `SCHEMA_VERSION` bump with a migration and the
-   ritual around it, for a fact nothing reads yet. This is the cost the §9
-   amendment declined to pay inside an enablement release.
-3. **`region`.** `eu-west-1` is a public cloud name; a region in a customer's
-   own deployment is whatever they called it. It is in the free-form row by
-   type and nobody has asked for it either way.
+### 5. What the implementation still has to settle
+
+Neither item changes §4. Both are about how its ruling is carried, and both are
+the reason this record is text before code.
+
+1. **Where `unreviewed` lands in the document.** It is a fact about the record,
+   so the candidates are a `SystemConfig` field or a `withheld`-style marker —
+   and a `SystemConfig` field is a `SCHEMA_VERSION` bump with a migration and
+   the ritual around it, for a fact nothing reads yet. A marker on the existing
+   shape is the cheaper reading and has to be shown to be an honest one. This
+   is the cost the §9 amendment declined to pay inside an enablement release,
+   and it is still the cost here.
+2. **`region`.** `eu-west-1` is a public cloud name; a region in a customer's
+   own deployment is whatever they called it. §2 puts it in the free-form row
+   by type and §4's declaration covers it at no extra cost if it is included —
+   the open part is only whether it is mandatory to declare, and nobody has
+   asked for it either way.
 
 ## Consequences
 
@@ -235,5 +246,7 @@ own output is not a judge digline can record, and nothing here changes it.
 there is a run that has met it.
 
 **Anything about `resolved_model`.** It is closed by ADR 0005 §9 and this record
-does not reopen it; it only removes the reason it was closed, if §4 is accepted
-and written.
+does not reopen it. What it does is remove the reason it was closed: once §4 is
+written, the sent names are reviewed and the provenance partition exists on
+HTTP. Reopening it is then a separate amendment to §9, on §9's own argument,
+and not a consequence anybody should read out of this record.
