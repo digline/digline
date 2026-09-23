@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## pytest-digline 0.2.0 — unreleased
+## pytest-digline 0.2.0 — 2026-09-23
 
 Published by digline's `v0.19.0` tag, with `digline-mcp 0.2.0` and the core.
 
@@ -32,7 +32,7 @@ an older core, the honest move is to drop the feature from this front end — no
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
 
-## digline-mcp 0.2.0 — unreleased
+## digline-mcp 0.2.0 — 2026-09-23
 
 Published by digline's `v0.19.0` tag, with `pytest-digline 0.2.0` and the core.
 
@@ -49,7 +49,7 @@ over this surface — correctly, and uselessly. With it, a comparison over MCP
 returns `pinned_drifted` and `pinned_unchecked` on the same headline the CLI
 prints, which is what `digline.wire` is for.
 
-## 0.19.0 — unreleased
+## 0.19.0 — 2026-09-23
 
 digline **0.19.0**, and the core alone. A suite can now declare that a file
 **must not change**, and a run whose declared file drifted **exits 2** instead
