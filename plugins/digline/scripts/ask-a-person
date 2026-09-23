@@ -12,28 +12,31 @@
 # moment to approve.
 #
 # This is a preference, not a wall. Whoever can disable the plugin or edit the
-# settings it lives in can remove it, and a command spelled in a way this
-# pattern does not read goes through. The wall is the reviewed diff under
+# settings it lives in can remove it, and a command spelled in a way the matcher
+# does not read goes through. The wall is the reviewed diff under
 # `.digline/<tenant>/`, which is committed — this only makes the honest path
 # the easy one.
 #
-# The whole payload is matched rather than the command field alone: a sh script
-# cannot parse JSON reliably, and a false positive costs one extra prompt.
+# Silent where digline is not. The hook is registered on every Bash call, so
+# without this gate it would read the commands of every repository the plugin
+# is enabled in — and at user scope, which is what `claude plugin install`
+# gives without a flag, that is all of them.
+#
+# Declared limit: "digline is here" means `.digline/` at the project root,
+# `$CLAUDE_PROJECT_DIR`, which is where digline puts it (`--root` defaults to
+# `.`). A monorepo that keeps `.digline/` in a subdirectory gets no prompt from
+# this hook; that silence is this line, not a bug in the matcher.
+#
+# The matcher is Python because the shell cannot read JSON, and matching the
+# raw payload instead is what once made `grep -r "digline register " notes/`
+# ask a person. It runs in the project's own `.venv` and nowhere else, for the
+# launcher's reason: an environment nobody chose answers from an install nobody
+# chose. No `.venv`, and the MCP server cannot start either — so no prompt.
 
-payload=$(cat)
+project="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$project" ] && [ -d "$project/.digline" ] || exit 0
 
-names() {
-    printf '%s' "$payload" |
-        grep -Eq '(^|[^[:alnum:]_-])digline(\.cli)?( [^"|;&]*)? '"$1"'([^[:alnum:]_-]|$)'
-}
+python="$project/.venv/bin/python"
+[ -x "$python" ] || exit 0
 
-if names promote; then
-    what="digline promote makes a run the approved reference, committed under .digline/<tenant>/baselines/"
-elif names register; then
-    what="digline register records what a person decided about a comparison, committed under .digline/<tenant>/register/"
-else
-    exit 0
-fi
-
-printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "%s. That decision is a person'"'"'s: approve this only if you made it. (A preference, not a wall - the wall is the reviewed diff.)"}}\n' "$what"
-exit 0
+exec "$python" "$(dirname "$0")/ask_a_person.py"

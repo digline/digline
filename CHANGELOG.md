@@ -21,7 +21,10 @@ uses digline. Beside it: the MCP server, which measures, reads and explains and
 cannot promote a baseline, because approval is a person's commit; and a hook
 that **asks** before `digline promote` and `digline register`, since both
 commit a person's judgement. The hook is a preference, not a wall: the wall is
-the reviewed diff under `.digline/<tenant>/`.
+the reviewed diff under `.digline/<tenant>/`. It reads a command from its first
+word, so a `grep` for `digline register` is a grep, and it is silent in a
+project without `.digline/` at its root — which matters because `claude plugin
+install` without `--scope` installs at user scope, in every repository.
 
 The plugin's version is digline's, and the marketplace installs from the
 release tag rather than from `main`. Both are gated in `test_versions.py`,
