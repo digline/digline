@@ -681,7 +681,7 @@ re-promote if it is acceptable.* Honesty alone would leave a reader with a
 changed number and no next step, which is the shape of report this project
 refuses everywhere else.
 
-#### 7.9b Measured, 2026-09-23: a judge declines less when given more context
+#### 7.10 Measured, 2026-09-23: a judge declines less when given more context
 
 The first measurement of abstention against a variable that has nothing to do
 with whether the output is true. It is recorded here rather than left in the
@@ -702,9 +702,12 @@ what somebody likes to read; the descriptions are about what an article is.
 Every claim supported under one is supported under the other. What the extra
 text changes is the judge's willingness to answer at all — four times over.
 
-The plausible mechanism, and it is a mechanism this section's own design invites:
-§7.3 makes declining a deliberate act with a stated reason, and the reasons
-these judges gave were of the form *"it is impossible to verify which claims are
+**The next paragraph is the one untested part of this section.** The effect is
+measured, the mechanism is a guess, and nothing in the section rests on it.
+
+The mechanism this section's own design invites: §7.3 makes declining a
+deliberate act with a stated reason, and the reasons these judges gave were of
+the form *"it is impossible to verify which claims are
 supported versus inferred from external knowledge."* More context means more
 surface to relate a claim to, so the judge finds a foothold rather than a
 reason to abstain. Sparse context reads to it as insufficient grounds.
@@ -723,7 +726,15 @@ written because the next person to see a suite abstain will reach for the
 prompt or the model, and the context is a third thing to check and the cheapest
 of the three.
 
-#### 7.10 Test plan
+**The same shape, on another input.** [Adding a field to a judge's
+reply](https://digline.dev/blog/added-field/) — the same text, one more thing
+asked for — loosened the judge, and moving the field after the score did not
+undo it. Here the judge was given more; there it was asked for more. In both, a
+change to what the judge is given that has nothing to do with the truth of the
+output moved what it does. Two measurements, one shape, and neither explains the
+other: that post names no mechanism either, and says so.
+
+#### 7.11 Test plan
 
 Beyond a failing case per rule, which the conventions already require:
 
