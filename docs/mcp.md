@@ -105,6 +105,14 @@ how a run ends up filed under the wrong customer.
 The transport is stdio: the client launches the process, so there is no bound
 port and no listening socket.
 
+### In Claude Code, as a plugin
+
+The repository is also a Claude Code plugin marketplace. The plugin ships the
+`operating-digline` skill beside this server, started on the project it is
+installed in, and a hook that asks a person before `digline promote`: two lines
+plus one dependency, and what they install is described in
+[`plugins/digline/README.md`](https://github.com/digline/digline/blob/main/plugins/digline/README.md).
+
 ## What `run` costs, before it costs it
 
 `AGENTS.md` §7 is an obligation to speak: say what a hunt will cost before

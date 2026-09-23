@@ -1,0 +1,23 @@
+#!/bin/sh
+# PreToolUse on Bash: a command that runs `digline promote` goes to a person.
+#
+# `ask`, never `deny`: AGENTS.md lets the human run it *or tell the agent to*,
+# and a deny would refuse the second. The prompt this raises is that person's
+# moment to approve.
+#
+# This is a preference, not a wall. Whoever can disable the plugin or edit the
+# settings it lives in can remove it, and a command spelled in a way this
+# pattern does not read goes through. The wall is the reviewed diff under
+# `.digline/<tenant>/baselines/`, which is committed — this only makes the
+# honest path the easy one.
+#
+# The whole payload is matched rather than the command field alone: a sh script
+# cannot parse JSON reliably, and a false positive costs one extra prompt.
+
+payload=$(cat)
+
+if printf '%s' "$payload" |
+    grep -Eq '(^|[^[:alnum:]_-])digline(\.cli)?( [^"|;&]*)? promote([^[:alnum:]_-]|$)'; then
+    printf '%s\n' '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "digline promote makes a run the approved reference, committed under .digline/<tenant>/baselines/. That approval is a person'"'"'s: approve this only if you decided it. (A preference, not a wall - the wall is the reviewed diff.)"}}'
+fi
+exit 0

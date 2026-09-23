@@ -99,15 +99,19 @@ Do them in this order, from the repository root:
 #    an editable install still naming the release before this one.
 uv sync --all-packages
 
-# 2. The three claims written by hand. Every occurrence in these three files is
+# 2. The five claims written by hand. Every occurrence in these five files is
 #    a live claim about what is released, so a plain substitution is right here
 #    and nowhere else.
-sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md
+sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md \
+    plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json
 ```
 
-`tests/test_versions.py::LIVE` names those three and what it reads in each:
+`tests/test_versions.py::LIVE` names those five and what it reads in each:
 `README.md`'s `## Status` line, `docker/Dockerfile`'s `ARG DIGLINE_VERSION`,
-and the tag table in `docker/README.md`. `test_the_minor_tag_follows_the_release`
+the tag table in `docker/README.md`, and the Claude Code plugin's `version`
+beside the `ref` its marketplace installs it from. The ref names a tag this
+release has not pushed yet, so between the merge and the tag an install fails;
+it points at a release, never at `main`, on purpose. `test_the_minor_tag_follows_the_release`
 reads a fourth thing in that table — the `<major>.<minor>` tag, which has its
 own shape and went stale unnoticed once already.
 
