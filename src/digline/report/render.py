@@ -187,6 +187,33 @@ class Headline:
     #: something untrue in order to produce the right exit code. `exit_code()`
     #: returns 1 for either. (ADR 0016 §5)
     canary_moved: bool = False
+    #: A file the suite declared **must not drift** is known to have moved. Read
+    #: by `exit_code()`, which returns 2 — never folded into `worse`, because no
+    #: score moved and calling a changed input a regression would send a reader
+    #: looking for a check that got worse. (ADR 0029 §2, §6)
+    pinned_drifted: bool = False
+    #: How many pinned paths this comparison could not answer for.
+    #:
+    #: **Visible, and deliberately not a failure** — the line between those two
+    #: is this feature's whole ruling, so it is stated here rather than left to
+    #: be inferred from `exit_code()`'s silence.
+    #:
+    #: Every other fact on this headline says something about *the world*: a
+    #: check got worse, a canary moved, a file drifted. This one says something
+    #: about **the comparison's own competence** — not that the file moved, but
+    #: that nobody holding these two documents can say. Gating on it would turn
+    #: an epistemic gap into a verdict, which is exactly the error §6 refuses one
+    #: layer down when it declines to return 1 off an `unknown`. The fact layer
+    #: will not assert drift it cannot see; `exit_code()` must not assert it
+    #: either.
+    #:
+    #: Silence, though, is the other failure and the worse one: a control that
+    #: reports nothing when it could not run produces the same green as one that
+    #: ran. So it is named in the sentence, on the wire and in the document, and
+    #: the reader who *can* settle it is told how — `withhold_artifacts` answers
+    #: it for the party holding neither run. It joins `target_echoed` and
+    #: `on_the_line` as a fact that informs and moves no number. (ADR 0029 §8)
+    pinned_unchecked: int = 0
     #: The endpoint returned the id it was sent as the model that answered, on
     #: the run being compared — so the identity the record seems to confirm is
     #: not identified at all. The twelfth fact: an absence disguised as a
@@ -736,6 +763,34 @@ def headline(
                 locale, "fact.artifacts.many", count=len(changed_artifacts)
             )
 
+    # The pinned clauses, beside the artifact clause because they qualify it: the
+    # tally says how many files moved, these say whether one of them was a file
+    # somebody said must not. Both silent when the suite pins nothing, like every
+    # other clause here.
+    drifted = [
+        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "changed"
+    ]
+    unchecked = comparison.pinned_unchecked
+    pinned_text = ""
+    if drifted:
+        pinned_text = phrase(
+            locale,
+            f"fact.pinned.{'one' if len(drifted) == 1 else 'many'}",
+            count=len(drifted),
+        )
+    # Its own clause rather than a branch of the one above: *a pin drifted* and
+    # *a pin could not be checked* can both be true of one comparison, and a
+    # reader shown only the louder one would think the quieter had been settled.
+    unchecked_text = (
+        phrase(
+            locale,
+            f"fact.pinned.unchecked.{'one' if len(unchecked) == 1 else 'many'}",
+            count=len(unchecked),
+        )
+        if unchecked
+        else ""
+    )
+
     # The canary speaks after what the system *declared* and before the judge,
     # because it says what the system *did*: measured rather than declared, and
     # the stronger of the two. The judge stays last — a moved scale makes even
@@ -814,6 +869,8 @@ def headline(
         counts=counts,
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
+        pinned_drifted=comparison.pinned_drifted,
+        pinned_unchecked=len(unchecked),
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
         target_echoed=echoed is not None,
@@ -866,6 +923,12 @@ def headline(
                 suspended_text,
                 config_text,
                 artifact_text,
+                # Straight after the tally they qualify: *2 files under test
+                # changed* then *1 of them must not have*. The unchecked clause
+                # last of the three, because it is the one a reader may have to
+                # act on outside this run.
+                pinned_text,
+                unchecked_text,
                 rejudged_text,
                 target_text,
                 echo_text,
@@ -1473,6 +1536,12 @@ def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
             if any(tally)
             else phrase(locale, f"artifacts.outcome.{delta.outcome}")
         )
+        # A pinned file that moved says so on its own line. The terminal's
+        # withheld case returns nothing at all two lines up, where the count is
+        # the headline sentence's job — so this marker is only ever printed
+        # beside a path the reader is already allowed to see.
+        if delta.pinned and delta.outcome == "changed":
+            detail += " · " + phrase(locale, "artifacts.pinned.marker")
         lines.append(f"{delta.path} · {detail}")
     return tuple(lines)
 
@@ -1831,6 +1900,29 @@ def _artifacts(comparison: Comparison, locale: Locale) -> str:
         note = phrase(locale, "artifacts.changed.one")
     else:
         note = phrase(locale, "artifacts.changed.many", count=len(changed))
+
+    # The pin clauses, added to the note in both branches below. A path is
+    # deliberately never named here: the withheld branch drops the whole table
+    # because a list of paths describes a customer, and a clause that named one
+    # would put back exactly what that branch removes. Counts only.
+    drifted = [
+        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "changed"
+    ]
+    if drifted:
+        note += " " + phrase(
+            locale,
+            f"artifacts.pinned.{'one' if len(drifted) == 1 else 'many'}",
+            count=len(drifted),
+        )
+    unchecked = [
+        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "unknown"
+    ]
+    if unchecked:
+        note += " " + phrase(
+            locale,
+            f"artifacts.pinned.unchecked.{'one' if len(unchecked) == 1 else 'many'}",
+            count=len(unchecked),
+        )
 
     rows = "".join(
         "<tr>"

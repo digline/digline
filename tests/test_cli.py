@@ -213,6 +213,15 @@ COMPARE_KEYS = {
     # Joined the contract with ADR 0003: same rules, different prompt is a thing
     # a pipeline has to be able to ask about.
     "artifacts_changed",
+    # Joined with ADR 0029, same rule again. `pinned_drifted` is a **new cause of
+    # exit 2**, so a consumer that only reads `exit_code` already sees it and one
+    # that wants to know which of the three causes fired now can.
+    "pinned_drifted",
+    # And this one is on the contract precisely *because* it moves no number: a
+    # pin nobody could check is not a failure and must not be silent, so the
+    # count has to reach a pipeline that wants to make its own policy out of it.
+    # A consumer that ignores it reads exactly the numbers it read before.
+    "pinned_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that
     # *added* keys leave a consumer working, and these two answer a question
     # nothing else on this list can — same rules, same prompt, different model.

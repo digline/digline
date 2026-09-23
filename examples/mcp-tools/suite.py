@@ -58,6 +58,13 @@ suite = Suite(
     # `config_hash` by design: changing them is the experiment, and two runs
     # across the change must stay comparable.
     artifacts=[Path("tools.json")],
+    # And here, unlike a prompt, changing the file is **not** the experiment: a
+    # tool description is text in the model's context that decides when it calls,
+    # and a third party can rewrite it under an unchanged tool name. So it is
+    # pinned, and `digline compare` exits 2 if it moves. The assertions below stay
+    # — a pin says the definitions moved, they say what the move did, and neither
+    # answers the other's question. (ADR 0029)
+    pinned=[Path("tools.json")],
     assertions=[
         # Both cases mention a customer or an account, so under the shipped
         # wording both reach the tool. Flip `server.CAUTIOUS` and re-dump: the

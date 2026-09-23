@@ -300,6 +300,24 @@ class Difference:
     def artifacts_differ(self) -> bool:
         return any(d.outcome not in ("same", "unknown") for d in self.artifact_deltas)
 
+    @property
+    def pinned_differ(self) -> tuple[str, ...]:
+        """The pinned paths that are not the same in the two runs, by path.
+
+        Reported and **never** an exit code, because `diff` never has one: a
+        verdict exists only against an approved reference, and neither side of a
+        diff was approved by anybody (ADR 0008 §1). `cmd_diff` exits 0 on any
+        report it can produce, and a pin does not change that.
+
+        So this is a *marker on a row*, not a gate — what a reader wants when
+        they are looking at two runs neither of which is the baseline: the row
+        that says a file moved, with the note that somebody had declared it must
+        not. `changed` only, for ADR 0029 §7's reason. (ADR 0029 §10)
+        """
+        return tuple(
+            d.path for d in self.artifact_deltas if d.pinned and d.outcome == "changed"
+        )
+
 
 def _tolerance(left: Verdict, right: Verdict) -> float:
     """The tolerance a difference is measured against: the larger of the two.

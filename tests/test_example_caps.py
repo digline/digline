@@ -163,6 +163,10 @@ RELEASED: dict[str, int] = {
     # it records nothing, migrates nothing and re-promotes nothing — a minor
     # version is not a schema train, and this one is the proof.
     "0.18.0": 15,
+    # 16 — the artifact that must not drift (ADR 0029). `Run.pinned` names
+    # which declared files the suite said must not change, which is what lets
+    # a comparison lift a `changed` on a named path into exit 2.
+    "0.19.0": 16,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

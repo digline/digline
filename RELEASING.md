@@ -19,6 +19,61 @@ new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
+## Two rituals, and mapping one of them is how you get surprised
+
+**A schema bump is two rituals, not one.** Moving `SCHEMA_VERSION` obliges the
+schema ritual — the `_STEPS` entry, the committed baselines migrated, the caps
+raised, the tests that name the schema by number. But a schema that has moved
+belongs to no release, so it also obliges a **version** bump, and that is a
+second ritual with a different set of files: `CHANGELOG.md`, the claims `LIVE`
+pins, `docker/README.md`'s tags *and* its minor tag, and the previous release's
+version literals moved into `RECORDED` because they have become history.
+
+Paid for on schema 16. The schema ritual was mapped carefully and executed in
+one coordinated edit; the run that followed it cleared all 31 schema reds and
+produced **five new ones**, every one of them from the version half. Nothing had
+gone wrong — the mapping had covered one ritual and been called done.
+
+So when a change moves `SCHEMA_VERSION`, budget both, and read the version half
+below rather than assuming the schema half was the work. Four traps inside it,
+none of which a substitution will find:
+
+- **`docker/README.md` names the version five times and the *minor* tag once.**
+  A script that moves the row `LIVE` pins moves one of six.
+- **Head the entry `— unreleased`, and do not date it until the release commit.**
+  This is the one that is easy to get backwards, and getting it backwards breaks
+  two things at once. `## 0.19.0 — 2026-09-23` on a version PyPI does not serve
+  is a false claim in a public file — and it also **switches off the window
+  machinery above**: `tools/image_pins.py` substitutes a served version only for
+  a pin whose version the changelog declares `— unreleased`, so a dated heading
+  sends the real pin to the index wait and the image job fails for a reason that
+  looks like a defect. `a72a8c0` is the shape to copy: the feature commit writes
+  `— unreleased`, and the release commit dates it.
+- **`tools/home_capture.py --check` keys off the newest *dated* entry**, not off
+  `pyproject.toml` and not off the unreleased heading. So inside the window it
+  stays green with a capture from the **previous** release, and re-generating it
+  early makes it red the other way — captured with the new version, newest dated
+  still the old one. Leave it alone until the release commit dates the heading.
+
+- **The previous release's literals become unaccounted the moment the number
+  moves.** They are evidence — build logs, digests, "since 0.X.0" — and they
+  must go into `RECORDED` with a reason, never be rewritten: a release whose
+  evidence moved is a release nobody looked at. `RECORDED` is one dict, so add
+  to the file's **existing** key rather than writing a second one. Python keeps
+  the last duplicate key and discards the other in silence, and `ruff` does not
+  flag it (checked: `F601`, `F602`, `F811`, `B035` all pass over it).
+
+**So read this list as what has been met, not as what there is.** It has been
+extended three times by things it was written about — the duplicate `RECORDED`
+key, the home capture, and the dated heading that broke the image build — and a
+list of traps assembled by walking into them is complete only up to the last
+walk. Budget a pass of *run the gates, fix, run again* after the ritual you
+mapped, and treat a new red there as ordinary rather than as evidence something
+went wrong. **Every one of the four was there to be found by reading this file**:
+the one that cost the most was the dated heading, written by somebody who had
+read the gates section and the push order and not the changelog step. Read the
+step you are about to perform, not the step that failed last time.
+
 ## Before the tag: moving the number
 
 `version` in `pyproject.toml` is one line and **four edits**. Nothing here is

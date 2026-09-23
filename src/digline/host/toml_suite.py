@@ -222,6 +222,22 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             within_perimeter(path.parent / str(entry), perimeter, "artifacts", where)
         declared["artifacts"] = entries
 
+    if "pinned" in declared:
+        # The same handling as `artifacts` one block up, and for the same
+        # reasons: a list of paths, coerced by `Suite.__post_init__`, kept as
+        # written because `read_pinned` resolves them itself.
+        #
+        # Perimeter-checked here **explicitly**, rather than left to fall out of
+        # `read_pinned`'s refusal. A pin outside the perimeter would be refused
+        # there anyway — for naming nothing recorded, since the artifact it would
+        # have to match was itself refused — but the sentence a reader got would
+        # be about a missing artifact when the mistake was reading outside the
+        # repository. One refusal, one cause, one message. (ADR 0007 §6)
+        pins = list(_sequence(declared["pinned"], "pinned", where))
+        for entry in pins:
+            within_perimeter(path.parent / str(entry), perimeter, "pinned", where)
+        declared["pinned"] = pins
+
     try:
         # `cast` because a parsed document is `object` all the way down and
         # the constructor is what checks it — which is the point: the same
