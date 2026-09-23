@@ -130,6 +130,15 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
         "0.17.0": "the second number of that same transcript line",
     },
+    "packages/digline-mcp/src/digline_mcp/errors.py": {
+        "0.18.0": (
+            "when the rules that moved began arriving inside a refusal's text, "
+            "and which release's delta-pass found that they reached a client "
+            "raw. Both are dates in a story about why this module sanitises. "
+            "Moving them would say the escape arrived later than it did and "
+            "that a pass audited its own output"
+        ),
+    },
     "src/digline/core/reconcile.py": {
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "
@@ -233,6 +242,16 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.18.0": (
+            "the release v0.18.0 itself, quoted as evidence: the runner-level "
+            "`waiting digline==0.18.0` lines from the index race and the nine "
+            "dispatches they took, the `Collecting`/`Successfully installed` "
+            "pair from each architecture's image build, and the three tags "
+            "resolving to one digest. It stopped being what digline is at now "
+            "on 2026-09-23, and every line is a fact about a release that "
+            "shipped — a release whose evidence moved would be a release "
+            "nobody looked at"
+        ),
         "0.17.1": (
             "the release v0.17.1 itself, quoted throughout as evidence and "
             "history in every instance: the lock bump cut with #61 open, the "

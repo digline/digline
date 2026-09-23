@@ -143,6 +143,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} files under test changed since the reference."
         ),
+        # Declared must-not-drift, and moved. Worded as what the author asked
+        # for rather than as a verdict on it: the run is not worse, the thing it
+        # measured is not the thing that was approved.
+        "fact.pinned.one": ("1 of them was declared not to change, and it changed."),
+        "fact.pinned.many": (
+            "{count} of them were declared not to change, and they changed."
+        ),
+        # Not a pass and not a failure. The sentence says what is missing and
+        # who can supply it, because a reader told only "not known" has nothing
+        # to do next.
+        "fact.pinned.unchecked.one": (
+            "1 file declared not to change is not included here, so whether it "
+            "changed was not checked."
+        ),
+        "fact.pinned.unchecked.many": (
+            "{count} files declared not to change are not included here, so "
+            "whether they changed was not checked."
+        ),
         "fact.rejudged": (
             "The answers in this run were replayed from a stored run, not "
             "measured: the target was not asked anything."
@@ -381,6 +399,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.outcome.missing": "no longer declared",
         "artifacts.outcome.unknown": "not included, so whether it changed is not known",
         "artifacts.withheld": "The contents are not included in this report.",
+        # Counts and never a path: the withheld branch of `artifact_lines` drops
+        # the table because a list of paths describes a customer, and a clause
+        # naming one would put back what that branch removes.
+        "artifacts.pinned.marker": "declared not to change",
+        "artifacts.pinned.one": "1 of them was declared not to change.",
+        "artifacts.pinned.many": "{count} of them were declared not to change.",
+        "artifacts.pinned.unchecked.one": (
+            "1 file declared not to change is not included, so whether it "
+            "changed was not checked."
+        ),
+        "artifacts.pinned.unchecked.many": (
+            "{count} files declared not to change are not included, so whether "
+            "they changed was not checked."
+        ),
         "artifacts.tally": "+{added} −{removed} lines",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Fingerprint",
@@ -1171,6 +1203,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.artifacts.many": (
             "{count} file in prova sono cambiati rispetto al riferimento."
         ),
+        "fact.pinned.one": ("Di questi, 1 era dichiarato immutabile, ed è cambiato."),
+        "fact.pinned.many": (
+            "Di questi, {count} erano dichiarati immutabili, e sono cambiati."
+        ),
+        "fact.pinned.unchecked.one": (
+            "1 file dichiarato immutabile non è incluso qui, quindi non è "
+            "stato verificato se sia cambiato."
+        ),
+        "fact.pinned.unchecked.many": (
+            "{count} file dichiarati immutabili non sono inclusi qui, quindi "
+            "non è stato verificato se siano cambiati."
+        ),
         "fact.rejudged": (
             "Le risposte di questa esecuzione sono state riascoltate da una "
             "esecuzione archiviata, non misurate: al sistema in prova non è "
@@ -1383,6 +1427,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "artifacts.outcome.missing": "non più dichiarato",
         "artifacts.outcome.unknown": ("non incluso, quindi non si sa se sia cambiato"),
         "artifacts.withheld": "Il contenuto non è incluso in questo rapporto.",
+        "artifacts.pinned.marker": "dichiarato immutabile",
+        "artifacts.pinned.one": "Di questi, 1 era dichiarato immutabile.",
+        "artifacts.pinned.many": "Di questi, {count} erano dichiarati immutabili.",
+        "artifacts.pinned.unchecked.one": (
+            "1 file dichiarato immutabile non è incluso, quindi non è "
+            "stato verificato se sia cambiato."
+        ),
+        "artifacts.pinned.unchecked.many": (
+            "{count} file dichiarati immutabili non sono inclusi, quindi non "
+            "è stato verificato se siano cambiati."
+        ),
         "artifacts.tally": "+{added} −{removed} righe",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Impronta",

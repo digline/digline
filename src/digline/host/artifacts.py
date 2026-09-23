@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Mapping
 from pathlib import Path
 
 from digline.core import Artifact
 from digline.host.errors import UsageError
 from digline.run import HasArtifacts, Suite
 
-__all__ = ["read_artifacts"]
+__all__ = ["read_artifacts", "read_pinned"]
 
 
 def read_artifacts(
@@ -62,7 +63,7 @@ def read_artifacts(
         # one document that is supposed to say what was under test. `relpath`
         # has no such fallback: outside the perimeter it yields `../secret.env`,
         # which is the truth and reads as one.
-        key = _relative(path, root or base)
+        key = _key(path, root or base)
         found[key] = Artifact(
             sha=hashlib.sha256(data).hexdigest(),
             text=data.decode("utf-8"),
@@ -70,7 +71,48 @@ def read_artifacts(
     return found
 
 
-def _relative(path: Path, root: Path) -> str:
+def read_pinned(
+    suite: Suite,
+    base: Path,
+    *,
+    root: Path | None = None,
+    artifacts: Mapping[str, Artifact],
+) -> tuple[str, ...]:
+    """The paths that must not drift, as the keys the run files them under.
+
+    Resolved exactly as `read_artifacts` resolves an artifact — same helper, so
+    a pin and the file it pins cannot come to be keyed differently — and then
+    checked against what was actually recorded.
+
+    **A pin naming nothing recorded is refused here**, which is the whole reason
+    this is a separate step rather than a field `Suite` could validate. A path in
+    neither run produces no `ArtifactDelta` at all, so a typo would be a control
+    that never runs and never says so; and `Suite` cannot catch it, because the
+    artifact set is the union of the suite's own and whatever the target answered
+    through `HasArtifacts`, which no suite has at construction. (ADR 0029 §4)
+
+    Deduplicated after resolution: `tools.json` and `./tools.json` are two
+    spellings that `Suite` cannot tell apart and one key here. Order follows the
+    resolved key, so the run document does not record the order somebody typed.
+    """
+    keys: dict[str, Path] = {}
+    for entry in suite.pinned:
+        path = entry if entry.is_absolute() else base / entry
+        keys.setdefault(_key(path, root or base), entry)
+    unknown = sorted(key for key in keys if key not in artifacts)
+    if unknown:
+        named = ", ".join(f"{keys[key]} (as {key})" for key in unknown)
+        raise UsageError(
+            f"suite {suite.name!r} pins {named}, which this run records no "
+            "artifact for. A pinned path that names nothing recorded produces "
+            "no comparison at all — not even an unknown one — so it would be a "
+            "control that never runs and never says so. Declare it in "
+            "`artifacts` as well, or correct the path"
+        )
+    return tuple(sorted(keys))
+
+
+def _key(path: Path, root: Path) -> str:
     """`os.path.relpath` and not `Path.relative_to`: the latter raises when the
     path is outside the root, and raising is what produced the fallback this
     replaces. `relpath` walks up instead, which is the honest answer."""

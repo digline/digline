@@ -22,7 +22,7 @@ clock — it cannot say what time it is — so `perf_counter` for `latency_ms` i
 target stays allowed.
 """
 
-from digline.host.artifacts import read_artifacts
+from digline.host.artifacts import read_artifacts, read_pinned
 from digline.host.environment import DIRTY_SUFFIX, git_commit, utc_now_iso
 from digline.host.errors import UsageError
 from digline.host.loader import (
@@ -76,6 +76,7 @@ __all__ = [
     "prepare",
     "need_baseline",
     "read_artifacts",
+    "read_pinned",
     "read_run",
     "record",
     "resolve_key",

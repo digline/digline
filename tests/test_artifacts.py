@@ -32,9 +32,10 @@ from digline.core import (
 )
 from digline.core.run import SCHEMA_VERSION, run_from_json, run_to_json
 from digline.host import read_artifacts
-from digline.report import artifact_lines, diff_lines, render_html
+from digline.report import artifact_lines, diff_lines, headline, render_html
 from digline.run import Case, Suite
 from digline.store import FileResultStore
+from digline.wire import exit_code
 
 SUITE = """\
 from pathlib import Path
@@ -582,3 +583,201 @@ def test_the_opt_in_shows_the_diff_in_a_redacted_report(project: Path) -> None:
     assert REMOVED in document and ADDED in document
     # The rest of the redaction is untouched by the opt-in.
     assert "Not included in this report" in document
+
+
+# --------------------------------------------------------------------------- #
+# The artifact that must not drift (ADR 0029)
+# --------------------------------------------------------------------------- #
+#
+# **A negative assertion needs a token that cannot occur for another reason.**
+# Paid for here: `assert "acme" not in document` was written to prove a pinned
+# path had not leaked, and the tenant is `acme-bank`, printed in every report
+# header. It tested the header and not the pin.
+#
+# That one was caught only because the polarity was noisy — it failed, loudly,
+# on the first run. **The same slip in an `assert x in document` passes green
+# forever**, because a substring that appears for an unrelated reason satisfies
+# it just as well as the fact under test. So pick the token that can only come
+# from the thing being asserted: a path segment no tenant, suite, environment or
+# boilerplate string shares. The tests below use `underwriting` for exactly that
+# reason, and it is not an aesthetic choice.
+
+
+def a_pinned_run(pinned: tuple[str, ...], **artifacts: Artifact) -> Run:
+    """`a_run`, plus the declaration that some of those paths must not drift."""
+    return Run(
+        tenant="acme-bank",
+        environment="staging",
+        suite="qa",
+        config_hash="h",
+        created_at="2026-08-26T10:00:00+00:00",
+        artifacts=dict(artifacts),
+        pinned=pinned,
+    )
+
+
+def test_a_pinned_path_that_moved_is_a_fact_of_its_own() -> None:
+    """Not folded into `worse`: no score moved, the input did. A drifted file
+    reported as a regression would send a reader looking for a check that got
+    worse, and there is none. (ADR 0029 §2)"""
+    before = a_pinned_run((), tools=Artifact(sha="a" * 64, text="v1"))
+    after = a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2"))
+    result = compare(after, before)
+    assert result.pinned_drifted
+    assert result.pinned_unchecked == ()
+    # It is a change too — the two facts coexist rather than replacing each
+    # other — and it is emphatically not a regression.
+    assert result.artifacts_changed
+    assert not any(d.outcome == "regressed" for d in result.deltas)
+
+
+def test_an_unpinned_path_that_moved_is_not_drift() -> None:
+    """The prompt's default, which must survive this feature: changing the file
+    *is* the experiment, so a change nobody pinned moves no exit code."""
+    before = a_pinned_run((), prompt=Artifact(sha="a" * 64, text="v1"))
+    after = a_pinned_run((), prompt=Artifact(sha="b" * 64, text="v2"))
+    result = compare(after, before)
+    assert result.artifacts_changed
+    assert not result.pinned_drifted, (
+        "an unpinned file that moved was reported as drift: every suite that "
+        "declares a prompt would fail on the edit it was declared to measure"
+    )
+
+
+def test_a_pin_the_reference_never_had_is_not_drift() -> None:
+    """`new` is not a change — the rule every outcome here is read by — and it
+    is what the comparison right after declaring a pin looks like. Firing there
+    would teach an author that the feature is noise before it caught anything.
+    (ADR 0029 §7)"""
+    before = a_pinned_run(())
+    after = a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2"))
+    result = compare(after, before)
+    (delta,) = result.artifact_deltas
+    assert (delta.outcome, delta.pinned) == ("new", True)
+    assert not result.pinned_drifted, (
+        "a pinned path the reference never recorded was reported as drift: the "
+        "run would fail on the comparison that declared the pin, saying a file "
+        "moved when the only thing that moved is the declaration"
+    )
+
+
+def test_a_pin_nobody_could_check_is_counted_and_not_passed() -> None:
+    """Redaction leaves no digest, so *it did not drift* is not available. The
+    count is, and it is never silent. (ADR 0029 §8)"""
+    before = a_pinned_run((), tools=Artifact(sha="a" * 64, text="v1"))
+    after = redact(a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2")))
+    result = compare(after, before)
+    assert result.pinned_unchecked == ("tools",), (
+        "a pin nobody could check went unreported: the comparison would read as "
+        "having checked it, which is the silence that makes a control worse than "
+        "no control"
+    )
+    # Not a failure: the fact layer declines to assert what it cannot see.
+    assert not result.pinned_drifted, (
+        "an unanswerable pin was reported as drift: the document would claim a "
+        "file moved on the strength of a digest it does not hold"
+    )
+    assert not result.artifacts_changed
+
+
+def test_redaction_carries_the_pin_like_the_canary() -> None:
+    """A redacted document that lost it would report an exit code its own
+    contents could not account for. No `Disclosure` gates it. (ADR 0029 §3)"""
+    run = a_pinned_run(("tools",), tools=Artifact(sha="a" * 64, text="secret rules"))
+    assert redact(run).pinned == ("tools",)
+    # And the payload still goes, which is the point of the pairing.
+    assert redact(run).artifacts["tools"].text is None
+    # Narrowing further never widens, and never drops the declaration either.
+    assert redact(redact(run)).pinned == ("tools",)
+
+
+def test_a_withheld_comparison_still_knows_the_path_was_pinned() -> None:
+    """The one line that decides the software-house case, guarded by name.
+
+    `withhold_artifacts` keeps *that* a file moved and drops *what* it was, for
+    a party holding both runs who is producing a document for someone holding
+    neither. Keeping `outcome` and dropping `pinned` would hand that reader a
+    document which knows a file moved and has forgotten anybody declared it must
+    not — green, type-checked and quietly wrong, which is why this test exists
+    and why it is paired with a mutation control. (ADR 0029 §5)
+    """
+    before = a_pinned_run((), tools=Artifact(sha="a" * 64, text="v1"))
+    after = a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2"))
+    withheld = withhold_artifacts(compare(after, before))
+
+    (delta,) = withheld.artifact_deltas
+    assert delta.pinned is True, (
+        "withhold_artifacts dropped `pinned`: the document now says a file moved "
+        "and no longer says anybody declared it must not"
+    )
+    # The outcome survives, which is what makes the pin answerable at all here —
+    # unlike `redact()` on one run, which has nothing to compare with.
+    assert delta.outcome == "changed"
+    assert withheld.pinned_drifted
+    # And the payload is gone, on the same row.
+    assert (delta.before, delta.after, delta.before_sha) == (None, None, "")
+
+
+def test_a_drifted_pin_exits_two_and_an_unchecked_one_exits_zero() -> None:
+    """The line the whole ruling sits on, asserted on both sides of it.
+
+    Visible without being a failure: `pinned_unchecked` reaches the headline and
+    the sentence and moves no number, because it says nobody here can tell rather
+    than saying the file moved. (ADR 0029 §6, §8)
+    """
+    before = a_pinned_run((), tools=Artifact(sha="a" * 64, text="v1"))
+    moved = a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2"))
+    drifted = headline(compare(moved, before), moved, before, locale="en")
+    assert exit_code(drifted) == 2, (
+        "a pinned file that moved did not stop the pipeline: the declaration "
+        "would be a line in a report, which is the vacuously green control "
+        "ADR 0029 exists to end"
+    )
+    assert not drifted.worse, (
+        "drift was folded into `worse`: the report would claim a check got worse "
+        "when no score moved, and a reader would look for a regression there is "
+        "none of"
+    )
+    assert "declared not to change" in drifted.sentence
+
+    unchecked = headline(
+        compare(redact(moved), before), redact(moved), before, locale="en"
+    )
+    assert unchecked.pinned_unchecked == 1
+    assert exit_code(unchecked) == 0, (
+        "an unanswerable pin failed the run: the exit code would assert drift "
+        "that the fact layer refuses to assert, off a digest nobody holds"
+    )
+    assert "was not checked" in unchecked.sentence, (
+        "an unchecked pin was silent: the comparison reads as having checked it, "
+        "which produces the same green as a control that ran"
+    )
+
+
+def test_the_withheld_report_gives_the_pin_a_count_and_never_a_path() -> None:
+    """A path is `prompts/acme-underwriting-rules.md` often enough that a list of
+    them describes the customer, which is why the withheld branch drops the table
+    altogether. The pin clause lives inside that branch, so it must be a count:
+    naming the path would put back exactly what the branch removes. (ADR 0029 §10)
+    """
+    # A path token that is *not* the tenant's name: `acme-bank` is in the report
+    # header legitimately, so asserting on "acme" would test the header rather
+    # than the pin clause and would have passed for the wrong reason.
+    path = "prompts/underwriting-rules.md"
+    before = a_pinned_run((), **{path: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((path,), **{path: Artifact(sha="b" * 64, text="v2")})
+    held = withhold_artifacts(compare(after, before))
+    # The **document**, not `artifact_lines`: the terminal returns nothing at all
+    # once anything is withheld, and carries the count in the headline sentence
+    # instead. The page is where the withheld clause has to appear.
+    section = render_html(held, redact(after), before, locale="en")
+
+    assert "declared not to change" in section, (
+        "the withheld comparison lost the pin: the party holding both runs "
+        "established that a file which must not drift moved, and the document "
+        "they produced for the party holding neither does not say so"
+    )
+    assert "underwriting" not in section, (
+        "a pinned path was named in a withheld report: the clause put back the "
+        "customer's vocabulary that dropping the table exists to remove"
+    )

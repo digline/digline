@@ -35,6 +35,13 @@ __all__ = [
 #:    `judge_config_changed` on the headline, and `target_config_deltas` /
 #:    `judge_config_deltas` under `full` (ADR 0005 §7).
 #:
+#:    Also without a bump, by the same rule: `pinned_drifted` and
+#:    `pinned_unchecked` on the headline (ADR 0029). The first is a new cause of
+#:    exit 2, which a consumer reading `exit_code` already honours; the second is
+#:    on the wire *because* it moves no number — a pin nobody could check is
+#:    neither a pass nor a failure, and a pipeline that wants its own policy about
+#:    that needs the count rather than a sentence to parse.
+#:
 #:    `digline diff --json` is under this same contract from the start, and its
 #:    arrival is not a bump either: a *new command's* output breaks no existing
 #:    consumer, because nothing that parses `compare --json` today sees a byte
@@ -228,6 +235,19 @@ def exit_code(head: Headline) -> int:
 
     A suspension never fails: it is a decision someone already made, not an
     outcome.
+
+    `2` has three causes and this body is the enumeration of them — the one place
+    an enumeration is safe, because it is the source rather than a description of
+    somebody else's set. `EXIT_UNJUDGED` keeps the name of the first; renaming an
+    exported constant to settle a naming debt would break consumers to improve a
+    docstring.
+
+    What is **not** read here: `head.pinned_unchecked`. A pin nobody could check
+    is a fact about this comparison's competence rather than about the world, and
+    turning it into a number would assert one layer up precisely what the fact
+    layer declines to assert one layer down — the same reason a drifted pin
+    returns 2 and not 1. It is on the headline, in the sentence and on the wire,
+    and it moves nothing. (ADR 0029 §6, §8)
     """
     if head.worse or head.canary_moved:
         # Two facts, one number. A canary that moved says the model behind the
@@ -236,12 +256,22 @@ def exit_code(head: Headline) -> int:
         # headline can say what happened without saying something untrue about
         # it. (ADR 0016 §5)
         return EXIT_WORSE
-    if head.unjudged or head.scale_lost:
+    if head.unjudged or head.scale_lost or head.pinned_drifted:
         # A lost scale is not an errored verdict — the score is real, and it is
         # the evidence — but the numbers beside it are not measurements, which
         # is what 2 already means. It comes after 1 by choice rather than by
         # necessity: a regression on a binary check beside a collapsed judge is
         # still true, both codes stop a pipeline, and the headline has already
         # put the calibration clause first. (ADR 0024 §4.5)
+        #
+        # A drifted pin joins them, and for the reason that chose 2 over 1: a
+        # redacted comparison answers `unknown`, `Comparison.artifacts_changed`
+        # already refuses to read that as a change, and returning 1 would have
+        # this function assert what the layer below will not. `2` already means
+        # *the numbers beside this are not what they look like*, which is true
+        # here — the system that produced them is not the system the reference
+        # approved. A regression still outranks it: both stop the pipeline and
+        # the sentence names both, so ordering the quieter one first would only
+        # hide the louder. (ADR 0029 §6)
         return EXIT_UNJUDGED
     return EXIT_OK

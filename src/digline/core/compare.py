@@ -111,6 +111,14 @@ class ArtifactDelta:
     before_sha: str = ""
     after_sha: str = ""
     withheld: bool = False
+    #: Whether the suite declared that this path must not drift.
+    #:
+    #: On the **row of a comparison**, not on the `Artifact` it describes, and
+    #: the difference is the whole mechanism: `redact()` replaces every artifact
+    #: with a withheld one, so a flag living there would be dropped exactly for
+    #: the reader who cannot check for themselves, while a row survives
+    #: `withhold_artifacts` with its outcome intact. (ADR 0029 §3, §5)
+    pinned: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,6 +366,36 @@ class Comparison:
         compare, and answering "changed" would report a fact nobody has.
         """
         return any(d.outcome not in ("same", "unknown") for d in self.artifact_deltas)
+
+    @property
+    def pinned_drifted(self) -> bool:
+        """Whether a path the author declared must not drift is known to have
+        moved. The fact `exit_code()` reads, and the only one that returns 2.
+
+        **`changed` only.** `new` is a path the reference never had — commonly
+        the comparison right after the pin was declared — and `missing` is one
+        this run does not record. Neither is drift, by the rule every outcome in
+        this module is read by: absent is not a change. `unknown` is the
+        question a redacted comparison cannot answer, and it is counted rather
+        than guessed. (ADR 0029 §7, §8)
+        """
+        return any(d.pinned and d.outcome == "changed" for d in self.artifact_deltas)
+
+    @property
+    def pinned_unchecked(self) -> tuple[str, ...]:
+        """The pinned paths this comparison could not answer for, by path.
+
+        Never silent, and never a failure either. The author said *this must not
+        drift*; redaction means nobody here can tell, and that is not *it did not
+        drift*. A control that reported success when it could not run would
+        produce the same green as one that ran, which is worse than no control —
+        so the count travels and every surface prints it. The reader who *can*
+        answer is the one holding both runs, and `withhold_artifacts` is how they
+        answer it for the reader who cannot. (ADR 0029 §8)
+        """
+        return tuple(
+            d.path for d in self.artifact_deltas if d.pinned and d.outcome == "unknown"
+        )
 
     @property
     def target_config_changed(self) -> bool:
@@ -1594,6 +1632,15 @@ def withhold_artifacts(comparison: Comparison) -> Comparison:
                 before_sha="",
                 after_sha="",
                 withheld=True,
+                # Carried beside the outcome, and the pair is the point: this
+                # function exists so a party holding both runs can tell someone
+                # who holds neither *that* a file moved. Keeping `outcome` and
+                # dropping `pinned` would hand them a document that knows a file
+                # moved and has forgotten anybody declared it must not — green,
+                # type-checked and quietly wrong. Guarded by
+                # `test_a_withheld_comparison_still_knows_the_path_was_pinned`
+                # and its mutation control. (ADR 0029 §5)
+                pinned=delta.pinned,
             )
             for delta in comparison.artifact_deltas
         ),
@@ -1613,6 +1660,12 @@ def artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
     in milliseconds.
     """
     deltas: list[ArtifactDelta] = []
+    # Read from `run` and not from the union, because a pin is a declaration
+    # about the side being judged: a pin the reference carried and this run
+    # dropped is an author withdrawing it, which ADR 0029 §9 reports elsewhere
+    # and refuses to enforce — a pin nobody could ever remove is worse than no
+    # pin. `diff()` passes its right-hand run here, and gates on nothing.
+    pinned = set(run.pinned)
     for path in sorted(run.artifacts.keys() | baseline.artifacts.keys()):
         now, before = run.artifacts.get(path), baseline.artifacts.get(path)
         withheld = (now is not None and now.withheld) or (
@@ -1636,6 +1689,7 @@ def artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
                 before_sha="" if before is None else before.sha,
                 after_sha="" if now is None else now.sha,
                 withheld=withheld,
+                pinned=path in pinned,
             )
         )
     return tuple(deltas)

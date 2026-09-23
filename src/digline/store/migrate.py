@@ -265,6 +265,24 @@ def _add_schema_fifteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_sixteen(raw: dict[str, Any]) -> dict[str, Any]:
+    """15 -> 16. One passenger, and absence is the only honest value once more.
+
+    `Run.pinned` names the declared files that must not drift. A run written
+    before schema 16 pinned nothing — the idea did not exist — and an absent key
+    is already read as exactly that, the way `canary` is written only when true.
+
+    Inventing here would be worse than usual, because the field is a **control**.
+    Deriving a pin from the artifacts a run happens to have recorded would turn
+    every prompt anybody ever declared into a file that must not change, and the
+    first comparison after the migration would go red on the experiment the
+    prompt was declared for. So the step writes nothing, and still has to exist,
+    for the reason every step since 9 gives. (ADR 0029 §3, and ADR 0014 §1's
+    second condition)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -279,6 +297,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     12: _add_schema_thirteen,
     13: _add_schema_fourteen,
     14: _add_schema_fifteen,
+    15: _add_schema_sixteen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

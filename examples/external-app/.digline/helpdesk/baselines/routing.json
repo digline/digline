@@ -280,7 +280,7 @@
       ]
     }
   ],
-  "schema_version": 15,
+  "schema_version": 16,
   "suite": "routing",
   "target_config": {},
   "tenant": "helpdesk"
