@@ -509,6 +509,21 @@ object is the suite over time; the other three measure the judge. §1 admits it
 exclusions. A taxonomy may hold a member whose object differs — **as long as it
 says so**, which is why this is written rather than resolved. Not decided here.
 
+**And what would answer it, because an open question with no way to close it
+becomes furniture.** This one is settled by *use*, not by argument: the day
+somebody reads the spread to decide something about a **judge**, it belongs
+here; the day somebody tries and cannot, because a range that mixes target,
+judge and time will not carry the weight, it belongs somewhere else. Either
+reading closes it, and no amount of reasoning in this record does.
+
+Today neither has happened. The spread has been read exactly once for anything
+— scout's twelve runs of 2026-09-17 to 09-20 — and that reading was about
+sizing a threshold, which was then withdrawn as unsizeable (§7.4). It has never
+been read to say something about a judge, and nobody has yet failed to. So the
+question is not merely unanswered: **the evidence that would answer it does not
+exist yet**, and the first person to reach for the spread with a judge in mind
+is the one who settles this, whichever way it goes.
+
 ### 2. The order, which is the order of this record
 
 1. **The method rule** (§3). It costs nothing, and it comes before all four: it
