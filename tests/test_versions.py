@@ -451,6 +451,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.10.1": "'0.10.1 closed DEL and the C1 block' — which release covered "
+        "which class of control character, in the entry recording that "
+        "bidirectional controls were never in that scope. It dates the "
+        "boundary of a shipped fix, and moving it would claim a later release "
+        "drew a line it did not draw",
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
         "key by name' — when the refusal landed",
         "0.7.2": "'was fixed in 0.7.2' — the symlink escape, named so the "

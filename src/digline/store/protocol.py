@@ -63,7 +63,7 @@ __all__ = [
 #: train and not a new rule: this constant is independent of that one by
 #: design (ADR 0017 §2), it did not move for schemas 11, 12 or 13, and nothing
 #: here makes it move for 15.
-JOURNAL_VERSION = 2
+JOURNAL_VERSION = 3
 
 #: The register's own format version, independent of `SCHEMA_VERSION` and of
 #: the journal's. A register is a **format** and not a document: nothing
@@ -355,6 +355,12 @@ class JournalHeader:
     #: only: a journal holds no more of the thing under test than it needs to
     #: know that it did not move.
     artifacts: Mapping[str, str] = field(default_factory=dict[str, str])
+    #: Which of those the suite declared must not drift. Here because
+    #: `differences` below checks **exactly the facts the run document asserts**,
+    #: and since ADR 0029 the document asserts this one: a run killed, its pin
+    #: edited, and resumed would write a document claiming a control that was not
+    #: in force for its first leg. (ADR 0029 §3)
+    pinned: tuple[str, ...] = ()
     #: What the target and the judges *declared* before the first call. The
     #: observed half cannot be known at header time and is recorded as it
     #: arrives, in its own record.
@@ -386,6 +392,7 @@ class JournalHeader:
                 "config_hash",
                 "cases_digest",
                 "artifacts",
+                "pinned",
                 "target_config",
                 "judge_config",
                 "record_responses",

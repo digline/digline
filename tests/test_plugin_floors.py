@@ -28,6 +28,29 @@ A name that is not listed fails this file rather than passing quietly,
 which is the point — the moment a plugin reaches for a new part of the core,
 somebody has to say which version it appeared in, and that is exactly the
 moment the floor needs deciding.
+
+**Do not reach the name through `getattr`, and this paragraph exists because it
+was considered.** When `read_pinned` arrived in 0.19.0 both plugins imported it,
+this file demanded floors of `>=0.19.0`, and that obliged a release of each —
+three packages on one tag instead of one. The cheap way out was to fetch the
+name dynamically: `getattr(host, "read_pinned", None)`, no import, floors
+untouched, this gate silent.
+
+It was refused, and the reason is not style. **That is precisely the
+"works by accident" shape this gate was built to catch**, and writing code whose
+purpose is to be invisible to a check built to catch it is the worst remedy on
+the table — worse than the honest cost, and worse than not shipping the feature,
+because it leaves the floor *saying something false* while the tests agree with
+it. A floor is a promise to a user resolving a version we will never see; a
+dynamic lookup converts that promise into an `AttributeError` at their runtime
+and moves the failure from our CI to their machine. If the floor is too expensive
+to raise, the answer is to not use the name, or to ship the feature later — never
+to reach it in a way the gate cannot see.
+
+The general rule, since the next temptation will wear different clothes: a check
+you are routing around is a check you are disagreeing with, and the disagreement
+belongs in this docstring where somebody can argue back, not in a call that
+evades it.
 """
 
 from __future__ import annotations
@@ -112,6 +135,10 @@ INTRODUCED: dict[str, str] = {
     "git_commit": "0.6.0",
     "utc_now_iso": "0.6.0",
     "read_artifacts": "0.6.0",
+    # 0.19.0 — the pins beside the artifacts. Both front ends read them, because
+    #  refuses a pinning suite handed no pin set rather than recording a
+    # control that cannot fire (ADR 0029 §4).
+    "read_pinned": "0.19.0",
     "resolve_key": "0.6.0",
     "need_baseline": "0.6.0",
     "read_run": "0.6.0",

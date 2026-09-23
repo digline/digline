@@ -770,7 +770,7 @@ def headline(
     drifted = [
         d for d in comparison.artifact_deltas if d.pinned and d.outcome == "changed"
     ]
-    unchecked = comparison.pinned_unchecked
+    unchecked_count = comparison.pinned_unchecked_count
     pinned_text = ""
     if drifted:
         pinned_text = phrase(
@@ -784,10 +784,10 @@ def headline(
     unchecked_text = (
         phrase(
             locale,
-            f"fact.pinned.unchecked.{'one' if len(unchecked) == 1 else 'many'}",
-            count=len(unchecked),
+            f"fact.pinned.unchecked.{'one' if unchecked_count == 1 else 'many'}",
+            count=unchecked_count,
         )
-        if unchecked
+        if unchecked_count
         else ""
     )
 
@@ -870,7 +870,7 @@ def headline(
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
         pinned_drifted=comparison.pinned_drifted,
-        pinned_unchecked=len(unchecked),
+        pinned_unchecked=unchecked_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
         target_echoed=echoed is not None,

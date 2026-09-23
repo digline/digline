@@ -998,6 +998,7 @@ def _header_to_dict(header: JournalHeader) -> dict[str, object]:
         "record_responses": header.record_responses,
         "git_commit": header.git_commit,
         "artifacts": dict(sorted(header.artifacts.items())),
+        "pinned": sorted(header.pinned),
         "target_config": config_to_dict(header.target_config),
         "judge_config": config_to_dict(header.judge_config),
     }
@@ -1016,6 +1017,11 @@ def _header_from_dict(raw: Mapping[str, object]) -> JournalHeader:
         digline_version=str(raw["digline_version"]),
         record_responses=bool(raw["record_responses"]),
         git_commit=None if commit is None else str(commit),
+        pinned=tuple(
+            sorted(
+                str(path) for path in cast("Sequence[object]", raw.get("pinned") or ())
+            )
+        ),
         artifacts={
             str(path): str(sha)
             for path, sha in cast(

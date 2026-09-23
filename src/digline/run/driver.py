@@ -843,6 +843,7 @@ def execute(
     git_commit: str | None = None,
     run_metadata: Mapping[str, object] | None = None,
     artifacts: Mapping[str, Artifact] | None = None,
+    pinned: Sequence[str] | None = None,
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
     pricing: str | None = None,
@@ -894,6 +895,23 @@ def execute(
     together under the judge's name. The run returned carries no marker of it;
     `rejudge` stamps `Run.judge_samples` beside `rejudged_from`. (ADR 0024 §5.2)
     """
+    # **The invariant that catches a disconnected caller**, and it is here rather
+    # than in a test because a test cannot be forgotten into existence. A suite
+    # that declares `pinned` and a launch that hands down no pin set is a wiring
+    # mistake, not a run: it would record `Run.pinned = ()`, compare green
+    # forever, and the author would believe a control was watching their tool
+    # definitions. 0.19.0 shipped that way through every unit test and was caught
+    # by a delta-pass instead, which is why the check is written where the
+    # mistake is made rather than where it shows. (ADR 0029 §4)
+    if suite.pinned and not pinned:
+        raise ValueError(
+            f"suite {suite.name!r} pins "
+            f"{', '.join(str(path) for path in suite.pinned)}, and this launch "
+            "passed no resolved pin set to `execute`. The run would record no "
+            "pin and compare green whatever the file did — declaring a control "
+            "that cannot fire is worse than declaring none. The caller reads "
+            "them with `digline.host.read_pinned` and passes `pinned=`"
+        )
     if judge_samples:
         # Imported here: `replay` imports this module.
         from digline.run.replay import Replay
@@ -1036,6 +1054,11 @@ def execute(
         # a library caller gets it without going through the CLI. (ADR 0005 §6)
         target_config=declared,
         judge_config=grading,
+        # Resolved by the host, like the artifacts themselves: matching a declared
+        # path to the key a run files it under needs the filesystem, and this
+        # layer opens no files. The invariant at the top of this function is what
+        # makes handing them down unforgettable. (ADR 0029 §3)
+        pinned=tuple(pinned or ()),
         # Already read, like `created_at` and `git_commit`: the driver produces
         # a `Run` and opens no files. What the suite *declares* is a list of
         # paths; turning those into bytes is the CLI's job. (ADR 0003)
