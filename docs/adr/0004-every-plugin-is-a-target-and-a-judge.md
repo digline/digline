@@ -681,7 +681,60 @@ re-promote if it is acceptable.* Honesty alone would leave a reader with a
 changed number and no next step, which is the shape of report this project
 refuses everywhere else.
 
-#### 7.10 Test plan
+#### 7.10 Measured, 2026-09-23: a judge declines less when given more context
+
+The first measurement of abstention against a variable that has nothing to do
+with whether the output is true. It is recorded here rather than left in the
+suite that found it, because it is a property of the instrument and it will
+outlive that suite.
+
+A `Faithfulness` check over one-sentence Italian descriptions of RSS items. Six
+recorded descriptions, each judged twice, **the same text both times and only
+the context changed** — twelve calls, about a penny and a quarter:
+
+| context given to the judge | declined |
+|---|---|
+| the item alone — everything the model that wrote the description was given | **4 of 6** |
+| the item plus an unrelated system prompt describing a reader's taste | **1 of 6** |
+
+**The second context cannot make a description truer.** It is a paragraph about
+what somebody likes to read; the descriptions are about what an article is.
+Every claim supported under one is supported under the other. What the extra
+text changes is the judge's willingness to answer at all — four times over.
+
+**The next paragraph is the one untested part of this section.** The effect is
+measured, the mechanism is a guess, and nothing in the section rests on it.
+
+The mechanism this section's own design invites: §7.3 makes declining a
+deliberate act with a stated reason, and the reasons these judges gave were of
+the form *"it is impossible to verify which claims are
+supported versus inferred from external knowledge."* More context means more
+surface to relate a claim to, so the judge finds a foothold rather than a
+reason to abstain. Sparse context reads to it as insufficient grounds.
+
+**What follows for a suite author**, and it is uncomfortable: the honest context
+— what the system under test was actually given, which §7 and ADR 0024 both
+assume — is the one that draws the most abstentions. Padding it makes the
+instrument more compliant without making it more correct, and a suite that
+quietly does so is buying answers rather than measuring. There is no rule here
+that would stop it, and this paragraph is the only place that says it happens.
+
+**Not a decision, and nothing changes.** Six pairs is enough to see a four-fold
+difference and not enough to size it, the descriptions came from one prompt and
+one model, and no threshold, refusal or default should be built on it. It is
+written because the next person to see a suite abstain will reach for the
+prompt or the model, and the context is a third thing to check and the cheapest
+of the three.
+
+**The same shape, on another input.** [Adding a field to a judge's
+reply](https://digline.dev/blog/added-field/) — the same text, one more thing
+asked for — loosened the judge, and moving the field after the score did not
+undo it. Here the judge was given more; there it was asked for more. In both, a
+change to what the judge is given that has nothing to do with the truth of the
+output moved what it does. Two measurements, one shape, and neither explains the
+other: that post names no mechanism either, and says so.
+
+#### 7.11 Test plan
 
 Beyond a failing case per rule, which the conventions already require:
 
