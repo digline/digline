@@ -111,6 +111,33 @@ artifacts that today exists in none of the audited competitors.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.
+- **A worktree audit reports; it never removes on its own judgement.** For each
+  worktree give the path, the branch, whether that branch is merged into `main`,
+  whether the tree is clean, and how many commits it is ahead — then let a person
+  rule. The count grows past what anybody can hold in their head, and three
+  incidents in the week of 2026-09-22 each needed a stale worktree to be
+  indistinguishable from a live one: a session pushed onto another's branch, a
+  reset was resolved against the wrong one, and a type gate reddened from a stale
+  `.venv` with tracebacks naming a directory nobody was working in.
+
+  **The case with teeth: a worktree on a detached HEAD whose commit is on no
+  branch is reported and never removed by you.** Work on a branch is visible to
+  anybody who lists branches; work on a detached HEAD is visible to nobody — so
+  an audit that tidies worktrees destroys it *by doing exactly its job*. The
+  guard is not "audit less", it is that this one case is always escalated. Before
+  removing such a worktree once a person has ruled, confirm its commit is an
+  ancestor of `main`.
+
+  **And the correction that came with it, which is the sharper half.** The
+  detached commit that prompted this rule was reported as reachable only by
+  reflog. It was not: the **remote** branch already pointed at it and the pull
+  request already carried it — only the *local* ref was stale, and the claim was
+  made by reading `git worktree list` plus a local branch name. **A local ref is
+  not the answer to what exists on the remote.** Resolve against `origin/` and
+  ask the API for a pull request's head before saying what it contains. That was
+  the second time in one day: `tools/sync-docs.sh` refuses a checkout "ahead of
+  `origin/main`" and said the same false thing about a branch that was not.
+
 - **`main` is protected, and nothing bypasses it.** A ruleset on the default
   branch requires the two `gates` checks — `gates (3.12)` and `gates (3.13)` —
   to have passed **on the ref** before it can land, requires a branch to be up
