@@ -13,8 +13,8 @@ unsafe and reports what it measured. Everything between those two — whether a
 red run is a regression or a wobble, which run deserves to become the
 reference, when to stop re-running and start reading — is judgment, and it is
 left to a person on purpose. These are the protocols that keep your share of it
-honest. They are the same rules as the repository's own `AGENTS.md`; this is
-the copy that loads when you are about to act.
+honest. They are the same rules as digline's own `AGENTS.md`; this is the copy
+that loads when you are about to act.
 
 ---
 
@@ -222,8 +222,8 @@ duplicate them, and from proposing something that will be refused anyway:
 
 ## Where the reasoning is
 
-Read these out of the digline installation's own documentation when a decision
-needs more than a rule:
+Read these in digline's own documentation — the `docs/` of its repository —
+when a decision needs more than a rule:
 
 - `docs/guide.md` — the eight chapters, in the order the problems arrive. §6 is
   which run to promote; §7 is the aggregate as the gate and the cases as the
