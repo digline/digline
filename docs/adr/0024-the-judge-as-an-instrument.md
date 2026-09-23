@@ -104,6 +104,10 @@
   **lower bound** on the judge's variance in production. §5 is unchanged — the
   figure is still the right one to print — and what is added is what it does not
   cover
+- Amended: 2026-09-23 — §1.1, **the four are a taxonomy and not a protocol.**
+  Two pairs cannot be read on the same run, and one of them is the
+  disambiguation §1 rests on. Nothing in the Decision changes; what is added is
+  which readings co-run, in what order, and why each exclusion exists
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -412,6 +416,113 @@ after it, and this is its first sighting in a working tree; the release that
 moved the words predicted the movement and said to re-promote if it is
 acceptable. It is named here because a reader of this table would otherwise have
 no way to know the two columns were produced by two different instruments.
+
+### 1.1 Amendment, 2026-09-23: the table is a taxonomy, and here is what co-runs
+
+*§1 says the four measurements belong in one record because they explain each
+other. They do — as an argument. They cannot all be read on one run, and until
+now nothing said so, which left a reader following this record to declare a
+calibration case and silently lose two of the other three.*
+
+**Ruled: §1 is a taxonomy, not a protocol**, and the reason is stronger than
+convenience. §1's central sentence is *the calibration case is what separates
+them — the shape moved and the calibration held means the target moved; the
+shape moved and the calibration landed at an extreme means the scale went.*
+**That reading cannot be taken.** A calibration case forces `samples >= 2`,
+every verdict becomes a fold, and shape refuses a fold of folds. A procedure
+whose central step is unreachable was never a procedure: §1 described four
+things that exist, and a relation between them that was true in prose and false
+in code.
+
+Nothing in the Decision changes. No exit code, no field, no threshold. What
+follows is what a reader was owed and did not have.
+
+**Which readings can be taken on the same run.** Six pairs; four exclude.
+
+| pair | co-run | why |
+|---|---|---|
+| calibration x shape | **no** | `samples >= 2` makes every verdict a fold; §6.4's stamp refuses a fold of folds, because a judge alternating 0 and 1 read through a mean reports *zero extremes* |
+| calibration x `judge_samples` | **no** | a replay skips a declared answer (`run/replay.py`): it carries its own output and the target is never called for it, so there is nothing recorded to replay |
+| calibration x spread | **no, when it fires** | a run whose calibration fell outside its band is excluded from §7.2's comparable set under `scale_lost` |
+| `judge_samples` x spread | **no** | a `judge_samples` run is a replay, and §7.2 excludes replays under `rejudged`: zero target variance would narrow a between-run range with a run that asked the target nothing |
+| shape x spread | yes | no shared constraint |
+| shape x `judge_samples` | yes, at `samples = 1` | a replay records the *first* judgement and not a mean, so nothing is stamped as a fold |
+
+**The order is forced, and it is not the order this record implies.** §2 lists
+the calibration case second, as *the gate, and it needs no reference*. In
+practice a calibration case **blocks promotion** while its band is unauthored,
+and a band cannot be authored honestly without a live baseline to watch the
+judge on — so *calibrate then promote* is impossible by construction. **Promote
+a live baseline first, then author the band against a judge that has been
+watched.** The first band written for `examples/prompt-first` was refuted the
+first time anything looked at it.
+
+**And the floor this record states is one short.** §4.2 requires
+`samples >= 2`. Two is a value that cannot work against a real judge: two
+samples are unanimous or split, and there is no majority to take. Against a
+judge legitimately returning 0.33 and 0.95 on the same answer,
+`min_agreement = "2/2"` errors the case and `promote` refuses the run. **The
+effective floor a calibration case imposes is three.**
+
+**That correction is prose, and the code still accepts two — declared here
+rather than left to be met.** `Suite.__post_init__` refuses one and accepts
+two, exactly as §4.2 says; this amendment states that two does not work in
+practice and that the effective floor is three. The two now disagree, and the
+gap is **deliberate**: raising the refusal is code, and it wants its own
+decision about what the number is *for* — a floor derived from what a majority
+needs, not a constatation that two failed once. A divergence declared is a
+divergence. One left for a reader to meet between a record and an
+implementation is the whole family of defects this month was spent closing.
+
+**Two edges nobody had met**, recorded because each was found by walking the
+pairs rather than by meeting it:
+
+- **The calibration case and the spread are anti-correlated, not merely
+  exclusive.** The run leaves the comparable set *precisely when the
+  calibration fires*. The instrument doing its job is what removes the
+  evidence.
+- **Declaring a calibration case excludes every earlier run from the spread,
+  permanently.** `_population` counts the calibration case ids as one of the
+  four sets that decide comparability, so the population changes the day the
+  case is declared and never changes back.
+
+**Which exclusions are essential and which are ours.** Only the second kind can
+be repaired, and this record does not repair them.
+
+*Essential — properties of what is measured:* `judge_samples` x spread (a
+replay has zero target variance; that is what a replay **is**), and
+calibration x spread when it fires (a run whose judge lost its scale cannot
+contribute honest aggregates — the same rule that refuses to promote it).
+
+*Ours — properties of how this was built, recorded and left standing:*
+calibration x shape (a fold discards its raw per-sample scores; nothing says it
+must); calibration x `judge_samples` (`replay.py`'s comment explains why a
+declared answer need not be *replayed*, which is not why the **repeatability
+flag** should not reach it — the one place repeatability on a known answer is
+most wanted); and the `_population` edge, since a calibration case is in no
+aggregate by §4.4 and whether its id belongs in the set deciding comparability
+appears never to have been decided.
+
+**Open, with its evidence: does the spread belong in this family at all?** Its
+object is the suite over time; the other three measure the judge. §1 admits it
+"mixes target, judge and time", and it is a party to two of the four
+exclusions. A taxonomy may hold a member whose object differs — **as long as it
+says so**, which is why this is written rather than resolved. Not decided here.
+
+**And what would answer it, because an open question with no way to close it
+becomes furniture.** This one is settled by *use*, not by argument: the day
+somebody reads the spread to decide something about a **judge**, it belongs
+here; the day somebody tries and cannot, because a range that mixes target,
+judge and time will not carry the weight, it belongs somewhere else. Either
+reading closes it, and no amount of reasoning in this record does.
+
+Today neither has happened. The spread has been read exactly once for anything
+— scout's twelve runs of 2026-09-17 to 09-20 — and that reading was about
+sizing a threshold, which was then withdrawn as unsizeable (§7.4). It has never
+been read to say something about a judge, and nobody has yet failed to. So the
+question is not merely unanswered: **the evidence that would answer it does not
+exist yet**, and the first person to reach for the spread with a judge in mind
+is the one who settles this, whichever way it goes.
 
 ### 2. The order, which is the order of this record
 

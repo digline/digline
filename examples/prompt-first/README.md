@@ -23,22 +23,31 @@ $ uv run digline promote --suite suite.py --run latest
 $ uv run digline compare --suite suite.py --run latest
 ```
 
-No API key: the provider and the judge are stand-ins. `DIGLINE_LIVE=1` uses the
-real ones.
+**The keyless path runs. It does not compare.**
 
-**And under `DIGLINE_LIVE=1` the rubric currently fails all five cases**, where
-the stand-in judge passes them. Measured 2026-09-22 on `claude-haiku-4-5`: the
-five scored 0.3667 to 0.6333 against a threshold of 0.7. That is a fact about
-this example and not about digline — the baseline was promoted from a run the
-stand-in judged, and a real judge reading the same rubric is harsher than the
-arithmetic standing in for it. Two honest ways to read it: the prompt has room
-the stand-in could not see, or the threshold was set against a judge that was
-never asked. Either way the pair *baseline + live judge* has never been
-reconciled here, so do not read a red live run as a regression.
+Without a key the provider and the judge are stand-ins, and `DIGLINE_LIVE=1`
+uses the real ones. What the stand-ins are for is the **wiring**: that the
+suite loads, the target is reachable, every case is judged, a run is written
+and a report renders. That is worth having and it is all it is.
 
-Two things that run is good for regardless. The judge's raw scores sit in the
-middle of the scale — **none of the fifteen at 0 or 1** — which is what a judge
-that still discriminates looks like. And `Run.usage` reports `judge: 0 calls,
-$0.0` for it, which is **wrong rather than absent**: `_live_judge` calls the
-SDK directly instead of going through `digline-anthropic`, so nothing reports
-what it spent. Copy the target's shape, not the judge's.
+They are not a reference. A stand-in judge here scores by counting sentences
+and looking for warm words; it cannot read the rubric, and a baseline of canned
+answers scored that way is **a measurement of nothing**. Comparing against one
+tells you that two stand-ins agree with each other, which they always will —
+and the danger is precise: it looks exactly like a green run, so it teaches a
+reader on day one that green means working.
+
+So **the committed baseline here is a live one**, promoted from a real run
+against `claude-haiku-4-5`, and `digline compare` is a live-mode gesture. Run
+the keyless path to see the shape of the thing; set the key before you believe
+a comparison.
+
+This example is also where the judge is watched rather than only used: under
+`DIGLINE_LIVE=1` it carries a **calibration case**, a fixed answer whose place
+on the scale a judge that still has one has to land inside. It costs judge
+calls only — the target is never called for it.
+
+One thing to copy carefully: `Run.usage` reports `judge: 0 calls, $0.0` here,
+which is **wrong rather than absent**. `_live_judge` calls the SDK directly
+instead of going through `digline-anthropic`, so nothing reports what the judge
+spent. Copy the target's shape, not the judge's.

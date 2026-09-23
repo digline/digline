@@ -81,11 +81,33 @@ target = AnthropicTarget(
 #: behind that door, so the control belongs on the same side of it. Cases are
 #: outside `config_hash` (`run/suite.py`), so its presence moves no fingerprint.
 #:
-#: The answer is one sentence and warm — the first two thirds of the rubric —
-#: and it invents a price, which the last third forbids. A judge with a scale
-#: puts that in the middle. A judge that has collapsed onto the extremes scores
-#: it 0 or 1 and is caught, which no amount of repetition would catch: a
-#: collapsed judge is *more* repeatable, not less.
+#: The answer is **truthful and deficient**: three clipped sentences, cold, and
+#: unhelpfully vague — it fails the rubric's *one sentence* and *warm* clauses
+#: and satisfies the third, inventing no price and no date. A judge with a scale
+#: puts that inside its working range. A judge that has collapsed onto the
+#: extremes scores it 0 or 1 and is caught, which no amount of repetition would
+#: catch: a collapsed judge is *more* repeatable, not less.
+#:
+#: **The first answer written here was disqualifying, not partial**, and that
+#: is the correction worth keeping rather than hiding. It invented a price,
+#: which the rubric forbids outright, and the live judge scored it 0.000 twice
+#: — a hard, repeatable refusal. The band then read that as a lost scale, which
+#: it was not: in the same run the judge graded the five real answers across
+#: 0.266 to 0.650. ADR 0024 §4 says whether an answer makes a good calibration
+#: is the author's craft and nothing here checks it. This is that sentence
+#: arriving: the band had been authored against a judge nobody had ever
+#: watched, and the first thing watching it revealed was the author's error,
+#: not the instrument's.
+#:
+#: The band is authored against a judge that has been **watched on a live
+#: baseline**, which is the only order in which it can be done honestly. This
+#: judge places this answer at 0.850, 0.850 and 0.817 — repeatably, and well
+#: above the 0.54–0.65 it gives the real answers. 0.70–0.95 contains that and
+#: excludes both extremes, so a collapse onto 0 or 1 still fails it.
+#:
+#: That the deficient answer outscores every real one is not a fault in the
+#: band. It is what this rubric does, and it is recorded as its own finding:
+#: the dominant clause forbids inventing, and silence invents nothing.
 #:
 #: The band is wide on purpose. It is a control on the instrument, not a second
 #: threshold on the prompt, and a narrow one would fail on the judge's ordinary
@@ -116,11 +138,11 @@ CALIBRATION = (
                 check="llm_rubric",
                 input="How much is a signed copy?",
                 output=(
-                    "A signed copy is £25 and we would be happy to set one "
-                    "aside for you."
+                    "Signed copies. Sometimes there are some. You could ask "
+                    "at the counter I suppose."
                 ),
-                low=0.25,
-                high=0.75,
+                low=0.70,
+                high=0.95,
             ),
         )
     ]
@@ -150,15 +172,20 @@ suite = Suite(
             min_agreement="2/3",
         ),
     ],
-    # Two, because a suite that declares a calibration case has to repeat: one
-    # judgement of a known answer is one draw of a noisy instrument, and every
-    # wobble outside the band would stop a release. Declared for both modes
+    # Three, and the number matters more than the constraint that forced it.
+    # A calibration case requires at least two — one judgement of a known
+    # answer is one draw of a noisy instrument — but **two is a value that
+    # cannot work against a real judge**: two samples are unanimous or split,
+    # and there is no majority to take. Against a judge that legitimately
+    # returns 0.33 and 0.95 on the same answer, `min_agreement="2/2"` errors
+    # the case and `promote` then refuses the run. So the real floor a
+    # calibration case imposes is three. Declared for both modes
     # rather than only the live one, so that `config_hash` is the same
     # question on both sides of the door — a suite that fingerprinted
     # differently depending on an environment variable would report
     # `config_changed` against its own baseline.
-    samples=2,
-    min_agreement="2/2",
+    samples=3,
+    min_agreement="2/3",
     cases=[
         Case(id=c["id"], vars=c["vars"], expected=c["expected"])
         for c in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
