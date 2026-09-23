@@ -713,8 +713,11 @@ profiles = {
 # different things. `compare` refuses that comparison by name; a script like
 # this one has to refuse it too, or it silently answers a question nobody asked.
 widest = max(profiles.values(), key=len)
-partial = {key: sorted(set(widest) - set(scores))
-           for key, scores in profiles.items() if len(scores) < len(widest)}
+partial = {
+    key: sorted(set(widest) - set(scores))
+    for key, scores in profiles.items()
+    if len(scores) < len(widest)
+}
 for key, missing in partial.items():
     print(f"skipping {key}: {len(missing)} case(s) not judged ({missing[0]}, ...)")
 profiles = {k: v for k, v in profiles.items() if k not in partial}
