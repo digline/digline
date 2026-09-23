@@ -144,7 +144,9 @@ artifacts that today exists in none of the audited competitors.
   is a ref that cannot land. So the shape above, in full: push the branch, open
   a pull request, wait for the two gates, merge. That is the CI trigger
   combining with the ruleset rather than either one alone, which is exactly the
-  kind of interaction neither page shows you.
+  kind of interaction neither page shows you. Observed on the first try: the
+  first push of the branch that recorded this rule produced **zero check runs**,
+  and PR #82 had to be opened before anything could go green.
 
   The release push order is in [`RELEASING.md`](RELEASING.md) and this rule does
   not change it — it changes only how each of those pushes reaches `main`.

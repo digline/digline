@@ -330,13 +330,14 @@ genuinely been green when it looked.
 
 Run it again whenever a docs file moves after it, which on most releases means
 **last, immediately before the tag**, and always again after writing a
-changelog entry. The `docs` job is a required check on `main` since 2026-09-22,
-so a pull request that breaks it does not merge — and since 2026-09-23 there is
-no longer a push that lands some other way, because `main` refuses a ref whose
-`gates` have not passed (`CLAUDE.md` § Conventions). That closes the route by
-which a red used to end up sitting on `main` until somebody read it. It does not
-make the timing optional: a green that looked at the wrong tree is still green,
-which is why this has to be run at the right moment rather than merely run.
+changelog entry. The `docs` job is **not** a required check on `main`, and
+*Queued for the next site push* below is why it cannot be one. Since 2026-09-23
+there is no longer a push that lands some other
+way either — `main` refuses a ref whose `gates` have not passed (`CLAUDE.md`
+§ Conventions) — so a red `docs` reaches `main` only through a merge somebody
+chose. It does not make the timing optional: a green that looked at the wrong
+tree is still green, which is why this has to be run at the right moment rather
+than merely run.
 
 **`make preview`, and not `tools/sync-docs.sh` followed by
 `uv run mkdocs build --strict`.** That is the target the `docs` job calls on a
@@ -434,19 +435,47 @@ unaffected, and is still this one.
   `pypi`, where everything irreversible has already happened, and a failure
   there would stop nothing while making a foreseeable wait look like a defect.
 
-- This repository's `main` requires `gates (3.12)`, `gates (3.13)` and, since
-  2026-09-22, **`The site still builds from these docs`** — the `docs` job,
-  which clones the site and builds it. `gates` does not set
-  `DIGLINE_SITE_CONFIG`, so `tests/_site.py` skips there and the two nav
-  checks never run; `docs` is where they run for real.
+- This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
+  **nothing else**. The `docs` job — `The site still builds from these docs`,
+  which clones the site and builds it — was required from 2026-09-22 and is
+  **not** required since 2026-09-23. `gates` does not set
+  `DIGLINE_SITE_CONFIG`, so `tests/_site.py` skips there and the two nav checks
+  never run; `docs` is where they run for real.
 
-So merging here first is still not blocked by a *missing nav entry* — the
-pull-request build is `make preview`, where `MKDOCS_OMITTED_FILES=info` lets a
-page with no nav line through, which is the whole reason the entry may land
-afterwards. The window's cost is that `docs` on `main` is red between the two
-merges. That blocks no release and no deploy: a failed site build does not
-deploy, and the live site keeps serving what it already had. Close the window,
-then re-run `docs`.
+**Why the `docs` job cannot be a required check here, which is the rule and not
+a concession: a check that the documented process guarantees will be red cannot
+be a required check.** The two bullets above are that guarantee. A site entry
+cannot land before the page (bullet one), so between the two merges the page is
+on `main` with no nav line — and that is the state the nav gate is built to
+fail. Requiring it would mean no ADR and no docs page could ever land, because
+each side is waiting for the other. Under the ruleset that required it the
+deadlock was latent rather than harmless: `main-protection` exempted the
+repository's admins with `bypass_mode: always`, so the requirement **never once
+bound anybody**, which is why nobody met it. It was deleted rather than
+reshaped; its payload is in the commit that deleted it — *Fold the two rulesets
+into one, and record why the docs job is not among them* — so restoring it
+verbatim is one `gh api -X POST repos/digline/digline/rulesets` call.
+
+And the correction that finding turned up: **merging here first *is* seen by the
+nav gate, contrary to what this section used to say.** The pull-request build is
+`make preview`, where `MKDOCS_OMITTED_FILES=info` lets a page with no nav line
+through — but `ci.yml`'s step *The nav gates, where they may not skip* then runs
+`test_every_adr_has_a_page_in_the_site_nav` with `DIGLINE_SITE_REQUIRED=1`
+against a fresh clone of the site, precisely because the preview build lets it
+through. So `docs` is red on the pull request that adds the page, one merge
+earlier than this file used to claim, and stays red on `main` until the site
+entry lands. That blocks no merge (it is not required), no release and no
+deploy: a failed site build does not deploy, and the live site keeps serving what
+it already had. Close the window, then re-run `docs`.
+
+**The open piece that would let the check be required again**, named here
+because deleting a ruleset should not read as giving up a protection when what
+it removed was an unusable one. Teach the pull-request nav gate to tolerate a
+page **added by the pull request under test** while still failing for a
+pre-existing page with no entry — the diff against the base ref is what
+separates the two, and only the second is somebody's omission. The deadlock goes
+with it and `docs` can join the required list. Not started, and it is not a
+release step.
 
 **What the requirement covers, and what it does not.** It covers the files this
 repository sends to the site — `docs/`, `CHANGELOG.md`, `ROADMAP.md`,
