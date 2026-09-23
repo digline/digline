@@ -414,6 +414,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "instrument's own flags began crossing, told as history on the page "
         "that also records, dated, what it used to promise instead",
     },
+    "docs/guide.md": {
+        "0.15.3": "'has since `0.15.3` closed GHSA-8c38-f965-cgww' — the release "
+        "that closed the fifth advisory, told as history in chapter 6 where a "
+        "hand-computed median meets the same denominator",
+    },
     "docs/api.md": {
         "0.16.0": "'Since 0.16.0 the run does carry it' — the release the "
         "judge's own spending began reaching a document, told as history in "
