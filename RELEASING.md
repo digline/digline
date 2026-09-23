@@ -984,6 +984,46 @@ servers would confirm it.
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
 
+- **v0.19.1 — both pairs proven, one in each job, and the race met at the runner
+  and waited out.** `docker-publish` succeeded on attempt 1.
+
+  - **amd64 — proven in `smoke`'s build.** `#9 0.341 served digline==0.19.1
+    (after 0s)` beside the three plugins, then `#9 1.073 Collecting
+    digline==0.19.1` and `#9 5.906 Successfully installed … digline-0.19.1
+    digline-anthropic-0.5.3 digline-bedrock-0.5.1 digline-openai-0.5.2 …`. The
+    same `RUN` (`#9`), with the install 0.7s after `served`.
+  - **arm64 — proven in the multi-arch push.** `#15 [linux/arm64 stage-0 3/5]`
+    printed `#15 5.061 served digline==0.19.1 (after 1s)`, then `#15 23.06
+    Collecting digline==0.19.1` and `#15 133.0 Successfully installed …
+    digline-0.19.1 …`, in one `RUN`.
+  - **amd64 in the multi-arch push proved nothing, as it does every time.**
+    `#11 [linux/amd64 stage-0 3/5]` is `CACHED`.
+
+  The three tags, `0.19.1`, `0.19` and `latest`, resolve to one digest,
+  `sha256:c1b65a63…6ee6`.
+
+  **The race was met this time, and it is a fourth observation.** `smoke`'s
+  runner-level wait printed `waiting digline==0.19.1 — /simple/digline/ is
+  served and lists 35 file version(s), none at 0.19.1` seven times, then
+  `served digline==0.19.1 (after 210s)`. The plugins were served at 0s. This is
+  the shape of v0.17.1's 241s wait. The index had not caught up when the job
+  started, the wait held the build, and the install inside the build found the
+  version at 0s. The observations now number four: v0.15.0's failure, v0.15.1's
+  live race, v0.17.1's 241s wait, and this 210s wait.
+
+  **What the next tag must show:** the same two-pair reading across the two
+  jobs, and an honest note on whether the race was live.
+
+- **v0.19.1 — held after the go-ahead, and nothing had to be retracted.** A
+  reconnaissance aimed at something else found two defects in the Claude Code
+  plugin, which was already on `main`. Its hook fired in any repository and
+  matched a phrase anywhere in the payload. Its description named the MCP
+  server's absence of `promote` but not the hook. The plugin's marketplace pins
+  the release tag rather than `main`, so nothing had to be retracted: `main`
+  carried the defects and nobody could install them. They were fixed in #97,
+  the release branch was rebased onto the fix, and every pre-tag check was run
+  again on the rebased tree rather than carried forward from the one before it.
+
 - **v0.19.0 — the pair proven on arm64 only, and the race absorbed rather than
   met.** `docker-publish` succeeded on attempt 1.
 
