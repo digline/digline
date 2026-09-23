@@ -149,8 +149,14 @@ artifacts that today exists in none of the audited competitors.
   `digline.dev` has worked this way all along, and the two are now the same in
   the part that matters — neither default branch takes a direct push, and
   neither has a bypass. They are not identical: `digline.dev` routes work
-  through a pull request (zero approvals required) and does not ask for an
-  up-to-date branch, where here it is the reverse.
+  through a pull request (zero approvals required), and here the ruleset does
+  not. Both now ask for an up-to-date branch. *Corrected 2026-09-23:* until
+  then this sentence said `digline.dev` did not, which was true until its
+  `Build` check was made strict that day (the ruleset records its last update
+  at 15:48 CEST). The sentences around this one were checked against both
+  rulesets on the same day. "Up to date" there means with digline.dev's own
+  `main`; it cannot see this repository's, and that cross-repository gap is
+  written down, with its cost, in digline.dev's `RUNBOOK.md`.
 
   **Why, and not only what.** It cost two incidents in the week of 2026-09-22.
   One session swept another session's commit onto `main` behind a clean
