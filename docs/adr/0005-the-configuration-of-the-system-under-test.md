@@ -20,6 +20,15 @@
   §1 and §6 and overturns nothing. §3 above all is untouched, and that is what
   makes it an amendment rather than a new ADR — this is the record, never the
   hash
+- Amended: 2026-09-23 — §9, `resolved_model` over HTTP: **a ruling, not a
+  widening.** The *Not decided here* entry waited for an application with an
+  identity to report; `flower` is that application and the answer is still no,
+  because the perimeter rule partitions the two model names by provenance and
+  over HTTP §8 gives both the same one. Added rather than a new ADR on the 2026-09-01
+  test: it refuses what §1's table already refuses and overturns nothing. It
+  also states the consequence it does **not** repair — `model` is mandatory over
+  HTTP and equally unreviewed — which is
+  [ADR 0030](0030-the-configuration-an-application-reports.md)
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -652,6 +661,95 @@ field: *does a change here mean a different system was measured?* For a model
 id it does. For a backend build it does not, and claiming it did would be the
 manufactured fact this ADR spends its length refusing.
 
+#### `resolved_model` stays closed over HTTP, and the reason is the partition
+
+*Amendment, 2026-09-23. Rules the entry *Not decided here* left open, and does
+not widen §1's table. §8 and the perimeter rule above are unchanged; what
+follows is a refusal, stated with its reason, because the reason is the part
+that transfers.*
+
+The open entry set a condition and named its price: *"§8's closed key table
+refuses what it does not know, so an application cannot report one until the
+table says it may. Adding it there is a line in `CONTRACT_FIELDS` and a line
+here, and it should wait for an application that has one to report."*
+
+**An application with one to report now exists, and the answer is still no.**
+That is the whole of this section, and it is a ruling rather than a deferral:
+the condition has been met, and what refuses the field is not the absence of a
+caller but the absence of the test the perimeter rule is built on.
+
+**The partition is not available over HTTP.** The rule above separates the two
+model names by provenance, and says so in as many words — the sent `model`
+travels because *"it is written in the suite, and the suite goes through a
+review"*, while the observed one is withheld at a named endpoint because *"the
+observed one is written by the server and nobody reviewed it."* Over HTTP
+neither name is written in a suite. §8 is explicit about where both come from:
+the configuration **arrives in the answer**, and `declared_config` reads
+`provider`, `model` and every other key out of the application's own reply. One
+provenance, two fields. A rule that distinguishes them by who wrote them has
+nothing to distinguish here, and admitting a field under a premise that does not
+hold at its boundary is how a perimeter is widened by accident rather than by
+decision.
+
+**The mechanical repair exists and is refused on its own merits, not as too
+expensive.** An `HttpTarget` knows its endpoint — `endpoint_host(url)` is
+computed at construction and the constructor *raises* when there is no host to
+reduce to — so it could supply `base_url` itself and make every HTTP run a named
+endpoint by construction. That is the correct mechanism and it needs no new
+machinery. It also buys nothing: `sighting()` and `config_deltas()` redact
+before they read, for world 1 as much as for anyone, so a withheld
+`resolved_model` over HTTP would be recorded in the run file and rendered
+nowhere at all — no alias-roll delta, no `echoed` row, no headline. The field
+would be write-only, and the question above would be settled by a mechanism
+instead of by a decision.
+
+**And the reading that a pilot asks for is the one that has to be refused in
+writing.** Leaving the condition exactly as it stands is the cheapest path: an
+application that declares no `base_url` is read as first-party, and its
+`resolved_model` travels in clear. The withholding would then turn on the
+presence of a key **the measured party controls** — and it is worse than
+controls, because `declared_config` *deletes* `base_url` when its value has no
+parsable host, silently and with no refusal. An application that reports its
+endpoint as anything unparseable is thereby read as having no endpoint, and
+nothing tells it so. A boundary the subject can switch off is not a boundary.
+
+[ADR 0029](0029-the-artifact-that-must-not-drift.md) §9b declared the document
+version of this shape and deliberately did not fix it: nothing is signed, *"a
+party who writes a run document can make it say anything, and the party who
+writes it is exactly the party a pin measures."* That is a control over drift
+nobody noticed, and it is declared not to be a security boundary. This would be
+the same shape one level worse — there the trusted thing is a *document*, here
+it would be the **perimeter** that decides what leaves the end company at all.
+A forged score misreports an experiment; a disarmed perimeter sends the data.
+
+**What the reader gets instead, and it is not nothing.** §8's record already
+names the system: `provider` and `model` as the application declares them, the
+endpoint reduced to a host, the parameters. What is absent is the *observed*
+identity, and the reading says which absence it is rather than inventing a
+value — an HTTP run whose document records a writer reads as `not_reported`,
+row 6, and never as row 7. **The seventh absence is unreachable over HTTP for a
+reason worth stating**: it says an echoed id is not a verified identity, and
+over HTTP there is no id to echo. An application that echoed its own alias back
+would be reporting the field this section closes.
+
+#### What this implies, and does not repair
+
+The paragraph above establishes that over HTTP the provenance partition does not
+hold. **It does not hold for `model` either, and `model` is mandatory and
+travels in clear today.** An application declares it, `declared_config` requires
+it as a non-empty string, it is in no perimeter set, and it reaches the
+projected document — `model = "kayak-skills-prod-eu-west-v3"` crosses beside a
+`base_url` withheld for describing exactly that, which is the failure the
+2026-09-10 correction found on the field next to it and did not look for here.
+
+This section does not repair it, and says so rather than leaving the premise
+fallen and the consequence unstated: which of §8's reported fields are
+measurements and which are the end company's perimeter is a question about fixed
+decision 9, it changes what an existing document carries, and it has its own
+record in [ADR 0030](0030-the-configuration-an-application-reports.md). Opening
+`resolved_model` here would have shipped half of that decision inside a release
+built to let a pilot read its tool calls.
+
 ## Consequences
 
 - A baseline is now self-contained evidence of the whole experiment: the
@@ -713,10 +811,10 @@ it — and it is a `CaseResult` field, which is a `SCHEMA_VERSION` bump and a
 migration for a fact nothing reads yet. The run-level record plus an errored
 case says the same thing in the cases that matter, at no cost to any document.
 
-**A `resolved_model` for `HttpTarget`.** §8's closed key table refuses what it
-does not know, so an application cannot report one until the table says it may.
-Adding it there is a line in `CONTRACT_FIELDS` and a line here, and it should
-wait for an application that has one to report.
+**A `resolved_model` for `HttpTarget` — ruled, 2026-09-23, and no longer open.**
+The condition this entry set was met and the answer was still no: see §9's
+closing subsections. The reason is not that nobody had asked, it is that the
+perimeter rule's test cannot be applied at that boundary.
 
 **`prefill`.** Anthropic's assistant-prefill is text put in the model's mouth,
 so it is *prompt* — the thing under test rather than a parameter of the system
