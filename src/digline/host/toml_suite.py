@@ -756,6 +756,18 @@ def _resolve_paths(
 
     Driven by the parameter's declared type, like every other conversion here: a
     `str | Path` is a path, and a plugin that adds one gets this for free.
+
+    **And a parameter that is not a file must not say `Path`, because the test
+    below is the word and not the type.** `"Path" in declared` reads the
+    annotation as a string, so anything spelled with it — `str | Path`,
+    `Path | None`, a `PurePath` — is resolved against the suite's directory and
+    perimeter-checked. That is right for a prompt file and wrong for every other
+    kind of path: `HttpTarget`'s `output_path`, `cost_path` and `config_path`
+    are **dotted paths into a JSON body**, and `data.answer` resolved against
+    the suite directory is a filename nobody wrote and a refusal nobody can
+    read. They are annotated `str | None` for that reason, and a fourth one
+    added later has to be too. The name ending in `_path` is not what decides
+    it; the annotation is.
     """
     try:
         signature = inspect.signature(cast("Any", factory))
