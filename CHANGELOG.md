@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.19.1 — unreleased
+## 0.19.1 — 2026-09-23
 
 digline **0.19.1**, and on PyPI the core alone. An HTTP target can now report
 what the agent called and what it spent, so an application in any language can
