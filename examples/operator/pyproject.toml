@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    "digline>=0.9,<0.19",
+    "digline>=0.9,<0.20",
     # The operator's own model, reached only by `judgment.py` and only with
     # DIGLINE_LIVE=1. The SDK directly rather than `digline-anthropic`: that
     # package ships a Target and a Judge, and this call is neither — it reads a
@@ -15,7 +15,7 @@ dependencies = [
     # The interactive path: `.mcp.json` starts this, and a coding agent opened
     # in this directory gets the six reading tools — and no `promote`, because
     # there is no such tool to have.
-    "digline-mcp>=0.1,<0.2",
+    "digline-mcp>=0.2,<0.3",
     # The client half of the same protocol, for `loop.py`'s probe: it calls
     # `promote` by name on that server each cycle and expects to be told there
     # is no such tool. Named here rather than reached through `digline-mcp`,

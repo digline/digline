@@ -10,7 +10,7 @@ the layer both front ends already sit on (ADR 0011 §7, ADR 0017 §11).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Protocol
 
@@ -104,6 +104,7 @@ def prepare(
     now: str,
     git_commit: str | None,
     artifacts: Mapping[str, Artifact],
+    pinned: Sequence[str] = (),
     resume: Pending | None = None,
     retry_errors: bool = True,
 ) -> Prepared:
@@ -132,6 +133,7 @@ def prepare(
         record_responses=suite.record_responses,
         git_commit=git_commit,
         artifacts={path: item.sha for path, item in artifacts.items()},
+        pinned=tuple(pinned),
         target_config=target_config(target),
         judge_config=judge_config(suite),
     )
@@ -255,6 +257,7 @@ def measure(
     prepared: Prepared,
     run_metadata: Mapping[str, object] | None = None,
     artifacts: Mapping[str, Artifact] | None = None,
+    pinned: Sequence[str] = (),
     mapper: Mapper = default_mapper,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
@@ -274,6 +277,7 @@ def measure(
         git_commit=prepared.header.git_commit,
         run_metadata=run_metadata,
         artifacts=artifacts,
+        pinned=pinned,
         done=prepared.done,
         spent=prepared.spent,
         on_case=journal.append,

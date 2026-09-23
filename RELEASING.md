@@ -19,6 +19,70 @@ new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
+## Two rituals, and mapping one of them is how you get surprised
+
+**A schema bump is two rituals, not one.** Moving `SCHEMA_VERSION` obliges the
+schema ritual — the `_STEPS` entry, the committed baselines migrated, the caps
+raised, the tests that name the schema by number. But a schema that has moved
+belongs to no release, so it also obliges a **version** bump, and that is a
+second ritual with a different set of files: `CHANGELOG.md`, the claims `LIVE`
+pins, `docker/README.md`'s tags *and* its minor tag, and the previous release's
+version literals moved into `RECORDED` because they have become history.
+
+Paid for on schema 16. The schema ritual was mapped carefully and executed in
+one coordinated edit; the run that followed it cleared all 31 schema reds and
+produced **five new ones**, every one of them from the version half. Nothing had
+gone wrong — the mapping had covered one ritual and been called done.
+
+So when a change moves `SCHEMA_VERSION`, budget both, and read the version half
+below rather than assuming the schema half was the work. Four traps inside it,
+none of which a substitution will find:
+
+- **`docker/README.md` names the version five times and the *minor* tag once.**
+  A script that moves the row `LIVE` pins moves one of six.
+- **Head the entry `— unreleased`, and do not date it until the release commit.**
+  This is the one that is easy to get backwards, and getting it backwards breaks
+  two things at once. `## 0.19.0 — 2026-09-23` on a version PyPI does not serve
+  is a false claim in a public file — and it also **switches off the window
+  machinery above**: `tools/image_pins.py` substitutes a served version only for
+  a pin whose version the changelog declares `— unreleased`, so a dated heading
+  sends the real pin to the index wait and the image job fails for a reason that
+  looks like a defect. `a72a8c0` is the shape to copy: the feature commit writes
+  `— unreleased`, and the release commit dates it.
+- **`tools/home_capture.py --check` keys off the newest *dated* entry**, not off
+  `pyproject.toml` and not off the unreleased heading. So inside the window it
+  stays green with a capture from the **previous** release, and re-generating it
+  early makes it red the other way — captured with the new version, newest dated
+  still the old one. Leave it alone until the release commit dates the heading.
+
+  **One rule, two opposite answers, both correct** — worth stating because the
+  history shows it twice in one day and the first will read as a mistake. On
+  2026-09-23 the capture was regenerated, then **reverted** to the previous
+  release's, then regenerated again. Nothing changed its mind: the file must
+  match the newest *dated* entry, and what moved was the heading. While 0.19.0
+  said `— unreleased` the 0.18.0 capture was the correct one; the release commit
+  dated the heading, and at that moment the 0.19.0 capture became correct. A
+  revert that looks like an undo is the same rule reading a different tree.
+
+- **The previous release's literals become unaccounted the moment the number
+  moves.** They are evidence — build logs, digests, "since 0.X.0" — and they
+  must go into `RECORDED` with a reason, never be rewritten: a release whose
+  evidence moved is a release nobody looked at. `RECORDED` is one dict, so add
+  to the file's **existing** key rather than writing a second one. Python keeps
+  the last duplicate key and discards the other in silence, and `ruff` does not
+  flag it (checked: `F601`, `F602`, `F811`, `B035` all pass over it).
+
+**So read this list as what has been met, not as what there is.** It has been
+extended three times by things it was written about — the duplicate `RECORDED`
+key, the home capture, and the dated heading that broke the image build — and a
+list of traps assembled by walking into them is complete only up to the last
+walk. Budget a pass of *run the gates, fix, run again* after the ritual you
+mapped, and treat a new red there as ordinary rather than as evidence something
+went wrong. **Every one of the four was there to be found by reading this file**:
+the one that cost the most was the dated heading, written by somebody who had
+read the gates section and the push order and not the changelog step. Read the
+step you are about to perform, not the step that failed last time.
+
 ## Before the tag: moving the number
 
 `version` in `pyproject.toml` is one line and **four edits**. Nothing here is
@@ -139,6 +203,38 @@ that matter. So `ci` handles the window rather than leaving it:
 Nothing here changes at release. The moment the heading below is dated, it
 stops being a declaration, the substitution stops with it, and the pins are
 waited for as written.
+
+## Before the tag: the release commit is its own landing
+
+**The tag does not point at the commit that built the feature.** It points at a
+later one whose only job is to say the release happened — and today, 2026-09-23,
+that shape was nearly missed: the feature had merged, every gate was green, and
+the commit about to be tagged carried `## 0.19.0 — unreleased`. Tagging it would
+have published a release whose own notes deny it shipped.
+
+The precedent, and check it rather than trusting this paragraph: `v0.17.0` points
+at **`b70c5d4`, *Release digline 0.17.0***, which is not the commit that wrote
+any of that release's features. `a72a8c0` built one of them and wrote
+`## 0.17.0 — unreleased`; `b70c5d4` dated it and touched `CHANGELOG.md`,
+`docs/assets/home/home.json` and four example locks. Two landings, in that order.
+
+So after the feature merges and before the tag:
+
+1. **Date every heading the tag carries**, core and each plugin, in one commit.
+   `test_a_dated_release_leaves_no_package_declared_unreleased` is green while the
+   core still says `unreleased` and goes red the moment you date it with a package
+   left behind, naming the package.
+2. **Regenerate the home capture**, which becomes due at exactly that moment and
+   not before — see the rule above for why the two answers differ.
+3. **Expect the image job to go red on this commit** and read it as the short
+   post-tag red rather than a defect: dating the heading switches off
+   `image_pins.py`'s window substitution, so the build waits for a version the
+   index does not serve yet. It heals when `publish` finishes. This is not the
+   days-long window red described above.
+
+The reason this needs writing down at all is that the feature commit is *tempting*:
+it is green, it is the change everyone was working on, and nothing about it
+announces that it is not the release.
 
 ## Before the tag: the changelog
 
@@ -883,6 +979,47 @@ servers would confirm it.
 
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
+
+- **v0.19.0 — the pair proven on arm64 only, and the race absorbed rather than
+  met.** `docker-publish` succeeded on attempt 1.
+
+  - **amd64 — proved nothing, as predicted.** `#12 [linux/amd64 stage-0 3/5]` is
+    `CACHED`. It is written here rather than omitted, because a leg that proves
+    nothing and is not named reads afterwards as a leg that passed.
+  - **arm64 — the pair, in one `RUN`.** `#15 [linux/arm64 stage-0 3/5]` printed
+    `#15 18.32 Collecting digline==0.19.0` and `#15 99.85 Successfully installed
+    … digline-0.19.0 digline-anthropic-0.5.3 digline-bedrock-0.5.1
+    digline-openai-0.5.2 …`. So the 0.19.0 pin is proven on one architecture.
+
+  **The race was absorbed, not met, and this is not a fourth observation.**
+  `await_index` reported `served digline==0.19.0 (after 0s)`,
+  `digline-anthropic==0.5.3 (after 0s)`, `digline-openai==0.5.2 (after 1s)` —
+  no `waiting` line at all. The index was ahead of the build, so the fix was
+  never exercised. **Three real observations stand** (v0.15.0's failure,
+  v0.15.1's live race, v0.17.1's 241s wait) and a green that did not exercise
+  the fix is not one of them. Counting it would grow the sample with a run that
+  tested nothing, which is the shape this whole file exists to refuse.
+
+- **v0.19.0 — stopped three times by its own ritual, by three different
+  controls, none of them a test.** Worth the lines because a release that ships
+  smoothly teaches nothing, and the three failures are of three distinct kinds.
+
+  1. **The delta-pass found the feature inert.** `read_pinned` had no caller, so
+     `Run.pinned` was empty in every run digline wrote and no comparison could
+     exit 2 — behind **39 green tests**, each of which constructed the record
+     directly and so could not see the gap between the suite and the driver.
+  2. **The floor gate found two plugins that would have been broken** for anyone
+     resolving against PyPI: both imported a name that arrived in 0.19.0 while
+     declaring older floors. Unreachable by any test in this repository, because
+     the failure is about versions that are *not* present.
+  3. **The runbook caught a tag about to point at the wrong commit** — the
+     feature merge, whose changelog still said `## 0.19.0 — unreleased`. The
+     defect was not a forgotten rule: the wrong point looked like the right one.
+
+  The common property is what makes them worth recording together: **none was
+  reachable by a test**, and each needed a control that looks at something a
+  test cannot — a wiring, a promise about absent versions, and a commit's place
+  in a sequence.
 
 - **The wait inside the build runs on the release path.** Seen on v0.15.0: both
   `docker-publish.yml` legs printed `served` under `#… the index at

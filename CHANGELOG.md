@@ -6,6 +6,144 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.2.0 — 2026-09-23
+
+Published by digline's `v0.19.0` tag, with `digline-mcp 0.2.0` and the core.
+
+### Changed — the floor moves to `digline>=0.19.0`, and here is why
+
+Not "compatibility". The plugin **imports `digline.host.read_pinned`**, which
+arrived in digline 0.19.0 (ADR 0029). A user with an older core would install
+this plugin and get an `ImportError` on their first run, which is the exact trap
+`tests/test_plugin_floors.py` exists to catch, and it caught it.
+
+It imports it because `execute()` refuses a suite that declares `pinned` while
+being handed no resolved pin set. That refusal is deliberate — a run that
+recorded no pin would compare green whatever the watched file did — so a front
+end that did not read the pins would refuse every pinning suite instead of
+silently mis-recording one. **A pinned suite therefore works under `pytest`
+exactly as it does under the CLI**, which is the point: a control that works on
+one interface is a promise that breaks where somebody tries it, and running
+digline inside an existing pytest suite is the most natural way to use it.
+
+**The floor is stated with its reason so that it can be lowered by somebody who
+reads it.** If `read_pinned` is ever the only 0.19.0 name here, and a caller needs
+an older core, the honest move is to drop the feature from this front end — not
+to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
+that at length.
+
+## digline-mcp 0.2.0 — 2026-09-23
+
+Published by digline's `v0.19.0` tag, with `pytest-digline 0.2.0` and the core.
+
+### Changed — the floor moves to `digline>=0.19.0`, and here is why
+
+The same reason, and it is worth stating twice rather than cross-referencing:
+this server **imports `digline.host.read_pinned`**, which arrived in digline
+0.19.0 (ADR 0029). A user with an older core would get an `ImportError`, so the
+floor names the version that carries the name.
+
+`digline_run` reads the pins beside the artifacts and hands both to `measure()`.
+Without that, `execute()`'s invariant would refuse every suite declaring `pinned`
+over this surface — correctly, and uselessly. With it, a comparison over MCP
+returns `pinned_drifted` and `pinned_unchecked` on the same headline the CLI
+prints, which is what `digline.wire` is for.
+
+## 0.19.0 — 2026-09-23
+
+digline **0.19.0**, and the core alone. A suite can now declare that a file
+**must not change**, and a run whose declared file drifted **exits 2** instead
+of passing quietly.
+
+**A tool description is not documentation.** It is text in the model's context
+that decides when the model calls, with what, and instead of what — and a third
+party can rewrite it under you without the tool's *name* changing, which is the
+part a pinned version does not pin. EvalSeal measured 51 tool descriptions
+rewritten under unchanged names across 10 published MCP servers. digline could
+already record the dump and show the diff; what it could not do was fail.
+
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
+### Added — the artifact that must not drift
+
+- **`Suite.pinned` names the paths that must not drift**, beside the
+  `artifacts` they are drawn from. `suite.toml` takes it too. A pinned path that
+  names nothing the run recorded is **refused when the suite loads**, the way a
+  declared artifact that is not a file already is — otherwise a typo would be a
+  control that never runs and never says so.
+- **Exit 2, not 1, and the distinction is not cosmetic.** A drifted artifact is
+  **not a regression**: no score moved, the input did. Reporting it as one would
+  make the report say something untrue in order to produce a tidier number, and
+  a reader who went looking for the check that got worse would find none. So
+  `pinned_drifted` is its own fact beside `worse`, exactly as a moved canary is,
+  and `2` — which already means *the numbers beside this are not what they look
+  like* — is what a pipeline sees.
+- **A comparison that cannot answer says so, and does not pass.** This is the
+  third state, and it is not a detail: redaction takes the digest with the text,
+  so a withheld comparison has nothing to compare and **cannot** tell you
+  whether a pinned file moved. That is not *it did not move*. `pinned_unchecked`
+  counts those paths, in the headline sentence, in the report and in `--json`.
+  **Silence there would be the worst outcome available** — a control that
+  reports nothing when it could not run produces the same green as one that ran.
+  The party holding both runs *can* answer, and `withhold_artifacts()` is how
+  they answer it for the party holding neither.
+- **Only `changed` fires.** A pinned path the reference never had is `new`, not
+  drift — absent is not a change, which is the rule every outcome in
+  `digline.core` is read by, and the one that stops a pin going red on the day
+  you declare it.
+- **It stays out of `config_hash`.** Declaring a pin unpromotes nothing.
+
+### Schema 16 — one command, and nothing else
+
+`SCHEMA_VERSION` moves to 16 for one field, `Run.pinned`: which declared files
+the suite said must not change, recorded in the document the exit code is about,
+so two archived runs answer the same way tomorrow as today.
+
+**A schema bump reads as expensive, and this one costs one command.** The
+migration step **writes nothing** — a run from before this release pinned
+nothing, and an absent key already says exactly that. `digline migrate` rewrites
+the `schema_version` line and touches nothing else. **Your baselines stay
+promotable**: no re-promotion, no re-run, no configuration moved.
+
+`OUTPUT_VERSION` does not move. `pinned_drifted` and `pinned_unchecked` are
+added keys on the `--json` headline, which the contract's own rule has always
+allowed.
+
+### Unchanged on purpose
+
+- **A prompt still does not gate, and must not.** For a prompt, changing the
+  file *is* the experiment; gating on it would fail the run every time the work
+  being measured was done. The difference between the two cases is something the
+  author declares, which is why this is a declaration and not a default.
+- **`digline diff` still never exits non-zero.** A verdict exists only against
+  an approved reference, and neither side of a diff was approved by anybody. A
+  drifted pin marks the row there and stops.
+- **A pin is removable.** Deleting the line disarms the check, with nothing but
+  code review in front of it — the price of keeping it out of `config_hash`,
+  stated in ADR 0029 §9 rather than discovered.
+
+The reasoning is [ADR 0029](docs/adr/0029-the-artifact-that-must-not-drift.md);
+[`docs/tools.md`](docs/tools.md) is the guide, and it now describes this instead
+of promising it. The gap was found while reading EvalSeal's work.
+
+### Stopped twice by its own ritual
+
+Recorded because a release that ships smoothly teaches nothing.
+
+The delta-pass found the feature **inert**: `read_pinned` had no caller, so
+`Run.pinned` was empty in every run digline wrote and no comparison could exit 2
+— with **39 green tests** behind it, each constructing the record directly. Then
+the floor gate found **two plugins** importing a 0.19.0 name while declaring
+older floors, which would have broken for anyone resolving against PyPI.
+
+**Neither was reachable by a test.** The first was a wire that was never
+connected; the second a promise about versions not present. Both are checks now
+rather than memories: `execute()` refuses a suite that pins while being handed no
+pin set, and the floor table is what caught the second.
+
 ## digline-mcp 0.1.4 — 2026-09-22
 
 `digline-mcp` alone, on its own version line. digline stays at **0.18.0**: the

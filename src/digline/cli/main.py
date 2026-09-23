@@ -59,6 +59,7 @@ from digline.host import (
     need_baseline,
     prepare,
     read_artifacts,
+    read_pinned,
     read_run,
     record,
     resolve_key,
@@ -252,6 +253,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     artifacts = read_artifacts(
         suite, target, Path(args.suite).resolve().parent, root=Path(args.root)
     )
+    # The paths that must not drift, as the keys the run files them under, and
+    # refused here if one names nothing recorded. Read beside the artifacts and
+    # passed down with them: `execute` refuses a suite that pins while being
+    # handed no pin set, so this call cannot be quietly dropped again — which is
+    # how 0.19.0 came to build the whole feature and never connect it.
+    # (ADR 0029 §4)
+    pinned = read_pinned(
+        suite,
+        Path(args.suite).resolve().parent,
+        root=Path(args.root),
+        artifacts=artifacts,
+    )
     resume = _resume(store, suite, args.resume)
 
     try:
@@ -261,6 +274,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             now=now,
             git_commit=commit,
             artifacts=artifacts,
+            pinned=pinned,
             resume=resume,
             retry_errors=not args.keep_errors,
         )
@@ -291,6 +305,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         prepared=prepared,
         run_metadata=_meta(args.meta),
         artifacts=artifacts,
+        pinned=pinned,
     )
 
     if args.json:

@@ -212,7 +212,7 @@ def test_the_step_writes_nothing() -> None:
             del verdict["sample_means"]
     # 13 -> 14 writes nothing either (ADR 0025 §7), so a schema-12 document
     # still arrives here unchanged but for its version.
-    assert SCHEMA_VERSION == 15
+    assert SCHEMA_VERSION == 16
     assert upgrade_document({**unstamped, "schema_version": 12}) == unstamped
 
 
@@ -517,12 +517,15 @@ def test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway(
     key — the unstamped fold 0.14.1 writes for that suite anyway, which this
     reading already treats as not stamped. No new misreading.
 
-    **Amended 2026-09-18.** The sentence this opened with — *the journal gets no
-    refusal: its version does not move* — was true of schema 13 and is not true
-    of a journal written now: ADR 0025 §11 moved the format to 2 for its bill
-    line, so a current leg is refused before any of this is reached, and the
-    test below asserts that first. The original scenario is kept underneath it,
-    on a leg stamped back to format 1: that is every 0.15.x journal, where the
+    **Amended 2026-09-18, and again 2026-09-23.** The sentence this opened with
+    — *the journal gets no refusal: its version does not move* — was true of
+    schema 13 and is not true of a journal written now: ADR 0025 §11 moved the
+    format to 2 for its bill line, and ADR 0029 §3 moved it to **3** so a resume
+    cannot change which paths were pinned. So a current leg is refused before any
+    of this is reached, and the test below asserts that first — by the number,
+    which is why a journal bump lands here and will land here again. The original
+    scenario is kept underneath it, on a leg stamped back to format 1: that is
+    every 0.15.x journal, where the
     stamp really is dropped in silence and nothing refuses. The two assertions
     are different claims about different files, and losing the second one
     because the first became true would have retired a residue ADR 0024 §6.5
@@ -566,7 +569,7 @@ def test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway(
     # cases are not handed over at all. This is the lock ADR 0025 §11 added.
     at_two = run_old(source, reading, str(tmp_path))
     assert at_two.returncode == 0, at_two.stderr
-    assert "journal format 2" in at_two.stdout, at_two.stdout
+    assert "journal format 3" in at_two.stdout, at_two.stdout
     assert "SAMPLES []" in at_two.stdout, at_two.stdout
 
     # And the same journal as 0.15.x wrote one: format 1, no outer lock, the

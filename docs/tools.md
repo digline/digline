@@ -124,8 +124,12 @@ outside `config_hash`, so a rewritten description does not invalidate your
 baseline or block a promotion. That is the right default for a prompt, where
 changing the file *is* the experiment.
 
-Whether a tool definition wants the opposite default is **decided, and not yet
-built**. The shape it will take, so you can plan against it:
+A tool definition wants the opposite default, and the way it gets one is by
+being **declared**: the author names the paths that must not drift, and a named
+path that moved becomes an exit code instead of a line in a report. The
+reasoning in full is
+[ADR 0029](adr/0029-the-artifact-that-must-not-drift.md). The shape, so you can
+plan against it:
 
 - **Not an assertion.** An expected SHA written into an assertion would land in
   its `identity` and from there in `config_hash`, which would un-promote your
@@ -135,6 +139,16 @@ built**. The shape it will take, so you can plan against it:
 - **A declaration read at compare time**, naming the paths that must not drift.
   It follows the canary: a fact the headline names, never folded into *worse*,
   because a drifted file is not a regression and calling it one would be untrue.
+  It is recorded in the run, so two archived documents answer the same way
+  tomorrow as today, and it stays outside `config_hash` — declaring a pin does
+  not un-promote your baseline.
+- **Only `changed` fires.** A path the reference never had is `new`, not drift:
+  absent is not a change, which is the rule every outcome in `digline.core` is
+  read by, and the one that stops a pin going red on the day you add it.
+- **A pin nobody could check says so.** Redaction leaves no digest to compare,
+  and *cannot tell* is neither a pass nor a failure. The count of unchecked
+  pins is on the headline and in `--json`, because a control that goes quiet
+  when it cannot run is worse than no control at all.
 - **Exit 2, not 1.** `Comparison.artifacts_changed` already refuses to read
   `unknown` as a change, so failing with 1 would assert one layer up what the
   layer below declines to assert. Both codes stop a pipeline, so 2 costs
@@ -148,9 +162,11 @@ built**. The shape it will take, so you can plan against it:
   loads**, the way a declared artifact that is not a file already is. Otherwise
   a typo is a control that never runs and never says so.
 
-Ruled 2026-09-20. No ADR written, no code — so until it exists, what turns this
-red is the behaviour assertions beside the artifact, which is why the example
-here ships both.
+Ruled 2026-09-20, recorded 2026-09-23, and **not yet code**. Until it ships,
+what turns this red is the behaviour assertions beside the artifact — which is
+why the example here ships both, and why it will go on shipping both: a pin
+says the definitions moved, the assertions say what the move did, and neither
+answers the other's question.
 
 ## Withholding it
 

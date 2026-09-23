@@ -277,6 +277,22 @@ class Suite:
     #: as the TOML loader already coerces by declared type; anything else is
     #: refused here, by field name, rather than at read time.
     artifacts: Sequence[Path] = ()
+    #: The declared files that **must not drift** — a third party's tool
+    #: definitions above all, where changing the file is the thing being watched
+    #: for rather than the experiment being run.
+    #:
+    #: A subset of the artifact set, and the artifact set is the union of this
+    #: suite's and what the target answers through `HasArtifacts`, so a path
+    #: naming nothing recorded cannot be refused here: `read_artifacts` is the
+    #: one place that holds both halves and the only one that can resolve a
+    #: declared path to the key a run files it under. It refuses there, the way
+    #: it already refuses an artifact that is not a file (ADR 0029 §4).
+    #:
+    #: Outside `config_hash`, by the precedent one field up: declaring that a
+    #: file is watched moves no bar and unpromotes no baseline. The price is that
+    #: deleting this line disarms the check with nothing to stop it, which is
+    #: stated in ADR 0029 §9 and guarded only by code review.
+    pinned: Sequence[Path] = ()
     #: Whether the run records what the target answered, one entry per sample.
     #:
     #: Off by default and never inferred. It is **not** a member of `Disclosure`
@@ -316,6 +332,19 @@ class Suite:
             raise ValueError(
                 f"suite {self.name!r} declares the same artifact twice: the "
                 "path is the key a run files it under"
+            )
+        # Coerced by the same rule and refused by the same sentence as
+        # `artifacts`. Duplicates are refused here on the written path; two
+        # spellings of one file — `tools.json` and `./tools.json` — resolve to
+        # one key and are deduplicated by `read_artifacts`, which is where
+        # resolution happens. (ADR 0029 §4)
+        object.__setattr__(
+            self, "pinned", _as_paths(self.pinned, suite=self.name, field="pinned")
+        )
+        if len({str(p) for p in self.pinned}) != len(self.pinned):
+            raise ValueError(
+                f"suite {self.name!r} pins the same path twice: a path that must "
+                "not drift is named once, and naming it again says nothing more"
             )
         if self.samples < 1:
             raise ValueError(
@@ -609,9 +638,16 @@ def _unresolved(assertion: Assertion) -> bool:
     return kind == "wrapper" and not isinstance(getattr(inner, "judged", None), bool)
 
 
-def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
+def _as_paths(
+    values: object, *, suite: str, field: str = "artifacts"
+) -> tuple[Path, ...]:
     """`artifacts=["prompt.md"]` is what a reader writes; `Sequence[Path]` is
     what the field declares.
+
+    `field` is what the error calls itself, because two fields now take this
+    shape — `artifacts` and `pinned` — and an error that named the wrong one
+    would send a reader to the wrong line. It is the locator the docstring
+    below insists on, so it cannot be a constant.
 
     The same rule the TOML loader applies — a field that declares a `Path`
     accepts a `str` — extended from the data form to the Python constructor
@@ -630,7 +666,7 @@ def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
         # and it is grouped here with what cannot be iterated at all so that
         # neither escapes as a bare `TypeError` from the loop below.
         raise ValueError(
-            f"suite {suite!r} declares `artifacts` as `{type(values).__name__}`"
+            f"suite {suite!r} declares `{field}` as `{type(values).__name__}`"
             ": it is a list of the files under test, one str or Path each — "
             'write ["p.md"]'
         )
@@ -642,7 +678,7 @@ def _as_paths(values: object, *, suite: str) -> tuple[Path, ...]:
             coerced.append(entry)
         else:
             raise ValueError(
-                f"suite {suite!r} declares `artifacts` entry {len(coerced)} "
+                f"suite {suite!r} declares `{field}` entry {len(coerced)} "
                 f"as `{type(entry).__name__}`: an artifact is the file that is "
                 "the thing under test, and it is named by a str or a Path"
             )

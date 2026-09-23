@@ -311,7 +311,7 @@ def test_the_step_to_thirteen_writes_nothing() -> None:
     """
     run = execute(nameless_suite(), unnamed_then_lookup(), created_at=CREATED)
     current = run_to_dict(run)
-    assert SCHEMA_VERSION == 15
+    assert SCHEMA_VERSION == 16
     assert upgrade_document({**current, "schema_version": 12}) == current
 
 

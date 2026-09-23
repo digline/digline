@@ -747,7 +747,7 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     # condition holds a fifth time: the journal's own version did **not** move
     # with it, which is the independence ADR 0017 §2 states and 0.16.0's
     # coincidence did not create.
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (15, 2)
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (16, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

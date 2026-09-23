@@ -76,6 +76,12 @@ __all__ = [
     "without_responses",
 ]
 
+# 16: `Run.pinned` joined the run — which declared files must not drift, by the
+#    keys `artifacts` already uses. Additive: a run written before it pinned
+#    nothing, which is what an absent key says. It leaves `config_hash` alone,
+#    and it travels, being a declaration the suite author wrote about files whose
+#    paths are already in the document rather than anything the end company
+#    measured. (ADR 0029 §3)
 # 2: `assertion_id` joined the verdict — `compare()` pairs on it, so a file
 #    written without it cannot be compared correctly.
 # 3: `tenant` and `redacted` joined the run. A file without a tenant cannot be
@@ -198,7 +204,7 @@ __all__ = [
 #    proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was
 #    found by somebody sitting down to write the plugin patch that would fill
 #    it.
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
 #: not name the tool. The only value: digline records every name it is given, so
@@ -485,6 +491,39 @@ class Artifact:
                 "Artifact declares itself withheld but carries its text: the "
                 "flag would announce a guarantee nothing provides"
             )
+
+
+def _pinned_from(
+    raw: Mapping[str, Any], artifacts: Mapping[str, Artifact]
+) -> tuple[str, ...]:
+    """The declared must-not-drift paths, refused if one names nothing recorded.
+
+    **The same refusal the write side makes, on the read side.** `read_pinned`
+    catches a typo when the suite loads, and that is where the author is — but it
+    only ever runs on the machine that produced the run. A document is read
+    somewhere else and by somebody else: `<tenant>/baselines/` is committed and
+    git-mergeable, so a pin naming nothing recorded arrives through an ordinary
+    conflict resolution, no adversary required.
+
+    Left unchecked it is the exact failure ADR 0029 §4 exists to prevent, reached
+    by the other door: `artifact_deltas` iterates the paths the two runs recorded,
+    a pin outside that set produces no row at all, and the comparison is green
+    because the control silently does not exist. A refusal here costs a reader
+    nothing and turns *no such control* into a sentence. (F-2, the 0.19.0
+    delta-pass)
+    """
+    declared = tuple(
+        sorted(str(path) for path in cast(Sequence[Any], raw.get("pinned") or ()))
+    )
+    unknown = [path for path in declared if path not in artifacts]
+    if unknown:
+        raise ValueError(
+            f"run document pins {', '.join(unknown)}, which it records no "
+            "artifact for: a pinned path outside the recorded set produces no "
+            "comparison at all, so the document declares a control that cannot "
+            "fire. Fix the `pinned` list or record the artifact"
+        )
+    return declared
 
 
 def artifacts_sha(artifacts: Mapping[str, Artifact]) -> str:
@@ -1170,6 +1209,17 @@ class Run:
     #: by the path the suite declared. Read by the CLI and handed to the driver,
     #: never opened here: the core touches no filesystem. (ADR 0003)
     artifacts: Mapping[str, Artifact] = field(default_factory=dict[str, "Artifact"])
+    #: Which of those files the suite declared **must not drift**, by the same
+    #: keys. A declaration, not a measurement: the author wrote it, and it is
+    #: what lets a comparison lift a `changed` on a named path into an exit code.
+    #:
+    #: Recorded here rather than read from the suite at comparison time, so two
+    #: archived documents answer the same way tomorrow as today — everything else
+    #: that moves an exit code in this system is recorded in the document the
+    #: exit code is about. Carried through `redact()` for `canary`'s reason: a
+    #: redacted document that lost it would report an exit code its own contents
+    #: could not account for. Outside `config_hash`. (ADR 0029 §3)
+    pinned: tuple[str, ...] = ()
     #: What decided how the system answered — provider, model, temperature, the
     #: token cap, the region or the endpoint host. Beside `config_hash` and
     #: never inside it: `config_hash` is the identity of the suite, this is the
@@ -1521,6 +1571,15 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
             if disclosure.artifacts
             else {path: Artifact(text=None, withheld=True) for path in run.artifacts}
         ),
+        # Carried, whatever the disclosure says, for `canary`'s reason above: it
+        # is a declaration the suite author wrote, not a measurement of the end
+        # company's data, and it names paths this document already carries as
+        # keys. A redacted run that lost it would be a run whose exit code its
+        # own contents could not account for. No `Disclosure` gates it, because
+        # the alternative is a control that redaction silently disarms — which is
+        # the shape ADR 0029 §3 refused for `Artifact` and must not reappear
+        # here. (ADR 0029 §3, §5)
+        pinned=run.pinned,
         # A model id and a temperature are measurements of the system and cross
         # on their own merit. `base_url` is the client's topology, so it — and
         # only it — is kept back, by the same rule and with the same `unknown`
@@ -1708,6 +1767,10 @@ def run_to_dict(run: Run) -> dict[str, object]:
         },
         "target_config": config_to_dict(run.target_config),
         "judge_config": config_to_dict(run.judge_config),
+        # Absent when nothing is pinned, which is the common case and is what a
+        # document written before schema 16 already says. Sorted, so the document
+        # does not record the order somebody typed.
+        **({"pinned": sorted(run.pinned)} if run.pinned else {}),
         # Absent rather than empty, like every other unrecorded thing in this
         # document: `""` would be a value where there is none, and a migrated
         # file is exactly the case that has none (ADR 0014 §2).
@@ -2252,6 +2315,12 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
         )
     results = cast(Sequence[Mapping[str, Any]], raw.get("results") or ())
     redacted = bool(_required(raw, "redacted", "run"))
+    artifacts = {
+        path: _artifact_from_dict(item, path)
+        for path, item in cast(
+            Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
+        ).items()
+    }
     return Run(
         tenant=str(_required(raw, "tenant", "run")),
         environment=str(_required(raw, "environment", "run")),
@@ -2268,12 +2337,8 @@ def run_from_dict(raw: Mapping[str, Any]) -> Run:
             for v in cast(Sequence[Mapping[str, Any]], raw.get("aggregate") or ())
         ),
         metadata=dict(cast(Mapping[str, object], raw.get("metadata") or {})),
-        artifacts={
-            path: _artifact_from_dict(item, path)
-            for path, item in cast(
-                Mapping[str, Mapping[str, Any]], raw.get("artifacts") or {}
-            ).items()
-        },
+        artifacts=artifacts,
+        pinned=_pinned_from(raw, artifacts),
         target_config=config_from_dict(
             cast(Mapping[str, Any], _required(raw, "target_config", "run")),
             "target_config",
