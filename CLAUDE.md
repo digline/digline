@@ -141,11 +141,17 @@ artifacts that today exists in none of the audited competitors.
 - **`main` is protected, and nothing bypasses it.** A ruleset on the default
   branch requires the two `gates` checks — `gates (3.12)` and `gates (3.13)` —
   to have passed **on the ref** before it can land, requires a branch to be up
-  to date with `main` before merging, and blocks force pushes and deletions. No
-  actor bypasses those two checks: there is no `--admin` path, and asking for
-  one is not a route either. So every change has one shape — **push the branch,
-  wait for green, then merge.** A direct push to `main` is refused, and that
-  refusal is the rule working rather than an obstacle to get around.
+  to date with `main` before merging, and blocks force pushes and deletions.
+  **Those two are the whole list, and `docs` is deliberately not among them:** a
+  check that the documented process guarantees will be red cannot be a required
+  check. The reason, and the deadlock it avoids, are in
+  [`RELEASING.md`](RELEASING.md) and stay there; a red `docs` on `main` between
+  an ADR and its site entry is that decision working, not a protection anybody
+  lifted. No actor bypasses those two checks: there is no `--admin` path, and
+  asking for one is not a route either. So every change has one shape —
+  **push the branch, wait for green, then merge.** A direct push to `main` is
+  refused, and that refusal is the rule working rather than an obstacle to get
+  around.
   `digline.dev` has worked this way all along, and the two are now the same in
   the part that matters — neither default branch takes a direct push, and
   neither has a bypass. Both route work through a pull request with zero
