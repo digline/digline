@@ -1,8 +1,9 @@
 # ADR 0031 — The reference a promotion replaces
 
-- Status: proposed — the text first, checkpointed before any code. It rides
-  no release that is being cut: it was opened on 2026-09-24 beside 0.19.2 and
-  is deliberately not part of it
+- Status: accepted — the text first, checkpointed and ruled on 2026-09-24,
+  the code after it. It is a breaking change, so it rides **0.20.0**, not
+  0.19.2: that release was being cut when this record was opened, and this is
+  deliberately not part of it
 - Date: 2026-09-24
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §8 (a
   baseline is an approved reference, and promotion has named conditions);
@@ -23,9 +24,9 @@
   `digline compare` (names the baseline's key); `digline view` (the promote
   form carries the key it rendered against); the report header;
   `docs/guide.md`, `docs/api.md`, the README and every example that promotes
-- Credit: the defect was found by **kantorcodes1**, a reader on the r/ClaudeCode
-  thread about the Claude Code plugin. The post was about something else. They
-  read `promote_baseline` anyway and found what is below
+- Credit: the defect was found by **kantorcodes1**, a reader on the
+  r/ClaudeCode thread about the Claude Code plugin. The post was about
+  something else. They read `promote_baseline` anyway and found what is below
 - Number: 0031. Swept on 2026-09-24 across every ref and every sibling
   worktree; 0030 was the highest claimed
 
@@ -65,6 +66,13 @@ wrong, whether or not a wall exists elsewhere.
 baseline is not the one the run was compared against, and names the key it
 expected. This record keeps that proposal. Reading the code corrects one word
 in it.
+
+**What the guard buys, and what it does not, in one place so neither is read
+without the other.** It buys this: *replacing a reference that moved is never
+silent.* It does not buy this: *replacing a reference that moved cannot
+happen.* The refusal prints the key it found, and somebody can copy that key
+without re-running the comparison. §3 states this limit as plainly as the
+guarantee, and any surface that describes the guard carries both halves.
 
 ### What reading the code found
 
@@ -107,26 +115,35 @@ reference they compared against, as `FileResultStore.key_for` computes it:
 from two fields every run document already carries, and it is the identity
 that `list`, the register and `log` already use for a reference.
 
-**It is not recorded in the run document**, for three reasons:
+**It is not recorded in the run document, because recording it would record
+the wrong fact.** That is the reason. What follows it only confirms it.
 
-- *It is the wrong fact.* The only baseline a run could record is the one in
-  force when the run was **measured**. That is not the comparison a person
-  read. The baseline can move between measurement and comparison (a
-  legitimate re-compare against the new reference would then be refused), and
-  also between comparison and promotion (the case this record exists for).
-- *A comparison cannot write it.* A `compare` that stamped the run document
-  would be a comparison that edits documents, which is rejected by ADR 0014
-  §2. And a run compared twice would carry only the last comparison.
-- The passenger rule is answered anyway, so the rejection does not rest on it.
-  A field such as `baseline_at_measure` **passes** ADR 0014 §1:
-  1. It leaves `config_hash` alone. It is a fact about the process, not the
-     suite.
-  2. It migrates to absent, meaning *not recorded*. A run measured before the
-     field existed recorded no reference.
-  3. It is a key, built from a timestamp and a hash that already travel in
-     clear.
+The only baseline a run document could hold is the one in force when the run
+was **measured**, since the document is written then and never again. That is
+not the comparison a person read. The baseline can move between the
+measurement and the comparison, and then a legitimate re-compare against the
+new reference would be refused. It can also move between the comparison and the
+promotion, which is the case this record exists for, and there the recorded
+key would agree with a comparison nobody made. A field that is wrong in both
+directions is not a guard. It is a second, confident answer to the question
+the guard exists to ask.
 
-  It qualifies to ride, and would still answer a question nobody asked.
+A `compare` that stamped the key into the run document instead would be a
+comparison that edits documents, which ADR 0014 §2 rejects. A run compared
+twice would also carry only the last comparison.
+
+**The passenger rule is not the reason, and this record says so, because the
+field would pass it.** A field such as `baseline_at_measure` meets all three
+conditions of ADR 0014 §1:
+
+1. It leaves `config_hash` alone. It is a fact about the process, not about the
+   suite.
+2. It migrates to absent, meaning *not recorded*. A run measured before the
+   field existed recorded no reference.
+3. It is a key built from a timestamp and a hash that already travel in clear.
+
+It could ride, and cost would be a weak reason to turn it away. Wrongness is a
+decisive one.
 
 **It is not derived from the register.** The register holds the right fact,
 but only when a person chose to write a line. ADR 0021 §2 keeps the two
@@ -149,17 +166,22 @@ is benign, because the verdicts compared against are the same verdicts.
   no default: `expected_baseline: str | None`. `None` means *the suite has no
   baseline*. It is mandatory for the reason `promoted_at` is mandatory: a
   default would make *not checked* the ordinary outcome.
-- **CLI.** `digline promote` gains `--over KEY`, and it is required. `--over
-  none` is the literal for the first promotion. No run key can be `none`, and
-  `none` is **not** a wildcard: it states that no baseline is present, and it
-  is refused if one is.
+- **CLI.** `digline promote` gains `--replacing KEY | none`, and it is
+  required. `--replacing none` is how a first promotion is written: it says
+  there is nothing to replace. No run key can be `none`, and `none` is **not**
+  a wildcard: it states that no baseline is present, and it is refused if one
+  is. The flag is named for what it asserts. The shorter `--over` was proposed
+  and rejected: it reads as an abbreviation of `--override`, which is the
+  opposite of what it does. Because the flag is mandatory, it will appear in
+  scripts read by people who never read this record, and a safety check whose
+  name reads as a bypass teaches exactly the wrong thing.
 - **`compare`.** It names the key it compared against. The terminal prints one
   line under the headline, `against baseline <key>`. `compare --json` gains
   `baseline_key`, which reaches the MCP through the same `digline.wire`
   function. The report header gains the key beside `promoted_at`. The key is
   a timestamp and a `config_hash`, and both already cross every boundary.
-- **`view`.** The promote form carries a hidden `over` field holding the key
-  of the baseline the page was rendered against. The `POST` passes that
+- **`view`.** The promote form carries a hidden `replacing` field holding the
+  key of the baseline the page was rendered against. The `POST` passes that
   value, never the key of whatever baseline exists when the click arrives.
 
 The check runs **last**, after the run's own refusals and right before the
@@ -169,24 +191,31 @@ person to re-compare first would send them round twice. And placing the check
 beside the write makes the remaining window as narrow as this design allows
 (see *Not decided here*).
 
-### 3. No force flag
+### 3. No force flag, and what the guard is without one
 
-There is no `--force`, no `--over any`, and no environment variable. This was
-the prior, and the public reason for it is the argument: **anyone who wants to
-promote anyway runs the comparison again.** `compare` is offline and
+**The guarantee:** replacing a reference that moved is never **silent**.
+**The limit:** replacing it is still **possible** without a new comparison.
+The refusal names the key it found (§4), so a person can copy that key into
+`--replacing` without comparing anything. digline cannot tell someone who read
+the comparison from someone who copied a string. The two sentences go together,
+here and on every surface that describes the guard. A record that sells a
+guard as more than it is leaves its readers with a false belief, and nothing
+checks for that until someone relies on it.
+
+What makes the guarantee worth having, even with that limit, is that the
+person has to name the reference being replaced, having just been told it is
+not the one they compared against. After that, what happens is their decision,
+and the git wall still stands behind it.
+
+There is no `--force`, no `--replacing any`, and no environment variable. This
+was the prior, and the public reason for it is the argument: **anyone who
+wants to promote anyway runs the comparison again.** `compare` is offline and
 deterministic, and it calls no model. Doing the right thing costs one command
 and a few seconds. A flag costs more than that, because the flag becomes the
 habit. It is the thing somebody types at seven in the evening, and after the
-first time it is simply part of how the team promotes.
-
-**What this does not buy, said so nobody assumes more.** The refusal names
-the key it found (§4). A person can copy that key into `--over` without
-comparing anything. digline cannot tell someone who read the comparison from
-someone who copied a string, and this record does not pretend otherwise. What
-it guarantees is narrower, and it is the thing the finding asked for:
-**replacing a reference that moved is never silent.** The person has to name
-the reference being replaced, having just been told it is not the one they
-compared against. The git wall is still behind that.
+first time it is simply part of how the team promotes. Copying the found key is
+possible too, but it is a decision about one named reference. A flag is a
+standing permission.
 
 ### 4. What the refusal says
 
@@ -203,10 +232,10 @@ and the command that settles the question. There are three shapes:
   the baseline of suite <suite> is now <found> (promoted <promoted_at>).
   Promoting it would replace a reference nobody compared it against. Compare
   it with the current one — digline compare --run <run> — and promote with
-  --over <found> if it still holds.`
-- *One appeared.* This is `--over none` when a baseline exists. The sentence is
-  the same, with `it was promoted as the first baseline of suite <suite>` in
-  place of the first clause.
+  --replacing <found> if it still holds.`
+- *One appeared.* This is `--replacing none` when a baseline exists. The
+  sentence is the same, with `it was promoted as the first baseline of suite
+  <suite>` in place of the first clause.
 - *One vanished.* The key was expected and no baseline exists. The text reads
   `the baseline <expected> it was compared against is no longer there`, and
   sends the person to `git log` over `baselines/`, because a reference that
@@ -230,27 +259,29 @@ with *unknown*. That is ADR 0014 §3's rule for a signature nobody dated.
 
 ## Consequences
 
-- **A breaking CLI change.** Every `digline promote` without `--over` fails
-  with a usage error that says which flag is missing and where to find the key.
-  In this repository that covers the promote steps in `publish.yml` (two first
-  promotions, which become `--over none`), the site's `home.json` replay, and
-  `docs/guide.md`, `docs/rejudge.md`, `docs/register.md`, the README, three
-  example READMEs and `examples/quickstart/suite.py`. The plugin's
-  `ask-a-person` hook matches the verb, not the flags, so it needs no change.
-  The `operating-digline` skill has to learn where the key comes from.
+- **A breaking CLI change.** Every `digline promote` without `--replacing`
+  fails with a usage error that says which flag is missing and where to find
+  the key. In this repository that covers the promote steps in `publish.yml`
+  (two first promotions, which become `--replacing none`), the site's
+  `home.json` replay, and `docs/guide.md`, `docs/rejudge.md`,
+  `docs/register.md`, the README, three example READMEs and
+  `examples/quickstart/suite.py`. The plugin's `ask-a-person` hook matches the
+  verb, not the flags, so it needs no change. The `operating-digline` skill has
+  to learn where the key comes from.
 - **A breaking library change.** `promote_baseline` has a new mandatory
   keyword. Library callers include the test helper in `pytest-digline`
   (`tests/_cycle.py`) and about a dozen test modules here.
-- A release that ships this is a minor release, and its changelog credits
-  **kantorcodes1**, stating what they did.
+- It ships in **0.20.0**, a minor release, and not in 0.19.2. Its changelog
+  credits **kantorcodes1** and says what they did: they read `promote`'s code
+  after coming in from a post about something else.
 - `view.py`'s module docstring says *"the same three refusals"*. There are
   five types and six conditions today. It is corrected in the same change,
   because this record adds another.
 
 ## Alternatives considered
 
-- **Record the reference in the run document.** Rejected in §1: it qualifies
-  as a passenger and records the wrong fact.
+- **Record the reference in the run document.** Rejected in §1 because it
+  records the wrong fact, even though it would qualify as a passenger.
 - **Have `compare` write the key somewhere**, such as a sidecar file per run.
   A comparison that writes is rejected by ADR 0014 §2. Runs are also
   gitignored, so the sidecar would not reach a second machine, and the second
@@ -263,8 +294,9 @@ with *unknown*. That is ADR 0014 §3's rule for a signature nobody dated.
   longer say which key was expected, which is §4's whole requirement. It would
   also defend against a deliberate person, who can edit the JSON by hand
   anyway. The tool's job here is to not be silent, not to be a lock.
-- **An optional `--over`.** Absent in the ordinary case means unchecked in the
-  ordinary case, which is where the lost update happens.
+- **`--over` as the flag's name.** Rejected in §2: it reads as `--override`.
+- **An optional `--replacing`.** Absent in the ordinary case means unchecked in
+  the ordinary case, which is where the lost update happens.
 - **A force flag.** §3.
 - **Compare against the current baseline inside `promote` and print the
   result.** That turns a refusal into a promotion based on a comparison nobody
@@ -286,10 +318,12 @@ with *unknown*. That is ADR 0014 §3's rule for a signature nobody dated.
   `POST` the form. The response is refused and names both keys.
 - `compare`: the terminal line, the JSON key, and the MCP answer carry the same
   string (the parity suite).
-- The CLI exits 64 on the new refusal, and a missing `--over` is a usage error
-  that names the flag.
+- `promote --help` states both halves of §3 for `--replacing`: the guarantee
+  and the limit, in the same sentence.
+- The CLI exits 64 on the new refusal, and a missing `--replacing` is a usage
+  error that names the flag.
 - One test must fail on today's `main`: two promotions of different runs, both
-  with the first reference as `--over`. The second write must not happen.
+  with the first reference as `--replacing`. The second write must not happen.
 
 ## Not decided here
 
