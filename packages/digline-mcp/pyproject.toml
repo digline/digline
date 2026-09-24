@@ -59,7 +59,17 @@ dependencies = [
     #
     # The core publishes before this package, always: a floor may not name a
     # release that does not exist. RELEASING.md carries that as a rule.
-    "digline>=0.19.2",
+    #
+    # Raised to 0.20.0: `TRANSLATED` is now `digline.host.REFUSALS`, the core's
+    # own classification of its refusals, so this package stops keeping a list
+    # that lagged the core twice (friction 59). Against an older core the name
+    # is not there. NOTE: 0.20.0 is the number this work assumes for the release
+    # that carries it — `--replacing` is a breaking change, so it cannot be a
+    # patch. Whoever cuts that release owns the number: if it lands as another,
+    # this floor and `INTRODUCED` in tests/test_plugin_floors.py move together,
+    # and this package takes its own release, since a floor is a thing users
+    # rely on.
+    "digline>=0.20.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

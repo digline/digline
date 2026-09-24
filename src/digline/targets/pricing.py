@@ -31,7 +31,16 @@ class UnknownModelError(KeyError):
     `CostBudget` there is, which is fixed decision 3 — a check that cannot fail
     is a bug — and it would fail silently, in the direction of "everything is
     fine", for as long as nobody read the numbers.
+
+    `__str__` is the sentence, not `KeyError`'s: a `KeyError` prints the repr of
+    its argument, so the message a reader was written arrived quoted, with its
+    escapes spelt out. It went unnoticed while no front end caught this type —
+    the CLI printed a traceback — and the classification is what brought it in
+    front of a reader. (friction 59)
     """
+
+    def __str__(self) -> str:
+        return str(self.args[0]) if self.args else ""
 
 
 @dataclass(frozen=True, slots=True)

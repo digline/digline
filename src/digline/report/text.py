@@ -647,6 +647,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.promote.button": "Make baseline",
         "view.promote.done": "Baseline set to {run_key}.",
         "view.promote.refused": "Refused: {why}",
+        # Under the outcome of a promotion, when the list of runs cannot be read
+        # back: the outcome still has to reach the person (friction 59).
+        "view.list.unavailable": "The list of runs could not be drawn: {why}",
         "view.suspend.title": "Set {case_id} aside",
         "view.suspend.reason": "Why is it set aside?",
         "view.suspend.show": "Show the edit",
@@ -1681,6 +1684,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.promote.button": "Rendi riferimento",
         "view.promote.done": "Riferimento impostato su {run_key}.",
         "view.promote.refused": "Rifiutato: {why}",
+        "view.list.unavailable": (
+            "L'elenco delle esecuzioni non si può mostrare: {why}"
+        ),
         "view.suspend.title": "Metti da parte {case_id}",
         "view.suspend.reason": "Perché viene messo da parte?",
         "view.suspend.show": "Mostra la modifica",

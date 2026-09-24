@@ -201,8 +201,12 @@ class SuiteMismatchError(ValueError):
     refuses what was just written. A document that contradicts itself is
     refused, not corrected.
 
-    A `ValueError`, so every front end that already refuses a malformed
-    document refuses this one the same way, with no handler to add."""
+    A `ValueError`, so a front end that already refused a malformed document
+    refused this one the same way. **That sentence used to end "with no handler
+    to add", and it was not true of every front end**: `digline view`'s one route
+    that writes listed its refusals by name and never learned this one, so the
+    browser got a closed connection (friction 59). Front ends now catch
+    `digline.host.REFUSALS`, which a test holds complete."""
 
 
 class BaselineMovedError(Exception):

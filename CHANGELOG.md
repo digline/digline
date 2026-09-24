@@ -41,6 +41,33 @@ notes under them are this file, verbatim.
   key the comparison you read printed. A script that promoted blind now has to
   say what it replaces, and that is the point.
 
+### Fixed
+
+- **A promotion from `digline view` could write the baseline and then answer
+  with a closed connection.** The page is drawn again after the write by
+  re-reading every run in the store, and one unreadable run file anywhere made
+  that read raise. The browser received nothing, and a promotion that had
+  happened looked as if it had failed. The outcome is now said first: when
+  the list cannot be drawn, the page still says *Baseline set to …* and adds
+  why the list is missing.
+- **Refusals that reached a person as a traceback now reach them as their
+  sentence.** The route in `view` that writes caught six refusal types, named
+  by hand. 0.19.2 added two that it never learned: `SuiteMismatchError` and
+  `DocumentRefusedError`. A run file declaring another suite was accepted by
+  0.19.1, correctly refused by the store from 0.19.2, and that refusal then
+  arrived at the browser as a dropped connection. **So 0.19.2's fix introduced
+  that one.** `digline view`, the CLI and `digline-mcp` now catch
+  `digline.host.REFUSALS`, the classification of every refusal digline defines,
+  and `tests/test_refusals.py` fails on any exception class that is not
+  classified. The command line's last-resort handler was missing seven of
+  them. Most are caught earlier by the command that raises them, but
+  `UnknownModelError` was caught nowhere, so a model with no price printed a
+  traceback. It now prints its sentence, and prints it as written rather than
+  as `KeyError`'s quoted repr. It is not an advisory: nothing crosses a boundary,
+  and the promotion that happens is the one the person asked for.
+- **`digline-mcp` translates every refusal through that same classification**,
+  so it needs a digline that has one. Its floor rises with this release.
+
 ## 0.19.2 — 2026-09-24
 
 digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over

@@ -47,6 +47,7 @@ from digline.core import (
 from digline.host import (
     LATEST,
     NO_BASELINE,
+    REFUSALS,
     TARGET_ATTR,
     Loaded,
     UsageError,
@@ -92,15 +93,10 @@ from digline.run import (
     undeclared_kinds,
 )
 from digline.store import (
-    ConfigMismatchError,
-    ErroredRunError,
     FileResultStore,
     JournalRefusedError,
     Pending,
-    ReplayedRunError,
     RunRef,
-    TenantMismatchError,
-    UncalibratedRunError,
     migrate_paths,
 )
 from digline.wire import (
@@ -1198,17 +1194,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except UsageError as exc:
         say(f"digline: {exc}", err=True)
         return EXIT_USAGE
-    except (
-        ValueError,
-        FileNotFoundError,
-        ConfigMismatchError,
-        ErroredRunError,
-        ReplayedRunError,
-        UncalibratedRunError,
-        TenantMismatchError,
-    ) as exc:
-        # Refusals from the core and the store — a crossed perimeter, a moved
-        # configuration, a run that could not judge. They are the user's to fix.
+    # Every refusal digline raises on purpose, from the classification rather
+    # than listed here — so a refusal type added anywhere reaches a person as
+    # its sentence, not as a traceback, without this line being touched.
+    # Bare `ValueError` and `FileNotFoundError` stay beside it, as they always
+    # were: narrowing them is a separate decision about what a bug looks like.
+    # (friction 59)
+    except (*REFUSALS, ValueError, FileNotFoundError) as exc:
+        # They are the user's to fix: a crossed perimeter, a moved configuration
+        # or baseline, a run that could not judge.
         say(f"digline: {type(exc).__name__}: {exc}", err=True)
         return EXIT_USAGE
 

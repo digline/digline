@@ -8,6 +8,7 @@ POST from another origin is refused.
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import subprocess
@@ -471,6 +472,77 @@ def test_promotion_goes_through_the_same_refusals(
     # The baseline did not move: the refusal is real, not cosmetic.
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     assert json.loads(baseline.read_text(encoding="utf-8"))["config_hash"] != ""
+
+
+def post_page(base: str, data: str) -> tuple[int, str]:
+    """A same-origin POST, answered with its status and page. A connection the
+    server closed without answering is returned as status 0 rather than raised,
+    because that is the outcome friction 59 is about."""
+    host = base.removeprefix("http://").rstrip("/")
+    request = urllib.request.Request(
+        f"{base}promote",
+        data=data.encode("utf-8"),
+        method="POST",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": f"http://{host}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.status, response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode("utf-8")
+    except (ConnectionError, http.client.HTTPException):
+        return 0, ""
+
+
+def plant(repo: Path, key: str, name: str, **changes: object) -> None:
+    """A run file beside the real one, differing only by `changes`."""
+    runs = repo / ".digline" / "acme-bank" / "runs" / "qa"
+    document = json.loads((runs / f"{key}.json").read_text(encoding="utf-8"))
+    (runs / f"{name}.json").write_text(
+        json.dumps({**document, **changes}), encoding="utf-8"
+    )
+
+
+def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
+    repo: Path, served: tuple[str, str]
+) -> None:
+    """Friction 59's worst half. One unreadable run file anywhere in the store,
+    and a promotion of a *good* run wrote the baseline and then answered with a
+    closed connection: the list is re-read after the write, and that read raised.
+    A promotion that looks failed and is not. The outcome must arrive whatever
+    the list does."""
+    base, key = served
+    baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
+    before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
+    plant(repo, key, "zz-malformed", results=7)
+
+    status, page = post_page(base, f"run={key}&replacing={key}&locale=en")
+
+    assert status == 200
+    assert f"Baseline set to {key}." in page
+    assert "The list of runs could not be drawn" in page
+    # And it did happen: the page is telling the truth about the write.
+    assert json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"] != before
+
+
+def test_a_run_that_lies_about_its_suite_is_refused_in_words(
+    repo: Path, served: tuple[str, str]
+) -> None:
+    """0.19.2 made the store refuse a document declaring another suite, and the
+    route that writes never learned the refusal: the browser got a closed
+    connection. v0.19.1 accepted the same POST, which is the defect 0.19.2 fixed
+    — so the traceback was introduced by the fix. (friction 59)"""
+    base, key = served
+    plant(repo, key, "zz-other-suite", suite="another-suite")
+
+    status, page = post_page(base, "run=zz-other-suite&replacing=" + key)
+
+    assert status == 200
+    assert "Refused:" in page
+    assert "declares suite &#x27;another-suite&#x27;" in page
 
 
 # --------------------------------------------------------------------------- #

@@ -41,6 +41,7 @@ from digline.host.measure import (
     seed_observed,
 )
 from digline.host.reading import Explained, explained, history, instant
+from digline.host.refusals import NOT_REFUSALS, REFUSALS
 from digline.host.register import entry_for, record
 from digline.host.resolve import (
     LATEST,
@@ -57,7 +58,9 @@ __all__ = [
     "DIRTY_SUFFIX",
     "Explained",
     "LATEST",
+    "NOT_REFUSALS",
     "NO_BASELINE",
+    "REFUSALS",
     "Resolved",
     "SUITE_ATTR",
     "SUITE_SUFFIX",
