@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from digline.cli import EXIT_OK
+from digline.core import NO_BASELINE, key_of
 from digline.store import FileResultStore
 
 __all__ = [
@@ -91,6 +92,23 @@ def write_suite(
         encoding="utf-8",
     )
     return path
+
+
+def baseline_in(root: Path) -> str:
+    """What `promote --replacing` names in a test repository: the key of the one
+    baseline under `root/.digline/`, or `none` before the first promotion.
+
+    The honest value for a test that has just compared against that baseline,
+    which is what every caller of this is doing on its way to testing something
+    else. The check itself is exercised where a wrong key is named on purpose.
+    A repository holding two baselines has no "the" baseline, and is refused.
+    """
+    found = sorted((root / ".digline").glob("*/baselines/*.json"))
+    if not found:
+        return NO_BASELINE
+    assert len(found) == 1, f"more than one baseline under {root}: {found}"
+    document = json.loads(found[0].read_text(encoding="utf-8"))
+    return key_of(document["created_at"], document["config_hash"])
 
 
 def cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:

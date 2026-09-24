@@ -84,6 +84,7 @@ def test_the_full_cycle(tmp_path: Path) -> None:
     store.promote_baseline(
         store.write_run(reference),
         reference_suite.config_hash(),
+        expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
     )
     baseline = store.read_baseline("acme-bank", "qa")
@@ -127,6 +128,7 @@ def test_the_cycle_leaves_only_what_belongs_in_the_repository(
     store.promote_baseline(
         store.write_run(run),
         suite.config_hash(),
+        expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
     )
 
@@ -149,6 +151,7 @@ def test_a_run_that_could_not_judge_is_not_promotable(tmp_path: Path) -> None:
         store.promote_baseline(
             store.write_run(run),
             suite.config_hash(),
+            expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
         )
 
@@ -165,6 +168,7 @@ def test_suspending_the_flaky_case_makes_the_suite_promotable(
     store.promote_baseline(
         store.write_run(run),
         suite.config_hash(),
+        expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
     )
 
@@ -186,6 +190,7 @@ def test_the_customer_can_send_the_verdict_without_the_data(
     store.promote_baseline(
         store.write_run(reference),
         reference_suite.config_hash(),
+        expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
     )
     baseline = store.read_baseline("acme-bank", "qa")

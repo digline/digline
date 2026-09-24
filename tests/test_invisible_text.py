@@ -197,7 +197,10 @@ def test_an_invisible_instruction_does_not_cross_the_redaction_boundary() -> Non
         "the redacted run document": document,
         "compare_json": json.dumps(
             compare_json(
-                comparison, headline(comparison, run, baseline, locale="en"), full=True
+                comparison,
+                headline(comparison, run, baseline, locale="en"),
+                baseline=baseline,
+                full=True,
             ),
             ensure_ascii=False,
         ),

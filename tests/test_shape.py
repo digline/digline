@@ -374,8 +374,8 @@ def test_the_wire_carries_counts_under_full_only() -> None:
     now, before = collapsed()
     comparison = compare(now, before)
     head = headline(comparison, now, before, locale="en")
-    assert "shape" not in compare_json(comparison, head, full=False)
-    [item] = compare_json(comparison, head, full=True)["shape"]  # type: ignore[misc]
+    assert "shape" not in compare_json(comparison, head, baseline=before, full=False)
+    [item] = compare_json(comparison, head, baseline=before, full=True)["shape"]  # type: ignore[misc]
     assert item == {
         "check": "llm_rubric",
         "assertion_id": "id-llm_rubric",

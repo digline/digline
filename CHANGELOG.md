@@ -6,6 +6,68 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Changed — `promote` names the reference it replaces
+
+- **`digline promote` now requires `--replacing KEY | none`, and refuses when
+  the baseline moved after you compared.** Before this, `promote` rewrote the
+  baseline without looking at the one it was replacing. Two people who
+  compared two runs against one reference could both promote, and the second
+  silently replaced the first's new reference with a run nobody had compared
+  against it. Now the promotion names the reference it replaces: the key
+  `compare` printed, or `none` for a suite's first baseline. If the baseline
+  present is a different one, the promotion is refused with
+  `BaselineMovedError`, which names both keys and says how to compare again.
+  - **Where the key comes from.** `compare` prints `against baseline <key>`
+    under its verdict. `compare --json` and the MCP `compare` tool gain
+    `baseline_key`, an added key under `OUTPUT_VERSION` 2. The report header
+    shows it as *Reference key*. The promote form in `digline view` carries
+    the key of the baseline the page was drawn against.
+  - **What it buys, and what it does not.** Replacing a reference that moved
+    is never *silent*. It is still *possible*: the refusal names the key it
+    found, and passing that key back without comparing again goes through.
+    There is no force flag: to promote anyway, run the comparison again. It
+    is offline and costs one command.
+  - **For library callers**, `promote_baseline` gains a mandatory
+    `expected_baseline: str | None` keyword. The key rule is now
+    `digline.core.key_of`, which `FileResultStore.key_for` delegates to.
+  - **Why it exists.** **kantorcodes1** read `promote`'s code after coming in
+    from a post on r/ClaudeCode about the Claude Code plugin, which was about
+    something else, and found the lost update.
+    [ADR 0031](docs/adr/0031-the-reference-promote-replaces.md) is the ruling.
+- **Upgrading.** Every `digline promote` needs the new flag. Use
+  `--replacing none` where a suite has no baseline yet, and elsewhere use the
+  key the comparison you read printed. A script that promoted blind now has to
+  say what it replaces, and that is the point.
+
+### Fixed
+
+- **A promotion from `digline view` could write the baseline and then answer
+  with a closed connection.** The page is drawn again after the write by
+  re-reading every run in the store, and one unreadable run file anywhere made
+  that read raise. The browser received nothing, and a promotion that had
+  happened looked as if it had failed. The outcome is now said first: when
+  the list cannot be drawn, the page still says *Baseline set to …* and adds
+  why the list is missing.
+- **Refusals that reached a person as a traceback now reach them as their
+  sentence.** The route in `view` that writes caught six refusal types, named
+  by hand. 0.19.2 added two that it never learned: `SuiteMismatchError` and
+  `DocumentRefusedError`. A run file declaring another suite was accepted by
+  0.19.1, correctly refused by the store from 0.19.2, and that refusal then
+  arrived at the browser as a dropped connection. **So 0.19.2's fix introduced
+  that one.** `digline view`, the CLI and `digline-mcp` now catch
+  `digline.host.REFUSALS`, the classification of every refusal digline defines,
+  and `tests/test_refusals.py` fails on any exception class that is not
+  classified. The command line's last-resort handler was missing seven of
+  them. Most are caught earlier by the command that raises them, but
+  `UnknownModelError` was caught nowhere, so a model with no price printed a
+  traceback. It now prints its sentence, and prints it as written rather than
+  as `KeyError`'s quoted repr. It is not an advisory: nothing crosses a boundary,
+  and the promotion that happens is the one the person asked for.
+- **`digline-mcp` translates every refusal through that same classification**,
+  so it needs a digline that has one. Its floor rises with this release.
+
 ## 0.19.2 — 2026-09-24
 
 digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over

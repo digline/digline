@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, git
+from tests._helpers import baseline_in, cli, git
 
 from digline.core import (
     ConfigValue,
@@ -317,7 +317,7 @@ def test_the_baseline_carries_the_configuration_that_produced_it(
     store = FileResultStore(tmp_path)
     ref = store.write_run(a_run(target={**ANTHROPIC, "temperature": 0.3}))
     promoted = store.promote_baseline(
-        ref, "cfg", promoted_at="2026-01-02T09:00:00+00:00"
+        ref, "cfg", expected_baseline=None, promoted_at="2026-01-02T09:00:00+00:00"
     )
     assert promoted.target_config.values["temperature"] == 0.3
 
@@ -867,7 +867,16 @@ def key_of(project: Path) -> str:
 def test_the_cycle_records_promotes_and_then_names_the_delta(project: Path) -> None:
     """Run, promote, change the temperature, run again, compare — and the
     terminal says which parameter moved rather than that something did."""
-    cli(project, "promote", "--suite", "suite_qa.py", "--run", key_of(project))
+    cli(
+        project,
+        "promote",
+        "--replacing",
+        baseline_in(project),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key_of(project),
+    )
     (project / "suite_qa.py").write_text(
         SUITE % {"temperature": "0.7"}, encoding="utf-8"
     )
@@ -884,7 +893,16 @@ def test_the_cycle_records_promotes_and_then_names_the_delta(project: Path) -> N
 
 
 def test_the_json_output_carries_the_named_deltas(project: Path) -> None:
-    cli(project, "promote", "--suite", "suite_qa.py", "--run", key_of(project))
+    cli(
+        project,
+        "promote",
+        "--replacing",
+        baseline_in(project),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key_of(project),
+    )
     (project / "suite_qa.py").write_text(
         SUITE % {"temperature": "0.7"}, encoding="utf-8"
     )

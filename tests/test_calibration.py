@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests._helpers import cli
+from tests._helpers import baseline_in, cli
 from tests._vocabulary import ADVICE, SPECULATION, spoken
 
 from digline.core import (
@@ -553,7 +553,7 @@ def test_movement_inside_the_band_is_not_a_regression() -> None:
     assert head.counts["regressed"] == 0
     assert exit_code(head) == EXIT_OK
 
-    payload = compare_json(comparison, head, full=True)
+    payload = compare_json(comparison, head, baseline=baseline, full=True)
     assert payload["counts"]["regressed"] == 0  # type: ignore[index]
     rows = payload["deltas"]
     assert isinstance(rows, list)
@@ -645,7 +645,10 @@ def test_the_wire_carries_the_fact() -> None:
     run = band_run((1.0, 1.0))
     comparison = compare(run, baseline)
     payload = compare_json(
-        comparison, headline(comparison, run, baseline, locale="en"), full=False
+        comparison,
+        headline(comparison, run, baseline, locale="en"),
+        baseline=baseline,
+        full=False,
     )
     assert payload["scale_lost"] is True
     assert payload["exit_code"] == EXIT_UNJUDGED
@@ -662,11 +665,16 @@ def test_a_run_whose_scale_was_lost_is_not_promotable(tmp_path: Path) -> None:
     run = execute(declared, Counting(), created_at=CREATED)
     ref = store.write_run(run)
     with pytest.raises(UncalibratedRunError, match="calibration case"):
-        store.promote_baseline(ref, declared.config_hash(), promoted_at=LATER)
+        store.promote_baseline(
+            ref, declared.config_hash(), expected_baseline=None, promoted_at=LATER
+        )
 
     held = execute(suite(score=0.5), Counting(), created_at=LATER)
     promoted = store.promote_baseline(
-        store.write_run(held), declared.config_hash(), promoted_at=LATER
+        store.write_run(held),
+        declared.config_hash(),
+        expected_baseline=None,
+        promoted_at=LATER,
     )
     assert promoted.results[1].calibration is not None
 
@@ -871,7 +879,16 @@ def test_a_first_run_that_lost_its_scale_exits_two_from_report_and_explain(
     assert payload["exit_code"] == EXIT_UNJUDGED
     assert payload["facts"][0]["kind"] == "calibration"
 
-    promoted = cli(repo, "promote", "--suite", "suite_calibrated.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_calibrated.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode != EXIT_OK
     assert "UncalibratedRunError" in promoted.stderr
 
@@ -880,7 +897,16 @@ def test_a_run_whose_calibration_held_compares_clean(repo: Path) -> None:
     (repo / "suite_calibrated.py").write_text(SUITE_PY, encoding="utf-8")
     (repo / "placed.txt").write_text("0.5\n", encoding="utf-8")
     key = cli(repo, "run", "--suite", "suite_calibrated.py").stdout.strip()
-    promoted = cli(repo, "promote", "--suite", "suite_calibrated.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_calibrated.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == EXIT_OK, promoted.stderr
 
     (repo / "placed.txt").write_text("1.0\n", encoding="utf-8")
@@ -1027,7 +1053,9 @@ def test_the_fields_are_never_written_and_a_quoting_reason_stays_inside() -> Non
         "report --redacted, compared": render_html(
             compare(redact(run), redact(held)), redact(run), redact(held), locale="en"
         ),
-        "compare --json full": json.dumps(compare_json(comparison, head, full=True)),
+        "compare --json full": json.dumps(
+            compare_json(comparison, head, baseline=held, full=True)
+        ),
         "explain --json": json.dumps(
             explain_json(facts(run, comparison), scope="comparison", exit_code=2)
         ),

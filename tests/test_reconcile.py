@@ -195,7 +195,10 @@ def test_it_says_so_first_names_the_check_and_exits_two() -> None:
     assert head.worse is False
     assert head.unreconciled == 1
     assert exit_code(head) == EXIT_UNJUDGED
-    assert compare_json(compare(run, run), head, full=False)["unreconciled"] == 1
+    assert (
+        compare_json(compare(run, run), head, baseline=run, full=False)["unreconciled"]
+        == 1
+    )
 
     # Alone and compared: the fact is about this run, so both readings open
     # with it, above even a lost scale.
@@ -229,7 +232,10 @@ def test_it_can_never_be_promoted_and_the_refusal_names_it(tmp_path: Path) -> No
     ref = store.write_run(run)
     with pytest.raises(ErroredRunError, match=r"c2 · agrees") as caught:
         store.promote_baseline(
-            ref, suite.config_hash(), promoted_at="2026-09-19T11:00:00+00:00"
+            ref,
+            suite.config_hash(),
+            expected_baseline=None,
+            promoted_at="2026-09-19T11:00:00+00:00",
         )
     assert "not a regression" in str(caught.value)
     assert store.read_baseline("acme", "triage") is None
@@ -393,7 +399,7 @@ def test_the_bounded_clause_bounds_the_headline_and_the_wire() -> None:
     """The consequence where it was actually paid."""
     run = gapped(1000)
     head = headline(compare(run, run), run, run, locale="en")
-    payload = compare_json(compare(run, run), head, full=False)
+    payload = compare_json(compare(run, run), head, baseline=run, full=False)
 
     assert head.unreconciled == 1000
     assert len(head.sentence) < 1000
@@ -474,7 +480,7 @@ def test_the_count_crosses_on_the_wire_as_an_added_key() -> None:
     comparison = compare(clean, reference)
     head = headline(comparison, clean, reference, locale="en")
 
-    payload = compare_json(comparison, head, full=False)
+    payload = compare_json(comparison, head, baseline=reference, full=False)
     assert payload["reference_unreconciled"] == 1
 
     reading = explain_json(facts(clean, comparison), scope="comparison", exit_code=0)

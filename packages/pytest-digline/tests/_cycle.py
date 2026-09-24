@@ -36,7 +36,13 @@ def cycle(path: Path, root: Path, *, promote: bool) -> str:
     store = FileResultStore(str(root))
     ref = store.write_run(run)
     if promote:
+        # Whatever is there now: a cycle that promotes is standing in for a
+        # person who has just compared against it.
+        current = store.read_baseline(suite.tenant, suite.name)
         store.promote_baseline(
-            ref, suite.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+            ref,
+            suite.config_hash(),
+            expected_baseline=None if current is None else store.key_for(current),
+            promoted_at="2026-01-02T09:00:00+00:00",
         )
     return ref.key

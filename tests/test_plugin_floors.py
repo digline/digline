@@ -74,6 +74,11 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
+    # 0.20.0 — the core classifies its own refusals, and a front end catches
+    # the classification rather than a list of its own (friction 59). Assumed
+    # number: `--replacing` makes the release a minor (ADR 0031); whoever cuts
+    # it owns the number, and this moves with digline-mcp's floor.
+    "REFUSALS": "0.20.0",
     # 0.19.2 — the store's two refusals gained types, so a boundary can tell a
     # refusal from a bug (the standing-code pass of 2026-09-23). Ruled as a
     # patch because nothing a legitimate user relies on changes; conditional on

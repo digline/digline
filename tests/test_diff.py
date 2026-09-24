@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key, write_suite
+from tests._helpers import baseline_in, cli, run_key, write_suite
 
 from digline.cli import EXIT_OK, EXIT_USAGE
 from digline.core import (
@@ -599,7 +599,7 @@ def test_diff_never_gates_even_where_compare_does(repo: Path) -> None:
     same movement, judged against an approved reference and against a run
     nobody approved."""
     first, second = two_runs(repo)
-    dig(repo, "promote", "--run", first)
+    dig(repo, "promote", "--replacing", baseline_in(repo), "--run", first)
 
     gated = dig(repo, "compare", "--run", second)
     assert gated.returncode != EXIT_OK
@@ -710,7 +710,7 @@ def test_the_view_route_chooses_on_the_baseline_and_nothing_else(repo: Path) -> 
     """End to end, because the choice is made in the route rather than in a
     page: a wiring mistake would render a correct page for the wrong pair."""
     first, second = two_runs(repo)
-    dig(repo, "promote", "--run", first)
+    dig(repo, "promote", "--replacing", baseline_in(repo), "--run", first)
     served = _serve(repo)
     try:
         against_baseline = _get(served, f"/compare?run={second}&against={first}")

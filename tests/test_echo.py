@@ -192,7 +192,10 @@ def test_the_headline_and_the_reading_say_echoed_where_the_record_does(
     clause = phrase(locale, "fact.target_config.echoed", model="gpt-5.6-sol")
     assert (clause in head.sentence) is echoed
     assert head.target_echoed is echoed
-    assert compare_json(comparison, head, full=False)["target_echoed"] is echoed
+    assert (
+        compare_json(comparison, head, baseline=baseline, full=False)["target_echoed"]
+        is echoed
+    )
 
     reading = facts(run, comparison)
     tally = [f for f in reading if isinstance(f, TallyFact) and f.kind == "echoed"]

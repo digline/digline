@@ -46,18 +46,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from digline.cli.output import say
+from digline.host import REFUSALS, replacing
 from digline.report import Locale, case_history, pages
 from digline.run import Suite
-from digline.store import (
-    ConfigMismatchError,
-    ErroredRunError,
-    FileResultStore,
-    ReplayedRunError,
-    RunRef,
-    TenantMismatchError,
-    UncalibratedRunError,
-    utc_now_iso,
-)
+from digline.store import FileResultStore, RunRef, utc_now_iso
 
 __all__ = ["ViewHandler", "serve"]
 
@@ -182,9 +174,13 @@ class ViewHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def _error(self, status: int, message: str) -> None:
+        self._plain(status, message)
+
+    def _plain(self, status: int, *paragraphs: str) -> None:
+        body = "".join(f"<p>{html.escape(text)}</p>" for text in paragraphs)
         self._send(
             status,
-            f"<!DOCTYPE html><html><body><p>{html.escape(message)}</p>"
+            f"<!DOCTYPE html><html><body>{body}"
             '<p><a href="/">back</a></p></body></html>\n',
         )
 
@@ -246,7 +242,9 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._error(404, f"no such page: {path}")
         except FileNotFoundError as exc:
             self._error(404, str(exc))
-        except (ValueError, TenantMismatchError) as exc:
+        # Every refusal digline raises on purpose, derived rather than listed,
+        # and bare `ValueError` beside it as the CLI keeps it. (friction 59)
+        except (*REFUSALS, ValueError) as exc:
             self._error(400, str(exc))
 
     def _screen_runs(self, locale: Locale, message: str = "") -> None:
@@ -362,30 +360,57 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not key:
             self._error(400, "promote needs a run")
             return
+        # The reference the page was drawn against. Absent is refused rather
+        # than read as `none`: a form that lost the field is not a form that
+        # said there was no baseline. (ADR 0031 §2)
+        expected = (form.get("replacing") or [""])[0]
+        if not expected:
+            self._error(400, "promote needs the baseline it replaces")
+            return
 
         ref = RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=key)
         try:
             self.store.promote_baseline(
                 ref,
                 self.suite.config_hash(pricing=self.pricing),
+                expected_baseline=replacing(expected),
                 promoted_at=utc_now_iso(),
             )
-        except (
-            ConfigMismatchError,
-            ErroredRunError,
-            ReplayedRunError,
-            UncalibratedRunError,
-            TenantMismatchError,
-            FileNotFoundError,
-        ) as exc:
-            # The same refusals as the CLI, because it is the same call.
-            self._screen_runs(
+        except REFUSALS as exc:
+            # Every refusal the call can raise, because the tuple is the
+            # classification's rather than this file's: it used to be six
+            # names written here, and 0.19.2 added two refusals this list never
+            # learned, which reached the browser as a closed connection.
+            # (friction 59)
+            self._after_promotion(
                 locale, pages.phrase(locale, "view.promote.refused", why=str(exc))
             )
             return
-        self._screen_runs(
+        self._after_promotion(
             locale, pages.phrase(locale, "view.promote.done", run_key=key)
         )
+
+    def _after_promotion(self, locale: Locale, outcome: str) -> None:
+        """Say what the promotion did, and draw the runs under it if they can
+        be drawn.
+
+        **The outcome is the part that must arrive.** The list is re-read from
+        the store after the write, and one unreadable run file anywhere in it
+        used to make that read raise — after the baseline had been written. The
+        browser got a closed connection, and a person who had just promoted
+        concluded that nothing happened. A promotion that looks failed and is
+        not is worse than one that failed: the reference moved and nobody
+        believes it did. So the list is optional here and the sentence is not.
+        (friction 59)
+        """
+        try:
+            self._screen_runs(locale, outcome)
+        except (*REFUSALS, ValueError) as exc:
+            self._plain(
+                200,
+                outcome,
+                pages.phrase(locale, "view.list.unavailable", why=str(exc)),
+            )
 
 
 def serve(

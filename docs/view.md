@@ -70,8 +70,11 @@ case in the same review as everything else.
 ## The one route that writes
 
 `POST /promote` goes through the same `promote_baseline` as `digline promote`,
-with the same three refusals (tenant, configuration, errored verdicts), and it
-**checks the `Origin` header**. Binding to loopback is not a boundary: any page
+with the same refusals, and it **checks the `Origin` header**. The form carries
+the key of the baseline the page was drawn against, as `--replacing` does on the
+command line: if somebody promoted in between — a second tab, a second person on
+the same server — the promotion is refused and names both keys rather than
+replacing a reference nobody on this page compared against. Binding to loopback is not a boundary: any page
 open in the developer's browser can POST to `localhost`, and this server needs
 no credential to act. A missing `Origin` is allowed — that is `curl`, not the
 attack — an `Origin` that is not ours is refused with `403`.

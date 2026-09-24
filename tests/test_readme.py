@@ -23,6 +23,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from tests._helpers import baseline_in
 
 from digline.cli import EXIT_OK, EXIT_WORSE
 
@@ -109,7 +110,16 @@ def replay(workdir: Path) -> tuple[set[str], int]:
     assert first.returncode == EXIT_OK, first.stderr
     printed.append(first.stdout)
 
-    promoted = cli(workdir, "promote", "--suite", "suite.py", "--run", "latest")
+    promoted = cli(
+        workdir,
+        "promote",
+        "--replacing",
+        baseline_in(workdir),
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+    )
     assert promoted.returncode == EXIT_OK, promoted.stderr
     printed.append(promoted.stdout)
 

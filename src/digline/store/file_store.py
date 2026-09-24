@@ -48,6 +48,7 @@ from digline.core.run import (
     case_to_dict,
     config_from_dict,
     config_to_dict,
+    key_of,
     run_from_json,
     run_to_json,
     totals_from_dict,
@@ -58,6 +59,7 @@ from digline.core.types import Cause
 from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
+    BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
     JournalBusyError,
@@ -127,12 +129,6 @@ def _check_name(value: str, kind: str) -> str:
             "(letters, digits, dot, dash and underscore are allowed)"
         )
     return value
-
-
-def _slug(created_at: str) -> str:
-    """Rende an ISO timestamp usable as a filename on every system: colons are
-    legal on macOS and Linux but not on Windows."""
-    return re.sub(r"[^0-9A-Za-z]+", "-", created_at).strip("-")
 
 
 def _write_atomic(path: Path, payload: str) -> None:
@@ -224,8 +220,9 @@ class FileResultStore:
     def key_for(run: Run) -> str:
         """The key a run is filed under. Public because listing has to be able
         to say which stored run the baseline was made from, and recomputing the
-        rule in two places is how the two answers start to differ."""
-        return f"{_slug(run.created_at)}-{run.config_hash}"
+        rule in two places is how the two answers start to differ. The rule
+        itself is `digline.core.key_of`, which the report and the wire share."""
+        return key_of(run.created_at, run.config_hash)
 
     def write_run(self, run: Run) -> RunRef:
         self.ensure_layout(run.tenant)
@@ -372,7 +369,12 @@ class FileResultStore:
         return run
 
     def promote_baseline(
-        self, ref: RunRef, expected_config_hash: str, *, promoted_at: str
+        self,
+        ref: RunRef,
+        expected_config_hash: str,
+        *,
+        expected_baseline: str | None,
+        promoted_at: str,
     ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant.
         run = self.read_run(ref)
@@ -436,6 +438,11 @@ class FileResultStore:
                 "long as it stands. Promote a run whose calibration held"
             )
 
+        # Last, and beside the write: every refusal above is about the run and
+        # holds whatever the reference, and this one is about what happened to
+        # the reference since somebody compared against it. (ADR 0031 §2)
+        self._refuse_a_moved_baseline(ref, run, expected_baseline)
+
         self.ensure_layout(run.tenant)
         # The answers do not go into git. `baselines/` is committed, and a
         # baseline is an approved reference of verdicts — promoting a recorded
@@ -449,6 +456,50 @@ class FileResultStore:
         reference = replace(without_responses(run), promoted_at=promoted_at)
         _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
+
+    def _refuse_a_moved_baseline(
+        self, ref: RunRef, run: Run, expected: str | None
+    ) -> None:
+        """Refuse when the baseline present is not the one the caller compared
+        against, naming both. (ADR 0031 §4)
+
+        Compared by key, never by the file's bytes: `digline migrate` rewrites
+        every committed baseline when the schema moves, and a reference whose
+        bytes changed while its verdicts did not is the same reference.
+        """
+        current = self.read_baseline(run.tenant, run.suite)
+        found = None if current is None else self.key_for(current)
+        if found == expected:
+            return
+        compare = (
+            f"Compare it with the current one — digline compare --run {ref.key} — "
+            f"and promote with --replacing {found} if it still holds"
+        )
+        if current is None:
+            raise BaselineMovedError(
+                f"run {ref.key} was not promoted: it was compared against baseline "
+                f"{expected}, and that baseline is no longer there — suite "
+                f"{run.suite!r} has none now. A reference that disappeared was "
+                "removed by a commit: git log -- "
+                f"{self.baseline_path(run.tenant, run.suite)} says which"
+            )
+        # The signature's own time where one was recorded, and nothing where it
+        # was not: a baseline promoted before `promoted_at` existed was signed
+        # at a time nobody wrote down. (ADR 0014 §3)
+        when = f" (promoted {current.promoted_at})" if current.promoted_at else ""
+        if expected is None:
+            raise BaselineMovedError(
+                f"run {ref.key} was not promoted: --replacing none says suite "
+                f"{run.suite!r} has no baseline yet, and it has one: {found}{when}. "
+                "Promoting it would replace a reference nobody compared it "
+                f"against. {compare}"
+            )
+        raise BaselineMovedError(
+            f"run {ref.key} was not promoted: it was compared against baseline "
+            f"{expected}, and the baseline of suite {run.suite!r} is now "
+            f"{found}{when}. Promoting it would replace a reference nobody "
+            f"compared it against. {compare}"
+        )
 
     # -- the register --------------------------------------------------------- #
 
@@ -1038,7 +1089,7 @@ def journal_key(header: JournalHeader) -> str:
     (ADR 0017 §8), so it is written to exactly the file the killed run was
     always going to write.
     """
-    return f"{_slug(header.created_at)}-{header.config_hash}"
+    return key_of(header.created_at, header.config_hash)
 
 
 def _header_to_dict(header: JournalHeader) -> dict[str, object]:

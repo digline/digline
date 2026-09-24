@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli
+from tests._helpers import baseline_in, cli
 
 from digline.core import (
     Accuracy,
@@ -434,7 +434,7 @@ def test_the_wire_carries_the_fact_and_the_row() -> None:
     run, baseline = moved_run(0.9, 0.3)
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale="en")
-    payload = compare_json(comparison, head, full=True)
+    payload = compare_json(comparison, head, baseline=baseline, full=True)
     assert payload["canary_moved"] is True
     assert payload["exit_code"] == EXIT_WORSE
     rows = payload["deltas"]
@@ -475,7 +475,16 @@ def target(case):
     first = cli(repo, "run", "--suite", "suite_canary.py")
     assert first.returncode == 0, first.stderr
     key = first.stdout.strip()
-    promoted = cli(repo, "promote", "--suite", "suite_canary.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_canary.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == 0, promoted.stderr
 
     (repo / "answer.txt").write_text("Paris\n", encoding="utf-8")

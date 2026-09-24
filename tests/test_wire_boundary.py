@@ -218,8 +218,8 @@ def test_no_perimeter_field_crosses_through_a_comparison() -> None:
     difference = core_diff(run, other)
 
     documents = [
-        json.dumps(compare_json(compare(run, other), head, full=True)),
-        json.dumps(compare_json(compare(run, other), head, full=False)),
+        json.dumps(compare_json(compare(run, other), head, baseline=other, full=True)),
+        json.dumps(compare_json(compare(run, other), head, baseline=other, full=False)),
         json.dumps(
             diff_json(
                 difference,

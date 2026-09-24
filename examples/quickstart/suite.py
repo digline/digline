@@ -3,7 +3,7 @@
 Run it from this directory:
 
     digline run     --suite suite.py
-    digline promote --suite suite.py --run latest
+    digline promote --suite suite.py --run latest --replacing none
     digline compare --suite suite.py --run latest
     digline report  --suite suite.py --run latest --locale it --out report.html
 """

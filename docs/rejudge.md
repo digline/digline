@@ -109,7 +109,7 @@ Each one arrives before the first judge is paid, and each names what is missing.
 ## A replay is not promotable
 
 ```console
-$ digline promote --suite eval/suite.py --run 2026-09-11T14-02-55-…
+$ digline promote --suite eval/suite.py --run 2026-09-11T14-02-55-… --replacing …
 digline: ReplayedRunError: run … was judged from the recorded answers of …,
 not from the target.
 ```

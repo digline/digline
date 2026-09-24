@@ -22,6 +22,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
+from tests._helpers import baseline_in
 
 from digline.cli import EXIT_OK, EXIT_USAGE, EXIT_WORSE
 from digline.cli.main import main
@@ -134,7 +135,12 @@ def test_the_whole_cycle_runs_from_a_suite_that_is_data(
     """run, promote, compare — and the exit code is the answer, exactly as the
     front page says of the Python form."""
     assert digline(workdir, "run") == EXIT_OK
-    assert digline(workdir, "promote", "--run", "latest") == EXIT_OK
+    assert (
+        digline(
+            workdir, "promote", "--replacing", baseline_in(workdir), "--run", "latest"
+        )
+        == EXIT_OK
+    )
     assert digline(workdir, "compare", "--run", "latest") == EXIT_OK
     assert "Nothing got worse" in capsys.readouterr().out
 
@@ -144,7 +150,12 @@ def test_a_regression_in_a_data_suite_exits_one(
 ) -> None:
     """The sign-off leaves the answer, and the gate has to notice."""
     assert digline(workdir, "run") == EXIT_OK
-    assert digline(workdir, "promote", "--run", "latest") == EXIT_OK
+    assert (
+        digline(
+            workdir, "promote", "--replacing", baseline_in(workdir), "--run", "latest"
+        )
+        == EXIT_OK
+    )
 
     Endpoint.answer = "Order 4821 ships Thursday."
     assert digline(workdir, "run") == EXIT_OK

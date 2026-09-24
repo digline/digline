@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests._helpers import cli, git, run_key, write_suite
+from tests._helpers import baseline_in, cli, git, run_key, write_suite
 
 from digline.cli import EXIT_OK, EXIT_USAGE
 from digline.core import RegisterEntry
@@ -27,7 +27,16 @@ SUITE = "suite_qa.py"
 
 def promote_first(repo: Path) -> str:
     key = run_key(repo)
-    done = cli(repo, "promote", "--suite", SUITE, "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        SUITE,
+        "--run",
+        key,
+    )
     assert done.returncode == EXIT_OK, done.stderr
     return key
 

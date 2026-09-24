@@ -17,14 +17,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from digline.core import Run
+from digline.core import NO_BASELINE, Run
 from digline.host.errors import UsageError
 from digline.run import Suite
 from digline.store import FileResultStore, RunRef
 
-__all__ = ["LATEST", "Resolved", "need_baseline", "read_run", "resolve_key"]
+__all__ = [
+    "LATEST",
+    "NO_BASELINE",
+    "Resolved",
+    "need_baseline",
+    "read_run",
+    "replacing",
+    "resolve_key",
+]
 
 LATEST = "latest"
+
+
+def replacing(value: str) -> str | None:
+    """The reference a promotion names, as `promote_baseline` takes it: a key, or
+    `None` for `NO_BASELINE`."""
+    return None if value == NO_BASELINE else value
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +103,7 @@ def need_baseline(store: FileResultStore, suite: Suite) -> Run:
     if baseline is None:
         raise UsageError(
             f"suite {suite.name!r} has no baseline for tenant {suite.tenant!r} yet. "
-            "Run it, look at the result, then 'digline promote --run <key>'."
+            "Run it, look at the result, then "
+            "'digline promote --run <key> --replacing none'."
         )
     return baseline

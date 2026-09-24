@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, cast
@@ -47,6 +48,8 @@ __all__ = [
     "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "identity_of",
+    "NO_BASELINE",
+    "key_of",
     "Artifact",
     "CallTotals",
     "CaseResult",
@@ -324,6 +327,29 @@ ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"}) | DECLARED_PRICE_FIELD
 #: reference"*, which is true of a temperature and false of a resolved model id
 #: — nobody sent that, on either side. (ADR 0005 §9)
 OBSERVED_FIELDS = frozenset({"resolved_model", "fingerprint"})
+
+
+#: What a promotion replaces when the suite has no baseline yet. A word rather
+#: than an empty value, so the first promotion says what it is — and no key can
+#: be spelt this way, a key being a slugged timestamp and a hash. **Not a
+#: wildcard**: it states that nothing is there, and is refused when something
+#: is. (ADR 0031 §2)
+NO_BASELINE = "none"
+
+
+def key_of(created_at: str, config_hash: str) -> str:
+    """The key a run is known by: its `created_at` made safe as a filename, then
+    its `config_hash`.
+
+    In the core rather than in the store because it names a *reference*, not a
+    file. The store files a run under it, `list` marks the baseline with it, the
+    register records it, and a promotion names the reference it replaces by it
+    (ADR 0031 §1) — and the report and the wire, which import nothing but the
+    core, have to be able to print the same string. Colons are legal in a
+    filename on macOS and Linux and not on Windows, which is the whole of the
+    slug.
+    """
+    return f"{re.sub(r'[^0-9A-Za-z]+', '-', created_at).strip('-')}-{config_hash}"
 
 
 def identity_of(provider: str, model: str) -> str:

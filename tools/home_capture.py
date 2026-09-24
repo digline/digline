@@ -391,7 +391,11 @@ def _succeeded(entry: dict[str, Any]) -> None:
 def quickstart(root: Path, guide: str) -> dict[str, Any]:
     space = workspace(root, chapter_one_files(guide))
     key = space.run()
-    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    _succeeded(
+        space.digline(
+            "promote", "--suite", "support.py", "--run", "latest", "--replacing", "none"
+        )
+    )
     space.commit("Promote the baseline")
     compared = space.digline("compare", "--suite", "support.py", "--run", "latest")
     if compared["exit"] != 0:
@@ -422,7 +426,11 @@ def steady(root: Path, guide: str) -> dict[str, Any]:
     """
     space = workspace(root, steady_fixture(chapter_one_files(guide)))
     before = space.run()
-    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    _succeeded(
+        space.digline(
+            "promote", "--suite", "support.py", "--run", "latest", "--replacing", "none"
+        )
+    )
     space.commit("Promote the baseline")
 
     prompt = root / "prompt.md"
@@ -524,7 +532,11 @@ def prompt_diff(workdir: Path, key: str) -> list[dict[str, Any]]:
 def prompt_regression(root: Path, guide: str) -> dict[str, Any]:
     space = workspace(root, prompt_fixture(chapter_one_files(guide)))
     before = space.run()
-    _succeeded(space.digline("promote", "--suite", "support.py", "--run", "latest"))
+    _succeeded(
+        space.digline(
+            "promote", "--suite", "support.py", "--run", "latest", "--replacing", "none"
+        )
+    )
     space.commit("Promote the baseline")
 
     prompt = root / "prompt.md"

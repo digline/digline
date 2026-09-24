@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests._helpers import cli
+from tests._helpers import baseline_in, cli
 from tests._vocabulary import ADVICE, SPECULATION, spoken
 
 from digline.core import (
@@ -612,7 +612,14 @@ def test_rejudge_reports_the_range_beside_the_scale(repo: Path) -> None:
     assert payload["judge_reading"].startswith("the judge's own range")
 
     promoted = cli(
-        repo, "promote", "--suite", "suite_judged.py", "--run", payload["key"]
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_judged.py",
+        "--run",
+        payload["key"],
     )
     assert "ReplayedRunError" in promoted.stderr
 

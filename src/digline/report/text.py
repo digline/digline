@@ -66,6 +66,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # scrolls past the first screen must still be able to see that the
         # answers came from a stored run, and which one.
         "header.promoted": "Reference approved",
+        # The key a promotion has to name to replace this reference, printed
+        # where a reader of the comparison can copy it from (ADR 0031 §2).
+        "header.baseline_key": "Reference key",
+        "summary.against": "against baseline {reference}",
         "header.rejudged": "Answers replayed from",
         # The evidence block: shown only where the document carries it, which
         # is never at a boundary (ADR 0015 §4).
@@ -643,6 +647,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.promote.button": "Make baseline",
         "view.promote.done": "Baseline set to {run_key}.",
         "view.promote.refused": "Refused: {why}",
+        # Under the outcome of a promotion, when the list of runs cannot be read
+        # back: the outcome still has to reach the person (friction 59).
+        "view.list.unavailable": "The list of runs could not be drawn: {why}",
         "view.suspend.title": "Set {case_id} aside",
         "view.suspend.reason": "Why is it set aside?",
         "view.suspend.show": "Show the edit",
@@ -1137,6 +1144,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "header.redacted": "Contenuti omessi",
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
         "header.promoted": "Riferimento approvato",
+        "header.baseline_key": "Chiave del riferimento",
+        "summary.against": "rispetto alla baseline {reference}",
         "header.rejudged": "Risposte riascoltate da",
         "answers.title": "Che cosa ha risposto il sistema",
         "answers.note": (
@@ -1675,6 +1684,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.promote.button": "Rendi riferimento",
         "view.promote.done": "Riferimento impostato su {run_key}.",
         "view.promote.refused": "Rifiutato: {why}",
+        "view.list.unavailable": (
+            "L'elenco delle esecuzioni non si può mostrare: {why}"
+        ),
         "view.suspend.title": "Metti da parte {case_id}",
         "view.suspend.reason": "Perché viene messo da parte?",
         "view.suspend.show": "Mostra la modifica",

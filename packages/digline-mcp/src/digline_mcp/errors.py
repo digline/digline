@@ -8,9 +8,12 @@ exception arrives as the bare string "Error executing tool <name>".
 So every carefully written refusal in digline — the perimeter messages, the
 three promotion conditions, "no runs stored for suite … run it first" — would
 reach an agent as five identical words unless it is translated here. That is the
-whole reason this module exists, and `tests/test_errors.py` is parametrized over
-the list so a new exception type added to digline without a translation fails
-here rather than in front of somebody.
+whole reason this module exists. The list is digline's classification of its
+own refusals, and digline's `tests/test_refusals.py` fails on any exception
+class it defines that is not classified — which is what makes a new refusal
+added without a translation impossible to ship. Parametrizing a test over the
+list, as `tests/test_errors.py` does, proves the listed types are translated,
+and could never have caught one that was not listed.
 
 Nothing else is caught. An unexpected exception should stay an unexpected
 exception: dressing one as a tool result hides a bug behind a sentence.
@@ -34,48 +37,25 @@ from typing import NoReturn
 from mcp.server.mcpserver.exceptions import ToolError
 
 from digline.core import (
-    DifferentJudgesError,
-    DifferentSuitesError,
-    DocumentRefusedError,
     json_visible,
 )
-from digline.host import UsageError
-from digline.store import (
-    ConfigMismatchError,
-    ErroredRunError,
-    PathRefusedError,
-    RunNotFoundError,
-    SuiteMismatchError,
-    TenantMismatchError,
-)
-from digline.targets import ProviderNotFound
+from digline.host import REFUSALS
 
 __all__ = ["TRANSLATED", "translated"]
 
 #: The exceptions digline raises deliberately, each carrying a message written
 #: for a reader. Anything not in here is a bug and travels as one.
 #:
-#: `PathRefusedError` and `RunNotFoundError` are the store's, and they were
-#: missing until the standing-code pass of 2026-09-23. They had no type of
-#: their own — a bare `ValueError` and a bare `FileNotFoundError` — so the two
-#: sentences the store writes most carefully, `_inside`'s escape refusal and
-#: `_check_name`'s unsafe name, arrived as "Error executing tool get_run" with
-#: the reason on stderr where no client reads it. An agent told only that
-#: something failed retries, and retrying a refused path is the one response
-#: that cannot help.
-TRANSLATED: tuple[type[Exception], ...] = (
-    UsageError,
-    TenantMismatchError,
-    ConfigMismatchError,
-    ErroredRunError,
-    DifferentSuitesError,
-    DifferentJudgesError,
-    ProviderNotFound,
-    PathRefusedError,
-    RunNotFoundError,
-    SuiteMismatchError,
-    DocumentRefusedError,
-)
+#: **digline's own classification, not a list kept here.** This was eleven names
+#: written in this file, and it lagged twice: `PathRefusedError` and
+#: `RunNotFoundError` were missing until the standing-code pass of 2026-09-23,
+#: and arrived as "Error executing tool get_run" with the reason on stderr where
+#: no client reads it. `digline.host.REFUSALS` is checked against every
+#: exception class digline defines, so a refusal added there reaches an agent as
+#: its sentence without this file changing. Types no tool here can raise — the
+#: promotion's own refusals, since there is no `promote` — cost nothing to
+#: translate and get in nobody's way. (friction 59)
+TRANSLATED: tuple[type[Exception], ...] = REFUSALS
 
 
 # PEP 695 syntax (Python 3.12+): `[**P, R]` declares the type parameters inline

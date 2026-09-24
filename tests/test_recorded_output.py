@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 from digline.core import (
     MAX_RECORDED_CHARS,
@@ -277,7 +277,10 @@ def test_promotion_writes_a_reference_without_the_answers(tmp_path: Path) -> Non
     ref = store.write_run(run)
 
     promoted = store.promote_baseline(
-        ref, declared.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+        ref,
+        declared.config_hash(),
+        expected_baseline=None,
+        promoted_at="2026-01-02T09:00:00+00:00",
     )
     assert all(case.responses == () for case in promoted.results)
     text = store.baseline_path("acme", "qa").read_text(encoding="utf-8")
@@ -858,7 +861,10 @@ def test_a_replay_may_not_become_the_baseline(tmp_path: Path) -> None:
     ref = store.write_run(again)
     with pytest.raises(ReplayedRunError, match="not from the target"):
         store.promote_baseline(
-            ref, declared.config_hash(), promoted_at="2026-01-02T09:00:00+00:00"
+            ref,
+            declared.config_hash(),
+            expected_baseline=None,
+            promoted_at="2026-01-02T09:00:00+00:00",
         )
 
 
@@ -899,7 +905,16 @@ def test_rejudge_writes_a_run_that_declares_its_source(repo: Path) -> None:
     assert stored["rejudged_from"] == key
     assert stored["results"][0]["responses"][0]["output"] == "The capital is Rome."
 
-    refused = cli(repo, "promote", "--suite", "suite_qa.py", "--run", replayed)
+    refused = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        replayed,
+    )
     assert refused.returncode != 0
     assert "ReplayedRunError" in refused.stderr
 

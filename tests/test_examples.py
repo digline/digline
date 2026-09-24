@@ -26,6 +26,7 @@ from types import ModuleType
 from typing import Any, cast
 
 import pytest
+from tests._helpers import baseline_in
 from tests._site import nav_lists, require_site_config
 
 from digline.cli import EXIT_OK
@@ -66,7 +67,16 @@ def test_the_quickstart_completes_the_whole_cycle(quickstart: Path) -> None:
     """run -> promote -> compare -> report, exactly as the README claims."""
     assert cli(quickstart, "run", "--suite", "suite.py").returncode == EXIT_OK
 
-    promoted = cli(quickstart, "promote", "--suite", "suite.py", "--run", "latest")
+    promoted = cli(
+        quickstart,
+        "promote",
+        "--replacing",
+        baseline_in(quickstart),
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+    )
     assert promoted.returncode == EXIT_OK, promoted.stderr
 
     compared = cli(quickstart, "compare", "--suite", "suite.py", "--run", "latest")
@@ -329,7 +339,16 @@ def test_each_example_completes_the_cycle(standalone: Path) -> None:
     key = ran.stdout.strip()
     assert key
 
-    promoted = cli(standalone, "promote", "--suite", suite, "--run", key)
+    promoted = cli(
+        standalone,
+        "promote",
+        "--replacing",
+        baseline_in(standalone),
+        "--suite",
+        suite,
+        "--run",
+        key,
+    )
     assert promoted.returncode == EXIT_OK, promoted.stderr
 
     compared = cli(standalone, "compare", "--suite", suite, "--run", key)
@@ -340,7 +359,16 @@ def test_each_example_completes_the_cycle(standalone: Path) -> None:
 def test_each_example_renders_its_report(standalone: Path) -> None:
     suite = suite_file(standalone)
     cli(standalone, "run", "--suite", suite)
-    cli(standalone, "promote", "--suite", suite, "--run", "latest")
+    cli(
+        standalone,
+        "promote",
+        "--replacing",
+        baseline_in(standalone),
+        "--suite",
+        suite,
+        "--run",
+        "latest",
+    )
     out = standalone / "fresh.html"
     rendered = cli(
         standalone,

@@ -13,21 +13,7 @@ from __future__ import annotations
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
-from digline.core import (
-    DifferentJudgesError,
-    DifferentSuitesError,
-    DocumentRefusedError,
-)
-from digline.host import UsageError
-from digline.store import (
-    ConfigMismatchError,
-    ErroredRunError,
-    PathRefusedError,
-    RunNotFoundError,
-    SuiteMismatchError,
-    TenantMismatchError,
-)
-from digline.targets import ProviderNotFound
+from digline.host import REFUSALS
 from digline_mcp.errors import TRANSLATED, translated
 
 MESSAGE = "the sentence a reader was supposed to see"
@@ -44,24 +30,12 @@ def test_a_deliberate_refusal_keeps_its_message(kind: type[Exception]) -> None:
     assert MESSAGE in str(caught.value)
 
 
-def test_the_list_covers_what_digline_raises_deliberately() -> None:
+def test_the_list_is_the_classification() -> None:
     """A guard on the guard. The parametrized test above proves the listed types
-    are translated; this one proves the list is the right list, so a type added
-    to digline and forgotten here fails rather than reaching an agent as five
-    words."""
-    assert set(TRANSLATED) == {
-        UsageError,
-        TenantMismatchError,
-        ConfigMismatchError,
-        ErroredRunError,
-        DifferentSuitesError,
-        DifferentJudgesError,
-        ProviderNotFound,
-        PathRefusedError,
-        RunNotFoundError,
-        SuiteMismatchError,
-        DocumentRefusedError,
-    }
+    are translated; this one proves the list is digline's own classification of
+    its refusals — which `tests/test_refusals.py` holds complete — and not a copy
+    kept here, which lagged twice before it stopped being one."""
+    assert TRANSLATED is REFUSALS
 
 
 def test_an_unexpected_exception_stays_unexpected() -> None:

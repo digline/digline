@@ -209,6 +209,7 @@ def test_a_suite_with_a_suspended_case_can_be_promoted(tmp_path: Path) -> None:
     promoted = store.promote_baseline(
         store.write_run(run),
         config_hash(suite.assertions),
+        expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
     )
     assert promoted.results[1].suspended == WHY

@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 from digline import __version__
 from digline.core import CaseResult, Contains, Score, Verdict, release_tuple
@@ -157,7 +157,9 @@ def test_promotion_stamps_the_time_it_was_given(tmp_path: Path) -> None:
     document = run(digline_version="0.10.0")
     ref = store.write_run(document)
 
-    promoted = store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    promoted = store.promote_baseline(
+        ref, document.config_hash, expected_baseline=None, promoted_at=PROMOTED
+    )
     assert promoted.promoted_at == PROMOTED
     assert promoted.created_at == CREATED  # the measurement's own time, untouched
     assert "promoted_at" in store.baseline_path("acme", "qa").read_text(
@@ -174,9 +176,14 @@ def test_the_store_reads_no_clock(tmp_path: Path) -> None:
     ref = store.write_run(document)
     path = store.baseline_path("acme", "qa")
 
-    store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    store.promote_baseline(
+        ref, document.config_hash, expected_baseline=None, promoted_at=PROMOTED
+    )
     first = path.read_text(encoding="utf-8")
-    store.promote_baseline(ref, document.config_hash, promoted_at=PROMOTED)
+    # The second promotion replaces the first, and says so.
+    store.promote_baseline(
+        ref, document.config_hash, expected_baseline=ref.key, promoted_at=PROMOTED
+    )
     assert path.read_text(encoding="utf-8") == first
 
 
@@ -284,7 +291,10 @@ def test_a_migrated_run_still_promotes_under_the_hash_it_carries(
 
     assert migrate_file(path) == 9
     promoted = store.promote_baseline(
-        ref, document.config_hash, promoted_at="2026-01-02T09:00:00+00:00"
+        ref,
+        document.config_hash,
+        expected_baseline=None,
+        promoted_at="2026-01-02T09:00:00+00:00",
     )
     assert promoted.config_hash == document.config_hash
     assert promoted.digline_version == ""
@@ -353,7 +363,16 @@ def test_the_warning_reaches_stderr_and_not_the_exit_code(repo: Path) -> None:
     """Never an exit code: the codes are a contract about the suite, and a
     tooling mismatch is not a verdict on a suite."""
     key = run_key(repo)
-    promoted = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == 0, promoted.stderr
 
     for name in ("runs/qa/" + key, "baselines/qa"):

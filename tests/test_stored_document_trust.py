@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 from digline.core.run import run_from_dict
 from digline.store import FileResultStore, RunRef, SuiteMismatchError
@@ -131,7 +131,16 @@ def test_a_run_declaring_another_suite_is_refused_and_promotes_nothing(
     key = run_key(repo)
     rewrite(stored(repo, key), suite="other")
 
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     assert done.returncode == EXIT_USAGE, done.stdout
     assert "SuiteMismatchError" in done.stderr
@@ -143,7 +152,16 @@ def test_a_run_declaring_another_suite_is_refused_and_promotes_nothing(
 
 def test_a_baseline_declaring_another_suite_is_refused(repo: Path) -> None:
     key = run_key(repo)
-    promoted = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == 0, promoted.stderr
     rewrite(repo / STORE / "baselines" / "qa.json", suite="other")
 
@@ -159,6 +177,15 @@ def test_a_run_filed_where_it_says_it_belongs_is_untouched(repo: Path) -> None:
         RunRef(tenant="acme-bank", suite="qa", key=key)
     )
     assert run.suite == "qa"
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert done.returncode == 0, done.stderr
     assert (repo / STORE / "baselines" / "qa.json").is_file()

@@ -13,9 +13,25 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
+import threading
+import urllib.request
+from functools import partial
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+
+import pytest
 
 import digline
+from digline.cli import EXIT_USAGE
+from digline.cli.view import ViewHandler, self_netlocs
+from digline.core import Run
+from digline.host import load_suite
 from digline.host.refusals import NOT_REFUSALS, REFUSALS
+from digline.store import FileResultStore
+
+# By module path: `digline.cli` exports the `main` function under the same name
+# as the module, so `import digline.cli.main as ...` hands back the function.
+cli_main = importlib.import_module("digline.cli.main")
 
 
 def _qualified(kind: type[BaseException]) -> str:
@@ -75,3 +91,74 @@ def test_no_class_is_classified_twice() -> None:
     assert not set(names) & set(NOT_REFUSALS), (
         "a class cannot be both a refusal and not one"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Every front end says every refusal (friction 59)
+# --------------------------------------------------------------------------- #
+
+#: What a refusal carries, and what each front end must hand to a person intact.
+SENTENCE = "the sentence a reader was written"
+
+
+@pytest.mark.parametrize("kind", REFUSALS, ids=lambda kind: kind.__name__)
+def test_the_command_line_says_every_refusal(
+    kind: type[Exception],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Exit 64 and the sentence, never a traceback. A refusal type added to
+    digline arrives here through the classification, so this passes for it
+    without the handler in `main` being touched — which is the claim."""
+
+    def refuse(_args: object) -> int:
+        raise kind(SENTENCE)
+
+    monkeypatch.setattr(cli_main, "cmd_list", refuse)
+    assert cli_main.main(["list", "--suite", "unused.py"]) == EXIT_USAGE
+    assert SENTENCE in capsys.readouterr().err
+
+
+class _Refusing(FileResultStore):
+    """A store whose every promotion is refused with the one type under test."""
+
+    def __init__(self, root: Path, kind: type[Exception]) -> None:
+        super().__init__(root)
+        self.kind = kind
+
+    def promote_baseline(self, *args: object, **kwargs: object) -> Run:
+        raise self.kind(SENTENCE)
+
+
+@pytest.mark.parametrize("kind", REFUSALS, ids=lambda kind: kind.__name__)
+def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
+    """The route that writes answers with the sentence. Before friction 59 it
+    listed six types by hand, and two refusals 0.19.2 added reached the browser
+    as a closed connection."""
+    suite, _loaded = load_suite(str(repo / "suite_qa.py"), root=repo)
+    known: set[str] = set()
+    handler = partial(
+        ViewHandler, suite=suite, store=_Refusing(repo, kind), known=known
+    )
+    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as httpd:  # pyright: ignore[reportArgumentType]
+        port = int(httpd.server_address[1])
+        known.update(self_netlocs("127.0.0.1", port))
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{port}/promote",
+                data=b"run=any&replacing=none&locale=en",
+                method="POST",
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": f"http://127.0.0.1:{port}",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                status, body = response.status, response.read().decode("utf-8")
+        finally:
+            httpd.shutdown()
+            thread.join(timeout=10)
+    assert status == 200
+    assert SENTENCE in body
