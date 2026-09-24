@@ -145,8 +145,13 @@ that needed no pin.
 ```console
 $ uv run digline run --suite suite.py
 $ uv run digline report --suite suite.py --run latest --locale en --out report.html
-$ uv run digline promote --suite suite.py --run latest
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-13T09-10-05-244767-00-00-50f6e691ce7e15cb
 ```
+
+`--replacing` names the baseline this promotion replaces: here, the one
+this example ships, whose key `compare` prints under its verdict and
+`digline list` marks with `*`. If the baseline has moved since you
+compared, `promote` refuses and names both keys.
 
 Read the report before you promote. `promote` means *these calls are the ones we
 stand behind* — a decision, not a build step, which is why nothing does it for

@@ -18,10 +18,15 @@ the prompt that produced it.
 
 ```console
 $ uv sync && uv run digline run --suite suite.py
-$ uv run digline promote --suite suite.py --run latest
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-23T07-14-08-579107-00-00-0d99045c0f1639eb
 # edit prompts/system.txt, then
 $ uv run digline compare --suite suite.py --run latest
 ```
+
+`--replacing` names the baseline this promotion replaces: here, the one
+this example ships, whose key `compare` prints under its verdict and
+`digline list` marks with `*`. If the baseline has moved since you
+compared, `promote` refuses and names both keys.
 
 **The keyless path runs. It does not compare.**
 

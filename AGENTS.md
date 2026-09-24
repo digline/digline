@@ -168,7 +168,7 @@ is whichever install is first on your shell's `PATH`. A run records the digline
 that wrote it (`digline_version`). A comparison, a view and an explanation
 record nothing, so ask the same executable: `uv run digline --version`. It
 holds for that command only, because your shell can change before the next
-one. When it differs from the release these rules describe (**0.19.2**), say so
+one. When it differs from the release these rules describe (**0.20.0**), say so
 beside the result. A difference is a hypothesis, not a cause: before blaming
 it, re-run the same command on the release these rules describe.
 

@@ -116,8 +116,13 @@ $ uv run digline run --suite suite.py
 2026-09-01T13-12-52-981903-00-00-bc060bda8aefb7f4
 
 $ uv run digline report --suite suite.py --run latest --locale en --out report.html
-$ uv run digline promote --suite suite.py --run latest
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-01T13-59-15-058158-00-00-bc060bda8aefb7f4
 ```
+
+`--replacing` names the baseline this promotion replaces: here, the one
+this example ships, whose key `compare` prints under its verdict and
+`digline list` marks with `*`. If the baseline has moved since you
+compared, `promote` refuses and names both keys.
 
 Read the report before you promote. `promote` means *these answers are the ones
 we stand behind* — it is a decision, not a build step, which is why nothing

@@ -1857,3 +1857,37 @@ def test_the_front_page_lists_every_example_and_only_those() -> None:
         f"  listed but not an example: {sorted(linked - set(names))}\n"
         f"  an example but not listed:  {sorted(set(names) - linked)}"
     )
+
+
+#: A `promote` command in an example's README, with the reference it names —
+#: the command may be continued onto the next line, as the indented blocks do.
+PROMOTE_RE = re.compile(r"digline promote --suite\b(?P<rest>(?:[^\n\\]|\\\n)*)")
+REPLACING_RE = re.compile(r"--replacing\s+(?P<key>\S+)")
+
+
+@pytest.mark.parametrize(
+    "readme",
+    sorted((ROOT / "examples").glob("*/README.md")),
+    ids=lambda path: path.parent.name,
+)
+def test_a_readme_promote_names_the_baseline_its_example_ships(readme: Path) -> None:
+    """`promote --replacing` in an example is code, not prose: a reader copies it
+    in the directory beside it, where the example's committed baseline is the
+    one present, so any other key is refused the moment they run it. Held to
+    the committed file here, so re-promoting an example cannot leave its README
+    naming the reference it replaced. (ADR 0031 §2)"""
+    commands = [m.group("rest") for m in PROMOTE_RE.finditer(readme.read_text())]
+    if not commands:
+        return
+    present = baseline_in(readme.parent)
+    for rest in commands:
+        named = REPLACING_RE.search(rest)
+        assert named is not None, (
+            f"{readme.relative_to(ROOT)} promotes without --replacing, which "
+            "digline refuses"
+        )
+        assert named.group("key") == present, (
+            f"{readme.relative_to(ROOT)} promotes --replacing "
+            f"{named.group('key')}, and the baseline this example ships is "
+            f"{present}: a reader copying it is refused"
+        )

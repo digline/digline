@@ -27,8 +27,14 @@ Then the cycle, in another:
 
     uv sync
     uv run digline run     --suite suite.toml
-    uv run digline promote --suite suite.toml --run latest
+    uv run digline promote --suite suite.toml --run latest \
+        --replacing 2026-09-03T13-12-00-669324-00-00-8a745d27d002e7dd
     uv run digline compare --suite suite.toml --run latest
+
+`--replacing` names the baseline this promotion replaces: here, the one
+this example ships, whose key `compare` prints under its verdict and
+`digline list` marks with `*`. If the baseline has moved since you
+compared, `promote` refuses and names both keys.
 
 `run` writes a run and prints its key. `promote` makes it the baseline — a JSON
 file under `.digline/northwind/`, committed to this repository, reviewed like
