@@ -4,6 +4,7 @@
   `thinking-tokens`, the way
   [ADR 0025](0025-the-tokens-and-the-bill.md) and
   [ADR 0024](0024-the-judge-as-an-instrument.md) were
+- Shipped: 0.17.0
 - Date: 2026-09-19
 - Opens: **schema 15**, with one passenger. It does not wait for a second: the
   consumers are ready — two plugins to read the field and a third to declare it

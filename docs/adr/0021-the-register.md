@@ -1,7 +1,11 @@
 # ADR 0021 — The register
 
-- Status: proposed — the text first, checkpointed before any code, beside
-  [ADR 0020](0020-the-reading-across-runs.md)
+- Status: accepted — the text first, checkpointed before any code, beside
+  [ADR 0020](0020-the-reading-across-runs.md), then the implementation written
+  against it; `digline register` shipped in 0.13.0.
+  The status read `proposed` until 2026-09-24: nothing moved it when the
+  code shipped, which is why `Shipped:` is now checked (`tests/test_adr.py`)
+- Shipped: 0.13.0
 - Date: 2026-09-15
 - Amended: 2026-09-16 — one factual correction, no decision revisited: **§3's
   example gives `recorded_at` to the second, and the writer keeps

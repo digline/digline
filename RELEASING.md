@@ -141,6 +141,23 @@ names versions for a living.
 moves no schema still gets a row; the row is what lets the example caps be
 checked against a release rather than against a number in the air.
 
+**Then one more, which no test reddens: say which decisions this release
+ships.** Every record in `docs/adr/` carries `- Shipped:`, a core version or
+`unreleased`:
+
+```sh
+grep -l '^- Shipped: unreleased' docs/adr/*.md
+```
+
+For each one whose implementation is in this release, write the new version
+and make sure its status is `accepted`. `tests/test_adr.py` refuses a version
+that has no row in `RELEASED` and a `proposed` record that names a version,
+but it cannot see a record left `unreleased` after its code shipped — nothing
+in the tree says honestly that a decision is in force, and a status derived
+from the code would be a guess. This step is the only thing that sees it. It
+was missed for 0020, 0021, 0022 and 0024, which read `proposed` for over a
+week after 0.13.0 and 0.14.0 shipped them.
+
 ### The six that stay red until you have done all four
 
 Run the gates once after the bump and read them as a checklist rather than as

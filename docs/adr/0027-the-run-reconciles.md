@@ -2,6 +2,7 @@
 
 - Status: accepted — the text first, then the implementation written against
   it on `denominator-sentence`
+- Shipped: 0.17.0
 - Date: 2026-09-19
 - Opens: nothing. No schema bump, and not a passenger on one. The run document
   gains no field. §3 says where the fact is written instead

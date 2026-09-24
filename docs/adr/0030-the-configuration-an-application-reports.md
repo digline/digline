@@ -7,6 +7,7 @@
   §4 is the ruling; §5 is what the implementation still has to settle, and
   neither of its two items changes §4. **§6 says what is true while §4 is
   unwritten, and it is unwritten as of 2026-09-23**
+- Shipped: unreleased
 - Date: 2026-09-23
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);

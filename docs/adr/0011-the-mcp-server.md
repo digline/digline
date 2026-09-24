@@ -8,6 +8,7 @@
   open were settled the same day and are written in below: §2's acknowledged
   count is `target_calls`, §4's `exit_code` lands on both surfaces through the
   one function, and §7's host extraction goes ahead as drafted
+- Shipped: 0.6.0
 - Date: 2026-09-08
 - Amended: 2026-09-09 — **§8 gains the check that makes it true.** A security
   review found that `suite` was unconstrained: the section's "the perimeter is

@@ -3,6 +3,7 @@
 - Status: accepted — drafted on `docs-boundaries` during the 0.5.0 sequence,
   parked, and redecided against the code as it stands after 0.6.0.
   Implementation on `boundaries-0009`; ships in 0.7.0
+- Shipped: 0.7.0
 - Date: 2026-09-09
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (a `Verdict` may not
   contradict itself: `status` and `score >= threshold` are one fact),

@@ -6,6 +6,7 @@
   [ADR 0007](0007-the-declarative-suite-format.md),
   [ADR 0008](0008-the-two-run-report.md) and
   [ADR 0011](0011-the-mcp-server.md) were
+- Shipped: 0.9.0
 - Date: 2026-09-10
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);

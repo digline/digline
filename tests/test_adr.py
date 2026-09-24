@@ -12,9 +12,12 @@ ran the site build by hand before tagging.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+import pytest
 from tests._site import nav_lists, require_site_config
+from tests.test_example_caps import RELEASED
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,3 +75,146 @@ def test_every_adr_has_a_page_in_the_site_nav() -> None:
         "If that path is a checkout of your own, it may simply be behind "
         "origin — the entry is added in digline/digline.dev, not here."
     )
+
+
+# ── Whether a record has shipped ───────────────────────────────────────────
+#
+# The status is the first word of `- Status:`, and digline.dev copies it into
+# the Decisions table as written. Nothing decided it: until 2026-09-24 four
+# records read `proposed` while their code had been released for over a week
+# (0020, 0021 and 0022 in 0.13.0, 0024 from 0.14.0), because nothing moved them
+# when the code shipped.
+#
+# The status is not derived from the code, and that is on purpose — no signal
+# in the tree says honestly that a decision is in force. What is checked
+# instead is one fact written by hand: `- Shipped:` names the core release the
+# record's behaviour first shipped in, or says `unreleased`. A version must be
+# a row of `RELEASED`, which is itself checked against the tags, and a record
+# with a version cannot still be `proposed`. A record whose code lives in a
+# plugin names the core release that published it.
+#
+# What this cannot see is a record left `unreleased` after its code ships.
+# RELEASING.md's "moving the number" sweeps for it at every bump, beside the
+# `RELEASED` row this check reads.
+
+#: The words a status may start with. The site copies any word, so a new one —
+#: `superseded`, the first time a record is — is added here on purpose.
+STATUSES = frozenset({"proposed", "accepted"})
+
+_STATUS = re.compile(r"^- Status:[ \t]*([A-Za-z]+)", re.M)
+_SHIPPED = re.compile(r"^- Shipped:[ \t]*(.*?)[ \t]*$", re.M)
+
+
+def header(text: str) -> str:
+    """The lines above a record's first `## `, where its status is stated —
+    the same span digline.dev reads the table from."""
+    return re.split(r"^## ", text, maxsplit=1, flags=re.M)[0]
+
+
+def shipped_problems(head: str, released: set[str]) -> list[str]:
+    """What is wrong with a record's status and `Shipped:` line; empty if nothing."""
+    status = _STATUS.search(head)
+    if not status:
+        return ["no `- Status: <word>` above the first `## `"]
+    word = status.group(1)
+    problems: list[str] = []
+    if word not in STATUSES:
+        problems.append(f"status `{word}` is not one of {sorted(STATUSES)}")
+    shipped = _SHIPPED.findall(head)
+    if len(shipped) != 1:
+        return [
+            *problems,
+            f"{len(shipped)} `- Shipped:` lines above the first `## `, not 1",
+        ]
+    value = shipped[0]
+    if value == "unreleased":
+        return problems
+    if value not in released:
+        problems.append(
+            f"`Shipped: {value}` names no release in RELEASED; write a core "
+            "version that has been tagged, or `unreleased`"
+        )
+    elif word == "proposed":
+        problems.append(
+            f"`Shipped: {value}` and still `proposed`: a record whose behaviour is "
+            "in a released version is in force"
+        )
+    return problems
+
+
+def test_every_record_says_whether_it_has_shipped() -> None:
+    found = {
+        name: shipped_problems(
+            header((ROOT / "docs" / "adr" / f"{name}.md").read_text(encoding="utf-8")),
+            set(RELEASED),
+        )
+        for name in adr_records()
+    }
+    wrong = {name: problems for name, problems in found.items() if problems}
+    assert not wrong, "\n".join(
+        f"docs/adr/{name}.md: {'; '.join(problems)}" for name, problems in wrong.items()
+    )
+
+
+_VALID = (
+    "# ADR 0099 — T\n\n"
+    "- Status: accepted — the text first\n"
+    "- Shipped: 0.13.0\n"
+    "- Date: 2026-09-15\n\n"
+    "## Context\n"
+)
+
+
+def test_the_valid_header_the_controls_start_from_passes() -> None:
+    """Each control below is this header with one field changed, so a control
+    that fails is failing on that field and on nothing else."""
+    assert shipped_problems(header(_VALID), {"0.13.0"}) == []
+    unreleased = _VALID.replace("0.13.0", "unreleased")
+    assert shipped_problems(header(unreleased), set()) == []
+    assert (
+        shipped_problems(header(unreleased.replace("accepted", "proposed")), set())
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "text", "needle"),
+    [
+        (
+            "proposed after its release",
+            _VALID.replace("accepted", "proposed"),
+            "still `proposed`",
+        ),
+        (
+            "a version never released",
+            _VALID.replace("0.13.0", "0.99.0"),
+            "names no release",
+        ),
+        (
+            "no Shipped line",
+            _VALID.replace("- Shipped: 0.13.0\n", ""),
+            "0 `- Shipped:` lines",
+        ),
+        ("an empty Shipped line", _VALID.replace(" 0.13.0", ""), "names no release"),
+        (
+            "two Shipped lines",
+            _VALID.replace("- Date:", "- Shipped: 0.13.0\n- Date:"),
+            "2 `- Shipped:`",
+        ),
+        (
+            "a Shipped line only below the first ##",
+            _VALID.replace("- Shipped: 0.13.0\n", "") + "- Shipped: 0.13.0\n",
+            "0 `- Shipped:` lines",
+        ),
+        (
+            "a status word nobody uses",
+            _VALID.replace("accepted", "aceppted"),
+            "is not one of",
+        ),
+    ],
+)
+def test_a_header_one_field_from_valid_is_refused(
+    label: str, text: str, needle: str
+) -> None:
+    problems = shipped_problems(header(text), {"0.13.0"})
+    assert any(needle in problem for problem in problems), (label, problems)

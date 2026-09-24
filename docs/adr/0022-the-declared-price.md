@@ -1,6 +1,10 @@
 # ADR 0022 — The declared price
 
-- Status: proposed — the text first, checkpointed before any code
+- Status: accepted — the text first, checkpointed before any code, then the
+  implementation written against it; `[target.pricing]` shipped in 0.13.0.
+  The status read `proposed` until 2026-09-24: nothing moved it when the
+  code shipped, which is why `Shipped:` is now checked (`tests/test_adr.py`)
+- Shipped: 0.13.0
 - Date: 2026-09-15
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §4
   (a digest is a verifier);

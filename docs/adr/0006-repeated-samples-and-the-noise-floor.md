@@ -1,6 +1,7 @@
 # ADR 0006 — Repeated samples and the noise floor
 
 - Status: accepted — implemented on `adr-0006`; ships in core 0.4.0
+- Shipped: 0.4.0
 - Date: 2026-09-02
 - Amended: 2026-09-02 — §6 records what the implementation does with the
   interval on a flip, and §10's example copy is replaced by the wording that

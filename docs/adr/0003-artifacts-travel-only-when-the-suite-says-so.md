@@ -1,6 +1,7 @@
 # ADR 0003 — Artifacts travel only when the suite says so
 
 - Status: accepted
+- Shipped: 0.1.0
 - Date: 2026-08-26
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md), §2 and §3
 - Touches: fixed decision 9 (`CLAUDE.md`), which lists what crosses a boundary

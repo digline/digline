@@ -6,6 +6,7 @@
   [ADR 0011](0011-the-mcp-server.md),
   [ADR 0012](0012-the-reading.md) and
   [ADR 0013](0013-the-pytest-plugin.md) were
+- Shipped: 0.10.0
 - Date: 2026-09-11
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);

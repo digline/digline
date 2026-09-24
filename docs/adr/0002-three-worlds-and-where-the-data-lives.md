@@ -6,6 +6,7 @@
 > only place where the old name remains written.
 
 - Status: accepted
+- Shipped: 0.1.0
 - Date: 2026-08-25
 - Introduces: fixed decisions 8 (tenant) and 9 (payload/verdict) of `CLAUDE.md`
 - Assumes: [ADR 0001](0001-verdict-not-score.md)
