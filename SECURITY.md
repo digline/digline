@@ -42,21 +42,59 @@ it is drawn in one place:
   below is a copy, written out because nothing here can read it at build time;
   the source is this repository's own advisories, which
   `gh api repos/digline/digline/security-advisories` returns and the Security
-  tab shows. So far, grouped by the occasion that found them: three from the
-  0.7.1 and 0.7.2 pass —
+  tab shows — ask that, not this paragraph, for how many there are.
+
+  **Grouped by what the looking was aimed at, because those are not
+  interchangeable and the grouping is meant to help somebody decide where to
+  look next.**
+
+  *Looking at what a release added* — the delta-pass, on 0.7.1 and 0.7.2:
   [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
   (high, `digline-mcp` executing a suite from anywhere on disk),
   [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
   (medium, reads outside the perimeter), and
   [GHSA-xrvr-5x82-w7g7](https://github.com/digline/digline/security/advisories/GHSA-xrvr-5x82-w7g7)
-  (low, a credential in a target URL reaching stderr and a CI log) — and one
-  from the delta-pass over 0.12.0, fixed in 0.12.1,
+  (low, a credential in a target URL reaching stderr and a CI log); and the
+  delta-pass over 0.12.0, fixed in 0.12.1,
   [GHSA-g25g-q7j3-jcgp](https://github.com/digline/digline/security/advisories/GHSA-g25g-q7j3-jcgp)
-  (low, perimeter fields in comparison deltas), and one from the denominator
+  (low, perimeter fields in comparison deltas).
+
+  *Looking at whatever a sentence had to be precise about* — the denominator
   article, fixed across 0.15.1 to 0.15.3,
   [GHSA-8c38-f965-cgww](https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww)
   (a gate raised from `fail` to `pass` reported as an improvement, where an
   unjudgeable case had shrunk the denominator under it).
+
+  *Looking at what was already there* — the standing-code pass of 2026-09-23,
+  fixed in 0.19.2 —
+  [GHSA-m9mw-rwqm-g38r](https://github.com/digline/digline/security/advisories/GHSA-m9mw-rwqm-g38r)
+  (medium, `digline register` creating and appending outside the store on the
+  write that creates the register),
+  [GHSA-qjqq-hrq4-rfgh](https://github.com/digline/digline/security/advisories/GHSA-qjqq-hrq4-rfgh)
+  (medium, `digline view` comparing `Origin` against the request's own `Host`),
+  and
+  [GHSA-3q9c-qq5w-ff5m](https://github.com/digline/digline/security/advisories/GHSA-3q9c-qq5w-ff5m)
+  (medium, `digline migrate` writing through a symlink committed in the store).
+
+  **The third group is aimed somewhere the first cannot see, and the
+  distinction earns its place here rather than in a changelog.** A delta-pass
+  asks three questions of what a release *added*; the standing-code pass asked
+  them of code no release had touched. Sixteen delta-passes and the
+  advisories above had run before those three were found, and none of them reached any of the three — **not
+  because they were done badly, but because a delta-pass looks at the delta by
+  construction.** Each of the three lived in code that had been sitting still:
+  a guard that exists but is not called from a call site added later, a check
+  whose two inputs are both supplied by the attacker, a collector that skips
+  the containment its sibling applies. A run of green delta-passes is evidence
+  about deltas and about nothing else.
+
+  The middle group is the least predictable of the three and the hardest to
+  schedule: nobody set out to audit the denominator, somebody set out to
+  **describe** it, and being made to write a sentence precisely is what turned
+  up a gate that read `fail` as `pass`. It is here as a kind rather than as an
+  anecdote, because "write down exactly what this does" is a way of looking,
+  and it is the one that costs nothing to start.
+
 - **A `Security` entry in the changelog, and no advisory**, for a finding our own
   process caught **before** it was exposed — the audit, the adversarial pass, the
   release delta-pass. There is no version to warn anybody off, and an advisory
