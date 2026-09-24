@@ -10,6 +10,7 @@
   [ADR 0016](0016-the-canary-case.md),
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) and
   [ADR 0018](0018-the-recorded-trajectory-and-the-agent-under-test.md) were
+- Shipped: 0.13.0
 - Date: 2026-09-14
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);

@@ -1,6 +1,7 @@
 # ADR 0005 — The configuration of the system under test
 
 - Status: accepted
+- Shipped: 0.2.0
 - Date: 2026-08-31
 - Amended: 2026-09-01 — §8, HTTP targets. Added rather than a new ADR: it
   changes no decision above it, and reads as a correction to §6's aside about

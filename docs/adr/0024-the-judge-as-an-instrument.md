@@ -1,8 +1,16 @@
 # ADR 0024 — The judge as an instrument
 
-- Status: proposed — the text first, checkpointed before any code, the way
+- Status: accepted — the text first, checkpointed before any code, the way
   [ADR 0020](0020-the-reading-across-runs.md) and
-  [ADR 0022](0022-the-declared-price.md) were
+  [ADR 0022](0022-the-declared-price.md) were, then implemented section by
+  section: §3's rule in 0.13.3 (`AGENTS.md` and the skill, no code); §4 the
+  calibration case, §5 `judge_samples` and §6 shape in 0.14.0; §6.5's stamp in
+  0.15.0; §7 spread in 0.16.0, whose clause §7.4 withdrew on 2026-09-22. One
+  item is still open, shape's threshold, and it is under *Not decided here*: a
+  deferral inside the decision, not the decision undecided.
+  The status read `proposed` until 2026-09-24: nothing moved it when the
+  code shipped, which is why `Shipped:` is now checked (`tests/test_adr.py`)
+- Shipped: 0.14.0
 - Date: 2026-09-16
 - Amended: 2026-09-17 — evidence added to the Context, no decision revisited:
   **a miss of the house's own, in pilot-zero's fourth cycle.** Its judgment
@@ -1786,8 +1794,9 @@ prints a range, and neither says *more* or *inside* until the data sizes it.
 *Amended 2026-09-22: for spread, permanently. The data was read and it sized
 nothing: a min–max range is monotone in N, so *outside* reports a value not
 seen before rather than a change, and the clause is withheld because the
-statistic cannot carry it (§7.4). Shape's sentence is still pending; spread's
-is not coming back in this form.*
+statistic cannot carry it (§7.4). Shape's sentence is deferred, and the
+deferral is recorded under *Not decided here*; spread's is not coming back in
+this form.*
 That will read as unfinished. It is the cost of not setting a threshold in text.
 
 **Third-party assertions are undeclared** until their authors declare a scale,
@@ -1894,7 +1903,9 @@ baseline reports no delta.
 ## Not decided here
 
 **The shape threshold**: *more than the reference* (§6.3). It arrives as a
-dated amendment to its section, sized on data, with the data named.
+dated amendment to its section, sized on data, with the data named. It is
+the one part of this record still open, and it is open inside a decision in
+force: shape ships and prints its shares; only the sentence waits.
 
 *Amended 2026-09-22: there were two thresholds here, and the second one is
 closed rather than pending. The floor on N for spread (§7.4) was measured and

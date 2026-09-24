@@ -6,6 +6,7 @@
   [ADR 0024](0024-the-judge-as-an-instrument.md),
   [ADR 0027](0027-the-run-reconciles.md) and
   [ADR 0028](0028-the-rules-that-moved.md) were
+- Shipped: 0.19.0
 - Date: 2026-09-23
 - Opens: **schema 16.** One field joins the run document, `Run.pinned`, and §3
   is the passenger rule applied to it in this record's own words, as

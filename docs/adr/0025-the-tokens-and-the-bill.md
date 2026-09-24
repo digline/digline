@@ -5,6 +5,7 @@
   [ADR 0014](0014-what-may-ride-a-schema-bump.md),
   [ADR 0018](0018-the-recorded-trajectory-and-the-agent-under-test.md) and
   [ADR 0024](0024-the-judge-as-an-instrument.md) were
+- Shipped: 0.16.0
 - Date: 2026-09-18
 - Opens: **schema 14**. It is the first passenger of that train, and it is
   written before the train is coupled: what else may ride is decided against

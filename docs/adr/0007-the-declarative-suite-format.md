@@ -4,6 +4,7 @@
   digline-anthropic, digline-openai and digline-bedrock 0.3.0. The document
   landed first and the code was written against it, the way
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) was
+- Shipped: 0.5.0
 - Date: 2026-09-03
 - Amended: 2026-09-09 — **§6 gains the read boundary.** A security review found
   that `artifacts = ["/etc/passwd"]` in a file with no Python in it read the

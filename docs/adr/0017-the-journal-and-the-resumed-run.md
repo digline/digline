@@ -6,6 +6,7 @@
   [ADR 0013](0013-the-pytest-plugin.md),
   [ADR 0014](0014-what-may-ride-a-schema-bump.md) and
   [ADR 0016](0016-the-canary-case.md) were
+- Shipped: 0.11.0
 - Date: 2026-09-11
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) (the
   perimeter is a directory, and the payload stays where it is born);

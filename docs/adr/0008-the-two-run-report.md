@@ -4,6 +4,7 @@
   landed first and the code was written against it, the way
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) and
   [ADR 0007](0007-the-declarative-suite-format.md) were
+- Shipped: 0.6.0
 - Date: 2026-09-04
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression) and §3 (`compare()` is a pure function of
