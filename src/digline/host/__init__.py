@@ -44,9 +44,11 @@ from digline.host.reading import Explained, explained, history, instant
 from digline.host.register import entry_for, record
 from digline.host.resolve import (
     LATEST,
+    NO_BASELINE,
     Resolved,
     need_baseline,
     read_run,
+    replacing,
     resolve_key,
 )
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
@@ -55,6 +57,7 @@ __all__ = [
     "DIRTY_SUFFIX",
     "Explained",
     "LATEST",
+    "NO_BASELINE",
     "Resolved",
     "SUITE_ATTR",
     "SUITE_SUFFIX",
@@ -79,6 +82,7 @@ __all__ = [
     "read_pinned",
     "read_run",
     "record",
+    "replacing",
     "resolve_key",
     "seed_observed",
     "utc_now_iso",

@@ -432,6 +432,7 @@ def test_a_suite_too_noisy_to_trust_cannot_be_promoted(tmp_path: Path) -> None:
         store.promote_baseline(
             store.write_run(run),
             suite.config_hash(),
+            expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
         )
 

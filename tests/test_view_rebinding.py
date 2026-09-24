@@ -26,7 +26,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 # Private on purpose: `view.py` is transport only and its `__all__` is two
 # names. The security predicate is still worth a direct test, so it is reached
@@ -53,7 +53,16 @@ def served(repo: Path) -> Iterator[tuple[int, str]]:
     by hand would be a test of the function rather than of the door.
     """
     key = run_key(repo)
-    promoted = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == 0, promoted.stderr
 
     process = subprocess.Popen(

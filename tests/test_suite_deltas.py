@@ -462,8 +462,10 @@ def test_the_wire_carries_the_rules_under_full_only() -> None:
     before = run(verdicts=(verdict("contains", threshold=0.6),))
     comparison = compare(now, before)
     head = headline(comparison, now, before, locale="en")
-    assert "suite_deltas" not in compare_json(comparison, head, full=False)
-    payload = compare_json(comparison, head, full=True)
+    assert "suite_deltas" not in compare_json(
+        comparison, head, baseline=before, full=False
+    )
+    payload = compare_json(comparison, head, baseline=before, full=True)
     assert payload["suite_deltas"] == [
         {
             "rule": "contains",
@@ -486,7 +488,7 @@ def test_the_wire_never_carries_a_withheld_key_for_a_rule() -> None:
     now = run(verdicts=(verdict("contains", threshold=0.4),), config_hash="hash-b")
     before = run(verdicts=(verdict("contains", threshold=0.6),))
     head = headline(compare(now, before), now, before, locale="en")
-    payload = compare_json(compare(now, before), head, full=True)
+    payload = compare_json(compare(now, before), head, baseline=before, full=True)
     rule = payload["suite_deltas"][0]  # type: ignore[index]
     assert "withheld" not in rule
 

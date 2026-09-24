@@ -162,7 +162,7 @@ would be a second gate on one fact. Everything it will not do exits `64`.
 
 ```console
 $ digline register --suite suite.py --run latest --disposition accepted
-digline: suite 'support' has no baseline for tenant 'northwind' yet. Run it, look at the result, then 'digline promote --run <key>'.
+digline: suite 'support' has no baseline for tenant 'northwind' yet. Run it, look at the result, then 'digline promote --run <key> --replacing none'.
 ```
 
 **A key that does not resolve**, or a tenant that is not the suite's — the

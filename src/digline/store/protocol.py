@@ -205,6 +205,24 @@ class SuiteMismatchError(ValueError):
     document refuses this one the same way, with no handler to add."""
 
 
+class BaselineMovedError(Exception):
+    """Raised when a promotion would replace a baseline other than the one the
+    run was compared against.
+
+    The lost update a reader found in `promote` (ADR 0031): two people compare
+    two runs against one reference, both promote, and the second silently
+    replaces the first's reference with a run nobody compared against it. The
+    caller names the reference it expects to replace — the key `compare` printed,
+    or `None` for a suite with no baseline yet — and this is raised when the one
+    present at write time is another.
+
+    **It guarantees that replacing a moved reference is never silent, not that
+    it cannot happen**: the refusal names the key it found, and somebody can
+    pass that key back without comparing anything. What it stops is the
+    replacement nobody noticed.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class RunRef:
     """An opaque reference to a persisted run.
@@ -321,9 +339,20 @@ class ResultStore(Protocol):
         ...
 
     def promote_baseline(
-        self, ref: RunRef, expected_config_hash: str, *, promoted_at: str
+        self,
+        ref: RunRef,
+        expected_config_hash: str,
+        *,
+        expected_baseline: str | None,
+        promoted_at: str,
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
+
+        `expected_baseline` is the key of the reference this promotion replaces,
+        as `compare` printed it, or `None` where the suite has no baseline yet.
+        Mandatory with no default, for `promoted_at`'s reason: a default would
+        make *not checked* the ordinary outcome, and the ordinary outcome is
+        where the lost update happens (ADR 0031 §2).
 
         `promoted_at` is **passed in and not read here**, for the reason
         `created_at` is passed into `execute()`: the clock belongs to the layer
@@ -362,6 +391,16 @@ class ResultStore(Protocol):
            what its suite asked and what came back — what it measured is not
            known, and the refusal names the case and the check rather than only
            the case (ADR 0027 §3).
+        7. `SuiteMismatchError`, raised with 1 as the run is read, if the stored
+           run declares a suite other than the one it was addressed through — a
+           document that contradicts itself is refused, not filed where it
+           claims to belong.
+        8. `BaselineMovedError`, **last**, if the baseline present now is not
+           `expected_baseline`. Last because every refusal above is about the
+           run and holds whatever the reference, so a person sent to compare
+           again first would be sent round twice; and last because it sits
+           beside the write, which is as narrow as the window gets without a
+           lock (ADR 0031 §2, *Not decided here*).
 
         What is written carries `promoted_at`: `created_at` says when the run was
         measured, and this says when a person signed it off.

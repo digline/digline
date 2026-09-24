@@ -46,6 +46,7 @@ from digline.core import (
 )
 from digline.host import (
     LATEST,
+    NO_BASELINE,
     TARGET_ATTR,
     Loaded,
     UsageError,
@@ -62,10 +63,12 @@ from digline.host import (
     read_pinned,
     read_run,
     record,
+    replacing,
     resolve_key,
     utc_now_iso,
 )
 from digline.report import (
+    against_line,
     artifact_lines,
     config_lines,
     explain_text,
@@ -129,6 +132,15 @@ __all__ = [
 LOCALES: tuple[str, ...] = ("en", "it")
 
 RUN_HELP = "a run key, or 'latest' for the most recent run of this suite"
+
+#: Both halves of what the check buys, in one sentence, because a reader who
+#: meets only the first will trust it for more than it does. (ADR 0031 §3)
+REPLACING_HELP = (
+    "the baseline this promotion replaces, as `compare` printed it, or "
+    f"'{NO_BASELINE}' for a suite that has none yet. Refused if the baseline "
+    "has moved since: replacing a moved reference is never silent — though "
+    "passing the key the refusal names, without comparing again, still does it"
+)
 
 #: `run`'s meaning, on the commands that check a run's hash: the target whose
 #: declared price the hash includes. A data suite has one target and refuses it.
@@ -490,11 +502,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
     head = headline(comparison, run, baseline, locale=args.locale)
 
     if args.json:
-        payload = compare_json(comparison, head, full=args.json == "full")
+        payload = compare_json(
+            comparison, head, baseline=baseline, full=args.json == "full"
+        )
         emit(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
     say(head.sentence)
+    # Right under the verdict, because it is what the verdict is relative to —
+    # and the key a promotion of this run has to name. (ADR 0031 §2)
+    say(against_line(baseline, locale=args.locale))
     # What was under test, before what it did: a prompt that moved changes how
     # every line below it reads, and learning that afterwards is learning it too
     # late. The tally only — the diff is in the report, one command away.
@@ -695,6 +712,10 @@ def cmd_promote(args: argparse.Namespace) -> int:
     promoted = store.promote_baseline(
         ref,
         suite.config_hash(pricing=_pricing(args, loaded)),
+        # What the person compared against, as they typed it — never read from
+        # the store here, which would make the check compare the baseline with
+        # itself. (ADR 0031 §1)
+        expected_baseline=replacing(args.replacing),
         promoted_at=utc_now_iso(),
     )
     # The resolved key, never the literal "latest": what was promoted must be
@@ -1078,6 +1099,12 @@ def build_parser() -> argparse.ArgumentParser:
     prom_p = subparsers.add_parser("promote", help="make a run the baseline")
     common(prom_p)
     prom_p.add_argument("--run", required=True, metavar="KEY", help=RUN_HELP)
+    prom_p.add_argument(
+        "--replacing",
+        required=True,
+        metavar="KEY",
+        help=REPLACING_HELP,
+    )
     prom_p.add_argument("--target", help=TARGET_HELP)
     prom_p.set_defaults(func=cmd_promote)
 

@@ -25,7 +25,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 from digline.store import FileResultStore, RunRef
 
@@ -35,7 +35,16 @@ def planted(repo: Path) -> tuple[Path, str]:
     """A repository with a real run, a promoted baseline, and a run-shaped
     document outside the store that a link points at."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
 
     outside = repo.parent / "outside.json"

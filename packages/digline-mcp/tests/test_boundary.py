@@ -22,7 +22,7 @@ import anyio
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
-from tests._helpers import cli, git
+from tests._helpers import baseline_in, cli, git
 
 from digline_mcp.server import build_server
 
@@ -87,7 +87,16 @@ def loaded(tmp_path: Path) -> Path:
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-qm", "initial")
     first = cli(tmp_path, "run", "--suite", "suite_qa.py").stdout.strip()
-    cli(tmp_path, "promote", "--suite", "suite_qa.py", "--run", first)
+    cli(
+        tmp_path,
+        "promote",
+        "--replacing",
+        baseline_in(tmp_path),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        first,
+    )
     second = cli(
         tmp_path, "run", "--suite", "suite_qa.py", "--meta", f"customer={RUN_META}"
     ).stdout.strip()

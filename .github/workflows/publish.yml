@@ -156,7 +156,7 @@ jobs:
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
-          /tmp/from-index/bin/digline promote --suite suite.py --run latest
+          /tmp/from-index/bin/digline promote --suite suite.py --run latest --replacing none
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
 
   pypi:
@@ -260,7 +260,7 @@ jobs:
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
           /tmp/from-index/bin/digline run --suite suite.py
-          /tmp/from-index/bin/digline promote --suite suite.py --run latest
+          /tmp/from-index/bin/digline promote --suite suite.py --run latest --replacing none
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
 
   github-release:

@@ -152,7 +152,7 @@ def test_the_fact_crosses_the_wire() -> None:
     run = run_with(aggregate(1.0, 3))
     comparison = compare(run, REFERENCE)
     head = headline(comparison, run, REFERENCE, locale="en")
-    document = compare_json(comparison, head, full=True)
+    document = compare_json(comparison, head, baseline=REFERENCE, full=True)
     deltas = document["deltas"]
     assert isinstance(deltas, list)
     rows = cast("list[dict[str, object]]", deltas)

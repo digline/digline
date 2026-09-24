@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key, write_suite
+from tests._helpers import baseline_in, cli, run_key, write_suite
 
 from digline.cli import EXIT_OK, EXIT_USAGE
 from digline.core import SystemConfig, pricing_digest
@@ -288,12 +288,22 @@ def test_promote_names_the_target_it_signs(repo: Path) -> None:
     write_suite(repo, preamble=PRICED_TARGET)
     key = run_key(repo, "--target", "suite_qa.py:other")
 
-    unnamed = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    unnamed = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert unnamed.returncode == EXIT_USAGE
     assert "config_hash" in unnamed.stderr
 
     named = cli(
-        repo, "promote", "--suite", "suite_qa.py", "--run", key,
+        repo, "promote", "--replacing", baseline_in(repo),
+        "--suite", "suite_qa.py", "--run", key,
         "--target", "suite_qa.py:other",
     )  # fmt: skip
     assert named.returncode == EXIT_OK, named.stderr
@@ -307,5 +317,14 @@ def test_a_suite_with_no_target_still_promotes(repo: Path) -> None:
     (repo / "suite_qa.py").write_text(
         source.replace("def target(case):", "def _target(case):"), encoding="utf-8"
     )
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert done.returncode == EXIT_OK, done.stderr

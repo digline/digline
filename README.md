@@ -149,7 +149,7 @@ When your judge is a real model, add a provider plugin:
 $ digline run --suite suite.py
 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 
-$ digline promote --suite suite.py --run latest
+$ digline promote --suite suite.py --run latest --replacing none
 support baseline set to 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 ```
 
@@ -255,7 +255,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline run` | execute the suite, write the run, print its key. A run killed part way through is finished with `--resume`, which re-pays for the cases nobody has an answer to and nothing else — [`docs/api.md`](docs/api.md#the-run-that-was-killed) |
 | `digline compare` | headline plus the lines that got worse; `--json`, `--json full` for CI |
 | `digline diff` | what differs between two runs, neither of them a baseline — for "should I switch?" rather than "did it get worse?". Always exits 0: it is a report, not a verdict — [`docs/diff.md`](docs/diff.md) |
-| `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, or any check errored |
+| `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, any check errored, or the baseline moved since the comparison (`--replacing` names the one it replaces) |
 | `digline register` | record what a person decided about a comparison — `--disposition accepted`, `rejected` or `unsure` — as one line under `.digline/<tenant>/register/`, committed like a baseline. Counts and keys only: the reason goes in the message of the commit that adds the line. A person's act, never an agent's or a schedule's — [`docs/register.md`](docs/register.md) |
 | `digline report` | self-contained HTML for readers who do not read code; `--locale` mandatory, `--redacted` keeps the verdicts and drops the payload. With no baseline yet it renders the run on its own and says so, so the first run is readable before anything is promoted |
 | `digline explain` | the same facts read back at length, in prose: what ran, what moved, against which measured interval, what differed underneath. Compares when there is a baseline and reads the run alone when there is not. `--json` emits the fact list the prose is rendered from. It states, and never advises — [`docs/explain.md`](docs/explain.md) |

@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import dataclasses
 
-from digline.core import AssertionDelta, Comparison, ConfigDelta, SuiteDelta
+from digline.core import (
+    AssertionDelta,
+    Comparison,
+    ConfigDelta,
+    Run,
+    SuiteDelta,
+    key_of,
+)
 from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
 from digline.wire.text import neutralised
@@ -133,7 +140,7 @@ def rule_json(delta: SuiteDelta) -> dict[str, object]:
 
 
 def compare_json(
-    comparison: Comparison, head: Headline, *, full: bool
+    comparison: Comparison, head: Headline, *, baseline: Run, full: bool
 ) -> dict[str, object]:
     """The headline, not the document: a pipeline wants the facts, and the
     sentence it carries is the same one a customer will read.
@@ -152,6 +159,13 @@ def compare_json(
     # process to exit, which is why it has to be a field there; it is a field
     # here too so the two surfaces cannot answer differently. (ADR 0011 §4)
     payload["exit_code"] = exit_code(head)
+    # The reference this comparison was made against, by the key a promotion
+    # has to name to replace it — in every shape, not only `full`, because the
+    # one thing a caller does next with a comparison it accepts is promote.
+    # Derived here from the document rather than handed in, so no caller can
+    # pass the key of a different reference. An added key under
+    # `OUTPUT_VERSION = 2`'s rule. (ADR 0031 §2)
+    payload["baseline_key"] = key_of(baseline.created_at, baseline.config_hash)
     if full:
         payload["deltas"] = [delta_json(d) for d in comparison.deltas]
         # The shape reading's numbers, beside the deltas they are read from. An

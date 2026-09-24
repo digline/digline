@@ -30,6 +30,7 @@ from digline.host.errors import UsageError
 from digline.run.replay import ReplayError
 from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
+    BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
     JournalBusyError,
@@ -62,6 +63,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     UncalibratedRunError,
     TenantMismatchError,
     SuiteMismatchError,
+    BaselineMovedError,
     PathRefusedError,
     RunNotFoundError,
     RegisterRefusedError,

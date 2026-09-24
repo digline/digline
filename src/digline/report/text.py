@@ -66,6 +66,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # scrolls past the first screen must still be able to see that the
         # answers came from a stored run, and which one.
         "header.promoted": "Reference approved",
+        # The key a promotion has to name to replace this reference, printed
+        # where a reader of the comparison can copy it from (ADR 0031 §2).
+        "header.baseline_key": "Reference key",
+        "summary.against": "against baseline {reference}",
         "header.rejudged": "Answers replayed from",
         # The evidence block: shown only where the document carries it, which
         # is never at a boundary (ADR 0015 §4).
@@ -1137,6 +1141,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "header.redacted": "Contenuti omessi",
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
         "header.promoted": "Riferimento approvato",
+        "header.baseline_key": "Chiave del riferimento",
+        "summary.against": "rispetto alla baseline {reference}",
         "header.rejudged": "Risposte riascoltate da",
         "answers.title": "Che cosa ha risposto il sistema",
         "answers.note": (

@@ -28,7 +28,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from tests._helpers import cli, git, run_key
+from tests._helpers import baseline_in, cli, git, run_key
 
 from digline.store import FileResultStore
 
@@ -44,7 +44,16 @@ def test_git_carries_a_planted_symlink(repo: Path, tmp_path: Path) -> None:
     severity and a different advisory.
     """
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     store = FileResultStore(repo)
     register = store.register_path(TENANT, SUITE)
@@ -81,7 +90,19 @@ def test_the_register_is_not_appended_outside_the_store(
     never runs, and the `os.open` that follows has no `O_NOFOLLOW`.
     """
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     second = run_key(repo)
 
     store = FileResultStore(repo)

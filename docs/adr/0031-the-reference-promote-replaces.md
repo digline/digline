@@ -5,6 +5,17 @@
   0.19.2: that release was being cut when this record was opened, and this is
   deliberately not part of it
 - Date: 2026-09-24
+- Amended: 2026-09-24, with the code, on `promote-replacing`. These are three
+  facts the text did not foresee, and none of them revisits a decision.
+  **The key rule moved into the core** as `digline.core.key_of`, and
+  `FileResultStore.key_for` delegates to it. §2 has the report and the wire
+  print the key, and both import nothing but the core, so the rule could not
+  stay in the store. **The `none` literal lives beside it** as
+  `digline.core.NO_BASELINE`, for the same reason: the `view` form is rendered
+  in `report`. **The examples and the image are not yet changed.** Each
+  example pins `digline<0.20`, and the image installs the pinned release, so
+  they show 0.19's `promote` until their pins move with 0.20.0. Changing them
+  earlier would document a flag their own install refuses
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §8 (a
   baseline is an approved reference, and promotion has named conditions);
   [ADR 0011](0011-the-mcp-server.md) §1 (the MCP has no `promote`) and §6 (one

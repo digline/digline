@@ -18,6 +18,7 @@ from digline.store.migrate import (
 from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
+    BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
     Journal,
@@ -68,6 +69,7 @@ __all__ = [
     "RunRef",
     "SupportsJournal",
     "SuiteMismatchError",
+    "BaselineMovedError",
     "TenantMismatchError",
     "journal_key",
     "migrate_file",

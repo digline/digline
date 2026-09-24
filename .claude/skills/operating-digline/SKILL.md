@@ -24,6 +24,13 @@ that loads when you are about to act.
 > evidence — the `compare` output, the run key, what moved and why you believe
 > it — and recommend. The human runs the command, or tells you to.
 
+Where `digline promote --help` lists `--replacing`, the command also names the
+baseline it replaces: `--replacing <key>`, the key `compare` prints under its
+verdict, or `none` for a suite's first baseline. Put that key in the evidence. If the promotion is
+refused because the baseline moved, say so and compare again — do not pass
+back the key the refusal found: that replaces a reference nobody compared
+against, which is the thing the refusal exists to stop.
+
 A baseline is an **approved reference**, not the most recent measurement. The
 approval is the whole of its meaning: it is what a reviewer signed, what ships
 in the pull request, and what a customer is shown. An agent that promotes on

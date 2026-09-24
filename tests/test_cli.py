@@ -15,7 +15,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key, suite_source, write_suite
+from tests._helpers import baseline_in, cli, run_key, suite_source, write_suite
 
 from digline.cli import (
     EXIT_OK,
@@ -80,7 +80,16 @@ def test_run_prints_a_key_that_promote_accepts(repo: Path) -> None:
     key = run_key(repo)
     assert key and ":" not in key
 
-    promoted = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    promoted = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert promoted.returncode == EXIT_OK, promoted.stderr
     assert (repo / ".digline" / "acme-bank" / "baselines" / "qa.json").is_file()
 
@@ -93,7 +102,16 @@ def test_run_prints_a_key_that_promote_accepts(repo: Path) -> None:
 
 def test_compare_exits_worse_when_the_suite_regresses(repo: Path) -> None:
     baseline_key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        baseline_key,
+    )
 
     write_suite(repo, fr_score="0.2")  # the judge now scores one case badly
     key = run_key(repo)
@@ -106,7 +124,16 @@ def test_compare_exits_worse_when_the_suite_regresses(repo: Path) -> None:
 
 def test_compare_exits_unjudged_when_a_case_cannot_run(repo: Path) -> None:
     baseline_key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        baseline_key,
+    )
 
     write_suite(repo, extra=', Case(id="flaky")')
     key = run_key(repo)
@@ -129,7 +156,16 @@ def test_the_exit_code_field_is_the_process_exit_code(repo: Path) -> None:
     (ADR 0011 §4)
     """
     baseline_key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        baseline_key,
+    )
 
     def field_and_status(*, expected: int) -> None:
         key = run_key(repo)
@@ -180,7 +216,16 @@ def test_the_diff_json_has_no_exit_code(repo: Path) -> None:
 
 def test_compare_json_emits_the_headline_not_the_document(repo: Path) -> None:
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     done = cli(
         repo,
         "compare",
@@ -244,6 +289,11 @@ COMPARE_KEYS = {
     # place. `test_the_exit_code_field_is_the_process_exit_code` pins the two
     # together.
     "exit_code",
+    # Joined with ADR 0031 §2, same rule, and changes no exit code. The key of
+    # the reference this comparison was made against, which is what
+    # `promote --replacing` has to name: a consumer that promotes after a green
+    # comparison has it without reading `list`.
+    "baseline_key",
     # Joined with ADR 0015 §8, same rule again. A pipeline that never looks at
     # it is unaffected; one that does learns the thing no other key on this list
     # can say — that the answers under these numbers were replayed from a
@@ -296,7 +346,16 @@ def test_the_json_output_declares_its_own_contract_version(repo: Path) -> None:
     `SCHEMA_VERSION` has migrations; a pipeline only needs to know what it is
     being handed today."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     compared = json.loads(
         cli(repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json").stdout
@@ -309,7 +368,16 @@ def test_the_json_output_declares_its_own_contract_version(repo: Path) -> None:
 
 def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     full = json.loads(
         cli(
             repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json", "full"
@@ -330,7 +398,16 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
 
 def regressed_repo(repo: Path) -> str:
     """A promoted baseline, then a run where `capital-fr` scores badly."""
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", run_key(repo))
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        run_key(repo),
+    )
     write_suite(repo, fr_score="0.2")
     return run_key(repo)
 
@@ -367,7 +444,16 @@ def test_the_terminal_detail_is_the_one_in_the_report(repo: Path) -> None:
 
 def test_a_clean_comparison_prints_only_the_sentence(repo: Path) -> None:
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
     assert done.returncode == EXIT_OK
     assert " · " not in done.stdout
@@ -423,7 +509,16 @@ def test_json_full_does_not_carry_the_judge_words(repo: Path) -> None:
 
 def test_report_writes_a_document_and_keeps_the_exit_code(repo: Path) -> None:
     baseline_key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", baseline_key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        baseline_key,
+    )
     write_suite(repo, fr_score="0.2")
     key = run_key(repo)
 
@@ -448,7 +543,16 @@ def test_report_writes_a_document_and_keeps_the_exit_code(repo: Path) -> None:
 
 def test_report_redacted_removes_the_judge_words(repo: Path) -> None:
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     complete = cli(
         repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
@@ -480,7 +584,16 @@ def test_list_shows_runs_newest_first_and_marks_the_baseline(repo: Path) -> None
     yesterday's run: `--run KEY` is mandatory everywhere and only `run` prints
     a key."""
     first = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", first)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        first,
+    )
     write_suite(repo, fr_score="0.5")
     second = run_key(repo)
     assert second != first
@@ -618,7 +731,16 @@ def test_a_dirty_tree_is_marked_and_warned_about_in_the_report(repo: Path) -> No
     (repo / "untracked_change.txt").write_text("uncommitted", encoding="utf-8")
 
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     stored = json.loads(
         (repo / ".digline" / "acme-bank" / "runs" / "qa" / f"{key}.json").read_text(
             encoding="utf-8"
@@ -718,7 +840,16 @@ def test_compare_does_not_demand_a_locale(repo: Path) -> None:
     asked otherwise. The sentence matches the report's anyway, because both come
     from `headline()` — there is no need to make the user restate it."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     plain = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
     assert plain.returncode == EXIT_OK, plain.stderr
@@ -734,7 +865,16 @@ def test_report_does_demand_a_locale(repo: Path) -> None:
     """A document has a recipient, and their language is not settled by
     omission."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key)
     assert done.returncode != EXIT_OK
     assert "--locale" in done.stderr
@@ -793,7 +933,16 @@ def test_the_document_becomes_comparative_once_a_baseline_exists(repo: Path) -> 
     before = cli(
         repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
     ).stdout
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     after = cli(
         repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
     ).stdout
@@ -838,7 +987,16 @@ def test_a_baseless_report_can_still_be_redacted(repo: Path) -> None:
 def test_latest_resolves_to_the_most_recent_run(repo: Path) -> None:
     """The friction of minute three: copying by hand the key `run` just printed."""
     first = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", first)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        first,
+    )
     write_suite(repo, fr_score="0.2")
     second = run_key(repo)
     assert second != first
@@ -850,7 +1008,16 @@ def test_latest_resolves_to_the_most_recent_run(repo: Path) -> None:
 
 def test_latest_works_for_promote_and_reports_the_real_key(repo: Path) -> None:
     key = run_key(repo)
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", "latest")
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        "latest",
+    )
     assert done.returncode == EXIT_OK, done.stderr
     # Never the literal "latest": what was promoted must be nameable afterwards.
     assert key in done.stdout
@@ -859,7 +1026,16 @@ def test_latest_works_for_promote_and_reports_the_real_key(repo: Path) -> None:
 
 def test_latest_works_for_report(repo: Path) -> None:
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     done = cli(
         repo, "report", "--suite", "suite_qa.py", "--run", "latest", "--locale", "en"
     )
@@ -974,7 +1150,16 @@ def test_the_application_beside_the_suite_is_never_read_from_stale_bytecode(
 
     first = cli(repo, "run", "--suite", "suite_app.py")
     assert first.returncode == EXIT_OK, first.stderr
-    cli(repo, "promote", "--suite", "suite_app.py", "--run", "latest")
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_app.py",
+        "--run",
+        "latest",
+    )
 
     # Same length, and the timestamp put back: to Python's freshness check
     # (mtime, size) the stale cache is indistinguishable from a current one.
@@ -1092,7 +1277,16 @@ def test_comparing_without_a_baseline_explains_the_next_step(repo: Path) -> None
 def test_promoting_a_run_that_could_not_judge_is_refused(repo: Path) -> None:
     write_suite(repo, extra=', Case(id="flaky")')
     key = run_key(repo)
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert done.returncode == EXIT_USAGE
     assert "flaky" in done.stderr
 
@@ -1121,7 +1315,16 @@ def test_meta_is_recorded_and_stays_payload_unless_disclosed(repo: Path) -> None
         "account_balance": "1499.55",
     }
 
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     hidden = cli(
         repo,
         "report",
@@ -1198,7 +1401,16 @@ def test_latest_resolves_over_the_readable_runs(repo: Path) -> None:
     """This is the failure that started the entry: `--run latest` died on
     yesterday's files, refusing a run nobody had asked for."""
     current, _older, _oldest = mixed_store(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", current)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        current,
+    )
 
     done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", "latest")
     assert done.returncode == EXIT_OK, done.stderr
@@ -1284,7 +1496,16 @@ def test_the_baseline_is_migrated_too(repo: Path) -> None:
     """A baseline left behind would be unreadable the moment anything compared
     against it, which is every command that matters."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     downgrade(baseline, 5)
 
@@ -1352,7 +1573,19 @@ def test_explaining_without_a_baseline_reads_the_run_alone(repo: Path) -> None:
 
 def test_explaining_with_a_baseline_compares_without_being_asked(repo: Path) -> None:
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key)
     assert done.returncode == EXIT_OK, done.stderr
     assert "What moved" in done.stdout
@@ -1365,7 +1598,19 @@ def test_explaining_a_run_that_got_worse_exits_one(repo: Path) -> None:
     that described a regression at length while exiting 0 would teach a reader
     that the exit code is decoration."""
     good = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", good).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            good,
+        ).returncode
+        == 0
+    )
     write_suite(repo, fr_score="0.1")
     worse = run_key(repo)
     done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", worse)

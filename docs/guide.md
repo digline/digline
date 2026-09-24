@@ -95,7 +95,7 @@ Run the suite, then declare that this is what "working" looks like.
 $ digline run --suite support.py
 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing none
 support baseline set to 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
@@ -105,6 +105,10 @@ Nothing got worse compared with the reference. Every case could be judged. No ca
 `promote` wrote `.digline/northwind/baselines/support.json`. Commit it. From now
 on every comparison is against that file, it is reviewed like any other change,
 and `git revert` puts the old reference back.
+
+`--replacing` names the reference this promotion replaces, and `none` says there
+is none yet. It is mandatory, and it is a check, not a bypass: `promote` refuses
+if the baseline present is not the one you named.
 
 A photograph, not a target: it records where the system **was**, measured, not
 where you would like it to be. Everything below is about taking the photograph
@@ -330,14 +334,23 @@ $ digline run --suite support.py
 
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
+against baseline 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 ```
 
 Note the last sentence of the headline. Sampling is part of the configuration,
 so the old baseline no longer describes the rules in force and has to be
 re-taken. That is trigger one of chapter 8, arriving early.
+
+The line under it is the key of the reference the comparison was made against,
+and it is what `--replacing` names. If somebody else promoted in between — a
+colleague, a second terminal — the baseline is no longer that one, and
+`promote` refuses and names both keys rather than replacing a reference you
+never compared against. Compare again and use the key it prints. The refusal
+also names the key it found, and passing that back without comparing would go
+through: the check makes replacing a moved reference loud, not impossible.
 
 **Choose the floor knowing what it can catch.** Only a judged verdict counts
 toward agreement. A sample that could not judge counts against it, never for
@@ -619,7 +632,7 @@ where-is-my-order  0.920  pass  bar 0.650
 how-do-i-return    1.000  pass  bar 0.650
 is-it-waterproof   1.000  pass  bar 0.650
 
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 support baseline set to 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
 ```
 
@@ -755,7 +768,7 @@ off by 0.160  2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
 off by 0.160  2026-08-26T16-08-16-218356-00-00-2ba590fc617bbd5a
 off by 0.240  2026-08-26T16-08-16-219738-00-00-2ba590fc617bbd5a
 
-$ digline promote --suite support.py --run $(python median.py --key)
+$ digline promote --suite support.py --run $(python median.py --key) --replacing 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
 support baseline set to 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 ```
 
@@ -890,7 +903,7 @@ aggregate counts one, and `Suite` refuses to load without them.
 $ digline run --suite triage.py
 2026-08-26T16-09-07-912456-00-00-9e780e13e9fa4f58
 
-$ digline promote --suite triage.py --run latest
+$ digline promote --suite triage.py --run latest --replacing none
 triage baseline set to 2026-08-26T16-09-07-912456-00-00-9e780e13e9fa4f58
 
 $ digline run --suite triage.py
@@ -988,7 +1001,7 @@ AGREEMENT = "3/5"
 ```
 
 ```console
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 digline: ConfigMismatchError: run 2026-08-26T16-08-16-221095-00-00-2ba590fc617bbd5a was produced with config_hash 2ba590fc617bbd5a, the current configuration is ec1c0061f461d5e3: promoting it would record scores obtained under a configuration other than the one in force
 ```
 
@@ -1067,6 +1080,7 @@ $ digline run --suite support.py
 
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+against baseline 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 ```
 
 The suspension is in the headline, with its reason, and it travels into the
@@ -1094,7 +1108,7 @@ running the suite against the committed baseline and doing nothing else:
 Take a fresh reference first, so what follows has nothing else in it:
 
 ```console
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 support baseline set to 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 ```
 
@@ -1379,7 +1393,7 @@ $ digline run --suite support.py
 $ python failing.py
 0 checks not passing, over 4 cases
 
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 support baseline set to 2026-08-26T16-24-37-046803-00-00-e5881dce5cab0761
 ```
 
@@ -1481,7 +1495,7 @@ suite = Suite(
 $ digline run --suite support.py
 2026-08-26T16-41-23-002407-00-00-e5881dce5cab0761
 
-$ digline promote --suite support.py --run latest
+$ digline promote --suite support.py --run latest --replacing 2026-08-26T16-24-37-046803-00-00-e5881dce5cab0761
 support baseline set to 2026-08-26T16-41-23-002407-00-00-e5881dce5cab0761
 ```
 

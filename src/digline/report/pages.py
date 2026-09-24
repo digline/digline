@@ -27,6 +27,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from digline.core import (
+    NO_BASELINE,
     CheckDifference,
     Difference,
     Run,
@@ -537,7 +538,7 @@ def _runs_table(
                 run,
                 is_baseline=is_baseline,
                 stale=stale,
-                has_baseline=baseline_key is not None,
+                baseline_key=baseline_key,
                 locale=locale,
             )
         )
@@ -553,7 +554,7 @@ def _actions_cell(
     *,
     is_baseline: bool,
     stale: bool,
-    has_baseline: bool,
+    baseline_key: str | None,
     locale: Locale,
 ) -> str:
     """What this row can do — and, where it can do less, why.
@@ -575,7 +576,7 @@ def _actions_cell(
     # No link on the baseline's own row — a run compared with itself has
     # nothing to report — and none at all before there is a baseline, rather
     # than a link whose only possible answer is a 404.
-    if has_baseline and not is_baseline:
+    if baseline_key is not None and not is_baseline:
         parts.append(
             f'<a class="action" href="/compare?run={escape(key)}&amp;locale={locale}"'
             f' title="{escape(phrase(locale, "view.action.compare.title"))}">'
@@ -603,6 +604,12 @@ def _actions_cell(
             '<form method="post" action="/promote">'
             f'<input type="hidden" name="locale" value="{locale}">'
             f'<input type="hidden" name="run" value="{escape(key)}">'
+            # The reference this page was drawn against, never the one present
+            # when the click arrives: a second tab, or a second person on the
+            # same server, can promote in between, and this is what lets the
+            # store say so instead of replacing theirs. (ADR 0031 §2)
+            '<input type="hidden" name="replacing" '
+            f'value="{escape(baseline_key or NO_BASELINE)}">'
             f'<button type="submit">'
             f"{escape(phrase(locale, 'view.promote.button'))}</button>"
             "</form>"

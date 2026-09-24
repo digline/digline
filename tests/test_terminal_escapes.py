@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from tests._helpers import cli, run_key
+from tests._helpers import baseline_in, cli, run_key
 
 from digline.cli.output import say, visible
 from digline.core import json_visible
@@ -132,7 +132,19 @@ def test_say_prints_a_sanitised_line(capsys: pytest.CaptureFixture[str]) -> None
 def test_the_installed_behind_warning(repo: Path) -> None:
     """`digline_version`, the field the delta-pass was opened on."""
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     plant(stored(repo, key), digline_version=f"99.9.9{FORGERY}")
 
     done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
@@ -153,7 +165,19 @@ def test_the_listing_table(repo: Path) -> None:
 
 def test_the_comparison_sentence_and_its_lines(repo: Path) -> None:
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     worse = run_key(repo, "--meta", "model=x")
     plant(
         stored(repo, worse),
@@ -168,7 +192,19 @@ def test_the_comparison_sentence_and_its_lines(repo: Path) -> None:
 
 def test_the_reading(repo: Path) -> None:
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     plant(stored(repo, key), environment=f"staging{FORGERY}")
 
     done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", key)
@@ -190,7 +226,16 @@ def test_the_promotion_sentence(repo: Path) -> None:
     key = run_key(repo)
     plant(stored(repo, key), environment=f"staging{FORGERY}")
 
-    done = cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    done = cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
     assert clean(done.stdout, done.stderr)
 
 
@@ -242,7 +287,19 @@ def test_json_is_emitted_exactly_as_built(repo: Path) -> None:
     those would corrupt what a program parses. DEL and C1 are the two it leaves
     raw, which the section below holds."""
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     plant(stored(repo, key), environment=f"staging{FORGERY}")
 
     done = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key, "--json")
@@ -253,7 +310,19 @@ def test_json_is_emitted_exactly_as_built(repo: Path) -> None:
 
 def test_the_html_document_is_emitted_whole(repo: Path) -> None:
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
 
     done = cli(repo, "report", "--suite", "suite_qa.py", "--run", key, "--locale", "en")
     assert done.stdout.startswith("<!DOCTYPE html>")
@@ -289,7 +358,19 @@ def test_the_register_reaches_log_json_without_a_raw_c1(repo: Path) -> None:
     `OUTPUT_VERSION` 2 declares. Escaped, still never stripped: what the file
     held stays legible in what the reader gets."""
     key = run_key(repo)
-    assert cli(repo, "promote", "--suite", "suite_qa.py", "--run", key).returncode == 0
+    assert (
+        cli(
+            repo,
+            "promote",
+            "--replacing",
+            baseline_in(repo),
+            "--suite",
+            "suite_qa.py",
+            "--run",
+            key,
+        ).returncode
+        == 0
+    )
     recorded = cli(
         repo,
         "register",

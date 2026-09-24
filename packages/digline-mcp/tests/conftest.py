@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, git, run_key, write_suite
+from tests._helpers import baseline_in, cli, git, run_key, write_suite
 
 
 @pytest.fixture
@@ -35,5 +35,14 @@ def promoted(repo: Path) -> Path:
     that reached into the store to write a baseline would be quietly proving
     that it can.
     """
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", run_key(repo))
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        run_key(repo),
+    )
     return repo

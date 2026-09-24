@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from tests._helpers import cli, git
+from tests._helpers import baseline_in, cli, git
 
 from digline.core import (
     NOTHING_EXTRA,
@@ -494,7 +494,16 @@ def test_report_redacted_is_the_path_that_has_to_be_right(project: Path) -> None
     (project / "prompt.md").write_text(PROMPT_V1, encoding="utf-8")
     run_once(project)
     assert (
-        cli(project, "promote", "--suite", "suite.py", "--run", "latest").returncode
+        cli(
+            project,
+            "promote",
+            "--replacing",
+            baseline_in(project),
+            "--suite",
+            "suite.py",
+            "--run",
+            "latest",
+        ).returncode
         == 0
     )
     (project / "prompt.md").write_text(PROMPT_V2, encoding="utf-8")
@@ -560,7 +569,16 @@ def test_the_opt_in_shows_the_diff_in_a_redacted_report(project: Path) -> None:
     )
     (project / "prompt.md").write_text(PROMPT_V1, encoding="utf-8")
     run_once(project)
-    cli(project, "promote", "--suite", "suite.py", "--run", "latest")
+    cli(
+        project,
+        "promote",
+        "--replacing",
+        baseline_in(project),
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+    )
     (project / "prompt.md").write_text(PROMPT_V2, encoding="utf-8")
     run_once(project)
 

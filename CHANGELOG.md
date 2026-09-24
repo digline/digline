@@ -6,6 +6,41 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Changed — `promote` names the reference it replaces
+
+- **`digline promote` now requires `--replacing KEY | none`, and refuses when
+  the baseline moved after you compared.** Before this, `promote` rewrote the
+  baseline without looking at the one it was replacing. Two people who
+  compared two runs against one reference could both promote, and the second
+  silently replaced the first's new reference with a run nobody had compared
+  against it. Now the promotion names the reference it replaces: the key
+  `compare` printed, or `none` for a suite's first baseline. If the baseline
+  present is a different one, the promotion is refused with
+  `BaselineMovedError`, which names both keys and says how to compare again.
+  - **Where the key comes from.** `compare` prints `against baseline <key>`
+    under its verdict. `compare --json` and the MCP `compare` tool gain
+    `baseline_key`, an added key under `OUTPUT_VERSION` 2. The report header
+    shows it as *Reference key*. The promote form in `digline view` carries
+    the key of the baseline the page was drawn against.
+  - **What it buys, and what it does not.** Replacing a reference that moved
+    is never *silent*. It is still *possible*: the refusal names the key it
+    found, and passing that key back without comparing again goes through.
+    There is no force flag: to promote anyway, run the comparison again. It
+    is offline and costs one command.
+  - **For library callers**, `promote_baseline` gains a mandatory
+    `expected_baseline: str | None` keyword. The key rule is now
+    `digline.core.key_of`, which `FileResultStore.key_for` delegates to.
+  - **Why it exists.** **kantorcodes1** read `promote`'s code after coming in
+    from a post on r/ClaudeCode about the Claude Code plugin, which was about
+    something else, and found the lost update.
+    [ADR 0031](docs/adr/0031-the-reference-promote-replaces.md) is the ruling.
+- **Upgrading.** Every `digline promote` needs the new flag. Use
+  `--replacing none` where a suite has no baseline yet, and elsewhere use the
+  key the comparison you read printed. A script that promoted blind now has to
+  say what it replaces, and that is the point.
+
 ## 0.19.2 — 2026-09-24
 
 digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over

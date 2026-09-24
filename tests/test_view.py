@@ -19,7 +19,7 @@ from html import unescape
 from pathlib import Path
 
 import pytest
-from tests._helpers import cli, run_key, write_suite
+from tests._helpers import baseline_in, cli, run_key, write_suite
 
 from digline.core import (
     Artifact,
@@ -296,7 +296,16 @@ def test_without_a_reason_there_is_no_snippet_to_copy() -> None:
 def served(repo: Path) -> Iterator[tuple[str, str]]:
     """A real server on an ephemeral port, over a real store."""
     key = run_key(repo)
-    cli(repo, "promote", "--suite", "suite_qa.py", "--run", key)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
 
     process = subprocess.Popen(
         [
@@ -436,7 +445,11 @@ def test_a_post_from_another_origin_is_refused(served: tuple[str, str]) -> None:
 def test_a_post_from_the_page_itself_is_accepted(served: tuple[str, str]) -> None:
     base, key = served
     host = base.removeprefix("http://").rstrip("/")
-    assert post(f"{base}promote", f"run={key}", origin=f"http://{host}") == 200
+    # `replacing` is the key the page was drawn against: the served baseline.
+    assert (
+        post(f"{base}promote", f"run={key}&replacing={key}", origin=f"http://{host}")
+        == 200
+    )
 
 
 def test_promotion_goes_through_the_same_refusals(
@@ -445,13 +458,16 @@ def test_promotion_goes_through_the_same_refusals(
 ) -> None:
     """It is the same `promote_baseline`, so a run produced under another
     configuration is refused here exactly as it is on the command line."""
-    base, _key = served
+    base, key = served
     write_suite(repo, fr_score="0.2")
     other = run_key(repo)
     write_suite(repo)  # the configuration in force is the original one again
 
     host = base.removeprefix("http://").rstrip("/")
-    assert post(f"{base}promote", f"run={other}", origin=f"http://{host}") == 200
+    assert (
+        post(f"{base}promote", f"run={other}&replacing={key}", origin=f"http://{host}")
+        == 200
+    )
     # The baseline did not move: the refusal is real, not cosmetic.
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     assert json.loads(baseline.read_text(encoding="utf-8"))["config_hash"] != ""

@@ -523,7 +523,9 @@ def test_an_alias_that_rolled_across_the_seam_errors_instead_of_averaging(
     assert "m-1" in reason and "m-2" in reason and "pin the model id" in reason
     ref = FileResultStore(tmp_path).write_run(run)
     with pytest.raises(ErroredRunError):
-        store.promote_baseline(ref, run.config_hash, promoted_at=LATER)
+        store.promote_baseline(
+            ref, run.config_hash, expected_baseline=None, promoted_at=LATER
+        )
 
 
 def test_a_target_that_observes_nothing_is_seeded_with_nothing(

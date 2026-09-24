@@ -39,6 +39,7 @@ from digline.core import (
     checked_denominator,
     considered_cases,
     directions,
+    key_of,
     on_the_line,
     scale_lost,
     unreconciled,
@@ -1572,6 +1573,22 @@ def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
     return tuple(lines)
 
 
+def against_line(baseline: Run, *, locale: Locale) -> str:
+    """The reference a comparison was made against, by the key a promotion has
+    to name to replace it.
+
+    Printed because nothing else on a comparison's surface carried it: the key
+    appeared only in `list`, and a person asked to promote with
+    `--replacing <key>` would have had to find it somewhere they were not
+    looking. (ADR 0031 §2)
+    """
+    return phrase(
+        locale,
+        "summary.against",
+        reference=key_of(baseline.created_at, baseline.config_hash),
+    )
+
+
 def summary_lines(
     comparison: Comparison,
     run: Run,
@@ -1889,6 +1906,12 @@ def _meta(comparison: Comparison, run: Run, baseline: Run, locale: Locale) -> st
         # when it was measured. Absent where it was not recorded — a baseline
         # promoted before the field existed says nothing rather than guessing.
         pairs.append(("header.promoted", baseline.promoted_at))
+    # Always, unlike the signature above: the key is derived from two fields
+    # every document carries, so there is no reference without one. It is what
+    # `promote --replacing` has to name. (ADR 0031 §2)
+    pairs.append(
+        ("header.baseline_key", key_of(baseline.created_at, baseline.config_hash))
+    )
     if run.rejudged_from is not None:
         pairs.append(("header.rejudged", run.rejudged_from))
     if run.redacted or baseline.redacted:

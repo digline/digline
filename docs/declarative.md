@@ -71,7 +71,7 @@ Then the cycle you already know:
 
 ```console
 $ digline run     --suite suite.toml
-$ digline promote --suite suite.toml --run latest
+$ digline promote --suite suite.toml --run latest --replacing none
 $ digline compare --suite suite.toml --run latest
 ```
 

@@ -113,6 +113,28 @@ class Bindings:
             self.run_to_page[run] = page
         return True
 
+    def command(self, command: str) -> str:
+        """`command` with each key the page wrote replaced by the key it stands
+        for in this execution.
+
+        A page may name a key in a command only once the page has *printed* it:
+        that is how a reader gets one — `compare` prints the key of the baseline
+        it compared against, and `promote --replacing` names it back (ADR 0031
+        §2). A key the page never printed is a key no reader could have copied,
+        so it is refused rather than run.
+        """
+
+        def bound(found: re.Match[str]) -> str:
+            page = found.group(0)
+            run = self.page_to_run.get(page)
+            assert run is not None, (
+                f"`{command}` names {page}, which the page has not printed yet: "
+                "a reader could not have copied it from anywhere"
+            )
+            return run
+
+        return KEY_RE.sub(bound, command)
+
     def seen(self, line: str) -> None:
         """Number every token of a page line by first appearance on the page."""
         for token in TOKEN_RE.findall(line):
@@ -243,7 +265,7 @@ def replay(text: str, workdir: Path) -> list[Session]:
 
 
 def _check(session: Session, workdir: Path, bindings: Bindings) -> None:
-    done = run_command(session.command, workdir)
+    done = run_command(bindings.command(session.command), workdir)
     actual = [
         line.rstrip()
         for line in (done.stdout + done.stderr).splitlines()

@@ -46,6 +46,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from digline.cli.output import say
+from digline.host import replacing
 from digline.report import Locale, case_history, pages
 from digline.run import Suite
 from digline.store import (
@@ -362,12 +363,20 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not key:
             self._error(400, "promote needs a run")
             return
+        # The reference the page was drawn against. Absent is refused rather
+        # than read as `none`: a form that lost the field is not a form that
+        # said there was no baseline. (ADR 0031 §2)
+        expected = (form.get("replacing") or [""])[0]
+        if not expected:
+            self._error(400, "promote needs the baseline it replaces")
+            return
 
         ref = RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=key)
         try:
             self.store.promote_baseline(
                 ref,
                 self.suite.config_hash(pricing=self.pricing),
+                expected_baseline=replacing(expected),
                 promoted_at=utc_now_iso(),
             )
         except (
