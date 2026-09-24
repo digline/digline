@@ -11,17 +11,36 @@ Three properties are deliberate:
   nothing because there was nothing to lose.
 - **One route writes**, and it writes exactly what `digline promote` writes,
   through the same `promote_baseline` with the same three refusals.
-- **`Origin` is checked on that route.** Binding to loopback is not enough: any
-  page in the developer's browser can POST to `localhost`, and the browser will
-  attach no credential but the server needs none. Five lines close the category.
+- **The request does not get to say who this server is.** Binding to loopback is
+  not enough: any page in the developer's browser can reach `localhost`, and the
+  browser will attach no credential but the server needs none. So `Host` is
+  checked against the address this server actually bound to, on **every** route,
+  and `Origin` is checked against that same known value.
+
+  **This used to read "`Origin` is checked on that route ... five lines close
+  the category", and that sentence was wrong for the life of the project.**
+  Those five lines compared `Origin` with the request's own `Host` header —
+  two values describing one request. A page served from a hostname its author
+  controls that resolves to the loopback address is same-origin with this
+  server, so the comparison agreed and one request read the whole store or
+  promoted a baseline. The claim is recorded here rather than deleted because a
+  confident docstring is why nobody looked again: the code was one defect, and
+  the sentence telling everyone it was handled was the other.
 """
 
 from __future__ import annotations
 
 import html
+import ipaddress
 import sys
 import urllib.parse
+
+# `collections.abc.Set` is the read-only set protocol — the abstract one, not
+# the builtin `set`. Aliased because the bare name reads as the builtin at every
+# use site, and `serve()` deliberately passes a mutable set it fills after the
+# bind while the handler only ever reads it.
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -47,19 +66,70 @@ __all__ = ["ViewHandler", "serve"]
 _ROUTES = ("/", "/compare", "/promote")
 
 
-def _allowed_origin(origin: str, host: str) -> bool:
-    """Whether a POST may be acted on.
+#: Bind addresses that name every interface rather than one. A server bound to
+#: one of these cannot enumerate the names it will be reached by, which is the
+#: one case `_is_self` has to answer differently.
+_WILDCARDS = frozenset({"", "0.0.0.0", "::", "[::]"})  # noqa: S104
 
-    A browser sends `Origin` on cross-site form posts, so a page on any site
-    the developer happens to have open could otherwise promote a baseline. The
-    rule is the conservative one: no `Origin` at all is allowed — that is a
-    curl or an old browser, neither of which is the attack — but an `Origin`
-    that is not ours is refused rather than ignored.
+
+def self_netlocs(host: str, port: int) -> frozenset[str]:
+    """The `Host` values that name this server, derived from where it bound.
+
+    `localhost` and the loopback literals are in the set beside the configured
+    address because a browser sends whichever the developer typed, and all of
+    them reach the same socket when the bind is loopback.
+
+    The port is part of every entry: `Host` carries it, and a set without it
+    would accept the right name at the wrong port — which is a different server
+    on the same machine.
+    """
+    names = {host, "localhost", "127.0.0.1", "[::1]"} - _WILDCARDS
+    return frozenset(f"{name}:{port}" for name in names)
+
+
+def _is_self(netloc: str, known: AbstractSet[str], *, wildcard: bool) -> bool:
+    """Whether `netloc` names this server.
+
+    **Why a wildcard bind is answered differently rather than refused.** Bound
+    to every interface, the server cannot know the names it is reachable by —
+    a LAN address, a container alias, whatever the operator arranged — and a
+    set derived from configuration would refuse a deployment somebody chose on
+    purpose. So an address *literal* is accepted there.
+
+    That is not a hole, and the reason is worth stating where the exception is
+    made: this check exists to stop a request whose `Host` is a **name** the
+    attacker controls. Pointing a name at the loopback address is what makes
+    their page same-origin with this server; an IP literal cannot be made to
+    resolve anywhere, because it does not resolve at all.
+    """
+    if netloc in known:
+        return True
+    if not wildcard:
+        return False
+    hostname = netloc.rsplit(":", 1)[0] if ":" in netloc else netloc
+    try:
+        ipaddress.ip_address(hostname.strip("[]"))
+    except ValueError:
+        return False
+    return True
+
+
+def _allowed_origin(origin: str, known: AbstractSet[str], *, wildcard: bool) -> bool:
+    """Whether a request carrying this `Origin` may be acted on.
+
+    A browser sends `Origin` on cross-site posts, so a page on any site the
+    developer happens to have open could otherwise promote a baseline. The rule
+    is the conservative one: no `Origin` at all is allowed — that is a curl or
+    an old browser, neither of which is the attack — but an `Origin` that is
+    not ours is refused rather than ignored.
+
+    **It is compared with what this server knows itself to be**, never with the
+    request's own `Host`. That comparison was the defect: both headers describe
+    one request, so it asked the sender whether the sender was allowed.
     """
     if not origin:
         return True
-    parsed = urllib.parse.urlparse(origin)
-    return parsed.netloc == host
+    return _is_self(urllib.parse.urlparse(origin).netloc, known, wildcard=wildcard)
 
 
 class ViewHandler(BaseHTTPRequestHandler):
@@ -74,10 +144,18 @@ class ViewHandler(BaseHTTPRequestHandler):
         suite: Suite,
         store: FileResultStore,
         pricing: str = "",
+        known: AbstractSet[str] = frozenset(),
+        wildcard: bool = False,
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
+        #: The netlocs that name this server, from where it bound — not from
+        #: anything the request says. `serve()` computes them once.
+        self.known = known
+        #: Bound to every interface, so the names cannot be enumerated and an
+        #: address literal is accepted instead. See `_is_self`.
+        self.wildcard = wildcard
         #: The declared-price digest of the target this view promotes for, so a
         #: promotion from the browser checks the same hash the CLI does.
         #: (ADR 0022 §5)
@@ -127,7 +205,30 @@ class ViewHandler(BaseHTTPRequestHandler):
 
     # -- the screens -------------------------------------------------------- #
 
+    def _addressed_to_us(self) -> bool:
+        """Whether this request named this server, rather than a name that
+        merely resolves to it.
+
+        On **every** route and not only the one that writes: the reading routes
+        serve the unredacted store, which is the larger of the two losses. A
+        page that can read `/` has every run key, environment and commit in the
+        project, held by a party ADR 0002 exists to keep them from.
+        """
+        if _is_self(self.headers.get("Host", ""), self.known, wildcard=self.wildcard):
+            return True
+        # 403 and not 404: the request reached the right server, and a reply
+        # that pretended otherwise would be a different lie than the one being
+        # refused.
+        self._error(
+            403,
+            "refused: this request was addressed to a name this server does "
+            "not answer to. digline view serves the address it bound to.",
+        )
+        return False
+
     def do_GET(self) -> None:  # noqa: N802 — the name http.server dispatches on
+        if not self._addressed_to_us():
+            return
         path, query = self._query()
         locale: Locale = pages.locale_of(query)
         try:
@@ -240,12 +341,14 @@ class ViewHandler(BaseHTTPRequestHandler):
     # -- the one route that writes ------------------------------------------ #
 
     def do_POST(self) -> None:  # noqa: N802 — the name http.server dispatches on
+        if not self._addressed_to_us():
+            return
         path, _query = self._query()
         if path != "/promote":
             self._error(404, f"no such action: {path}")
             return
         if not _allowed_origin(
-            self.headers.get("Origin", ""), self.headers.get("Host", "")
+            self.headers.get("Origin", ""), self.known, wildcard=self.wildcard
         ):
             # 403 and not a redirect: a refusal that looked like a page would be
             # indistinguishable from a promotion that happened.
@@ -296,8 +399,21 @@ def serve(
     """Serve until interrupted. Loopback by default, and that is not a default
     anyone should change lightly: this server has no authentication because it
     has no user, only a developer at the same machine."""
-    handler = partial(ViewHandler, suite=suite, store=store, pricing=pricing)
+    # Filled after the bind and shared with every handler by reference, because
+    # the port may not be known until then: `--port 0` means the operating
+    # system chooses, and the allowlist has to name the port actually taken.
+    # Binding twice to learn it would race another process for the number.
+    known: set[str] = set()
+    handler = partial(
+        ViewHandler,
+        suite=suite,
+        store=store,
+        pricing=pricing,
+        known=known,
+        wildcard=host in _WILDCARDS,
+    )
     with ThreadingHTTPServer((host, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
+        known.update(self_netlocs(host, int(httpd.server_address[1])))
         shown = f"http://{host}:{httpd.server_address[1]}/"
         # Flushed, and the *bound* port rather than the requested one: with
         # `--port 0` the operating system chooses, and a caller that cannot read

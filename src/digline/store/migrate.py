@@ -27,7 +27,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from digline.core.run import SCHEMA_VERSION, run_from_dict, run_to_json
+from digline.core.run import (
+    SCHEMA_VERSION,
+    DocumentRefusedError,
+    run_from_dict,
+    run_to_json,
+)
 
 __all__ = [
     "MigrationReport",
@@ -359,12 +364,26 @@ def migrate_file(path: Path, *, dry_run: bool = False) -> int | None:
     the upgraded document does not parse — which is the check that makes
     rewriting safe.
     """
-    raw = cast(Mapping[str, Any], json.loads(path.read_text(encoding="utf-8")))
-    version = document_version(raw)
-    if version == SCHEMA_VERSION:
-        return None
-
-    upgraded = upgrade_document(raw)
+    loaded: object = json.loads(path.read_text(encoding="utf-8"))
+    # The reader's rule, one step earlier: a malformed document is refused by
+    # name and joins `migrate_paths`' list, rather than crashing the whole
+    # migration with a traceback before `run_from_dict` is ever reached.
+    # (Security pass of 2026-09-23, finding 6.)
+    if not isinstance(loaded, dict):
+        raise DocumentRefusedError(
+            f"the document is a JSON {type(loaded).__name__}, not an object"
+        )
+    raw = cast(Mapping[str, Any], loaded)
+    try:
+        version = document_version(raw)
+        if version == SCHEMA_VERSION:
+            return None
+        upgraded = upgrade_document(raw)
+    except (TypeError, AttributeError) as exc:
+        raise DocumentRefusedError(
+            f"the document does not have the shape of a run "
+            f"({type(exc).__name__}: {exc})"
+        ) from exc
     # Parsed with the current reader *before* anything is written. If the
     # upgrade produced something this version cannot read, the file on disk is
     # still the old one — recoverable — rather than a new one that is not.

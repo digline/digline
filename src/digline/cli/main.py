@@ -742,16 +742,13 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     """
     suite, _loaded, store = _load(args)
 
-    paths = list(store.run_paths(suite.tenant, suite.name))
-    baseline_path = store.baseline_path(suite.tenant, suite.name)
-    if baseline_path.exists():
-        paths.append(baseline_path)
+    paths = store.stored_paths(suite.tenant, suite.name)
 
     if not paths:
         say(f"nothing stored for suite {suite.name!r} in tenant {suite.tenant!r}")
         return EXIT_OK
 
-    report = migrate_paths(tuple(paths), dry_run=args.dry_run)
+    report = migrate_paths(paths, dry_run=args.dry_run)
     verb = "would migrate" if args.dry_run else "migrated"
     for path, came_from in report.migrated:
         say(f"{verb} {Path(path).name} from schema {came_from}")

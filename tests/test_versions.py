@@ -213,6 +213,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "canary, a calibration case and a judged check",
     },
     "src/digline/core/text.py": {
+        "0.10.1": (
+            "'0.10.1 closed DEL and C1' — the release that covered the first "
+            "class of control character, named as the boundary the "
+            "never-language widening reaches past. History, not the current "
+            "version"
+        ),
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
@@ -276,6 +282,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.19.1": (
+            "the release whose tag was measured: the index-race waits, the two "
+            "architectures' builds, the three image tags resolving to one "
+            "digest, and the hold after the go-ahead. Every one is an "
+            "observation of what v0.19.1 did, so moving them would claim a "
+            "later tag produced numbers nobody read. History, not the current "
+            "version"
+        ),
         "1.32.3": (
             "not a digline version: the hatchling that built "
             "`digline_anthropic-0.5.3` as PyPI serves it, read from the wheel's "
@@ -514,6 +528,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "bidirectional controls were never in that scope. It dates the "
         "boundary of a shipped fix, and moving it would claim a later release "
         "drew a line it did not draw",
+        "0.15.0": (
+            "'Since 0.15.0 digline-mcp renders through digline.wire' — the "
+            "release that gave that surface its second reader, named as the "
+            "thing the old severity argument did not follow. History, not the "
+            "current version"
+        ),
         "0.5.0": "'From 0.5.0 the declarative suite format refuses an api_key "
         "key by name' — when the refusal landed",
         "0.7.2": "'was fixed in 0.7.2' — the symlink escape, named so the "

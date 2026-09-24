@@ -115,3 +115,37 @@ def test_the_control_a_translated_refusal_arrives_whole(repo: Path) -> None:
     assert "digline promote" in message, (
         f"a translated refusal lost the remedy it names: {message!r}"
     )
+
+
+def test_a_document_that_is_not_a_run_is_refused_in_words(repo: Path) -> None:
+    """Finding 6's refusal, on this surface. Without a type of its own it would
+    reach the agent as a crash — reopening, in the same release, the defect the
+    store's two refusals were given types to close."""
+    key = run_key(repo)
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    stored.write_text("[1, 2]", encoding="utf-8")
+
+    message, kind = refusal(repo, "get_run", suite=str(repo / "suite_qa.py"), run=key)
+    assert kind is not UnexpectedToolError, (
+        f"a malformed stored document crashed instead of being refused "
+        f"({kind.__name__}: {message!r})"
+    )
+    assert "run" in message.lower(), message
+
+
+def test_a_document_naming_another_suite_is_refused_in_words(repo: Path) -> None:
+    """Finding 7's refusal, likewise: the document says one suite, the store
+    filed it under another, and the agent is told which."""
+    key = run_key(repo)
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    stored.write_text(
+        stored.read_text(encoding="utf-8").replace('"suite": "qa"', '"suite": "other"'),
+        encoding="utf-8",
+    )
+
+    message, kind = refusal(repo, "get_run", suite=str(repo / "suite_qa.py"), run=key)
+    assert kind is not UnexpectedToolError, (
+        f"a suite mismatch crashed instead of being refused "
+        f"({kind.__name__}: {message!r})"
+    )
+    assert "other" in message, message

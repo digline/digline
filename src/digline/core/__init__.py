@@ -123,6 +123,7 @@ from digline.core.run import (
     CallTotals,
     CaseProgress,
     CaseResult,
+    DocumentRefusedError,
     RecordedResponse,
     RecordedToolCall,
     Run,
@@ -157,7 +158,7 @@ from digline.core.sampling import (
     judged,
     on_the_line,
 )
-from digline.core.text import json_visible
+from digline.core.text import NEVER_LANGUAGE, json_visible
 from digline.core.types import (
     ALL_KINDS,
     CONVERSATION_ONLY,
@@ -301,6 +302,7 @@ __all__ = [
     "Difference",
     "DifferentJudgesError",
     "DifferentSuitesError",
+    "DocumentRefusedError",
     "DiffOutcome",
     "Favours",
     "artifact_deltas",
@@ -311,6 +313,7 @@ __all__ = [
     "index_verdicts",
     "STORAGE_STEP",
     "at_precision",
+    "NEVER_LANGUAGE",
     "json_visible",
     "canonical",
     "fold_judgements",

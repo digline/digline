@@ -70,6 +70,7 @@ from digline.store.protocol import (
     ReplayedRunError,
     RunNotFoundError,
     RunRef,
+    SuiteMismatchError,
     TenantMismatchError,
     UncalibratedRunError,
 )
@@ -295,15 +296,42 @@ class FileResultStore:
         return Listing(runs=tuple(keep), skipped=skipped, unreadable=tuple(unreadable))
 
     def run_paths(self, tenant: str, suite: str) -> tuple[Path, ...]:
-        """Every stored run file of a suite, readable or not.
+        """Every stored run file of a suite, readable or not — and every one
+        proved to lead inside the store.
 
         Migration needs the files themselves, not the runs: a document this
         version cannot parse is exactly the one that has to be migrated.
+
+        **The one lister that had no `_inside`, and the one whose caller
+        writes.** `scan_runs` beside it counts a linked-out file as unreadable;
+        this returned it, and `migrate` read the document through the link and
+        wrote the upgraded one back through it — outside the repository, exit
+        0, reported as an ordinary "migrated". So a link that leaves the store
+        refuses the listing, by name, before anything is read or written:
+        unlike a document that will not parse, it is not one file of two
+        hundred to skip, it is somebody's planted path. (Security pass of
+        2026-09-23, finding 3.)
         """
         directory = self.runs_dir(tenant) / _check_name(suite, "suite")
         if not directory.is_dir():
             return ()
-        return tuple(sorted(directory.glob("*.json")))
+        paths = tuple(sorted(directory.glob("*.json")))
+        for path in paths:
+            self._inside(path, "run")
+        return paths
+
+    def stored_paths(self, tenant: str, suite: str) -> tuple[Path, ...]:
+        """Every stored document of a suite — its runs, then its baseline — as
+        `migrate` rewrites them, each proved to lead inside the store.
+
+        The baseline is here and not left to the caller because it had the
+        same gap: `migrate` appended `baseline_path` after only an `exists()`.
+        """
+        paths = list(self.run_paths(tenant, suite))
+        baseline = self.baseline_path(tenant, suite)
+        if baseline.exists():
+            paths.append(self._inside(baseline, "baseline"))
+        return tuple(paths)
 
     def read_run(self, ref: RunRef) -> Run:
         path = self.run_path(ref)
@@ -315,6 +343,13 @@ class FileResultStore:
             raise TenantMismatchError(
                 f"the run stored at {path} declares tenant {run.tenant!r} but "
                 f"was addressed as {ref.tenant!r}"
+            )
+        if run.suite != ref.suite:
+            raise SuiteMismatchError(
+                f"the run stored at {path} declares suite {run.suite!r} but is "
+                f"filed under {ref.suite!r}. Promoting it would write "
+                f"{run.suite!r}'s baseline, which is the suite the document "
+                "names and not the one it was addressed through"
             )
         return run
 
@@ -328,6 +363,11 @@ class FileResultStore:
             raise TenantMismatchError(
                 f"the baseline at {path} declares tenant {run.tenant!r} but was "
                 f"read as {tenant!r}"
+            )
+        if run.suite != suite:
+            raise SuiteMismatchError(
+                f"the baseline at {path} declares suite {run.suite!r} but was "
+                f"read as {suite!r}"
             )
         return run
 
@@ -520,6 +560,22 @@ class FileResultStore:
         a last line that parses but has lost its newline gets one, so the new
         entry never joins it — the bytes already there stay a prefix of the
         bytes after. (ADR 0021 §5)
+
+        **Containment is established here, unconditionally, and on its own
+        line.** It used to be a side effect of a different question: `_inside`
+        was reached only inside `if joined:`, where it had been called to read
+        the last byte rather than to check anything — and `joined` needs the
+        file to already exist. `read_register` above
+        returns early on `not path.exists()` for the same reason. Both guards
+        therefore hung off `exists()`, which follows a link, so a **dangling**
+        symlink at `register/<suite>.jsonl` skipped both and the `O_CREAT` below
+        created the file it named, anywhere the user could write.
+
+        The write that creates the register is the ordinary first use of
+        `digline register`, so the one write nobody checked was the one
+        everybody makes; every later write was checked correctly. That is why
+        this survived from the feature's first commit — it is invisible to
+        anyone testing an established register.
         """
         path = self.register_path(tenant, suite)
         if self.read_register(tenant, suite).torn:
@@ -531,9 +587,10 @@ class FileResultStore:
             )
         self.ensure_layout(tenant)
         path.parent.mkdir(parents=True, exist_ok=True)
+        path = self._inside(path, "register")
         joined = path.exists() and path.stat().st_size > 0
         if joined:
-            joined = not self._inside(path, "register").read_bytes().endswith(b"\n")
+            joined = not path.read_bytes().endswith(b"\n")
         line = json.dumps(
             _entry_to_dict(entry),
             sort_keys=True,
