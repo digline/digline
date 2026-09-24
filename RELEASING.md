@@ -509,11 +509,12 @@ sounds like it. The two repositories are not symmetrical:
 
 Since 2026-09-23 "land" means the same thing in both: **push the branch, open a
 pull request, wait for green, then merge.** `main` here is protected by a
-ruleset nothing bypasses — the two `gates` checks on the ref, and the branch up
-to date before merging — so a direct push is refused and `git push origin main`
-is not a step in this file. The pull request is not the ruleset's doing: `ci.yml`
-runs on `pull_request` and on pushes to `main`, so a branch push produces no
-checks, and a ref with no checks cannot land. `CLAUDE.md` § Conventions is the
+ruleset nothing bypasses — a pull request (zero approvals), the two `gates`
+checks on the ref, and the branch up to date before merging — so a direct push
+is refused and `git push origin main` is not a step in this file. The ruleset
+has required the pull request only since 2026-09-24; it was needed before that
+anyway, because `ci.yml` runs on `pull_request` and on pushes to `main`, so a
+branch push produces no checks, and a ref with no checks cannot land. `CLAUDE.md` § Conventions is the
 rule and says why. What it changes is only how each of the two pushes below
 reaches its default branch; the order between the two repositories is
 unaffected, and is still this one.

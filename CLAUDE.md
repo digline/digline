@@ -148,9 +148,9 @@ artifacts that today exists in none of the audited competitors.
   refusal is the rule working rather than an obstacle to get around.
   `digline.dev` has worked this way all along, and the two are now the same in
   the part that matters — neither default branch takes a direct push, and
-  neither has a bypass. They are not identical: `digline.dev` routes work
-  through a pull request (zero approvals required), and here the ruleset does
-  not. Both now ask for an up-to-date branch. *Corrected 2026-09-23:* until
+  neither has a bypass. Both route work through a pull request with zero
+  approvals required — here since 2026-09-24, see below — and both ask for an
+  up-to-date branch. *Corrected 2026-09-23:* until
   then this sentence said `digline.dev` did not, which was true until its
   `Build` check was made strict that day (the ruleset records its last update
   at 15:48 CEST). The sentences around this one were checked against both
@@ -170,16 +170,32 @@ artifacts that today exists in none of the audited competitors.
   review, no signed commits, no linear history. Merge commits are still how
   work lands.
 
-  It does not require a pull request either — but **open one anyway, because
-  nothing else can produce the checks.** `ci.yml` runs on `pull_request` and on
-  pushes to `main`, and a push to any other branch starts nothing at all: the
-  branch arrives green-looking with no checks on it, and a ref with no checks
-  is a ref that cannot land. So the shape above, in full: push the branch, open
-  a pull request, wait for the two gates, merge. That is the CI trigger
-  combining with the ruleset rather than either one alone, which is exactly the
-  kind of interaction neither page shows you. Observed on the first try: the
-  first push of the branch that recorded this rule produced **zero check runs**,
-  and PR #82 had to be opened before anything could go green.
+  **It requires a pull request, with zero approvals** — since 2026-09-24.
+  Every change already went through one, so the rule adds no step: it turns a
+  habit into a refusal, and what it refuses is the direct push a tired person
+  makes at seven in the evening. Zero approvals because there is one
+  maintainer and GitHub does not let an author approve their own pull request;
+  a required review here would be a lock, not a check. The rule also lifts
+  OpenSSF Scorecard's Branch-Protection from 3 to 4, which is incidental and
+  not why it exists: that check caps at 4 for as long as there is no second
+  reviewer, because its next tier needs one.
+
+  One parameter came with the rule unasked:
+  `require_extra_approval_for_unattributed_changes`, which GitHub defaults to
+  on. A pull request carrying a commit whose author maps to no GitHub account
+  needs one approval more than configured — one, here, which nobody can give.
+  Commit with an e-mail linked to the account and it never fires; if a pull
+  request is ever blocked asking for an approval, this is why.
+
+  Before the rule, the pull request was needed anyway, and for a reason the
+  rule does not remove: **nothing else can produce the checks.** `ci.yml` runs
+  on `pull_request` and on pushes to `main`, and a push to any other branch
+  starts nothing at all: the branch arrives green-looking with no checks on
+  it, and a ref with no checks is a ref that cannot land. So the shape above,
+  in full: push the branch, open a pull request, wait for the two gates,
+  merge. Observed on the first try: the first push of the branch that recorded
+  the status-check rule produced **zero check runs**, and PR #82 had to be
+  opened before anything could go green.
 
   The release push order is in [`RELEASING.md`](RELEASING.md) and this rule does
   not change it — it changes only how each of those pushes reaches `main`.
