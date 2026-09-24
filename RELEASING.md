@@ -150,7 +150,10 @@ grep -l '^- Shipped: unreleased' docs/adr/*.md
 ```
 
 For each one whose implementation is in this release, write the new version
-and make sure its status is `accepted`. `tests/test_adr.py` refuses a version
+and make sure its status is `accepted`. Decide *is in this release* from the
+tree being tagged, not from the changelog: a changelog cites a record when it
+mentions it, and that is how ADR 0030 — cited in 0.19.1 as "accepted, not
+implemented" — would have been given a version it never shipped in. `tests/test_adr.py` refuses a version
 that has no row in `RELEASED` and a `proposed` record that names a version,
 but it cannot see a record left `unreleased` after its code shipped — nothing
 in the tree says honestly that a decision is in force, and a status derived
