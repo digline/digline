@@ -30,7 +30,9 @@
   `.claude-plugin/marketplace.json`, whose promise acquires the clause it
   always needed; [`AGENTS.md`](../../AGENTS.md) §1 and both copies of
   `operating-digline`'s `SKILL.md` §1, where the rule stops naming a command
-  and starts naming the act
+  and starts naming the act; and — for §4a — `SKILL.md` §8 plus
+  `digline-mcp`'s `descriptions.py`, which stop disagreeing about `migrate` and
+  both carry the condition the permission rests on
 - Credit: **kantorcodes1**, who found it while writing a digline profile for
   HOL Guard — by classifying what each command *does* rather than by using it.
   That is the reading nobody here performs, and §7 is about why
@@ -318,14 +320,58 @@ words**:
 | shipped skill §8 | *"**Run `digline migrate`** after the bump."* (`operating-digline/SKILL.md`) |
 
 An agent with both loaded has been given an instruction and its negation about
-a command that rewrites a committed file. That much is forced and is ruled
-here: **the two texts cannot both stand, and the contradiction is closed before
-the next release that ships either of them.** Which way it resolves is not
-ruled here, because it is a real design question rather than an oversight — the
-MCP's caution and the skill's practicality are each right about something
-(migration is mechanical and blocking, *and* it rewrites the reviewed
-artifact), and choosing between them decides what the upgrade path feels like.
-That is Alessandro's, with its own record if it goes the MCP's way.
+a command that rewrites a committed file.
+
+**The skill is right and the MCP playbook is wrong.** But the answer is not the
+part worth writing down, because the answer can flip. The reason is:
+
+> `promote` changes **what the reference says**. `migrate` changes **how it is
+> spelled.**
+
+That difference is not a matter of degree. A promotion selects — it names one
+run out of several as the approved one, and nothing but a person's judgement
+determines which. A migration has no selection in it: every step is required to
+write nothing semantic, so there is exactly one output for any input, and the
+transformation is empty of content by construction. **A mechanical
+transformation whose emptiness is testable is not a decision**, and it does not
+become one by touching a committed file. The wall is the same either way — the
+reviewed diff — and it is the wall that catches a migration that misbehaved,
+which is precisely what a reviewer can check on a migration and cannot check on
+a promotion.
+
+The emptiness is not a hope. `_add_schema_sixteen` is literally `return raw`,
+with a docstring explaining that inventing there *"would be worse than usual,
+because the field is a control"*; `_STEPS`' own comment says a version absent
+from the table *"is one whose bump was not additive, and the absence is the
+whole statement"*; and
+[ADR 0014](0014-what-may-ride-a-schema-bump.md) §2 requires additive migration
+without invention. This week's bump showed exactly one changed line per
+baseline, which is the observable form of all of it.
+
+#### 4a. So the rule is the condition, not the permission
+
+> **An agent may run `digline migrate` for as long as every step is required to
+> write nothing semantic. The day a step has to change content, `migrate`
+> becomes a decision, and this answer flips.**
+
+Written that way, the rule carries its own expiry. The permission is a
+consequence of a property, so a future release that breaks the property
+withdraws the permission without anybody having to remember that it once
+depended on one. `operating-digline` §8 and the MCP playbook both say the
+condition, not just the verdict — the MCP's line stops being *"do not run it"*
+and becomes the same sentence the skill carries.
+
+**And the condition needs teeth it does not fully have.**
+`test_the_step_moves_no_hash_and_no_timestamp` upgrades a schema-9 fixture
+through the whole chain, so it covers every step — including steps not yet
+written — and it checks that `config_hash` and `created_at` survive untouched.
+That is real, and it is two fields. There is no standing test that a *new* step
+writes nothing semantic in general; today the ritual and a human reading a
+one-line diff are what check it. A condition whose failure is caught by a
+person noticing is a condition that expires silently, which is the failure mode
+§4b exists to prevent. The test that the semantic content of a document is
+unchanged across `upgrade_document` is owed by whichever release first ships a
+step that is not `return raw` or an added absence.
 
 **A third finding, on a different axis, and deliberately not ruled here.**
 `digline view` renders `render_html` directly (`src/digline/report/pages.py`),
@@ -351,7 +397,7 @@ holds across all of them. `run` and `rejudge` write only under gitignored
 `runs/`, so the hook's silence about them is consistent with its stated scope
 rather than a hole in it.
 
-#### 4a. The standing test
+#### 4b. The standing test
 
 A sweep is a fact about today. The rule that survives it:
 
@@ -365,7 +411,7 @@ has thought of — and it is the same construction friction 59 chose for the
 refusal types, for the same reason: a list without a test that fails is a
 fourth place to forget.
 
-#### 4b. Three hook evasions, found by the sweep and confirmed by running it
+#### 4c. Three hook evasions, found by the sweep and confirmed by running it
 
 Not part of the perimeter — the hook is a preference, not a wall, and §1 does
 not lean on it — but they are defects in what it claims to match, and two are
@@ -387,6 +433,22 @@ aliases, variables). Measured by piping a payload into the script, not read:
 In the same line, `"digline"` is **dead**: there is no `src/digline/__main__.py`
 and `python -m digline` refuses with *"cannot be directly executed"*. The set
 lists a spelling that cannot run and omits one that can.
+
+**These do not ride this record's code.** The hook is a plugin file and this
+ADR is core; the two live on different release trains, and folding a
+`plugins/` fix into a change to `src/digline/cli/view.py` would couple them for
+no reason but that one sweep found both. They ship as their own small piece
+with the plugin's next release, the dead `"digline"` entry going with them.
+
+**And that piece should say what it confirms**, because it is not a separate
+lesson: **the hook keys on a name, and a name can be spelled differently.**
+That is this record's finding one level down. §*The shape underneath* is about
+three surfaces keying on the *word* `promote` while the act reaches the store
+through the word `view`; this is the same surface keying on the word `digline`
+while the same command arrives spelled `uv tool run` or `digline.cli.main`. The
+first was found by classifying, the second by **running it** — and both were
+invisible to reading the code, which is the only thing either of them has in
+common with how they were missed.
 
 ### 5. What the shipped sentences say now
 
@@ -475,7 +537,13 @@ remember.
   `Replayed`, `Errored`, `Uncalibrated` — and `view.py` catches six; and the
   hook's `MODULES`, which lists a spelling that cannot run and omits one that
   can (§4b).
-- **Two findings are filed and not decided here**, so that neither gets settled
-  as a side effect of this one: the `migrate` contradiction (§4 — the
-  contradiction is ruled closed, the direction is not), and the view's
-  unconstrained `--host` as a world boundary (§4, decision 9 territory).
+- **`migrate` is ruled in §4 and §4a**, and what lands is the condition rather
+  than the permission: the MCP playbook's *"do not run it"* is replaced by the
+  same sentence `operating-digline` §8 carries, and both state what the
+  permission rests on. The owed test is named in §4a and is not written here.
+- **`--host` is filed and deliberately not decided here** (§4). It is decision
+  9 territory and gets its own record; settling a disclosure boundary as a side
+  effect of a promotion ruling is how one of the two ends up unargued.
+- **The hook evasions do not ride this change** (§4c). They are a `plugins/`
+  fix on the plugin's release train, carrying the sentence about what they
+  confirm.
