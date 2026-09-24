@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.19.2 — unreleased
+## 0.19.2 — 2026-09-24
 
 digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over
 the code that was already there — not over what a release added — and three of
@@ -237,7 +237,7 @@ an older core, the honest move is to drop the feature from this front end — no
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
 
-## digline-mcp 0.3.0 — unreleased
+## digline-mcp 0.3.0 — 2026-09-24
 
 Published by digline's `v0.19.2` tag, with the core.
 
