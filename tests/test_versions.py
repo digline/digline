@@ -181,11 +181,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "what digline is at now",
     },
     ".claude/skills/operating-digline/SKILL.md": {
-        "0.4.0": "the byte-for-byte mirror of AGENTS.md, gated by test_agents.py",
+        "0.4.0": "'the one case in 0.4.0', the same sentence as AGENTS.md's — "
+        "the state of a shipped release. The skill holds AGENTS.md's rules, not "
+        "its bytes: test_agents.py gates the rule list and the probe line, and "
+        "this sentence is prose around them that nothing holds to AGENTS.md's",
     },
     "plugins/digline/skills/operating-digline/SKILL.md": {
-        "0.4.0": "the plugin's byte copy of the skill above, gated by "
-        "test_claude_plugin.py",
+        "0.4.0": "the plugin's copy of the skill above, byte for byte, gated by "
+        "test_claude_plugin.py — the one link of the two that holds bytes",
     },
     "src/digline/run/suite.py": {
         "0.16.0": "'silent until 0.16.0' — when a wrapper that wraps no "
