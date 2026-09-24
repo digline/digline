@@ -13,13 +13,18 @@ from __future__ import annotations
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
-from digline.core import DifferentJudgesError, DifferentSuitesError
+from digline.core import (
+    DifferentJudgesError,
+    DifferentSuitesError,
+    DocumentRefusedError,
+)
 from digline.host import UsageError
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
     PathRefusedError,
     RunNotFoundError,
+    SuiteMismatchError,
     TenantMismatchError,
 )
 from digline.targets import ProviderNotFound
@@ -54,6 +59,8 @@ def test_the_list_covers_what_digline_raises_deliberately() -> None:
         ProviderNotFound,
         PathRefusedError,
         RunNotFoundError,
+        SuiteMismatchError,
+        DocumentRefusedError,
     }
 
 

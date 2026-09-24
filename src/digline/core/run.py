@@ -41,6 +41,7 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "DocumentRefusedError",
     "ENDPOINT_PERIMETER_FIELDS",
     "MAX_RECORDED_CHARS",
     "OBSERVED_FIELDS",
@@ -205,6 +206,26 @@ __all__ = [
 #    found by somebody sitting down to write the plugin patch that would fill
 #    it.
 SCHEMA_VERSION = 16
+
+
+class DocumentRefusedError(ValueError):
+    """Raised when a stored document does not have the shape of a run.
+
+    A `ValueError`, like `DifferentSuitesError` beside it, so the CLI's existing
+    handler maps it to `EXIT_USAGE` and every caller that already catches
+    `ValueError` around a read keeps working with no new plumbing.
+
+    **The name exists for the boundary that cannot see a bare one.**
+    `digline-mcp` translates the exceptions digline raises on purpose and lets
+    everything else travel to the client as a crash, so a refusal with no type
+    of its own reaches an agent as "Error executing tool get_run" with the
+    reason on stderr. That is the defect just closed for the store's two
+    refusals, and re-raising this one untyped would have reopened it in the
+    same release. Adding bare `ValueError` to that list is not the alternative:
+    it would hand an agent the internals of genuine bugs, which is exactly what
+    the list exists to keep back.
+    """
+
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
 #: not name the tool. The only value: digline records every name it is given, so
@@ -2329,13 +2350,13 @@ def run_from_dict(raw: object) -> Run:
     64 is still a failure, where exit 1 was a false verdict.
     """
     if not isinstance(raw, Mapping):
-        raise ValueError(
+        raise DocumentRefusedError(
             f"the run document is a JSON {type(raw).__name__}, not an object"
         )
     try:
         return _run_from_mapping(cast(Mapping[str, Any], raw))
     except (TypeError, AttributeError) as exc:
-        raise ValueError(
+        raise DocumentRefusedError(
             f"the run document does not have the shape of a run "
             f"({type(exc).__name__}: {exc})"
         ) from exc

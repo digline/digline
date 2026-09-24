@@ -27,7 +27,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from digline.core.run import SCHEMA_VERSION, run_from_dict, run_to_json
+from digline.core.run import (
+    SCHEMA_VERSION,
+    DocumentRefusedError,
+    run_from_dict,
+    run_to_json,
+)
 
 __all__ = [
     "MigrationReport",
@@ -365,7 +370,7 @@ def migrate_file(path: Path, *, dry_run: bool = False) -> int | None:
     # migration with a traceback before `run_from_dict` is ever reached.
     # (Security pass of 2026-09-23, finding 6.)
     if not isinstance(loaded, dict):
-        raise ValueError(
+        raise DocumentRefusedError(
             f"the document is a JSON {type(loaded).__name__}, not an object"
         )
     raw = cast(Mapping[str, Any], loaded)
@@ -375,7 +380,7 @@ def migrate_file(path: Path, *, dry_run: bool = False) -> int | None:
             return None
         upgraded = upgrade_document(raw)
     except (TypeError, AttributeError) as exc:
-        raise ValueError(
+        raise DocumentRefusedError(
             f"the document does not have the shape of a run "
             f"({type(exc).__name__}: {exc})"
         ) from exc

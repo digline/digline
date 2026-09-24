@@ -75,7 +75,11 @@ def test_a_malformed_field_is_refused_and_never_reads_as_a_regression(
     assert done.returncode == EXIT_USAGE, done.stderr
     assert done.returncode != EXIT_WORSE
     assert "Traceback" not in done.stderr
-    assert "ValueError" in done.stderr
+    # The refusal's own sentence rather than its class name: the name moved
+    # when this gained a type so `digline-mcp` could translate it, and a
+    # test that pins a type name fails for a rename while a test that pins
+    # the sentence fails only if the refusal stops saying what it is.
+    assert "does not have the shape of a run" in done.stderr
 
 
 @pytest.mark.parametrize("command", ["compare", "explain"])
