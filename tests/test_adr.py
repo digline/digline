@@ -93,6 +93,14 @@ def test_every_adr_has_a_page_in_the_site_nav() -> None:
 # with a version cannot still be `proposed`. A record whose code lives in a
 # plugin names the core release that published it.
 #
+# The version is read from the tags — the first tag whose tree carries the
+# behaviour — and never from the CHANGELOG. A changelog cites a record when it
+# talks about it, not when it ships it: it cited 0024 in 0.13.3, a release
+# whose own entry says nothing of 0024 was implemented, and it cited 0030 in
+# 0.19.1 beside the words "accepted, not implemented". Backfilling from the
+# changelog would have given 0030 a version; the tags gave it `unreleased`,
+# which is the truth, and the first thing this line said that no other page did.
+#
 # What this cannot see is a record left `unreleased` after its code ships.
 # RELEASING.md's "moving the number" sweeps for it at every bump, beside the
 # `RELEASED` row this check reads.
