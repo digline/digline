@@ -9,8 +9,16 @@ Three properties are deliberate:
 - **No state of its own.** It reads the store and holds nothing between
   requests — not a session, not a preference, not a cache. Restarting it loses
   nothing because there was nothing to lose.
-- **One route writes**, and it writes exactly what `digline promote` writes,
-  through the same `promote_baseline` with the same three refusals.
+- **Nothing here writes, unless `--allow-promote` was typed.** On the default
+  server `/promote` is not a route: a POST to it gets the 404 any unknown path
+  gets, and no row offers a button. With the flag it is the route it always
+  was, writing exactly what `digline promote` writes, through the same
+  `promote_baseline` with the same refusals.
+
+  **The default is the refusing one, and the asymmetry is why.** Forgetting the
+  flag costs a restart — the header names it. Forgetting a `--read-only` would
+  cost an unreviewed baseline, silently, which is the whole of what the
+  perimeter exists to prevent. (ADR 0032 §1)
 - **The request does not get to say who this server is.** Binding to loopback is
   not enough: any page in the developer's browser can reach `localhost`, and the
   browser will attach no credential but the server needs none. So `Host` is
@@ -53,9 +61,14 @@ from digline.store import FileResultStore, RunRef, utc_now_iso
 
 __all__ = ["ViewHandler", "serve"]
 
-#: Everything this server answers. A path outside it is a 404 and not a file:
-#: the view serves pages it renders, never bytes off the disk.
-_ROUTES = ("/", "/compare", "/promote")
+# `_ROUTES` used to stand here, a tuple commented *"everything this server
+# answers"*, with zero readers anywhere in the tree and two routes missing —
+# `do_GET` dispatches on literals and serves `/case/` and `/suspend/`, neither
+# of which it listed. A list that describes the server incorrectly and is
+# consulted by nothing is worse than no list: it is where a change lands that
+# reads correctly in review and does nothing. ADR 0032 §2 gave it the choice of
+# becoming the real dispatch table or going; it goes. The routes are the
+# `if` chain in `do_GET`, which is the only thing that was ever true.
 
 
 #: Bind addresses that name every interface rather than one. A server bound to
@@ -138,10 +151,18 @@ class ViewHandler(BaseHTTPRequestHandler):
         pricing: str = "",
         known: AbstractSet[str] = frozenset(),
         wildcard: bool = False,
+        allow_promote: bool = False,
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
+        #: Whether this server promotes at all — **one fact, read twice**: the
+        #: page asks it to decide whether to draw a button, and `do_POST` asks
+        #: it to decide whether `/promote` exists. Two decisions computed
+        #: separately is a page that eventually offers a button the route
+        #: rejects. Defaulting to `False` is the same asymmetry as the flag's:
+        #: the cheap mistake is the one a default should make. (ADR 0032 §1-2)
+        self.allow_promote = allow_promote
         #: The netlocs that name this server, from where it bound — not from
         #: anything the request says. `serve()` computes them once.
         self.known = known
@@ -257,6 +278,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 config_hash=self.suite.config_hash(pricing=self.pricing),
                 locale=locale,
                 suite=self.suite.name,
+                allow_promote=self.allow_promote,
                 ignored=ignored,
                 message=message,
             ),
@@ -336,13 +358,24 @@ class ViewHandler(BaseHTTPRequestHandler):
             ),
         )
 
-    # -- the one route that writes ------------------------------------------ #
+    # -- the route that writes, where there is one --------------------------- #
 
     def do_POST(self) -> None:  # noqa: N802 — the name http.server dispatches on
+        """`/promote`, and only on a server started with `--allow-promote`.
+
+        **Without the flag the refusal is a 404 and deliberately not a 403.** A
+        403 says *you may not*, which implies a someone who may, which is a
+        policy — and a policy is the kind of thing a future release relaxes
+        "just for CI". ADR 0011 refused to create one when it declined to ship
+        a `promote` tool that raises *not permitted*; the same argument governs
+        the same act reached through a different word. On this server there is
+        no promote, so the answer is the one every unknown path gets, in the
+        same sentence. (ADR 0032 §2)
+        """
         if not self._addressed_to_us():
             return
         path, _query = self._query()
-        if path != "/promote":
+        if path != "/promote" or not self.allow_promote:
             self._error(404, f"no such action: {path}")
             return
         if not _allowed_origin(
@@ -420,10 +453,16 @@ def serve(
     host: str = "127.0.0.1",
     port: int = 7373,
     pricing: str = "",
+    allow_promote: bool = False,
 ) -> None:
     """Serve until interrupted. Loopback by default, and that is not a default
     anyone should change lightly: this server has no authentication because it
-    has no user, only a developer at the same machine."""
+    has no user, only a developer at the same machine.
+
+    `allow_promote` defaults to refusing, and the startup line says which server
+    this is either way. The refusing one names the flag there as well as in the
+    header, so the discovery path does not run through the documentation.
+    """
     # Filled after the bind and shared with every handler by reference, because
     # the port may not be known until then: `--port 0` means the operating
     # system chooses, and the allowlist has to name the port actually taken.
@@ -436,6 +475,7 @@ def serve(
         pricing=pricing,
         known=known,
         wildcard=host in _WILDCARDS,
+        allow_promote=allow_promote,
     )
     with ThreadingHTTPServer((host, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         known.update(self_netlocs(host, int(httpd.server_address[1])))
@@ -445,7 +485,14 @@ def serve(
         # which one would have to guess. Through `say()` like every other line
         # the CLI prints, so no door to a terminal is left unguarded
         # (0.13.0 delta-pass).
-        say(f"digline view on {shown} — ctrl-c to stop")
+        # The URL stays the fourth word whichever server this is: a caller
+        # reading the line for the bound port should not have to parse a mood.
+        mode = (
+            "promotion enabled"
+            if allow_promote
+            else "read-only; --allow-promote to promote"
+        )
+        say(f"digline view on {shown} — {mode} — ctrl-c to stop")
         sys.stdout.flush()
         try:
             httpd.serve_forever()

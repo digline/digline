@@ -8,6 +8,61 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed — `digline view` does not promote unless you say so
+
+- **`digline view` now refuses promotion by default; `digline view
+  --allow-promote` is the server that promotes.** The button a person clicked
+  yesterday is gone until they pass the flag. This is a deliberate break, and
+  it is here rather than in the list of fixes because it changes what an
+  existing command does.
+- **Why.** digline ships a guarantee, in `plugin.json`, `marketplace.json`,
+  `README.md`, the MCP server's own tool descriptions and
+  [ADR 0011](docs/adr/0011-the-mcp-server.md): this surface *cannot promote a
+  baseline, because approval is a person's commit*. `digline view` served
+  `POST /promote` — reachable with no browser, no `Origin` header and no
+  credential of any kind, through a word none of the three defences watched.
+  The three key on a command name; the act reached the store through a fourth.
+  A baseline is an **approved reference**, and a rule about who decides is not
+  satisfied by a surface that lets a non-person decide, whatever it is called.
+- **The refusal is an absence, in both places a caller looks.** On the page no
+  row carries a button — not a disabled one, not one that fails on click. On
+  the wire `/promote` is not a route: a POST gets the `404 no such action` any
+  unknown path gets, and deliberately not a `403`, which would say *you may
+  not* and so imply a someone who may. Both come from one value, so the page
+  and the dispatcher cannot drift apart.
+- **How you find the flag.** The refusing server names it twice — in the
+  startup line, and once in the page header beside the suite name. Once, not
+  once per row: whether this server promotes is a fact about the server, and
+  the per-run markers (`BASELINE`, `OLDER SUITE`, `N NOT JUDGED`) go on saying
+  what they always said.
+- **Upgrading.** Add `--allow-promote` where you promote from the browser.
+  Nothing else changes: the store is untouched, `promote_baseline` and its
+  refusals are unchanged, and a `.digline/` written before this release reads
+  identically after it. `--allow-promote` is the server that existed before —
+  this does not harden it, it stops being the default.
+- **For library callers**, `report.runs_page` gains a mandatory
+  `allow_promote: bool` keyword, and `cli.view.serve` an optional one
+  defaulting to `False`. Mandatory on the page for the reason `config_hash` is:
+  a default would answer, for a caller who never asked, a question the route
+  answers differently.
+- **The Claude Code plugin's hook** stays silent on `digline view` — it is a
+  reading tool, and a hook that interrupts reading is one people learn to
+  dismiss — and asks a person about `digline view --allow-promote`, which is
+  not a smaller thing than `digline promote` but a larger one: the same
+  decision, standing for every run in the store for as long as the server is
+  up.
+- **`digline migrate` is ruled at the same time**, because the sweep that found
+  this found it too: the MCP playbook said *do not run it* and the shipped
+  skill said *run it*, about a command that rewrites a committed baseline. The
+  skill was right, and what ships is the condition rather than the verdict — an
+  agent may run `migrate` for as long as every step is required to write
+  nothing semantic; the day one has to change content, it becomes a decision
+  and the answer flips.
+- **Found by kantorcodes1**, by classifying what each digline command does to
+  the world while writing a profile for HOL Guard — a reading that asks *is
+  this a read or a write?*, which no per-surface review ever asks.
+  [ADR 0032](docs/adr/0032-the-second-path-to-an-absent-tool.md) is the ruling.
+
 ### Changed — `promote` names the reference it replaces
 
 - **`digline promote` now requires `--replacing KEY | none`, and refuses when

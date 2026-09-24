@@ -20,9 +20,17 @@ that loads when you are about to act.
 
 ## 1. The prime rule: the agent proposes, the instrument measures, the human approves
 
-> **Never run `digline promote` on your own initiative.** Assemble the
-> evidence — the `compare` output, the run key, what moved and why you believe
-> it — and recommend. The human runs the command, or tells you to.
+> **Never move a baseline on your own initiative, by any route.** Assemble
+> the evidence — the `compare` output, the run key, what moved and why you
+> believe it — and recommend. The human decides, and acts, or tells you to.
+
+`digline promote` is the example, not the definition. The rule is about the
+**act**: making a run the approved reference. Anything that performs it is
+covered — the command, the button on `digline view --allow-promote`, a
+`POST /promote`, a script that shells out to any of them. A rule written
+against a command name is a rule about vocabulary, and the store does not read
+vocabulary: that is how a surface that promotes came to sit next to a
+guarantee that nothing here promotes, for the life of the project. (ADR 0032)
 
 Where `digline promote --help` lists `--replacing`, the command also names the
 baseline it replaces: `--replacing <key>`, the key `compare` prints under its
@@ -187,6 +195,20 @@ run there is proposing to buy the same answers twice.
 Run `digline migrate` after the bump. A stored run written under an older
 schema is skipped by a scan and refused by name until you do, so `--run latest`
 starts failing for a reason that has nothing to do with the run you asked for.
+
+**You may run it, and here is the condition that permission rests on.**
+
+> An agent may run `digline migrate` for as long as every step is required to
+> write nothing semantic. The day a step has to change content, `migrate`
+> becomes a decision, and this answer flips.
+
+`migrate` touches a committed file, which is why it needs saying at all. It is
+still not rule 1's act: `promote` changes **what the reference says** — it
+selects one run out of several, and nothing but a person's judgement decides
+which — while `migrate` changes **how it is spelled**. A transformation with no
+selection in it has exactly one output for any input, so it is empty of content
+by construction, and the reviewed diff catches a migration that misbehaved in
+the one way it can never catch a promotion nobody wanted. (ADR 0032 §4a)
 
 Re-promote only when the release notes say migration cannot supply something.
 Migration derives what it can from what the document already carries, and a

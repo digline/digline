@@ -618,6 +618,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} not judged",
         "view.chip.older_config": "older suite",
+        # The header marker, and the only line in the product that has to teach
+        # `--allow-promote`. The flag itself is not localised, for the reason an
+        # ISO date is not: the sentence around it is the document, the eight
+        # characters are the product. (ADR 0032 §2)
+        "view.read_only": "read-only — restart with --allow-promote to promote",
+        "view.read_only.why": (
+            "This server does not promote: no button on any row, and "
+            "POST /promote is not a route on it. Stop it and start "
+            "digline view --allow-promote to enable promotion for every run in "
+            "the store, for as long as the server is up."
+        ),
         "view.action.compare": "Compare",
         "view.action.compare.title": "compare this run with the baseline",
         "view.copy_snippet": "click the line to select it",
@@ -1653,6 +1664,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} non giudicati",
         "view.chip.older_config": "suite precedente",
+        "view.read_only": ("sola lettura — riavvia con --allow-promote per promuovere"),
+        "view.read_only.why": (
+            "Questo server non promuove: nessun pulsante su nessuna riga, e "
+            "POST /promote non è una rotta. Fermalo e avvia "
+            "digline view --allow-promote per abilitare la promozione di ogni "
+            "esecuzione nell'archivio, finché il server resta acceso."
+        ),
         "view.action.compare": "Confronta",
         "view.action.compare.title": ("confronta questa esecuzione con il riferimento"),
         "view.copy_snippet": "clicca la riga per selezionarla",

@@ -1055,6 +1055,15 @@ amendments named above.
 - A coding agent can read a digline result correctly and **cannot promote a
   baseline**, because there is nothing to call. `AGENTS.md` §1 stops being a
   request.
+
+  *Amended 2026-09-24 by [ADR 0032](0032-the-second-path-to-an-absent-tool.md).*
+  The claim stands; its reason did not, and the difference mattered. The
+  subject of that sentence is the **agent**, not this server, so "there is
+  nothing to call" was a claim about the whole reachable surface — and it had
+  been checked against one package. `digline view` served `POST /promote`,
+  reachable with no browser and no credential, from the first release of it
+  until ADR 0032 §1 made refusal the default. The sentence is true again, and
+  now for the stated reason.
 - An agent cannot start a hundred model calls without having stated the number.
 - digline gains two internal packages, `wire` and `host`, and the CLI becomes
   what it always was: one front end.

@@ -30,8 +30,11 @@ evidence, name the run whose per-case profile is closest to typical, and
 recommend it; the human runs `digline promote`, or tells you to.
 
 If `skipped` or `note` is non-empty, stored runs were written under an older
-schema and this listing does not show them. Say so, and propose
-`digline migrate` — do not run it."""
+schema and this listing does not show them. Say so, and run `digline migrate` —
+you may, for as long as every step of a migration is required to write nothing
+semantic; the day one has to change content it becomes a decision, and this
+answer flips. It rewrites a committed file but selects nothing: `promote`
+changes what the reference says, `migrate` changes how it is spelled."""
 
 GET_RUN = """\
 One stored run: its verdicts, its measured intervals, and the configuration that
