@@ -123,6 +123,13 @@ RECORDED: dict[str, dict[str, str]] = {
             "this call exists. History, not the current version"
         ),
     },
+    "src/digline/store/protocol.py": {
+        "0.7.2": (
+            "'the 0.7.2 rule' — the release that added `_inside`, named as the "
+            "thing `PathRefusedError` gives a type to. History, not the current "
+            "version"
+        ),
+    },
     "src/digline/run/driver.py": {
         "0.19.0": (
             "'0.19.0 shipped that way through every unit test' — the release that "

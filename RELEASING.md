@@ -736,6 +736,24 @@ This is the same move as the counts at the `[GATE]`: a number read out loud
 rather than a memory trusted. `tests/test_tag_names.py` covers it offline, with
 `v0.17.0`'s real message as the control that must fail.
 
+### A floor names a core version, so the core publishes first
+
+**Not negotiable, and it is an ordering rule rather than a waiting one.** When a
+plugin's `digline>=` floor names a core version, that core is published before
+the plugin — or a user installs a plugin whose floor names a version that is not
+there, and `pip` refuses to resolve it. The tag sweep above already does this
+when both ride one tag: the core uploads in the same run and the index waits
+cover propagation. What the rule forbids is the other shape — a plugin released
+on a named tag of its own, ahead of the core release its floor points at.
+
+The floor gate (`tests/test_plugin_floors.py`) catches the floor that is too
+*low*. Nothing in this repository can catch a floor that is correct and
+published too *early*: the failure is about which versions the index serves, and
+no test here asks the index that question. This paragraph is the control.
+
+It is why a floor may not name a release that does not exist yet, which
+`packages/digline-mcp/pyproject.toml` says beside its own floor.
+
 ### Four releases that no ref names
 
 Recorded here because the repository cannot answer it in refs, and **not**

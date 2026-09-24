@@ -15,7 +15,13 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
 from digline.core import DifferentJudgesError, DifferentSuitesError
 from digline.host import UsageError
-from digline.store import ConfigMismatchError, ErroredRunError, TenantMismatchError
+from digline.store import (
+    ConfigMismatchError,
+    ErroredRunError,
+    PathRefusedError,
+    RunNotFoundError,
+    TenantMismatchError,
+)
 from digline.targets import ProviderNotFound
 from digline_mcp.errors import TRANSLATED, translated
 
@@ -46,6 +52,8 @@ def test_the_list_covers_what_digline_raises_deliberately() -> None:
         DifferentSuitesError,
         DifferentJudgesError,
         ProviderNotFound,
+        PathRefusedError,
+        RunNotFoundError,
     }
 
 

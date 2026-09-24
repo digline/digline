@@ -155,6 +155,36 @@ class TenantMismatchError(Exception):
     tenant promoted as another's baseline, or read back through the wrong one."""
 
 
+class PathRefusedError(ValueError):
+    """Raised when a name is not one safe segment, or leads outside the store.
+
+    The two refusals `_check_name` and `_inside` make. Both are deliberate and
+    both carry a sentence written for a reader — `_inside`'s is the one that
+    explains the 0.7.2 rule to whoever met it.
+
+    **It subclasses `ValueError` because that is what it already was**, so every
+    caller that catches `ValueError` is unchanged: the CLI's handler tuple,
+    `migrate_paths`' per-file collection, and the loader. Nothing about the
+    control flow moves.
+
+    What the name adds is the ability to say *this is a refusal, not a bug*, at
+    a boundary where the difference is the whole point. `digline-mcp` translates
+    the exceptions digline raises on purpose and lets everything else travel as
+    a crash; these two were indistinguishable from a crash because they had no
+    type of their own, so the store's written sentence reached an agent as
+    "Error executing tool get_run" and the reason stayed on stderr.
+    """
+
+
+class RunNotFoundError(FileNotFoundError):
+    """Raised when a run key names no stored run.
+
+    Subclasses `FileNotFoundError` for the reason `PathRefusedError` subclasses
+    `ValueError`: it already was one, every handler keeps working, and the type
+    exists so a refusal can be told from a missing file nobody meant to open.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class RunRef:
     """An opaque reference to a persisted run.
