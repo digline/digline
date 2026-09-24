@@ -118,6 +118,13 @@ def to_bundle(attestation: dict[str, Any]) -> dict[str, Any]:
 
     The mapping `pypi_attestations.Attestation.to_bundle` makes, without the
     dependency: the two carry the same certificate, log entry and envelope.
+
+    Hand-rolled where a library exists, and safe for one reason: on
+    2026-09-24 this output was compared against the library's (0.0.30) for
+    `digline-0.19.1-py3-none-any.whl` and they matched exactly. That
+    comparison is kept, not remembered — the library's bundle is the expected
+    fixture `tests/test_release_bundles.py` asserts equality against, so a
+    drift here fails there.
     """
     material = attestation["verification_material"]
     envelope = attestation["envelope"]
@@ -213,6 +220,11 @@ def main(tag: str, out: pathlib.Path) -> int:
             signed_from = source_ref(
                 base64.b64decode(attestation["verification_material"]["certificate"])
             )
+            # This reads as bookkeeping and it is the guard. On the v0.19.1
+            # rehearsal ten of the twelve files in `dist/` belonged to other
+            # tags; without this skip the backfill would have attached bundles
+            # for versions that release did not publish — "attach dist/ whole"
+            # arriving through a different door.
             if signed_from != ref:
                 if ours:
                     raise Refused(
