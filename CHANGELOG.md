@@ -6,7 +6,18 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.20.1 — unreleased
+
+digline **0.20.1**, the core alone, with the Claude Code plugin that moves with
+it. It ships before 0.20.0 is announced, which is the ordering the delta-pass
+exists for. Its three fixes are one pattern, recorded in ADR 0032 §8: **a
+guard that keys on a name is defeated by another spelling of the same act.**
+Two come from the delta-pass over 0.20.0. The third is ADR 0032 §4c's pair of
+hook evasions, which that record said would ship with the plugin's next
+release — and this is it. A patch: nothing a user relies on stops working.
+The one narrowing is that `digline view`'s options must now be spelled in full.
+That is the fix itself, and no other command changes. digline-mcp stays at
+0.4.0.
 
 ### Fixed
 

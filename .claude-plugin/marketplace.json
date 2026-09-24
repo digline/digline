@@ -13,7 +13,7 @@
         "source": "git-subdir",
         "url": "https://github.com/digline/digline.git",
         "path": "plugins/digline",
-        "ref": "v0.20.0"
+        "ref": "v0.20.1"
       },
       "category": "testing"
     }
