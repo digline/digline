@@ -5,6 +5,7 @@
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md),
   [ADR 0007](0007-the-declarative-suite-format.md) and
   [ADR 0008](0008-the-two-run-report.md) were
+- Shipped: 0.6.0
 - Date: 2026-09-08
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels) and §10 (the aggregate is

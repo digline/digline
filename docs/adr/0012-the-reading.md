@@ -5,6 +5,7 @@
   [ADR 0006](0006-repeated-samples-and-the-noise-floor.md),
   [ADR 0007](0007-the-declarative-suite-format.md) and
   [ADR 0008](0008-the-two-run-report.md) were
+- Shipped: 0.7.0
 - Date: 2026-09-09
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression),

@@ -6,6 +6,7 @@
 > only place where the old name remains written.
 
 - Status: accepted
+- Shipped: 0.1.0
 - Date: 2026-08-25
 - Touches: fixed decision 1 (`CLAUDE.md`), which stated assertions as pure functions
   `(output, context) -> Score`

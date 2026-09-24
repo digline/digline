@@ -8,6 +8,7 @@
   [ADR 0011](0011-the-mcp-server.md),
   [ADR 0012](0012-the-reading.md) and
   [ADR 0013](0013-the-pytest-plugin.md) were
+- Shipped: 0.10.0
 - Date: 2026-09-11
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §8
   (promotion has three conditions, and one of them is the configuration);

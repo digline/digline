@@ -1,6 +1,7 @@
 # ADR 0004 — Every plugin is a target *and* a judge
 
 - Status: accepted
+- Shipped: 0.1.3
 - Date: 2026-08-28
 - Amended: 2026-09-10 — §6, the completion record. Added rather than a new ADR:
   it widens the one method §2 gives a plugin and overturns nothing above it,

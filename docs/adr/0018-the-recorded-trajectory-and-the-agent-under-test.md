@@ -5,6 +5,7 @@
   [ADR 0015](0015-the-recorded-output-and-the-declared-re-judge.md),
   [ADR 0016](0016-the-canary-case.md) and
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) were
+- Shipped: 0.12.0
 - Date: 2026-09-13
 - Amended: 2026-09-15 — §1, what a provider does not report. The plugin track
   §"Not decided here" left open arrived, and met a status and a result the

@@ -5,6 +5,7 @@
   [ADR 0014](0014-what-may-ride-a-schema-bump.md),
   [ADR 0024](0024-the-judge-as-an-instrument.md) and
   [ADR 0027](0027-the-run-reconciles.md) were
+- Shipped: 0.18.0
 - Date: 2026-09-21
 - Opens: **nothing.** No schema bump, and not a passenger on one. The run
   document gains no field. §1 is why it does not need to: everything

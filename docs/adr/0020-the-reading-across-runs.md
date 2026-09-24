@@ -1,8 +1,13 @@
 # ADR 0020 — The reading across runs
 
-- Status: proposed — the text first, checkpointed before any code, the way
+- Status: accepted — the text first, checkpointed before any code, the way
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) and
-  [ADR 0019](0019-the-reasoning-operator.md) were
+  [ADR 0019](0019-the-reasoning-operator.md) were, then the implementation
+  written against it; `digline log` shipped in 0.13.0, beside
+  [ADR 0021](0021-the-register.md) and [ADR 0022](0022-the-declared-price.md).
+  The status read `proposed` until 2026-09-24: nothing moved it when the
+  code shipped, which is why `Shipped:` is now checked (`tests/test_adr.py`)
+- Shipped: 0.13.0
 - Date: 2026-09-15
 - Corrected: 2026-09-15, before release — §3 gains a seventh absence, the
   endpoint that echoed the requested id, found by the first external run of the
