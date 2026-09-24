@@ -6,9 +6,114 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.19.2 — 2026-09-24
+
+digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over
+the code that was already there — not over what a release added — and three of
+them are published as advisories.
+
+**A patch, checked against the rule rather than assumed.** `RELEASING.md` moves
+the minor only when something a user relies on stops working as it did. These
+are refusals of defects: a register that resolves inside the store still works,
+a well-formed document still reads, and no schema, public name or CLI option
+has moved. Four exception types are added, none removed. `digline-mcp` is the
+exception and takes a **minor**, because its `digline>=` floor rose to 0.19.2
+and a floor is a thing users rely on — a plugin claiming it is broken for
+anyone still on 0.19.1. Install the core first; a floor may not name a release
+the index does not serve.
 
 ### Security
+
+Seven findings from a pass over digline's **standing** code on 2026-09-23 — not
+a delta-pass. Sixteen delta-passes and five advisories had never reached any of
+them, because a delta-pass looks at the delta by construction and every one of
+these lived in code no release had touched. Three of the seven are published as
+advisories; for the other four the line `SECURITY.md` draws is exposure, and it
+is stated per entry rather than left to be inferred.
+
+- **`digline register` could create and append to a file outside the store, on
+  the write that creates the register** (advisory **GHSA-TBD**). `append_register`
+  reached its containment check only inside `if joined:`, where it had been
+  called to read the last byte rather than to check anything, and `joined` needs
+  the file to already exist; `read_register` returns early on the same
+  `exists()`. Both guards hung off a predicate that follows a link, so a
+  **dangling** symlink at `.digline/<tenant>/register/<suite>.jsonl` skipped
+  both and the `O_CREAT` that follows created the file it named, anywhere the
+  running user could write. The skip was exactly once per register, and that
+  once is the ordinary first use. `register/` is committed by design, so the
+  link travels in a pull request and the victim's action is reviewing it — **no
+  contributor code runs.** Affected `>= 0.13.0`: there is no earlier version
+  with the feature, and every version that has had it is affected.
+
+- **`digline view` served the store, and promoted baselines, to any page that
+  asked from a name it controlled** (advisory **GHSA-TBD**). The origin check
+  compared the request's `Origin` header against its own `Host` header — two
+  values describing one request — so it established that a request was
+  same-origin with itself, which every request is. A page served from a
+  hostname its author controls that resolves to the loopback address is
+  therefore same-origin with the server: one request read the whole unredacted
+  store or moved the baseline. `Host` is now checked against the address the
+  server actually bound to, on every route and not only the one that writes.
+  Affected from **0.1.0**: the comparison is in the first commit of the project
+  and was never different.
+
+- **`digline migrate` wrote through a symlink committed in the store**
+  (advisory **GHSA-TBD**). Neither collector was containment-checked:
+  `run_paths()` returned a glob where its sibling `scan_runs` guards the
+  identical one, and the baseline path was appended behind nothing but an
+  `exists()`. `migrate_file` ends in `write_text`, which follows a link. The
+  route a pull request carries is `baselines/<suite>.json`, which is committed;
+  a link under `runs/` is the same defect reached with local write access only,
+  because `*/runs/` is gitignored. Affected from **0.1.0**.
+
+- **A malformed stored document exited 1, which means "worse".** `EXIT_WORSE`
+  is the contract a CI job reads, and a crash exits 1 too, so a corrupt or
+  hostile baseline was indistinguishable from a regression somebody should look
+  at. `run_from_dict` now refuses anything that is not an object and re-raises
+  any shape error as `DocumentRefusedError`, so the answer is exit 64 and a
+  sentence; `migrate_file` does the same and lists the file as refused instead
+  of ending the migration. **Not an advisory:** nothing is disclosed and no
+  boundary moves — what was wrong was the verdict a reader drew from an exit
+  code.
+
+- **`promote` wrote the baseline of the suite the *document* named.** `read_run`
+  validated the stored document's tenant and never its suite, and
+  `promote_baseline` then wrote to the path that field chose: a run filed under
+  `qa` declaring `"suite": "other"` overwrote another suite's committed
+  baseline, exit 0, no output. Both readers now refuse a document whose suite
+  differs from where it is filed. **Refused and never redirected, and the reason
+  is the house rule and nothing else: digline does not repair documents.** (An
+  argument that a redirect is unsafe because `read_baseline` would refuse what
+  was just written is circular — before this fix `read_baseline` never looked at
+  the suite.) **Not an advisory:** the tenant perimeter held throughout, so this
+  misfiles within one tenant and crosses nothing.
+
+- **Text that is never language is neutralised on every surface.**
+  `report.visible()`, `core.json_visible()` and `report.escape()` now escape the
+  bidi embeddings and overrides (U+202A–U+202E), the interlinear annotation
+  characters (U+FFF9–U+FFFB) and the tag block (U+E0000–U+E007F), listed once in
+  `core.NEVER_LANGUAGE`.
+
+  The rest of `Cf` is deliberately untouched, and that is the fix rather than a
+  caveat: U+200E/U+200F and U+061C set direction in Arabic and Hebrew, ZWNJ and
+  ZWJ carry meaning in Indic scripts and hold emoji sequences together, and the
+  isolates are what Unicode recommends instead of the overrides. Neutralising
+  the category would corrupt a report rendered in a language this project
+  exists to serve.
+
+  `SECURITY.md` recorded this as open, on the argument that it *"is not a way
+  in ... it changes what a human believes they are looking at"*. **That argument
+  is withdrawn, not amended.** It holds for U+202E and never covered the tag
+  block, which is invisible to every surface here and is an exact encoding of
+  ASCII: the reader it addresses is an agent holding tools, on a surface
+  `core/text.py` already declared untrusted. Measured: an invisible
+  49-character instruction in a `case_id` survived `redact()` and reached all
+  five surfaces, while a reviewer reading the committed baseline saw
+  `capital-of-italy`.
+
+  Not an advisory: no payload crosses a boundary and no file is read. What
+  moved was an instruction, into the context of the one reader that acts on
+  them.
 
 - **The store's two refusals have types, so a boundary can tell them from a
   bug.** `_check_name` raised a bare `ValueError` and `read_run` a bare
@@ -131,6 +236,26 @@ reads it.** If `read_pinned` is ever the only 0.19.0 name here, and a caller nee
 an older core, the honest move is to drop the feature from this front end — not
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
+
+## digline-mcp 0.3.0 — 2026-09-24
+
+Published by digline's `v0.19.2` tag, with the core.
+
+A **minor** for one reason: the `digline>=` floor rises to **0.19.2**. The
+server now translates four refusals the store and the reader raise — two from
+0.19.2's security pass (`SuiteMismatchError`, `DocumentRefusedError`) beside the
+two 0.19.2 gave the store — and those names do not exist in an older core, so
+an older core would give this package an `ImportError` rather than a refusal.
+Nothing else about the surface moves: the same eight tools, the same
+read-only hints, and still no way to promote a baseline.
+
+What changes for an agent driving it is what it is told when something is
+refused. A run key that is not a safe name, a run that links out of the store,
+a run that is simply absent, a stored document that is not a run, and one that
+names a suite other than the one it is filed under each now arrive as the
+sentence digline wrote. Before, each arrived as `Error executing tool get_run`
+with the reason on stderr, where no client reads it — and an agent told only
+that something failed retries, which is the one response that cannot help.
 
 ## digline-mcp 0.2.0 — 2026-09-23
 

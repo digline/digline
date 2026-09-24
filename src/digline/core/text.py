@@ -18,11 +18,58 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import cast
 
-__all__ = ["json_visible", "recordable", "without_lone_surrogates"]
+__all__ = [
+    "NEVER_LANGUAGE",
+    "json_visible",
+    "recordable",
+    "without_lone_surrogates",
+]
 
 #: DEL and C1 as their JSON `\\u00XX` spelling — the two ranges a JSON encoder
 #: leaves raw. C0 is not here: every encoder in play already escapes it.
 _UNESCAPED_BY_JSON = {code: f"\\u{code:04x}" for code in (0x7F, *range(0x80, 0xA0))}
+
+
+def _spelling(code: int) -> str:
+    """A code point as the escape a reader can see.
+
+    Two widths because one of these ranges is astral: `\\uXXXX` cannot spell
+    U+E0041, and a five-digit `\\u` is not a spelling anything recognises. The
+    eight-digit `\\U` form is what Python and C both write.
+    """
+    return f"\\u{code:04x}" if code <= 0xFFFF else f"\\U{code:08x}"
+
+
+#: Characters that are **never language**, and the whole of what this widening
+#: covers. Each is a formatting instruction to a renderer, not a letter in any
+#: script, and none of them can appear in prose anybody wrote on purpose.
+#:
+#: - **U+202A–U+202E**, the bidi embeddings and overrides. Deprecated by Unicode
+#:   itself in favour of the isolates, and the overrides are what reverse the
+#:   display order of a path so a reader sees a name that is not there.
+#: - **U+FFF9–U+FFFB**, the interlinear annotation characters, which exist to
+#:   hide one run of text behind another in plain text.
+#: - **U+E0000–U+E007F**, the tag block: a copy of ASCII that renders as
+#:   nothing at all, so a sentence written in it is invisible in every surface
+#:   digline has and exactly recoverable by whatever parses the text.
+#:
+#: **What is deliberately absent is the rest of `Cf`, and that is the whole
+#: design.** U+200E/U+200F (LRM, RLM) and U+061C (ALM) set direction in ordinary
+#: Arabic and Hebrew prose; U+200C/U+200D (ZWNJ, ZWJ) carry meaning in Indic
+#: scripts and hold emoji sequences together; U+2066–U+2069 are the isolates
+#: Unicode recommends *instead of* the overrides above. Neutralising the
+#: category would corrupt a report rendered in a language this project intends
+#: to serve, which is the argument `report.escape()` has always made about bidi
+#: marks and which survives here unchanged — it was only ever wrong about the
+#: overrides, not about the marks.
+NEVER_LANGUAGE = {
+    code: _spelling(code)
+    for code in (
+        *range(0x202A, 0x202F),
+        *range(0xFFF9, 0xFFFC),
+        *range(0xE0000, 0xE0080),
+    )
+}
 
 #: The surrogate range, as the escape spelling of each code point. Every
 #: surrogate in a Python `str` is unpaired by construction — a well-formed pair
@@ -55,11 +102,23 @@ def json_visible(text: str) -> str:
     not data anybody needs verbatim, and the same fact must not read differently
     at two front ends — which is the whole reason `digline.wire` exists.
 
-    Language is untouched. This neutralises two control ranges, not accents,
-    arrows, em dashes or bidi marks: those are legitimate text in the languages
-    a report is written for, and `report.escape()` states the same exemption.
+    Language is untouched. This neutralises two control ranges and the
+    characters that are never language (`NEVER_LANGUAGE`) — not accents,
+    arrows, em dashes or bidi *marks*: those are legitimate text in the
+    languages a report is written for, and `report.escape()` states the same
+    exemption.
+
+    **The third range, and why it was not here before.** 0.10.1 closed DEL and
+    C1 against a terminal. That is a defence of one reader, and the reader this
+    function was written for is the other one: `digline.wire` renders for a
+    program, and since 0.15.0 that program is very often an agent holding
+    tools. A tag character is invisible to every surface digline has and is an
+    exact encoding of ASCII, so a `case_id` can carry a sentence addressed to
+    that agent past a human who reviewed the document and saw nothing. The
+    payload does not cross a boundary and no file is read — what moves is an
+    instruction, into the context of the one reader that acts on instructions.
     """
-    return text.translate(_UNESCAPED_BY_JSON)
+    return text.translate(_UNESCAPED_BY_JSON).translate(NEVER_LANGUAGE)
 
 
 def without_lone_surrogates(text: str) -> str:

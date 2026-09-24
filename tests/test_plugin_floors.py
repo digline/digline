@@ -80,6 +80,8 @@ INTRODUCED: dict[str, str] = {
     # no later fix from that pass moving a format version, which would make the
     # core a minor and move this with it.
     "PathRefusedError": "0.19.2",
+    "SuiteMismatchError": "0.19.2",
+    "DocumentRefusedError": "0.19.2",
     "RunNotFoundError": "0.19.2",
     # 0.1.0 — the first published surface.
     "ModelPrice": "0.1.0",
