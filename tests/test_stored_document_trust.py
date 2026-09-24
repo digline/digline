@@ -44,6 +44,12 @@ def rewrite(path: Path, **fields: Any) -> None:
 #: Each one crashed the reader with `TypeError` or `AttributeError` before the
 #: fix — measured, not imagined: thirteen shapes were tried and these nine are
 #: the ones that reached a traceback. The other four were already refusals.
+#:
+#: **Each is one field away from a valid document**, and that is what makes
+#: the test evidence: `rewrite` edits a real stored run, which the control at
+#: the bottom of this file shows is accepted. A shape written from scratch can
+#: stop at the first missing mandatory field and never reach the one it is
+#: named after — a test of `results` that is really a test of `redacted`.
 CRASHED: list[tuple[str, object]] = [
     ("results", 5),
     ("results", [5]),
