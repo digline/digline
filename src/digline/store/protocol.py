@@ -185,6 +185,26 @@ class RunNotFoundError(FileNotFoundError):
     """
 
 
+class SuiteMismatchError(ValueError):
+    """Raised when a stored document declares a suite other than the one it is
+    filed under.
+
+    Not a perimeter — the tenant is that — but the same shape of fault one level
+    down: `promote_baseline` writes to the suite the *document* names, so a run
+    filed under `qa` declaring `"suite": "other"` overwrote `other`'s baseline
+    with exit 0 and no output. (Security pass of 2026-09-23, finding 7.)
+
+    **Refused, not redirected**, because digline does not repair documents.
+    Writing the baseline to the suite the run was *addressed* through would
+    accept a document that lies about itself and file it where it does not
+    claim to belong — after which `read_baseline`, which checks the same thing,
+    refuses what was just written. A document that contradicts itself is
+    refused, not corrected.
+
+    A `ValueError`, so every front end that already refuses a malformed
+    document refuses this one the same way, with no handler to add."""
+
+
 @dataclass(frozen=True, slots=True)
 class RunRef:
     """An opaque reference to a persisted run.

@@ -42,21 +42,59 @@ it is drawn in one place:
   below is a copy, written out because nothing here can read it at build time;
   the source is this repository's own advisories, which
   `gh api repos/digline/digline/security-advisories` returns and the Security
-  tab shows. So far, grouped by the occasion that found them: three from the
-  0.7.1 and 0.7.2 pass —
+  tab shows — ask that, not this paragraph, for how many there are.
+
+  **Grouped by what the looking was aimed at, because those are not
+  interchangeable and the grouping is meant to help somebody decide where to
+  look next.**
+
+  *Looking at what a release added* — the delta-pass, on 0.7.1 and 0.7.2:
   [GHSA-x56p-g933-6xx6](https://github.com/digline/digline/security/advisories/GHSA-x56p-g933-6xx6)
   (high, `digline-mcp` executing a suite from anywhere on disk),
   [GHSA-j878-2v6m-m4vx](https://github.com/digline/digline/security/advisories/GHSA-j878-2v6m-m4vx)
   (medium, reads outside the perimeter), and
   [GHSA-xrvr-5x82-w7g7](https://github.com/digline/digline/security/advisories/GHSA-xrvr-5x82-w7g7)
-  (low, a credential in a target URL reaching stderr and a CI log) — and one
-  from the delta-pass over 0.12.0, fixed in 0.12.1,
+  (low, a credential in a target URL reaching stderr and a CI log); and the
+  delta-pass over 0.12.0, fixed in 0.12.1,
   [GHSA-g25g-q7j3-jcgp](https://github.com/digline/digline/security/advisories/GHSA-g25g-q7j3-jcgp)
-  (low, perimeter fields in comparison deltas), and one from the denominator
+  (low, perimeter fields in comparison deltas).
+
+  *Looking at whatever a sentence had to be precise about* — the denominator
   article, fixed across 0.15.1 to 0.15.3,
   [GHSA-8c38-f965-cgww](https://github.com/digline/digline/security/advisories/GHSA-8c38-f965-cgww)
   (a gate raised from `fail` to `pass` reported as an improvement, where an
   unjudgeable case had shrunk the denominator under it).
+
+  *Looking at what was already there* — the standing-code pass of 2026-09-23,
+  fixed in 0.19.2 —
+  [GHSA-m9mw-rwqm-g38r](https://github.com/digline/digline/security/advisories/GHSA-m9mw-rwqm-g38r)
+  (medium, `digline register` creating and appending outside the store on the
+  write that creates the register),
+  [GHSA-qjqq-hrq4-rfgh](https://github.com/digline/digline/security/advisories/GHSA-qjqq-hrq4-rfgh)
+  (medium, `digline view` comparing `Origin` against the request's own `Host`),
+  and
+  [GHSA-3q9c-qq5w-ff5m](https://github.com/digline/digline/security/advisories/GHSA-3q9c-qq5w-ff5m)
+  (medium, `digline migrate` writing through a symlink committed in the store).
+
+  **The third group is aimed somewhere the first cannot see, and the
+  distinction earns its place here rather than in a changelog.** A delta-pass
+  asks three questions of what a release *added*; the standing-code pass asked
+  them of code no release had touched. Sixteen delta-passes and the
+  advisories above had run before those three were found, and none of them reached any of the three — **not
+  because they were done badly, but because a delta-pass looks at the delta by
+  construction.** Each of the three lived in code that had been sitting still:
+  a guard that exists but is not called from a call site added later, a check
+  whose two inputs are both supplied by the attacker, a collector that skips
+  the containment its sibling applies. A run of green delta-passes is evidence
+  about deltas and about nothing else.
+
+  The middle group is the least predictable of the three and the hardest to
+  schedule: nobody set out to audit the denominator, somebody set out to
+  **describe** it, and being made to write a sentence precisely is what turned
+  up a gate that read `fail` as `pass`. It is here as a kind rather than as an
+  anecdote, because "write down exactly what this does" is a way of looking,
+  and it is the one that costs nothing to start.
+
 - **A `Security` entry in the changelog, and no advisory**, for a finding our own
   process caught **before** it was exposed — the audit, the adversarial pass, the
   release delta-pass. There is no version to warn anybody off, and an advisory
@@ -66,6 +104,27 @@ it is drawn in one place:
 The second category is not a lighter one. It is where the finding that never
 reached anybody goes, and the changelog says what it was rather than that
 something was hardened.
+
+## Every severity argument names its reader
+
+**A rule about how this file is written, taken from getting it wrong.** When a
+finding is rated here — as an advisory or as a thing that does not need one —
+the argument says *who is harmed*, in words, and that reader is checked against
+the surfaces the finding actually reaches.
+
+The one that failed said a gap was *"not a way in ... it changes what a human
+believes they are looking at"*. Every clause was true of the character that had
+been measured, and the class also contained characters no human can see at all,
+on a surface whose reader had become a program holding tools. The argument was
+not too weak; it was about somebody else. It stood for a release because
+re-reading it looks like agreeing with it — the reasoning is sound, and nothing
+in the sentence points at the assumption underneath.
+
+So: name the reader, and name what they do with what they receive. A terminal
+obeys. A browser renders. A person reviewing a baseline decides whether to
+approve it. An agent acts. A finding that is harmless to one of them is not
+thereby harmless, and a surface can gain a reader in a release without any of
+the prose about it changing.
 
 ## The delta-pass
 
@@ -175,47 +234,65 @@ without any race at all — a symlink sitting in the store, checked once, read
 once, no timing involved. The line is whether digline can tell: it can see where
 a name leads at the moment it looks, and it is answerable for that.
 
-## Open and measured: bidirectional text controls are not neutralised
+## Closed: text that is never language is neutralised
 
-**Not fixed, not out of scope, and written here so it is findable.** Found by the
-0.19.0 delta-pass, whose subject was something else entirely; it belongs to no
-release and is nobody's regression.
+**This section used to say bidirectional controls were open, and it argued that
+they did not matter very much. The measurement — made by the 0.19.0 delta-pass,
+whose subject was something else — was right, and the argument was wrong.** Both are kept here, because a reader who acted on the old sentence
+deserves to see what replaced it and why.
 
-digline neutralises control characters in two places, and both were written
-against one class. `report.visible()` guards a terminal; `core.json_visible()`
-guards a value a program parses, with JSON's own encoder covering C0 by an agreed
-division of labour (`wire/contract.py`, `OUTPUT_VERSION` 2). **Unicode
-bidirectional and format controls are in neither.** 0.10.1 closed DEL and the C1
-block; this class was never in scope, and nothing since has looked.
+### What is fixed
 
-What the measurement was and what it showed. One marker per hazard class,
-embedded in an **artifact path** — the text this surface carries — pushed through
-every sink that renders a comparison or a run:
+`report.visible()`, `core.json_visible()` and `report.escape()` now neutralise
+the characters that are **never language**, listed once in
+`core.NEVER_LANGUAGE`: the bidi embeddings and overrides U+202A–U+202E, the
+interlinear annotation characters U+FFF9–U+FFFB, and the tag block
+U+E0000–U+E007F. Each is written as its escape text — `\u202e`, `\U000e0041` —
+so every surface shows that something was there.
 
-| marker | `visible()` | `json_visible()` | HTML `escape()` |
-|---|---|---|---|
-| U+009B (C1, and it *is* CSI) | neutralised | neutralised | — |
-| U+007F (DEL) | neutralised | neutralised | — |
-| U+001B `[` (ESC) | neutralised | raw, and JSON escapes it | — |
-| U+0001 (C0) | neutralised | raw, and JSON escapes it | — |
-| **U+202E (RTL override)** | **raw** | **raw** | **raw** |
+0.10.1 closed DEL and the C1 block against a terminal; this is the range that
+was never in that scope, and it is closed now for a reader that did not exist
+then.
 
-So the terminal, the report and the wire all render U+202E exactly as given. HTML
-escaping does not touch it either: it is not `<`, `>` or `&`, and it is not a
-control character by the definition either sanitiser uses.
+The rest of the `Cf` category is deliberately untouched, and the distinction is
+the fix rather than a caveat. U+200E/U+200F and U+061C set direction in ordinary
+Arabic and Hebrew prose; U+200C/U+200D carry meaning in Indic scripts and hold
+emoji sequences together; U+2066–U+2069 are the isolates Unicode recommends
+*instead of* the deprecated overrides. Neutralising the category would corrupt a
+report rendered in a language this project exists to serve. The tests hold both
+halves: eleven characters must be neutralised, five must survive, and a
+ZWJ family emoji must come through every surface intact.
 
-**Why it is worth closing eventually, and it is not about tidiness.** A path
-whose display order is reversed misleads the one reader who cannot check it any
-other way. A run document is read across a boundary — the software house holding
-a customer's redacted run, the end company reading a report somebody else
-rendered — and that reader is looking at the document *because they do not have
-the thing it describes*. Every other reader can open the file and see. They
-cannot. A rendering trick is cosmetic when the reader can verify around it, and
-it is the whole attack when they cannot, which is precisely the audience
-[ADR 0002](docs/adr/0002-three-worlds-and-where-the-data-lives.md) built worlds 2
-and 3 for.
+### The argument that was wrong
 
-It is **not** a way in. It moves no payload, crosses no boundary, and reads no
-file it was not given: it changes what a human believes they are looking at. That
-is why it is recorded rather than embargoed, and why the fix is a sanitiser
-widened to the bidi and format categories rather than anything structural.
+The old section said, of U+202E:
+
+> *"It is **not** a way in. It moves no payload, crosses no boundary, and reads
+> no file it was not given: it changes what a human believes they are looking
+> at."*
+
+That is true of U+202E and it was never the whole class. **The tag block does
+not deceive a human at all — it is invisible to every surface here — and the
+reader it addresses is an agent holding tools.** Since 0.15.0 `digline-mcp`
+renders through `digline.wire`, and `core/text.py` had already written down what
+that surface is for: *"a terminal is very often what reads the program's output
+next"*. The reader changed and the argument did not follow it.
+
+Measured rather than asserted: an invisible 49-character instruction spelled in
+the tag block, embedded in a `case_id`, survived `redact()` with nothing
+disclosed and arrived intact at all five surfaces — the run document, the
+comparison JSON, the HTML report, a terminal line, and `--json`. A reviewer
+reading the committed baseline saw `capital-of-italy`.
+
+So the old sentence fails in its own terms. It still moves no payload, crosses
+no boundary and reads no file. What it moves is an **instruction**, into the
+context of the one reader that acts on instructions — and "not a way in" was a
+claim about a human reader, made on a surface built for a machine one.
+
+### What this cost, and the rule taken from it
+
+The gap was found by a delta-pass whose subject was something else, recorded
+here honestly, and then left open for a release on an argument about who was
+reading. The lesson is not that the measurement was insufficient — it was
+exact — but that **a severity argument has to name its reader**, and this one
+named the wrong one for a surface that had gained a new reader in the meantime.

@@ -41,6 +41,7 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "DocumentRefusedError",
     "ENDPOINT_PERIMETER_FIELDS",
     "MAX_RECORDED_CHARS",
     "OBSERVED_FIELDS",
@@ -205,6 +206,26 @@ __all__ = [
 #    found by somebody sitting down to write the plugin patch that would fill
 #    it.
 SCHEMA_VERSION = 16
+
+
+class DocumentRefusedError(ValueError):
+    """Raised when a stored document does not have the shape of a run.
+
+    A `ValueError`, like `DifferentSuitesError` beside it, so the CLI's existing
+    handler maps it to `EXIT_USAGE` and every caller that already catches
+    `ValueError` around a read keeps working with no new plumbing.
+
+    **The name exists for the boundary that cannot see a bare one.**
+    `digline-mcp` translates the exceptions digline raises on purpose and lets
+    everything else travel to the client as a crash, so a refusal with no type
+    of its own reaches an agent as "Error executing tool get_run" with the
+    reason on stderr. That is the defect just closed for the store's two
+    refusals, and re-raising this one untyped would have reopened it in the
+    same release. Adding bare `ValueError` to that list is not the alternative:
+    it would hand an agent the internals of genuine bugs, which is exactly what
+    the list exists to keep back.
+    """
+
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
 #: not name the tool. The only value: digline records every name it is given, so
@@ -2307,7 +2328,41 @@ def _calibration_from_dict(raw: object) -> CalibrationBand | None:
     )
 
 
-def run_from_dict(raw: Mapping[str, Any]) -> Run:
+def run_from_dict(raw: object) -> Run:
+    """A stored document read back into a `Run`, or a `ValueError` saying why not.
+
+    **Every malformed shape is a refusal, never a crash.** A document is written
+    by whoever holds it, and the reader below trusts its shape field by field:
+    `results: 5`, `artifacts: [1]`, `target_config: 5` or a bare `[]` for the
+    whole document raised `TypeError` or `AttributeError`, which the CLI does
+    not handle — so the process died with a traceback and **exit 1**, which is
+    `EXIT_WORSE`: a corrupted file read, to a gate, exactly like a regression.
+    Nine of thirteen malformed shapes tried did that. (Security pass of
+    2026-09-23, finding 6.)
+
+    Checking each field's shape where it is read is the style elsewhere
+    (`_tool_call_from_dict`), and it gives the better message. It is also
+    thirteen places, each one a place to forget. So the whole document is
+    checked for being an object, and any shape error from inside is re-raised
+    as a `ValueError` naming the document as malformed, with the original
+    chained. The cost is stated: a genuine bug in this reader would now exit
+    64 with its type in the message rather than 1 with a traceback — and exit
+    64 is still a failure, where exit 1 was a false verdict.
+    """
+    if not isinstance(raw, Mapping):
+        raise DocumentRefusedError(
+            f"the run document is a JSON {type(raw).__name__}, not an object"
+        )
+    try:
+        return _run_from_mapping(cast(Mapping[str, Any], raw))
+    except (TypeError, AttributeError) as exc:
+        raise DocumentRefusedError(
+            f"the run document does not have the shape of a run "
+            f"({type(exc).__name__}: {exc})"
+        ) from exc
+
+
+def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
     version = int(raw.get("schema_version", 0))
     if version != SCHEMA_VERSION:
         raise ValueError(
@@ -2397,4 +2452,4 @@ def run_to_json(
 
 
 def run_from_json(payload: str) -> Run:
-    return run_from_dict(cast(Mapping[str, Any], json.loads(payload)))
+    return run_from_dict(json.loads(payload))

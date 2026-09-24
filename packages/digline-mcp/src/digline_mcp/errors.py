@@ -33,13 +33,19 @@ from typing import NoReturn
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from digline.core import DifferentJudgesError, DifferentSuitesError, json_visible
+from digline.core import (
+    DifferentJudgesError,
+    DifferentSuitesError,
+    DocumentRefusedError,
+    json_visible,
+)
 from digline.host import UsageError
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
     PathRefusedError,
     RunNotFoundError,
+    SuiteMismatchError,
     TenantMismatchError,
 )
 from digline.targets import ProviderNotFound
@@ -67,6 +73,8 @@ TRANSLATED: tuple[type[Exception], ...] = (
     ProviderNotFound,
     PathRefusedError,
     RunNotFoundError,
+    SuiteMismatchError,
+    DocumentRefusedError,
 )
 
 
