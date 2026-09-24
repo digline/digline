@@ -75,7 +75,9 @@ skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
 agent is about to run a suite or read a comparison. Beside it is the MCP server,
 which measures, reads and explains, and cannot promote a baseline. Two lines
 plus one dependency: the server imports your suite, so it runs from your
-project's `.venv`.
+project's `.venv`. That is the server only. The commands the agent types in its
+own shell find digline wherever that shell does, which can be another install
+at another version.
 
 ```bash
 uv add --dev digline-mcp

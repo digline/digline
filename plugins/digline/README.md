@@ -47,8 +47,19 @@ commit: the plugin belongs to the repository that uses digline, like
 everything else digline keeps.
 
 The marketplace installs the plugin from the tag of the digline release it
-describes, never from `main`, so the skill does not describe anything your
-installed digline cannot do yet. Its version is digline's version.
+describes, never from `main`, so the skill never describes an unreleased
+digline. It describes *that* release, which need not be the one your project
+runs. The plugin itself executes no digline, and which one runs depends on who
+runs it:
+
+- **the MCP tools** always run your project's `.venv/bin/digline-mcp`, at your
+  project's version (below);
+- **the agent's shell commands** run whichever digline the command finds:
+  `uv run digline` finds the project's, and a bare `digline` finds the first
+  one on `PATH`, which can belong to another project.
+
+So one session can hold three versions: the skill's, the project's and the one
+on `PATH`. Nothing reports it when they differ.
 
 ## What the launcher needs
 

@@ -784,7 +784,8 @@ LIVE: dict[str, str] = {
     # The Claude Code plugin: its version, and the tag the marketplace installs
     # it from. Pinned rather than following `main`, which would ship the skill
     # ahead of the release that justifies it — a playbook promising something
-    # the reader's installed digline cannot do yet.
+    # no released digline can do yet. It does not keep the skill level with the
+    # reader's installed digline, which the reader's project pins on its own.
     "plugins/digline/.claude-plugin/plugin.json": r'^\s*"version": "([^"]+)"',
     ".claude-plugin/marketplace.json": r'^\s*"ref": "v([^"]+)"',
 }
