@@ -6,7 +6,21 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.19.2 — unreleased
+
+digline **0.19.2**, with **digline-mcp 0.3.0**. Seven findings from a pass over
+the code that was already there — not over what a release added — and three of
+them are published as advisories.
+
+**A patch, checked against the rule rather than assumed.** `RELEASING.md` moves
+the minor only when something a user relies on stops working as it did. These
+are refusals of defects: a register that resolves inside the store still works,
+a well-formed document still reads, and no schema, public name or CLI option
+has moved. Four exception types are added, none removed. `digline-mcp` is the
+exception and takes a **minor**, because its `digline>=` floor rose to 0.19.2
+and a floor is a thing users rely on — a plugin claiming it is broken for
+anyone still on 0.19.1. Install the core first; a floor may not name a release
+the index does not serve.
 
 ### Security
 
@@ -222,6 +236,26 @@ reads it.** If `read_pinned` is ever the only 0.19.0 name here, and a caller nee
 an older core, the honest move is to drop the feature from this front end — not
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
+
+## digline-mcp 0.3.0 — unreleased
+
+Published by digline's `v0.19.2` tag, with the core.
+
+A **minor** for one reason: the `digline>=` floor rises to **0.19.2**. The
+server now translates four refusals the store and the reader raise — two from
+0.19.2's security pass (`SuiteMismatchError`, `DocumentRefusedError`) beside the
+two 0.19.2 gave the store — and those names do not exist in an older core, so
+an older core would give this package an `ImportError` rather than a refusal.
+Nothing else about the surface moves: the same eight tools, the same
+read-only hints, and still no way to promote a baseline.
+
+What changes for an agent driving it is what it is told when something is
+refused. A run key that is not a safe name, a run that links out of the store,
+a run that is simply absent, a stored document that is not a run, and one that
+names a suite other than the one it is filed under each now arrive as the
+sentence digline wrote. Before, each arrived as `Error executing tool get_run`
+with the reason on stderr, where no client reads it — and an agent told only
+that something failed retries, which is the one response that cannot help.
 
 ## digline-mcp 0.2.0 — 2026-09-23
 

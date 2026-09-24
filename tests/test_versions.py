@@ -282,6 +282,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.19.1": (
+            "the release whose tag was measured: the index-race waits, the two "
+            "architectures' builds, the three image tags resolving to one "
+            "digest, and the hold after the go-ahead. Every one is an "
+            "observation of what v0.19.1 did, so moving them would claim a "
+            "later tag produced numbers nobody read. History, not the current "
+            "version"
+        ),
         "1.32.3": (
             "not a digline version: the hatchling that built "
             "`digline_anthropic-0.5.3` as PyPI serves it, read from the wheel's "
