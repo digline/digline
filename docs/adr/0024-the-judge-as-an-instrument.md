@@ -161,7 +161,8 @@
 - Requires: `SCHEMA_VERSION` 11 → 12 for two passengers, both checked against
   ADR 0014 §1 in §9; no `OUTPUT_VERSION` (added keys only); no `config_hash`
   change for any suite; no baseline re-promoted
-- Number: 0024. 0023 is claimed by capture on its branch
+- Number: 0024. 0023 was claimed by capture on its branch, and is on `main` as
+  proposed since 2026-09-24
 
 ## Context
 
