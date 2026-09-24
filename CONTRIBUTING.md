@@ -13,6 +13,22 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   pure and importable on its own. If it fails, the change is wrong, not the test.
 - **Every assertion needs a failing case.** A check that cannot fail is a bug
   (fixed decision 3), and the test that proves it can is the one that says so.
+- **If you add a flag that turns something on, the flag's tests do not cover
+  the default.** They feel like they do, which is why this is written down.
+  Measured on `digline view --allow-promote` (ADR 0032): the refusal was deleted
+  from `do_POST`, and **48 tests exercising the flag all passed** — every
+  promotion through the enabled server, every refusal it forwards, the `Host`
+  and `Origin` guards. Not one of them can see a default that stopped refusing,
+  because not one of them runs on the default. Five tests caught it, and all
+  five were written about the *off* state.
+
+  So the rule, for the next opt-out as much as that one: **mutate the default
+  away and run the suite.** If it stays green, what you have tested is the
+  feature, not the boundary — and a boundary is the only reason an opt-out
+  exists. The same run is what catches a test that *looks* like it covers the
+  off state and cannot: one here went green under the mutation because its
+  fixture had a single run that was already the baseline, so no row could have
+  carried the button on any server at all.
 - **Decisions in `CLAUDE.md` marked fixed need an ADR in `docs/adr/` first**,
   not a pull request that quietly works around them.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.

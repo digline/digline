@@ -79,8 +79,12 @@ def served(repo: Path) -> Iterator[tuple[int, str]]:
             # The server that *has* a write route, deliberately. This file is
             # about the `Host` and `Origin` guards on that route, and on the
             # default server the POST below would be a 404 before either guard
-            # ran — passing, and proving nothing about the thing under test.
-            # That the default has no route at all is `tests/test_view.py`.
+            # ran — including the control line that exists to prove the guard
+            # can refuse. It would have passed, guarding nothing, and said so
+            # nowhere: a test does not fail when it stops testing. It was moved
+            # here by hand when the default changed, and that hand is the whole
+            # of what caught it. That the default has no route at all is
+            # `tests/test_view.py`; what this file is worth is ADR 0032 §6.
             "--allow-promote",
         ],
         cwd=repo,

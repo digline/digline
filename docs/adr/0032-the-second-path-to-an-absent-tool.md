@@ -582,6 +582,14 @@ remember.
 - **`--host` is filed and deliberately not decided here** (§4). It is decision
   9 territory and gets its own record; settling a disclosure boundary as a side
   effect of a promotion ruling is how one of the two ends up unargued.
+- **One lesson was written down outside this record**, in
+  [`CONTRIBUTING.md`](../../CONTRIBUTING.md), because its reader is somebody
+  adding the *next* opt-out and they will not be reading this. Measured when
+  this record's code was built: with the default's refusal deleted, **48 tests
+  exercising `--allow-promote` all passed** — every promotion, every refusal
+  forwarded, both rebinding guards — and five tests caught it, all five written
+  about the off state. The temptation to test the flag and call the boundary
+  covered is not specific to this flag.
 - **The hook evasions do not ride this change** (§4c). They are a `plugins/`
   fix on the plugin's release train, carrying the sentence about what they
   confirm.

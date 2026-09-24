@@ -140,6 +140,17 @@ def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
     what a refusal looks like on the server a person chose to promote from, and
     the default server has nothing to refuse *with* — it refuses the route
     itself. That half is `tests/test_view.py`. (ADR 0032 §6)
+
+    **It was moved here deliberately, and that is the only reason it still
+    means anything.** Left on the default server this walk would have gone on
+    passing — sixteen refusal types, each POST answered `404` before
+    `promote_baseline` was ever called, a green with nothing behind it. Nothing
+    would have said so: a test does not fail when it stops testing. That is a
+    third instance of the family ADR 0032 is about — the MCP, the hook and the
+    skill each stayed correct about a word while the act moved past it; here a
+    test stays correct about a request while the *default under it* moves. A
+    test whose meaning depends on a default is a test to re-read whenever that
+    default changes, and the changing of it is the only notice you get.
     """
     suite, _loaded = load_suite(str(repo / "suite_qa.py"), root=repo)
     known: set[str] = set()
