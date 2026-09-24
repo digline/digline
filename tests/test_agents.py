@@ -92,6 +92,28 @@ CREDENTIAL_CLAUSES = (
 )
 
 
+#: Rule 6's last sentence about versions, held word for word in both copies. It
+#: is the line that came from being wrong: a version difference was the obvious
+#: suspect for an exit code the rules did not describe, and it was innocent —
+#: the same comparison exits the same way on both releases.
+HYPOTHESIS_LINE = (
+    "A difference is a hypothesis, not a cause: before blaming it, re-run the "
+    "same command on the release these rules describe."
+)
+
+
+def test_both_files_say_a_version_difference_is_a_hypothesis() -> None:
+    """Compared with line breaks folded, so rewrapping is not drift and
+    rewording is."""
+    for path in (AGENTS, SKILL):
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        rule_six = text.split("## 6. ", 1)[1].split("## 7. ", 1)[0]
+        assert HYPOTHESIS_LINE in rule_six, (
+            f"{path.relative_to(ROOT)} no longer says, word for word, in rule 6: "
+            f"{HYPOTHESIS_LINE!r}"
+        )
+
+
 def test_both_files_say_the_operator_proves_the_wall() -> None:
     """Rule 1 says `promote` is absent; this line says the absence is checked
     rather than trusted, and that a refusal alone does not check it. An agent

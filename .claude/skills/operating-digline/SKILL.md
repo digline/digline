@@ -145,6 +145,16 @@ not an error — the score is real — but the judged numbers beside it are not
 measurements, which is what `2` already meant. A regression beside a lost scale
 still returns `1`, and the calibration clause leads the headline either way.
 
+**Name the digline that produced what you are reading.** Run the CLI through
+the project's environment (`uv run digline …`), never a bare `digline`, which
+is whichever install is first on your shell's `PATH`. A run records the digline
+that wrote it (`digline_version`). A comparison, a view and an explanation
+record nothing, so ask the same executable: `uv run digline --version`. It
+holds for that command only, because your shell can change before the next
+one. When it differs from the release these rules describe (**0.19.1**), say so
+beside the result. A difference is a hypothesis, not a cause: before blaming
+it, re-run the same command on the release these rules describe.
+
 
 ## 7. Say what a hunt will cost before starting it
 
