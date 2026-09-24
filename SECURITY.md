@@ -67,6 +67,27 @@ The second category is not a lighter one. It is where the finding that never
 reached anybody goes, and the changelog says what it was rather than that
 something was hardened.
 
+## Every severity argument names its reader
+
+**A rule about how this file is written, taken from getting it wrong.** When a
+finding is rated here — as an advisory or as a thing that does not need one —
+the argument says *who is harmed*, in words, and that reader is checked against
+the surfaces the finding actually reaches.
+
+The one that failed said a gap was *"not a way in ... it changes what a human
+believes they are looking at"*. Every clause was true of the character that had
+been measured, and the class also contained characters no human can see at all,
+on a surface whose reader had become a program holding tools. The argument was
+not too weak; it was about somebody else. It stood for a release because
+re-reading it looks like agreeing with it — the reasoning is sound, and nothing
+in the sentence points at the assumption underneath.
+
+So: name the reader, and name what they do with what they receive. A terminal
+obeys. A browser renders. A person reviewing a baseline decides whether to
+approve it. An agent acts. A finding that is harmless to one of them is not
+thereby harmless, and a surface can gain a reader in a release without any of
+the prose about it changing.
+
 ## The delta-pass
 
 **A release that adds surface gets an adversarial pass over that surface before
