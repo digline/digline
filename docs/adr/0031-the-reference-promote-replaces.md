@@ -4,7 +4,7 @@
   the code after it. It is a breaking change, so it rides **0.20.0**, not
   0.19.2: that release was being cut when this record was opened, and this is
   deliberately not part of it
-- Shipped: unreleased
+- Shipped: 0.20.0
 - Date: 2026-09-24
 - Amended: 2026-09-24, with the code, on `promote-replacing`. These are three
   facts the text did not foresee, and none of them revisits a decision.

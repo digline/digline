@@ -6,7 +6,21 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.20.0 — 2026-09-24
+
+digline **0.20.0**, with **digline-mcp 0.4.0**. Both halves of this release
+came from one reader, **kantorcodes1**, on the r/ClaudeCode thread about the
+Claude Code plugin. They read `promote`'s code and found a lost update, then
+classified what each command does and found a second way to promote that
+digline's own guarantee said did not exist.
+
+**A minor, checked against the rule rather than assumed.** Two things a user
+relies on now work differently. `digline promote` requires `--replacing`, and
+`digline view` no longer promotes unless it is started with `--allow-promote`.
+A script that promoted, or a browser that did, stops with a sentence saying
+what to add. No schema moves (`SCHEMA_VERSION` stays 16, `OUTPUT_VERSION`
+stays 2), so no stored document needs `migrate` and no baseline needs promoting
+again.
 
 ### Changed — `digline view` does not promote unless you say so
 
@@ -353,6 +367,24 @@ reads it.** If `read_pinned` is ever the only 0.19.0 name here, and a caller nee
 an older core, the honest move is to drop the feature from this front end — not
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
+
+## digline-mcp 0.4.0 — 2026-09-24
+
+Published by digline's `v0.20.0` tag, with the core.
+
+A **minor**, for the reason 0.3.0 was one: the `digline>=` floor rises, to
+**0.20.0**. The server's list of refusals it translates is now digline's own
+classification, `digline.host.REFUSALS`, and not a copy kept here. That name
+does not exist in an older core. The copy had fallen behind the core twice.
+Now every refusal digline defines reaches an agent as the sentence digline
+wrote, and a test in digline fails on any refusal type that is not classified.
+
+Two smaller things move with it. `compare` returns `baseline_key`, the
+reference the comparison was made against, which is what `promote --replacing`
+has to name. And the playbook's advice on `digline migrate` becomes a
+condition rather than a ban (ADR 0032 §4). Nothing else about the surface
+moves: the same eight tools, the same read-only hints, and still no way to
+promote a baseline.
 
 ## digline-mcp 0.3.0 — 2026-09-24
 

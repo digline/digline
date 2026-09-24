@@ -444,6 +444,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "in-build `pip` lost the race with the runner-side wait already green, "
         "which is what added the in-build consumers. History, dated like the "
         "section's other incidents",
+        "0.19.2": "the index-race status for v0.19.2 — what its runner and in-build "
+        "waits printed, the three image tags resolving to one digest, and the "
+        "lock that moved from v0.19.1 to v0.19.2. Measurements of that tag, and "
+        "moving them would claim a later tag produced numbers nobody read",
     },
     "docs/explain.md": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
@@ -554,6 +558,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "worked example of why that rule exists",
         "0.8.1": "what went out before the announcements because that pass "
         "found something. Same sentence, other end of it",
+        "0.19.2": "'the standing-code pass of 2026-09-23, fixed in 0.19.2' — "
+        "the release that closed the three advisories that pass found. A fact "
+        "about a shipped release, not a claim about this one",
     },
     "examples/external-app/README.md": {
         "0.1.2": "'Needs digline 0.1.2 (HttpTarget)' — the release the feature "
@@ -646,9 +653,17 @@ RECORDED: dict[str, dict[str, str]] = {
         "trusting `json.dumps` to escape DEL and C1, named where the standing "
         "rule and the escaping now live",
     },
+    "src/digline/host/refusals.py": {
+        "0.19.2": "'0.19.2 added two, SuiteMismatchError ... and DocumentRefusedError' "
+        "— the release whose refusals the view's tuple never learned, told as "
+        "why the classification exists. History",
+    },
     "src/digline/cli/view.py": {
         "0.13.0": "'(0.13.0 delta-pass)' — the start-up line the standing "
         "rule's guard caught on its first run, now through `say()`",
+        "0.19.2": "'0.19.2 added two refusals this list never learned' — the "
+        "release that introduced friction 59, named as the reason the tuple is "
+        "derived. History",
     },
     "src/digline/core/assertions.py": {
         "0.16.0": "'Until 0.16.0 this exception was raised inside the try that "

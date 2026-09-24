@@ -128,9 +128,14 @@ guessed.
 
 ```console
 $ uv sync && uv run digline run --suite suite.py
-$ uv run digline promote --suite suite.py --run latest
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-08T07-42-54-701842-00-00-5af8d8dd1e55f5c5
 $ uv run digline compare --suite suite.py --run latest
 ```
+
+`--replacing` names the baseline this promotion replaces: here, the one
+this example ships, whose key `compare` prints under its verdict and
+`digline list` marks with `*`. If the baseline has moved since you
+compared, `promote` refuses and names both keys.
 
 No API key: the classifier here is a stand-in. Replace `app.classify` with your
 model and nothing else changes.
