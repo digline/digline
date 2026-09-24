@@ -590,13 +590,20 @@ digline.dev's `Build` to catch, not this one. Three site builds broke on
 a relative `SECURITY.md` link in the changelog — and all three came from this
 side of the line.
 
-**The way out when the site is red for its own reasons.** The `docs` job checks
-out digline.dev's default branch as it is, so a site that cannot build blocks
-pull requests here. Repair the site first: that is nearly always the right fix
-and usually a minute. When it is not, `gh pr merge --admin` merges over the red
-— the ruleset keeps `RepositoryRole: always` as a bypass for exactly this — and
-it is better than suspending the requirement, which is the thing nobody
-remembers to restore.
+**When the site is red for its own reasons.** The `docs` job checks out
+digline.dev's default branch as it is, so a site that cannot build turns `docs`
+red on every pull request here. That blocks no merge — `docs` is not a required
+check, for the reason above — but it hides the next real red behind a known one,
+so repair the site first: nearly always the right fix, and usually a minute.
+
+**There is no way round a red required check, and there is not meant to be.**
+This paragraph used to offer `gh pr merge --admin`, over a `RepositoryRole:
+always` bypass kept for the purpose. That bypass is gone: the ruleset's
+`bypass_actors` is empty, and `--admin` is refused like any other merge. When
+`gates (3.12)` or `gates (3.13)` is red, the remedy is to fix what reddened it —
+the code, or the check if the check is wrong — on a branch, through a pull
+request, like every other change. Suspending the requirement is not a remedy
+either: it is the thing nobody remembers to restore.
 
 This paragraph exists because the rule was stated backwards for three days
 running, from a memory that had recorded it correctly and was read the wrong
