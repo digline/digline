@@ -1067,6 +1067,45 @@ servers would confirm it.
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
 
+- **v0.19.2 — both pairs proven, one in each job, and the longest runner-level
+  wait yet.** Same reading as v0.19.1, and the third tag in a row where the
+  runner-level wait absorbs the race and the in-build one reads `0s`.
+
+  **The race, at the runner.** `smoke`'s wait printed `waiting digline==0.19.2 —
+  /simple/digline/ is served and lists 36 file version(s), none at 0.19.2`
+  eleven times, then `every version is served (after 330s)`. The three plugins
+  read `after 0s` throughout: none of them moved this release, so the index had
+  served them for days. 330s against v0.19.1's 210s and v0.17.1's 241s.
+
+  **amd64 — proven in `smoke`'s build, and CACHED in the multi-arch one.**
+  `#9 0.344 served digline==0.19.2 (after 0s)`, then `#9 1.322 Collecting
+  digline==0.19.2` and `#9 7.221 Successfully installed … digline-0.19.2 …` in
+  one `RUN`. The multi-arch job's amd64 layer reports `#12 CACHED`, so that job
+  proves nothing about amd64 on its own — the pair is in `smoke`, and reading
+  the multi-arch job alone would have found an arch with no evidence and no
+  failure. Read the two arches apart, or this is invisible.
+
+  **arm64 — proven in the multi-arch build.** `#15 DONE 142.8s`, with
+  `#15 5.073 served digline==0.19.2 (after 0s)` — and `after 1s` for the three
+  plugins — then `#15 23.53 Collecting digline==0.19.2` and `#15 136.3
+  Successfully installed … digline-0.19.2 …`, in one `RUN`.
+
+  The three tags, `0.19.2`, `0.19` and `latest`, resolve to one digest:
+  `sha256:5ceab38344ec7e425241fedb86518a46414c26a60a79a284e9629dec299b1174`.
+
+  **And one observation from outside CI, which the waits do not cover.**
+  Regenerating the example locks immediately after `publish` went green,
+  `examples/classifier` — alphabetically first — resolved `digline 0.19.1`
+  while reporting success. The retry minutes later said `Updated digline
+  v0.19.1 -> v0.19.2`. `uv lock` has no wait and asks a different edge than any
+  runner; the only thing that caught it was reading the six locks back one at a
+  time. **A lock that silently resolves the previous release is the index race
+  arriving where nothing is waiting for it.**
+
+  **What the next tag must show:** still the two-pair reading, and still whether
+  a tag ever arrives where the runner-level wait clears at `0s` *and* the
+  in-build one does not. Three tags have now not shown it.
+
 - **v0.19.1 — both pairs proven, one in each job, and the race met at the runner
   and waited out.** `docker-publish` succeeded on attempt 1.
 
