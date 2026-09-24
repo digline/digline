@@ -18,8 +18,8 @@
   sentence this record falsifies and amends;
   [ADR 0022](0022-the-declared-price.md) §5 (a promotion checks the declared
   price digest, which is why `view` carries `pricing` at all);
-  [ADR 0031](0031-the-reference-promote-replaces.md) (unmerged, branch
-  `promote-lost-update`) — §6 below is the one place the two records touch
+  [ADR 0031](0031-the-reference-promote-replaces.md), merged as #108 while
+  this record was being written — §6 below is the one place the two touch
 - Touches: `CLAUDE.md`'s *fixed* section only through decision 2 — the baseline
   lives in `.digline/<tenant>/` and is versioned in git, so what may write
   there is a perimeter question and not a convenience question. No fixed
@@ -83,24 +83,32 @@ decided is what it means next to the sentence above.
 ### What was measured
 
 Read from the code, this looks like it needs a browser and a click. It does
-not. `_allowed_origin` (`src/digline/cli/view.py:49`) returns `True` when there
+not. `_allowed_origin` (`src/digline/cli/view.py`) returns `True` when there
 is no `Origin` header at all, and says why: *"no `Origin` at all is allowed —
 that is a curl or an old browser, neither of which is the attack"*. Against a
 cross-site POST from a page the developer has open, that reasoning is right.
 Against a caller with a shell, it is the whole door.
 
-Measured on `6528af7`, not read off the source. Two runs in a store, the first
-one promoted; then `digline view` started on an ephemeral port, and one POST
-with **no `Origin` header and no credential of any kind**:
+Measured, not read off the source. Two runs in a store, the first one
+promoted; then `digline view` started on an ephemeral port, and one POST with
+**no `Origin` header and no credential of any kind**:
 
     RESULT POST /promote (no Origin) -> 200; promoted_at moved: True;
-    baseline now equals run(s): ['2026-09-24T13-10-29-251434-…'];
-    POSTed=2026-09-24T13-10-29-251434-…; first=2026-09-24T13-10-29-006070-…
+    baseline now equals run(s): ['2026-09-24T13-43-18-776131-…'];
+    POSTed=2026-09-24T13-43-18-776131-…; first=2026-09-24T13-43-18-538378-…
 
 The baseline moved from the first run to the second. No `digline promote` ran.
 No MCP tool was called — none exists to call. The plugin hook
 (`plugins/digline/scripts/ask_a_person.py`) never fired, because it reads the
 first word after `digline` and that word was `view`.
+
+First measured on `6528af7`, and **re-measured on `69af0b7`** — this record's
+branch after `main` was merged into it, carrying #108 (ADR 0031) and #114 (the
+refusal classification), both of which changed `view.py`. `_allowed_origin`
+grew a signature and a real `Host` check in between; its first line is still
+`if not origin: return True`, and the result above is the second run, not the
+first. A green describes one tree, so this one was re-run against the tree that
+carries it.
 
 ### Why this is a contradiction and not a gap in the documentation
 
@@ -411,6 +419,17 @@ has thought of — and it is the same construction friction 59 chose for the
 refusal types, for the same reason: a list without a test that fails is a
 fourth place to forget.
 
+**That construction now exists and should be copied rather than reinvented.**
+`src/digline/host/refusals.py` sorts every exception digline defines into
+refusals and everything else, and `tests/test_refusals.py` *"walks every module
+under `digline` and fails on any exception class that is in neither table"* —
+which, in its own words, is what turns *a type somebody added* into *a type
+somebody classified*. The test here is the same sentence with the nouns
+changed: walk every call site reaching `promote_baseline` and `append_register`,
+and fail on one that is not classified. Both records answer the same question
+— what happens to the thing nobody remembered to add — and neither answers it
+with a list.
+
 #### 4c. Three hook evasions, found by the sweep and confirmed by running it
 
 Not part of the perimeter — the hook is a preference, not a wall, and §1 does
@@ -476,19 +495,20 @@ was never the sentence at fault.
 
 ### 6. Where this meets ADR 0031
 
-[ADR 0031](0031-the-reference-promote-replaces.md) and friction 59 are fixing
+[ADR 0031](0031-the-reference-promote-replaces.md) and friction 59 fixed
 `do_POST`'s refusal tuple — the hand-listed exception types that let
 `SuiteMismatchError` and `DocumentRefusedError` through as a dropped
-connection. That work is **not** made redundant by this record and must not be
-deferred on the strength of it. §1 removes the route from the default server;
-it does not remove it from `--allow-promote`, which is the server a person
-promoting from a browser is using, and a promotion that silently succeeds while
-appearing to fail is at its worst for exactly that person. The canonical
-refusal list decided in friction 59 is what keeps both correct.
+connection. **Both landed while this record was being written**, as #108 and
+#114, which is the ordering this section asked for: 0031 first, because it
+fixed a defect in a published release, and this record only changes a default.
 
-The ordering is the other way round from what it looks like: 0031 lands first,
-because it fixes a defect in a published release, and this record changes a
-default.
+That work is **not** made redundant by what §1 decides, and the reason is worth
+keeping. §1 removes the route from the *default* server; it does not remove it
+from `--allow-promote`, which is precisely the server a person promoting from a
+browser is using — and a promotion that silently succeeds while appearing to
+fail is at its worst for exactly that person. The classification in
+`host/refusals.py` is what keeps the flagged server correct, and §4b is the
+same construction pointed at call sites instead of exception types.
 
 ### 7. The reading that found it
 
