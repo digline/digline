@@ -180,12 +180,13 @@ artifacts that today exists in none of the audited competitors.
   not why it exists: that check caps at 4 for as long as there is no second
   reviewer, because its next tier needs one.
 
-  One parameter came with the rule unasked:
-  `require_extra_approval_for_unattributed_changes`, which GitHub defaults to
-  on. A pull request carrying a commit whose author maps to no GitHub account
-  needs one approval more than configured — one, here, which nobody can give.
-  Commit with an e-mail linked to the account and it never fires; if a pull
-  request is ever blocked asking for an approval, this is why.
+  `require_extra_approval_for_unattributed_changes` is **off**, and was set off
+  on purpose. Nobody chose it on: the API turns it on whenever an update omits
+  the key, which is how it arrived with this rule. On, a commit from an address
+  linked to no GitHub account would need one approval more than configured —
+  one, here, which nobody can give — cleared only by fixing the attribution at
+  the moment of merging. So **any edit to the ruleset through the API sends the
+  key explicitly as `false`**, or the default quietly comes back.
 
   Before the rule, the pull request was needed anyway, and for a reason the
   rule does not remove: **nothing else can produce the checks.** `ci.yml` runs
