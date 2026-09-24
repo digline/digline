@@ -103,18 +103,22 @@ never as intact.
 **It proves the wall for the identity that ran it, and no other.**
 A probe run with an administrator's credentials is vacuous by
 construction. Our own repository is the honest example: its `main`
-ruleset lets repository admins bypass it, so a push probe run with the
-maintainer's token proves only that admins can push. The operator's
-credentials must be the narrow ones, and the probe is what enforces
-that. Run the push probe below with an admin's token and it reports a
-collapse every cycle, which is exactly what it should report.
+ruleset has no bypass actors, so the push probe below, run with the
+maintainer's token, is refused and reports the wall intact — and that
+says nothing about the maintainer, who holds the settings and can edit
+the ruleset away. A green from the wrong identity is worse than a red
+from it, because it reads as proof. (Until 2026-09-23 the ruleset let
+admins bypass it, and the same probe reported a collapse every cycle:
+wrong for the same reason, but loudly.) The operator's credentials
+must be the narrow ones, and the probe is only evidence when they are.
 
 **What makes it a wall at all.** A wall lives outside the constrained
 identity's configuration surface. Measured against that identity, a
 protection comes in three rungs:
 
-- **a preference**, which the identity can bypass. Our ruleset's admin
-  bypass is one;
+- **a preference**, which the identity can bypass. A ruleset's bypass
+  list is one — ours had an admin entry until 2026-09-23, and has none
+  now;
 - **a latch**, which the identity must first reconfigure to cross.
   `enforce_admins` is the classic form: the admin can still turn it
   off, but the change is an auditable event rather than a quiet push;
