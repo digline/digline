@@ -1087,6 +1087,43 @@ servers would confirm it.
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
 
+- **v0.20.0 — both pairs proven, one in each job, and the runner-level wait
+  equal to v0.19.2's to the second.** The fourth tag in a row where the
+  runner-level wait absorbs the race and the in-build one reads `0s`.
+  `docker-publish` succeeded on attempt 1.
+
+  **The race, at the runner.** `smoke`'s wait printed `waiting digline==0.20.0 —
+  /simple/digline/ is served and lists 37 file version(s), none at 0.20.0`
+  eleven times, then `every version is served (after 330s)`. That is the same
+  count and the same total as v0.19.2, and it is noted rather than read as a
+  pattern: two points are not a trend. None of the three plugins the image
+  carries moved this release. `digline-mcp` did move, and the image does not
+  carry it.
+
+  **amd64 — proven in `smoke`'s build, and CACHED in the multi-arch one.**
+  `#9 0.325 served digline==0.20.0 (after 0s)`, then `#9 1.235 Collecting
+  digline==0.20.0` and `#9 6.674 Successfully installed … digline-0.20.0 …` in
+  one `RUN`. The multi-arch job's amd64 await layer reports `#10 CACHED`, so
+  as on v0.19.2 the amd64 pair is in `smoke` and nowhere else.
+
+  **arm64 — proven in the multi-arch build.** `#15 DONE 140.4s`, with
+  `#15 5.072 served digline==0.20.0 (after 0s)` — and `after 1s` for the three
+  plugins — then `#15 23.69 Collecting digline==0.20.0` and `#15 133.9
+  Successfully installed … digline-0.20.0 …`, in one `RUN`.
+
+  The three tags, `0.20.0`, `0.20` and `latest`, resolve to one digest:
+  `sha256:f261c86e780e9b67b4abeef4402f91d348cf014e546280241899363df0de7bb9`.
+
+  **The locks, read back one at a time this time too.** Regenerated about half
+  an hour after `publish` went green, all six resolved `digline 0.20.0` on the
+  first try. That is the opposite of v0.19.2's `classifier`, and it proves
+  nothing about the edge: it is a later hour, not a fixed race. The rule from
+  v0.19.2 stands — read every lock back.
+
+  **What the next tag must show:** still the two-pair reading, and still whether
+  a tag ever arrives where the runner-level wait clears at `0s` *and* the
+  in-build one does not. Four tags have now not shown it.
+
 - **v0.19.2 — both pairs proven, one in each job, and the longest runner-level
   wait yet.** Same reading as v0.19.1, and the third tag in a row where the
   runner-level wait absorbs the race and the in-build one reads `0s`.
