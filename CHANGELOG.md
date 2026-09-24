@@ -32,7 +32,7 @@ advisories; for the other four the line `SECURITY.md` draws is exposure, and it
 is stated per entry rather than left to be inferred.
 
 - **`digline register` could create and append to a file outside the store, on
-  the write that creates the register** (advisory **GHSA-TBD**). `append_register`
+  the write that creates the register** (advisory [GHSA-m9mw-rwqm-g38r](https://github.com/digline/digline/security/advisories/GHSA-m9mw-rwqm-g38r)). `append_register`
   reached its containment check only inside `if joined:`, where it had been
   called to read the last byte rather than to check anything, and `joined` needs
   the file to already exist; `read_register` returns early on the same
@@ -46,7 +46,7 @@ is stated per entry rather than left to be inferred.
   with the feature, and every version that has had it is affected.
 
 - **`digline view` served the store, and promoted baselines, to any page that
-  asked from a name it controlled** (advisory **GHSA-TBD**). The origin check
+  asked from a name it controlled** (advisory [GHSA-qjqq-hrq4-rfgh](https://github.com/digline/digline/security/advisories/GHSA-qjqq-hrq4-rfgh)). The origin check
   compared the request's `Origin` header against its own `Host` header — two
   values describing one request — so it established that a request was
   same-origin with itself, which every request is. A page served from a
@@ -58,7 +58,7 @@ is stated per entry rather than left to be inferred.
   and was never different.
 
 - **`digline migrate` wrote through a symlink committed in the store**
-  (advisory **GHSA-TBD**). Neither collector was containment-checked:
+  (advisory [GHSA-3q9c-qq5w-ff5m](https://github.com/digline/digline/security/advisories/GHSA-3q9c-qq5w-ff5m)). Neither collector was containment-checked:
   `run_paths()` returned a glob where its sibling `scan_runs` guards the
   identical one, and the baseline path was appended behind nothing but an
   `exists()`. `migrate_file` ends in `write_text`, which follows a link. The
