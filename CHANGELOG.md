@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.20.0 — unreleased
+## 0.20.0 — 2026-09-24
 
 digline **0.20.0**, with **digline-mcp 0.4.0**. Both halves of this release
 came from one reader, **kantorcodes1**, on the r/ClaudeCode thread about the
@@ -368,9 +368,9 @@ an older core, the honest move is to drop the feature from this front end — no
 to reach the name dynamically. `tests/test_plugin_floors.py`'s docstring argues
 that at length.
 
-## digline-mcp 0.4.0 — unreleased
+## digline-mcp 0.4.0 — 2026-09-24
 
-To be published by digline's `v0.20.0` tag, with the core.
+Published by digline's `v0.20.0` tag, with the core.
 
 A **minor**, for the reason 0.3.0 was one: the `digline>=` floor rises, to
 **0.20.0**. The server's list of refusals it translates is now digline's own

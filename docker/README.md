@@ -37,7 +37,8 @@ The whole cycle, from a checkout of your own repository:
 digline() { docker run --rm -v "$PWD:/work" ghcr.io/digline/digline:0.20.0 "$@"; }
 
 digline run     --suite eval/suite.py
-digline promote --suite eval/suite.py --run latest
+# `none` the first time; after that, the key `compare` prints under its verdict
+digline promote --suite eval/suite.py --run latest --replacing none
 digline compare --suite eval/suite.py --run latest
 ```
 

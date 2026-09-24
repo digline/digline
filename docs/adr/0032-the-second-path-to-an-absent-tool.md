@@ -6,7 +6,7 @@
   [ADR 0027](0027-the-run-reconciles.md),
   [ADR 0028](0028-the-rules-that-moved.md) and
   [ADR 0029](0029-the-artifact-that-must-not-drift.md) were
-- Shipped: unreleased
+- Shipped: 0.20.0
 - Date: 2026-09-24
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`

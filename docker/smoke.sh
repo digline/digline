@@ -42,7 +42,8 @@ digline() {
 
 digline --help > /dev/null
 digline run --suite suite.py
-digline promote --suite suite.py --run latest
+# A fresh directory has no baseline, so the first promotion replaces none.
+digline promote --suite suite.py --run latest --replacing none
 
 # "Now make it worse": the sign-off leaves the second answer, which is the
 # regression the front page shows.
