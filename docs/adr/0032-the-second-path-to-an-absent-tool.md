@@ -8,6 +8,8 @@
   [ADR 0029](0029-the-artifact-that-must-not-drift.md) were
 - Shipped: 0.20.0
 - Date: 2026-09-24
+- Amended: 2026-09-24, with 0.20.1. §8 records the pattern the record's
+  findings share, now that it has a third instance. No decision in §1–§7 moves
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`
   and `JOURNAL_VERSION` all stay where they are. What moves is one default in
@@ -539,6 +541,52 @@ surface is a claim about every surface**, and nothing in a per-surface review
 ever puts two of them side by side. The test in §4 is the standing form of that
 question, and §7 is why it is a test rather than a note asking people to
 remember.
+
+### 8. A guard that keys on a name is defeated by another spelling of the same act
+
+*Added 2026-09-24, with 0.20.1.* Three times in one day a guard in this
+project named the act it guarded by one of its spellings, and the act arrived
+by another:
+
+| guard | the name it keys on | the same act, spelled otherwise | how it was found | state |
+|---|---|---|---|---|
+| MCP, hook, skill | the command `promote` | `digline view` and its `POST /promote` | classifying what each command does (§7) | closed by §1, 0.20.0 |
+| plugin hook | the word `digline`, and two module names | `uv tool run digline …`, `python -m digline.cli.main …` | running the hook against spellings (§4c) | **open**: §4c's piece has not shipped |
+| plugin hook | the flag `--allow-promote` | `--a`, `--al` … `--allow-promot`: argparse takes any unambiguous prefix | the 0.20.0 delta-pass: argparse's documented behaviour as a hypothesis, then run | closed in 0.20.1: `view` refuses abbreviations |
+
+**None of the three was caught by reading the code that holds the guard.** The
+third had been read, and reasoned about in writing: the hook's docstring said a
+prefix match "would only ever widen this past what the CLI does". It reasoned
+about suffixes, `--allow-promote=`, and was never run against the CLI. The two
+that were found, were found by classifying or by running, and that is the only
+method the three share.
+
+So this is the rule, and it is about the guard's construction, not about any
+one guard. **A guard that keys on a name is complete only if the thing it
+guards accepts no other spelling of that name.** There are two ways to make
+that true, and they do not wear the same:
+
+- **Make the name the only spelling, on the side that accepts it.** 0.20.1 does
+  this for `--allow-promote`. `view` refuses abbreviated options, so the full
+  word is the only spelling, and a whole-word match is complete by
+  construction.
+- **Otherwise, derive the spellings from what accepts them, never from a list
+  written by hand.** A hand list is what §4c found stale in both directions:
+  `MODULES` named a spelling that cannot run and omitted one that can.
+
+And the test has the same shape as the rule: it asks the accepting side.
+`test_a_watched_flag_has_no_spelling_but_its_own` builds the real parser and
+tries every prefix of every flag in the hook's `FLAGGED`. It does not read the
+hook's table and trust it. A guard added tomorrow is held to it without
+anybody remembering to add it.
+
+**What the rule cannot reach, said so it is not over-read.** A hook that
+matches shell commands can never enumerate every spelling: `bash -c`, `eval`,
+an alias and a variable are all spellings its docstring already concedes. That
+is why §1 does not lean on the hook. The **default** refuses, and the hook is
+friction on the shadow path, in Plumbline's terms, not the in-path wall. The
+rule above keeps the friction honest about what it claims to match. It does not
+turn it into a wall.
 
 ## Consequences
 

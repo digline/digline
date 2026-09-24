@@ -126,9 +126,17 @@ def key_for(arguments: list[str]) -> str | None:
     """The `REASONS` key this invocation deserves, or None.
 
     A flagged subcommand is watched only when its flag is present, and it is
-    matched as a whole word: `--allow-promote=` is not a spelling argparse
-    accepts for a `store_true`, so a prefix match would only ever widen this
-    past what the CLI does.
+    matched as a whole word. That is complete only because the CLI accepts no
+    other spelling: `view` refuses abbreviated options, and
+    `tests/test_claude_plugin.py` holds every flag in `FLAGGED` to that.
+
+    **This used to say a prefix match "would only ever widen this past what the
+    CLI does", and it was false for the life of 0.20.0.** argparse accepts every
+    unambiguous *prefix* of an option, so `digline view --a` started the
+    promoting server while this matched nothing and stayed silent (0.20.0
+    delta-pass, F-1). The sentence reasoned about suffixes (`--allow-promote=`)
+    and was never run against the CLI; it is kept here because a confident
+    docstring is why nobody looked.
     """
     found = subcommand(arguments)
     if found is None:

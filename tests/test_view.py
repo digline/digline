@@ -584,6 +584,32 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     assert json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"] != before
 
 
+def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
+    repo: Path, served_promoting: tuple[str, str]
+) -> None:
+    """The fallback page — the outcome of a promotion when the list of runs
+    cannot be drawn — escaped with `html.escape`, which leaves C0, C1 and the
+    bidi overrides alone. A refusal quoting a committed baseline's
+    `promoted_at` therefore wrote them raw: an RLO reverses the sentence that
+    names which key was found. Every other page goes through `report.escape`.
+    (0.20.0 delta-pass, F-2)"""
+    base, key = served_promoting
+    baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
+    document = json.loads(baseline.read_text(encoding="utf-8"))
+    document["promoted_at"] = "\x1b[2K\r\u202eFORGED\x9bEND"
+    baseline.write_text(json.dumps(document), encoding="utf-8")
+    plant(repo, key, "zz-malformed", results=7)
+
+    # `none` over a baseline that exists: refused, naming what it found.
+    status, page = post_page(base, f"run={key}&replacing=none&locale=en")
+
+    assert status == 200
+    assert "The list of runs could not be drawn" in page
+    assert "FORGED" in page
+    for raw in ("\x1b", "\r", "\u202e", "\x9b"):
+        assert raw not in page, f"{raw!r} reached the page raw"
+
+
 def test_a_run_that_lies_about_its_suite_is_refused_in_words(
     repo: Path, served_promoting: tuple[str, str]
 ) -> None:

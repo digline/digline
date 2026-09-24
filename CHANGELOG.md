@@ -6,6 +6,38 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Fixed
+
+- **An abbreviated `--allow-promote` started a promoting `digline view`, and
+  the Claude Code plugin never asked.** argparse accepts any unambiguous prefix
+  of an option, so `digline view --a`, `--allow` or `--allow-promot` all started
+  the server that promotes. The plugin's hook recognises the flag by its whole
+  word, so it stayed silent for every one of them. After that, a POST with no
+  `Origin` header — the way `curl` sends one — promoted a baseline without
+  anybody being asked. `digline view` now refuses abbreviated options, so the
+  full word is the only spelling, and a test builds the real parser and tries
+  every prefix of every flag the hook watches. **Only `view` changes:** `--loc`
+  for `--locale` still works everywhere else. Every `view` option now has to be
+  written in full: `--port`, not `--po`.
+  - `promote --replacing` needed no change, and this says so rather than
+    assuming it. `--rep` is accepted, but the check is on the key the store
+    compares at write time, not on the flag's name. The option is mandatory, so
+    no spelling can leave the key out. A test holds that too.
+- **The page that reports a promotion when the list of runs cannot be drawn
+  wrote control characters raw.** It escaped with `html.escape`, which leaves
+  C0, C1 and the bidi overrides alone. So a refusal quoting a committed
+  baseline's `promoted_at` could reverse, with an RLO, the sentence that names
+  which key was found. The page, and `view`'s plain error page with it, now go
+  through the same escaping as every other page.
+- Neither is an advisory: nothing crosses a boundary, and the default `view`
+  still refuses to promote. What was defeated was the plugin's ask, which
+  ADR 0032 calls friction and not a wall. Both were found by the delta-pass over
+  0.20.0, before 0.20.0 was announced, and ADR 0032 §8 records the pattern they
+  share with two earlier findings: **a guard that keys on a name is defeated by
+  another spelling of the same act.**
+
 ## 0.20.0 — 2026-09-24
 
 digline **0.20.0**, with **digline-mcp 0.4.0**. Both halves of this release

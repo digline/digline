@@ -348,6 +348,36 @@ def test_the_hook_asks_before_the_flag_that_makes_the_decision_ambient(
     assert "not a wall" in reason
 
 
+@pytest.mark.parametrize(
+    ("subcommand", "flag"), sorted(_hook().FLAGGED.items()), ids=lambda v: v
+)
+def test_a_watched_flag_has_no_spelling_but_its_own(subcommand: str, flag: str) -> None:
+    """The hook matches a watched flag as a whole word, so the CLI must accept
+    no other spelling of it — and argparse accepts every unambiguous prefix of
+    an option unless the parser refuses abbreviations. On 0.20.0 `digline view
+    --a` started the promoting server with the hook silent, and a POST with no
+    `Origin` then promoted with nobody asked (0.20.0 delta-pass, F-1). Derived
+    from the hook's own table, so a flag it starts watching is held to this
+    without anybody remembering to add it."""
+    from digline.cli.main import build_parser
+
+    def accepted(word: str) -> bool:
+        try:
+            build_parser().parse_args([subcommand, "--suite", "s.py", word])
+        except SystemExit:
+            return False
+        return True
+
+    assert accepted(flag), (
+        f"`digline {subcommand} {flag}` is not a spelling the CLI takes"
+    )
+    taken = [flag[:end] for end in range(3, len(flag)) if accepted(flag[:end])]
+    assert not taken, (
+        f"`digline {subcommand}` accepts {', '.join(taken)} as {flag}, and the "
+        "hook, which matches the whole word, would not ask for any of them"
+    )
+
+
 @pytest.mark.parametrize("watched", sorted(REASONS))
 def test_the_commands_the_hook_watches_are_ones_the_cli_has(watched: str) -> None:
     """If one were renamed, the hook would go on matching a word nobody types
