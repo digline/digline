@@ -10,6 +10,33 @@ notes under them are this file, verbatim.
 
 ### Security
 
+- **Text that is never language is neutralised on every surface.**
+  `report.visible()`, `core.json_visible()` and `report.escape()` now escape the
+  bidi embeddings and overrides (U+202A–U+202E), the interlinear annotation
+  characters (U+FFF9–U+FFFB) and the tag block (U+E0000–U+E007F), listed once in
+  `core.NEVER_LANGUAGE`.
+
+  The rest of `Cf` is deliberately untouched, and that is the fix rather than a
+  caveat: U+200E/U+200F and U+061C set direction in Arabic and Hebrew, ZWNJ and
+  ZWJ carry meaning in Indic scripts and hold emoji sequences together, and the
+  isolates are what Unicode recommends instead of the overrides. Neutralising
+  the category would corrupt a report rendered in a language this project
+  exists to serve.
+
+  `SECURITY.md` recorded this as open, on the argument that it *"is not a way
+  in ... it changes what a human believes they are looking at"*. **That argument
+  is withdrawn, not amended.** It holds for U+202E and never covered the tag
+  block, which is invisible to every surface here and is an exact encoding of
+  ASCII: the reader it addresses is an agent holding tools, on a surface
+  `core/text.py` already declared untrusted. Measured: an invisible
+  49-character instruction in a `case_id` survived `redact()` and reached all
+  five surfaces, while a reviewer reading the committed baseline saw
+  `capital-of-italy`.
+
+  Not an advisory: no payload crosses a boundary and no file is read. What
+  moved was an instruction, into the context of the one reader that acts on
+  them.
+
 - **The store's two refusals have types, so a boundary can tell them from a
   bug.** `_check_name` raised a bare `ValueError` and `read_run` a bare
   `FileNotFoundError`. `digline-mcp` translates the exceptions digline raises

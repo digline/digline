@@ -17,6 +17,7 @@ from typing import Literal
 from digline.core import (
     AGREEMENT_FIELD,
     IDENTITY_FIELD,
+    NEVER_LANGUAGE,
     OBSERVED_FIELDS,
     ArtifactDelta,
     AssertionDelta,
@@ -433,13 +434,30 @@ def escape(text: str) -> str:
     said. No branch on whether stdout is a tty — a document that changes shape
     depending on where it is piped is a document two readers cannot compare.
 
-    BiDi overrides are deliberately **not** touched here. They are not control
-    characters, they are legitimate text in languages this report is written
-    for, and neutralising them in a document rendered in Arabic or Hebrew would
-    corrupt the page. The terminal exposure they carry is `visible()`'s
-    question, not this one. (0.12.1, from the release delta-pass)
+    **Bidi *marks* are still not touched, and the overrides now are.** The
+    paragraph this replaces said "BiDi overrides are deliberately not touched
+    here ... they are legitimate text in languages this report is written for",
+    and it ran two different things together. U+200E/U+200F and U+061C are
+    language: they set direction in ordinary Arabic and Hebrew prose, and
+    neutralising them would corrupt the page, exactly as that paragraph said.
+    U+202A–U+202E are not language — they are deprecated formatting
+    instructions, and the overrides among them reverse display order, which is
+    how a path can read as a name that is not there. The list that separates
+    the two is `core.NEVER_LANGUAGE`.
+
+    **These are written as their escape text and not as character references**,
+    which is the one place this function treats a class differently from C0.
+    A reference is right for C0 because a browser resolves `&#x1b;` back to an
+    inert character and the document still says what the model said. Resolving
+    a tag character back gives an invisible character again — so the page would
+    look clean while still carrying a sentence to whatever reads the rendered
+    text. For this class the escape has to survive rendering, so `\U000e0041`
+    is what the document holds and what every reader sees.
+
+    The C0/DEL/C1 half of this function is from 0.12.1, from the release
+    delta-pass; the class above was added when its argument was rewritten.
     """
-    return _html_escape(text).translate(_REFERENCES)
+    return _html_escape(text).translate(_REFERENCES).translate(NEVER_LANGUAGE)
 
 
 def visible(text: str) -> str:
@@ -453,8 +471,16 @@ def visible(text: str) -> str:
 
     Shown and not stripped: a value that carried an escape is a value somebody
     should look at, and `\x1b` is four printable characters that cannot move a
-    cursor. Language is untouched — this neutralises control characters, not
-    accents, arrows or em dashes.
+    cursor. Language is untouched — this neutralises control characters and the
+    characters that are never language (`core.NEVER_LANGUAGE`), not accents,
+    arrows, em dashes or bidi marks.
+
+    **The second class arrived later and for a different reader.** Control
+    characters rewrite a terminal. U+202A–U+202E reverse what a terminal
+    *shows*, which is the same harm reached without a cursor; the tag block
+    shows nothing at all, so a line can carry a sentence no reader of this
+    terminal will ever see. Both are neutralised here for the same reason the
+    first class was: a line nobody can trust is not a line.
 
     It lives here, in the layer that renders for people, because **both** front
     ends need it: `digline.cli` wraps it in `say()`, and `pytest-digline` puts
@@ -462,7 +488,7 @@ def visible(text: str) -> str:
     one, so a helper only one of them could reach would be a rule the other has
     to reinvent. (0.10.1, from the release delta-pass)
     """
-    return text.translate(_CONTROL)
+    return text.translate(_CONTROL).translate(NEVER_LANGUAGE)
 
 
 def fmt_score(value: float) -> str:
