@@ -498,9 +498,21 @@ was never the sentence at fault.
 [ADR 0031](0031-the-reference-promote-replaces.md) and friction 59 fixed
 `do_POST`'s refusal tuple — the hand-listed exception types that let
 `SuiteMismatchError` and `DocumentRefusedError` through as a dropped
-connection. **Both landed while this record was being written**, as #108 and
-#114, which is the ordering this section asked for: 0031 first, because it
-fixed a defect in a published release, and this record only changes a default.
+connection. **All of it landed while this record was being written**, which is
+the ordering this section asked for: 0031 first, because it fixed a defect in a
+published release, and this record only changes a default.
+
+*Corrected 2026-09-24, when the code was written against this text.* Until
+then this paragraph named **#108 and #114** as the pull requests that fixed the
+refusal tuple. Neither did. #108 was ADR 0031's `--replacing`, #114 was the
+refusal **classification** — `host/refusals.py` and the walk that keeps it
+honest — and the tuple in `view.py` was still six hand-written names after both
+had merged. **#117** replaced it with `REFUSALS` (commit `927a16e`, *"Catch the
+classification in every front end"*), in the same change that made
+`_after_promotion` say *"Baseline set to …"* even when the run list cannot be
+drawn. The error is the one this whole record is about, one level down: a claim
+read off two branch names instead of resolved against the tree. Both facts are
+inherited by the code here rather than rebuilt, and neither may regress.
 
 That work is **not** made redundant by what §1 decides, and the reason is worth
 keeping. §1 removes the route from the *default* server; it does not remove it
@@ -549,14 +561,19 @@ remember.
 - It does not touch the store. `promote_baseline` is unchanged, its refusals
   are unchanged, and a `.digline/` written before this release reads
   identically after it.
-- Three corrections ride this change because they are in the files it opens,
-  and each is a statement that is wrong rather than a preference:
-  `_ROUTES` (dead, and describes the server incorrectly — §2); `docs/view.md`'s
-  *"the same three refusals (tenant, configuration, errored verdicts)"*, where
-  `promote_baseline` raises four distinct types in its body — `ConfigMismatch`,
-  `Replayed`, `Errored`, `Uncalibrated` — and `view.py` catches six; and the
-  hook's `MODULES`, which lists a spelling that cannot run and omits one that
-  can (§4b).
+- Corrections ride this change because they are in the files it opens, and each
+  is a statement that is wrong rather than a preference: `_ROUTES` (dead, and
+  describes the server incorrectly — §2, and it goes rather than becoming the
+  dispatch table); and the hook's `MODULES`, which lists a spelling that cannot
+  run and omits one that can (§4b).
+
+  *Corrected 2026-09-24.* This list also planned a `docs/view.md` fix — its
+  *"the same three refusals (tenant, configuration, errored verdicts)"* against
+  a `promote_baseline` that raises four types and a `view.py` that catches six.
+  **#117 already made it**: that sentence now reads *"with the same
+  refusals"*, and there was nothing left here to correct. Written before #117
+  merged and not re-read against the tree afterwards — the same mistake as §6's,
+  in the same record, which is why the code was built from the tree.
 - **`migrate` is ruled in §4 and §4a**, and what lands is the condition rather
   than the permission: the MCP playbook's *"do not run it"* is replaced by the
   same sentence `operating-digline` §8 carries, and both state what the

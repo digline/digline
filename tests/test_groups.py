@@ -534,6 +534,7 @@ def test_the_grid_puts_the_whole_run_figure_first_and_sorts_the_groups() -> None
         config_hash=run.config_hash,
         locale="en",
         suite="triage",
+        allow_promote=True,
     )
     assert columns(html) == EXPECTED_COLUMNS
 
@@ -549,6 +550,7 @@ def test_a_group_only_an_older_run_carries_keeps_its_place() -> None:
         config_hash=newer.config_hash,
         locale="en",
         suite="triage",
+        allow_promote=True,
     )
     # `refunds` is in neither the newest run nor last alphabetically, so under
     # arrival order it would have landed after `returns`.

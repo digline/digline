@@ -1,9 +1,16 @@
-"""The four screens, and the one route that writes.
+"""The four screens, and the route that writes where there is one.
 
 The screens are pure functions, so they are tested as functions: no socket, no
-port, no waiting. The server is tested once, end to end in a subprocess, for the
-two things only a real server can show — that the routes are wired, and that a
-POST from another origin is refused.
+port, no waiting. The server is tested end to end in a subprocess for the
+things only a real server can show — that the routes are wired, that a POST
+from another origin is refused, and that `POST /promote` is a 404 on the
+default server that leaves the store where it was.
+
+Two fixtures, because there are two servers and the default is the one that
+ships: `served` is `digline view`, `served_promoting` is `digline view
+--allow-promote`. A test that lands on the wrong one still passes for the
+reading routes, which is why the promotion tests name the flagged fixture
+explicitly rather than taking whatever the module hands them. (ADR 0032 §1)
 """
 
 from __future__ import annotations
@@ -15,7 +22,8 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from html import unescape
 from pathlib import Path
 
@@ -113,6 +121,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert "precision" in html
     assert "0.625" in html and "0.714" in html
@@ -125,6 +134,7 @@ def test_the_baseline_is_marked() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert "baseline" in html
 
@@ -136,6 +146,7 @@ def test_the_newest_run_is_first() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert html.index("key-b") < html.index("key-a")
 
@@ -150,6 +161,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert html.count('<select name="run">') == 1
     assert html.count('<select name="against">') == 1
@@ -163,13 +175,19 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
         locale="en",
         suite="brief",
         ignored="ignored: 3 run(s) at schema 5",
+        allow_promote=True,
     )
     assert "schema 5" in html and "migrate" in html
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:
     html = runs_page(
-        [], baseline_key=None, config_hash="cfg", locale="en", suite="brief"
+        [],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        allow_promote=True,
     )
     assert "No run has been recorded yet." in html
     assert "<table>" not in html
@@ -293,21 +311,13 @@ def test_without_a_reason_there_is_no_snippet_to_copy() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture
-def served(repo: Path) -> Iterator[tuple[str, str]]:
-    """A real server on an ephemeral port, over a real store."""
-    key = run_key(repo)
-    cli(
-        repo,
-        "promote",
-        "--replacing",
-        baseline_in(repo),
-        "--suite",
-        "suite_qa.py",
-        "--run",
-        key,
-    )
+@contextmanager
+def server(repo: Path, *flags: str) -> Generator[tuple[str, str]]:
+    """A real `digline view` on an ephemeral port, over a real store.
 
+    The bound URL is read off the startup line, which is why that line keeps
+    the URL as its fourth word whichever server it is: the mode goes after it.
+    """
     process = subprocess.Popen(
         [
             sys.executable,
@@ -319,6 +329,7 @@ def served(repo: Path) -> Iterator[tuple[str, str]]:
             "suite_qa.py",
             "--port",
             "0",
+            *flags,
         ],
         cwd=repo,
         stdout=subprocess.PIPE,
@@ -329,11 +340,52 @@ def served(repo: Path) -> Iterator[tuple[str, str]]:
         assert process.stdout is not None
         line = process.stdout.readline()
         assert "http://" in line, line
-        base = line.split()[3]
-        yield base, key
+        yield line.split()[3], line
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+def promoted(repo: Path) -> str:
+    """One run promoted, and its key — the state every server test starts in."""
+    key = run_key(repo)
+    cli(
+        repo,
+        "promote",
+        "--replacing",
+        baseline_in(repo),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
+    return key
+
+
+@pytest.fixture
+def served(repo: Path) -> Iterator[tuple[str, str]]:
+    """The server a person gets by typing `digline view`: it promotes nothing.
+
+    Every reading route is tested here rather than on the flagged server,
+    because this is the one that ships as the default. (ADR 0032 §1)
+    """
+    key = promoted(repo)
+    with server(repo) as (base, _line):
+        yield base, key
+
+
+@pytest.fixture
+def served_promoting(repo: Path) -> Iterator[tuple[str, str]]:
+    """`digline view --allow-promote`: the server that has the write route."""
+    key = promoted(repo)
+    with server(repo, "--allow-promote") as (base, _line):
+        yield base, key
+
+
+def baseline_of(repo: Path) -> dict[str, object]:
+    path = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
+    document: dict[str, object] = json.loads(path.read_text(encoding="utf-8"))
+    return document
 
 
 def get(url: str) -> tuple[int, str]:
@@ -436,15 +488,19 @@ def post(url: str, data: str, *, origin: str | None) -> int:
         return exc.code
 
 
-def test_a_post_from_another_origin_is_refused(served: tuple[str, str]) -> None:
+def test_a_post_from_another_origin_is_refused(
+    served_promoting: tuple[str, str],
+) -> None:
     """Loopback is not a boundary: any page the developer has open can POST to
     localhost, and this server needs no credential to act."""
-    base, key = served
+    base, key = served_promoting
     assert post(f"{base}promote", f"run={key}", origin="https://evil.example") == 403
 
 
-def test_a_post_from_the_page_itself_is_accepted(served: tuple[str, str]) -> None:
-    base, key = served
+def test_a_post_from_the_page_itself_is_accepted(
+    served_promoting: tuple[str, str],
+) -> None:
+    base, key = served_promoting
     host = base.removeprefix("http://").rstrip("/")
     # `replacing` is the key the page was drawn against: the served baseline.
     assert (
@@ -455,11 +511,11 @@ def test_a_post_from_the_page_itself_is_accepted(served: tuple[str, str]) -> Non
 
 def test_promotion_goes_through_the_same_refusals(
     repo: Path,
-    served: tuple[str, str],
+    served_promoting: tuple[str, str],
 ) -> None:
     """It is the same `promote_baseline`, so a run produced under another
     configuration is refused here exactly as it is on the command line."""
-    base, key = served
+    base, key = served_promoting
     write_suite(repo, fr_score="0.2")
     other = run_key(repo)
     write_suite(repo)  # the configuration in force is the original one again
@@ -507,14 +563,14 @@ def plant(repo: Path, key: str, name: str, **changes: object) -> None:
 
 
 def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
-    repo: Path, served: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str]
 ) -> None:
     """Friction 59's worst half. One unreadable run file anywhere in the store,
     and a promotion of a *good* run wrote the baseline and then answered with a
     closed connection: the list is re-read after the write, and that read raised.
     A promotion that looks failed and is not. The outcome must arrive whatever
     the list does."""
-    base, key = served
+    base, key = served_promoting
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
     plant(repo, key, "zz-malformed", results=7)
@@ -529,13 +585,13 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
 
 
 def test_a_run_that_lies_about_its_suite_is_refused_in_words(
-    repo: Path, served: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str]
 ) -> None:
     """0.19.2 made the store refuse a document declaring another suite, and the
     route that writes never learned the refusal: the browser got a closed
     connection. v0.19.1 accepted the same POST, which is the defect 0.19.2 fixed
     — so the traceback was introduced by the fix. (friction 59)"""
-    base, key = served
+    base, key = served_promoting
     plant(repo, key, "zz-other-suite", suite="another-suite")
 
     status, page = post_page(base, "run=zz-other-suite&replacing=" + key)
@@ -543,6 +599,117 @@ def test_a_run_that_lies_about_its_suite_is_refused_in_words(
     assert status == 200
     assert "Refused:" in page
     assert "declares suite &#x27;another-suite&#x27;" in page
+
+
+# --------------------------------------------------------------------------- #
+# The wire half of the default refusal (ADR 0032 §§1-2)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_default_server_has_no_promote_route_and_the_store_proves_it(
+    repo: Path, served: tuple[str, str]
+) -> None:
+    """The half that carries the guarantee. A caller with a shell never renders
+    the page, so absenting the button provides nothing on its own: the POST
+    measured in ADR 0032 §*What was measured* carried no `Origin` and no
+    credential of any kind, and moved the baseline.
+
+    **The status alone would prove nothing**, which is why the baseline is read
+    on both sides of it: a 404 in front of a write that happened is exactly the
+    failure friction 59 was about, with the sign reversed.
+    """
+    base, key = served
+    before = baseline_of(repo)
+    write_suite(repo)
+    other = run_key(repo)
+
+    # No `Origin` — the door `_allowed_origin` deliberately leaves open for
+    # curl, and the one this refusal has to hold without.
+    assert post(f"{base}promote", f"run={other}&replacing={key}", origin=None) == 404
+    assert baseline_of(repo) == before
+
+
+def test_the_refusal_is_the_sentence_an_unknown_path_gets(
+    served: tuple[str, str],
+) -> None:
+    """Not a 403 and not a 405. Both say *you may not*, which implies a someone
+    who may, which is the policy ADR 0011 refused to create. On this server
+    there is no promote, so it answers what it answers about any path it does
+    not serve — in the same words, or the difference is a hint."""
+    base, key = served
+    host = base.removeprefix("http://").rstrip("/")
+    status, page = post_page(base, f"run={key}&replacing={key}")
+    assert status == 404
+    assert "no such action: /promote" in page
+    # The same sentence, from a path nobody ever claimed existed.
+    nowhere = urllib.request.Request(
+        f"{base}nowhere",
+        data=b"",
+        method="POST",
+        headers={"Origin": f"http://{host}"},
+    )
+    try:
+        urllib.request.urlopen(nowhere, timeout=10)
+        raise AssertionError("a path this server does not serve answered 200")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 404
+        assert "no such action: /nowhere" in exc.read().decode("utf-8")
+
+
+def test_the_page_and_the_route_answer_from_one_fact(
+    repo: Path, served: tuple[str, str]
+) -> None:
+    """A page that decided independently of the dispatcher is a page that will
+    eventually show a button the route rejects. Read off one real server rather
+    than from two functions, because that is where they could disagree.
+
+    **The second run is what makes this test able to fail.** The fixture
+    promotes the only run there is, so its one row is the baseline's and would
+    carry a chip rather than a button on any server at all — a mutation removing
+    the page's guard went green here before this line existed.
+    """
+    base, _key = served
+    write_suite(repo)
+    run_key(repo)  # a run that is not the baseline: the row a button would be on
+
+    page = get(base)[1]
+    assert 'action="/promote"' not in page
+    assert "--allow-promote" in page
+
+
+def test_the_flag_turns_both_halves_on_together(
+    repo: Path, served_promoting: tuple[str, str]
+) -> None:
+    """The other side of the same fact, and the reason this test cannot stand
+    in for the one above: it would pass unchanged on a server that promoted
+    whatever it was told to."""
+    base, key = served_promoting
+    before = baseline_of(repo)
+    write_suite(repo)
+    other = run_key(repo)
+
+    page = get(base)[1]
+    assert 'action="/promote"' in page
+    assert "--allow-promote" not in page
+
+    assert post(f"{base}promote", f"run={other}&replacing={key}", origin=None) == 200
+    assert baseline_of(repo) != before
+
+
+def test_the_startup_line_names_the_flag_and_keeps_the_url_where_it_was(
+    repo: Path,
+) -> None:
+    """Two places name `--allow-promote`, and this is the one a person reads
+    before the page exists. The URL stays the fourth word: a caller reading the
+    line for the bound port of `--port 0` should not have to parse a mood."""
+    promoted(repo)
+    with server(repo) as (base, line):
+        assert "read-only" in line and "--allow-promote" in line
+        assert line.split()[3] == base and base.startswith("http://")
+    with server(repo, "--allow-promote") as (flagged, flagged_line):
+        assert "read-only" not in flagged_line
+        assert "promotion enabled" in flagged_line
+        assert flagged_line.split()[3] == flagged
 
 
 # --------------------------------------------------------------------------- #
@@ -574,7 +741,11 @@ ERRORED = Run(
 
 
 def runs_html(
-    locale: str = "en", *, extra: Run | None = None, config_hash: str = "cfg"
+    locale: str = "en",
+    *,
+    extra: Run | None = None,
+    config_hash: str = "cfg",
+    allow_promote: bool = True,
 ) -> str:
     rows = [("key-a", RUN_A), ("key-b", RUN_B)]
     if extra is not None:
@@ -585,6 +756,7 @@ def runs_html(
         config_hash=config_hash,
         locale=locale,  # type: ignore[arg-type]
         suite="brief",
+        allow_promote=allow_promote,
     )
 
 
@@ -697,6 +869,7 @@ def test_before_there_is_a_baseline_no_row_offers_to_compare_with_one() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert "/compare?run=" not in html
     assert html.count('action="/promote"') == 2
@@ -731,6 +904,7 @@ def test_a_missing_commit_says_which_kind_of_missing() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert "uncommitted changes" in html
     assert "<code>3feea0e</code>" in html  # short, not forty characters
@@ -763,6 +937,7 @@ def test_runs_in_the_same_minute_are_still_told_apart() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert html.count("26 Aug 12:40</span>") == 0
     assert '<span class="when">26 Aug 12:40:33</span>' in html
@@ -780,6 +955,7 @@ def test_the_whole_column_moves_to_seconds_not_only_the_pair() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert '<span class="when">24 Aug 09:00:00</span>' in html
 
@@ -792,6 +968,79 @@ def test_minutes_are_enough_when_nothing_collides() -> None:
 def test_a_run_that_cannot_be_promoted_says_so_without_being_hovered() -> None:
     """A disabled radio alone was invisible in the screenshot."""
     assert "chip warn" in act_cell(runs_html(extra=ERRORED), "key-e")
+
+
+# --------------------------------------------------------------------------- #
+# The page half of the default refusal (ADR 0032 §§1-2)
+# --------------------------------------------------------------------------- #
+
+
+def test_without_the_flag_no_row_offers_to_promote() -> None:
+    """The refusal is an absence: not a disabled button, not a button that
+    fails on click. A control that is present and refuses teaches every reader
+    that promotion is something this surface does, subject to a policy — and it
+    teaches it every time the page is read."""
+    html = runs_html(allow_promote=False)
+    assert 'action="/promote"' not in html
+    assert "<button" not in html.split("</table>")[0]
+    # The control, in the same shape of page: with the flag the button is there,
+    # so what the assertions above measure is the flag and not the fixture.
+    assert 'action="/promote"' in runs_html(allow_promote=True)
+
+
+def test_the_promotable_row_keeps_its_comparison_and_gains_nothing() -> None:
+    """Nothing takes the button's place. The reason the row can do less is not
+    about the row, so saying it there would be a lie about its own subject."""
+    cell = act_cell(runs_html(allow_promote=False), "key-b")
+    assert "Compare" in cell
+    assert "chip" not in cell and "<button" not in cell
+
+
+def test_the_per_run_markers_survive_a_server_that_promotes_nothing() -> None:
+    """They answer *why not this run*, which goes on being true and useful when
+    the server would refuse every run anyway."""
+    html = runs_html(extra=ERRORED, allow_promote=False)
+    assert "chip warn" in act_cell(html, "key-e")  # not judged
+    assert "chip" in act_cell(html, "key-a")  # baseline
+
+
+def test_the_marker_is_said_once_about_the_server_not_once_per_run() -> None:
+    """Three rows, one marker. Repeated down the column it would read as three
+    per-run refusals rather than one property of what the person started — and
+    the header is where a fact about the server belongs."""
+    body = runs_html(extra=ERRORED, allow_promote=False).split("</head>")[1]
+    assert body.count('<td class="act">') == 3  # three rows really are drawn
+    assert body.count('class="readonly"') == 1
+    # And it is in the header, beside the suite name, not in the table.
+    header, table = body.split("</nav>", 1)
+    assert "readonly" in header
+    assert "--allow-promote" not in table
+
+
+def test_the_marker_names_the_flag_in_the_open_not_in_a_tooltip() -> None:
+    """This is the whole discovery path for somebody who did not know the flag
+    existed, and a hint that needs hovering was already the bug once."""
+    html = runs_html(allow_promote=False)
+    visible = html.split('class="readonly"')[1].split(">", 1)[1].split("</span>")[0]
+    assert "--allow-promote" in visible
+
+
+def test_the_flag_is_not_translated_but_the_sentence_is() -> None:
+    """A flag is not localised, for the reason an ISO date is not: the sentence
+    around it is the document, the eight characters are the thing to type."""
+    italian = runs_html("it", allow_promote=False)
+    assert "sola lettura" in italian
+    assert "--allow-promote" in italian
+
+
+def test_a_server_that_promotes_says_nothing_about_being_one() -> None:
+    """The marker is the refusal's, and a page that carried it either way would
+    be telling nobody anything."""
+    body = runs_html(allow_promote=True).split("</head>")[1]
+    assert "readonly" not in body and "--allow-promote" not in body
+    # The stylesheet carries the rule either way, which is why the assertions
+    # above read the body: a page-wide search would pass on the wrong evidence.
+    assert "nav.bar .readonly" in runs_html(allow_promote=True)
 
 
 def test_the_free_comparison_is_below_the_table_and_drops_the_baseline() -> None:
@@ -812,6 +1061,7 @@ def test_with_a_single_run_there_is_nothing_to_compare_it_with() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     assert 'class="picker"' not in html
 
@@ -861,6 +1111,7 @@ def test_the_run_carries_the_digest_of_what_was_under_test() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     stamp = artifacts_sha({"prompt.md": Artifact(sha="a" * 64, text="v")})
     assert '<span class="stamp"' in html
@@ -880,6 +1131,7 @@ def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     stamps = re.findall(r'<span class="stamp"[^>]*>([^<]+)</span>', html)
     assert len(stamps) == 3
@@ -895,6 +1147,7 @@ def test_a_suite_with_no_artifacts_shows_no_label() -> None:
         config_hash="cfg",
         locale="en",
         suite="brief",
+        allow_promote=True,
     )
     # The element, not the stylesheet: `.stamp` is in the CSS on every page.
     assert '<span class="stamp"' not in html

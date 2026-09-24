@@ -2,13 +2,17 @@
 
 ```console
 $ digline view --suite suite.py
-digline view on http://127.0.0.1:7373/ — ctrl-c to stop
+digline view on http://127.0.0.1:7373/ — read-only; --allow-promote to promote — ctrl-c to stop
 ```
 
 Screens over `.digline/`, stdlib only, no JavaScript, no state of its own:
 no session, no preference, no cache. Restarting it loses nothing, because there
 was nothing to lose. `--host` and `--port` are available; `--port 0` lets the
 operating system choose and the printed line carries the bound port.
+
+**It promotes nothing unless you say so.** Without `--allow-promote` there is
+no button on any row and `POST /promote` is not a route — a POST to it gets the
+404 any unknown path gets. See [below](#promotion-and-the-flag-that-enables-it).
 
 ## The screens
 
@@ -22,10 +26,17 @@ Every action belongs to a row; there is nothing to select first.
 | On the row | What it does |
 |---|---|
 | `Compare` | this run against the baseline — `GET /compare?run=KEY` |
-| `Make baseline` | promotes it — the one route that writes |
+| `Make baseline` | promotes it — only under `--allow-promote` |
 
-The button appears only where `promote_baseline` would accept. Where it does
-not, a marker takes its place and its tooltip carries the sentence:
+On a server started without the flag there is no `Make baseline` anywhere, and
+nothing stands in its place: that is a fact about the **server**, not about a
+run, so it is said once in the header beside the suite name and never down a
+column of rows. The markers below are the other kind — *this run* cannot be
+promoted — and they stay either way, because they go on being true.
+
+Where the flag is given, the button appears only where `promote_baseline` would
+accept. Where it does not, a marker takes its place and its tooltip carries the
+sentence:
 
 | Marker | Why there is no button |
 |---|---|
@@ -67,9 +78,33 @@ that used to be built by hand with a script.
 writes nothing. A suspension lives in the code, so the reason travels with the
 case in the same review as everything else.
 
-## The one route that writes
+## Promotion, and the flag that enables it
 
-`POST /promote` goes through the same `promote_baseline` as `digline promote`,
+`digline view --allow-promote` is the server that promotes. `digline view` is
+not, and that is the default.
+
+The reason is not that the two surfaces should match. It is the reason the MCP
+server has no `promote` tool, applied to the same facts: a baseline is an
+**approved reference**, the approval is a person's, and a rule about who
+decides is not satisfied by a surface that lets a non-person decide, whatever
+that surface is called. The default falls on the cheap side of an asymmetry —
+forgetting `--allow-promote` costs a restart and the header tells you which
+eight characters to add; forgetting a hypothetical `--read-only` costs an
+unreviewed baseline, silently. ([ADR 0032](adr/0032-the-second-path-to-an-absent-tool.md))
+
+Without the flag the refusal is an **absence**, in both places a caller looks:
+no button on the page, and `/promote` is not a route on the wire. A POST to it
+answers `404 no such action`, the same as any unknown path — not `403`, which
+would say *you may not* and so imply a someone who may. Both come from one
+value, so the page and the dispatcher cannot drift into offering a button the
+route rejects.
+
+The Claude Code plugin's hook stays silent on `digline view` and asks a person
+about `digline view --allow-promote`. The flag is not a smaller thing than
+`digline promote` but a larger one: the same decision, made ambient for every
+run in the store for as long as the server is up.
+
+With the flag, `POST /promote` goes through the same `promote_baseline` as `digline promote`,
 with the same refusals, and it **checks the `Origin` header**. The form carries
 the key of the baseline the page was drawn against, as `--replacing` does on the
 command line: if somebody promoted in between — a second tab, a second person on
@@ -92,9 +127,11 @@ cosmetic:
   must equal what `render_html` produces **byte for byte**. If the page and the
   exported document ever disagreed about a run, that would be a defect and not a
   difference of medium.
-- the server is exercised once, end to end in a subprocess, for the two things
-  only a real server can show: that the routes are wired, and that a POST from
-  another origin is refused.
+- the server is exercised end to end in a subprocess, for the things only a
+  real server can show: that the routes are wired, that a POST from another
+  origin is refused, and that the default server answers `POST /promote` with a
+  404 **and leaves the baseline where it was** — a refusal that only returned
+  the right status would prove nothing about the store.
 
 ## See also
 

@@ -76,6 +76,12 @@ def served(repo: Path) -> Iterator[tuple[int, str]]:
             "suite_qa.py",
             "--port",
             "0",
+            # The server that *has* a write route, deliberately. This file is
+            # about the `Host` and `Origin` guards on that route, and on the
+            # default server the POST below would be a 404 before either guard
+            # ran — passing, and proving nothing about the thing under test.
+            # That the default has no route at all is `tests/test_view.py`.
+            "--allow-promote",
         ],
         cwd=repo,
         stdout=subprocess.PIPE,

@@ -70,6 +70,12 @@ nav.bar a:hover { color: #16181d; text-decoration: underline; }
 nav.bar .suite { color: #16181d; font-weight: 600; }
 nav.bar .spacer { flex: 1; }
 nav.bar .here { color: #16181d; font-weight: 700; }
+/* This server promotes nothing — a fact about the server, so it sits in the
+   header beside the suite and never in a row. Lower case on purpose: it
+   carries a flag somebody has to type, and `.chip` uppercases. */
+nav.bar .readonly { background: #f6e9e0; color: #8a4b1c; font-weight: 600;
+                    border-radius: .25rem; padding: .1rem .45rem;
+                    font-size: .8rem; }
 
 /* One row is one run: a readable moment, with its address beneath it. */
 .when { font-weight: 600; white-space: nowrap; }
@@ -319,7 +325,7 @@ def _errored_cases(run: Run) -> int:
     )
 
 
-def nav(locale: Locale, *, here: str, suite: str) -> str:
+def nav(locale: Locale, *, here: str, suite: str, note: str = "") -> str:
     """The bar every screen carries: where you are, and the language switch.
 
     The switch is a link and not a preference: the view is a developer's tool
@@ -327,12 +333,18 @@ def nav(locale: Locale, *, here: str, suite: str) -> str:
     document a customer receives still takes its locale from `report --locale`,
     which is mandatory there and defaulted here — a terminal and a document are
     different things (see `CLAUDE.md`).
+
+    `note` is markup already rendered, placed beside the suite name. It is how
+    a fact about the **server** reaches the page — as against a fact about a
+    run, which belongs in that run's row. Empty by default because only the
+    run list has one to say. (ADR 0032 §2)
     """
     runs_class = ' class="here"' if here == "runs" else ""
     parts: list[str] = [
         f'<a href="/?locale={locale}"{runs_class}>'
         f"{escape(phrase(locale, 'view.nav.runs'))}</a>",
         f'<span class="suite">{escape(suite)}</span>',
+        *([note] if note else []),
         '<span class="spacer"></span>',
     ]
     for candidate in LOCALES:
@@ -370,6 +382,7 @@ def runs_page(
     config_hash: str,
     locale: Locale,
     suite: str,
+    allow_promote: bool,
     ignored: str = "",
     message: str = "",
 ) -> str:
@@ -391,6 +404,22 @@ def runs_page(
     for the reason `environment` is: a screen that had to guess it would tell
     every run it is current, or none of them, and either answer is confidently
     wrong.
+
+    **`allow_promote` is mandatory for exactly that reason, one step further
+    up.** It says whether the server drawing this page promotes at all, and a
+    default would answer that question for a caller who never asked it: `True`
+    hands a button to a server that will 404 the click, `False` hides one that
+    would have worked. Either is the page and the route disagreeing, which is
+    the thing they must never do. Where it is false the button is **not
+    rendered** — not rendered and disabled — because a control that is present
+    and refuses teaches every reader that promotion is something this surface
+    does, subject to a policy (ADR 0011's argument, ADR 0032 §2).
+
+    The marker for it goes **once, in the header**, and not in the rows: the
+    three markers above are facts about a run — *this* run cannot be promoted —
+    and this one is a fact about the server, which nothing on any row is. It
+    also names the flag, because this line is the whole discovery path for
+    somebody who did not know `--allow-promote` existed.
     """
     ordered = sorted(runs, key=lambda pair: (pair[1].created_at, pair[0]), reverse=True)
     measures = _measure_columns(ordered)
@@ -404,7 +433,9 @@ def runs_page(
                 if v.score.score is not None
             }
 
-    body: list[str] = [nav(locale, here="runs", suite=suite)]
+    body: list[str] = [
+        nav(locale, here="runs", suite=suite, note=_read_only(locale, allow_promote))
+    ]
     title = phrase(locale, "view.title.runs", suite=suite)
     body.append(f"<h1>{escape(title)}</h1>\n")
     if message:
@@ -423,6 +454,7 @@ def runs_page(
                 config_hash,
                 labels,
                 locale,
+                allow_promote,
             )
         )
         if not measures:
@@ -439,6 +471,23 @@ def runs_page(
         told = phrase(locale, "view.ignored", note=ignored)
         body.append(f'<p class="note">{escape(told)}</p>\n')
     return _document(title, locale, "".join(body), wide=True)
+
+
+def _read_only(locale: Locale, allow_promote: bool) -> str:
+    """The one line that has to teach `--allow-promote`.
+
+    Not a `_chip`: those are uppercased by the stylesheet, and this one carries
+    a flag somebody has to be able to type. A flag is not localised, for the
+    reason an ISO date is not — the sentence around it is the document, the
+    eight characters are the product.
+    """
+    if allow_promote:
+        return ""
+    why = escape(phrase(locale, "view.read_only.why"))
+    return (
+        f'<span class="readonly" title="{why}">'
+        f"{escape(phrase(locale, 'view.read_only'))}</span>"
+    )
 
 
 def _measure_columns(ordered: Sequence[tuple[str, Run]]) -> list[str]:
@@ -485,6 +534,7 @@ def _runs_table(
     config_hash: str,
     labels: Mapping[str, str],
     locale: Locale,
+    allow_promote: bool,
 ) -> str:
     head = (
         "".join(
@@ -540,6 +590,7 @@ def _runs_table(
                 stale=stale,
                 baseline_key=baseline_key,
                 locale=locale,
+                allow_promote=allow_promote,
             )
         )
         rows.append("</tr>")
@@ -556,6 +607,7 @@ def _actions_cell(
     stale: bool,
     baseline_key: str | None,
     locale: Locale,
+    allow_promote: bool,
 ) -> str:
     """What this row can do — and, where it can do less, why.
 
@@ -571,6 +623,13 @@ def _actions_cell(
     never announce a different reason from the one the call would give. The
     refusal in the store stays: it is the second line, not the first way the
     rule is met.
+
+    **The three markers survive `allow_promote=False` and nothing replaces the
+    button.** They answer *why not this run*, which is still a true and useful
+    thing to say on a server that promotes nothing; the server's own answer is
+    in the header and is not repeated twenty times down a column, where it
+    would read as twenty per-run refusals. So a promotable row on a read-only
+    server carries its comparison link and nothing else. (ADR 0032 §2)
     """
     parts: list[str] = []
     # No link on the baseline's own row — a run compared with itself has
@@ -599,7 +658,7 @@ def _actions_cell(
                 count=errored,
             )
         )
-    else:
+    elif allow_promote:
         parts.append(
             '<form method="post" action="/promote">'
             f'<input type="hidden" name="locale" value="{locale}">'

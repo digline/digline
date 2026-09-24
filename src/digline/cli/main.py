@@ -784,9 +784,15 @@ def cmd_migrate(args: argparse.Namespace) -> int:
 def cmd_view(args: argparse.Namespace) -> int:
     """Serve the four screens over this suite's stored runs.
 
-    It reads `.digline/` and writes only what `promote` writes. Nothing is
-    remembered between requests, so there is no state to lose and none to
-    migrate — the store is the only thing that persists, as everywhere else.
+    It reads `.digline/` and writes nothing at all unless `--allow-promote` was
+    typed, in which case it writes what `promote` writes. Nothing is remembered
+    between requests, so there is no state to lose and none to migrate — the
+    store is the only thing that persists, as everywhere else.
+
+    The flag is larger than one promotion and is meant to read that way: it is
+    the decision `digline promote` makes about one named run, delegated in
+    advance for every run in the store, for as long as the server is up.
+    (ADR 0032 §1)
     """
     suite, loaded, store = _load(args)
     serve(
@@ -795,6 +801,7 @@ def cmd_view(args: argparse.Namespace) -> int:
         host=args.host,
         port=args.port,
         pricing=_pricing(args, loaded),
+        allow_promote=args.allow_promote,
     )
     return EXIT_OK
 
@@ -1119,12 +1126,20 @@ def build_parser() -> argparse.ArgumentParser:
     reg_p.set_defaults(func=cmd_register)
 
     view_p = subparsers.add_parser(
-        "view", help="browse stored runs, compare any two, promote"
+        "view", help="browse stored runs and compare any two; promotes nothing"
     )
     common(view_p)
     view_p.add_argument("--host", default="127.0.0.1", help="bind address")
     view_p.add_argument("--port", type=int, default=7373, help="bind port")
     view_p.add_argument("--target", help=TARGET_HELP)
+    view_p.add_argument(
+        "--allow-promote",
+        action="store_true",
+        help=(
+            "serve the promote button and POST /promote; without it there is "
+            "neither, for every run and for as long as the server is up"
+        ),
+    )
     view_p.set_defaults(func=cmd_view)
 
     exp_p = subparsers.add_parser(

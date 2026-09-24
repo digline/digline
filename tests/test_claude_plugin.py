@@ -15,6 +15,7 @@ commands it has been shown.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
@@ -32,6 +33,26 @@ MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 MANIFEST = PLUGIN / ".claude-plugin" / "plugin.json"
 SERVE = PLUGIN / "scripts" / "serve"
 ASK = PLUGIN / "scripts" / "ask-a-person"
+
+
+def _hook() -> Any:
+    """The hook's module, loaded by path.
+
+    `plugins/` is not a package and must not become one: the script runs in the
+    user's `.venv` with the standard library and nothing else, which is the
+    whole reason it may not import digline. Loading it by path here is how a
+    test reads its tables without giving it an installable name.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "ask_a_person", PLUGIN / "scripts" / "ask_a_person.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+REASONS: dict[str, str] = _hook().REASONS
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="the plugin's scripts are POSIX sh"
@@ -255,7 +276,11 @@ def test_the_hook_asks_a_person_before_a_persons_decision(
         "digline-mcp --root .",
         "grep -rn promote src/",
         "git commit -m 'register the new suite'",
+        # Bare `view` is a reading tool and stays in this company. The one
+        # spelling that no longer belongs here has a test of its own below.
         "digline view --suite s.py",
+        "digline view --host 0.0.0.0 --port 0 --suite s.py",
+        'grep -r "digline view --allow-promote" notes/',
         "echo digline promote",
         "cat notes.md | grep 'digline promote'",
         "python -m pytest -k promote",
@@ -298,12 +323,41 @@ def test_the_hook_is_silent_without_a_project() -> None:
     assert done.stdout == ""
 
 
-@pytest.mark.parametrize("subcommand", ["promote", "register"])
-def test_the_commands_the_hook_watches_are_ones_the_cli_has(subcommand: str) -> None:
+@pytest.mark.parametrize(
+    "command",
+    [
+        "digline view --allow-promote --suite s.py",
+        "digline view --suite s.py --allow-promote",
+        "digline --root . view --allow-promote --suite s.py",
+        "uvx digline view --allow-promote",
+        "digline compare --suite s.py && digline view --allow-promote",
+    ],
+)
+def test_the_hook_asks_before_the_flag_that_makes_the_decision_ambient(
+    command: str, project: Path
+) -> None:
+    """`digline view --allow-promote` is not a smaller thing than `digline
+    promote` but a larger one: the same decision, standing for every run in the
+    store for as long as the server is up. So the hook reads a word that is not
+    the subcommand — a change to its reach, not to its principle, because the
+    word is still one of the parsed simple command. (ADR 0032 §3)"""
+    output = json.loads(ask(command, project))["hookSpecificOutput"]
+    assert output["permissionDecision"] == "ask"
+    reason = output["permissionDecisionReason"]
+    assert reason.startswith("digline view --allow-promote ")
+    assert "not a wall" in reason
+
+
+@pytest.mark.parametrize("watched", sorted(REASONS))
+def test_the_commands_the_hook_watches_are_ones_the_cli_has(watched: str) -> None:
     """If one were renamed, the hook would go on matching a word nobody types
-    and asking about nothing."""
+    and asking about nothing. Read from `REASONS` rather than listed here, so a
+    key added to the hook without a command behind it fails rather than passes
+    unexamined — and the flagged spelling is checked as a whole, because a flag
+    argparse does not take is the same defect as a subcommand it does not have.
+    """
     subprocess.run(
-        [sys.executable, "-m", "digline.cli", subcommand, "--help"],
+        [sys.executable, "-m", "digline.cli", *watched.split(), "--help"],
         capture_output=True,
         check=True,
     )

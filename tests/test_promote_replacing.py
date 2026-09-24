@@ -275,5 +275,6 @@ def test_the_view_form_carries_the_baseline_the_page_was_drawn_against() -> None
         config_hash=CFG,
         locale="en",
         suite="qa",
+        allow_promote=True,
     )
     assert f'name="replacing" value="{reference}"' in page

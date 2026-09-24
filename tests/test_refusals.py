@@ -134,11 +134,21 @@ class _Refusing(FileResultStore):
 def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
     """The route that writes answers with the sentence. Before friction 59 it
     listed six types by hand, and two refusals 0.19.2 added reached the browser
-    as a closed connection."""
+    as a closed connection.
+
+    `allow_promote=True`, because the route only exists there: this is about
+    what a refusal looks like on the server a person chose to promote from, and
+    the default server has nothing to refuse *with* — it refuses the route
+    itself. That half is `tests/test_view.py`. (ADR 0032 §6)
+    """
     suite, _loaded = load_suite(str(repo / "suite_qa.py"), root=repo)
     known: set[str] = set()
     handler = partial(
-        ViewHandler, suite=suite, store=_Refusing(repo, kind), known=known
+        ViewHandler,
+        suite=suite,
+        store=_Refusing(repo, kind),
+        known=known,
+        allow_promote=True,
     )
     with ThreadingHTTPServer(("127.0.0.1", 0), handler) as httpd:  # pyright: ignore[reportArgumentType]
         port = int(httpd.server_address[1])
