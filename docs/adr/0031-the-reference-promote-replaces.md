@@ -37,7 +37,7 @@ and rewrites the baseline atomically. It never checks that the baseline it
 replaces is still the one the run was compared against. Two people review
 different runs and promote a few minutes apart, and the second one silently
 overwrites a newer reference. It is a classic lost update, and it is real.
-`FileResultStore.promote_baseline` reads the run, applies its six conditions,
+`FileResultStore.promote_baseline` reads the run, applies its seven conditions,
 and calls `_write_atomic` on `baselines/<suite>.json`. It never reads the file
 it is about to replace.
 
@@ -248,9 +248,9 @@ with *unknown*. That is ADR 0014 §3's rule for a signature nobody dated.
 
 - The MCP has no `promote` (ADR 0011 §1) and still has none. It gains a key in
   `compare`'s answer.
-- The six existing conditions, their order, and `view`'s pre-computed chips are
-  unchanged. `view` cannot predict this refusal: it is about time, not about
-  the run, so it has no chip and appears only as a refused `POST`.
+- The seven existing conditions, their order, and `view`'s pre-computed chips
+  are unchanged. `view` cannot predict this refusal: it is about time, not
+  about the run, so it has no chip and appears only as a refused `POST`.
 - The register is unchanged. An entry already records `baseline_key`, and a
   team that requires one before each promotion can now check the two against
   each other.
@@ -275,8 +275,12 @@ with *unknown*. That is ADR 0014 §3's rule for a signature nobody dated.
   credits **kantorcodes1** and says what they did: they read `promote`'s code
   after coming in from a post about something else.
 - `view.py`'s module docstring says *"the same three refusals"*. There are
-  five types and six conditions today. It is corrected in the same change,
-  because this record adds another.
+  seven conditions and six types today, counting the `SuiteMismatchError` that
+  0.19.2 added to `read_run`. It is corrected in the same change, because this
+  record adds another. The tuple of refusals that `view` catches does not
+  include `SuiteMismatchError` either. That is a separate question for whoever
+  owns the 0.19.2 follow-up, noted here because this change edits the same
+  tuple.
 
 ## Alternatives considered
 
