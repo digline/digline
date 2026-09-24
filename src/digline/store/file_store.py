@@ -63,10 +63,12 @@ from digline.store.protocol import (
     JournalBusyError,
     JournalHeader,
     Listing,
+    PathRefusedError,
     Pending,
     Register,
     RegisterRefusedError,
     ReplayedRunError,
+    RunNotFoundError,
     RunRef,
     TenantMismatchError,
     UncalibratedRunError,
@@ -119,7 +121,7 @@ def _check_name(value: str, kind: str) -> str:
     exists to provide.
     """
     if not _NAME_RE.match(value):
-        raise ValueError(
+        raise PathRefusedError(
             f"invalid {kind} name: {value!r} "
             "(letters, digits, dot, dash and underscore are allowed)"
         )
@@ -170,7 +172,7 @@ class FileResultStore:
         """
         resolved = path.resolve()
         if not resolved.is_relative_to(self.root.resolve()):
-            raise ValueError(
+            raise PathRefusedError(
                 f"the {kind} at {path.name} resolves to {resolved}, which is "
                 f"outside {self.root}. A name that passes the segment check can "
                 "still be a link out of the store, so the file it reaches is "
@@ -306,7 +308,7 @@ class FileResultStore:
     def read_run(self, ref: RunRef) -> Run:
         path = self.run_path(ref)
         if not path.exists():
-            raise FileNotFoundError(f"run not found: {path}")
+            raise RunNotFoundError(f"run not found: {path}")
         path = self._inside(path, "run")
         run = run_from_json(path.read_text(encoding="utf-8"))
         if run.tenant != ref.tenant:

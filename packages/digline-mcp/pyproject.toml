@@ -39,7 +39,16 @@ dependencies = [
     # and against an older core this package would import a name that is not
     # there. An ImportError is the failure `test_plugin_floors.py` exists to
     # make impossible, and it found this one before the tag.
-    "digline>=0.19.0",
+    # Raised to 0.19.2: `PathRefusedError` and `RunNotFoundError` are the types
+    # the store's two refusals gained so this package can tell a refusal from a
+    # bug. Against an older core the import is not there, which is the
+    # ImportError `test_plugin_floors.py` exists to make impossible.
+    # NOTE: 0.19.2 is the number this work assumes for the release that carries
+    # it. Whoever cuts that release owns the number — if it lands as 0.20.0,
+    # this floor, `INTRODUCED` in tests/test_plugin_floors.py and both advisory
+    # drafts in private/ move together. A floor may not name a release that
+    # does not exist, so this package is not published before that core is.
+    "digline>=0.19.2",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

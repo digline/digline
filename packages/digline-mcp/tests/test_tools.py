@@ -372,7 +372,21 @@ def test_a_run_that_links_out_of_the_store_never_reaches_the_agent(
     """This package holds no boundary of its own here: it reads through
     `FileResultStore` like the CLI does, so the 0.7.2 store fix arrives without
     a release of this package. The test says that out loud, because "it
-    inherits" is exactly the kind of claim that stops being true quietly."""
+    inherits" is exactly the kind of claim that stops being true quietly.
+
+    **Asserted positively, and the shape is the point.** Until the standing-code
+    pass of 2026-09-23 this test asserted only `"exfiltrated" not in message` —
+    true of the refusal, and equally true of the SDK's
+    `"Error executing tool get_run"`, of a typo'd tool name, and of the empty
+    string. It was passing while the store's refusal was in fact arriving as an
+    untranslated crash, so it could not fail for the reason it names. A negative
+    assertion about a secret says nothing about which of the many ways of
+    not-saying-it happened.
+
+    The secret's absence stays; beside it the test now requires the refusal
+    digline actually wrote. `test_refusals_reach_the_agent.py` holds the same
+    line for the other refusals on this path.
+    """
     key = run_key(repo)
     stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
     outside = repo.parent / "linked.json"
@@ -385,6 +399,10 @@ def test_a_run_that_links_out_of_the_store_never_reaches_the_agent(
         repo, "get_run", suite=str(repo / "suite_qa.py"), run="planted-key"
     )
     assert "exfiltrated" not in message
+    # What the line above cannot check on its own: that this is the store's
+    # refusal, and not one of the other ways of failing to say a word.
+    assert "outside" in message, message
+    assert "resolves to" in message, message
     # And the ordinary key still answers, through the same store.
     assert call(repo, "get_run", suite=str(repo / "suite_qa.py"), run=key)["key"] == key
 

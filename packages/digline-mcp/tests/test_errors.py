@@ -17,6 +17,7 @@ from digline.core import DifferentJudgesError, DifferentSuitesError
 from digline.host import UsageError
 from digline.store import ConfigMismatchError, ErroredRunError, TenantMismatchError
 from digline.targets import ProviderNotFound
+from digline.store import PathRefusedError, RunNotFoundError
 from digline_mcp.errors import TRANSLATED, translated
 
 MESSAGE = "the sentence a reader was supposed to see"
@@ -46,6 +47,8 @@ def test_the_list_covers_what_digline_raises_deliberately() -> None:
         DifferentSuitesError,
         DifferentJudgesError,
         ProviderNotFound,
+        PathRefusedError,
+        RunNotFoundError,
     }
 
 

@@ -35,13 +35,28 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from digline.core import DifferentJudgesError, DifferentSuitesError, json_visible
 from digline.host import UsageError
-from digline.store import ConfigMismatchError, ErroredRunError, TenantMismatchError
+from digline.store import (
+    ConfigMismatchError,
+    ErroredRunError,
+    PathRefusedError,
+    RunNotFoundError,
+    TenantMismatchError,
+)
 from digline.targets import ProviderNotFound
 
 __all__ = ["TRANSLATED", "translated"]
 
 #: The exceptions digline raises deliberately, each carrying a message written
 #: for a reader. Anything not in here is a bug and travels as one.
+#:
+#: `PathRefusedError` and `RunNotFoundError` are the store's, and they were
+#: missing until the standing-code pass of 2026-09-23. They had no type of
+#: their own — a bare `ValueError` and a bare `FileNotFoundError` — so the two
+#: sentences the store writes most carefully, `_inside`'s escape refusal and
+#: `_check_name`'s unsafe name, arrived as "Error executing tool get_run" with
+#: the reason on stderr where no client reads it. An agent told only that
+#: something failed retries, and retrying a refused path is the one response
+#: that cannot help.
 TRANSLATED: tuple[type[Exception], ...] = (
     UsageError,
     TenantMismatchError,
@@ -50,6 +65,8 @@ TRANSLATED: tuple[type[Exception], ...] = (
     DifferentSuitesError,
     DifferentJudgesError,
     ProviderNotFound,
+    PathRefusedError,
+    RunNotFoundError,
 )
 
 
