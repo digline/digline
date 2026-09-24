@@ -276,6 +276,16 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "1.32.3": (
+            "not a digline version: the hatchling that built "
+            "`digline_anthropic-0.5.3` as PyPI serves it, read from the wheel's "
+            "`Generator:` line on 2026-09-24 as the evidence that a rebuild at the "
+            "same version is not the same bytes. A measurement, not a pin"
+        ),
+        "1.32.4": (
+            "not a digline version: the hatchling that rebuilt the same wheel at "
+            "`v0.19.1` on 2026-09-24, the other half of that evidence"
+        ),
         "0.19.0": (
             "the release v0.19.0 itself, quoted as evidence: the "
             "`Collecting`/`Successfully installed` pair from the arm64 leg, the "
