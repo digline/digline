@@ -122,3 +122,67 @@ def test_an_ordinary_run_is_untouched(planted: tuple[Path, str]) -> None:
         repo, "compare", "--suite", "suite_qa.py", "--run", key, "--locale", "en"
     )
     assert done.returncode == 0, done.stderr
+
+
+def _older(path: Path) -> bytes:
+    """Make a run-shaped document one schema behind, so `migrate` would rewrite
+    it, and return its bytes: the write-through needs an older schema to fire,
+    and the assertion is that those bytes never change."""
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["schema_version"] = document["schema_version"] - 1
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path.read_bytes()
+
+
+def test_migrate_refuses_a_run_that_links_out_and_writes_nothing(
+    planted: tuple[Path, str],
+) -> None:
+    """`run_paths` was the one lister with no `_inside`, and its caller writes:
+    `migrate` read the planted document through the link and wrote the upgraded
+    one back through it, outside the repository, exit 0, reported as an
+    ordinary "migrated planted-key.json". (Security pass of 2026-09-23,
+    finding 3.)"""
+    repo, _key = planted
+    outside = repo.parent / "outside.json"
+    before = _older(outside)
+
+    done = cli(repo, "migrate", "--suite", "suite_qa.py")
+
+    assert done.returncode == 64, done.stdout
+    assert "planted-key.json" in done.stderr
+    assert "outside" in done.stderr
+    assert "migrated" not in done.stdout
+    assert outside.read_bytes() == before
+
+
+def test_migrate_refuses_a_baseline_that_links_out_and_writes_nothing(
+    planted: tuple[Path, str],
+) -> None:
+    """The baseline had the same gap one line below: `migrate` appended it after
+    only an `exists()`."""
+    repo, _key = planted
+    (repo / ".digline" / "acme-bank" / "runs" / "qa" / "planted-key.json").unlink()
+    baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
+    outside = repo.parent / "outside.json"
+    before = _older(outside)
+    baseline.unlink()
+    baseline.symlink_to(outside)
+
+    done = cli(repo, "migrate", "--suite", "suite_qa.py")
+
+    assert done.returncode == 64, done.stdout
+    assert "qa.json" in done.stderr
+    assert "outside" in done.stderr
+    assert outside.read_bytes() == before
+
+
+def test_migrate_still_migrates_an_ordinary_older_run(repo: Path) -> None:
+    """The control: the refusal is of the link, not of migrating."""
+    key = run_key(repo)
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    _older(stored)
+
+    done = cli(repo, "migrate", "--suite", "suite_qa.py")
+
+    assert done.returncode == 0, done.stderr
+    assert f"migrated {key}.json" in done.stdout
