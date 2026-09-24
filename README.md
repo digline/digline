@@ -75,15 +75,19 @@ skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
 agent is about to run a suite or read a comparison. Beside it is the MCP server,
 which measures, reads and explains, and cannot promote a baseline. Two lines
 plus one dependency: the server imports your suite, so it runs from your
-project's `.venv`. That is the server only. The commands the agent types in its
-own shell find digline wherever that shell does, which can be another install
-at another version.
+project's `.venv`.
 
 ```bash
 uv add --dev digline-mcp
 claude plugin marketplace add digline/digline
 claude plugin install digline@digline --scope project
 ```
+
+The agent's own shell commands are not the server. A bare `digline` typed
+there resolves through the `PATH` of the shell Claude Code started, which comes
+from your login profile and from whatever environment was active when you
+launched it, and it can be another project's install at another version.
+`uv run digline` resolves through your project's environment.
 
 What it installs, and what its hook does and does not guarantee:
 [`plugins/digline/README.md`](plugins/digline/README.md).
