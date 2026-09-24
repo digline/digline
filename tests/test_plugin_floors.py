@@ -75,7 +75,10 @@ PACKAGES = ROOT / "packages"
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
     # 0.19.2 — the store's two refusals gained types, so a boundary can tell a
-    # refusal from a bug (the standing-code pass of 2026-09-23).
+    # refusal from a bug (the standing-code pass of 2026-09-23). Ruled as a
+    # patch because nothing a legitimate user relies on changes; conditional on
+    # no later fix from that pass moving a format version, which would make the
+    # core a minor and move this with it.
     "PathRefusedError": "0.19.2",
     "RunNotFoundError": "0.19.2",
     # 0.1.0 — the first published surface.

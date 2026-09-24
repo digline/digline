@@ -15,9 +15,14 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
 from digline.core import DifferentJudgesError, DifferentSuitesError
 from digline.host import UsageError
-from digline.store import ConfigMismatchError, ErroredRunError, TenantMismatchError
+from digline.store import (
+    ConfigMismatchError,
+    ErroredRunError,
+    PathRefusedError,
+    RunNotFoundError,
+    TenantMismatchError,
+)
 from digline.targets import ProviderNotFound
-from digline.store import PathRefusedError, RunNotFoundError
 from digline_mcp.errors import TRANSLATED, translated
 
 MESSAGE = "the sentence a reader was supposed to see"

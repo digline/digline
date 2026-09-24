@@ -6,6 +6,30 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Security
+
+- **The store's two refusals have types, so a boundary can tell them from a
+  bug.** `_check_name` raised a bare `ValueError` and `read_run` a bare
+  `FileNotFoundError`. `digline-mcp` translates the exceptions digline raises
+  deliberately and lets everything else travel as a crash, so with no type to
+  list, the two refusals an agent meets most often — an unsafe run key, and a
+  run file that links out of the store — arrived as `Error executing tool
+  get_run` with the reason on stderr where no client reads it. They are now
+  `PathRefusedError` and `RunNotFoundError`, each subclassing what it already
+  raised, so every existing handler is unchanged.
+
+  Found by the standing-code security pass of 2026-09-23. Not an advisory:
+  nothing was disclosed and no boundary moved — the refusal held, only its
+  reason was lost.
+
+  **And the half that is about the test.** The test guarding that path asserted
+  `"exfiltrated" not in message`, which is true of the refusal and equally true
+  of the crash string, a typo'd tool name and the empty string. It was green
+  while the reason was being lost, so it could not fail for the reason it
+  names. It now requires the sentence digline wrote.
+
 ## 0.19.1 — 2026-09-23
 
 digline **0.19.1**, and on PyPI the core alone. An HTTP target can now report
