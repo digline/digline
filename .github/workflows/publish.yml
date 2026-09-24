@@ -302,6 +302,40 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --verify-tag --title "digline $version" --notes-file /tmp/notes.md
           fi
 
+      # The names and versions to ask PyPI about. Never the bytes: every tag
+      # rebuilds every package, and a rebuild is not what PyPI serves.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      - name: Attach PyPI's signatures — signatures, never packages
+        # PyPI already holds a Sigstore signature for every file the `pypi` job
+        # uploaded. This turns the ones signed from this tag into
+        # `.sigstore.json` bundles, verifies each against the file PyPI serves,
+        # and attaches only the bundles. Nothing is signed here, so this job
+        # needs no `id-token`. Why the packages stay off the release is in
+        # RELEASING.md, *Signatures on the GitHub release*; the refusals are in
+        # the script's docstring, and an empty list is one of them.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python .github/release_bundles.py "$GITHUB_REF_NAME" /tmp/bundles
+          # The script chose the files by the ref its certificate names; this
+          # is what proves it. A bundle from any other tag fails here.
+          for bundle in /tmp/bundles/*.sigstore.json; do
+            file="$(basename "$bundle" .sigstore.json)"
+            uvx --from sigstore==4.5.0 sigstore verify github \
+              --bundle "$bundle" \
+              --repository "$GITHUB_REPOSITORY" \
+              --ref "refs/tags/$GITHUB_REF_NAME" \
+              "/tmp/bundles/served/$file"
+          done
+          # --clobber is safe because a re-run writes the same bytes
+          # (tests/test_release_bundles.py pins it).
+          gh release upload "$GITHUB_REF_NAME" --clobber /tmp/bundles/*.sigstore.json
+
   # Before the rebuild is asked for: can the site build this tag at all?
   #
   # digline.dev builds from its own pages plus this repository's docs/, and
