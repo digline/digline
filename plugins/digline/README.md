@@ -47,8 +47,10 @@ commit: the plugin belongs to the repository that uses digline, like
 everything else digline keeps.
 
 The marketplace installs the plugin from the tag of the digline release it
-describes, never from `main`, so the skill does not describe anything your
-installed digline cannot do yet. Its version is digline's version.
+describes, never from `main`, so the skill never describes an unreleased
+digline. It describes *that* release, which need not be the one your project
+runs. The plugin itself contains no digline: what runs is decided by the
+launcher below for the MCP tools, and by the agent's shell for everything else.
 
 ## What the launcher needs
 
@@ -66,6 +68,21 @@ This means **a virtual environment at `.venv` in the project root**, which is
 what `uv` and `python -m venv .venv` make. An environment elsewhere, such as
 Poetry's default, is not found. The scripts are POSIX `sh`, so Windows is not
 supported.
+
+## What the agent's own commands run
+
+The launcher binds the server and nothing else. When the agent runs `digline`
+in its shell, which is how it runs a suite, promotes or reads a report, the
+command resolves through that shell's `PATH`. Claude Code builds that shell
+from your login profile and from the environment that was active when you
+started it, not from the project's `.venv`. So a bare `digline` there is
+whichever install comes first on that `PATH`, possibly another project's at
+another version. `uv run digline` and `.venv/bin/digline` are the project's.
+
+So one session can hold three versions: the skill's, the project's (the MCP
+tools) and the one on `PATH` (the agent's shell). None of them is named when
+they differ, and because the agent's shell can change between one command and
+the next, the answer holds for one execution, not for a session.
 
 ## The hook is a preference, not a wall
 
