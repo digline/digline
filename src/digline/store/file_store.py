@@ -560,6 +560,22 @@ class FileResultStore:
         a last line that parses but has lost its newline gets one, so the new
         entry never joins it — the bytes already there stay a prefix of the
         bytes after. (ADR 0021 §5)
+
+        **Containment is established here, unconditionally, and on its own
+        line.** It used to be a side effect of a different question: `_inside`
+        was reached only inside `if joined:`, where it had been called to read
+        the last byte rather than to check anything — and `joined` needs the
+        file to already exist. `read_register` above
+        returns early on `not path.exists()` for the same reason. Both guards
+        therefore hung off `exists()`, which follows a link, so a **dangling**
+        symlink at `register/<suite>.jsonl` skipped both and the `O_CREAT` below
+        created the file it named, anywhere the user could write.
+
+        The write that creates the register is the ordinary first use of
+        `digline register`, so the one write nobody checked was the one
+        everybody makes; every later write was checked correctly. That is why
+        this survived from the feature's first commit — it is invisible to
+        anyone testing an established register.
         """
         path = self.register_path(tenant, suite)
         if self.read_register(tenant, suite).torn:
@@ -571,9 +587,10 @@ class FileResultStore:
             )
         self.ensure_layout(tenant)
         path.parent.mkdir(parents=True, exist_ok=True)
+        path = self._inside(path, "register")
         joined = path.exists() and path.stat().st_size > 0
         if joined:
-            joined = not self._inside(path, "register").read_bytes().endswith(b"\n")
+            joined = not path.read_bytes().endswith(b"\n")
         line = json.dumps(
             _entry_to_dict(entry),
             sort_keys=True,
