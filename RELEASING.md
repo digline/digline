@@ -891,6 +891,63 @@ bearing and neither is obvious:
 `select_unpublished.py` copies rather than moves, which is what leaves `dist/`
 whole for that step to read.
 
+## Signatures on the GitHub release
+
+From the first release after 0.19.1, the last step of `github-release` attaches
+a `.sigstore.json` for every file the tag put on PyPI. They are **PyPI's own signatures**, not new
+ones: `pypa/gh-action-pypi-publish` makes a PEP 740 attestation for every
+upload under trusted publishing, and `.github/release_bundles.py` turns the ones
+signed from this tag into bundles, which `sigstore verify github --ref` then
+checks against the file PyPI serves before anything is attached. What it is
+for: OpenSSF Scorecard's Signed-Releases looks only at a release's files, and
+until this it saw none. It is the one Scorecard check we can move; the others
+that score low are capped by there being one maintainer.
+
+**Signatures, never packages.** Somebody will propose attaching the wheels and
+the sdist too, "for completeness". The answer is no, and this is why. The
+packages would make a second place serving the same bytes as PyPI, and nothing
+would notice the day the two diverged — and they already diverge, because
+**every tag rebuilds every package and `hatchling` is unpinned**
+(`requires = ["hatchling>=1.27"]`), so the same version number can be built
+from different source. Measured on 2026-09-24 by rebuilding `v0.19.1` and
+comparing against PyPI's digests: the two files that tag published (the core's
+wheel and sdist) came out identical, and of the ten older plugin files it
+rebuilt, four did not — three
+because the builder moved (`Generator: hatchling 1.32.3` on PyPI, `1.32.4` in
+the rebuild), one because `digline_bedrock-0.5.1.tar.gz` now carries a test
+added after 0.5.1 shipped. That is true whether or not anything is attached,
+and it is the reason `dist/` is authoritative **only for the files its own run
+uploaded**: the script reads `dist/` for names and versions, never for bytes. A
+signature names the served file by digest and leaves PyPI the only place that
+serves it, so the invariant "the release holds the bytes PyPI serves" never
+comes into existence and nothing has to guard it.
+
+Which files are this tag's is read from the signing certificate, which names
+the ref the upload ran from — not from `to-publish/`, which a re-run finds
+empty. The script **refuses**:
+
+- **an empty list.** A job that attaches nothing and passes is the check that
+  cannot fail, and the release would go out unsigned with a green on it.
+  Anticipated rather than discovered.
+- a file at the tag's own version with no attestation, or one signed from
+  another ref;
+- served bytes that do not match PyPI's own digest, or an attestation naming
+  another repository or workflow.
+
+A re-run writes the same bytes — `tests/test_release_bundles.py` pins it —
+which is what makes `gh release upload --clobber` safe.
+
+**Rehearsed by hand on `v0.19.1`, 2026-09-24,** before CI depended on it: two
+bundles (the core's wheel and sdist), ten plugin files skipped by the tag that
+published each (`v0.17.0`, `v0.15.0`, `v0.19.0`), both verified against the
+served files, a control with the wrong ref refused, a second run
+byte-identical, and the downloaded attachments identical to what was uploaded.
+
+Not covered: a plugin released on its own tag has no GitHub release, so no
+signature there; and Scorecard's 10 needs a SLSA `.intoto.jsonl`. Renaming a
+bundle to that suffix would pass a check that reads names only, and is not
+done.
+
 ## The index race
 
 **An upload returning 200 is not the index serving the file.** `publish`
