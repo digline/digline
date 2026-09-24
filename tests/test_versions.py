@@ -788,6 +788,17 @@ LIVE: dict[str, str] = {
     # reader's installed digline, which the reader's project pins on its own.
     "plugins/digline/.claude-plugin/plugin.json": r'^\s*"version": "([^"]+)"',
     ".claude-plugin/marketplace.json": r'^\s*"ref": "v([^"]+)"',
+    # The release the playbook's rules describe, which rule 6 tells an agent to
+    # compare with the digline that actually ran. One more number every release
+    # moves by hand, and worth it: without a named release, "differs from the
+    # release these rules describe" compares against nothing. A derived number
+    # would need machinery a Markdown file loaded into a model cannot carry.
+    # The plugin's copy of the skill is held byte for byte by
+    # test_claude_plugin.py, so it is not listed a second time.
+    "AGENTS.md": r"the release these rules describe \(\*\*([^*]+)\*\*\)",
+    ".claude/skills/operating-digline/SKILL.md": (
+        r"the release these rules describe \(\*\*([^*]+)\*\*\)"
+    ),
 }
 
 
