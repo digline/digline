@@ -10,6 +10,70 @@ notes under them are this file, verbatim.
 
 ### Security
 
+Seven findings from a pass over digline's **standing** code on 2026-09-23 — not
+a delta-pass. Sixteen delta-passes and five advisories had never reached any of
+them, because a delta-pass looks at the delta by construction and every one of
+these lived in code no release had touched. Three of the seven are published as
+advisories; for the other four the line `SECURITY.md` draws is exposure, and it
+is stated per entry rather than left to be inferred.
+
+- **`digline register` could create and append to a file outside the store, on
+  the write that creates the register** (advisory **GHSA-TBD**). `append_register`
+  reached its containment check only inside `if joined:`, where it had been
+  called to read the last byte rather than to check anything, and `joined` needs
+  the file to already exist; `read_register` returns early on the same
+  `exists()`. Both guards hung off a predicate that follows a link, so a
+  **dangling** symlink at `.digline/<tenant>/register/<suite>.jsonl` skipped
+  both and the `O_CREAT` that follows created the file it named, anywhere the
+  running user could write. The skip was exactly once per register, and that
+  once is the ordinary first use. `register/` is committed by design, so the
+  link travels in a pull request and the victim's action is reviewing it — **no
+  contributor code runs.** Affected `>= 0.13.0`: there is no earlier version
+  with the feature, and every version that has had it is affected.
+
+- **`digline view` served the store, and promoted baselines, to any page that
+  asked from a name it controlled** (advisory **GHSA-TBD**). The origin check
+  compared the request's `Origin` header against its own `Host` header — two
+  values describing one request — so it established that a request was
+  same-origin with itself, which every request is. A page served from a
+  hostname its author controls that resolves to the loopback address is
+  therefore same-origin with the server: one request read the whole unredacted
+  store or moved the baseline. `Host` is now checked against the address the
+  server actually bound to, on every route and not only the one that writes.
+  Affected from **0.1.0**: the comparison is in the first commit of the project
+  and was never different.
+
+- **`digline migrate` wrote through a symlink committed in the store**
+  (advisory **GHSA-TBD**). Neither collector was containment-checked:
+  `run_paths()` returned a glob where its sibling `scan_runs` guards the
+  identical one, and the baseline path was appended behind nothing but an
+  `exists()`. `migrate_file` ends in `write_text`, which follows a link. The
+  route a pull request carries is `baselines/<suite>.json`, which is committed;
+  a link under `runs/` is the same defect reached with local write access only,
+  because `*/runs/` is gitignored. Affected from **0.1.0**.
+
+- **A malformed stored document exited 1, which means "worse".** `EXIT_WORSE`
+  is the contract a CI job reads, and a crash exits 1 too, so a corrupt or
+  hostile baseline was indistinguishable from a regression somebody should look
+  at. `run_from_dict` now refuses anything that is not an object and re-raises
+  any shape error as `DocumentRefusedError`, so the answer is exit 64 and a
+  sentence; `migrate_file` does the same and lists the file as refused instead
+  of ending the migration. **Not an advisory:** nothing is disclosed and no
+  boundary moves — what was wrong was the verdict a reader drew from an exit
+  code.
+
+- **`promote` wrote the baseline of the suite the *document* named.** `read_run`
+  validated the stored document's tenant and never its suite, and
+  `promote_baseline` then wrote to the path that field chose: a run filed under
+  `qa` declaring `"suite": "other"` overwrote another suite's committed
+  baseline, exit 0, no output. Both readers now refuse a document whose suite
+  differs from where it is filed. **Refused and never redirected, and the reason
+  is the house rule and nothing else: digline does not repair documents.** (An
+  argument that a redirect is unsafe because `read_baseline` would refuse what
+  was just written is circular — before this fix `read_baseline` never looked at
+  the suite.) **Not an advisory:** the tenant perimeter held throughout, so this
+  misfiles within one tenant and crosses nothing.
+
 - **Text that is never language is neutralised on every surface.**
   `report.visible()`, `core.json_visible()` and `report.escape()` now escape the
   bidi embeddings and overrides (U+202A–U+202E), the interlinear annotation
