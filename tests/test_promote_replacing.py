@@ -278,3 +278,27 @@ def test_the_view_form_carries_the_baseline_the_page_was_drawn_against() -> None
         allow_promote=True,
     )
     assert f'name="replacing" value="{reference}"' in page
+
+
+def test_shortening_replacing_does_not_shorten_the_check(repo: Path) -> None:
+    """`promote` still accepts abbreviated options — only `view` refuses them —
+    so `--rep` is `--replacing`. That is not a way round the check, and this
+    says so rather than assuming it: the guard is the *value* the store compares
+    at write time, not the flag's name, and no spelling of the flag can leave
+    the value out, because the option is mandatory. Asked of every guard after
+    the 0.20.0 delta-pass found a watched flag defeated by its own prefix."""
+    first = run_key(repo)
+    assert (
+        cli(
+            repo, "promote", "--suite", "suite_qa.py", "--run", first, "--rep", "none"
+        ).returncode
+        == 0
+    )
+    second = run_key(repo)
+
+    refused = cli(
+        repo, "promote", "--suite", "suite_qa.py", "--run", second, "--rep", "none"
+    )
+    assert refused.returncode == 64
+    assert "BaselineMovedError" in refused.stderr
+    assert baseline_in(repo) == first

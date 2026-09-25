@@ -38,7 +38,6 @@ Three properties are deliberate:
 
 from __future__ import annotations
 
-import html
 import ipaddress
 import sys
 import urllib.parse
@@ -55,7 +54,7 @@ from pathlib import Path
 
 from digline.cli.output import say
 from digline.host import REFUSALS, replacing
-from digline.report import Locale, case_history, pages
+from digline.report import Locale, case_history, escape, pages
 from digline.run import Suite
 from digline.store import FileResultStore, RunRef, utc_now_iso
 
@@ -198,7 +197,14 @@ class ViewHandler(BaseHTTPRequestHandler):
         self._plain(status, message)
 
     def _plain(self, status: int, *paragraphs: str) -> None:
-        body = "".join(f"<p>{html.escape(text)}</p>" for text in paragraphs)
+        # `escape`, the report's, and not `html.escape`: the second covers what
+        # changes how a browser *parses* the page and leaves C0, C1 and the
+        # bidi overrides alone, so a refusal quoting a committed baseline's
+        # `promoted_at` wrote them raw — an RLO reversing the sentence that
+        # names which key was found. Every other page already went through
+        # this one; this was the page friction 59 added. (0.20.0 delta-pass,
+        # F-2)
+        body = "".join(f"<p>{escape(text)}</p>" for text in paragraphs)
         self._send(
             status,
             f"<!DOCTYPE html><html><body>{body}"

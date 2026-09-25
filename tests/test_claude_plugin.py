@@ -241,6 +241,15 @@ def ask(command: str, project: Path) -> str:
             "digline compare --suite s.py\ndigline promote --suite s.py --run k",
             "uv run --project . digline promote --suite s.py --run k",
             "uvx digline promote --suite s.py --run k",
+            # ADR 0032 §4c, closed in 0.20.1: `uv tool run` is `uvx` spelled
+            # out, and `uv` recognises what it runs by these same rules rather
+            # than by the word `digline`.
+            "uv tool run digline promote --suite s.py --run k",
+            "uv tool run --from digline digline promote --suite s.py --run k",
+            "uv run python -m digline.cli promote --suite s.py --run k",
+            "uvx --from digline python -m digline.cli promote --suite s.py --run k",
+            "python -m digline.cli.main promote --suite s.py --run k",
+            "python -m digline.cli.__main__ promote --suite s.py --run k",
         )
     ]
     + [
@@ -284,6 +293,10 @@ def test_the_hook_asks_a_person_before_a_persons_decision(
         "echo digline promote",
         "cat notes.md | grep 'digline promote'",
         "python -m pytest -k promote",
+        "uv run pytest -k promote",
+        "uv tool run ruff check .",
+        # Not a spelling that runs: `digline` has no `__main__`.
+        "python -m digline promote --suite s.py --run k",
     ],
 )
 def test_the_hook_stays_silent_on_everything_else(command: str, project: Path) -> None:
@@ -346,6 +359,86 @@ def test_the_hook_asks_before_the_flag_that_makes_the_decision_ambient(
     reason = output["permissionDecisionReason"]
     assert reason.startswith("digline view --allow-promote ")
     assert "not a wall" in reason
+
+
+def _runnable_modules() -> set[str]:
+    """Every module `python -m` can run under `src/digline/`, read off the tree:
+    a package with a `__main__.py` (runnable by its own name and as
+    `<package>.__main__`), and a module with a `__main__` guard."""
+    src = ROOT / "src"
+    found: set[str] = set()
+    for path in (src / "digline").rglob("*.py"):
+        dotted = ".".join(path.relative_to(src).with_suffix("").parts)
+        if path.name == "__main__.py":
+            found |= {dotted.removesuffix(".__main__"), dotted}
+        elif 'if __name__ == "__main__"' in path.read_text(encoding="utf-8"):
+            found.add(dotted)
+    return found
+
+
+def test_the_modules_the_hook_reads_are_the_ones_that_run() -> None:
+    """`MODULES` is a list written by hand, and ADR 0032 §4c found it wrong both
+    ways: it named `digline`, which cannot run, and missed `digline.cli.main`,
+    which can. The hook may not import digline, so it cannot ask at run time;
+    this asks the tree instead, and runs each one to be sure it is the CLI.
+    (ADR 0032 §8: derive the spellings from what accepts them.)"""
+    runnable = _runnable_modules()
+    assert set(_hook().MODULES) == runnable
+    for module in sorted(runnable):
+        done = subprocess.run(
+            [sys.executable, "-m", module, "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert done.returncode == 0 and done.stdout.startswith("digline "), module
+
+
+#: The wrappers the hook's docstring names as passing without a prompt. Held
+#: both ways: each is silent, and the docstring names exactly these, so a hook
+#: that starts reading one cannot leave the sentence claiming it does not.
+UNREAD_WRAPPERS = ("env", "time", "nohup", "exec", "sudo", "command")
+
+
+@pytest.mark.parametrize("wrapper", UNREAD_WRAPPERS)
+def test_what_the_docstring_says_is_not_read_is_not_read(
+    wrapper: str, project: Path
+) -> None:
+    assert ask(f"{wrapper} digline promote --suite s.py --run k", project) == ""
+    assert f"`{wrapper}`" in (_hook().__doc__ or ""), (
+        f"the hook passes `{wrapper} digline …` silently and its docstring does "
+        "not say so"
+    )
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "flag"), sorted(_hook().FLAGGED.items()), ids=lambda v: v
+)
+def test_a_watched_flag_has_no_spelling_but_its_own(subcommand: str, flag: str) -> None:
+    """The hook matches a watched flag as a whole word, so the CLI must accept
+    no other spelling of it — and argparse accepts every unambiguous prefix of
+    an option unless the parser refuses abbreviations. On 0.20.0 `digline view
+    --a` started the promoting server with the hook silent, and a POST with no
+    `Origin` then promoted with nobody asked (0.20.0 delta-pass, F-1). Derived
+    from the hook's own table, so a flag it starts watching is held to this
+    without anybody remembering to add it."""
+    from digline.cli.main import build_parser
+
+    def accepted(word: str) -> bool:
+        try:
+            build_parser().parse_args([subcommand, "--suite", "s.py", word])
+        except SystemExit:
+            return False
+        return True
+
+    assert accepted(flag), (
+        f"`digline {subcommand} {flag}` is not a spelling the CLI takes"
+    )
+    taken = [flag[:end] for end in range(3, len(flag)) if accepted(flag[:end])]
+    assert not taken, (
+        f"`digline {subcommand}` accepts {', '.join(taken)} as {flag}, and the "
+        "hook, which matches the whole word, would not ask for any of them"
+    )
 
 
 @pytest.mark.parametrize("watched", sorted(REASONS))

@@ -83,6 +83,13 @@ case in the same review as everything else.
 `digline view --allow-promote` is the server that promotes. `digline view` is
 not, and that is the default.
 
+**The flag is spelled in full, and so is every `view` option.** Other commands
+accept a shortened option, `--loc` for `--locale`, but `view` does not. The
+Claude Code plugin asks a person before any command carrying
+`--allow-promote`, and it recognises the flag by its name. On 0.20.0, `--a`
+started the same server and nobody was asked, so now the full word is
+the only spelling `view` takes.
+
 The reason is not that the two surfaces should match. It is the reason the MCP
 server has no `promote` tool, applied to the same facts: a baseline is an
 **approved reference**, the approval is a person's, and a rule about who

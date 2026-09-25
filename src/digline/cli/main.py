@@ -1126,7 +1126,17 @@ def build_parser() -> argparse.ArgumentParser:
     reg_p.set_defaults(func=cmd_register)
 
     view_p = subparsers.add_parser(
-        "view", help="browse stored runs and compare any two; promotes nothing"
+        "view",
+        help="browse stored runs and compare any two; promotes nothing",
+        # `--allow-promote` is watched by name — the Claude Code plugin's hook
+        # asks a person before any command carrying it — and argparse accepts
+        # every unambiguous prefix of an option, so `--a` started the same
+        # promoting server with no ask. Refusing abbreviations here makes the
+        # full word the only spelling, which is what makes a match on the word
+        # complete. On `view` only: `--loc` for `--locale` is a convenience
+        # people rely on, and nothing else is guarded by a name.
+        # (0.20.0 delta-pass, F-1)
+        allow_abbrev=False,
     )
     common(view_p)
     view_p.add_argument("--host", default="127.0.0.1", help="bind address")

@@ -96,9 +96,11 @@ The hook **asks**, and never refuses outright, because you may tell the agent
 to go ahead, and then the prompt is where you approve.
 
 It guarantees nothing. You, or anybody who can edit your settings, can disable
-the plugin. A command the hook does not read goes through without a prompt:
-one handed to another program as a string (`bash -c`, `xargs`, `eval`), or
-spelled through a variable or an alias.
+the plugin. The hook reads digline where it is the command, or where `uvx`,
+`uv run`, `uv tool run` or `python -m` runs it, and nothing else. Any other
+program in front of it goes through without a prompt: a wrapper such as `env`,
+`time`, `nohup` or `sudo`, a command handed over as a string (`bash -c`,
+`xargs`, `eval`), a variable, or an alias.
 It only makes the honest path the easy one. **The wall is the reviewed diff
 under `.digline/<tenant>/`**: baselines and the register are committed, so they
 reach a reviewer as changes nobody can make silently. That is where approval

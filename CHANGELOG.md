@@ -6,6 +6,59 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.20.1 — 2026-09-25
+
+digline **0.20.1**, the core alone, with the Claude Code plugin that moves with
+it. It ships before 0.20.0 is announced, which is the ordering the delta-pass
+exists for. Its three fixes are one pattern, recorded in ADR 0032 §8: **a
+guard that keys on a name is defeated by another spelling of the same act.**
+Two come from the delta-pass over 0.20.0. The third is ADR 0032 §4c's pair of
+hook evasions, which that record said would ship with the plugin's next
+release — and this is it. A patch: nothing a user relies on stops working.
+The one narrowing is that `digline view`'s options must now be spelled in full.
+That is the fix itself, and no other command changes. digline-mcp stays at
+0.4.0.
+
+### Fixed
+
+- **An abbreviated `--allow-promote` started a promoting `digline view`, and
+  the Claude Code plugin never asked.** argparse accepts any unambiguous prefix
+  of an option, so `digline view --a`, `--allow` or `--allow-promot` all started
+  the server that promotes. The plugin's hook recognises the flag by its whole
+  word, so it stayed silent for every one of them. After that, a POST with no
+  `Origin` header — the way `curl` sends one — promoted a baseline without
+  anybody being asked. `digline view` now refuses abbreviated options, so the
+  full word is the only spelling, and a test builds the real parser and tries
+  every prefix of every flag the hook watches. **Only `view` changes:** `--loc`
+  for `--locale` still works everywhere else. Every `view` option now has to be
+  written in full: `--port`, not `--po`.
+  - `promote --replacing` needed no change, and this says so rather than
+    assuming it. `--rep` is accepted, but the check is on the key the store
+    compares at write time, not on the flag's name. The option is mandatory, so
+    no spelling can leave the key out. A test holds that too.
+- **The plugin's hook now asks for `uv tool run digline promote`, `uv run
+  python -m digline.cli promote` and `python -m digline.cli.main promote`.** It
+  used to pass all three silently. ADR 0032 §4c found the first and the third,
+  and closing them found the second. `uv tool run` is `uvx` spelled out, and the
+  hook now recognises whatever `uv` runs by its own rules, not only by the word
+  `digline`. The modules it accepts after `python -m` are held by a test to the
+  modules that actually run: that list named `digline`, which cannot run, and
+  missed `digline.cli.main`, which can. The hook's docstring and the plugin's
+  README now state what the hook reads as a rule. Wrappers such as `env`,
+  `time` or `sudo` in front of digline are still not read, and both say so.
+- **The page that reports a promotion when the list of runs cannot be drawn
+  wrote control characters raw.** It escaped with `html.escape`, which leaves
+  C0, C1 and the bidi overrides alone. So a refusal quoting a committed
+  baseline's `promoted_at` could reverse, with an RLO, the sentence that names
+  which key was found. The page, and `view`'s plain error page with it, now go
+  through the same escaping as every other page.
+- Neither is an advisory: nothing crosses a boundary, and the default `view`
+  still refuses to promote. What was defeated was the plugin's ask, which
+  ADR 0032 calls friction and not a wall. Both were found by the delta-pass over
+  0.20.0, before 0.20.0 was announced, and ADR 0032 §8 records the pattern they
+  share with two earlier findings: **a guard that keys on a name is defeated by
+  another spelling of the same act.**
+
 ## 0.20.0 — 2026-09-24
 
 digline **0.20.0**, with **digline-mcp 0.4.0**. Both halves of this release

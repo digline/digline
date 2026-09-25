@@ -122,6 +122,9 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose pinned control shipped unwired, told as the reason "
             "this call exists. History, not the current version"
         ),
+        "0.20.0": "'(0.20.0 delta-pass, F-1)' — the pass that found an "
+        "abbreviated --allow-promote evading the hook, named as why view refuses "
+        "abbreviations. History",
     },
     "src/digline/store/protocol.py": {
         "0.7.2": (
@@ -448,6 +451,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "waits printed, the three image tags resolving to one digest, and the "
         "lock that moved from v0.19.1 to v0.19.2. Measurements of that tag, and "
         "moving them would claim a later tag produced numbers nobody read",
+        "0.20.0": "the index-race status for v0.20.0 — its runner and in-build "
+        "waits, the three image tags on one digest, and the six locks read back "
+        "on the first try. Measurements of that tag, like 0.19.2's beside them",
     },
     "docs/explain.md": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
@@ -658,12 +664,19 @@ RECORDED: dict[str, dict[str, str]] = {
         "— the release whose refusals the view's tuple never learned, told as "
         "why the classification exists. History",
     },
+    "docs/view.md": {
+        "0.20.0": "'On 0.20.0, --a started the same server' — the release whose "
+        "view accepted abbreviated options, told as why the flag is now spelled "
+        "in full. History",
+    },
     "src/digline/cli/view.py": {
         "0.13.0": "'(0.13.0 delta-pass)' — the start-up line the standing "
         "rule's guard caught on its first run, now through `say()`",
         "0.19.2": "'0.19.2 added two refusals this list never learned' — the "
         "release that introduced friction 59, named as the reason the tuple is "
         "derived. History",
+        "0.20.0": "'(0.20.0 delta-pass, F-2)' — the pass that found the fallback "
+        "page writing controls raw, named as why it uses report.escape. History",
     },
     "src/digline/core/assertions.py": {
         "0.16.0": "'Until 0.16.0 this exception was raised inside the try that "
