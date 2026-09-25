@@ -10,6 +10,9 @@
 - Date: 2026-09-24
 - Amended: 2026-09-24, with 0.20.1. §8 records the pattern the record's
   findings share, now that it has a third instance. No decision in §1–§7 moves
+- Amended: 2026-09-25, after 0.20.1 shipped. §8 gains its fourth row, the
+  recogniser that did not recognise itself, and states that not chasing the
+  wrappers one by one is the ruling. No decision moves
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`
   and `JOURNAL_VERSION` all stay where they are. What moves is one default in
@@ -544,22 +547,32 @@ remember.
 
 ### 8. A guard that keys on a name is defeated by another spelling of the same act
 
-*Added 2026-09-24, with 0.20.1.* Three times in one day a guard in this
+*Added 2026-09-24, with 0.20.1; the fourth row and the ruling on wrappers
+2026-09-25, after 0.20.1 shipped.* Four times in two days a guard in this
 project named the act it guarded by one of its spellings, and the act arrived
 by another:
 
 | guard | the name it keys on | the same act, spelled otherwise | how it was found | state |
 |---|---|---|---|---|
 | MCP, hook, skill | the command `promote` | `digline view` and its `POST /promote` | classifying what each command does (§7) | closed by §1, 0.20.0 |
-| plugin hook | the word `digline`, and two module names | `uv tool run digline …`, `python -m digline.cli.main …`, and, found while closing it, `uv run python -m digline.cli …` | running the hook against spellings (§4c) | closed in 0.20.1: `uv` recognises what it runs by the hook's own rules, and `MODULES` is held to the modules that run |
+| plugin hook | the word `digline` and two module names | `uv tool run digline …`, `python -m digline.cli.main …` | running the hook against spellings (§4c) | closed in 0.20.1: `uv tool run` is read like `uvx`, and `MODULES` is held to the modules that run |
+| plugin hook, one level down | the word `digline`, **as the command `uv` runs** | `uv run python -m digline.cli …`, `uvx --from digline python -m digline.cli …` | closing the row above, by running the hook against spellings | closed in 0.20.1: the hook applies its own recognition to whatever `uv` runs |
 | plugin hook | the flag `--allow-promote` | `--a`, `--al` … `--allow-promot`: argparse takes any unambiguous prefix | the 0.20.0 delta-pass: argparse's documented behaviour as a hypothesis, then run | closed in 0.20.1: `view` refuses abbreviations |
 
-**None of the three was caught by reading the code that holds the guard.** The
-third had been read, and reasoned about in writing: the hook's docstring said a
+**The third row is the sharpest of the four.** The hook already knew every
+spelling in it: `python -m digline.cli` asks by itself. But behind `uv` it
+demanded the literal word `digline`. A recogniser that did not recognise itself
+let the same act through one level deeper. The fix is the guard applying its
+own recognition recursively, and that is the second way below, written out:
+the thing that accepts what `uv` wraps is the hook's own rule, so the
+spellings are derived from it rather than listed beside it.
+
+**None of the four was caught by reading the code that holds the guard.** The
+last had been read, and reasoned about in writing: the hook's docstring said a
 prefix match "would only ever widen this past what the CLI does". It reasoned
 about suffixes, `--allow-promote=`, and was never run against the CLI. The two
 that were found, were found by classifying or by running, and that is the only
-method the three share.
+method the four share.
 
 So this is the rule, and it is about the guard's construction, not about any
 one guard. **A guard that keys on a name is complete only if the thing it
@@ -579,10 +592,13 @@ that true, and they do not wear the same:
   for it.
 - **And say what is not read as the construction, not as a list.** Closing §4c
   measured six more wrappers the hook does not read (`env`, `time`, `nohup`,
-  `exec`, `sudo`, `command`). They are not chased one by one, because that is
-  the hand list again. The hook's docstring states what it reads, names those
-  six as examples of what it does not, and a test holds each example silent and
-  named. Its sentence therefore cannot outlive the behaviour it describes.
+  `exec`, `sudo`, `command`). **Not chasing them one by one is the ruling, not
+  an omission.** Chasing them would rebuild, one wrapper at a time, the
+  hand-written list this whole section is about, and the list would be
+  incomplete the day after, as `MODULES` was. The hook's docstring states what
+  it reads, names those six as examples of what it does not, and a test holds
+  each example silent and named. Its sentence therefore cannot outlive the
+  behaviour it describes.
 
 And the test has the same shape as the rule: it asks the accepting side.
 `test_a_watched_flag_has_no_spelling_but_its_own` builds the real parser and
