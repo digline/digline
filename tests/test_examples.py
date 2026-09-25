@@ -402,6 +402,49 @@ def test_an_example_shipped_red_is_red_against_its_committed_baseline(
     assert "got worse" in compared.stdout
 
 
+#: Shipped red too, but only against a real model: the committed baseline is a
+#: live one, so a keyless run holds stand-ins against it and measures nothing
+#: (its README: "The keyless path runs. It does not compare."). Checked below
+#: when a key is present, and declared here rather than left out, so an
+#: example that is red on purpose is never red by nobody's account.
+SHIPPED_RED_LIVE: dict[str, str] = {
+    "prompt-first": (
+        "`prompts/system.txt` ships with the returns-policy line and the live "
+        "baseline is measured without it: seven or eight checks of ten get worse"
+    ),
+}
+
+#: Both, or nothing: a key alone must not spend money by surprise.
+LIVE = (
+    bool(os.environ.get("ANTHROPIC_API_KEY")) and os.environ.get("DIGLINE_LIVE") == "1"
+)
+
+
+@pytest.mark.live
+@pytest.mark.skipif(not LIVE, reason="needs ANTHROPIC_API_KEY and DIGLINE_LIVE=1")
+@pytest.mark.parametrize("name", sorted(SHIPPED_RED_LIVE))
+def test_an_example_shipped_red_live_is_red_against_its_live_baseline(
+    name: str, tmp_path: Path
+) -> None:
+    workdir = tmp_path / name
+    shutil.copytree(
+        ROOT / "examples" / name,
+        workdir,
+        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
+    )
+    with application(workdir, name):
+        suite = suite_file(workdir)
+        ran = cli(workdir, "run", "--suite", suite)
+        assert ran.returncode == EXIT_OK, ran.stderr
+        compared = cli(
+            workdir, "compare", "--suite", suite, "--run", ran.stdout.strip()
+        )
+    assert compared.returncode == EXIT_WORSE, (
+        f"examples/{name} ships red against a real model ({SHIPPED_RED_LIVE[name]}), "
+        f"and its live comparison exited {compared.returncode}"
+    )
+
+
 def test_the_pypi_leg_expects_red_of_exactly_the_examples_shipped_red() -> None:
     """The post-release leg asks the same question of the published package. Its
     expectation is a line of shell, so it is held to the list above rather

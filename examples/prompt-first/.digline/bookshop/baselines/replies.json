@@ -2,8 +2,8 @@
   "aggregate": [],
   "artifacts": {
     "prompts/system.txt": {
-      "sha": "06c2108bd85eb72888e9e5d1b85ac62688e3a3d179acc60293f40fe8b4c4a809",
-      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\nAlways remind the customer of the returns policy.\n"
+      "sha": "9bb2bd77519e101f7ab7ed65506f468896426d4c8c76f7c32a8932260cee17cb",
+      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\n"
     },
     "prompts/user.txt": {
       "sha": "96f7331433314f30ce6385279654a8c663906ca591561dd98283cd83ec63566a",
@@ -11,13 +11,13 @@
     }
   },
   "config_hash": "0d99045c0f1639eb",
-  "created_at": "2026-09-23T07:14:08.579107+00:00",
-  "digline_version": "0.18.0",
+  "created_at": "2026-09-25T08:24:08.967806+00:00",
+  "digline_version": "0.20.1",
   "environment": "dev",
-  "git_commit": "bccb4150a6e3b682c5b9930b3786a302c1207933-dirty",
+  "git_commit": "1e148b341fe5a4789a03e07e780a73175049b23b",
   "judge_config": {},
   "metadata": {},
-  "promoted_at": "2026-09-23T07:15:28.850547+00:00",
+  "promoted_at": "2026-09-25T08:37:28.937125+00:00",
   "redacted": false,
   "results": [
     {
@@ -29,26 +29,26 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 184.333333,
+            "distance": 113.666667,
             "errored_samples": 0,
-            "length": 231.333333,
+            "length": 150.333333,
             "samples": 3,
             "scores": [
-              0.2,
-              0.225664,
-              0.185484
+              0.276423,
+              0.233918,
+              0.229299
             ],
-            "spread": 0.04018
+            "spread": 0.047124
           },
-          "reason": "mean of 3 samples (0.200000, 0.225664, 0.185484)",
-          "sample_max": 0.225664,
-          "sample_min": 0.185484,
+          "reason": "mean of 3 samples (0.276423, 0.233918, 0.229299)",
+          "sample_max": 0.276423,
+          "sample_min": 0.229299,
           "samples": [
-            0.2,
-            0.225664,
-            0.185484
+            0.276423,
+            0.233918,
+            0.229299
           ],
-          "score": 0.203716,
+          "score": 0.246547,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -62,23 +62,23 @@
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.4,
-              0.466667,
-              0.466667
+              0.85,
+              0.883333,
+              0.866667
             ],
-            "spread": 0.066667
+            "spread": 0.033333
           },
-          "reason": "mean of 3 samples (0.400000, 0.466667, 0.466667)",
-          "sample_max": 0.466667,
+          "reason": "mean of 3 samples (0.850000, 0.883333, 0.866667)",
+          "sample_max": 0.883333,
           "sample_means": true,
-          "sample_min": 0.4,
+          "sample_min": 0.85,
           "samples": [
-            0.4,
-            0.466667,
-            0.466667
+            0.85,
+            0.883333,
+            0.866667
           ],
-          "score": 0.444445,
-          "status": "fail",
+          "score": 0.866667,
+          "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -93,26 +93,26 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 175.666667,
+            "distance": 97.666667,
             "errored_samples": 0,
-            "length": 233.333333,
+            "length": 143.666667,
             "samples": 3,
             "scores": [
-              0.253165,
-              0.229572,
-              0.262136
+              0.328571,
+              0.354839,
+              0.287425
             ],
-            "spread": 0.032564
+            "spread": 0.067414
           },
-          "reason": "mean of 3 samples (0.253165, 0.229572, 0.262136)",
-          "sample_max": 0.262136,
-          "sample_min": 0.229572,
+          "reason": "mean of 3 samples (0.328571, 0.354839, 0.287425)",
+          "sample_max": 0.354839,
+          "sample_min": 0.287425,
           "samples": [
-            0.253165,
-            0.229572,
-            0.262136
+            0.328571,
+            0.354839,
+            0.287425
           ],
-          "score": 0.248291,
+          "score": 0.323612,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -122,27 +122,27 @@
           "assertion_id": "d0891fbb13f6509e",
           "judged": true,
           "metadata": {
-            "agreement": 0.666667,
+            "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.3,
-              0.566667,
-              0.766667
+              1.0,
+              0.966667,
+              0.9
             ],
-            "spread": 0.466667
+            "spread": 0.1
           },
-          "reason": "mean of 3 samples (0.300000, 0.566667, 0.766667)",
-          "sample_max": 0.766667,
+          "reason": "mean of 3 samples (1.000000, 0.966667, 0.900000)",
+          "sample_max": 1.0,
           "sample_means": true,
-          "sample_min": 0.3,
+          "sample_min": 0.9,
           "samples": [
-            0.3,
-            0.566667,
-            0.766667
+            1.0,
+            0.966667,
+            0.9
           ],
-          "score": 0.544445,
-          "status": "fail",
+          "score": 0.955556,
+          "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -157,26 +157,26 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 145.333333,
+            "distance": 54.0,
             "errored_samples": 0,
-            "length": 180.333333,
+            "length": 70.666667,
             "samples": 3,
             "scores": [
-              0.221477,
-              0.211765,
-              0.162162
+              0.222222,
+              0.237288,
+              0.242424
             ],
-            "spread": 0.059315
+            "spread": 0.020202
           },
-          "reason": "mean of 3 samples (0.221477, 0.211765, 0.162162)",
-          "sample_max": 0.221477,
-          "sample_min": 0.162162,
+          "reason": "mean of 3 samples (0.222222, 0.237288, 0.242424)",
+          "sample_max": 0.242424,
+          "sample_min": 0.222222,
           "samples": [
-            0.221477,
-            0.211765,
-            0.162162
+            0.222222,
+            0.237288,
+            0.242424
           ],
-          "score": 0.198468,
+          "score": 0.233978,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -186,27 +186,27 @@
           "assertion_id": "d0891fbb13f6509e",
           "judged": true,
           "metadata": {
-            "agreement": 0.666667,
+            "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.633333,
-              0.766667,
-              0.55
+              0.966667,
+              0.9,
+              0.966667
             ],
-            "spread": 0.216667
+            "spread": 0.066667
           },
-          "reason": "mean of 3 samples (0.633333, 0.766667, 0.550000)",
-          "sample_max": 0.766667,
+          "reason": "mean of 3 samples (0.966667, 0.900000, 0.966667)",
+          "sample_max": 0.966667,
           "sample_means": true,
-          "sample_min": 0.55,
+          "sample_min": 0.9,
           "samples": [
-            0.633333,
-            0.766667,
-            0.55
+            0.966667,
+            0.9,
+            0.966667
           ],
-          "score": 0.65,
-          "status": "fail",
+          "score": 0.944445,
+          "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -221,26 +221,26 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 169.333333,
+            "distance": 110.0,
             "errored_samples": 0,
-            "length": 216.0,
+            "length": 145.0,
             "samples": 3,
             "scores": [
-              0.206009,
-              0.217778,
-              0.226316
+              0.231293,
+              0.240876,
+              0.251656
             ],
-            "spread": 0.020307
+            "spread": 0.020363
           },
-          "reason": "mean of 3 samples (0.206009, 0.217778, 0.226316)",
-          "sample_max": 0.226316,
-          "sample_min": 0.206009,
+          "reason": "mean of 3 samples (0.231293, 0.240876, 0.251656)",
+          "sample_max": 0.251656,
+          "sample_min": 0.231293,
           "samples": [
-            0.206009,
-            0.217778,
-            0.226316
+            0.231293,
+            0.240876,
+            0.251656
           ],
-          "score": 0.216701,
+          "score": 0.241275,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -254,23 +254,23 @@
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.533333,
-              0.533333,
-              0.566667
+              0.866667,
+              0.913333,
+              0.866667
             ],
-            "spread": 0.033334
+            "spread": 0.046666
           },
-          "reason": "mean of 3 samples (0.533333, 0.533333, 0.566667)",
-          "sample_max": 0.566667,
+          "reason": "mean of 3 samples (0.866667, 0.913333, 0.866667)",
+          "sample_max": 0.913333,
           "sample_means": true,
-          "sample_min": 0.533333,
+          "sample_min": 0.866667,
           "samples": [
-            0.533333,
-            0.533333,
-            0.566667
+            0.866667,
+            0.913333,
+            0.866667
           ],
-          "score": 0.544444,
-          "status": "fail",
+          "score": 0.882222,
+          "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -285,26 +285,26 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 214.333333,
+            "distance": 97.333333,
             "errored_samples": 0,
-            "length": 262.0,
+            "length": 136.666667,
             "samples": 3,
             "scores": [
-              0.181818,
-              0.17193,
-              0.193548
+              0.338843,
+              0.300752,
+              0.237179
             ],
-            "spread": 0.021618
+            "spread": 0.101664
           },
-          "reason": "mean of 3 samples (0.181818, 0.171930, 0.193548)",
-          "sample_max": 0.193548,
-          "sample_min": 0.17193,
+          "reason": "mean of 3 samples (0.338843, 0.300752, 0.237179)",
+          "sample_max": 0.338843,
+          "sample_min": 0.237179,
           "samples": [
-            0.181818,
-            0.17193,
-            0.193548
+            0.338843,
+            0.300752,
+            0.237179
           ],
-          "score": 0.182432,
+          "score": 0.292258,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -314,27 +314,67 @@
           "assertion_id": "d0891fbb13f6509e",
           "judged": true,
           "metadata": {
+            "agreement": 0.666667,
+            "errored_samples": 0,
+            "samples": 3,
+            "scores": [
+              0.566667,
+              0.816667,
+              0.2
+            ],
+            "spread": 0.616667
+          },
+          "reason": "mean of 3 samples (0.566667, 0.816667, 0.200000)",
+          "sample_max": 0.816667,
+          "sample_means": true,
+          "sample_min": 0.2,
+          "samples": [
+            0.566667,
+            0.816667,
+            0.2
+          ],
+          "score": 0.527778,
+          "status": "fail",
+          "threshold": 0.7,
+          "tolerance": 0.1
+        }
+      ]
+    },
+    {
+      "calibration": {
+        "check": "llm_rubric",
+        "high": 0.95,
+        "low": 0.7
+      },
+      "case_id": "calibration-half-right",
+      "suspended": false,
+      "verdicts": [
+        {
+          "assertion": "llm_rubric",
+          "assertion_id": "d0891fbb13f6509e",
+          "judged": true,
+          "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.3,
-              0.333333,
-              0.4
+              0.816667,
+              0.85,
+              0.816667
             ],
-            "spread": 0.1
+            "spread": 0.033333
           },
-          "reason": "mean of 3 samples (0.300000, 0.333333, 0.400000)",
-          "sample_max": 0.4,
+          "reason": "mean of 3 samples (0.816667, 0.850000, 0.816667)",
+          "sample_max": 0.85,
           "sample_means": true,
-          "sample_min": 0.3,
+          "sample_min": 0.816667,
           "samples": [
-            0.3,
-            0.333333,
-            0.4
+            0.816667,
+            0.85,
+            0.816667
           ],
-          "score": 0.344444,
-          "status": "fail",
+          "score": 0.827778,
+          "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -361,10 +401,10 @@
     "target": {
       "calls": 15,
       "counted": 15,
-      "spent_usd": 0.005133,
+      "spent_usd": 0.003448,
       "tokens": {
-        "input_tokens": 1023,
-        "output_tokens": 822
+        "input_tokens": 873,
+        "output_tokens": 515
       }
     }
   }
