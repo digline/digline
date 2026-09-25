@@ -141,6 +141,14 @@ suite = Suite(
 )
 ```
 
+`tenant="northwind"` is ours, like every tenant in this repository's examples,
+and it has to become yours before the first run. A tenant is one customer: one
+perimeter, and the directory your store is keyed on, `.digline/<tenant>/`.
+Name it after the customer the suite is for. A suite copied to the next
+customer with this line unchanged files that customer's runs in the first
+one's directory, compares them against the first one's reference and promotes
+over it, each with exit `0`.
+
 When your judge is a real model, add a provider plugin:
 `uv add digline-anthropic` (or `pip install digline-anthropic`), likewise
 `digline-openai` and `digline-bedrock`.
