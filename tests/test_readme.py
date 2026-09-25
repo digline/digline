@@ -85,6 +85,20 @@ def test_the_readme_suite_is_self_contained(quickstart: Path) -> None:
     assert "def judge(" in source and "def target(" in source
 
 
+def test_the_readme_hands_the_tenant_over_right_after_the_suite() -> None:
+    """The copy source of friction 64: a suite copied between customers with
+    its `tenant=` line unchanged files one customer's runs under another's.
+    The value is ours, so the paragraph under the block has to say so, and
+    say what a tenant is for, about the tenant the block actually declares."""
+    tenant = re.search(r'tenant="([^"]+)"', blocks("python")[0])
+    assert tenant is not None
+    after = TEXT.split("```python\n", 1)[1].split("```\n", 1)[1]
+    paragraph = after.strip().split("\n\n", 1)[0]
+    assert paragraph.startswith(f'`tenant="{tenant.group(1)}"` is ours')
+    assert "one customer" in paragraph
+    assert "`.digline/<tenant>/`" in paragraph
+
+
 def test_the_readme_suite_runs(quickstart: Path) -> None:
     done = cli(quickstart, "run", "--suite", "suite.py")
     assert done.returncode == EXIT_OK, done.stderr
