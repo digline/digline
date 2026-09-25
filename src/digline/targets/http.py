@@ -24,7 +24,12 @@ from urllib.parse import urlsplit
 from digline.core import ConfigValue, Output, Usage
 from digline.run import Case, Response
 from digline.targets.completion import ToolCall
-from digline.targets.config import declared_config, endpoint_host
+from digline.targets.config import (
+    declared_config,
+    endpoint_host,
+    expected_config,
+    refuse_config_mismatch,
+)
 
 __all__ = ["USAGE_FIELDS", "HttpTarget"]
 
@@ -148,6 +153,7 @@ class HttpTarget:
             output_path="data.answer",
             cost_path="usage.cost_usd",
             config_path="config",
+            expect_config={"provider": "gemini", "model": "gemini-2.5-flash"},
             tool_calls_path="trajectory.calls",
             usage_path="usage.tokens",
         )
@@ -166,6 +172,14 @@ class HttpTarget:
     closed the way a reported configuration is closed. Absent, `Response.usage`
     is `None` — a target that reports no counts, which is an honest answer and
     not a zero.
+
+    **`expect_config` is what makes the configuration in the record reviewed.**
+    Over HTTP the application writes every field it reports, so without a
+    declaration the `provider` and `model` in a run are values nobody checked —
+    and they cross a boundary in clear. Declare the ones you expect and the
+    application's part is reduced to agreeing with them: a reported value that
+    contradicts the declaration errors its case, naming both. Partial on
+    purpose — the keys you name are the keys checked (ADR 0030 §4, §7).
     """
 
     #: Every `*_path` here is a **dotted path into the answer's JSON**, never a
@@ -187,6 +201,7 @@ class HttpTarget:
         cost_path: str | None = None,
         latency_from_response: str | None = None,
         config_path: str | None = None,
+        expect_config: Mapping[str, ConfigValue] | None = None,
         tools_path: str | None = None,
         tool_calls_path: str | None = None,
         usage_path: str | None = None,
@@ -245,6 +260,27 @@ class HttpTarget:
         #: the target declares nothing — which is what it has always done, and
         #: absent is not a change (ADR 0005 §6, §8).
         self.config_path = config_path
+        #: What the suite declares the application should report (ADR 0030 §4).
+        #: The value in the record is then one a reviewer wrote — the
+        #: application's part is reduced to agreeing with it — which is the
+        #: provenance ADR 0005 §9 separates the two model names by, and which
+        #: over HTTP exists only because this key does.
+        self.expect_config = (
+            None
+            if expect_config is None
+            else expected_config(expect_config, where="`expect_config`")
+        )
+        if self.expect_config is not None and config_path is None:
+            # A gate on a value nothing reads passes everything. Refused at
+            # construction rather than left to be noticed, because the run it
+            # would produce is green and means nothing (fixed decision 3).
+            raise ValueError(
+                "`expect_config` declares the configuration this endpoint "
+                "should report, and without `config_path` no configuration is "
+                "ever read: the check never runs, and the run is green whatever "
+                "the application answered. Name the object in the answer with "
+                "`config_path`, or drop `expect_config`"
+            )
         self.tools_path = tools_path
         self.tool_calls_path = tool_calls_path
         self.usage_path = usage_path
@@ -277,6 +313,14 @@ class HttpTarget:
         answer said.
         """
         declared = declared_config(found, where=str(self.config_path))
+        # Before the run's own configuration is kept, and on every answer rather
+        # than only the first: what the suite declared is the reviewed value, so
+        # an answer that contradicts it is refused rather than recorded. Nothing
+        # earlier can do this — `preflight()` sends a HEAD and the driver's
+        # pre-run read is empty for an `HttpTarget`, which learns its
+        # configuration by answering (ADR 0030 §7).
+        if self.expect_config is not None:
+            refuse_config_mismatch(declared, self.expect_config, spoken=self._spoken)
         if not self._config:
             self._config = declared
             return
