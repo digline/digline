@@ -792,7 +792,9 @@ def cmd_view(args: argparse.Namespace) -> int:
     The flag is larger than one promotion and is meant to read that way: it is
     the decision `digline promote` makes about one named run, delegated in
     advance for every run in the store, for as long as the server is up.
-    (ADR 0032 §1)
+    (ADR 0032 §1) Delegated to one browser: the server mints a launch key and
+    promotes only for the browser that opens the address it prints. There is
+    no option for the key, by design — it is not a second control. (ADR 0033)
     """
     suite, loaded, store = _load(args)
     serve(
@@ -1146,8 +1148,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-promote",
         action="store_true",
         help=(
-            "serve the promote button and POST /promote; without it there is "
-            "neither, for every run and for as long as the server is up"
+            "serve the promote button and POST /promote, for the browser that "
+            "opens the address it prints; without it there is neither, for "
+            "every run and for as long as the server is up"
         ),
     )
     view_p.set_defaults(func=cmd_view)

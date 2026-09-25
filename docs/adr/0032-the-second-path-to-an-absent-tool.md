@@ -13,6 +13,10 @@
 - Amended: 2026-09-25, after 0.20.1 shipped. §8 gains its fourth row, the
   recogniser that did not recognise itself, and states that not chasing the
   wrappers one by one is the ruling. No decision moves
+- Amended: 2026-09-25 by [ADR 0033](0033-the-server-that-promotes-for-one-browser.md).
+  One Consequences bullet, the one saying this record does not authenticate
+  the view: the flagged server now promotes only for the browser that opened
+  the address it printed. No decision moves
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`
   and `JOURNAL_VERSION` all stay where they are. What moves is one default in
@@ -633,6 +637,16 @@ turn it into a wall.
   has the server that existed before this record, with its existing
   protections. The default stops being that server; the flagged one is not
   hardened by this change.
+
+  *Amended 2026-09-25 by
+  [ADR 0033](0033-the-server-that-promotes-for-one-browser.md).* True of this
+  record, and it left a door the record did not name: the `Origin` check
+  admits a request with no `Origin` at all, so once a person had started the
+  flagged server, any process of that user — an agent's shell included —
+  promoted with one POST, and the hook never saw it, because nobody typed the
+  flag in the agent's shell. The flagged server now mints a launch key per
+  start, held in memory and never configurable, and `/promote` refuses a
+  request without it: a 403, because on that server somebody may.
 - It does not touch the store. `promote_baseline` is unchanged, its refusals
   are unchanged, and a `.digline/` written before this release reads
   identically after it.

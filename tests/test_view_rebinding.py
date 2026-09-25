@@ -22,6 +22,7 @@ from __future__ import annotations
 import http.client
 import subprocess
 import sys
+import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -45,12 +46,17 @@ REBOUND = "evil.example"
 
 
 @pytest.fixture
-def served(repo: Path) -> Iterator[tuple[int, str]]:
-    """A real server over a real store, on an ephemeral port.
+def served(repo: Path) -> Iterator[tuple[int, str, str]]:
+    """A real server over a real store, on an ephemeral port, with the `Cookie`
+    header of the browser it was opened in.
 
     A subprocess rather than a handler built in-process: what is being tested is
     a header comparison made by `http.server`, and a `ViewHandler` constructed
     by hand would be a test of the function rather than of the door.
+
+    **The cookie is sent on every POST here, and that is what keeps this file
+    meaning anything.** Without it the launch key refuses first (ADR 0033), and
+    each test below would go on passing with the guard it names deleted.
     """
     key = run_key(repo)
     promoted = cli(
@@ -96,8 +102,12 @@ def served(repo: Path) -> Iterator[tuple[int, str]]:
         assert process.stdout is not None
         line = process.stdout.readline()
         assert "http://" in line, line
-        base = line.split()[3]
-        yield int(base.removeprefix("http://127.0.0.1:").rstrip("/")), key
+        address: str = line.split()[3]
+        printed = urllib.parse.urlparse(address)
+        port = printed.port
+        assert port is not None, line
+        launch = urllib.parse.parse_qs(printed.query)["launch"][0]
+        yield port, key, f"digline-view-{port}={launch}"
     finally:
         process.terminate()
         process.wait(timeout=10)
@@ -111,6 +121,7 @@ def request(
     host: str,
     origin: str | None = None,
     body: str = "",
+    cookie: str = "",
 ) -> tuple[int, str]:
     """One request with `Host` set by the caller.
 
@@ -122,6 +133,8 @@ def request(
     headers = {"Host": host}
     if origin is not None:
         headers["Origin"] = origin
+    if cookie:
+        headers["Cookie"] = cookie
     if body:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     connection.request(method, path, body=body, headers=headers)
@@ -131,9 +144,11 @@ def request(
     return answer.status, read
 
 
-def test_a_post_from_a_rebound_name_is_refused(served: tuple[int, str]) -> None:
+def test_a_post_from_a_rebound_name_is_refused(
+    served: tuple[int, str, str],
+) -> None:
     """The write route, reached from a page the developer merely visited."""
-    port, key = served
+    port, key, cookie = served
     rebound = f"{REBOUND}:{port}"
 
     # The control, and it is the point of the test: the check does work when the
@@ -146,6 +161,7 @@ def test_a_post_from_a_rebound_name_is_refused(served: tuple[int, str]) -> None:
         host=f"127.0.0.1:{port}",
         origin=f"http://{REBOUND}",
         body=f"run={key}",
+        cookie=cookie,
     )
     assert refused == 403, "the control failed: a plain cross-origin POST got through"
 
@@ -156,6 +172,7 @@ def test_a_post_from_a_rebound_name_is_refused(served: tuple[int, str]) -> None:
         host=rebound,
         origin=f"http://{rebound}",
         body=f"run={key}",
+        cookie=cookie,
     )
     assert status == 403, (
         f"a POST whose Origin and Host are both {rebound!r} was answered "
@@ -165,14 +182,14 @@ def test_a_post_from_a_rebound_name_is_refused(served: tuple[int, str]) -> None:
 
 
 def test_a_get_from_a_rebound_name_does_not_serve_the_store(
-    served: tuple[int, str],
+    served: tuple[int, str, str],
 ) -> None:
     """The reading routes, which lose more than the writing one.
 
     A page that can read `/` has the run keys, the environments and the commit
     of every stored run — held by a party ADR 0002 exists to keep them from.
     """
-    port, key = served
+    port, key, _cookie = served
 
     # The control: the server does answer this route, so a 403 below would mean
     # the check refused rather than that the route is missing.

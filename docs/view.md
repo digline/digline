@@ -12,7 +12,8 @@ operating system choose and the printed line carries the bound port.
 
 **It promotes nothing unless you say so.** Without `--allow-promote` there is
 no button on any row and `POST /promote` is not a route — a POST to it gets the
-404 any unknown path gets. See [below](#promotion-and-the-flag-that-enables-it).
+404 any unknown path gets. With it, it promotes only from the browser that
+opens the address it prints. See [below](#promotion-and-the-flag-that-enables-it).
 
 ## The screens
 
@@ -111,15 +112,50 @@ about `digline view --allow-promote`. The flag is not a smaller thing than
 `digline promote` but a larger one: the same decision, made ambient for every
 run in the store for as long as the server is up.
 
+### It promotes for the browser that opens the address it prints
+
+```console
+$ digline view --suite suite.py --allow-promote
+digline view on http://127.0.0.1:7373/?launch=… — promotion enabled, from the browser that opens this address — ctrl-c to stop
+```
+
+Open **that** address. The server trades the `launch` value for a cookie and
+sends you to `/` without it, and from then on `Make baseline` works
+in that browser until the server stops. Nothing else can promote on it: a
+POST without the cookie — a `curl`, a script, an agent's shell, another
+browser — is refused with `403`.
+
+The flag decides whether this server may write. It cannot decide who is asking,
+and before this, once a person had started the flagged server, any process of
+that user could move the baseline with one POST, and the plugin's hook never
+saw it. The key is what closes that. ([ADR 0033](adr/0033-the-server-that-promotes-for-one-browser.md))
+
+- **There is nothing to configure.** The key is minted when the server starts
+  and held in its memory — never written to disk, never read from a file or the
+  environment, and no option sets or disables it. A key that could be supplied
+  would live somewhere every process of the same user can read, and a key that
+  could be switched off would become the control nobody reads.
+- **It is never in a page.** Every screen answers anybody on the machine, so the
+  key only ever appears on the startup line.
+- **What changes for you:** restarting the server gives a new key, so an open
+  tab or a bookmark from the last start is refused, with a sentence saying why.
+  `localhost` and `127.0.0.1` are different hosts to a browser, so stay on the
+  one the line printed. A second browser needs the printed address pasted in.
+- **Why a `403` here and a `404` on the default server.** On the default server
+  nobody may promote, so `/promote` does not exist. Here somebody may, so a
+  caller without the key is refused rather than told there is nothing here.
+  Same fact, two servers, two truthful answers.
+
 With the flag, `POST /promote` goes through the same `promote_baseline` as `digline promote`,
 with the same refusals, and it **checks the `Origin` header**. The form carries
 the key of the baseline the page was drawn against, as `--replacing` does on the
 command line: if somebody promoted in between — a second tab, a second person on
 the same server — the promotion is refused and names both keys rather than
 replacing a reference nobody on this page compared against. Binding to loopback is not a boundary: any page
-open in the developer's browser can POST to `localhost`, and this server needs
-no credential to act. A missing `Origin` is allowed — that is `curl`, not the
-attack — an `Origin` that is not ours is refused with `403`.
+open in the developer's browser can POST to `localhost`. A missing `Origin` is
+allowed — that is `curl`, which the launch key refuses instead — and an
+`Origin` that is not ours is refused with `403`. The origin check stops a page;
+the key stops a process.
 
 A path outside the routes is a `404` and never a file: the view serves pages it
 renders, never bytes off the disk.
@@ -136,9 +172,11 @@ cosmetic:
   difference of medium.
 - the server is exercised end to end in a subprocess, for the things only a
   real server can show: that the routes are wired, that a POST from another
-  origin is refused, and that the default server answers `POST /promote` with a
+  origin is refused, that the default server answers `POST /promote` with a
   404 **and leaves the baseline where it was** — a refusal that only returned
-  the right status would prove nothing about the store.
+  the right status would prove nothing about the store — and that the flagged
+  server answers a POST without its key with a 403, the store read on both
+  sides again.
 
 ## See also
 

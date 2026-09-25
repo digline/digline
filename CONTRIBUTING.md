@@ -29,6 +29,21 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   off state and cannot: one here went green under the mutation because its
   fixture had a single run that was already the baseline, so no row could have
   carried the button on any server at all.
+- **If you add a guard in front of another one, the old guard's tests go
+  empty.** A request that the new guard refuses never reaches the old one, and
+  a test expecting a refusal cannot tell whose it got. When `digline view
+  --allow-promote` gained its launch key (ADR 0033), the tests of the `Origin`
+  check, the rebinding guards and the walk over every refusal type would all
+  have passed **with their guards deleted**. The key refused first, and a
+  403 from the key reads the same as a 403 from the origin check.
+
+  So, for every test of a guard that now sits behind yours: **send what your
+  guard asks for**, so the request reaches the guard the test names. Assert
+  the sentence as well as the status, so the refusal says whose it is. Then
+  **mutate the old guard away and run the suite.** Green means the test was
+  already testing yours. This is the same family as the flag bullet above,
+  where a test stays correct about a request while what stands in front of
+  it moves, and it has four instances in one week.
 - **Decisions in `CLAUDE.md` marked fixed need an ADR in `docs/adr/` first**,
   not a pull request that quietly works around them.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.

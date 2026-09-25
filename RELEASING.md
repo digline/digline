@@ -311,6 +311,36 @@ from the entry with `gh release create <tag> --notes-file`. A re-run rewrites
 the notes rather than failing on the release it already made. Named plugin tags
 get no release from it.
 
+## Before the tag: a control a person meets first in a browser
+
+A control whose first user clicks is **seen working in a browser before the
+tag**, by a person, and the tag waits for it. HTTP-level tests check the
+headers a browser is sent. They cannot check what the browser does with them,
+and that is the part every user meets first. A control proven header by
+header and never seen working is a control nobody has used.
+
+**Blocking the next tag: ADR 0033's launch key** (§8). Alessandro does this, before
+the tag, not after:
+
+1. In a repository with at least two runs, one of them the baseline, run
+   `digline view --suite <suite> --allow-promote`.
+2. Click the address the startup line prints. The page loads, and the address
+   bar ends in `/`, **without** `?launch=`.
+3. Press *Make baseline* on a row that is not the baseline. The page says
+   *Baseline set to …*, and `git diff .digline/*/baselines/` shows the move.
+4. The control, which is what makes step 3 mean anything: in a private window,
+   open the bare `http://127.0.0.1:<port>/` and press *Make baseline* on
+   another row. It is refused with a 403 naming the printed address, and the
+   baseline file does not change.
+5. Stop the server, start it again, and press *Make baseline* in the tab from
+   step 2 without reopening the new address. Refused, and the baseline does
+   not move.
+
+Do it in the browser you use, and in a second engine if you have one. `SameSite`
+is where engines have differed. If step 3 is refused, the release is wrong, not
+the browser: ADR 0033 is reopened before anything ships. Once all five hold,
+delete this entry and leave the rule above it.
+
 ## Before the tag: the gates
 
 Run **exactly what CI runs**, from the repository root:

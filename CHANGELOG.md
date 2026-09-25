@@ -6,8 +6,35 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.21.0 — unreleased
 
+### Changed — the promoting `digline view` promotes for one browser
+
+- **`digline view --allow-promote` now promotes only from the browser that
+  opens the address it prints.** Before, once a person had started the flagged
+  server, any process of the same user could move the baseline with one POST
+  and no `Origin` header, the way `curl` sends one. That included an agent's
+  shell, and the Claude Code plugin's hook never saw it, because nobody typed
+  the flag in the agent's shell. The server now mints a launch key when it
+  starts. The key is held in memory and never written, and the startup line
+  prints it once, as `?launch=…` on the address. Opening that address trades
+  it for an `HttpOnly`, `SameSite=Strict` cookie, and `POST /promote` without
+  the cookie is refused with **403**.
+  ([ADR 0033](docs/adr/0033-the-server-that-promotes-for-one-browser.md))
+  - **There is nothing to configure**, on purpose: no `--token`, and no way to
+    turn it off. A key that could be supplied would live where every process
+    of the same user can read it. One that could be switched off would become
+    the control nobody reads.
+  - **What breaks:** a script that POSTs to a flagged server is refused.
+    Scripts promote with `digline promote`. An open tab or a bookmark from an
+    earlier start is refused with a sentence saying why, because each start
+    has a new key. `localhost` and `127.0.0.1` are different hosts to a
+    browser, so stay on the one the line printed.
+  - **What does not change:** `digline view` without the flag still has no
+    promote route at all, and still answers `404`. That is the same fact giving
+    the other truthful answer: there nobody may promote, and here somebody may.
+  - **Seen working in a browser before this was tagged**: the printed address
+    clicked, and *Make baseline* pressed. HTTP-level tests alone do not ship it.
 ### Changed
 
 - **CI: when the index disagrees with itself, the release now says which

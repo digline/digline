@@ -11,6 +11,11 @@ ships: `served` is `digline view`, `served_promoting` is `digline view
 --allow-promote`. A test that lands on the wrong one still passes for the
 reading routes, which is why the promotion tests name the flagged fixture
 explicitly rather than taking whatever the module hands them. (ADR 0032 §1)
+
+The flagged fixture also hands over the **launch cookie** its server minted,
+and every promotion test sends it unless the test is about its absence. A test
+of the origin check that sent no cookie would be refused by the key instead,
+and go on passing with the origin check deleted. (ADR 0033)
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import re
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
@@ -317,6 +323,8 @@ def server(repo: Path, *flags: str) -> Generator[tuple[str, str]]:
 
     The bound URL is read off the startup line, which is why that line keeps
     the URL as its fourth word whichever server it is: the mode goes after it.
+    What is yielded is the address without its query — on the flagged server
+    the printed one carries the launch key, which `launch_of` reads.
     """
     process = subprocess.Popen(
         [
@@ -340,7 +348,7 @@ def server(repo: Path, *flags: str) -> Generator[tuple[str, str]]:
         assert process.stdout is not None
         line = process.stdout.readline()
         assert "http://" in line, line
-        yield line.split()[3], line
+        yield line.split()[3].split("?")[0], line
     finally:
         process.terminate()
         process.wait(timeout=10)
@@ -374,12 +382,25 @@ def served(repo: Path) -> Iterator[tuple[str, str]]:
         yield base, key
 
 
+def launch_of(line: str) -> str:
+    """The launch key on a flagged server's startup line, or empty."""
+    query = urllib.parse.urlparse(line.split()[3]).query
+    return (urllib.parse.parse_qs(query).get("launch") or [""])[0]
+
+
+def cookie_for(base: str, launch: str) -> str:
+    """The `Cookie` header the browser sends after the hand-over."""
+    port = urllib.parse.urlparse(base).port
+    return f"digline-view-{port}={launch}"
+
+
 @pytest.fixture
-def served_promoting(repo: Path) -> Iterator[tuple[str, str]]:
-    """`digline view --allow-promote`: the server that has the write route."""
+def served_promoting(repo: Path) -> Iterator[tuple[str, str, str]]:
+    """`digline view --allow-promote`: the server that has the write route,
+    with the `Cookie` header of the browser it was opened in."""
     key = promoted(repo)
-    with server(repo, "--allow-promote") as (base, _line):
-        yield base, key
+    with server(repo, "--allow-promote") as (base, line):
+        yield base, key, cookie_for(base, launch_of(line))
 
 
 def baseline_of(repo: Path) -> dict[str, object]:
@@ -472,7 +493,13 @@ def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
     assert get(f"{base}compare?run={key}")[0] == 200
 
 
-def post(url: str, data: str, *, origin: str | None) -> int:
+def post(url: str, data: str, *, origin: str | None, cookie: str = "") -> int:
+    return send(url, data, origin=origin, cookie=cookie)[0]
+
+
+def send(
+    url: str, data: str, *, origin: str | None, cookie: str = ""
+) -> tuple[int, str]:
     request = urllib.request.Request(
         url,
         data=data.encode("utf-8"),
@@ -481,48 +508,66 @@ def post(url: str, data: str, *, origin: str | None) -> int:
     )
     if origin is not None:
         request.add_header("Origin", origin)
+    if cookie:
+        request.add_header("Cookie", cookie)
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            return response.status
+            return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
-        return exc.code
+        return exc.code, exc.read().decode("utf-8")
 
 
 def test_a_post_from_another_origin_is_refused(
-    served_promoting: tuple[str, str],
+    served_promoting: tuple[str, str, str],
 ) -> None:
     """Loopback is not a boundary: any page the developer has open can POST to
-    localhost, and this server needs no credential to act."""
-    base, key = served_promoting
-    assert post(f"{base}promote", f"run={key}", origin="https://evil.example") == 403
+    localhost. The cookie is sent, as a browser would send it, so what refuses
+    here is the origin check and not the missing key — the sentence says which.
+    """
+    base, key, cookie = served_promoting
+    status, page = send(
+        f"{base}promote", f"run={key}", origin="https://evil.example", cookie=cookie
+    )
+    assert status == 403
+    assert "another origin" in page
 
 
 def test_a_post_from_the_page_itself_is_accepted(
-    served_promoting: tuple[str, str],
+    served_promoting: tuple[str, str, str],
 ) -> None:
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     host = base.removeprefix("http://").rstrip("/")
     # `replacing` is the key the page was drawn against: the served baseline.
     assert (
-        post(f"{base}promote", f"run={key}&replacing={key}", origin=f"http://{host}")
+        post(
+            f"{base}promote",
+            f"run={key}&replacing={key}",
+            origin=f"http://{host}",
+            cookie=cookie,
+        )
         == 200
     )
 
 
 def test_promotion_goes_through_the_same_refusals(
     repo: Path,
-    served_promoting: tuple[str, str],
+    served_promoting: tuple[str, str, str],
 ) -> None:
     """It is the same `promote_baseline`, so a run produced under another
     configuration is refused here exactly as it is on the command line."""
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     write_suite(repo, fr_score="0.2")
     other = run_key(repo)
     write_suite(repo)  # the configuration in force is the original one again
 
     host = base.removeprefix("http://").rstrip("/")
     assert (
-        post(f"{base}promote", f"run={other}&replacing={key}", origin=f"http://{host}")
+        post(
+            f"{base}promote",
+            f"run={other}&replacing={key}",
+            origin=f"http://{host}",
+            cookie=cookie,
+        )
         == 200
     )
     # The baseline did not move: the refusal is real, not cosmetic.
@@ -530,19 +575,22 @@ def test_promotion_goes_through_the_same_refusals(
     assert json.loads(baseline.read_text(encoding="utf-8"))["config_hash"] != ""
 
 
-def post_page(base: str, data: str) -> tuple[int, str]:
+def post_page(base: str, data: str, *, cookie: str = "") -> tuple[int, str]:
     """A same-origin POST, answered with its status and page. A connection the
     server closed without answering is returned as status 0 rather than raised,
     because that is the outcome friction 59 is about."""
     host = base.removeprefix("http://").rstrip("/")
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": f"http://{host}",
+    }
+    if cookie:
+        headers["Cookie"] = cookie
     request = urllib.request.Request(
         f"{base}promote",
         data=data.encode("utf-8"),
         method="POST",
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Origin": f"http://{host}",
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
@@ -563,19 +611,21 @@ def plant(repo: Path, key: str, name: str, **changes: object) -> None:
 
 
 def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
-    repo: Path, served_promoting: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str, str]
 ) -> None:
     """Friction 59's worst half. One unreadable run file anywhere in the store,
     and a promotion of a *good* run wrote the baseline and then answered with a
     closed connection: the list is re-read after the write, and that read raised.
     A promotion that looks failed and is not. The outcome must arrive whatever
     the list does."""
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
     plant(repo, key, "zz-malformed", results=7)
 
-    status, page = post_page(base, f"run={key}&replacing={key}&locale=en")
+    status, page = post_page(
+        base, f"run={key}&replacing={key}&locale=en", cookie=cookie
+    )
 
     assert status == 200
     assert f"Baseline set to {key}." in page
@@ -585,7 +635,7 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
 
 
 def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
-    repo: Path, served_promoting: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str, str]
 ) -> None:
     """The fallback page — the outcome of a promotion when the list of runs
     cannot be drawn — escaped with `html.escape`, which leaves C0, C1 and the
@@ -593,7 +643,7 @@ def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     `promoted_at` therefore wrote them raw: an RLO reverses the sentence that
     names which key was found. Every other page goes through `report.escape`.
     (0.20.0 delta-pass, F-2)"""
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     document = json.loads(baseline.read_text(encoding="utf-8"))
     document["promoted_at"] = "\x1b[2K\r\u202eFORGED\x9bEND"
@@ -601,7 +651,7 @@ def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     plant(repo, key, "zz-malformed", results=7)
 
     # `none` over a baseline that exists: refused, naming what it found.
-    status, page = post_page(base, f"run={key}&replacing=none&locale=en")
+    status, page = post_page(base, f"run={key}&replacing=none&locale=en", cookie=cookie)
 
     assert status == 200
     assert "The list of runs could not be drawn" in page
@@ -611,16 +661,16 @@ def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
 
 
 def test_a_run_that_lies_about_its_suite_is_refused_in_words(
-    repo: Path, served_promoting: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str, str]
 ) -> None:
     """0.19.2 made the store refuse a document declaring another suite, and the
     route that writes never learned the refusal: the browser got a closed
     connection. v0.19.1 accepted the same POST, which is the defect 0.19.2 fixed
     — so the traceback was introduced by the fix. (friction 59)"""
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     plant(repo, key, "zz-other-suite", suite="another-suite")
 
-    status, page = post_page(base, "run=zz-other-suite&replacing=" + key)
+    status, page = post_page(base, "run=zz-other-suite&replacing=" + key, cookie=cookie)
 
     assert status == 200
     assert "Refused:" in page
@@ -704,12 +754,12 @@ def test_the_page_and_the_route_answer_from_one_fact(
 
 
 def test_the_flag_turns_both_halves_on_together(
-    repo: Path, served_promoting: tuple[str, str]
+    repo: Path, served_promoting: tuple[str, str, str]
 ) -> None:
     """The other side of the same fact, and the reason this test cannot stand
     in for the one above: it would pass unchanged on a server that promoted
     whatever it was told to."""
-    base, key = served_promoting
+    base, key, cookie = served_promoting
     before = baseline_of(repo)
     write_suite(repo)
     other = run_key(repo)
@@ -718,7 +768,12 @@ def test_the_flag_turns_both_halves_on_together(
     assert 'action="/promote"' in page
     assert "--allow-promote" not in page
 
-    assert post(f"{base}promote", f"run={other}&replacing={key}", origin=None) == 200
+    assert (
+        post(
+            f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
+        )
+        == 200
+    )
     assert baseline_of(repo) != before
 
 
@@ -735,7 +790,218 @@ def test_the_startup_line_names_the_flag_and_keeps_the_url_where_it_was(
     with server(repo, "--allow-promote") as (flagged, flagged_line):
         assert "read-only" not in flagged_line
         assert "promotion enabled" in flagged_line
-        assert flagged_line.split()[3] == flagged
+        assert flagged_line.split()[3] == f"{flagged}?launch={launch_of(flagged_line)}"
+
+
+# --------------------------------------------------------------------------- #
+# The launch key: the flagged server promotes for one browser (ADR 0033)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_shell_without_the_key_cannot_promote_on_a_flagged_server(
+    repo: Path, served_promoting: tuple[str, str, str]
+) -> None:
+    """The measurement ADR 0033 exists for, as a test. A person starts
+    `digline view --allow-promote`; any process of the same user then POSTs
+    with no `Origin` — which `_allowed_origin` admits, on purpose, for `curl` —
+    and before 0033 the baseline moved. The store is read on both sides, as in
+    the default-server test, because a status in front of a write that happened
+    is friction 59 with the sign reversed.
+
+    And the control, in the same server: the same POST with the cookie moves
+    it. Without that line a server that refused every POST would pass.
+    """
+    base, key, cookie = served_promoting
+    before = baseline_of(repo)
+    write_suite(repo)
+    other = run_key(repo)
+
+    status, page = send(f"{base}promote", f"run={other}&replacing={key}", origin=None)
+    assert status == 403, "a POST with no key was not refused on the flagged server"
+    assert "only from the browser" in page
+    assert baseline_of(repo) == before
+
+    forged = cookie.split("=")[0] + "=" + "x" * 43
+    assert (
+        post(
+            f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=forged
+        )
+        == 403
+    )
+    assert baseline_of(repo) == before
+
+    assert (
+        post(
+            f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
+        )
+        == 200
+    )
+    assert baseline_of(repo) != before
+
+
+def test_the_refusal_on_the_flagged_server_is_a_403_not_the_404(
+    served_promoting: tuple[str, str, str],
+) -> None:
+    """Same fact, two servers, two truthful answers. On the default server
+    nobody may promote, so `/promote` is absent (404). Here somebody may — the
+    person who started it — so a caller without the key is refused (403), and
+    the sentence is not the unknown-path one."""
+    base, key, _cookie = served_promoting
+    status, page = post_page(base, f"run={key}&replacing={key}")
+    assert status == 403
+    assert "no such action" not in page
+
+
+def test_the_printed_address_becomes_a_cookie_and_leaves_the_address(
+    served_promoting: tuple[str, str, str],
+) -> None:
+    """The hand-over, as a browser meets it: a 303 to `/`, and the key in an
+    `HttpOnly`, `SameSite=Strict` cookie named for the port. `?locale=it` does
+    **not** survive it any more: `Location` is a constant, so no header carries
+    what the request said. (ADR 0033 §2)"""
+    base, _key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    parsed = urllib.parse.urlparse(base)
+    connection = http.client.HTTPConnection("127.0.0.1", parsed.port, timeout=10)
+    connection.request("GET", f"/?locale=it&launch={launch}")
+    answer = connection.getresponse()
+    answer.read()
+    connection.close()
+
+    assert answer.status == 303
+    assert answer.getheader("Location") == "/"
+    set_cookie = answer.getheader("Set-Cookie") or ""
+    assert set_cookie.startswith(f"{cookie};")
+    assert "HttpOnly" in set_cookie and "SameSite=Strict" in set_cookie
+
+
+def test_a_path_that_means_another_host_is_not_sent_back(
+    served_promoting: tuple[str, str, str],
+) -> None:
+    """`/\\evil.example` with the right key. Before the constant, it went back
+    out as `Location: /\\evil.example`, and a browser reads that backslash as a
+    slash — `//evil.example`, a redirect off the machine. Asserted as the
+    constant rather than as the host's absence: an absence also passes when the
+    server mangles the path for some other reason, and a constant does not.
+    (ADR 0033 §2)"""
+    base, _key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    port = urllib.parse.urlparse(base).port
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    connection.request("GET", f"/\\evil.example?launch={launch}")
+    answer = connection.getresponse()
+    answer.read()
+    connection.close()
+    assert answer.status == 303
+    assert answer.getheader("Location") == "/"
+
+
+MARK = "zq7request7mark"
+
+
+def test_no_response_header_carries_anything_the_request_said(
+    repo: Path, served_promoting: tuple[str, str, str]
+) -> None:
+    """The property the constant `Location` buys, asserted over the server
+    rather than over one line: a marker is put in every part of a request a
+    caller controls — path, query names and values, the form, a header, the
+    cookie — on every route, with and without the key, and no response header
+    may contain it, raw or percent-encoded. A new header built from the request
+    fails here whichever route it is on. (ADR 0033 §2)"""
+    base, key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    port = urllib.parse.urlparse(base).port
+    targets = [
+        f"/?{MARK}={MARK}&launch={launch}",
+        f"/{MARK}?launch={launch}",
+        f"/?{MARK}={MARK}",
+        f"/compare?run={MARK}",
+        f"/compare?run={key}&against={MARK}",
+        f"/case/{MARK}",
+        f"/suspend/{MARK}?reason={MARK}",
+        f"/{MARK}",
+        f"/?launch={MARK}",
+    ]
+    answers: list[tuple[str, list[tuple[str, str]]]] = []
+    for method, target, body, with_cookie in [
+        *[("GET", target, "", False) for target in targets],
+        *[("GET", target, "", True) for target in targets],
+        ("POST", "/promote", f"run={MARK}&replacing={MARK}", True),
+        ("POST", "/promote", f"run={MARK}&replacing={MARK}", False),
+        ("POST", f"/{MARK}", f"run={MARK}", True),
+    ]:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        headers = {"X-Mark": MARK, "Referer": f"http://{MARK}/"}
+        headers["Cookie"] = cookie if with_cookie else f"{MARK}={MARK}"
+        if body:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        connection.request(method, target, body=body or None, headers=headers)
+        answer = connection.getresponse()
+        answer.read()
+        connection.close()
+        answers.append((f"{method} {target}", answer.getheaders()))
+
+    assert len(answers) == 2 * len(targets) + 3
+    for request, sent in answers:
+        for name, value in sent:
+            assert MARK not in value.lower(), (
+                f"{request} answered with a header built from the request: "
+                f"{name}: {value}"
+            )
+
+
+def test_an_address_from_another_start_is_refused_by_name(
+    served_promoting: tuple[str, str, str],
+) -> None:
+    """A tab left open across a restart carries the old key. It is refused in
+    words that say what happened, and no cookie is set."""
+    base, _key, _cookie = served_promoting
+    status, page = get(f"{base}?launch=" + "y" * 43)
+    assert status == 403
+    assert "another start" in page
+
+
+def test_no_page_the_flagged_server_renders_contains_the_key(
+    repo: Path, served_promoting: tuple[str, str, str]
+) -> None:
+    """The half of the design that is easy to lose. Every reading route answers
+    anybody with a shell, so a key written into a page — a hidden field, a link,
+    a script — is handed to exactly the caller it exists to refuse. Walked over
+    every route, after a promotion so the outcome page is included."""
+    base, key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    write_suite(repo)
+    other = run_key(repo)
+    for url in (
+        base,
+        f"{base}?locale=it",
+        f"{base}compare?run={key}",
+        f"{base}compare?run={other}&against={key}",
+        f"{base}case/capital-it",
+        f"{base}suspend/capital-it?reason=x",
+    ):
+        status, page = get(url)
+        assert status == 200, url
+        assert launch not in page, f"{url} rendered the launch key"
+    _status, outcome = post_page(base, f"run={other}&replacing={key}", cookie=cookie)
+    assert "Baseline set to" in outcome
+    assert launch not in outcome
+
+
+def test_the_default_server_ignores_a_launch_parameter(
+    served: tuple[str, str],
+) -> None:
+    """On the server that does not promote there is nothing to hand over: the
+    page is served and nothing is set."""
+    base, _key = served
+    parsed = urllib.parse.urlparse(base)
+    connection = http.client.HTTPConnection("127.0.0.1", parsed.port, timeout=10)
+    connection.request("GET", "/?launch=anything")
+    answer = connection.getresponse()
+    answer.read()
+    connection.close()
+    assert answer.status == 200
+    assert answer.getheader("Set-Cookie") is None
 
 
 # --------------------------------------------------------------------------- #
