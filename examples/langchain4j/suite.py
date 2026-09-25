@@ -3,7 +3,8 @@
 This file. It is the whole Python side, and three lines of it are yours to
 edit — they are marked EDIT below.
 
-`app/` holds the Java service being evaluated; `stub.py` stands in for it so
+`app-spring/` and `app-quarkus/` hold the Java service being evaluated — two
+frameworks answering one endpoint contract; `stub.py` stands in for either, so
 this runs with no JVM and no API key. Point `URL` at your own service and
 delete `stub.py`: nothing else in this file changes.
 """
@@ -22,9 +23,10 @@ import stub
 
 HERE = Path(__file__).parent
 
-# EDIT 1 — where your service listens. `http://localhost:8080/evaluate` once
-# you have run `mvn spring-boot:run` in `app/`. The fallback starts the stub, so
-# the example runs on its own; in CI you set the variable and delete the rest.
+# EDIT 1 — where your service listens. `http://localhost:8080/evaluate` once you
+# have run `mvn spring-boot:run` in `app-spring/` or `mvn quarkus:dev` in
+# `app-quarkus/`. The fallback starts the stub, so the example runs on its own;
+# in CI you set the variable and delete the rest.
 URL = os.environ.get("SUPPORT_URL") or stub.start()
 
 target = HttpTarget(
@@ -33,7 +35,7 @@ target = HttpTarget(
     # rather than a template, because a real payload has shapes a template
     # cannot.
     request=lambda case: {"question": case.vars["question"]},
-    # EDIT 3 — where the three things live in your answer, dotted.
+    # EDIT 3 — where the things live in your answer, dotted.
     output_path="data",
     cost_path="usage.cost_usd",
     latency_from_response="usage.elapsed_ms",
@@ -41,6 +43,16 @@ target = HttpTarget(
     # records nothing about the system under test, and the day somebody bumps
     # the model the comparison reports the configuration as unchanged.
     config_path="config",
+    # The counts behind the price, by digline's own names. A separate object
+    # from `cost_usd` above, because this one is closed to count names.
+    usage_path="usage.tokens",
+    # Owed here, and deliberately not written yet: `expect_config` declares the
+    # system you expect the service to report, and digline refuses an answer that
+    # contradicts it (ADR 0030 §4) — which is what makes the `model` in the
+    # record a reviewed value rather than one the application chose. It arrives
+    # in the release after 0.20.1, and this file installs digline **from PyPI**
+    # under a `<0.21` cap, so the line lands when the cap moves. The README says
+    # what it will look like.
 )
 
 suite = Suite(

@@ -76,7 +76,7 @@ public class SupportService {
         return systemPrompt;
     }
 
-    /** One answer, and what it cost to produce. */
+    /** One answer, what it cost, and the counts that priced it. */
     public Answer answer(String question) {
         long started = System.nanoTime();
         ChatResponse response =
@@ -87,15 +87,20 @@ public class SupportService {
                                         UserMessage.from(question))
                                 .build());
         double elapsedMs = (System.nanoTime() - started) / 1_000_000.0;
-        return new Answer(response.aiMessage().text(), cost(response.tokenUsage()), elapsedMs);
+        TokenUsage usage = response.tokenUsage();
+        Integer inputTokens = usage == null ? null : usage.inputTokenCount();
+        Integer outputTokens = usage == null ? null : usage.outputTokenCount();
+        return new Answer(
+                response.aiMessage().text(),
+                cost(inputTokens, outputTokens),
+                elapsedMs,
+                inputTokens,
+                outputTokens);
     }
 
-    private static double cost(TokenUsage usage) {
-        if (usage == null) {
-            return 0.0;
-        }
-        long in = usage.inputTokenCount() == null ? 0 : usage.inputTokenCount();
-        long out = usage.outputTokenCount() == null ? 0 : usage.outputTokenCount();
+    private static double cost(Integer inputTokens, Integer outputTokens) {
+        long in = inputTokens == null ? 0 : inputTokens;
+        long out = outputTokens == null ? 0 : outputTokens;
         return (in * INPUT_PER_MTOK + out * OUTPUT_PER_MTOK) / 1_000_000.0;
     }
 
@@ -111,6 +116,21 @@ public class SupportService {
         return maxTokens;
     }
 
-    /** What one call produced: the text, the money, the milliseconds. */
-    public record Answer(String text, double costUsd, double elapsedMs) {}
+    /**
+     * What one call produced: the text, the money, the milliseconds, and the
+     * counts behind the money.
+     *
+     * <p>The counts are boxed so they can be {@code null}, and that is the only
+     * reason they are not {@code long}. A provider that reported no usage leaves
+     * them unset, and the endpoint then leaves the field out of its answer
+     * entirely — because digline records an absent count as absent and would
+     * record a {@code 0} as a measurement. "We were not told" and "it used no
+     * tokens" are different facts, and only one of them can be true.
+     */
+    public record Answer(
+            String text,
+            double costUsd,
+            double elapsedMs,
+            Integer inputTokens,
+            Integer outputTokens) {}
 }

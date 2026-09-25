@@ -1,9 +1,9 @@
 """Stands in for the Java service, so this example runs with no JVM.
 
-It answers the shape `SupportService` answers — `data`, `usage`, `config` —
-with fixed text, so the cycle below is deterministic and free. It exists for
-the same reason `app/` exists: one of them is the thing you replace, and this
-is the other one.
+It answers the shape both services answer — `data`, `usage`, `config` — with
+fixed text, so the cycle below is deterministic and free. It exists for the same
+reason `app-spring/` and `app-quarkus/` do: one of them is the thing you
+replace, and this is the other one.
 
 Point `URL` in `suite.py` at your own service and delete this file. Nothing
 else changes — which is the claim the example is here to make.
@@ -41,7 +41,7 @@ ANSWERS = {
     ),
 }
 
-#: The three values the Java service reports about itself. Same keys, same
+#: The four values the Java service reports about itself. Same keys, same
 #: types: this is the contract, not a simplification of it.
 CONFIG = {
     "provider": "openai",
@@ -49,6 +49,13 @@ CONFIG = {
     "temperature": 0.0,
     "max_tokens": 512,
 }
+
+#: The counts behind the price, under their own key so `usage_path` can read
+#: them without meeting `cost_usd`: digline closes that object to its own count
+#: names. Fixed, because the stub is deterministic. A real service reports what
+#: the provider told it — and leaves the key out where it was told nothing,
+#: rather than reporting a zero it did not measure.
+TOKENS = {"input_tokens": 190, "output_tokens": 38}
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -59,7 +66,11 @@ class _Handler(BaseHTTPRequestHandler):
         body = json.dumps(
             {
                 "data": ANSWERS.get(question, "I am not sure. — Northwind Support"),
-                "usage": {"cost_usd": 0.00021, "elapsed_ms": 380.0},
+                "usage": {
+                    "cost_usd": 0.00021,
+                    "elapsed_ms": 380.0,
+                    "tokens": TOKENS,
+                },
                 "config": CONFIG,
             }
         ).encode("utf-8")

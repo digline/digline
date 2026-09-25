@@ -254,6 +254,7 @@ Your application, on the other end of a URL. It can be written in anything.
 | `cost_path` | where the application reports what the call cost |
 | `latency_from_response` | where it reports its own time. Left out, digline times the round trip, which includes the network |
 | `config_path` | where it says which model answered and how it was set up. Worth writing: without it a run records nothing about the system under test |
+| `expect_config` | the configuration you expect it to report. A reported value that contradicts it errors the case. See below |
 | `tools_path` | where it lists the tools the model called, by name and in order |
 | `tool_calls_path` | where it lists those calls with their arguments. See below |
 | `usage_path` | where it reports the token counts. See below |
@@ -304,16 +305,51 @@ count nothing adds up.
 Leave `usage_path` out and the run records no counts, which is an honest answer.
 It does not record zeros.
 
-!!! warning "What these paths do not fix"
+#### The review: `expect_config`
 
-    A configuration your application reports is **not** reviewed the way a
-    suite is, and `model` travels in clear from it today.
-    [ADR 0030](adr/0030-the-configuration-an-application-reports.md) rules that
-    the suite should declare the system it expects and that a reported
-    configuration contradicting it should be refused — **that ruling is
-    accepted and not yet implemented.** Declaring these three paths does not
-    close it. Until it is written, treat `provider` and `model` as values your
-    application chose, not values anybody checked.
+A configuration your application reports is written by your application. digline
+checks its shape — the keys are closed, the values are scalars — but not its
+truth, so `provider` and `model` reach a run, and cross a boundary, as values
+nobody reviewed. That is what this key repairs: **you declare the system you
+expect, your application reports, and a contradiction errors the case naming
+both values.** The value in the record is then one that went through a pull
+request.
+
+```toml
+[target]
+type = "http"
+url = "http://localhost:8080/answer"
+output_path = "data"
+config_path = "config"
+expect_config = { provider = "gemini", model = "gemini-2.5-flash" }
+```
+
+**Partial on purpose: the keys you name are the keys checked.** Declare
+`provider` and `model` and nothing else is constrained — a temperature you did
+not name is recorded and not reviewed. Nothing is mandatory, including `region`.
+What *is* refused, at load time rather than mid-run:
+
+- `expect_config` without `config_path`, because then no configuration is ever
+  read, the check never runs, and the run is green whatever answered;
+- an empty `expect_config`, which accepts everything — exactly what leaving the
+  key out does, except that it looks like a review;
+- a key outside the closed table, or a value that is not a scalar, because an
+  application could never report one and the expectation could never be met.
+
+A key you declare and your application never reports is a mismatch too. Absence
+is not agreement: you asked, and got none of an answer.
+
+!!! warning "What this does not fix"
+
+    **A suite that declares no `expect_config` is in exactly the position it was
+    before**, which is every suite that has not adopted the key: `provider` and
+    `model` are values your application chose, they travel in clear, and nobody
+    checked them. Worse, a *reader of the run* cannot tell the two apart — the
+    fact that a configuration was reviewed is not yet recorded in the document.
+    [ADR 0030](adr/0030-the-configuration-an-application-reports.md) §5.1 owes
+    that field to a schema bump and §6 says plainly what stays open until then.
+    Declaring the paths above does not close it; declaring `expect_config` closes
+    it for your suite only.
 
 `[target.body]` is shaped like the payload itself. A leaf string that starts
 with `case.` reads from the case; anything else is a literal:

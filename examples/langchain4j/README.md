@@ -29,12 +29,14 @@ $ uv sync && uv run digline run --suite suite.py
 ## 1. One endpoint
 
 digline needs three things back, and each is something it cannot work out for
-itself once the model call happens on your side of HTTP.
+itself once the model call happens on your side of HTTP. A fourth — the
+trajectory — if your application calls tools.
 
 ```json
 {
   "data": "Order 4821 left our warehouse on Tuesday. — Northwind Support",
-  "usage": { "cost_usd": 0.00021, "elapsed_ms": 380.0 },
+  "usage": { "cost_usd": 0.00021, "elapsed_ms": 380.0,
+             "tokens": { "input_tokens": 190, "output_tokens": 38 } },
   "config": { "provider": "openai", "model": "gpt-4o-mini",
               "temperature": 0.0, "max_tokens": 512 }
 }
@@ -46,6 +48,14 @@ itself once the model call happens on your side of HTTP.
   call it did not make, so you report it. The price list lives in your code
   (`SupportService.java`, in either service),
   dated, because a price is a fact about a day.
+- **`usage.tokens`** — the counts behind the price, by digline's own names:
+  `input_tokens` and `output_tokens` are required, `cache_read_tokens`,
+  `cache_write_tokens` and `thinking_tokens` optional, and **any other key is
+  refused** — a count under another name is a count nothing adds up. Its own
+  object, and not merged in beside `cost_usd`, for exactly that reason.
+  Report no `tokens` at all where the provider told you nothing: digline records
+  an absent count as absent, and would record a `0` as a measurement you did not
+  make.
 - **`config`** — which model answered and how it was set up. Without this a run
   records nothing about the system under test, and the day somebody bumps the
   model the comparison says the configuration is unchanged. With it, the report
@@ -59,8 +69,61 @@ recorded — an open bag of fields is where a customer identifier ends up.
 
 The whole integration is about forty lines that call a service you already
 have. In `app-spring/` it is `EvaluationController.java`; in `app-quarkus/` it
-is `EvaluationResource.java`. Spring MVC and JAX-RS, same three fields, same
-JSON, and neither one imports anything from digline.
+is `EvaluationResource.java`. Spring MVC and JAX-RS, same fields, same JSON,
+and neither one imports anything from digline.
+
+### If your application calls tools
+
+This assistant does not, so it reports none — a demonstration that invented some
+would be demonstrating nothing. If yours does, the trajectory goes in the same
+answer, under a key the suite names with `tool_calls_path`:
+
+```json
+{
+  "data": "Order 4821 is due Thursday. — Northwind Support",
+  "trajectory": { "calls": [
+    { "tool": "lookup_order",
+      "arguments": { "id": "4821" },
+      "status": "success",
+      "result": "shipped Tuesday" }
+  ] }
+}
+```
+
+`status` is **mandatory** on every call and is one of `success`, `error` or
+`not_reported`. There is no default, on purpose: a tool that ran and failed must
+not be able to report as one that worked by saying nothing. A call you cannot
+name is `"tool": null`, which keeps its position; `""` is refused rather than
+read as that absence. Declare only `tool_calls_path` and the names are derived
+from the calls, so the two cannot disagree.
+
+Arguments never leave your perimeter: a `tool_called_with` check records how much
+of what the *suite* declared matched, never what the model sent.
+
+### What your application reports is not reviewed
+
+Everything above is checked for **shape** — closed keys, scalar values. None of
+it is checked for truth. Whatever your service puts in `model` is what the run
+records and what crosses a boundary, and nobody on digline's side wrote it.
+
+The answer is `expect_config` in the suite: you declare the system you expect,
+your service reports, and digline refuses an answer that contradicts it — so the
+value in the record is one that went through a pull request.
+
+```python
+target = HttpTarget(
+    URL,
+    ...,
+    config_path="config",
+    expect_config={"provider": "openai", "model": "gpt-4o-mini"},
+)
+```
+
+**Not in `suite.py` yet, and the reason is worth knowing**: this example installs
+digline **from PyPI like any user**, under a `digline>=0.20,<0.21` pin, and the
+key arrives in the release after 0.20.1. The line goes in when the pin moves.
+Until then, treat `provider` and `model` in this example's runs as values the
+service chose (digline ADR 0030 §6).
 
 ## 2. Three files in `eval/`
 
@@ -76,8 +139,9 @@ worth not repeating becomes a case here.
 
 1. `URL` — where your service listens.
 2. `request=` — the body your endpoint expects, built from the case.
-3. `output_path` / `cost_path` / `latency_from_response` / `config_path` —
-   where those four things sit in your answer, written as dotted paths.
+3. `output_path` / `cost_path` / `latency_from_response` / `config_path` /
+   `usage_path` — where those things sit in your answer, written as dotted
+   paths.
 
 Everything else is the checks. Read them once and change them when you have a
 reason:
@@ -183,7 +247,7 @@ Honestly:
   the team has to be able to read it. That is the real cost, and it is not zero.
   It is Python because a judge is an object and a check is a function; there is
   no configuration file today.
-- **Reporting three fields from one endpoint,** and keeping the price list in
+- **Reporting those fields from one endpoint,** and keeping the price list in
   `SupportService.java` current.
 
 And what it does not require:
