@@ -1223,7 +1223,9 @@ the same `RUN`, and so the only place they are comparable.
 ### Status: what each path has proven
 
 This is the part that changes from release to release. Step 4 of *After the
-tag* updates it on every tag.
+tag* updates it on every tag, and step 6 is what puts the capture's reading in
+it — including the sentence that says the capture ran and found nothing, which
+is the one a quiet log cannot supply.
 
 - **v0.20.1 — the in-build divergence came back, after the same-question
   fix. So the diagnostic is owed before the next tag.** `docker-publish` failed
@@ -1264,13 +1266,14 @@ tag* updates it on every tag.
   read instead of re-run past.
 
   **What the next tag must show:** the same two-pair reading, an honest note on
-  whether the race was live — and, **the first time a `served` is again followed
-  by a `pip` failure**, the two `index-capture` lines for that pin, read against
-  the table in *The diagnostic, built*. That reading is the point of the tag, not
+  whether the race was live — and the capture's reading, which is now **step 6 of
+  *After the tag*** rather than a thing to remember. The first time a `served` is
+  again followed by a `pip` failure, that reading is the point of the tag and not
   a footnote to it: it is what turns per-server luck from the last hypothesis
-  standing into a finding or a dead end. If no divergence happens, say that the
-  capture ran and had nothing to explain, so that a quiet log does not later
-  read as a confirmation.
+  standing into a finding or a dead end. And on a tag where nothing goes wrong,
+  step 6 still has to be written — that the capture ran, that the pair was there,
+  and that it had nothing to explain. A silent log would otherwise be read later
+  as agreement, when it is equally a capture that never ran.
 
 - **v0.20.0 — both pairs proven, one in each job, and the runner-level wait
   equal to v0.19.2's to the second.** The fourth tag in a row where the
@@ -1916,6 +1919,35 @@ names.
    has to be running or every case fails the same way — the refusal says so,
    and says how many cases it would take with it.
 
+6. **The capture's two lines:** in the same `docker-publish` log step 2 opens,
+   find the `index-capture` pair for the core's pin — `side=wait` and `side=pip`,
+   same `name`, same `RUN` — and read it against the table in *The index race* →
+   *The diagnostic, built*. **Then write what it said into the Status block,
+   including when it said nothing.**
+
+   **A quiet log is not evidence of agreement.** It is equally evidence that the
+   capture did not run — an `AWAIT_INDEX_TIMEOUT` that arrived as `0`, a mount
+   that moved, a `PYTHONPATH` lost to an edit of the `RUN` — and a reader meeting
+   a silent build later has no way to tell those apart. So the absence of the
+   lines is itself the first finding, and it is a defect rather than a calm
+   release: **go and look at why**, do not record a divergence that did not
+   happen. Only once the lines are there does their agreement mean anything.
+
+   Which makes the sentence to write, on a release where nothing went wrong,
+   this one: *the capture ran, the pair was present for every pin, and it had
+   nothing to explain.* It is the same principle as naming the `CACHED` amd64
+   leg every time — a thing that proves nothing and is not named reads
+   afterwards as a thing that passed — and the same distinction as a
+   **cancelled** run being neither red nor green. Three surfaces, one rule: say
+   which of *agreed*, *disagreed* and *never asked* you are looking at, because
+   only the first two are readings and they all look alike in a log nobody
+   annotated.
+
+   Numbered last and not at 3, where its reading belongs: these numbers are
+   addresses, cited from five places in this file and from
+   `tests/test_release_followup.py`, and renumbering them to tidy an order would
+   break the citations silently. Read it at step 2; write it at step 4's block.
+
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
 asks the four questions of this list that have an answer a machine can check:
@@ -1966,9 +1998,12 @@ watching; the issue is for whoever is not.
 in both legs, the clean `pip install` in the same `RUN`, and which of the pairs
 was `CACHED` and therefore proved nothing — is a **reading**, and no predicate
 holds it. Step 4 is the same: the job checks that the block names the release,
-never that what it says is true. Both stay yours. What the job removes is the
-possibility of the step being *forgotten*, which is a different thing from it
-being done well.
+never that what it says is true. **Step 6 is the same again, and one half of it
+is the most mechanical thing on this list** — whether the `index-capture` lines
+are in the log at all is a `grep`, and nobody has written it; what the pair
+*means* is a reading and could not be written. All three stay yours. What the
+job removes is the possibility of a step being *forgotten*, which is a different
+thing from it being done well.
 
 Three of the paragraphs below look like problems and are not, and the fourth is
 the one check worth doing by hand.
