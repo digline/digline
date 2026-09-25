@@ -33,6 +33,8 @@ notes under them are this file, verbatim.
   - **What does not change:** `digline view` without the flag still has no
     promote route at all, and still answers `404`. That is the same fact giving
     the other truthful answer: there nobody may promote, and here somebody may.
+  - **Seen working in a browser before this was tagged**: the printed address
+    clicked, and *Make baseline* pressed. HTTP-level tests alone do not ship it.
 
 ## 0.20.1 — 2026-09-25
 

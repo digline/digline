@@ -3,6 +3,8 @@
 - Status: accepted — ruled on 2026-09-25, the design first and the code
   written against it on `view-launch-token`
 - Shipped: unreleased
+- Blocks: **the 0.21.0 tag**, until Alessandro has clicked the printed address
+  in a real browser and pressed *Make baseline* — §8. Ruled 2026-09-25
 - Date: 2026-09-25
 - Amends: [ADR 0032](0032-the-second-path-to-an-absent-tool.md), in its
   Consequences only — the bullet saying the record *"does not authenticate the
@@ -243,6 +245,38 @@ belongs to a different record:
   the key check removed (2 failures), the origin check removed (2, including
   the rebinding control), and the key rendered into every page (1).
 
+### 8. A person uses it in a browser before the tag, and the tag waits
+
+Everything in §7 is verified header by header: the 303, the cookie's
+attributes, the POST that carries it. **Nobody has done the thing every user
+will do first**: click the address the startup line prints and press *Make
+baseline*. A browser's own handling of a `SameSite=Strict` cookie set by a
+redirect, on a page opened from a terminal, is exactly the kind of fact an HTTP
+test assumes rather than observes. A control proven at the HTTP level and never
+seen working in a browser is a control nobody has used.
+
+So this is not listed as owed. **It blocks the 0.21.0 tag.** Alessandro does it
+before the release, not after, by the steps in `RELEASING.md` §*Before the tag:
+a control a person meets first in a browser*. If the browser refuses the
+person who opened the printed address, the release is wrong and not the
+browser, and this record is reopened before anything ships.
+
+### 9. The tests the key would have emptied
+
+The key sits in front of three guards that already had tests: the `Origin`
+check, the rebinding guards and the walk over every refusal type. Each of
+those tests sends a POST, and without the cookie the key refuses it **first**.
+They would have gone on passing with the guard they name deleted, because a 403
+from the key looks like a 403 from the origin check. The mutations in §7 are
+what show they did not: each file sends the cookie, and says why where it does.
+
+This is the fourth instance of that family in a week, and the first one found
+in the same commit that created it rather than afterwards. The construction
+rule it adds is written where the next control gets written, in
+`CONTRIBUTING.md`: **a new guard in front of an old one empties the old
+one's tests.** Give those tests what the new guard asks for, then mutate the
+old guard away and watch them fail.
+
 ## Consequences
 
 - **A script that POSTs to a flagged server stops working.** That is the point,
@@ -262,8 +296,4 @@ belongs to a different record:
   server bound to.
 - **Another browser or profile needs the printed address copied into it.** That
   is the key doing its job.
-- **Not verified in a real browser when this was written.** The redirect, the
-  cookie's attributes and the POST that carries it are tested at the HTTP
-  level, header by header. A browser's own `SameSite` handling of a link opened
-  from a terminal has not been exercised end to end, and it is owed before
-  release.
+- **The tag waits for a person to use it** — §8.
