@@ -11,7 +11,13 @@ notes under them are this file, verbatim.
 ### Changed
 
 - **CI: when the index disagrees with itself, the release now says which
-  server.** Twice — v0.15.0 and v0.20.1 — the in-build wait printed `served
+  *snapshot*, not only which server.** That correction is the finding: the
+  capture was specified around `X-Served-By`, and two different edge servers
+  turns out to be the ordinary case — a pair of requests a tenth of a second
+  apart, on a day nothing was wrong, was answered by two of them. So the field
+  that decides is `X-PyPI-Last-Serial`, PyPI's own counter of a project's state,
+  which says *older* rather than merely *different* and says it whichever server
+  answered. Twice — v0.15.0 and v0.20.1 — the in-build wait printed `served
   digline==<version>` and `pip`, a second later in the same `RUN`, was handed a
   list ending at the previous version. The first cause was found and fixed: the
   two requests were reading two `Vary` variants of one URL. The second happened

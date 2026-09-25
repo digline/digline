@@ -600,17 +600,31 @@ def pip_capture_line(
 ) -> str | None:
     """The line for one of `pip`'s requests, or `None` if it is not a page.
 
-    **The body is not read.** Reading it would consume the stream `pip` is
-    about to parse, and a diagnostic that can break an install is not one to
-    put on the release path. `versions` is therefore `-` on this side, and the
-    two fields that stand in for it are exact: equal `etag` means the two
-    requests were handed byte-identical pages, and `serial` is PyPI's own
-    counter, so a lower one on this side is an older snapshot. `pip` prints its
-    own version list when it fails, which is the case that matters.
+    **The body is not read, and must never be.** This is the one rule in this
+    half of the capture, written here because it is the kind of constraint
+    somebody simplifies away later: `versions=-` on this side looks like an
+    omission to fill in, and filling it in is what breaks the release.
+
+    `response` is the live `HTTPResponse` `pip` is about to parse. Reading it —
+    `response.read()`, `json.load(response)`, anything that touches the stream —
+    consumes it, and `pip` is then handed an empty page for a project it was
+    resolving. The capture would become the outage it exists to explain, on the
+    `RUN` that builds the image a release publishes. Putting the bytes back
+    afterwards is not a fix either: it means reaching into `fp`, `length` and
+    `chunked` on an object the stdlib does not promise to let you rewind, to
+    make an install survive a diagnostic. **Only the headers, which are already
+    parsed and cost nothing.**
+
+    And the field is not missing, only carried by others: equal `etag` means the
+    two requests were handed byte-identical pages, so the wait's count speaks
+    for this side too; `serial` is PyPI's own counter, so a lower one here is an
+    older snapshot whichever server sent it. `pip` prints its own version list
+    when it fails, which is the case any of this is read in.
     """
     found = SIMPLE_PAGE.search(path)
     if found is None:
         return None
+    # Headers only — see above. The response stream belongs to `pip`.
     headers = response.headers
     return capture_line(
         side="pip",

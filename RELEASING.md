@@ -1072,10 +1072,34 @@ alone. That is the other half of the capture below, and it rides the same gate.
 
 ### The diagnostic, built — read two lines, not a log
 
+**The four fields this was specified with would have measured the wrong thing,
+and finding that out is what building it bought.** The specification was
+`X-Served-By`, `X-Cache`, `Age` and the time, for both requests: on the reasoning
+that two different servers in `X-Served-By` would confirm per-server luck and one
+server would refute it. Measured against PyPI on 2026-09-25, **two different edge
+servers is the ordinary case** — an unremarkable pair of requests, a tenth of a
+second apart, was answered by two different Fastly edges — so `X-Served-By`
+differing carries almost no information, and a reading built on it would have
+confirmed the hypothesis on the first divergence it met, whatever the cause.
+
+**The discriminator is `X-PyPI-Last-Serial`**, which was not in the
+specification and costs nothing: it is PyPI's own monotonic counter of a
+project's state, on the same response. It says *older* rather than merely
+*different*, and it says it independently of routing — a lower serial on pip's
+side is a stale snapshot whichever server sent it. `ETag` comes with it, for
+free, and settles whether two pages are byte-identical. So the capture records
+six fields, not four, and the two that decide it are the two that were not
+asked for.
+
+What follows from that is the table below: per-server luck is confirmed only by
+`via` **and** `serial` moving together, and refuted by one server giving two
+answers. The next reading is then a lookup rather than an argument, at the one
+moment — mid-release, on a red — when nobody should be having the argument.
+
 v0.20.1 was the condition this was kept ready for: `served digline==0.20.1` and
 then, a second later in the same `RUN`, a version list ending at 0.20.0 —
-**after** the same-question fix, so the variant is ruled out and **per-server
-luck** is the one hypothesis left. Built 2026-09-25.
+**after** the same-question fix, so the variant is ruled out and per-server luck
+is the one hypothesis left. Built 2026-09-25.
 
 **One line shape, two producers.** Both halves print an `index-capture` line, so
 a reading is a field-by-field comparison of two lines and not an archaeology of
@@ -1090,12 +1114,11 @@ a build log:
       age=- cache=MISS,HIT,HIT via=cache-iad-khef600091-IAD,…,cache-fco2270032-FCO
       versions=- asked=- served=-
 
-(One line each; wrapped here to fit.) That pair is real, measured off PyPI on
-2026-09-25, and it is already worth reading: the two requests were **answered by
-different edge servers** — the `via` chains end `…FCO` at two different numbers
-— while `serial` and `etag` are identical. So two servers with one answer is the
-*ordinary* case, and the capture's question is what these fields do when the
-answer differs.
+(One line each; wrapped here to fit.) That is the measured pair the paragraph
+above rests on: the `via` chains end `…FCO` at two different numbers — two edge
+servers — while `serial` and `etag` are identical. Two servers, one object,
+nothing wrong. Keep it as the control: it is what agreement looks like, and
+without it a divergence has nothing to be compared against.
 
 **How to read it.** Take the `side=wait` line for the pin and the `side=pip`
 line for the same `name`, in the same `RUN`:
@@ -1106,12 +1129,9 @@ line for the same `name`, in the same `RUN`:
 | same | differ | **per-server luck refuted** — one server gave two answers; the question moves to the object, not the routing |
 | differ | same | the routine case above: two servers, one object. Not the failure |
 
-`serial` is `X-PyPI-Last-Serial`, PyPI's own monotonic counter of a project's
-state, and it is the field that decides *older* rather than merely *different*:
-a lower serial on pip's side is an older snapshot whichever server sent it.
-Equal `etag`s mean the two requests were handed byte-identical pages, which is
-what lets the wait's `versions=39` stand in for a count pip's side does not
-print.
+Row three is the control and will be most of what the logs hold. Row one is the
+only row that confirms, and it needs **both** halves of the evidence — which is
+the whole correction above: `via` alone was never going to be one of them.
 
 **Where it lives, and why not in a step of its own.** Half one is in
 `.github/await_index.py`, on every request it makes. Half two is the *same file*,
