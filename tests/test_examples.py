@@ -29,7 +29,7 @@ import pytest
 from tests._helpers import baseline_in
 from tests._site import nav_lists, require_site_config
 
-from digline.cli import EXIT_OK
+from digline.cli import EXIT_OK, EXIT_WORSE
 
 ROOT = Path(__file__).resolve().parents[1]
 QUICKSTART = ROOT / "examples" / "quickstart"
@@ -354,6 +354,63 @@ def test_each_example_completes_the_cycle(standalone: Path) -> None:
     compared = cli(standalone, "compare", "--suite", suite, "--run", key)
     assert compared.returncode == EXIT_OK, compared.stderr
     assert "Nothing got worse" in compared.stdout
+
+
+#: The examples shipped red on purpose: the committed baseline is measured in
+#: one state and the example ships in another, so the comparison against it is
+#: the example's point. Each with where its red comes from, so a red there is
+#: read as the example working and never "fixed" by re-promoting it.
+#:
+#: The cycle above cannot see this — it promotes the fresh run and compares it
+#: with itself. Until this existed the demonstrations were checked in one
+#: place only, the `examples-from-pypi` leg, which runs after a release: `rag`
+#: was re-promoted over its own regression on 2026-09-22 (`c5486d9`) and the
+#: first thing to notice was that leg, three days of red later.
+SHIPPED_RED: dict[str, str] = {
+    "rag": (
+        "`app.EMBELLISH` ships on and the baseline is measured with it off: six "
+        "`faithfulness` checks fall from 1.000 to 0.500"
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(SHIPPED_RED))
+def test_an_example_shipped_red_is_red_against_its_committed_baseline(
+    name: str, tmp_path: Path
+) -> None:
+    """Against the baseline the example commits, never a fresh one, and on
+    every build: a re-promotion that erases the demonstration fails here the
+    day it is made."""
+    workdir = tmp_path / name
+    shutil.copytree(
+        ROOT / "examples" / name,
+        workdir,
+        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
+    )
+    with application(workdir, name):
+        suite = suite_file(workdir)
+        ran = cli(workdir, "run", "--suite", suite)
+        assert ran.returncode == EXIT_OK, ran.stderr
+        compared = cli(
+            workdir, "compare", "--suite", suite, "--run", ran.stdout.strip()
+        )
+    assert compared.returncode == EXIT_WORSE, (
+        f"examples/{name} ships red ({SHIPPED_RED[name]}), and its comparison "
+        f"against the committed baseline exited {compared.returncode}: the "
+        "baseline no longer measures what the example exists to show"
+    )
+    assert "got worse" in compared.stdout
+
+
+def test_the_pypi_leg_expects_red_of_exactly_the_examples_shipped_red() -> None:
+    """The post-release leg asks the same question of the published package. Its
+    expectation is a line of shell, so it is held to the list above rather
+    than kept beside it."""
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    wanted: set[str] = set()
+    for found in re.finditer(r"^\s+([a-z|-]+)\) want=1 ;;", workflow, re.MULTILINE):
+        wanted |= set(found.group(1).split("|"))
+    assert wanted == set(SHIPPED_RED)
 
 
 def test_each_example_renders_its_report(standalone: Path) -> None:
