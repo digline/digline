@@ -36,8 +36,10 @@ notes under them are this file, verbatim.
   `docker build docker/` still waits for nothing and now also prints nothing.
   Nothing about `pip` changes: no proxy, no index URL, no headers, and its
   response body is never read — consuming that stream would break the install the
-  capture is there to explain. How to read the two lines is in
-  [`RELEASING.md`](RELEASING.md), *The diagnostic, built*.
+  capture is there to explain. How to read the two lines is in `RELEASING.md`,
+  *The diagnostic, built* — named and not linked, because that file is not a
+  site page and every other mention of it here is a bare code span for the same
+  reason.
 
 ## 0.20.1 — 2026-09-25
 
