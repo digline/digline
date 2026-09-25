@@ -12,7 +12,7 @@ from corpus import DOCUMENTS
 
 #: Shipped on, so `digline compare` against the committed baseline shows the
 #: point straight away. Turn it off and the suite goes green again.
-EMBELLISH = True
+EMBELLISH = False
 
 _KEYWORDS = {
     "hours": ("open", "sunday", "hours", "saturday"),
