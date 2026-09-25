@@ -6,6 +6,33 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+### Changed
+
+- **CI: when the index disagrees with itself, the release now says which
+  server.** Twice — v0.15.0 and v0.20.1 — the in-build wait printed `served
+  digline==<version>` and `pip`, a second later in the same `RUN`, was handed a
+  list ending at the previous version. The first cause was found and fixed: the
+  two requests were reading two `Vary` variants of one URL. The second happened
+  **after** that fix, which leaves one hypothesis, **per-server luck** — two
+  cache servers of the same variant, one refreshed and one not — and no way to
+  decide it after the fact. So both requests are now recorded. The wait prints an
+  `index-capture` line for every request it makes, and `.github/await_index.py`
+  is mounted a second time as `sitecustomize.py` on the `pip` command's own
+  `PYTHONPATH`, where it prints the same line for each `/simple/` page `pip`
+  resolves: the cache servers, the cache state, `X-PyPI-Last-Serial`, the `ETag`,
+  and the time to the tenth of a second. One line shape for both, so a reading is
+  a comparison of two lines. **It is always on**, because the observation that
+  matters is the one *before* the failure and nothing knows a failure is coming
+  when it is made; it costs 4 lines on a wait that finds the index ready and 33
+  on `pip`'s side, with no extra request and no extra second. A local
+  `docker build docker/` still waits for nothing and now also prints nothing.
+  Nothing about `pip` changes: no proxy, no index URL, no headers, and its
+  response body is never read — consuming that stream would break the install the
+  capture is there to explain. How to read the two lines is in
+  [`RELEASING.md`](RELEASING.md), *The diagnostic, built*.
+
 ## 0.20.1 — 2026-09-25
 
 digline **0.20.1**, the core alone, with the Claude Code plugin that moves with
