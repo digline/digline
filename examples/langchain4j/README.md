@@ -125,6 +125,28 @@ key arrives in the release after 0.20.1. The line goes in when the pin moves.
 Until then, treat `provider` and `model` in this example's runs as values the
 service chose (digline ADR 0030 §6).
 
+### How much of this had been run end to end, and by whom
+
+`tools_path`, `tool_calls_path` and `usage_path` shipped in digline **0.19.1**,
+and until this page was written **no example used any of them**. They worked and
+they were documented; nothing had posted a real answer through them and read it
+back except digline's own tests. That is written down rather than quietly fixed,
+because the general form is the part worth carrying: **a feature whose example
+does not exercise it is a feature nobody has run end to end but us.**
+
+So, precisely, where each stands here:
+
+| | |
+|---|---|
+| `config_path` | **exercised**, since 0.3.0 |
+| `usage_path` | **exercised.** The token counts above are read out of a real answer on every run of this example |
+| `tools_path`, `tool_calls_path` | **not exercised.** This assistant calls no tools, so the trajectory JSON above is a contract you may be the first to run |
+
+If you are wiring the trajectory and something does not fit the shape above, that
+is worth reporting rather than working around: on those two paths this page is a
+specification and not a demonstration, and that difference is the one this
+section exists to admit.
+
 ## 2. Three files in `eval/`
 
 Here they are at the top level, because this directory *is* the eval directory.
