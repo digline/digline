@@ -26,12 +26,8 @@
 - Turns into surface: `digline view --allow-promote`'s startup line (the
   address carries the key) and its `--help`; `POST /promote` on the flagged
   server (a new 403); `docs/view.md`; `CHANGELOG.md`
-- Credit: **⟨HANDLE — to be filled by Alessandro before this branch is
-  pushed⟩**, on the Reddit thread under
-  [*Four ways past the hook*](https://digline.dev/blog/four-ways-past-the-hook/),
-  who argued that a flag lives in the agent's environment and a key does not
-  — so the flag makes the hook's question possible, and a key makes the act
-  impossible
+- Credit: **piekwerk**, on the Reddit thread under the four-ways post, who
+  argued that a flag lives in the agent's environment and a token does not
 - Number: 0033. Swept on 2026-09-25 across every ref and every sibling
   worktree; 0032 was the highest claimed
 
