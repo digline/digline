@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.20.1 — unreleased
+## 0.20.1 — 2026-09-25
 
 digline **0.20.1**, the core alone, with the Claude Code plugin that moves with
 it. It ships before 0.20.0 is announced, which is the ordering the delta-pass

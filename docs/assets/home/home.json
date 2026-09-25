@@ -1,6 +1,6 @@
 {
-  "digline_version": "0.20.0",
-  "captured_at": "2026-09-24T16:25:29+00:00",
+  "digline_version": "0.20.1",
+  "captured_at": "2026-09-25T06:44:16+00:00",
   "environment": {
     "network": "none: no provider is configured, proxies point at http://127.0.0.1:9",
     "stripped": [
@@ -191,26 +191,26 @@
   "scenarios": {
     "quickstart": {
       "run_ids": [
-        "2026-09-24T16-25-28-102263-00-00-282b0c02d6511fb4"
+        "2026-09-25T06-44-14-352078-00-00-282b0c02d6511fb4"
       ],
       "change": null,
       "band": "absent: samples=1",
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-24T16-25-28-102263-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-25T06-44-14-352078-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013570 USD (counted 0 of 3)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest --replacing none",
-          "stdout": "support baseline set to 2026-09-24T16-25-28-102263-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-25T06-44-14-352078-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline compare --suite support.py --run latest",
-          "stdout": "Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.\nagainst baseline 2026-09-24T16-25-28-102263-00-00-282b0c02d6511fb4\n",
+          "stdout": "Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.\nagainst baseline 2026-09-25T06-44-14-352078-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         }
@@ -218,8 +218,8 @@
     },
     "steady": {
       "run_ids": [
-        "2026-09-24T16-25-28-506219-00-00-85883581c2d6c45a",
-        "2026-09-24T16-25-28-797978-00-00-85883581c2d6c45a"
+        "2026-09-25T06-44-14-770343-00-00-85883581c2d6c45a",
+        "2026-09-25T06-44-15-066641-00-00-85883581c2d6c45a"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply is billed for the prompt it was sent, plus a jitter that cycles through five values, so five samples of a case measure a band; the only edit between the two runs is one line of prompt.md, which the suite declares.",
       "change": {
@@ -244,25 +244,25 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-24T16-25-28-506219-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-25T06-44-14-770343-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\ndigline: target: 15 calls, no counts reported, 0.086000 USD (counted 0 of 15)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest --replacing none",
-          "stdout": "support baseline set to 2026-09-24T16-25-28-506219-00-00-85883581c2d6c45a\n",
+          "stdout": "support baseline set to 2026-09-25T06-44-14-770343-00-00-85883581c2d6c45a\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-24T16-25-28-797978-00-00-85883581c2d6c45a\n",
+          "stdout": "2026-09-25T06-44-15-066641-00-00-85883581c2d6c45a\n",
           "stderr": "digline: 3 cases × 5 samples = 15 calls to the target\ndigline: target: 15 calls, no counts reported, 0.115250 USD (counted 0 of 15)\n",
           "exit": 0
         },
         {
           "cmd": "digline compare --suite support.py --run latest",
-          "stdout": "Nothing got worse compared with the reference. 3 checks moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\nagainst baseline 2026-09-24T16-25-28-506219-00-00-85883581c2d6c45a\n\n  prompt.md · +1 −1 lines\n",
+          "stdout": "Nothing got worse compared with the reference. 3 checks moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\nagainst baseline 2026-09-25T06-44-14-770343-00-00-85883581c2d6c45a\n\n  prompt.md · +1 −1 lines\n",
           "stderr": "",
           "exit": 0
         },
@@ -275,7 +275,7 @@
       "compare_json": {
         "source": "The stdout of `digline compare --suite support.py --run latest --json full` above, decoded with json.loads and otherwise unchanged: every key but this one is digline's.",
         "artifacts_changed": true,
-        "baseline_key": "2026-09-24T16-25-28-506219-00-00-85883581c2d6c45a",
+        "baseline_key": "2026-09-25T06-44-14-770343-00-00-85883581c2d6c45a",
         "canary_moved": false,
         "config_changed": false,
         "counts": {
@@ -478,8 +478,8 @@
     },
     "prompt_regression": {
       "run_ids": [
-        "2026-09-24T16-25-29-237383-00-00-282b0c02d6511fb4",
-        "2026-09-24T16-25-29-534925-00-00-282b0c02d6511fb4"
+        "2026-09-25T06-44-15-511576-00-00-282b0c02d6511fb4",
+        "2026-09-25T06-44-15-807643-00-00-282b0c02d6511fb4"
       ],
       "model": "The model and the judge are canned: no provider is called. The reply depends on the prompt by construction — each canned answer is signed with whatever the signature line of prompt.md asks for — and that line is the only edit made between the two runs.",
       "change": {
@@ -504,25 +504,25 @@
       "commands": [
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-24T16-25-29-237383-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-25T06-44-15-511576-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013570 USD (counted 0 of 3)\n",
           "exit": 0
         },
         {
           "cmd": "digline promote --suite support.py --run latest --replacing none",
-          "stdout": "support baseline set to 2026-09-24T16-25-29-237383-00-00-282b0c02d6511fb4\n",
+          "stdout": "support baseline set to 2026-09-25T06-44-15-511576-00-00-282b0c02d6511fb4\n",
           "stderr": "",
           "exit": 0
         },
         {
           "cmd": "digline run --suite support.py",
-          "stdout": "2026-09-24T16-25-29-534925-00-00-282b0c02d6511fb4\n",
+          "stdout": "2026-09-25T06-44-15-807643-00-00-282b0c02d6511fb4\n",
           "stderr": "digline: 3 cases × 1 sample = 3 calls to the target\ndigline: target: 3 calls, no counts reported, 0.013600 USD (counted 0 of 3)\n",
           "exit": 0
         },
         {
           "cmd": "digline compare --suite support.py --run latest",
-          "stdout": "6 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\nagainst baseline 2026-09-24T16-25-29-237383-00-00-282b0c02d6511fb4\n\n  prompt.md · +1 −1 lines\n\nhow-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nhow-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).\nis-it-waterproof · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nis-it-waterproof · contains · Went from passing to failing (1.000000 → 0.000000).\nwhere-is-my-order · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nwhere-is-my-order · contains · Went from passing to failing (1.000000 → 0.000000).\n",
+          "stdout": "6 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.\nagainst baseline 2026-09-25T06-44-15-511576-00-00-282b0c02d6511fb4\n\n  prompt.md · +1 −1 lines\n\nhow-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nhow-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).\nis-it-waterproof · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nis-it-waterproof · contains · Went from passing to failing (1.000000 → 0.000000).\nwhere-is-my-order · llm_rubric · Went from passing to failing (1.000000 → 0.400000).\nwhere-is-my-order · contains · Went from passing to failing (1.000000 → 0.000000).\n",
           "stderr": "",
           "exit": 1
         },
@@ -535,7 +535,7 @@
       "compare_json": {
         "source": "The stdout of `digline compare --suite support.py --run latest --json full` above, decoded with json.loads and otherwise unchanged: every key but this one is digline's.",
         "artifacts_changed": true,
-        "baseline_key": "2026-09-24T16-25-29-237383-00-00-282b0c02d6511fb4",
+        "baseline_key": "2026-09-25T06-44-15-511576-00-00-282b0c02d6511fb4",
         "canary_moved": false,
         "config_changed": false,
         "counts": {
