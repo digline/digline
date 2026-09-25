@@ -1076,11 +1076,12 @@ alone. That is the other half of the capture below, and it rides the same gate.
 and finding that out is what building it bought.** The specification was
 `X-Served-By`, `X-Cache`, `Age` and the time, for both requests: on the reasoning
 that two different servers in `X-Served-By` would confirm per-server luck and one
-server would refute it. Measured against PyPI on 2026-09-25, **two different edge
-servers is the ordinary case** — an unremarkable pair of requests, a tenth of a
-second apart, was answered by two different Fastly edges — so `X-Served-By`
-differing carries almost no information, and a reading built on it would have
-confirmed the hypothesis on the first divergence it met, whatever the cause.
+server would refute it. Measured on 2026-09-25, **two different edge servers is
+the ordinary case** — see *The control* below: the wait and `pip`, 1.1s apart in
+one `RUN` on a build where nothing was wrong, were answered by two different
+Fastly edges holding the identical page. So `X-Served-By` differing carries
+almost no information, and a reading built on it would have confirmed the
+hypothesis on the first divergence it met, whatever the cause.
 
 **The discriminator is `X-PyPI-Last-Serial`**, which was not in the
 specification and costs nothing: it is PyPI's own monotonic counter of a
@@ -1103,22 +1104,38 @@ is the one hypothesis left. Built 2026-09-25.
 
 **One line shape, two producers.** Both halves print an `index-capture` line, so
 a reading is a field-by-field comparison of two lines and not an archaeology of
-a build log:
+a build log.
 
-    index-capture side=wait name=digline t=2026-09-25T10:24:41.7Z took=0.077s
+**The control, and it is from the real path.** This is the pair the paragraph
+above rests on, taken from `ci`'s `image` job on PR #132 — the first build to run
+this at all — and not from a laptop. One `RUN` (`#9`), the in-build wait and then
+`pip`, on a build where **nothing was wrong**:
+
+    index-capture side=wait name=digline t=2026-09-25T12:09:27.6Z took=0.025s
       status=200 variant=json serial=41442088 etag=r39LI8WAzV7Tls9SLWeqaA
-      age=- cache=MISS,HIT,HIT via=cache-iad-khef600091-IAD,…,cache-fco2270025-FCO
+      age=- cache=MISS,HIT
+      via=cache-iad-khef600091-IAD,cache-iad-khef600091-IAD,cache-iad-kiad7000081-IAD
       versions=39 asked=0.20.1 served=yes
-    index-capture side=pip  name=digline t=2026-09-25T10:24:42.3Z took=0.021s
+    index-capture side=pip  name=digline t=2026-09-25T12:09:28.7Z took=0.004s
       status=200 variant=json serial=41442088 etag=r39LI8WAzV7Tls9SLWeqaA
-      age=- cache=MISS,HIT,HIT via=cache-iad-khef600091-IAD,…,cache-fco2270032-FCO
+      age=- cache=MISS,HIT
+      via=cache-iad-khef600091-IAD,cache-iad-khef600091-IAD,cache-iad-kcgs7200037-IAD
       versions=- asked=- served=-
 
-(One line each; wrapped here to fit.) That is the measured pair the paragraph
-above rests on: the `via` chains end `…FCO` at two different numbers — two edge
-servers — while `serial` and `etag` are identical. Two servers, one object,
-nothing wrong. Keep it as the control: it is what agreement looks like, and
-without it a divergence has nothing to be compared against.
+(One line each; wrapped here to fit. `#9 1.503 Collecting digline==0.20.1`
+follows, and `#9 8.626 Successfully installed … digline-0.20.1 …`.)
+
+**Same object, different third node, 1.1 seconds apart, in one `RUN`.** The
+`serial` and the `etag` are identical — one page — while the last hop of the
+`via` chain is `kiad7000081` for the wait and `kcgs7200037` for `pip`. That is
+row three of the table below, and it is the sentence that makes the table
+readable: **different edge servers is what agreement looks like.** Not a
+coincidence of one healthy build either — it is the same gap, in the same place,
+that failed on v0.15.0 and v0.20.1, and the pip here is the image's own 25.0.1.
+
+Which is why the four fields this was specified with would have read this build
+as per-server luck. Keep the control: without it a divergence has nothing to be
+compared against, and `via` alone would confirm the hypothesis on any red at all.
 
 **How to read it.** Take the `side=wait` line for the pin and the `side=pip`
 line for the same `name`, in the same `RUN`:
@@ -1153,7 +1170,9 @@ failure can only ever describe one of the two requests. So:
   already ahead, **44** on a wait like v0.20.0's (eleven polls × four pins);
 - pip's half prints one line per project page it resolves — **33** for the
   image's four pins, its own self-check and every transitive dependency
-  included, measured with pip 26.2.1 on 2026-09-25;
+  included. Predicted with pip 26.2.1 before the first build, then **counted as
+  33** in PR #132's `image` job, on the image's own pip. A number with a check
+  attached, rather than a green standing in for one;
 - **no extra HTTP request and no extra second of wall time** on either side:
   both read headers off a response that was going to be read anyway;
 - both halves ride the existing `AWAIT_INDEX_TIMEOUT` gate, so a local

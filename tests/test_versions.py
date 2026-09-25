@@ -385,10 +385,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "25.0.1": "pip's version, not digline's: the pip in the image's base "
         "whose request headers the index wait copies (The index race, v0.15.0)",
         "26.2.1": "pip's version again, and deliberately a different one: the "
-        "pip the divergence capture's 33 lines were counted with, which dates "
-        "the measurement and says it was not the image's 25.0.1 (The "
-        "diagnostic, built). Updating it to match anything would make the "
-        "count claim a measurement nobody took",
+        "pip the divergence capture's 33 lines were *predicted* with, before "
+        "the first build counted the same 33 on the image's own 25.0.1 (The "
+        "diagnostic, built). The number says the prediction and the check were "
+        "not made with one pip, which is the whole of why the check counted",
         "0.14.1": "three sentences told as history once 0.15.0 is the tree's "
         "version: 'Nothing is queued as of 0.14.1' — the site-batch state read "
         "on that release — and the two releases, v0.14.0 and v0.14.1, whose "
