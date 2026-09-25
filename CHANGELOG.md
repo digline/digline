@@ -33,8 +33,18 @@ notes under them are this file, verbatim.
   - **What does not change:** `digline view` without the flag still has no
     promote route at all, and still answers `404`. That is the same fact giving
     the other truthful answer: there nobody may promote, and here somebody may.
-  - **Seen working in a browser before this was tagged**: the printed address
-    clicked, and *Make baseline* pressed. HTTP-level tests alone do not ship it.
+  - **Seen working in a browser on 2026-09-25, before the tag.** HTTP-level
+    tests alone did not ship it. A maintainer ran the five steps in
+    `RELEASING.md` against the unreleased code. They clicked the printed
+    address, which loaded with the key gone from the address bar. They pressed
+    *Make baseline*, and the baseline moved. **Both controls refused:** a
+    private window on the bare address was answered 403, and so was the old
+    tab after a restart, and in both cases the baseline did not move. The same
+    walkthrough found that its steps did not say which digline to run. An
+    example's own `.venv` resolves digline from PyPI, and a published
+    `view --allow-promote` prints *promotion enabled* while testing nothing of
+    this release. The steps now begin with that check.
+
 ### Changed
 
 - **CI: when the index disagrees with itself, the release now says which
