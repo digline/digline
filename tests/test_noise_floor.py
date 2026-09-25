@@ -1016,7 +1016,9 @@ def test_the_plan_is_the_multiplication_nobody_expects() -> None:
         )
     )
     assert plan.target_calls == 100
-    assert plan.sentence() == "20 cases × 5 samples = 100 calls to the target"
+    assert plan.sentence() == (
+        "tenant 'acme' · 20 cases × 5 samples = 100 calls to the target"
+    )
 
 
 def test_a_suspended_case_is_not_counted_because_it_is_not_called() -> None:
@@ -1047,4 +1049,4 @@ def test_a_repeated_judge_is_named_rather_than_folded_into_one_number() -> None:
 
 def test_the_plan_reads_correctly_at_one_of_everything() -> None:
     plan = planned_calls(plan_suite(cases=[Case(id="a")]))
-    assert plan.sentence() == "1 case × 1 sample = 1 call to the target"
+    assert plan.sentence() == "tenant 'acme' · 1 case × 1 sample = 1 call to the target"

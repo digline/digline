@@ -18,7 +18,7 @@ mostly — every run that recorded nothing, named for what it is.
 
 ```console
 $ digline log --suite suite.py
-support · 14 run(s) read in this store, 2026-09-02T09:14:22.104553+00:00 to 2026-09-15T11:02:07.551901+00:00
+tenant 'northwind' · support · 14 run(s) read in this store, 2026-09-02T09:14:22.104553+00:00 to 2026-09-15T11:02:07.551901+00:00
 
 Target
   anthropic claude-haiku-4-5: not recorded: the document does not name its writer — 2026-09-02T09:14:22.104553+00:00 to 2026-09-05T09:14:22.104553+00:00, 4 run(s) (staging)
@@ -296,7 +296,7 @@ instant without one is refused rather than assumed, which is the refusal above.
 
 ```console
 $ digline log --suite suite.py --since 2026-09-12 --until 2026-09-15
-support · 4 run(s) read in this store, 2026-09-12T09:14:22.104553+00:00 to 2026-09-15T11:02:07.551901+00:00
+tenant 'northwind' · support · 4 run(s) read in this store, 2026-09-12T09:14:22.104553+00:00 to 2026-09-15T11:02:07.551901+00:00
 Window: 2026-09-12 to 2026-09-15.
 ```
 

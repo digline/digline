@@ -150,7 +150,7 @@ $ digline run --suite suite.py
 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 
 $ digline promote --suite suite.py --run latest --replacing none
-support baseline set to 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
+tenant 'northwind' · support baseline set to 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 ```
 
 Now make it worse — delete `— Northwind Support` from the second answer —

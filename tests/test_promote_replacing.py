@@ -223,7 +223,9 @@ def test_compare_names_the_baseline_it_compared_against(repo: Path) -> None:
     second = run_key(repo)
 
     text = cli(repo, "compare", "--suite", "suite_qa.py", "--run", second)
-    assert f"against baseline {first}" in text.stdout.splitlines()
+    # The tenant leads the line, so a comparison in the wrong perimeter is
+    # read under the verdict rather than found in an HTML header (friction 64).
+    assert f"tenant 'acme-bank', against baseline {first}" in text.stdout.splitlines()
 
     as_json = cli(repo, "compare", "--suite", "suite_qa.py", "--run", second, "--json")
     assert json.loads(as_json.stdout)["baseline_key"] == first

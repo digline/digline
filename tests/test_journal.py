@@ -773,7 +773,11 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
 
 def test_planned_calls_subtracts_what_it_will_not_call() -> None:
     suite = a_suite()
-    assert planned_calls(suite).sentence().startswith("6 cases × 1 sample = 6 calls")
+    assert (
+        planned_calls(suite)
+        .sentence()
+        .startswith(f"tenant {TENANT!r} · 6 cases × 1 sample = 6 calls")
+    )
     plan = planned_calls(suite, done={"c1", "c2"}, retried=1)
     assert plan.target_calls == 4
     assert plan.reused == 2

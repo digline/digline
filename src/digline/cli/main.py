@@ -651,6 +651,11 @@ def cmd_list(args: argparse.Namespace) -> int:
                 say(line)
         return EXIT_OK
 
+    # Above the table and not in it: every row shares the perimeter, so a column
+    # would repeat one fact on every line, and a repeated fact is the kind a
+    # reader stops reading. The empty listing already named it; the full one
+    # did not (friction 64).
+    say(f"tenant {suite.tenant!r} · {suite.name}")
     say(f"  {'KEY':<49}  {'CREATED':<33}  {'ENV':<12}  {'COMMIT':<14}  CASES")
     replayed = False
     for run in rows:
@@ -715,8 +720,11 @@ def cmd_promote(args: argparse.Namespace) -> int:
         promoted_at=utc_now_iso(),
     )
     # The resolved key, never the literal "latest": what was promoted must be
-    # nameable afterwards.
-    say(f"{promoted.suite} baseline set to {key}")
+    # nameable afterwards. And the tenant first, read off the stored run and
+    # not the suite: this is the one line a promotion prints, and a suite
+    # copied between customers promoted over another's reference with exit 0
+    # while it named nobody (friction 64).
+    say(f"tenant {promoted.tenant!r} · {promoted.suite} baseline set to {key}")
     return EXIT_OK
 
 

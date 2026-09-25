@@ -100,6 +100,41 @@ def test_run_prints_a_key_that_promote_accepts(repo: Path) -> None:
     assert "Nothing got worse" in compared.stdout
 
 
+def test_every_command_that_acts_on_a_perimeter_names_it(repo: Path) -> None:
+    """Friction 64. A suite copied between customers keeps the other customer's
+    `tenant=` line, and `run`, `compare`, `list` and `promote` then acted on the
+    wrong perimeter with exit 0 while **not one line of terminal output named a
+    tenant** — the only place it appeared was the HTML report's header.
+
+    Checked on the line each command is actually read by, not on a line of its
+    own: a tenant on a line nobody reads is what the header already was. And by
+    the whole line, so a tenant that turned up somewhere incidental — the way
+    `register`'s commit path carries it as a path segment — does not pass for a
+    statement of it."""
+    ran = cli(repo, "run", "--suite", "suite_qa.py")
+    assert ran.returncode == EXIT_OK, ran.stderr
+    key = ran.stdout.strip()
+    # stdout stays the key alone — `KEY=$(digline run …)` is the idiom — so the
+    # tenant leads the announcement read before anything is paid for.
+    assert "\n" not in key and "tenant" not in key
+    announced = [ln for ln in ran.stderr.splitlines() if "call" in ln][0]
+    assert announced.startswith("digline: tenant 'acme-bank' · ")
+
+    promoted = cli(
+        repo, "promote", "--replacing", "none", "--suite", "suite_qa.py", "--run", key
+    )
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+    assert promoted.stdout == f"tenant 'acme-bank' · qa baseline set to {key}\n"
+
+    compared = cli(repo, "compare", "--suite", "suite_qa.py", "--run", key)
+    assert compared.stdout.splitlines()[1] == (
+        f"tenant 'acme-bank', against baseline {key}"
+    )
+
+    listed = cli(repo, "list", "--suite", "suite_qa.py")
+    assert listed.stdout.splitlines()[0] == "tenant 'acme-bank' · qa"
+
+
 def test_compare_exits_worse_when_the_suite_regresses(repo: Path) -> None:
     baseline_key = run_key(repo)
     cli(
@@ -602,7 +637,10 @@ def test_list_shows_runs_newest_first_and_marks_the_baseline(repo: Path) -> None
     assert done.returncode == EXIT_OK, done.stderr
     body = [line for line in done.stdout.splitlines() if line.strip()]
 
-    header, rows = body[0], body[1:3]
+    # The perimeter first, above the table: a listing that named no tenant is
+    # how a copied suite's runs read as one history (friction 64).
+    title, header, rows = body[0], body[1], body[2:4]
+    assert title == "tenant 'acme-bank' · qa"
     assert "KEY" in header and "CASES" in header
     # Newest first. Checked by membership, not by column index: a marked row
     # starts with "*" and an unmarked one with a space, so `split()` shifts.

@@ -78,6 +78,47 @@ notes under them are this file, verbatim.
   site page and every other mention of it here is a bare code span for the same
   reason.
 
+### Fixed
+
+- **`run`, `compare`, `list` and `promote` now name the tenant they acted
+  on.** Until now not one line of their terminal output did. A suite copied
+  from one customer to another keeps the first customer's `tenant=` line, and
+  with both customers under one `--root` the copy's run was filed in the first
+  customer's perimeter. It was then compared against that customer's reference
+  (*"The suite is unchanged from the reference"*, exit 0) and promoted over it
+  (exit 0). The only place the tenant appeared was the HTML report's header.
+  ADR 0002 §1 says the tenant is a directory so that the filesystem enforces
+  the separation. It does, but the filesystem cannot help when the string that
+  names the directory is wrong, and nothing on the terminal showed that string.
+  - **Where it goes: on the line each command is already read by, never on a
+    line of its own.** A tenant on a line nobody reads is what the report
+    header already was.
+    - `run`: the tenant leads the stderr announcement read before anything is
+      paid for (`digline: tenant 'acme' · 20 cases × 5 samples = 100 calls to
+      the target`). stdout is still the key alone, so `KEY=$(digline run …)`
+      is unchanged. The same sentence reaches `rejudge`, pytest-digline, and
+      digline-mcp's refusal to start an unacknowledged run.
+    - `compare`: the line under the verdict reads `tenant 'acme', against
+      baseline <key>`. It uses a comma and not ` · `, because in `compare`'s
+      output ` · ` separates the fields of a per-check line.
+    - `promote`: `tenant 'acme' · support baseline set to <key>`, with the
+      tenant read off the promoted run.
+    - `list`: a line above the table, `tenant 'acme' · support`.
+    - `log`: its first line gains the same prefix.
+  - **What breaks:** anything matching those lines exactly. The key is still
+    the last word of `promote`'s and `compare`'s lines. `compare --json` does
+    not change. In `run --json`, the value of `sentence` gains the prefix
+    because it is the same sentence; its `tenant` key was already there. No
+    key is added or removed, so the shape is unchanged and `OUTPUT_VERSION`
+    does not move. Its rule is about shape, and a reworded sentence is not a
+    change of shape.
+  - **What does not change:** `explain` and `diff` have no header line to
+    extend. Both are read after a `compare` that now names the tenant.
+  - **Why no line was believed missing:** `register` already printed
+    `commit .digline/acme/register/…`. That is the tenant as a path segment,
+    not a statement of it, and only on the command that writes the register.
+    It is how somebody could believe this was already covered.
+
 ## 0.20.1 — 2026-09-25
 
 digline **0.20.1**, the core alone, with the Claude Code plugin that moves with

@@ -1388,7 +1388,7 @@ To finish one:
 
 ```console
 $ digline run --suite suite.py --resume
-digline: 112 of 144 cases × 5 samples = 560 calls to the target; 32 cases already judged
+digline: tenant 'northwind' · 112 of 144 cases × 5 samples = 560 calls to the target; 32 cases already judged
 2026-09-11T09-14-02-000000-00-00-81c684c28b62
 ```
 
