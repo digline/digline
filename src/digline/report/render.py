@@ -1581,10 +1581,21 @@ def against_line(baseline: Run, *, locale: Locale) -> str:
     appeared only in `list`, and a person asked to promote with
     `--replacing <key>` would have had to find it somewhere they were not
     looking. (ADR 0031 §2)
+
+    It leads with the tenant, because this is the line under the verdict — the
+    one a reader actually reads — and a comparison held in the wrong perimeter
+    said nothing about it anywhere a terminal shows (friction 64). A comparison
+    never crosses tenants (`compare()` raises), so the reference's tenant is the
+    run's too.
+
+    A comma and not ` · `: in `compare`'s output ` · ` is the separator of a
+    per-check line (`case · check · detail`), and anything that finds those lines
+    by it — three tests did — would read this one as a check.
     """
     return phrase(
         locale,
         "summary.against",
+        tenant=repr(baseline.tenant),
         reference=key_of(baseline.created_at, baseline.config_hash),
     )
 

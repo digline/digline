@@ -124,8 +124,8 @@ number a parameter that cannot be guessed past.
 ```
 run(suite="suite.py")
   → refused: this suite plans 100 calls to the target.
-    20 cases × 5 samples = 100 calls to the target; each answer is judged
-    3 times by llm_rubric.
+    tenant 'northwind' · 20 cases × 5 samples = 100 calls to the target; each answer
+    is judged 3 times by llm_rubric.
     Call again with acknowledge_calls=100 to run it.
 
 run(suite="suite.py", acknowledge_calls=100)

@@ -96,7 +96,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline promote --suite support.py --run latest --replacing none
-support baseline set to 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
+tenant 'northwind' · support baseline set to 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
@@ -334,10 +334,10 @@ $ digline run --suite support.py
 
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
-against baseline 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
+tenant 'northwind', against baseline 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
-support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
+tenant 'northwind' · support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 ```
 
 Note the last sentence of the headline. Sampling is part of the configuration,
@@ -633,7 +633,7 @@ how-do-i-return    1.000  pass  bar 0.650
 is-it-waterproof   1.000  pass  bar 0.650
 
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
-support baseline set to 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
+tenant 'northwind' · support baseline set to 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
 ```
 
 A threshold set where you wish you were makes the gate red by construction, so
@@ -677,6 +677,7 @@ marked `*` as the current baseline — and every earlier run below it.
 
 ```console
 $ digline list --suite support.py
+tenant 'northwind' · support
   KEY                                                CREATED                            ENV           COMMIT          CASES
   2026-08-26T16-08-16-221095-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.221095+00:00   staging       -               3
   2026-08-26T16-08-16-219738-00-00-2ba590fc617bbd5a  2026-08-26T16:08:16.219738+00:00   staging       -               3
@@ -769,7 +770,7 @@ off by 0.160  2026-08-26T16-08-16-218356-00-00-2ba590fc617bbd5a
 off by 0.240  2026-08-26T16-08-16-219738-00-00-2ba590fc617bbd5a
 
 $ digline promote --suite support.py --run $(python median.py --key) --replacing 2026-08-26T16-08-15-998299-00-00-2ba590fc617bbd5a
-support baseline set to 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
+tenant 'northwind' · support baseline set to 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 ```
 
 The bottom run is `0.240` away from typical. It was as green as the others and
@@ -904,7 +905,7 @@ $ digline run --suite triage.py
 2026-08-26T16-09-07-912456-00-00-9e780e13e9fa4f58
 
 $ digline promote --suite triage.py --run latest --replacing none
-triage baseline set to 2026-08-26T16-09-07-912456-00-00-9e780e13e9fa4f58
+tenant 'northwind' · triage baseline set to 2026-08-26T16-09-07-912456-00-00-9e780e13e9fa4f58
 
 $ digline run --suite triage.py
 2026-08-26T16-09-08-076855-00-00-9e780e13e9fa4f58
@@ -1080,7 +1081,7 @@ $ digline run --suite support.py
 
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
-against baseline 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
+tenant 'northwind', against baseline 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 ```
 
 The suspension is in the headline, with its reason, and it travels into the
@@ -1109,7 +1110,7 @@ Take a fresh reference first, so what follows has nothing else in it:
 
 ```console
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
-support baseline set to 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
+tenant 'northwind' · support baseline set to 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 ```
 
 Now the provider ships. Only `app.py` changes, and not by your hand —
@@ -1394,7 +1395,7 @@ $ python failing.py
 0 checks not passing, over 4 cases
 
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
-support baseline set to 2026-08-26T16-24-37-046803-00-00-e5881dce5cab0761
+tenant 'northwind' · support baseline set to 2026-08-26T16-24-37-046803-00-00-e5881dce5cab0761
 ```
 
 The bug is fixed and, more to the point, it is now *guarded*: `return-a-gift` is
@@ -1496,7 +1497,7 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-002407-00-00-e5881dce5cab0761
 
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-24-37-046803-00-00-e5881dce5cab0761
-support baseline set to 2026-08-26T16-41-23-002407-00-00-e5881dce5cab0761
+tenant 'northwind' · support baseline set to 2026-08-26T16-41-23-002407-00-00-e5881dce5cab0761
 ```
 
 Now change one word of the answer — the provider shipping again, trigger four:

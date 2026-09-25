@@ -496,7 +496,7 @@ def test_the_dogfood_shape_reads_as_the_record_says() -> None:
     assert log.rolls == ()
     assert len(log.replays) == 1
     lines = log_text(log, locale="en")
-    assert lines[0].startswith("qa · 16 run(s) read in this store")
+    assert lines[0].startswith("tenant 'acme' · qa · 16 run(s) read in this store")
     assert phrase("en", "log.rolls.none") in lines
     assert any(
         "declared no configuration" in line and "16 run(s)" in line for line in lines

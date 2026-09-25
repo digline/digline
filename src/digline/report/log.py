@@ -896,6 +896,7 @@ def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
             phrase(
                 locale,
                 "log.heading",
+                tenant=repr(log.tenant),
                 suite=log.suite,
                 count=log.runs,
                 first=log.first,
@@ -903,7 +904,9 @@ def log_text(log: IdentityLog, *, locale: Locale) -> tuple[str, ...]:
             )
         )
     else:
-        lines.append(phrase(locale, "log.empty", suite=log.suite))
+        lines.append(
+            phrase(locale, "log.empty", tenant=repr(log.tenant), suite=log.suite)
+        )
     if log.since or log.until:
         open_end = phrase(locale, "log.window.open")
         lines.append(

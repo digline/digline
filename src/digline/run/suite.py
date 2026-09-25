@@ -706,6 +706,14 @@ class CallPlan:
     #: neither is one a journal already holds a verdict for.
     cases: int
     samples: int
+    #: The perimeter the run is about to be filed under, named first in the
+    #: sentence. **Mandatory, with no default**: a suite copied between customers
+    #: keeps the other customer's `tenant=` line, and until this was said here
+    #: no terminal line of `run`, `compare`, `list` or `promote` named it, so the
+    #: run was filed, compared and promoted in the wrong perimeter with exit 0
+    #: (friction 64). A default would make *not said* the ordinary outcome —
+    #: which is the defect.
+    tenant: str
     #: Cases a resumed run will **not** call because a journal already holds
     #: them. Announced beside the bill rather than folded into it: the reader is
     #: owed both figures, since the suite they declared has `cases + reused`
@@ -747,6 +755,11 @@ class CallPlan:
         is not called at all, and what is about to be paid for is the judging.
         A replay that printed the ordinary sentence would announce a bill that
         never arrives. (ADR 0015 §6)
+
+        The tenant leads, **inside** the sentence and not on a line of its own:
+        this is the line read before anything is paid for, and a tenant on a
+        line nobody reads is what the HTML report's header already was
+        (friction 64).
         """
         if replayed:
             text = (
@@ -784,7 +797,7 @@ class CallPlan:
             )
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
-        return text
+        return f"tenant {self.tenant!r} · {text}"
 
 
 def _count(number: int, noun: str) -> str:
@@ -851,6 +864,7 @@ def planned_calls(
     return CallPlan(
         cases=len(called),
         samples=suite.samples,
+        tenant=suite.tenant,
         repeats=_repeats(suite.assertions),
         reused=sum(1 for case in suite.cases if case.suspended is None) - len(pending),
         retried=retried,

@@ -69,7 +69,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # The key a promotion has to name to replace this reference, printed
         # where a reader of the comparison can copy it from (ADR 0031 §2).
         "header.baseline_key": "Reference key",
-        "summary.against": "against baseline {reference}",
+        "summary.against": "tenant {tenant}, against baseline {reference}",
         "header.rejudged": "Answers replayed from",
         # The evidence block: shown only where the document carries it, which
         # is never at a boundary (ADR 0015 §4).
@@ -983,8 +983,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # `digline log` (ADR 0020). The multi-run vocabulary is this reading's
         # whole subject, so it is allowed here; advice is not, and neither is
         # "likely", which belongs to the canary.
-        "log.heading": "{suite} · {count} run(s) read in this store, {first} to {last}",
-        "log.empty": "{suite} · no run read in this store, in this window.",
+        "log.heading": (
+            "tenant {tenant} · {suite} · {count} run(s) read in this store, "
+            "{first} to {last}"
+        ),
+        "log.empty": (
+            "tenant {tenant} · {suite} · no run read in this store, in this window."
+        ),
         "log.window": "Window: {since} to {until}.",
         "log.window.open": "…",
         "log.not_read.schema": "{count} run(s) at schema {version} were not read.",
@@ -1156,7 +1161,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "header.redacted.value": "Questo rapporto è prodotto da dati redatti.",
         "header.promoted": "Riferimento approvato",
         "header.baseline_key": "Chiave del riferimento",
-        "summary.against": "rispetto alla baseline {reference}",
+        "summary.against": "tenant {tenant}, rispetto alla baseline {reference}",
         "header.rejudged": "Risposte riascoltate da",
         "answers.title": "Che cosa ha risposto il sistema",
         "answers.note": (
@@ -2013,10 +2018,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.nothing": "Niente in questo gruppo.",
         "log.heading": (
-            "{suite} · {count} esecuzioni lette in questo archivio, da {first} a {last}"
+            "tenant {tenant} · {suite} · {count} esecuzioni lette in questo "
+            "archivio, da {first} a {last}"
         ),
         "log.empty": (
-            "{suite} · nessuna esecuzione letta in questo archivio, in questa finestra."
+            "tenant {tenant} · {suite} · nessuna esecuzione letta in questo "
+            "archivio, in questa finestra."
         ),
         "log.window": "Finestra: da {since} a {until}.",
         "log.window.open": "…",
