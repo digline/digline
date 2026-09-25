@@ -3,8 +3,10 @@
 - Status: accepted — ruled on 2026-09-25, the design first and the code
   written against it on `view-launch-token`
 - Shipped: unreleased
-- Blocks: **the 0.21.0 tag**, until Alessandro has clicked the printed address
-  in a real browser and pressed *Make baseline* — §8. Ruled 2026-09-25
+- Blocked: **the 0.21.0 tag**, until Alessandro had clicked the printed
+  address in a real browser and pressed *Make baseline* — §8. Ruled
+  2026-09-25, and **satisfied the same day**: all five steps held, both
+  controls refused, and the walkthrough's own gaps went into `RELEASING.md`
 - Date: 2026-09-25
 - Amended: 2026-09-25, before merge, answering CodeQL alert 89 on #133. The
   hand-over's `Location` becomes the constant `/`, so `?locale=it` no longer

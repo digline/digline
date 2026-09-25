@@ -319,11 +319,53 @@ headers a browser is sent. They cannot check what the browser does with them,
 and that is the part every user meets first. A control proven header by
 header and never seen working is a control nobody has used.
 
-**Blocking the next tag: ADR 0033's launch key** (§8). Alessandro does this, before
-the tag, not after:
+### The walkthrough for `digline view --allow-promote` (ADR 0033 §8)
 
-1. In a repository with at least two runs, one of them the baseline, run
-   `digline view --suite <suite> --allow-promote`.
+Run it before a tag whenever the launch key, the hand-over or the promote
+form has changed. First done on 2026-09-25, before the release that shipped
+the key; the steps below are the ones that were run, plus the two things that walkthrough had to find out
+for itself.
+
+**What it needs, which the first version of these steps did not say:**
+
+- **A store with at least two runs, one of them the baseline.** Otherwise there
+  is no row to promote and step 3 cannot happen. The quickstart gives you one
+  offline, with no API key, in a scratch copy so nothing in the repository
+  moves:
+
+  ```sh
+  cp -r examples/quickstart /tmp/walk && cd /tmp/walk
+  git init -q && git add -A && git commit -qm walk
+  uv run --project <digline checkout> digline run --suite suite.py
+  uv run --project <digline checkout> digline promote --suite suite.py --run latest --replacing none
+  uv run --project <digline checkout> digline run --suite suite.py
+  ```
+
+- **The digline you are releasing, not one from PyPI.** Every command runs as
+  `uv run --project <digline checkout> …`, with the checkout synced
+  (`uv sync --all-packages`). Never from inside an example's directory: each
+  example has its own `.venv`, which resolves digline **from PyPI**. On
+  2026-09-25 the four such venvs in one checkout held four different
+  published versions, and none of them was the code being released. The first walkthrough ran the wrong digline three times before the key
+  appeared, and a released `view --allow-promote` prints *promotion enabled*,
+  truthfully, while testing none of what is being released.
+
+0. **Check which digline you are running, before anything else.** From the
+   directory you will run the steps in:
+
+   ```sh
+   uv run --project <digline checkout> python -c "import digline; print(digline.__file__)"
+   ```
+
+   It must print `<digline checkout>/src/digline/__init__.py`. A path under
+   `site-packages` is a published digline: stop. **`digline --version` is not
+   the check until the version has been bumped.** Before the bump the checkout
+   says the same number PyPI's latest does (they printed the same line on
+   2026-09-25), so it passes in exactly the case it exists to catch. After the bump it says the
+   unreleased number, and it is worth running too. And the startup line is the
+   last check: if it has no `?launch=`, you are not running the code under
+   test.
+1. In that store, run `digline view --suite suite.py --allow-promote`.
 2. Click the address the startup line prints. The page loads, and the address
    bar ends in `/`, **without** `?launch=`.
 3. Press *Make baseline* on a row that is not the baseline. The page says
@@ -338,8 +380,7 @@ the tag, not after:
 
 Do it in the browser you use, and in a second engine if you have one. `SameSite`
 is where engines have differed. If step 3 is refused, the release is wrong, not
-the browser: ADR 0033 is reopened before anything ships. Once all five hold,
-delete this entry and leave the rule above it.
+the browser, and ADR 0033 is reopened before anything ships.
 
 ## Before the tag: the gates
 
