@@ -599,6 +599,11 @@ RECORDED: dict[str, dict[str, str]] = {
     "examples/langchain4j/README.md": {
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
         "kind of floor",
+        "0.19.1": "the release that shipped tools_path, tool_calls_path and "
+        "usage_path, named in the section admitting no example exercised any "
+        "of them until this one did. History, and the sentence needs the "
+        "number: 'they shipped and nobody had run them' is a claim about one "
+        "release, so it cannot go stale",
     },
     "docker/README.md": {
         "0.4.0": "a deliberate example of building an image for a release "
