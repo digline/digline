@@ -464,19 +464,33 @@ jobs:
           LANGCHAIN_TRACING: "false"
         # Against the baseline committed in the example, never a fresh one:
         # promoting first would compare a run with itself and pass whatever
-        # happened. `prompt-first` and `rag` are shipped red on purpose — their
-        # READMEs are about that comparison — so for those two the expected
-        # answer is exit 1, and green is the failure.
+        # happened. `rag` is shipped red on purpose — its README is about that
+        # comparison — so for it the expected answer is exit 1, and green is the
+        # failure. The same demonstration is held on every build by
+        # `tests/test_examples.py`; this leg asks it of the published package.
+        #
+        # `prompt-first` runs and does not compare, and that is its README's
+        # own rule: "The keyless path runs. It does not compare." Its committed
+        # baseline is a live one, measured against the real model, and this
+        # leg has no key, so a comparison here holds a stand-in against a real
+        # model and measures nothing — on 0.20.1 it read "10 improved". What
+        # the leg can prove for it without a key is the wiring: the suite
+        # loads, every case is judged, a run is written. `run` exits non-zero
+        # otherwise, and `set -e` holds that.
         run: |
           SUITE=suite.py
           [ -f suite.toml ] && SUITE=suite.toml
           KEY=$(uv run digline run --suite "$SUITE")
+          if [ "${{ matrix.example }}" = "prompt-first" ]; then
+            echo "prompt-first ran keyless as $KEY; its comparison is live-only"
+            exit 0
+          fi
           set +e
           uv run digline compare --suite "$SUITE" --run "$KEY"
           status=$?
           set -e
           case "${{ matrix.example }}" in
-            prompt-first|rag) want=1 ;;
+            rag) want=1 ;;
             *)                want=0 ;;
           esac
           if [ "$status" -ne "$want" ]; then

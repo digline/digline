@@ -16,6 +16,10 @@ permissions:
 jobs:
   cycle:
     runs-on: ubuntu-latest
+    env:
+      # Empty when the repository has no such secret, which is what selects the
+      # keyless step below.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
@@ -24,14 +28,26 @@ jobs:
       # checkout of it.
       - run: uv sync
 
-      # This example is shipped **red on purpose** — the comparison against the
-      # committed baseline is the thing its README asks you to look at. So the
-      # gate is inverted: exit 1 means the example still demonstrates what it
-      # claims, and a green run means it has quietly stopped.
-      #
-      # Exactly 1, not merely non-zero: 2 is "a case could not be judged", which
-      # is a broken example rather than a teaching one.
+      # This example is shipped **red on purpose**, but only against a real
+      # model: its committed baseline is a live one, and its README's rule is
+      # that "the keyless path runs. It does not compare." Without a key the
+      # provider and the judge are stand-ins, and holding them against a
+      # baseline a real model produced measures nothing. So the job does what
+      # the key allows. Without one it proves the wiring (the suite loads,
+      # every case is judged, a run is written). With one it asks the question
+      # the README is about.
+      - name: The wiring, without a key
+        if: env.ANTHROPIC_API_KEY == ''
+        run: uv run digline run --suite suite.py
+
+      # With a key the gate is inverted: exit 1 means the example still
+      # demonstrates what it claims, and a green run means it has quietly
+      # stopped. Exactly 1, not merely non-zero: 2 is "a case could not be
+      # judged", which is a broken example rather than a teaching one.
       - name: The regression this example exists to show
+        if: env.ANTHROPIC_API_KEY != ''
+        env:
+          DIGLINE_LIVE: "1"
         run: |
           KEY=$(uv run digline run --suite suite.py)
           set +e

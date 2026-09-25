@@ -2,13 +2,13 @@
   "aggregate": [],
   "artifacts": {},
   "config_hash": "772460469ef76182",
-  "created_at": "2026-09-22T12:52:51.200872+00:00",
-  "digline_version": "0.18.0",
+  "created_at": "2026-09-25T07:52:56.784545+00:00",
+  "digline_version": "0.20.1",
   "environment": "staging",
-  "git_commit": "74f16739e913093784ee38aee55e3ae79235e9cc",
+  "git_commit": "8325f0cc605ee96de9f11ca5658883f1da3e77b5",
   "judge_config": {},
   "metadata": {},
-  "promoted_at": "2026-09-22T12:52:56.953883+00:00",
+  "promoted_at": "2026-09-25T07:53:07.097121+00:00",
   "redacted": false,
   "results": [
     {
@@ -21,11 +21,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -72,11 +72,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -123,11 +123,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -174,11 +174,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -225,11 +225,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
@@ -276,11 +276,11 @@
           "judged": true,
           "metadata": {
             "claims_supported": 1,
-            "claims_total": 2
+            "claims_total": 1
           },
-          "reason": "1 of 2 claims appear in the passages",
-          "score": 0.5,
-          "status": "fail",
+          "reason": "1 of 1 claims appear in the passages",
+          "score": 1.0,
+          "status": "pass",
           "threshold": 0.9,
           "tolerance": 0.05
         },
