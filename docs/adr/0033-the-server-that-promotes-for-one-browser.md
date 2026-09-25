@@ -6,6 +6,10 @@
 - Blocks: **the 0.21.0 tag**, until Alessandro has clicked the printed address
   in a real browser and pressed *Make baseline* — §8. Ruled 2026-09-25
 - Date: 2026-09-25
+- Amended: 2026-09-25, before merge, answering CodeQL alert 89 on #133. The
+  hand-over's `Location` becomes the constant `/`, so `?locale=it` no longer
+  survives it: §2 says why, keeps the reasoning that made the old value safe,
+  and §10 names the class. No other decision moves
 - Amends: [ADR 0032](0032-the-second-path-to-an-absent-tool.md), in its
   Consequences only — the bullet saying the record *"does not authenticate the
   view"*. That bullet was true of 0032 and is amended in place with a pointer
@@ -105,11 +109,45 @@ and the plugin's hook has asked a person before that could happen (0032 §3).
 ### 2. How it reaches a browser, and the one thing it must never reach
 
 The printed address is `http://HOST:PORT/?launch=KEY`. A `GET` carrying the
-right key is answered with a **303** to the same page without it, and sets the
-key as a cookie: `HttpOnly`, `SameSite=Strict`, `Path=/`. `POST /promote`
-compares the cookie with the key, using `hmac.compare_digest` so a comparison
-that stops early does not reveal how much was right, and refuses without it.
-Other query parameters survive the redirect, so `?locale=it` stays.
+right key is answered with a **303** to `/`, and sets the key as a cookie:
+`HttpOnly`, `SameSite=Strict`, `Path=/`. `POST /promote` compares the cookie
+with the key, using `hmac.compare_digest` so a comparison that stops early does
+not reveal how much was right, and refuses without it.
+
+*Amended 2026-09-25, before merge.* Until then this paragraph ended *"Other
+query parameters survive the redirect, so `?locale=it` stays."* They no longer
+survive: **`Location` is the
+constant `/`**, whatever the request's path or query was. The reason is a
+property, not the defect that prompted it: **no header this server sends
+carries anything the request said.** That is a sentence a test can assert over
+every route (`test_no_response_header_carries_anything_the_request_said`), where
+the old value was safe only through a set of escaping facts somebody would have
+had to keep true. The cost is nil in practice: the printed address is always
+`/?launch=…`, so there was never another path or parameter to carry, except one
+a person typed onto it by hand.
+
+**Why the old value was ever safe, recorded here because the code that needed
+the reasoning is gone.** `Location` was the request's path plus its re-encoded
+query. CodeQL raised it as response splitting (alert 89). Measured on Python
+3.12.13 and 3.13.11 with raw sockets, a CR or LF could not reach it, through
+three facts about code this project does not own:
+
+- `http.server` reads the request line up to the LF, strips trailing CR/LF, and
+  splits on whitespace. A CR in the middle makes an extra word, which is refused
+  as `400 Bad request syntax` before any handler runs.
+- `urlparse(...).path` does not decode, so `/p%0D%0A…` went out still encoded.
+- `parse_qs` *does* decode `%0D%0A` into a real CR/LF, and `urlencode` re-encodes
+  it with `quote_plus` on the way out.
+
+`send_header` itself checks nothing: on both versions it formats
+`"%s: %s\r\n"` and encodes to latin-1. So the safety lived entirely in those
+three places, none of them in this file. And against a *meaning*, as opposed to
+a byte, the old value was not safe: `/\evil.example` went back out verbatim, and a
+browser reads that backslash as a slash, so `//evil.example` is a redirect off
+the machine. It was reachable only with the right key, and whoever holds the key
+can promote anyway, so it gave nobody anything. That is why it is not the
+reason for the constant, only the demonstration that the escaping rules had
+already failed to cover what the header meant.
 
 **The cookie's name carries the port** — `digline-view-7373`. A browser keeps
 cookies by host and not by port, so two views on one machine, one per suite,
@@ -231,6 +269,12 @@ belongs to a different record:
   the unchanged default-server tests that still require the 404 and the
   unknown-path sentence.
 - §2's rule is `test_no_page_the_flagged_server_renders_contains_the_key`.
+- §2's amendment is `test_no_response_header_carries_anything_the_request_said`
+  and `test_a_path_that_means_another_host_is_not_sent_back`, which asserts
+  `Location: /` rather than the absence of the host: an absence also passes
+  when the server mangles the path for some other reason. Two more mutations,
+  each caught: the old `Location` restored (3 failures) and a header echoing a
+  request header (1).
 - **Every existing promotion test now sends the cookie**, and that is not
   bookkeeping. Without it the key refuses first, and the origin test, the
   rebinding tests and the walk over every refusal type would all have gone on
@@ -272,6 +316,25 @@ rule it adds is written where the next control gets written, in
 `CONTRIBUTING.md`: **a new guard in front of an old one empties the old
 one's tests.** Give those tests what the new guard asks for, then mutate the
 old guard away and watch them fail.
+
+### 10. Request data in a header, trusted for the shape we believed it had
+
+§2's amendment is the week's family in a fourth costume. 0032 §8 records
+guards that named an act by one spelling while the act arrived by another. The
+plugin's hook **believed a command starts with `digline`**, and it arrived as
+`uv tool run digline` or `python -m digline.cli.main`. This header **believed a
+path cannot contain a backslash that means something**, and a browser gives
+`/\` the meaning of `//`. It is the same error on two surfaces: a check of
+the *shape* of data the caller controls, standing in for a statement about what
+the data will be taken to mean by whoever reads it next.
+
+The repair has the same construction as 0032 §8's first way: **make the thing
+the guard was protecting stop depending on the caller at all.** 0.20.1 made the
+full flag word the only spelling `view` accepts. Here, `Location` does not
+read the request, so there is no shape left to believe in. And the test asks
+the accepting side, the way 0032 §8's does. It does not check an escaping rule;
+it sends a marker in every part of a request a caller controls, on every route,
+and requires that no response header contain it.
 
 ## Consequences
 

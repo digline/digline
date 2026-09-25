@@ -278,16 +278,30 @@ class ViewHandler(BaseHTTPRequestHandler):
             morsel.value.encode("utf-8"), self.launch_key.encode("utf-8")
         )
 
-    def _hand_over(self, path: str, query: Mapping[str, Sequence[str]]) -> bool:
-        """Turn the printed address into a cookie, and the address into a clean one.
+    def _hand_over(self, query: Mapping[str, Sequence[str]]) -> bool:
+        """Turn the printed address into a cookie, and send the browser to `/`.
 
         True when the request was answered here. The key is checked, set as an
-        `HttpOnly`, `SameSite=Strict` cookie, and the browser is sent to the same
-        page **without** it — so the key does not sit in the address bar, and
-        no page this server renders ever contains it. That last part is the
-        whole of the design: every reading route answers anybody with a shell,
-        so a key written into a page, a form or a link would be handed to
-        exactly the caller it exists to refuse.
+        `HttpOnly`, `SameSite=Strict` cookie, and the browser is sent to `/`
+        **without** it — so the key does not sit in the address bar, and no
+        page this server renders ever contains it. That last part is the whole
+        of the design: every reading route answers anybody with a shell, so a
+        key written into a page, a form or a link would be handed to exactly
+        the caller it exists to refuse.
+
+        **`Location` is the constant `/`, and that is the property, not a
+        simplification: no header this server sends carries anything the
+        request said.** It used to be the request's own path plus its
+        re-encoded query, so `?locale=it` survived the hand-over. That was safe
+        against response splitting, and the reasons were three facts about
+        code this file does not own: `http.server` strips the request line's
+        CR/LF and refuses a line whose CR splits it into extra words (400);
+        `urlparse().path` does not decode `%0D%0A`; and `urlencode` re-encodes
+        what `parse_qs` decoded. `send_header` itself checks nothing. And it
+        was not safe against a *meaning*: `/\\evil.example` went out verbatim,
+        and a browser reads that backslash as a slash — a redirect off the
+        machine, reachable only with the key. A constant needs none of those
+        facts to stay true. (ADR 0033 §2, CodeQL alert 89)
 
         On the server that does not promote there is nothing to hand over and
         the parameter is ignored: the header already says what that server is.
@@ -304,14 +318,12 @@ class ViewHandler(BaseHTTPRequestHandler):
                 "of digline view. Open the address this start printed.",
             )
             return True
-        rest = {name: values for name, values in query.items() if name != LAUNCH}
-        clean = path + ("?" + urllib.parse.urlencode(rest, doseq=True) if rest else "")
         self.send_response(303)
         self.send_header(
             "Set-Cookie",
             f"{self._cookie()}={self.launch_key}; Path=/; HttpOnly; SameSite=Strict",
         )
-        self.send_header("Location", clean)
+        self.send_header("Location", "/")
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -355,7 +367,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not self._addressed_to_us():
             return
         path, query = self._query()
-        if self._hand_over(path, query):
+        if self._hand_over(query):
             return
         locale: Locale = pages.locale_of(query)
         try:

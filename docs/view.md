@@ -120,7 +120,7 @@ digline view on http://127.0.0.1:7373/?launch=… — promotion enabled, from th
 ```
 
 Open **that** address. The server trades the `launch` value for a cookie and
-sends you to the same page without it, and from then on `Make baseline` works
+sends you to `/` without it, and from then on `Make baseline` works
 in that browser until the server stops. Nothing else can promote on it: a
 POST without the cookie — a `curl`, a script, an agent's shell, another
 browser — is refused with `403`.

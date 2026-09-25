@@ -855,9 +855,10 @@ def test_the_refusal_on_the_flagged_server_is_a_403_not_the_404(
 def test_the_printed_address_becomes_a_cookie_and_leaves_the_address(
     served_promoting: tuple[str, str, str],
 ) -> None:
-    """The hand-over, as a browser meets it: a 303 to the same page without the
-    key, and the key in an `HttpOnly`, `SameSite=Strict` cookie named for the
-    port. Other parameters survive the redirect."""
+    """The hand-over, as a browser meets it: a 303 to `/`, and the key in an
+    `HttpOnly`, `SameSite=Strict` cookie named for the port. `?locale=it` does
+    **not** survive it any more: `Location` is a constant, so no header carries
+    what the request said. (ADR 0033 §2)"""
     base, _key, cookie = served_promoting
     launch = cookie.split("=", 1)[1]
     parsed = urllib.parse.urlparse(base)
@@ -868,10 +869,85 @@ def test_the_printed_address_becomes_a_cookie_and_leaves_the_address(
     connection.close()
 
     assert answer.status == 303
-    assert answer.getheader("Location") == "/?locale=it"
+    assert answer.getheader("Location") == "/"
     set_cookie = answer.getheader("Set-Cookie") or ""
     assert set_cookie.startswith(f"{cookie};")
     assert "HttpOnly" in set_cookie and "SameSite=Strict" in set_cookie
+
+
+def test_a_path_that_means_another_host_is_not_sent_back(
+    served_promoting: tuple[str, str, str],
+) -> None:
+    """`/\\evil.example` with the right key. Before the constant, it went back
+    out as `Location: /\\evil.example`, and a browser reads that backslash as a
+    slash — `//evil.example`, a redirect off the machine. Asserted as the
+    constant rather than as the host's absence: an absence also passes when the
+    server mangles the path for some other reason, and a constant does not.
+    (ADR 0033 §2)"""
+    base, _key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    port = urllib.parse.urlparse(base).port
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    connection.request("GET", f"/\\evil.example?launch={launch}")
+    answer = connection.getresponse()
+    answer.read()
+    connection.close()
+    assert answer.status == 303
+    assert answer.getheader("Location") == "/"
+
+
+MARK = "zq7request7mark"
+
+
+def test_no_response_header_carries_anything_the_request_said(
+    repo: Path, served_promoting: tuple[str, str, str]
+) -> None:
+    """The property the constant `Location` buys, asserted over the server
+    rather than over one line: a marker is put in every part of a request a
+    caller controls — path, query names and values, the form, a header, the
+    cookie — on every route, with and without the key, and no response header
+    may contain it, raw or percent-encoded. A new header built from the request
+    fails here whichever route it is on. (ADR 0033 §2)"""
+    base, key, cookie = served_promoting
+    launch = cookie.split("=", 1)[1]
+    port = urllib.parse.urlparse(base).port
+    targets = [
+        f"/?{MARK}={MARK}&launch={launch}",
+        f"/{MARK}?launch={launch}",
+        f"/?{MARK}={MARK}",
+        f"/compare?run={MARK}",
+        f"/compare?run={key}&against={MARK}",
+        f"/case/{MARK}",
+        f"/suspend/{MARK}?reason={MARK}",
+        f"/{MARK}",
+        f"/?launch={MARK}",
+    ]
+    answers: list[tuple[str, list[tuple[str, str]]]] = []
+    for method, target, body, with_cookie in [
+        *[("GET", target, "", False) for target in targets],
+        *[("GET", target, "", True) for target in targets],
+        ("POST", "/promote", f"run={MARK}&replacing={MARK}", True),
+        ("POST", "/promote", f"run={MARK}&replacing={MARK}", False),
+        ("POST", f"/{MARK}", f"run={MARK}", True),
+    ]:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        headers = {"X-Mark": MARK, "Referer": f"http://{MARK}/"}
+        headers["Cookie"] = cookie if with_cookie else f"{MARK}={MARK}"
+        if body:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        connection.request(method, target, body=body or None, headers=headers)
+        answer = connection.getresponse()
+        answer.read()
+        connection.close()
+        answers.append((f"{method} {target}", answer.getheaders()))
+
+    assert len(answers) == 2 * len(targets) + 3
+    for request, sent in answers:
+        for name, value in sent:
+            assert MARK not in value.lower(), (
+                f"{request} answered with a header built from the request: "
+                f"{name}: {value}"
+            )
 
 
 def test_an_address_from_another_start_is_refused_by_name(
