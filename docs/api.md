@@ -522,6 +522,7 @@ target = HttpTarget(
 | `cost_path` | dotted path to the cost, or `None` |
 | `latency_from_response` | dotted path to the time the service reports. Left out, digline measures the round trip instead — which includes the network, and is a different number measuring a different thing |
 | `config_path` | dotted path to an object saying which model answered and how it was set up, or `None`. See below |
+| `expect_config` | the configuration the suite expects the application to report, or `None`. A contradiction errors the case. See below |
 | `tools_path` | dotted path to the tool names the model called, in order, or `None` |
 | `tool_calls_path` | dotted path to those calls with their arguments, or `None`. Declared alone, the names are derived from it |
 | `usage_path` | dotted path to an object of token counts, by `Usage`'s own field names, or `None` |
@@ -558,6 +559,45 @@ other.
 The first answer is the run's configuration, and a later one that disagrees
 **errors its own case**: one run measures one system, so two set-ups are two
 runs.
+
+#### `expect_config`: the review that makes the value worth recording
+
+Everything above checks the *shape* of what your application reports. Nothing
+checks that it is true — over HTTP the measured party writes every field, so the
+`provider` and `model` in a run are values nobody reviewed, and they cross a
+boundary in clear. `expect_config` is the repair (ADR 0030 §4): the suite
+declares, the application agrees, and a contradiction is refused.
+
+```python
+target = HttpTarget(
+    "http://localhost:8080/classify",
+    request=lambda case: {"text": case.vars["text"]},
+    output_path="data",
+    config_path="config",
+    expect_config={"provider": "gemini", "model": "gemini-2.5-flash"},
+)
+```
+
+The value in the record is then one a reviewer wrote in a file that went through
+a pull request, and the application's part is reduced to agreeing with it.
+
+**The keys you name are the keys checked** — partial on purpose, so declaring
+`model` does not oblige you to declare a temperature chosen on the other side of
+HTTP. Nothing is mandatory. A declared key the application never reports is a
+mismatch too: absence is not agreement.
+
+A mismatch **errors its cases**, like the rotation above and for the same reason,
+and it cannot be caught earlier: `preflight` sends a `HEAD`, and an `HttpTarget`
+has nothing to declare until it has answered. Four things are refused at
+construction instead, because each would otherwise produce a green run that
+reviewed nothing: `expect_config` without `config_path`, an empty
+`expect_config`, a key outside the closed set, and a value that is not a scalar.
+
+It is recorded **beside** `config_hash` and never inside it, so adding the key
+costs no re-promotion and a declared model rotation stays comparable (ADR 0030
+§7). What is still owed: the document does not yet record *whether* a
+configuration was reviewed, so a suite that declares nothing is where it always
+was — see ADR 0030 §6.
 
 `preflight` asks whether **anything is listening** before the first case, so a
 service that is down fails once with a sentence instead of once per case with a

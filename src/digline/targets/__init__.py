@@ -18,7 +18,14 @@ from digline.targets.completion import (
     as_completion,
     finish_of,
 )
-from digline.targets.config import CONTRACT_FIELDS, declared_config, endpoint_host, sent
+from digline.targets.config import (
+    CONTRACT_FIELDS,
+    declared_config,
+    endpoint_host,
+    expected_config,
+    refuse_config_mismatch,
+    sent,
+)
 from digline.targets.http import HttpTarget
 from digline.targets.judge import (
     CLAIM_SYSTEM,
@@ -71,12 +78,14 @@ __all__ = [
     "as_completion",
     "declared_config",
     "endpoint_host",
+    "expected_config",
     "finish_of",
     "free",
     "installed",
     "loads_lenient",
     "render_value",
     "resolve",
+    "refuse_config_mismatch",
     "sent",
     "split_coordinate",
 ]

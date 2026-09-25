@@ -30,7 +30,14 @@ from digline.core import ConfigValue
 #: which a string with a space in it answers on its own.
 _HOST = re.compile(r"^[A-Za-z0-9._\-\[\]:%]+$")
 
-__all__ = ["CONTRACT_FIELDS", "declared_config", "endpoint_host", "sent"]
+__all__ = [
+    "CONTRACT_FIELDS",
+    "declared_config",
+    "endpoint_host",
+    "expected_config",
+    "refuse_config_mismatch",
+    "sent",
+]
 
 
 def sent(**values: ConfigValue) -> dict[str, ConfigValue]:
@@ -169,3 +176,110 @@ def declared_config(found: object, *, where: str) -> dict[str, ConfigValue]:
         else:
             declared["base_url"] = host
     return declared
+
+
+def expected_config(found: object, *, where: str) -> dict[str, ConfigValue]:
+    """The configuration a **suite** declares it expects, checked as it is read.
+
+    The other side of `declared_config`, and the reason ADR 0030 §4 is a repair
+    rather than a workaround: over HTTP the measured party writes every field it
+    reports, so the only way a reviewed value can reach the record is for a
+    reviewer to have written one. This is that value, and it is checked here so
+    that a declaration which could never match is refused when it is written
+    instead of on every case of every run.
+
+    A **partial** declaration: the keys named here are the keys checked, and
+    ADR 0030 §5.2 rules that none of them is mandatory. What is refused is an
+    empty one — a gate that checks nothing passes everything, and a check that
+    cannot fail is the bug fixed decision 3 names.
+    """
+    if not isinstance(found, Mapping):
+        raise ValueError(
+            f"{where} is a {type(found).__name__}, not a table: a declared "
+            "configuration is the same flat object of scalars an application "
+            "reports, so that the two can be compared field by field"
+        )
+    entries = cast("Mapping[str, object]", found)
+    if not entries:
+        raise ValueError(
+            f"{where} declares nothing. An empty declaration accepts every "
+            "configuration an application could report, which is the state a "
+            "suite is in when it omits the key — so it is refused rather than "
+            "read as a review that happened. Name the fields you expect, or "
+            "leave the key out"
+        )
+
+    unknown = sorted(set(entries) - CONTRACT_FIELDS)
+    if unknown:
+        raise ValueError(
+            f"{where} declares {', '.join(unknown)}, which is not part of the "
+            f"configuration contract (ADR 0005 §1). Allowed: "
+            f"{', '.join(sorted(CONTRACT_FIELDS))}. An application cannot "
+            "report a field outside the contract, so an expectation of one "
+            "could never be met"
+        )
+
+    checked: dict[str, ConfigValue] = {}
+    for key, value in entries.items():
+        # `None` is refused here and read as *not sent* in a reported
+        # configuration, which is the asymmetry this pair of functions is for:
+        # absence is an honest thing for an application to report and an empty
+        # thing for a suite to declare. "I expect nothing for this" is what
+        # leaving the key out already says.
+        if value is None or not isinstance(value, str | int | float | bool):
+            named = "nothing" if value is None else type(value).__name__
+            raise ValueError(
+                f"{where} declares {key!r} as {named}, which is not a scalar "
+                "value to compare against: an expectation is met by equality "
+                "with what the application reported, so it has to be the value "
+                "you expect"
+            )
+        if isinstance(value, str) and not value:
+            raise ValueError(
+                f"{where} declares {key!r} as an empty string: an application "
+                "that reported one would be refused by the contract, so this "
+                "expectation could never be met"
+            )
+        checked[key] = value
+    return checked
+
+
+def refuse_config_mismatch(
+    reported: Mapping[str, ConfigValue],
+    expected: Mapping[str, ConfigValue],
+    *,
+    spoken: str,
+) -> None:
+    """Refuse a reported configuration that contradicts the suite's declaration.
+
+    ADR 0030 §4. `spoken` names the endpoint, because the refusal is about what
+    an endpoint said and a reader needs to know which one.
+
+    **An expected key the application never reports is a mismatch too.** §8
+    reads a missing key as *not sent, the provider's own default applied*, which
+    is an honest reading of an application's silence and a dishonest one here:
+    the suite asked a question and got none of an answer. Absence is not
+    agreement (ADR 0030 §7).
+    """
+    moved = sorted(key for key in expected if reported.get(key) != expected[key])
+    if not moved:
+        return
+    said: list[str] = []
+    for key in moved:
+        if key in reported:
+            said.append(
+                f"{key}: declared {expected[key]!r}, reported {reported[key]!r}"
+            )
+        else:
+            said.append(f"{key}: declared {expected[key]!r}, not reported at all")
+    differences = ", ".join(said)
+    raise ValueError(
+        f"{spoken} answered under a configuration the suite did not declare "
+        f"({differences}). `expect_config` is what makes the configuration in "
+        "the record a value a reviewer wrote rather than one the application "
+        "chose, so a value it did not declare is refused rather than recorded "
+        "(ADR 0030 §4). Two things this can be, and they are fixed at "
+        "different ends: the application moved, or the declaration is stale — "
+        "point the target at the system you meant to measure, or update "
+        "`expect_config` to the one that answered"
+    )

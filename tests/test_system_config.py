@@ -938,6 +938,12 @@ class HttpStub:
     url: str = ""
     answer: str = "The capital is Rome."
     temperature: float = 0.3
+    #: Settable so a test can make the application report a system the suite did
+    #: not declare — which is the whole of ADR 0030 §4 from the other side.
+    model: str = "gpt-4o-mini"
+    #: What the application reports as its own endpoint, if anything. `None`
+    #: leaves the key out, which is every existing test.
+    base_url: str | None = None
 
 
 @pytest.fixture
@@ -947,16 +953,19 @@ def java_service() -> Iterator[HttpStub]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            config: dict[str, object] = {
+                "provider": "openai",
+                "model": stub.model,
+                "temperature": stub.temperature,
+                "max_tokens": 512,
+            }
+            if stub.base_url is not None:
+                config["base_url"] = stub.base_url
             body = json.dumps(
                 {
                     "data": stub.answer,
                     "usage": {"cost_usd": 0.0009, "elapsed_ms": 41.0},
-                    "config": {
-                        "provider": "openai",
-                        "model": "gpt-4o-mini",
-                        "temperature": stub.temperature,
-                        "max_tokens": 512,
-                    },
+                    "config": config,
                 }
             ).encode()
             self.send_response(200)
@@ -975,7 +984,12 @@ def java_service() -> Iterator[HttpStub]:
         httpd.shutdown()
 
 
-def http_run(stub: HttpStub, *, created_at: str) -> Run:
+def http_run(
+    stub: HttpStub,
+    *,
+    created_at: str,
+    expect: Mapping[str, ConfigValue] | None = None,
+) -> Run:
     return execute(
         a_suite(),
         HttpTarget(
@@ -984,6 +998,7 @@ def http_run(stub: HttpStub, *, created_at: str) -> Run:
             output_path="data",
             cost_path="usage.cost_usd",
             config_path="config",
+            expect_config=expect,
         ),
         created_at=created_at,
     )
@@ -1175,3 +1190,198 @@ def test_the_early_read_still_happens_so_a_broken_judge_fails_first() -> None:
 
 def _never_called(case: Case) -> Response:
     raise AssertionError("the suite was paid for before the judge was checked")
+
+
+# --------------------------------------------------------------------------- #
+# The configuration the suite declares it expects (ADR 0030 §4)
+# --------------------------------------------------------------------------- #
+#
+# Over HTTP the measured party writes every field it reports, so the provenance
+# ADR 0005 §9 separates the two model names by does not exist there: `model`
+# reaches a document having been reviewed by nobody. `expect_config` is the
+# repair — the suite declares, the application agrees, and a contradiction is
+# refused — and these are its two halves beside each other, because a gate that
+# refuses everything passes the refusal test on its own.
+
+
+def test_an_application_that_contradicts_the_declaration_is_refused(
+    java_service: HttpStub,
+) -> None:
+    """The refusal, naming both values (ADR 0030 §4, §7).
+
+    A reader who is told only that something is wrong cannot tell which end to
+    fix, and either end is possible: the application may have rotated, or the
+    declaration may be stale.
+    """
+    java_service.model = "gpt-4o"
+    run = http_run(
+        java_service,
+        created_at="2026-09-25T00:00:00Z",
+        expect={"provider": "openai", "model": "gpt-4o-mini"},
+    )
+    reasons = [
+        verdict.reason
+        for result in run.results
+        for verdict in result.verdicts
+        if verdict.reason
+    ]
+    assert reasons, "a mismatch has to reach the document, not vanish"
+    assert any("gpt-4o-mini" in reason and "gpt-4o" in reason for reason in reasons), (
+        f"the refusal must name the declared value and the reported one: {reasons}"
+    )
+
+
+def test_a_declared_configuration_the_application_agrees_with_still_runs(
+    java_service: HttpStub,
+) -> None:
+    """Agreement is not a refusal — the test that stops a gate refusing all."""
+    run = http_run(
+        java_service,
+        created_at="2026-09-25T00:00:00Z",
+        expect={"provider": "openai", "model": "gpt-4o-mini"},
+    )
+    assert run.target_config.values == {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3,
+        "max_tokens": 512,
+    }
+    assert [v.status for r in run.results for v in r.verdicts] == ["pass"]
+
+
+def test_a_declared_key_the_application_never_reports_is_not_agreement(
+    java_service: HttpStub,
+) -> None:
+    """Absence is not agreement (ADR 0030 §7).
+
+    §8 reads a missing key as *not sent, the provider's own default applied*,
+    which is honest about an application's silence and dishonest here: the suite
+    asked a question and got none of an answer.
+    """
+    run = http_run(
+        java_service,
+        created_at="2026-09-25T00:00:00Z",
+        expect={"provider": "openai", "model": "gpt-4o-mini", "region": "eu-west-1"},
+    )
+    reasons = " ".join(
+        verdict.reason or "" for r in run.results for verdict in r.verdicts
+    )
+    assert "region" in reasons and "not reported at all" in reasons
+
+
+def test_a_suite_that_declares_nothing_runs_exactly_as_it_did(
+    java_service: HttpStub,
+) -> None:
+    """The compatibility half, which is the one a later reading will want pinned.
+
+    §4 ruled that an undeclared suite must not be refused, because that is every
+    existing HTTP suite. It is also **not** recorded as `unreviewed`: §5.1
+    deferred that field to `SCHEMA_VERSION` 17, so what a reader gets today is
+    the status quo, and ADR 0030 §6 says so. A test asserting the marker here
+    would be asserting a deferred half.
+    """
+    run = http_run(java_service, created_at="2026-09-25T00:00:00Z")
+    assert run.target_config.values == {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3,
+        "max_tokens": 512,
+    }
+    assert [v.status for r in run.results for v in r.verdicts] == ["pass"]
+    # The deferral, pinned as a deferral: nothing in the document says whether
+    # the configuration was reviewed. When schema 17 lands this assertion is the
+    # one that has to change, which is what makes the change visible.
+    assert "unreviewed" not in run_to_json(run)
+
+
+def test_a_declaration_is_refused_when_nothing_would_ever_read_it() -> None:
+    """A gate on a value nothing reads passes everything (fixed decision 3).
+
+    Without `config_path` no configuration is read at all, so the check never
+    runs — the run is green whatever the application answered. Refused at
+    construction, because the alternative is a suite that looks reviewed.
+    """
+    with pytest.raises(ValueError, match="without `config_path`"):
+        HttpTarget(
+            "http://localhost:8080/answer",
+            request=lambda case: {"question": case.id},
+            output_path="data",
+            expect_config={"provider": "openai", "model": "gpt-4o-mini"},
+        )
+
+
+def test_an_empty_declaration_is_refused_rather_than_read_as_a_review() -> None:
+    """`expect_config = {}` accepts everything, which is what omitting it does.
+
+    The difference is that one of the two looks like a review, so an empty
+    declaration is refused instead of being quietly vacuous.
+    """
+    with pytest.raises(ValueError, match="declares nothing"):
+        HttpTarget(
+            "http://localhost:8080/answer",
+            request=lambda case: {"question": case.id},
+            output_path="data",
+            config_path="config",
+            expect_config={},
+        )
+
+
+def test_a_declaration_outside_the_contract_could_never_be_met() -> None:
+    """An application cannot report a key the closed table refuses, so an
+    expectation of one is refused where it is written rather than on every case
+    of every run."""
+    with pytest.raises(ValueError, match="not part of the configuration contract"):
+        HttpTarget(
+            "http://localhost:8080/answer",
+            request=lambda case: {"question": case.id},
+            output_path="data",
+            config_path="config",
+            expect_config={"provider": "openai", "model": "m", "account_id": "acme-7"},
+        )
+
+
+def test_the_declaration_does_not_move_the_config_hash(
+    java_service: HttpStub,
+) -> None:
+    """Recorded beside `config_hash`, never inside it (ADR 0030 §7).
+
+    Two reasons, and the second is the one that would bite: inside the hash,
+    rotating the declared model would break comparability across the rotation —
+    the thing ADR 0005 §3 and §9 keep out on purpose — and adding the key to an
+    existing suite would cost a re-promotion, which is a gate teams decline.
+    """
+    declared = http_run(
+        java_service,
+        created_at="2026-09-25T00:00:00Z",
+        expect={"provider": "openai", "model": "gpt-4o-mini"},
+    )
+    silent = http_run(java_service, created_at="2026-09-25T00:00:01Z")
+    assert declared.config_hash == silent.config_hash
+
+    # And rotating the declaration does not move it either, which is what keeps
+    # a model rotation comparable and promotable.
+    java_service.model = "gpt-4o"
+    rotated = http_run(
+        java_service,
+        created_at="2026-09-25T00:00:02Z",
+        expect={"provider": "openai", "model": "gpt-4o"},
+    )
+    assert rotated.config_hash == silent.config_hash
+
+
+def test_the_malformed_base_url_drop_is_still_the_disarm_it_was(
+    java_service: HttpStub,
+) -> None:
+    """§4 does not touch `base_url`, and this is what that leaves standing.
+
+    `declared_config` deletes a `base_url` whose value has no parsable host,
+    silently, so an application that reports its endpoint as anything
+    unparseable is read as first-party. ADR 0030 §7 keeps this asserted because
+    it is one of the two refusals of ADR 0005 §9 that `expect_config` does
+    **not** repair — and an amendment that thought it had would be reading a
+    third of an argument.
+    """
+    java_service.base_url = "not a url at all"
+    run = http_run(java_service, created_at="2026-09-25T00:00:00Z")
+    assert "base_url" not in run.target_config.values
+    assert "base_url" not in run.target_config.withheld
