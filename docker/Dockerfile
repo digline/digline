@@ -76,15 +76,34 @@ ARG AWAIT_INDEX_TIMEOUT=0
 #
 # One `RUN` for the wait and the install, so a cached install can never be
 # separated from the wait that protected it.
+#
+# **The second mount is the other half of the index-divergence capture**, and it
+# is the same file twice: `await_index.py` mounted under `sitecustomize.py`, the
+# name `site` imports a customising module by, on the `PYTHONPATH` of the `pip`
+# command and of nothing else. When
+# `INDEX_CAPTURE` is set it reports every `/simple/` page `pip` resolves — the
+# server, the cache state, the object, the time — in the same `index-capture`
+# line shape the wait prints, so the two requests can be compared field by
+# field. Why here and not in a step of its own: a later step could only make a
+# *third* request, to whichever server answers next, and the failure is a
+# disagreement between these two.
+#
+# Both are inside the same `AWAIT_INDEX_TIMEOUT` gate, so a local
+# `docker build docker/` waits for nothing and reports nothing, exactly as
+# before. `PYTHONPATH` prefixes the `pip` command alone: exported, the wait's own
+# process would import the file a second time and report its own request twice.
 RUN --mount=type=bind,source=await_index.py,target=/tmp/await_index.py \
-    if [ "${AWAIT_INDEX_TIMEOUT}" != "0" ]; then \
+    --mount=type=bind,source=await_index.py,target=/tmp/index_capture/sitecustomize.py \
+    CAPTURE= \
+ && if [ "${AWAIT_INDEX_TIMEOUT}" != "0" ]; then \
       TIMEOUT="${AWAIT_INDEX_TIMEOUT}" INTERVAL=15 python3 /tmp/await_index.py \
         "digline==${DIGLINE_VERSION}" \
         "digline-anthropic==${DIGLINE_ANTHROPIC_VERSION}" \
         "digline-openai==${DIGLINE_OPENAI_VERSION}" \
         "digline-bedrock==${DIGLINE_BEDROCK_VERSION}"; \
+      CAPTURE="INDEX_CAPTURE=1 PYTHONPATH=/tmp/index_capture"; \
     fi \
- && pip install --no-cache-dir \
+ && env ${CAPTURE} pip install --no-cache-dir \
       "digline==${DIGLINE_VERSION}" \
       "digline-anthropic==${DIGLINE_ANTHROPIC_VERSION}" \
       "digline-openai==${DIGLINE_OPENAI_VERSION}" \

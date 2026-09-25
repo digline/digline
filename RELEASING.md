@@ -1096,21 +1096,129 @@ never separated from its wait. It is gated by `ARG AWAIT_INDEX_TIMEOUT`,
 three builds above pass a timeout. The same test holds each of them to a
 non-zero one.
 
-### The diagnostic, kept ready and not built
+The same `RUN` mounts that file a second time, as
+`/tmp/index_capture/sitecustomize.py`, on the `PYTHONPATH` of the `pip` command
+alone. That is the other half of the capture below, and it rides the same gate.
 
-If a wait prints `served` and `pip` in the same `RUN` still finds no such
-version, **after** the same-question fix, the variant is ruled out. One
-hypothesis is left: **per-server luck**, the two requests landing on different
-cache servers of the same variant, one refreshed and one not. That is when a
-capture earns its cost, and not before. Build it into the step then, recording
-for both requests, the wait's and `pip`'s own, at the moment of failure:
+### The diagnostic, built — read two lines, not a log
 
-- the versions the page lists;
-- `X-Served-By`, `X-Cache` and `Age`;
-- the time, to the tenth of a second.
+**The four fields this was specified with would have measured the wrong thing,
+and finding that out is what building it bought.** The specification was
+`X-Served-By`, `X-Cache`, `Age` and the time, for both requests: on the reasoning
+that two different servers in `X-Served-By` would confirm per-server luck and one
+server would refute it. Measured on 2026-09-25, **two different edge servers is
+the ordinary case** — see *The control* below: the wait and `pip`, 1.1s apart in
+one `RUN` on a build where nothing was wrong, were answered by two different
+Fastly edges holding the identical page. So `X-Served-By` differing carries
+almost no information, and a reading built on it would have confirmed the
+hypothesis on the first divergence it met, whatever the cause.
 
-Same server with a different answer would refute per-server luck. Different
-servers would confirm it.
+**The discriminator is `X-PyPI-Last-Serial`**, which was not in the
+specification and costs nothing: it is PyPI's own monotonic counter of a
+project's state, on the same response. It says *older* rather than merely
+*different*, and it says it independently of routing — a lower serial on pip's
+side is a stale snapshot whichever server sent it. `ETag` comes with it, for
+free, and settles whether two pages are byte-identical. So the capture records
+six fields, not four, and the two that decide it are the two that were not
+asked for.
+
+What follows from that is the table below: per-server luck is confirmed only by
+`via` **and** `serial` moving together, and refuted by one server giving two
+answers. The next reading is then a lookup rather than an argument, at the one
+moment — mid-release, on a red — when nobody should be having the argument.
+
+v0.20.1 was the condition this was kept ready for: `served digline==0.20.1` and
+then, a second later in the same `RUN`, a version list ending at 0.20.0 —
+**after** the same-question fix, so the variant is ruled out and per-server luck
+is the one hypothesis left. Built 2026-09-25.
+
+**One line shape, two producers.** Both halves print an `index-capture` line, so
+a reading is a field-by-field comparison of two lines and not an archaeology of
+a build log.
+
+**The control, and it is from the real path.** This is the pair the paragraph
+above rests on, taken from `ci`'s `image` job on PR #132 — the first build to run
+this at all — and not from a laptop. One `RUN` (`#9`), the in-build wait and then
+`pip`, on a build where **nothing was wrong**:
+
+    index-capture side=wait name=digline t=2026-09-25T12:09:27.6Z took=0.025s
+      status=200 variant=json serial=41442088 etag=r39LI8WAzV7Tls9SLWeqaA
+      age=- cache=MISS,HIT
+      via=cache-iad-khef600091-IAD,cache-iad-khef600091-IAD,cache-iad-kiad7000081-IAD
+      versions=39 asked=0.20.1 served=yes
+    index-capture side=pip  name=digline t=2026-09-25T12:09:28.7Z took=0.004s
+      status=200 variant=json serial=41442088 etag=r39LI8WAzV7Tls9SLWeqaA
+      age=- cache=MISS,HIT
+      via=cache-iad-khef600091-IAD,cache-iad-khef600091-IAD,cache-iad-kcgs7200037-IAD
+      versions=- asked=- served=-
+
+(One line each; wrapped here to fit. `#9 1.503 Collecting digline==0.20.1`
+follows, and `#9 8.626 Successfully installed … digline-0.20.1 …`.)
+
+**Same object, different third node, 1.1 seconds apart, in one `RUN`.** The
+`serial` and the `etag` are identical — one page — while the last hop of the
+`via` chain is `kiad7000081` for the wait and `kcgs7200037` for `pip`. That is
+row three of the table below, and it is the sentence that makes the table
+readable: **different edge servers is what agreement looks like.** Not a
+coincidence of one healthy build either — it is the same gap, in the same place,
+that failed on v0.15.0 and v0.20.1, and the pip here is the image's own 25.0.1.
+
+Which is why the four fields this was specified with would have read this build
+as per-server luck. Keep the control: without it a divergence has nothing to be
+compared against, and `via` alone would confirm the hypothesis on any red at all.
+
+**How to read it.** Take the `side=wait` line for the pin and the `side=pip`
+line for the same `name`, in the same `RUN`:
+
+| `via` | `serial` / `etag` | Reading |
+|---|---|---|
+| differ | differ | **per-server luck confirmed** — two servers, and pip's is the older object |
+| same | differ | **per-server luck refuted** — one server gave two answers; the question moves to the object, not the routing |
+| differ | same | the routine case above: two servers, one object. Not the failure |
+
+Row three is the control and will be most of what the logs hold. Row one is the
+only row that confirms, and it needs **both** halves of the evidence — which is
+the whole correction above: `via` alone was never going to be one of them.
+
+**Where it lives, and why not in a step of its own.** Half one is in
+`.github/await_index.py`, on every request it makes. Half two is the *same file*,
+bind-mounted a second time as `/tmp/index_capture/sitecustomize.py` and put on
+the `PYTHONPATH` of the Dockerfile's `pip` command alone, where `site` imports it
+before pip's first line runs; it then reports each `/simple/` page pip resolves.
+A step of its own could only make a **third** request, after the fact, to
+whatever server answers next — and the failure is a disagreement between the two
+requests that already happened. Nothing about pip changes: no proxy, no index
+URL, no headers, no extra request.
+
+**What it costs on a normal run**, which is the question that decides whether it
+can exist at all. It is **always on wherever it runs**, because the observation
+that has to be compared is the `served` one *preceding* the failure, and nothing
+knows a failure is coming when that request is made. A capture armed by the
+failure can only ever describe one of the two requests. So:
+
+- the wait prints one line per pin per poll — **four** lines where the index is
+  already ahead, **44** on a wait like v0.20.0's (eleven polls × four pins);
+- pip's half prints one line per project page it resolves — **33** for the
+  image's four pins, its own self-check and every transitive dependency
+  included. Predicted with pip 26.2.1 before the first build, then **counted as
+  33** in PR #132's `image` job, on the image's own pip. A number with a check
+  attached, rather than a green standing in for one;
+- **no extra HTTP request and no extra second of wall time** on either side:
+  both read headers off a response that was going to be read anyway;
+- both halves ride the existing `AWAIT_INDEX_TIMEOUT` gate, so a local
+  `docker build docker/` waits for nothing and prints nothing, exactly as
+  before. `tests/test_docker.py` holds the three release builds to turning it
+  on, because a diagnostic that is silently off is the failure mode here.
+
+**What it does not do.** It does not read the body of pip's request: consuming
+that stream would break the install, and a diagnostic that can become the
+outage it was to explain is not one to put on the release path. So `versions` is
+`-` on pip's side, and the three things that stand in for it are exact — `etag`
+(the same object), `serial` (which snapshot), and pip's own `(from versions: …)`,
+which it prints itself in the case that matters. It also covers `pip` only: the
+runner-level consumers resolve with `uv`, and the divergence has never been seen
+anywhere but inside the build — which is also the one place both requests are in
+the same `RUN`, and so the only place they are comparable.
 
 ### Status: what each path has proven
 
@@ -1131,7 +1239,7 @@ tag* updates it on every tag.
   list `pip` was handed **ended at 0.20.0**. That is v0.15.0's shape exactly, and
   it arrived **after** #29 made the wait ask pip's own question (the same
   `Accept`, the same `Accept-Encoding`, `max-age=0`). The variant is therefore
-  ruled out, as *The diagnostic, kept ready and not built* says, and one
+  ruled out, as *The diagnostic, built* says, and one
   hypothesis is left: **per-server luck**. The wait and `pip` reached different
   cache servers of the same variant, one refreshed and one not. The multi-arch
   job never ran on attempt 1: it needs the smoke build.
@@ -1150,12 +1258,19 @@ tag* updates it on every tag.
   The six locks moved to `digline 0.20.1`, read back one at a time, all on the
   first try.
 
-  **What the next tag must show:** before it, the capture this file has kept
-  ready and not built — for both requests, the wait's and `pip`'s, at the moment
-  of failure: the versions the page lists, `X-Served-By`, `X-Cache`, `Age`, and
-  the time to the tenth of a second. The same server giving a different answer
-  would refute per-server luck; different servers would confirm it. Until it
-  exists, a divergence like attempt 1 can be re-run past and not explained.
+  **The capture this asked for exists, since 2026-09-25** — see *The
+  diagnostic, built*. It changes what a repetition of attempt 1 is worth: the
+  two `index-capture` lines are in the log already, so the divergence can be
+  read instead of re-run past.
+
+  **What the next tag must show:** the same two-pair reading, an honest note on
+  whether the race was live — and, **the first time a `served` is again followed
+  by a `pip` failure**, the two `index-capture` lines for that pin, read against
+  the table in *The diagnostic, built*. That reading is the point of the tag, not
+  a footnote to it: it is what turns per-server luck from the last hypothesis
+  standing into a finding or a dead end. If no divergence happens, say that the
+  capture ran and had nothing to explain, so that a quiet log does not later
+  read as a confirmation.
 
 - **v0.20.0 — both pairs proven, one in each job, and the runner-level wait
   equal to v0.19.2's to the second.** The fourth tag in a row where the
@@ -1578,7 +1693,10 @@ installs no Python package and is not a consumer.
 
 And the part no amount of waiting closes: **PyPI's edges converge on their own
 schedule.** The wait narrows the window to whatever the consuming runner can
-see; it cannot make one edge speak for another.
+see; it cannot make one edge speak for another. What *The diagnostic, built*
+adds is not a fix for that but a record of it: when two requests disagree, the
+two `index-capture` lines say whether the disagreement was between two servers
+or within one. A reading, not a remedy.
 
 ### Evidence: eight times paid for
 

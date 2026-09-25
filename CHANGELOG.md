@@ -35,6 +35,38 @@ notes under them are this file, verbatim.
     the other truthful answer: there nobody may promote, and here somebody may.
   - **Seen working in a browser before this was tagged**: the printed address
     clicked, and *Make baseline* pressed. HTTP-level tests alone do not ship it.
+### Changed
+
+- **CI: when the index disagrees with itself, the release now says which
+  *snapshot*, not only which server.** That correction is the finding: the
+  capture was specified around `X-Served-By`, and two different edge servers
+  turns out to be the ordinary case — a pair of requests a tenth of a second
+  apart, on a day nothing was wrong, was answered by two of them. So the field
+  that decides is `X-PyPI-Last-Serial`, PyPI's own counter of a project's state,
+  which says *older* rather than merely *different* and says it whichever server
+  answered. Twice — v0.15.0 and v0.20.1 — the in-build wait printed `served
+  digline==<version>` and `pip`, a second later in the same `RUN`, was handed a
+  list ending at the previous version. The first cause was found and fixed: the
+  two requests were reading two `Vary` variants of one URL. The second happened
+  **after** that fix, which leaves one hypothesis, **per-server luck** — two
+  cache servers of the same variant, one refreshed and one not — and no way to
+  decide it after the fact. So both requests are now recorded. The wait prints an
+  `index-capture` line for every request it makes, and `.github/await_index.py`
+  is mounted a second time as `sitecustomize.py` on the `pip` command's own
+  `PYTHONPATH`, where it prints the same line for each `/simple/` page `pip`
+  resolves: the cache servers, the cache state, `X-PyPI-Last-Serial`, the `ETag`,
+  and the time to the tenth of a second. One line shape for both, so a reading is
+  a comparison of two lines. **It is always on**, because the observation that
+  matters is the one *before* the failure and nothing knows a failure is coming
+  when it is made; it costs 4 lines on a wait that finds the index ready and 33
+  on `pip`'s side, with no extra request and no extra second. A local
+  `docker build docker/` still waits for nothing and now also prints nothing.
+  Nothing about `pip` changes: no proxy, no index URL, no headers, and its
+  response body is never read — consuming that stream would break the install the
+  capture is there to explain. How to read the two lines is in `RELEASING.md`,
+  *The diagnostic, built* — named and not linked, because that file is not a
+  site page and every other mention of it here is a bare code span for the same
+  reason.
 
 ## 0.20.1 — 2026-09-25
 
