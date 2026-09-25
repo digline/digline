@@ -12,16 +12,33 @@ answer twice the same.
 
 `report.html` is what happened when one line — *"Always remind the customer of
 the returns policy"* — was added to `prompts/system.txt`. The report shows the
-**diff of the prompt itself**, above the scores it moved: five answers longer,
-ten checks worse. The prompt is recorded in every run, so the baseline carries
-the prompt that produced it.
+**diff of the prompt itself**, above the scores it moved. In the run it records,
+**five checks of ten got worse**. Three other live runs of the same prompt,
+against the same baseline, measured seven, seven and eight. The spread is the
+model's, and one run of it is one draw. The answers come back longer too, about
+820–920 output tokens against about 530. The prompt is recorded in every run,
+so the baseline carries the prompt that produced it: the committed one is
+measured **without** that line, and the example ships **with** it.
+
+**The reference is not all green, and that is not the example breaking.** The
+live baseline itself fails five or six checks. Most are `Levenshtein`: a real
+model does not use the wording in `cases.json`, so its distance from the
+expected answer is large even when the answer is good. One case's rubric also
+sits under its threshold. This example is about what gets **worse** when the
+prompt changes, not about green turning red. Run the shipped state and you will
+see failures on both sides. The ones that matter are the ones `compare` names
+as got worse.
 
 ```console
-$ uv sync && uv run digline run --suite suite.py
-$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-23T07-14-08-579107-00-00-0d99045c0f1639eb
+$ uv sync && DIGLINE_LIVE=1 uv run digline run --suite suite.py
+$ DIGLINE_LIVE=1 uv run digline promote --suite suite.py --run latest --replacing 2026-09-25T08-24-08-967806-00-00-0d99045c0f1639eb
 # edit prompts/system.txt, then
-$ uv run digline compare --suite suite.py --run latest
+$ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 ```
+
+`DIGLINE_LIVE=1` on every line, and a key in `ANTHROPIC_API_KEY`: the
+baseline is live, so the cycle is too. Promoting a keyless run over it would
+replace a measurement with a stand-in's.
 
 `--replacing` names the baseline this promotion replaces: here, the one
 this example ships, whose key `compare` prints under its verdict and
