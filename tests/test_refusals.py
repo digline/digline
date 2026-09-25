@@ -130,16 +130,23 @@ class _Refusing(FileResultStore):
         raise self.kind(SENTENCE)
 
 
+#: A handler built by hand promotes only with a key, like the one `serve()`
+#: mints: there is no `allow_promote` to set without one. (ADR 0033)
+LAUNCH_KEY = "k" * 43
+
+
 @pytest.mark.parametrize("kind", REFUSALS, ids=lambda kind: kind.__name__)
 def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
     """The route that writes answers with the sentence. Before friction 59 it
     listed six types by hand, and two refusals 0.19.2 added reached the browser
     as a closed connection.
 
-    `allow_promote=True`, because the route only exists there: this is about
-    what a refusal looks like on the server a person chose to promote from, and
-    the default server has nothing to refuse *with* — it refuses the route
-    itself. That half is `tests/test_view.py`. (ADR 0032 §6)
+    A launch key, because the route only exists on a server that has one:
+    this is about what a refusal looks like on the server a person chose to
+    promote from, and the default server has nothing to refuse *with* — it
+    refuses the route itself. The request carries the cookie, or the key would
+    refuse it first and the walk would reach `promote_baseline` for no type.
+    The default server's half is `tests/test_view.py`. (ADR 0032 §6)
 
     **It was moved here deliberately, and that is the only reason it still
     means anything.** Left on the default server this walk would have gone on
@@ -159,7 +166,7 @@ def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
         suite=suite,
         store=_Refusing(repo, kind),
         known=known,
-        allow_promote=True,
+        launch_key=LAUNCH_KEY,
     )
     with ThreadingHTTPServer(("127.0.0.1", 0), handler) as httpd:  # pyright: ignore[reportArgumentType]
         port = int(httpd.server_address[1])
@@ -174,6 +181,7 @@ def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": f"http://127.0.0.1:{port}",
+                    "Cookie": f"digline-view-{port}={LAUNCH_KEY}",
                 },
             )
             with urllib.request.urlopen(request, timeout=10) as response:

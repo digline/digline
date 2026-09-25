@@ -4,7 +4,7 @@ Transport only. Every screen is a pure function in `digline.report.pages`,
 so what is tested is the page and not the socket, and what is served can never
 disagree with what `digline report` writes to a file.
 
-Three properties are deliberate:
+Four properties are deliberate:
 
 - **No state of its own.** It reads the store and holds nothing between
   requests — not a session, not a preference, not a cache. Restarting it loses
@@ -21,7 +21,7 @@ Three properties are deliberate:
   perimeter exists to prevent. (ADR 0032 §1)
 - **The request does not get to say who this server is.** Binding to loopback is
   not enough: any page in the developer's browser can reach `localhost`, and the
-  browser will attach no credential but the server needs none. So `Host` is
+  reading routes need no credential at all. So `Host` is
   checked against the address this server actually bound to, on **every** route,
   and `Origin` is checked against that same known value.
 
@@ -34,11 +34,23 @@ Three properties are deliberate:
   promoted a baseline. The claim is recorded here rather than deleted because a
   confident docstring is why nobody looked again: the code was one defect, and
   the sentence telling everyone it was handled was the other.
+- **The server that promotes, promotes for one browser.** `--allow-promote`
+  decides that this server may write; it cannot decide *who* is asking, and a
+  person's `digline view --allow-promote` answered a `curl` from any shell on
+  the machine — an agent's included — with no `Origin` and nothing else. So
+  that server mints a **launch key** when it starts: random, held in memory,
+  never written, never configurable. It reaches a browser once, on the address
+  the startup line prints, and comes back as a cookie; `/promote` refuses a
+  request without it. The flag stays the only control a person operates — the
+  key is how the flag's decision stays with the person who made it, not a
+  second thing to set. (ADR 0033)
 """
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
+import secrets
 import sys
 import urllib.parse
 
@@ -49,6 +61,7 @@ import urllib.parse
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from functools import partial
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -74,6 +87,20 @@ __all__ = ["ViewHandler", "serve"]
 #: one of these cannot enumerate the names it will be reached by, which is the
 #: one case `_is_self` has to answer differently.
 _WILDCARDS = frozenset({"", "0.0.0.0", "::", "[::]"})  # noqa: S104
+
+#: The query parameter that carries the launch key on the printed address, once.
+LAUNCH = "launch"
+
+
+def launch_cookie(port: int) -> str:
+    """The cookie's name, which carries the port.
+
+    A browser keeps cookies by host and **not by port**, so two views on one
+    machine — two suites, two terminals — would otherwise overwrite each other's
+    key, and the first person would find their server refusing them after the
+    second one started.
+    """
+    return f"digline-view-{port}"
 
 
 def self_netlocs(host: str, port: int) -> frozenset[str]:
@@ -127,6 +154,12 @@ def _allowed_origin(origin: str, known: AbstractSet[str], *, wildcard: bool) -> 
     an old browser, neither of which is the attack — but an `Origin` that is
     not ours is refused rather than ignored.
 
+    **That door is only safe because another one is shut behind it.** A caller
+    with a shell *is* an attack on the flagged server — an agent's `curl`
+    promoted a person's baseline through exactly this `return True` — and what
+    refuses it is the launch key, which `curl` does not have. The origin check
+    stops a page; the key stops a process. (ADR 0033 §2)
+
     **It is compared with what this server knows itself to be**, never with the
     request's own `Host`. That comparison was the defect: both headers describe
     one request, so it asked the sender whether the sender was allowed.
@@ -150,18 +183,23 @@ class ViewHandler(BaseHTTPRequestHandler):
         pricing: str = "",
         known: AbstractSet[str] = frozenset(),
         wildcard: bool = False,
-        allow_promote: bool = False,
+        launch_key: str = "",
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
+        #: The key this start minted, or empty on the server that does not
+        #: promote. **There is no separate switch beside it**: a server that
+        #: promotes without a key cannot be constructed, so the key cannot
+        #: become the optional half of two controls. (ADR 0033)
+        self.launch_key = launch_key
         #: Whether this server promotes at all — **one fact, read twice**: the
         #: page asks it to decide whether to draw a button, and `do_POST` asks
         #: it to decide whether `/promote` exists. Two decisions computed
         #: separately is a page that eventually offers a button the route
-        #: rejects. Defaulting to `False` is the same asymmetry as the flag's:
-        #: the cheap mistake is the one a default should make. (ADR 0032 §1-2)
-        self.allow_promote = allow_promote
+        #: rejects. Empty by default is the same asymmetry as the flag's: the
+        #: cheap mistake is the one a default should make. (ADR 0032 §1-2)
+        self.allow_promote = bool(launch_key)
         #: The netlocs that name this server, from where it bound — not from
         #: anything the request says. `serve()` computes them once.
         self.known = known
@@ -215,6 +253,70 @@ class ViewHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         return parsed.path, urllib.parse.parse_qs(parsed.query)
 
+    # -- the launch key ------------------------------------------------------ #
+
+    def _cookie(self) -> str:
+        # The port the request arrived on, which is the one this server bound:
+        # read off the socket because `server_address` is typed for every
+        # address family, a Unix path included, and has no port to index.
+        return launch_cookie(int(self.connection.getsockname()[1]))
+
+    def _carries_the_key(self) -> bool:
+        """Whether this request came from the browser the key was handed to.
+
+        `compare_digest` rather than `==`: a comparison that stops at the first
+        wrong character tells a patient caller how many were right. An
+        unparseable `Cookie` header is a request without the key, not an error.
+        """
+        jar: SimpleCookie = SimpleCookie()
+        try:
+            jar.load(self.headers.get("Cookie", ""))
+        except CookieError:
+            return False
+        morsel = jar.get(self._cookie())
+        return morsel is not None and hmac.compare_digest(
+            morsel.value.encode("utf-8"), self.launch_key.encode("utf-8")
+        )
+
+    def _hand_over(self, path: str, query: Mapping[str, Sequence[str]]) -> bool:
+        """Turn the printed address into a cookie, and the address into a clean one.
+
+        True when the request was answered here. The key is checked, set as an
+        `HttpOnly`, `SameSite=Strict` cookie, and the browser is sent to the same
+        page **without** it — so the key does not sit in the address bar, and
+        no page this server renders ever contains it. That last part is the
+        whole of the design: every reading route answers anybody with a shell,
+        so a key written into a page, a form or a link would be handed to
+        exactly the caller it exists to refuse.
+
+        On the server that does not promote there is nothing to hand over and
+        the parameter is ignored: the header already says what that server is.
+        """
+        if LAUNCH not in query or not self.allow_promote:
+            return False
+        offered = query[LAUNCH][0] if query[LAUNCH] else ""
+        if not hmac.compare_digest(
+            offered.encode("utf-8"), self.launch_key.encode("utf-8")
+        ):
+            self._error(
+                403,
+                "refused: this address carries a launch key from another start "
+                "of digline view. Open the address this start printed.",
+            )
+            return True
+        rest = {name: values for name, values in query.items() if name != LAUNCH}
+        clean = path + ("?" + urllib.parse.urlencode(rest, doseq=True) if rest else "")
+        self.send_response(303)
+        self.send_header(
+            "Set-Cookie",
+            f"{self._cookie()}={self.launch_key}; Path=/; HttpOnly; SameSite=Strict",
+        )
+        self.send_header("Location", clean)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        return True
+
     # -- reading the store -------------------------------------------------- #
 
     def _runs(self) -> tuple[list[tuple[str, object]], str]:
@@ -253,6 +355,8 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not self._addressed_to_us():
             return
         path, query = self._query()
+        if self._hand_over(path, query):
+            return
         locale: Locale = pages.locale_of(query)
         try:
             if path == "/":
@@ -367,7 +471,8 @@ class ViewHandler(BaseHTTPRequestHandler):
     # -- the route that writes, where there is one --------------------------- #
 
     def do_POST(self) -> None:  # noqa: N802 — the name http.server dispatches on
-        """`/promote`, and only on a server started with `--allow-promote`.
+        """`/promote`, only on a server started with `--allow-promote`, and only
+        from the browser that opened the address it printed.
 
         **Without the flag the refusal is a 404 and deliberately not a 403.** A
         403 says *you may not*, which implies a someone who may, which is a
@@ -377,6 +482,12 @@ class ViewHandler(BaseHTTPRequestHandler):
         the same act reached through a different word. On this server there is
         no promote, so the answer is the one every unknown path gets, in the
         same sentence. (ADR 0032 §2)
+
+        **With the flag, a request without the launch key is a 403**, and that
+        is the same reasoning giving the other answer. On this server somebody
+        may promote — the person who started it — so a caller without the key
+        is refused, not told there is nothing here. Same fact, two servers, two
+        truthful answers. (ADR 0033 §3)
         """
         if not self._addressed_to_us():
             return
@@ -390,6 +501,16 @@ class ViewHandler(BaseHTTPRequestHandler):
             # 403 and not a redirect: a refusal that looked like a page would be
             # indistinguishable from a promotion that happened.
             self._error(403, "refused: this request came from another origin")
+            return
+        if not self._carries_the_key():
+            # After the origin check, so a cross-origin POST is still refused
+            # in the words that say so; and before the form is read, so
+            # nothing a refused caller sent is parsed at all.
+            self._error(
+                403,
+                "refused: this server promotes only from the browser that "
+                "opened the address digline view printed when it started.",
+            )
             return
 
         length = int(self.headers.get("Content-Length") or 0)
@@ -468,12 +589,19 @@ def serve(
     `allow_promote` defaults to refusing, and the startup line says which server
     this is either way. The refusing one names the flag there as well as in the
     header, so the discovery path does not run through the documentation.
+
+    **The launch key is minted here, and there is no parameter to pass one in.**
+    A key that could be supplied would have to come from somewhere — a file, a
+    variable, an option — and every such place is readable by any process of
+    the same user, which is the caller the key exists to refuse. Minted per
+    start and held in memory, it has no home to read. (ADR 0033 §1)
     """
     # Filled after the bind and shared with every handler by reference, because
     # the port may not be known until then: `--port 0` means the operating
     # system chooses, and the allowlist has to name the port actually taken.
     # Binding twice to learn it would race another process for the number.
     known: set[str] = set()
+    launch_key = secrets.token_urlsafe(32) if allow_promote else ""
     handler = partial(
         ViewHandler,
         suite=suite,
@@ -481,11 +609,16 @@ def serve(
         pricing=pricing,
         known=known,
         wildcard=host in _WILDCARDS,
-        allow_promote=allow_promote,
+        launch_key=launch_key,
     )
     with ThreadingHTTPServer((host, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         known.update(self_netlocs(host, int(httpd.server_address[1])))
         shown = f"http://{host}:{httpd.server_address[1]}/"
+        if launch_key:
+            # The one place the key is ever shown: the output of the process,
+            # which goes wherever whoever started it pointed it — a person's
+            # terminal, or an agent's pipe after the plugin's hook has asked.
+            shown += f"?{LAUNCH}={launch_key}"
         # Flushed, and the *bound* port rather than the requested one: with
         # `--port 0` the operating system chooses, and a caller that cannot read
         # which one would have to guess. Through `say()` like every other line
@@ -494,7 +627,7 @@ def serve(
         # The URL stays the fourth word whichever server this is: a caller
         # reading the line for the bound port should not have to parse a mood.
         mode = (
-            "promotion enabled"
+            "promotion enabled, from the browser that opens this address"
             if allow_promote
             else "read-only; --allow-promote to promote"
         )
