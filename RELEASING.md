@@ -344,11 +344,22 @@ for itself.
 - **The digline you are releasing, not one from PyPI.** Every command runs as
   `uv run --project <digline checkout> …`, with the checkout synced
   (`uv sync --all-packages`). Never from inside an example's directory: each
-  example has its own `.venv`, which resolves digline **from PyPI**. On
-  2026-09-25 the four such venvs in one checkout held four different
-  published versions, and none of them was the code being released. The first walkthrough ran the wrong digline three times before the key
-  appeared, and a released `view --allow-promote` prints *promotion enabled*,
-  truthfully, while testing none of what is being released.
+  example has its own `.venv`, which resolves digline **from PyPI**. Measured
+  on 2026-09-25, the four such venvs in one checkout held, from
+  `.venv/bin/python -c "import digline; print(digline.__version__)"`:
+
+  | example | digline in its `.venv` |
+  |---|---|
+  | `langchain` | 0.4.0 |
+  | `llamaindex` | 0.7.2 |
+  | `operator` | 0.12.1 |
+  | `prompt-first` | 0.18.0 |
+
+  Four published versions, none of them the code being released, and no
+  command's output says which one ran. The first walkthrough ran the wrong
+  digline three times before the key appeared, and a released
+  `view --allow-promote` prints *promotion enabled*, truthfully, while testing
+  none of what is being released.
 
 0. **Check which digline you are running, before anything else.** From the
    directory you will run the steps in:

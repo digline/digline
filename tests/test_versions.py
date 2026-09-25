@@ -321,6 +321,10 @@ RECORDED: dict[str, dict[str, str]] = {
             "on 2026-09-23, and every line is a fact about a release that "
             "shipped — a release whose evidence moved would be a release "
             "nobody looked at"
+            "; and, since 2026-09-25, one of the four published versions "
+            "measured in the examples' own venvs, quoted beside the rule "
+            "never to run the browser walkthrough from inside an example — "
+            "evidence, not a claim"
         ),
         "0.17.1": (
             "the release v0.17.1 itself, quoted throughout as evidence and "
@@ -406,7 +410,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.1.3": "the same worked example",
         "0.2.0": "'v0.2.0 was tagged after a check that ran ruff' — what happened",
         "0.3.0": "'skipping it is what v0.3.0 cost' — the same",
-        "0.4.0": "'a v0.4.0 rebuild sent an hour after the release' — the same",
+        "0.4.0": "'a v0.4.0 rebuild sent an hour after the release' — the same"
+        "; and, since 2026-09-25, one of the four published versions "
+        "measured in the examples' own venvs, quoted beside the rule "
+        "never to run the browser walkthrough from inside an example — "
+        "evidence, not a claim",
         "0.5.0": "'it has failed open once, on v0.5.0' — the release the "
         "reviewer gate did not hold on, which is why the approvals endpoint is "
         "worth reading rather than the run's green",
@@ -421,7 +429,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "'After the tag' section exists",
         "0.7.2": "'Step 3 no longer exists, since 0.7.2' — the release that "
         "replaced the hand-kept publish roster with one derived from dist/. "
-        "What the runbook no longer asks anyone to do, dated",
+        "What the runbook no longer asks anyone to do, dated"
+        "; and, since 2026-09-25, one of the four published versions "
+        "measured in the examples' own venvs, quoted beside the rule "
+        "never to run the browser walkthrough from inside an example — "
+        "evidence, not a claim",
         "0.13.0": "the release the index race was measured on, told as history: "
         "its docker-publish was refused `digline==0.13.0` ~30s after the pypi "
         "job had verified that same pin from another runner. The numbers are "
@@ -439,7 +451,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "advisory shows the session posting a GHSA draft, told as history beside "
         "the 0.12.0 entry that dates the pass it came from. Also one of the "
         "three patch examples in 'Choosing the version': it added `escape` to "
-        "digline.report and removed nothing",
+        "digline.report and removed nothing"
+        "; and, since 2026-09-25, one of the four published versions "
+        "measured in the examples' own venvs, quoted beside the rule "
+        "never to run the browser walkthrough from inside an example — "
+        "evidence, not a claim",
         "0.10.1": "a patch example in 'Choosing the version': the release that "
         "added `visible` to digline.report and removed nothing. History",
         "0.13.2": "'the two-step form this file carried until 0.13.2' — the "
