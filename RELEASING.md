@@ -1087,6 +1087,46 @@ servers would confirm it.
 This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag.
 
+- **v0.20.1 — the in-build divergence came back, after the same-question
+  fix. So the diagnostic is owed before the next tag.** `docker-publish` failed
+  on attempt 1 and passed on attempt 2 (`gh run rerun --failed`), which is the
+  one red this file still answers with a re-run. It is written down here
+  because of what it rules out.
+
+  **Attempt 1, the smoke build.** The runner-level wait printed
+  `waiting digline==0.20.1 — … none at 0.20.1` eight times, then `every version
+  is served (after 241s)`. Inside the build, `#9 0.449 served digline==0.20.1
+  (after 0s)`, and in the same `RUN`, a second later, `#9 1.447 ERROR: Could not
+  find a version that satisfies the requirement digline==0.20.1`. The version
+  list `pip` was handed **ended at 0.20.0**. That is v0.15.0's shape exactly, and
+  it arrived **after** #29 made the wait ask pip's own question (the same
+  `Accept`, the same `Accept-Encoding`, `max-age=0`). The variant is therefore
+  ruled out, as *The diagnostic, kept ready and not built* says, and one
+  hypothesis is left: **per-server luck**. The wait and `pip` reached different
+  cache servers of the same variant, one refreshed and one not. The multi-arch
+  job never ran on attempt 1: it needs the smoke build.
+
+  **Attempt 2 — both pairs proven.** amd64 in `smoke`: `#9 0.381 served
+  digline==0.20.1 (after 0s)`, `#9 1.520 Collecting digline==0.20.1`, `#9 8.844
+  Successfully installed … digline-0.20.1 …` in one `RUN`, with the runner-level
+  wait at `0s`. arm64 in the multi-arch build: `#15 4.954 served
+  digline==0.20.1 (after 0s)`, `#15 23.21 Collecting digline==0.20.1`, `#15 131.0
+  Successfully installed … digline-0.20.1 …`, `#15 DONE 137.4s`. The amd64
+  layers are `CACHED` there, as on the two tags before.
+
+  The three tags, `0.20.1`, `0.20` and `latest`, resolve to one digest:
+  `sha256:cb8280e439517b8b3427e6c833c33af63bec83469b81a13346870d46cb8a6080`.
+
+  The six locks moved to `digline 0.20.1`, read back one at a time, all on the
+  first try.
+
+  **What the next tag must show:** before it, the capture this file has kept
+  ready and not built — for both requests, the wait's and `pip`'s, at the moment
+  of failure: the versions the page lists, `X-Served-By`, `X-Cache`, `Age`, and
+  the time to the tenth of a second. The same server giving a different answer
+  would refute per-server luck; different servers would confirm it. Until it
+  exists, a divergence like attempt 1 can be re-run past and not explained.
+
 - **v0.20.0 — both pairs proven, one in each job, and the runner-level wait
   equal to v0.19.2's to the second.** The fourth tag in a row where the
   runner-level wait absorbs the race and the in-build one reads `0s`.
