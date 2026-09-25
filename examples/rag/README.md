@@ -16,6 +16,9 @@ something arithmetic can contradict.
 shows the point immediately: one plausible extra sentence — *"The library has
 been on this square since 1898"* — and six checks go from `1.000` to `0.500`.
 Turn it off and the suite is green again. `report.html` is that comparison.
+The committed baseline is measured with `EMBELLISH` **off**, and re-promoting it
+with the switch on would erase the point: the red is the example, not a stale
+reference.
 
 Beside it, `PiiAbsent` guards what leaves the building, and `CostBudget` is
 graded so a cost creeping up inside the budget is visible before it breaches.
