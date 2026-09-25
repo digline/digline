@@ -12,7 +12,15 @@ from corpus import DOCUMENTS
 
 #: Shipped on, so `digline compare` against the committed baseline shows the
 #: point straight away. Turn it off and the suite goes green again.
-EMBELLISH = False
+#:
+#: **The committed baseline is measured with this off, and it must stay that
+#: way.** A red `compare` here is this switch doing its job, not a stale
+#: baseline: six `faithfulness` checks at `0.500` against `1.000` is the
+#: embellished sentence, and nothing else. It was once diagnosed as a changed
+#: corpus and re-promoted with the switch on, which erased the example's whole
+#: point for three days (`c5486d9`, corrected by the commit that wrote this).
+#: To re-promote, turn it off, commit, run, promote, and turn it back on.
+EMBELLISH = True
 
 _KEYWORDS = {
     "hours": ("open", "sunday", "hours", "saturday"),
