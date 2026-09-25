@@ -22,10 +22,20 @@ first word* to *the first word and, for one subcommand, its flags*, and what is
 matched is still a word of the parsed simple command — `grep -r "digline view
 --allow-promote" notes/` is still a grep. (ADR 0032 §3)
 
-The forms this does not read pass without asking — a command handed to another
-program as a string (`bash -c`, `sh -c`, `xargs`, `eval`, `ssh`), or spelled
-through a variable or an alias. That is "a preference, not a wall" being true:
-the wall is the reviewed diff under `.digline/<tenant>/`.
+**What is read, stated as the construction, because a list goes stale.** A
+simple command is digline when its first word — after any `NAME=value`
+assignments — is `digline` (by any path), or when `uvx`, `uv run` or `uv tool
+run` runs it (after their own options, and recognised by these same rules, so
+`uv run python -m digline.cli …` is digline), or when `python -m` names one of
+`MODULES`. Nothing else is read.
+
+So every other program placed in front of digline passes without asking: a
+wrapper (`env`, `time`, `nohup`, `exec`, `sudo`, `command`, each measured
+silent with this release), a command handed over as a string (`bash -c`, `sh
+-c`, `xargs`, `eval`, `ssh`), a variable, or an alias. Those are examples of
+the rule above, not a list of it. That is "a preference, not a wall" being
+true: the wall is the reviewed diff under `.digline/<tenant>/`, and the
+default `digline view` that does not promote (ADR 0032 §1, §8).
 """
 
 from __future__ import annotations
@@ -73,7 +83,12 @@ UV_VALUED = {
     "--package",
     "--from",
 }
-MODULES = {"digline", "digline.cli"}
+# Every module `python -m` runs digline's command line through — and only
+# those: `digline` itself has no `__main__` and refuses. Held to the package by
+# `tests/test_claude_plugin.py`, which finds every module with a `__main__.py`
+# or a `__main__` guard under `src/digline/` and requires this to be exactly
+# that set; the hook may not import digline, so it cannot ask at run time.
+MODULES = {"digline.cli", "digline.cli.__main__", "digline.cli.main"}
 
 
 def simple_commands(line: str) -> Iterator[list[str]]:
@@ -103,11 +118,24 @@ def after_digline(words: list[str]) -> list[str] | None:
     name = words[0].rsplit("/", 1)[-1]
     if name == "digline":
         return words[1:]
-    if name == "uvx" or (name == "uv" and words[1:2] == ["run"]):
-        rest = words[1:] if name == "uvx" else words[2:]
+    # `uvx`, and its long form `uv tool run`, and `uv run`: each runs the
+    # command that follows its own options. That command is recognised by this
+    # same function rather than required to be the word `digline` — so `uv run
+    # python -m digline.cli …` is digline too. A wrapper that demanded one
+    # spelling of what it wraps was the defect in both directions. (ADR 0032
+    # §4c, §8)
+    if name == "uvx":
+        rest = words[1:]
+    elif name == "uv" and words[1:2] == ["run"]:
+        rest = words[2:]
+    elif name == "uv" and words[1:3] == ["tool", "run"]:
+        rest = words[3:]
+    else:
+        rest = None
+    if rest is not None:
         while rest and rest[0].startswith("-"):
             rest = rest[2:] if rest[0] in UV_VALUED else rest[1:]
-        return rest[1:] if rest[:1] == ["digline"] else None
+        return after_digline(rest) if rest else None
     if name.startswith("python") and words[1:2] == ["-m"] and words[2:3]:
         return words[3:] if words[2] in MODULES else None
     return None

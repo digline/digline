@@ -551,7 +551,7 @@ by another:
 | guard | the name it keys on | the same act, spelled otherwise | how it was found | state |
 |---|---|---|---|---|
 | MCP, hook, skill | the command `promote` | `digline view` and its `POST /promote` | classifying what each command does (§7) | closed by §1, 0.20.0 |
-| plugin hook | the word `digline`, and two module names | `uv tool run digline …`, `python -m digline.cli.main …` | running the hook against spellings (§4c) | **open**: §4c's piece has not shipped |
+| plugin hook | the word `digline`, and two module names | `uv tool run digline …`, `python -m digline.cli.main …`, and, found while closing it, `uv run python -m digline.cli …` | running the hook against spellings (§4c) | closed in 0.20.1: `uv` recognises what it runs by the hook's own rules, and `MODULES` is held to the modules that run |
 | plugin hook | the flag `--allow-promote` | `--a`, `--al` … `--allow-promot`: argparse takes any unambiguous prefix | the 0.20.0 delta-pass: argparse's documented behaviour as a hypothesis, then run | closed in 0.20.1: `view` refuses abbreviations |
 
 **None of the three was caught by reading the code that holds the guard.** The
@@ -573,6 +573,16 @@ that true, and they do not wear the same:
 - **Otherwise, derive the spellings from what accepts them, never from a list
   written by hand.** A hand list is what §4c found stale in both directions:
   `MODULES` named a spelling that cannot run and omitted one that can.
+  0.20.1 holds `MODULES` to the tree: a test finds every module with a
+  `__main__` under `src/digline/`, runs each, and requires the hook's set to be
+  exactly those. The hook may not import digline, so the test does the asking
+  for it.
+- **And say what is not read as the construction, not as a list.** Closing §4c
+  measured six more wrappers the hook does not read (`env`, `time`, `nohup`,
+  `exec`, `sudo`, `command`). They are not chased one by one, because that is
+  the hand list again. The hook's docstring states what it reads, names those
+  six as examples of what it does not, and a test holds each example silent and
+  named. Its sentence therefore cannot outlive the behaviour it describes.
 
 And the test has the same shape as the rule: it asks the accepting side.
 `test_a_watched_flag_has_no_spelling_but_its_own` builds the real parser and

@@ -25,6 +25,16 @@ notes under them are this file, verbatim.
     assuming it. `--rep` is accepted, but the check is on the key the store
     compares at write time, not on the flag's name. The option is mandatory, so
     no spelling can leave the key out. A test holds that too.
+- **The plugin's hook now asks for `uv tool run digline promote`, `uv run
+  python -m digline.cli promote` and `python -m digline.cli.main promote`.** It
+  used to pass all three silently. ADR 0032 §4c found the first and the third,
+  and closing them found the second. `uv tool run` is `uvx` spelled out, and the
+  hook now recognises whatever `uv` runs by its own rules, not only by the word
+  `digline`. The modules it accepts after `python -m` are held by a test to the
+  modules that actually run: that list named `digline`, which cannot run, and
+  missed `digline.cli.main`, which can. The hook's docstring and the plugin's
+  README now state what the hook reads as a rule. Wrappers such as `env`,
+  `time` or `sudo` in front of digline are still not read, and both say so.
 - **The page that reports a promotion when the list of runs cannot be drawn
   wrote control characters raw.** It escaped with `html.escape`, which leaves
   C0, C1 and the bidi overrides alone. So a refusal quoting a committed
