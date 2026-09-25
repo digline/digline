@@ -462,3 +462,48 @@ def test_every_build_of_the_image_passes_a_wait() -> None:
             assert int(found.group(1)) > 0, f"a build in {name} waits for nothing"
             counted += 1
     assert counted == 3, f"expected the three image builds, found {counted}"
+
+
+def test_the_install_step_reports_pips_own_request_beside_the_wait() -> None:
+    """The other half of the index-divergence capture, and the reason it is here
+    rather than in a step of its own: a later step could only make a *third*
+    request, to whichever cache server answers next, and what has to be compared
+    is these two. The same file, mounted a second time under the name `site`
+    imports a customising module by, on `pip`'s `PYTHONPATH` alone."""
+    step = install_step()
+    assert (
+        "--mount=type=bind,source=await_index.py,"
+        "target=/tmp/index_capture/sitecustomize.py" in step
+    ), "the install step does not mount the capture into pip's path"
+    assert "INDEX_CAPTURE=1" in step, "pip's half of the capture is never turned on"
+    assert "PYTHONPATH=/tmp/index_capture" in step
+    prefix, _, install = step.partition("pip install")
+    assert "env ${CAPTURE}" in install or "env ${CAPTURE}" in prefix[-20:], (
+        "the capture is not on the pip command itself"
+    )
+
+
+def test_pips_half_is_exported_for_pip_and_not_for_the_wait() -> None:
+    """`export` would put the file on the *wait's* own path too, and the wait
+    would then report its own request twice — once as `side=wait` and once as
+    `side=pip`, from one request. The gate sets a variable and `env` applies it
+    to the one command."""
+    step = install_step()
+    assert "export PYTHONPATH" not in step
+    assert "export INDEX_CAPTURE" not in step
+    assert step.index("PYTHONPATH=/tmp/index_capture") > step.index("await_index.py"), (
+        "the capture is set before the wait runs, so the wait would import it"
+    )
+
+
+def test_a_local_build_reports_nothing_as_well_as_waiting_for_nothing() -> None:
+    """Both halves ride the one gate. `CAPTURE` starts empty and is only filled
+    inside the `AWAIT_INDEX_TIMEOUT` branch, so `docker build docker/` prints
+    exactly what it printed before any of this existed."""
+    step = install_step()
+    assert "CAPTURE= \\" in step, "CAPTURE has no empty default, so it may leak"
+    gate = step.index('[ "${AWAIT_INDEX_TIMEOUT}" != "0" ]')
+    closed = step.index("fi")
+    assert gate < step.index('CAPTURE="INDEX_CAPTURE=1') < closed, (
+        "pip's half of the capture is turned on outside the timeout gate"
+    )
