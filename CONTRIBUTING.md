@@ -48,15 +48,26 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   not a pull request that quietly works around them.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.
   Never required to contribute.
-- **One gate runs only in CI, and it is required.** The `docs` job builds the
-  digline.dev site `--strict` from your branch's docs, and `main` will not take
-  a pull request that breaks it. A link that resolves on GitHub and not on the
-  site fails here and nowhere else. An example or an ADR added here also needs
-  a nav line in *that* repository — but that one does not fail your pull
-  request: it is admitted as `info` precisely because the entry lands after the
-  record does. `RELEASING.md` names the line to add. Nothing you run locally
-  catches any of this unless you have the site checked out beside this
-  repository.
+- **One check runs only in CI, and it is not required.** The `docs` job builds
+  the digline.dev site from your branch's docs. `main` requires only the two
+  `gates` checks, and `RELEASING.md`, *Queued for the next site push*, says why
+  `docs` cannot be one of them — so a red `docs` does not stop a merge. Read it
+  anyway: it is the only place these mistakes show.
+  - **On your pull request** it runs the site's preview, `make preview`: a
+    `--strict` build that fails on a link that resolves on GitHub and not on
+    the site, and that lets a page with no nav entry through as `info`. Beside
+    it run the three nav tests, which do not: a new doc page, example or ADR
+    with no line in digline.dev's nav turns `docs` red here. That red is
+    expected — by the site's runbook the entry lands *after* the record does —
+    and it blocks nothing.
+  - **After the merge**, on the push to `main`, the ordinary `--strict` build
+    runs with the nav guard included. A page on `main` with no nav line is a
+    red `docs` on `main` until the entry merges in digline.dev — so that is
+    where a missing entry is found to cost something: after your pull request
+    has landed, not before.
+
+  `RELEASING.md` names the line to add. Nothing you run locally catches any of
+  this unless you have the site checked out beside this repository.
 
 Small commits, imperative English messages. Open an issue first if the change
 touches a boundary — it is cheaper to disagree before the code.
