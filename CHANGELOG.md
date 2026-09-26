@@ -78,6 +78,15 @@ notes under them are this file, verbatim.
   site page and every other mention of it here is a bare code span for the same
   reason.
 
+- **Tests: the rebinding guard on `view --allow-promote` is now told apart from
+  the two refusals behind it.** Every refusal a promoting POST can meet is a
+  403, so the test asserted a status that the origin check and the launch key
+  also produce: with the `Host` check deleted, the rebound POST was still
+  refused, by the origin check, and the POST test stayed green. It now asserts
+  each refusal's sentence, and a request that differs only in `Host` and
+  `Origin` is accepted, so a launch key that stopped matching cannot pass for a
+  guard that held. No behaviour changed.
+
 - **CI: a release is built only from a commit `main` contains.** `main` is
   protected — a pull request, and the two `gates` checks on the ref — and a tag
   was not: a tag pushed on an unmerged branch would have been built, uploaded,
