@@ -173,8 +173,12 @@ artifacts that today exists in none of the audited competitors.
   they catch it *before* the ref lands rather than after.
 
   What it does **not** require, so nobody assumes more than is there: no
-  review, no signed commits, no linear history. Merge commits are still how
-  work lands.
+  review, no signed commits, no linear history. **A merge commit is the only
+  way work lands**, in both repositories: squash and rebase merging are off in
+  the repository settings, each `main` ruleset allows the method `merge` alone,
+  and a merged branch is deleted. One method, so that "the merge commit of the
+  release pull request" — where a tag goes (below) — always names the same kind
+  of commit.
 
   **It requires a pull request, with zero approvals** — since 2026-09-24.
   Every change already went through one, so the rule adds no step: it turns a
@@ -186,8 +190,8 @@ artifacts that today exists in none of the audited competitors.
   not why it exists: that check caps at 4 for as long as there is no second
   reviewer, because its next tier needs one.
 
-  `require_extra_approval_for_unattributed_changes` is **off**, and was set off
-  on purpose. Nobody chose it on: the API turns it on whenever an update omits
+  `require_extra_approval_for_unattributed_changes` is **off** in both
+  repositories' `main` rulesets, and was set off on purpose. Nobody chose it on: the API turns it on whenever an update omits
   the key, which is how it arrived with this rule. On, a commit from an address
   linked to no GitHub account would need one approval more than configured —
   one, here, which nobody can give — cleared only by fixing the attribution at
@@ -206,6 +210,17 @@ artifacts that today exists in none of the audited competitors.
 
   The release push order is in [`RELEASING.md`](RELEASING.md) and this rule does
   not change it — it changes only how each of those pushes reaches `main`.
+
+  **Release tags are protected, and are only ever put on `main`.** A tag goes
+  on the merge commit of the release pull request, once `main` has it.
+  `publish.yml` and `docker-publish.yml` refuse any commit `main` does not
+  contain, in a first job every building or publishing job waits for, and
+  `tests/test_release_from_main.py` fails if a job does not. A tag ruleset
+  covers `refs/tags/v*` and `refs/tags/*-v[0-9]*` with `deletion` and `update`
+  and an empty bypass list: creating a tag is free, deleting or moving one is
+  refused for everybody. Re-doing a tag suspends that ruleset for the one
+  deletion and restores it at once; the procedure, and how to verify the
+  restore, are in `RELEASING.md`, *Re-doing a tag*, and stay there.
 
 ## Relationship with Plumbline
 
