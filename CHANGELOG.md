@@ -78,6 +78,24 @@ notes under them are this file, verbatim.
   site page and every other mention of it here is a bare code span for the same
   reason.
 
+- **CI: a release is built only from a commit `main` contains.** `main` is
+  protected — a pull request, and the two `gates` checks on the ref — and a tag
+  was not: a tag pushed on an unmerged branch would have been built, uploaded,
+  and would have spent its version number on code no gate had passed.
+  `publish.yml` and `docker-publish.yml` now start with a job, *Is this commit
+  on main?*, that asks `git merge-base --is-ancestor` of a fresh `origin/main`,
+  and every job that builds or publishes waits for it. It does not refuse over
+  a race: it fetches again before refusing, then asks GitHub which pull request
+  carries the commit, and says one of three things — *not on main*; *head of
+  open PR #N: merge it, then tag the merge commit or re-run*; *on merged PR #N
+  but main does not show it yet: re-run*. A test reads both workflows and fails
+  if a job that builds or publishes — recognised by what it does, so a job
+  added later is covered too — does not wait for that check, or can run past
+  its failure. A rebuild of the image by hand is held to the same rule: the
+  commit it builds has to be on `main`. Nothing changes for a user of the
+  packages. The rule a release follows, and the procedure for re-doing a tag
+  now that release tags are protected, are in `RELEASING.md`.
+
 ### Fixed
 
 - **`run`, `compare`, `list` and `promote` now name the tenant they acted
