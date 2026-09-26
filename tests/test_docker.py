@@ -20,6 +20,8 @@ import re
 import tomllib
 from pathlib import Path
 
+from release_wiring import jobs
+
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "docker" / "Dockerfile"
 IMAGE_README = ROOT / "docker" / "README.md"
@@ -202,7 +204,7 @@ def test_nothing_is_pushed_before_the_quickstart_has_run() -> None:
     text = workflow()
     smoke, _, publish = text.partition("\n  publish:")
     assert publish, "the workflow has no `publish` job"
-    assert re.search(r"^    needs: smoke$", publish, re.M), (
+    assert "smoke" in jobs(text)["publish"].needs, (
         "the publish job does not declare `needs: smoke`, so a broken image "
         "would reach GHCR while the smoke test was still running"
     )
