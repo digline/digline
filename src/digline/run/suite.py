@@ -63,7 +63,8 @@ class Calibration:
     `output` and `input` are **payload**. Neither *field* is ever written into a
     run, recorded responses or not: they are in the committed cases file
     already, and a second copy under `runs/` would be a second record of the
-    same data. What the run holds is `band`: the check's name and two numbers.
+    same data. What the run holds is the band `Suite.band` builds: the check's
+    identity, its name and two numbers.
     A judge's own `reason` may still quote them inside the perimeter, as any
     reason may quote any answer, and every boundary drops it. (ADR 0024 §4.7,
     amended 2026-09-17)
@@ -97,14 +98,10 @@ class Calibration:
                 "calibration answer is one known to be partially correct, and "
                 "an empty one is not an answer at all"
             )
-        # Built once here so a malformed band is refused at declaration, with
-        # the core's own sentence, and not first at the end of a paid run.
-        _ = self.band
-
-    @property
-    def band(self) -> CalibrationBand:
-        """The half that is written into the run."""
-        return CalibrationBand(check=self.check, low=self.low, high=self.high)
+        # Checked here so a malformed band is refused at declaration, with the
+        # core's own sentence, and not first at the end of a paid run. The band
+        # itself waits for the suite: only it knows which assertion `check` is.
+        _ = CalibrationBand.bounds(self.check, self.low, self.high)
 
 
 @dataclass(frozen=True, slots=True)
@@ -437,6 +434,27 @@ class Suite:
         the identity set, the `config_hash` and the report's columns.
         """
         return tuple(sorted({c.group for c in self.cases if c.group is not None}))
+
+    def calibrated(self, calibration: Calibration) -> Assertion:
+        """The one declared assertion `calibration` names.
+
+        The only place the declared name is matched. `_check_calibrations` has
+        already refused a name that is absent or shared, so this cannot miss;
+        everything after it — the dispatch, the reconcile pass, the band written
+        into the run — works on the identity it returns. (ADR 0024 §4.7,
+        amended 2026-09-26)
+        """
+        return next(a for a in self.assertions if a.name == calibration.check)
+
+    def band(self, calibration: Calibration) -> CalibrationBand:
+        """The half of `calibration` that is written into the run: bound to the
+        assertion by identity, and named for the sentence."""
+        return CalibrationBand(
+            check=calibration.check,
+            low=calibration.low,
+            high=calibration.high,
+            assertion_id=self.calibrated(calibration).identity,
+        )
 
     def _check_calibrations(self) -> None:
         """Each calibration names one judged check of this suite, and gives it

@@ -285,6 +285,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.20.1": (
+            "the release v0.20.1 itself, quoted as evidence: the in-build index "
+            "divergence it met, the `served digline==0.20.1` line and the "
+            "`Collecting`/`Successfully installed` pair beside it, and the "
+            "capture that was kept ready for exactly that release. It stopped "
+            "being what digline is at now when schema 17 moved the tree to "
+            "0.21.0, and every line is a fact about a release that shipped"
+        ),
         "0.19.1": (
             "the release whose tag was measured: the index-race waits, the two "
             "architectures' builds, the three image tags resolving to one "

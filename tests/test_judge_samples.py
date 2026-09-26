@@ -401,7 +401,7 @@ def judged_run(
             CaseResult(
                 "half-supported",
                 (verdict(score, name="faithfulness"),),
-                calibration=CalibrationBand("faithfulness", 0.3, 0.7),
+                calibration=CalibrationBand("faithfulness", 0.3, 0.7, "id"),
             )
         )
     return Run(

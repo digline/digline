@@ -116,6 +116,14 @@
   Two pairs cannot be read on the same run, and one of them is the
   disambiguation §1 rests on. Nothing in the Decision changes; what is added is
   which readings co-run, in what order, and why each exclusion exists
+- Amended: 2026-09-26 — §4.7, **the band binds by identity.** `scale_lost`
+  bound a band to its verdict by `score.name`, which a third-party check may set
+  otherwise than its declared name; the band then bound nothing and read as a
+  band that held — exit 0 and promotable, with the judge at an extreme. The band
+  now carries the `assertion_id` the suite resolved, a band that binds no
+  verdict is refused, and `SCHEMA_VERSION` moves 16 → 17 for it alone. This
+  makes §9's *"a name and two numbers"* and §4.8's *"the band's `check` is what
+  the document says ran"* true of schemas 12–16 only
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -776,6 +784,73 @@ a mute judge gives, which is what 0.8.0 worked to get into the run file. This is
 not specific to calibration: a reason has always been payload inside the
 perimeter. A test pins every boundary sink for a calibration case on the
 errored path, and that test is what keeps the corrected promise true.*
+
+*Amended 2026-09-26: **the band binds by identity, and a band that binds
+nothing is refused.** What the run holds is no longer the check's name and two
+numbers. It is the check's `assertion_id`, its name and two numbers, and the
+identity is what binds.*
+
+*The defect this corrects was published and is reachable without any other
+change. `Suite` resolved `check` to exactly one declared assertion at load, by
+its declared `name`. It then stored the name, and `scale_lost` compared that
+name with each verdict's `score.name`. Nothing makes the two agree: a
+third-party check may call its `Score` whatever it likes, which is the defect
+`run/driver.py` fixed for an aggregate's `over` under ADR 0027 §6 and did not
+fix here. The band then bound no verdict, `scale_lost` returned empty, and
+empty is also what a band that held returns. So the run exited 0 and was
+promotable with its judge at an extreme. That silently removed one of the three
+causes of exit 2 and promotion's condition 5 (§4.5). Demonstrated on 0.20.1
+through the real driver: a calibration case scored 1.0 against a band of
+0.3–0.7, and the run exited 0.*
+
+*Three rulings, made at a checkpoint before the code:*
+
+- ***Bind by `assertion_id`.*** *The suite builds the band from the assertion it
+  resolved, and the driver asks the suite for that one resolution, so the
+  declared name is matched in one place. `check` stays on the band as the word
+  for the sentence, which is the split ADR 0027 §6 and `compare()` already
+  make: a name is for the sentence, an identity is for the pairing.*
+- ***A band that binds nothing is refused at construction, never given a value
+  of its own.*** *`scale_lost` had returned one value for two facts, and a
+  second value on the same field would be that defect under an extra name. The
+  refusal is `Run`'s and not `CaseResult`'s, because the driver builds a
+  calibration result before its reconcile pass repairs it (ADR 0027 §3). The
+  driver cannot produce an unbound band, since a verdict that never came back is
+  recorded as an unreconciled one that keeps the identity it was asked. So what
+  reaches the refusal is a run built by hand or a document edited after it was
+  written. A suspended case has no verdict and binds nothing by design.*
+- ***Schema 17, alone.*** *Checked against ADR 0014 §1: the band is case data
+  outside `config_hash`, as it already was, and what it adds is an identifier
+  that is already on the verdict beside it, which crosses every boundary under
+  fixed decision 9. The bump needs its refusal, because 0.20.x would ignore the
+  key and bind by name again. It boards nothing else, because it changes what
+  runs already written read as, and that consequence is isolated so it can be
+  stated in one line.*
+
+*The step 16 → 17 writes a value, the first since 9 to do so, and derives it
+from structure, never from the name. A calibration case is asked one check
+(§4.3), so every verdict the driver recorded on it carries that check's
+identity, except a surplus the reconcile pass marked, which keeps its own. One
+identity among the case's verdicts is the answer. With more than one, the
+verdicts named for the band decide, and only if they agree. Anything else is a
+document the driver did not write, and the step refuses that file by name while
+the others migrate. **A run whose band bound nothing under 16 is read after the
+migration, and a run that exited 0 can read as exit 2.** The migration does not
+change what happened; it corrects what the document said about it. A baseline
+already promoted on such a run stays where it is, because condition 5 is
+checked when a run is promoted and not again. A resume journal written by 0.20.x
+that holds a calibration case is refused by name, and that run starts over:
+`JOURNAL_VERSION` does not move, because a journal is a work file and has no
+migration (ADR 0017 §2).*
+
+*§9's table row and its amendment, and §4.8's "the band's `check` is what the
+document says ran", describe schemas 12–16 and are left as they were written.
+From 17 the identity is what the document says ran.*
+
+*A step that changes what a document says is the day
+[ADR 0032](0032-the-second-path-to-an-absent-tool.md) §4a named in advance. Its
+permission for an agent to run `migrate` rested on no step writing anything
+semantic, so it lapses with this one, as that record amends on the same day.*
 
 #### 4.8 Amendment, 2026-09-17: what building it found
 

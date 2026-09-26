@@ -34,7 +34,10 @@ def flat(text: str) -> str:
 #: own context — but a phrase specific enough that it cannot survive the rule
 #: being rewritten.
 CARRIES: dict[str, tuple[str, ...]] = {
-    "list_runs": ("never from the first one that goes green",),
+    "list_runs": (
+        "never from the first one that goes green",
+        "Do not run it on your own initiative",
+    ),
     "get_run": ("Do not retry it", "flipping together"),
     "compare": (
         "stop and report what got worse",
@@ -105,3 +108,14 @@ def test_no_description_tells_an_agent_it_may_promote() -> None:
         lowered = text.lower()
         if "promote" in lowered:
             assert "the human runs" in lowered or "recommend" in lowered, name
+
+
+def test_no_description_tells_an_agent_it_may_migrate() -> None:
+    """`migrate` appears on this surface as something a person runs, since a
+    step first wrote content (schema 17). The grant it replaced read *you may*,
+    and that is the word checked for. (ADR 0032 §4a, amended 2026-09-26)"""
+    for name, text in DESCRIPTIONS.items():
+        lowered = flat(text)
+        if "digline migrate" in lowered:
+            assert "you may" not in lowered, name
+            assert "do not run it on your own initiative" in lowered, name

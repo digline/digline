@@ -288,6 +288,56 @@ def _add_schema_sixteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_seventeen(raw: dict[str, Any]) -> dict[str, Any]:
+    """16 -> 17. One passenger, and the first step since 9 that writes a value.
+
+    `CaseResult.calibration.assertion_id` binds a band to its verdict. Until
+    16 the band was bound by `score.name`, which a third-party assertion may set
+    to something other than its declared name — and then the band matched no
+    verdict and `scale_lost` read it as a band that held.
+
+    **Derived from structure, never from the name.** A calibration case is
+    asked exactly one check (ADR 0024 §4.3), so every verdict the driver
+    recorded on it carries that check's identity — except a surplus the
+    reconcile pass marked, which keeps its own (ADR 0027 §3). So: one identity
+    among the case's verdicts is the answer; with more than one, the verdicts
+    whose name is the band's decide, and only if they agree. Anything else — no
+    verdict at all, or no agreement — is a document the driver did not write,
+    and it is refused by name rather than bound to a guess.
+
+    **This can change what a stored run reads as.** A band that bound nothing
+    under 16 read as held; bound now, its score is read, and a run that exited
+    0 can read as exit 2. The migration does not change what happened: it
+    corrects what the document said about it. (ADR 0024 §4.7, amended
+    2026-09-26)
+    """
+    for case in cast(list[dict[str, Any]], raw.get("results") or []):
+        band = case.get("calibration")
+        if not isinstance(band, dict):
+            continue
+        band = cast(dict[str, Any], band)
+        verdicts = cast(list[dict[str, Any]], case.get("verdicts") or [])
+        identities = {str(v.get("assertion_id")) for v in verdicts}
+        if len(identities) > 1:
+            identities = {
+                str(v.get("assertion_id"))
+                for v in verdicts
+                if v.get("assertion") == band.get("check")
+            }
+        if len(identities) != 1:
+            raise NonAdditiveError(
+                f"case {case.get('case_id')!r} carries the calibration band of "
+                f"{band.get('check')!r}, and its verdicts do not say which check "
+                "that is. Schema 17 binds a band by identity, and a calibration "
+                "case written by digline names exactly one; this one holds "
+                f"{len(verdicts)} verdict(s) that do not, so the document was not "
+                "written as it stands, and binding it to a guess would state a "
+                "verdict nobody measured"
+            )
+        band["assertion_id"] = identities.pop()
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -303,6 +353,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     13: _add_schema_fourteen,
     14: _add_schema_fifteen,
     15: _add_schema_sixteen,
+    16: _add_schema_seventeen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

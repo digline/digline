@@ -324,7 +324,12 @@ def instrumented() -> Run:
             dataclasses.replace(run.results[0], verdicts=(judged,), canary=True),
             dataclasses.replace(
                 run.results[1],
-                calibration=CalibrationBand(check="llm_rubric", low=0.4, high=0.8),
+                calibration=CalibrationBand(
+                    check="llm_rubric",
+                    low=0.4,
+                    high=0.8,
+                    assertion_id=run.results[0].verdicts[0].assertion_id,
+                ),
             ),
         ),
     )

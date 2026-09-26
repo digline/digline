@@ -15,8 +15,9 @@ import subprocess
 import sys
 import tarfile
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from tests._helpers import baseline_in, cli
@@ -28,6 +29,7 @@ from digline.core import (
     Accuracy,
     CalibrationBand,
     CaseResult,
+    CheckKind,
     ClaimReply,
     Contains,
     CostBudget,
@@ -36,6 +38,7 @@ from digline.core import (
     JudgeReply,
     LatencyBudget,
     LlmRubric,
+    OutputKind,
     Repeated,
     Run,
     Score,
@@ -67,7 +70,7 @@ from digline.run import (
     rejudge,
 )
 from digline.store import FileResultStore, UncalibratedRunError
-from digline.store.migrate import upgrade_document
+from digline.store.migrate import NonAdditiveError, upgrade_document
 from digline.targets import CompletionResult, ModelPrice, Pricing, ScoreJudge, Usage
 from digline.wire import (
     EXIT_OK,
@@ -181,8 +184,8 @@ def test_the_band_is_compared_at_storage_precision() -> None:
     """A low that rounds to 0 at storage precision is 0 by the time the document
     holds it, so it is refused as 0."""
     with pytest.raises(ValueError, match="strictly between 0"):
-        CalibrationBand("llm_rubric", 0.0000001, 0.5)
-    assert CalibrationBand("llm_rubric", 0.5, 0.5).holds(0.5000001)
+        CalibrationBand("llm_rubric", 0.0000001, 0.5, "id-rubric")
+    assert CalibrationBand("llm_rubric", 0.5, 0.5, "id-rubric").holds(0.5000001)
 
 
 def test_a_calibration_case_is_not_a_canary() -> None:
@@ -294,9 +297,13 @@ def test_a_calibration_case_needs_no_label() -> None:
 
 def test_the_target_is_never_asked_for_it() -> None:
     target = Counting()
-    run = execute(suite(), target, created_at=CREATED)
+    declared = suite()
+    run = execute(declared, target, created_at=CREATED)
     assert target.asked == ["one", "one"]
-    assert run.results[1].calibration == CalibrationBand("llm_rubric", 0.3, 0.7)
+    rubric = next(a for a in declared.assertions if a.name == "llm_rubric")
+    assert run.results[1].calibration == CalibrationBand(
+        "llm_rubric", 0.3, 0.7, assertion_id=rubric.identity
+    )
 
 
 def test_only_the_named_check_runs() -> None:
@@ -461,7 +468,7 @@ def band_run(
             CaseResult(
                 "half",
                 (verdict,),
-                calibration=CalibrationBand("llm_rubric", 0.3, 0.7),
+                calibration=CalibrationBand("llm_rubric", 0.3, 0.7, "id-rubric"),
             ),
         ),
     )
@@ -505,7 +512,7 @@ def test_an_errored_verdict_is_unjudged_and_not_a_lost_scale() -> None:
                         assertion_id="id-rubric",
                     ),
                 ),
-                calibration=CalibrationBand("llm_rubric", 0.3, 0.7),
+                calibration=CalibrationBand("llm_rubric", 0.3, 0.7, "id-rubric"),
             ),
         ),
     )
@@ -704,6 +711,7 @@ def test_the_band_round_trips_and_is_absent_when_unset() -> None:
     assert "calibration" not in document["results"][0]
     assert document["results"][1]["calibration"] == {
         "check": "llm_rubric",
+        "assertion_id": run.results[1].verdicts[0].assertion_id,
         "low": 0.3,
         "high": 0.7,
     }
@@ -711,7 +719,8 @@ def test_the_band_round_trips_and_is_absent_when_unset() -> None:
 
 
 def test_redaction_keeps_the_band() -> None:
-    """A name and two numbers, and a redacted document that lost them would
+    """An identity, a name and two numbers, and a redacted document that lost
+    them would
     report an exit code its own contents could not account for."""
     run = execute(suite(score=1.0), Counting(), created_at=CREATED)
     hidden = redact(run)
@@ -725,8 +734,8 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     at_eleven = {**current, "schema_version": 11}
     # Through 12, 13 and on to 14, whose steps write nothing either (ADR 0018
     # §1 amended 2026-09-17, ADR 0024 §6.5, ADR 0025 §7): what 11 -> 12 adds is
-    # still nothing.
-    assert SCHEMA_VERSION == 16
+    # still nothing. 16 -> 17 writes only onto a band, and this run has none.
+    assert SCHEMA_VERSION == 17
     assert upgrade_document(at_eleven) == current
 
 
@@ -742,11 +751,184 @@ def test_a_document_carrying_an_unreadable_band_is_refused_by_name() -> None:
     document = json.loads(run_to_json(run))
     document["results"][1]["calibration"] = {
         "check": "llm_rubric",
+        "assertion_id": run.results[1].verdicts[0].assertion_id,
         "low": 0.0,
         "high": 1.0,
     }
     with pytest.raises(ValueError, match="strictly between 0"):
         run_from_json(json.dumps(document))
+
+
+# --------------------------------------------------------------------------- #
+# §4.7, amended 2026-09-26 — the band binds by identity, and one that binds
+# nothing is refused
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class Misnamed:
+    """A judged third-party check whose `Score` is named otherwise than itself.
+
+    Nothing requires the two to agree, and nothing did: `Suite` resolved the
+    band's `check` against `name`, the driver recorded `score.name`, and until
+    schema 17 `scale_lost` compared the second with the first.
+    """
+
+    name: str = "graded"
+    threshold: float = 0.7
+    tolerance: float = 0.05
+    accepts: frozenset[OutputKind] = frozenset({"text"})
+    KIND: ClassVar[CheckKind] = "judged"
+
+    @property
+    def identity(self) -> str:
+        return "misnamed01"
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        # At the extreme on the calibration answer: the judge that went binary.
+        value = 1.0 if inputs.output == HALF else 0.9
+        return Verdict(
+            score=Score(name="graded_v2", score=value),
+            threshold=self.threshold,
+            tolerance=self.tolerance,
+            status="pass",
+            reason="judged",
+            assertion_id=self.identity,
+        )
+
+
+def misnamed_suite() -> Suite:
+    return suite(
+        assertions=[Misnamed()],
+        cases=[
+            Case(id="one"),
+            Case(id="half", calibration=calibration(check="graded")),
+        ],
+    )
+
+
+def test_a_third_party_check_that_names_its_score_otherwise_still_loses_its_scale(
+    tmp_path: Path,
+) -> None:
+    """The reachable route, through the real driver: the band's name is the
+    declared one, the verdict's is not, and the score is at an extreme. Bound by
+    name this read as a band that held — exit 0, promotable."""
+    declared = misnamed_suite()
+    run = execute(declared, Counting(), created_at=CREATED)
+    [lost] = scale_lost(run)
+    assert (lost.case_id, lost.check, lost.score) == ("half", "graded", 1.0)
+    head = headline(compare(run, run), run, run, locale="en")
+    assert exit_code(head) == EXIT_UNJUDGED
+    store = FileResultStore(str(tmp_path))
+    ref = store.write_run(run)
+    with pytest.raises(UncalibratedRunError, match="calibration case"):
+        store.promote_baseline(
+            ref, declared.config_hash(), expected_baseline=None, promoted_at=LATER
+        )
+
+
+def test_a_band_that_binds_no_verdict_is_refused() -> None:
+    """The mutation control: a band whose check names no assertion of the suite.
+    It used to build, and `scale_lost` returned empty — the value a band that
+    held returns. Now the run cannot be built."""
+    rubric_verdict = band_run((1.0,)).results[0].verdicts[0]
+    with pytest.raises(ValueError, match="binds no verdict"):
+        Run(
+            tenant="acme",
+            environment="dev",
+            suite="qa",
+            config_hash="h",
+            created_at=LATER,
+            results=(
+                CaseResult(
+                    "half",
+                    (rubric_verdict,),
+                    calibration=CalibrationBand(
+                        "not_declared", 0.3, 0.7, "id-not-declared"
+                    ),
+                ),
+            ),
+        )
+
+
+def test_a_suspended_case_binds_nothing_by_design() -> None:
+    Run(
+        tenant="acme",
+        environment="dev",
+        suite="qa",
+        config_hash="h",
+        created_at=LATER,
+        results=(
+            CaseResult(
+                "half",
+                suspended="parked",
+                calibration=CalibrationBand("llm_rubric", 0.3, 0.7, "id-rubric"),
+            ),
+        ),
+    )
+
+
+def test_a_document_edited_to_bind_nothing_is_refused() -> None:
+    run = execute(suite(), Counting(), created_at=CREATED)
+    document = json.loads(run_to_json(run))
+    document["results"][1]["calibration"]["assertion_id"] = "nobody"
+    with pytest.raises(ValueError, match="binds no verdict"):
+        run_from_json(json.dumps(document))
+
+
+def test_a_band_with_no_identity_is_refused() -> None:
+    with pytest.raises(ValueError, match="carries no assertion_id"):
+        CalibrationBand("llm_rubric", 0.3, 0.7, "")
+
+
+def at_sixteen(run: Run) -> dict[str, Any]:
+    """`run` as schema 16 wrote it: the band a name and two numbers."""
+    # Through JSON, so the document is plain dicts and lists the way a file is.
+    document: dict[str, Any] = json.loads(run_to_json(run))
+    for case in document["results"]:
+        if "calibration" in case:
+            del case["calibration"]["assertion_id"]
+    return {**document, "schema_version": 16}
+
+
+def test_the_step_to_seventeen_binds_by_structure_and_can_turn_a_run_red() -> None:
+    """The consequence the CHANGELOG states: under 16 this run's band bound
+    nothing and it read as exit 0. Migrated, its identity comes from the one
+    verdict the case holds, and the score at 1.0 is read. The migration does
+    not change what happened; it corrects what the document said about it."""
+    run = execute(misnamed_suite(), Counting(), created_at=CREATED)
+    old = at_sixteen(run)
+    assert old["results"][1]["verdicts"][0]["assertion"] != "graded"
+    migrated = upgrade_document(old)
+    assert migrated == run_to_dict(run)
+    assert scale_lost(run_from_json(json.dumps(migrated)))
+
+
+def test_the_step_lets_the_name_decide_only_between_disagreeing_verdicts() -> None:
+    """A surplus the reconcile pass marked keeps its own identity, so a case can
+    hold two; the verdict named for the band decides, and only if one does."""
+    run = execute(suite(), Counting(), created_at=CREATED)
+    old = at_sixteen(run)
+    held = old["results"][1]["verdicts"]
+    held.append({**held[0], "assertion": "surplus", "assertion_id": "id-surplus"})
+    migrated = upgrade_document(old)
+    assert (
+        migrated["results"][1]["calibration"]["assertion_id"]
+        == run.results[1].verdicts[0].assertion_id
+    )
+
+
+@pytest.mark.parametrize("verdicts", ["none", "disagreeing"])
+def test_the_step_refuses_a_band_it_cannot_bind(verdicts: str) -> None:
+    run = execute(suite(), Counting(), created_at=CREATED)
+    old = at_sixteen(run)
+    held = old["results"][1]["verdicts"]
+    if verdicts == "none":
+        held.clear()
+    else:
+        held.append({**held[0], "assertion_id": "id-other"})
+    with pytest.raises(NonAdditiveError, match="binding it to a guess"):
+        upgrade_document(old)
 
 
 # --------------------------------------------------------------------------- #

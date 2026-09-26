@@ -8,6 +8,68 @@ notes under them are this file, verbatim.
 
 ## 0.21.0 — unreleased
 
+digline **0.21.0**. A calibration case now finds its verdict by identity, and
+schema 17 comes with that. The migration can turn a stored green run red,
+because the document had been saying something false about it. Read the first
+section before you migrate.
+
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
+### Fixed — a calibration band that bound nothing read as one that held (schema 17)
+
+- **A calibration case now finds its verdict by identity, not by name.** Until
+  now a band found its verdict by comparing the check's declared name with the
+  name on the verdict's score. A third-party check is free to name its `Score`
+  something else. Then the band matched no verdict, and `scale_lost` returned
+  nothing, the same answer it gives when every band held. So a run whose judge
+  scored the calibration answer at an extreme **exited 0 and could be
+  promoted**. That silently removed one of the three causes of exit 2 and
+  promotion's fifth condition. You can reach it on 0.20.1 with no other change:
+  the calibration case scored 1.0 against a band of 0.3–0.7, and the run exited
+  0.
+  ([ADR 0024 §4.7](docs/adr/0024-the-judge-as-an-instrument.md), amended
+  2026-09-26)
+  - **The band carries the `assertion_id` the suite resolved.** A run whose band
+    matches none of its case's verdicts is **refused**, never read as held.
+    digline cannot write one, so what meets the refusal is a document edited
+    after it was written.
+  - **`SCHEMA_VERSION` 16 → 17, with no other passenger.** Run `digline
+    migrate`. The step takes the identity from the verdicts the calibration case
+    already holds, never from the name. A file whose verdicts do not say which
+    check the band is for is refused by name, and the others migrate.
+  - **Migrating can turn a green run red.** If a stored run's band matched
+    nothing under 16, its score is read after migrating, and **a run that exited
+    0 can read as exit 2.** The migration does not change what happened; it
+    corrects what the document said about it. That run's judge was already at
+    an extreme when it ran. What changes is that its own record now says so.
+  - **A baseline already promoted on such a run stays where it is.** The fifth
+    condition is checked when a run is promoted, not afterwards. If a check of
+    yours names its score otherwise than itself, re-read that suite's baseline
+    after migrating: its calibration case can now read outside its band.
+  - **A resume journal written by 0.20.x that holds a calibration case is
+    refused**, and that run starts over. A journal is a work file and has no
+    migration.
+
+### Changed — an agent no longer runs `digline migrate` on its own
+
+- **`migrate` is now a person's decision, and every agent-facing surface says
+  so.** `AGENTS.md` §8, the shipped skill and the MCP playbook used to let an
+  agent run it "for as long as every step is required to write nothing
+  semantic". The 16 → 17 step above writes content, so the condition was met
+  and the permission lapsed as it was written to. An agent now says the store
+  needs migrating and proposes the command, and a person runs it or tells the
+  agent to. The permission was never about `migrate`. It rested on a property
+  of the steps, and that property is gone.
+  ([ADR 0032 §4a](docs/adr/0032-the-second-path-to-an-absent-tool.md), amended
+  2026-09-26)
+  - **What enforces it is the wording.** Tests pin the sentence on all three
+    surfaces and check that the old grant is gone. The Claude Code plugin's
+    hook asks a person before `promote`, `register` and `view --allow-promote`,
+    but not before `migrate`.
+
 ### Changed — the promoting `digline view` promotes for one browser
 
 - **`digline view --allow-promote` now promotes only from the browser that

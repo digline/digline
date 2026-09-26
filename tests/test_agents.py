@@ -136,6 +136,33 @@ def test_both_files_say_the_operator_proves_the_wall() -> None:
         )
 
 
+#: Rule 8's instruction since schema 17, held word for word in both copies. The
+#: rule used to be a permission written as a condition — an agent may run
+#: `migrate` for as long as every step writes nothing semantic — and the 16 -> 17
+#: step writes content by design, so the condition met its own expiry. (ADR 0032
+#: §4a, amended 2026-09-26)
+MIGRATE_LINE = (
+    "propose `digline migrate`. Do not run it on your own initiative: a person "
+    "runs it, or tells you to."
+)
+
+
+def test_both_files_say_a_person_runs_migrate() -> None:
+    """Both halves: the instruction is there, and the permission it replaced is
+    not. A copy that gained the line and kept the old grant would tell an agent
+    both, and it would pick the one that lets it act."""
+    for path in (AGENTS, SKILL):
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        rule_eight = text.split("## 8. ", 1)[1].split("## 9. ", 1)[0]
+        assert MIGRATE_LINE in rule_eight, (
+            f"{path.relative_to(ROOT)} no longer says, word for word, in rule 8: "
+            f"{MIGRATE_LINE!r}"
+        )
+        assert "may run `digline migrate`" not in rule_eight, (
+            f"{path.relative_to(ROOT)} still grants an agent `migrate` in rule 8"
+        )
+
+
 def test_the_skill_declares_its_frontmatter() -> None:
     """A skill with no `name` and no `description` is never loaded.
 

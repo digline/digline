@@ -228,7 +228,8 @@ def test_a_run_whose_calls_all_report_carries_the_sum() -> None:
 def test_the_step_to_fifteen_writes_nothing() -> None:
     run = execute(suite(record_responses=True), Thinking(), created_at=CREATED)
     current = run_to_dict(run)
-    assert SCHEMA_VERSION == 16
+    # 16 -> 17 writes only onto a calibration band, and this run has none.
+    assert SCHEMA_VERSION == 17
     assert upgrade_document({**current, "schema_version": 14}) == current
 
 

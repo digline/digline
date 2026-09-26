@@ -120,8 +120,9 @@ target = HttpTarget(
 ```
 
 **Not in `suite.py` yet, and the reason is worth knowing**: this example installs
-digline **from PyPI like any user**, under a `digline>=0.20,<0.21` pin, and the
-key arrives in the release after 0.20.1. The line goes in when the pin moves.
+digline **from PyPI like any user**, under a `digline>=0.20,<0.22` pin, and the
+key arrives in 0.21.0, which that pin admits and PyPI does not serve yet. The
+line goes in once it does.
 Until then, treat `provider` and `model` in this example's runs as values the
 service chose (digline ADR 0030 §6).
 

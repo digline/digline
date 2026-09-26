@@ -341,7 +341,8 @@ def test_the_step_to_fourteen_writes_nothing() -> None:
     current = run_to_dict(run)
     # 14 -> 15 writes nothing either (ADR 0026 §6), so a schema-13 document
     # still arrives here unchanged but for its version.
-    assert SCHEMA_VERSION == 16
+    # 16 -> 17 writes only onto a calibration band, and this run has none.
+    assert SCHEMA_VERSION == 17
     assert upgrade_document({**current, "schema_version": 13}) == current
 
 

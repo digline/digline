@@ -208,7 +208,23 @@ __all__ = [
 #    proposed it, 0.16.0 shipped `Usage` with four counts, and the gap was
 #    found by somebody sitting down to write the plugin patch that would fill
 #    it.
-SCHEMA_VERSION = 16
+#
+# 17: one passenger, and it rides alone because it changes what runs already
+#    written read as. `CaseResult.calibration.assertion_id` — the identity the
+#    suite resolved the band's check to at load. Until 16 `scale_lost` bound a
+#    band to its verdict by `score.name`, which a third-party assertion may set
+#    to something other than its declared name; the band then matched nothing,
+#    and *no band was checked* read exactly like *every band held* — removing a
+#    cause of exit 2 and promotion's condition 5 in silence. A `Run` whose band
+#    binds no verdict is now refused. Checked against ADR 0014 §1: case data
+#    outside `config_hash`, as the band already was; one identifier that is
+#    already on the verdict beside it. **The step writes a value** — derived
+#    from the case's verdicts, never from the name — and the bump needs its
+#    refusal: 0.20.x would ignore the key and bind by name again. A run that
+#    exited 0 can read as exit 2 after migrating; the migration does not change
+#    what happened, it corrects what the document said about it. (ADR 0024
+#    §4.7, amended 2026-09-26)
+SCHEMA_VERSION = 17
 
 
 class DocumentRefusedError(ValueError):
@@ -1362,6 +1378,8 @@ class Run:
                 "rejudged_from: the judge's range is measured on answers that do "
                 "not move, which only a replay has"
             )
+        for case in self.results:
+            _check_band_binds(case)
         if not self.redacted:
             return
         # `redacted` is a claim about the contents, so it is checked against
@@ -1435,6 +1453,36 @@ class Run:
                         "document with redact(), which keeps the count and "
                         "drops the text"
                     )
+
+
+def _check_band_binds(case: CaseResult) -> None:
+    """Refuse a calibration band that no verdict of its case carries.
+
+    `scale_lost` answers from the run alone, and an unbound band gives it
+    nothing to read: it returned empty, which is what a band that held returns
+    too. Two facts under one value is the defect, so the second fact is refused
+    here rather than given a name of its own. The driver cannot produce it — a
+    verdict that never came back is recorded as an unreconciled one carrying
+    the identity it was asked (ADR 0027 §3) — so what reaches this is a run
+    built by hand or a document edited after it was written.
+
+    Checked on the run and not on the `CaseResult`, because the driver builds a
+    calibration result before its reconcile pass repairs it: a third-party
+    verdict stamped with the wrong identity is a gap there, not a crash. A
+    suspended case has no verdict and binds nothing by design. (ADR 0024 §4.7,
+    amended 2026-09-26)
+    """
+    band = case.calibration
+    if band is None or case.suspended is not None:
+        return
+    if any(v.assertion_id == band.assertion_id for v in case.verdicts):
+        return
+    raise ValueError(
+        f"case {case.case_id!r} carries the calibration band of "
+        f"{band.check!r}, and none of its verdicts is that check's "
+        f"(assertion_id {band.assertion_id!r}). A band that binds no verdict "
+        "checks nothing, and would read as a band that held"
+    )
 
 
 def config_hash(
@@ -1598,9 +1646,10 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # redacted document that lost it would report an exit code its
                 # own contents could not account for.
                 canary=case.canary,
-                # Carried for the canary's reason: a name and two numbers, and a
-                # redacted document that lost them would report an exit code
-                # its own contents could not account for. (ADR 0024 §9)
+                # Carried for the canary's reason: an identity, a name and two
+                # numbers, none of them the end company's, and a redacted
+                # document that lost them would report an exit code its own
+                # contents could not account for. (ADR 0024 §9, §4.7)
                 calibration=case.calibration,
             )
             for case in run.results
@@ -1957,6 +2006,7 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     if case.calibration is not None:
         payload["calibration"] = {
             "check": case.calibration.check,
+            "assertion_id": case.calibration.assertion_id,
             "low": _num(case.calibration.low),
             "high": _num(case.calibration.high),
         }
@@ -2356,6 +2406,7 @@ def _calibration_from_dict(raw: object) -> CalibrationBand | None:
     fields_ = cast(Mapping[str, Any], raw)
     return CalibrationBand(
         check=str(_required(fields_, "check", where)),
+        assertion_id=str(_required(fields_, "assertion_id", where)),
         low=float(_required(fields_, "low", where)),
         high=float(_required(fields_, "high", where)),
     )
