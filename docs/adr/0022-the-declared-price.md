@@ -276,6 +276,25 @@ instead. A key taken from the repository's root commit, which needs no file, was
 refused too: a shallow clone reports its shallow boundary as the root, so CI and
 a laptop would disagree about it.
 
+*Corrected 2026-09-26. This section treats the assertion identities as inputs
+that are harmless to publish, and they are not.* An `assertion_id` is a digest
+of the check's declared fields, and only `threshold` and `tolerance` are left
+out. So a rubric, a needle, a pattern or a schema is inside it. A rubric comes
+from the same small space as a prompt, and §4 of ADR 0003 stops a prompt's
+digest from travelling for exactly that reason. The declared rate is therefore
+not *"the one unknown"* in `config_hash`.
+
+The conclusion about the rate is not reopened here. **Anyone proposing a salt
+for an identity should read the refusal above as two halves:**
+
+- **The costs carry over unchanged:** the committed file that stamps runs
+  `-dirty`, the two clones that disagree until a merge, the root commit that a
+  shallow clone gets wrong.
+- **The reason does not.** It rested on a rate not being a secret, and a rubric
+  is the text ADR 0003 §4 protects.
+
+A refusal of a salt for the identities has to argue its own case.
+
 ### 7. What a reader sees
 
 At a first-party endpoint, a changed declared price is a named delta —

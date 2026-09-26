@@ -1551,6 +1551,12 @@ def pricing_digest(model: str, rates: Mapping[str, float | None]) -> str:
     price for the same model get the same digest whichever form they are
     written in (ADR 0007 §9). Unkeyed on purpose — ADR 0022 §6 weighed a salt
     and refused it, and declares what that costs instead.
+
+    That refusal is for a rate, and only its costs carry to other digests. Its
+    reason was that a rate is not a secret. An assertion identity digests a
+    rubric, which is exactly the text ADR 0003 §4 keeps from travelling, so a
+    salt refused for the identities has to argue its own case (ADR 0022 §6,
+    corrected 2026-09-26).
     """
     payload = json.dumps(
         {
