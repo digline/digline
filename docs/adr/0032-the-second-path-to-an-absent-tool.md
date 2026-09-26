@@ -21,7 +21,8 @@
   and the answer flipped as written.** The 16 → 17 step writes content, so an
   agent may no longer run `migrate` on its own initiative. `AGENTS.md` §8, both
   copies of the skill and the MCP playbook say so, and a test in each place
-  pins it. No other decision moves
+  pins it. The amendment also states what the rule now is: one people follow,
+  like promotion in an agent's shell, not a wall. No other decision moves
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`
   and `JOURNAL_VERSION` all stay where they are. What moves is one default in
@@ -437,6 +438,20 @@ checks that the instruction is present and that the old grant is absent.*
 intercepts `promote`, `register` and `view --allow-promote`, and not `migrate`.
 An agent that ignores the playbook meets no wall. Adding `migrate` to that hook
 is the route to one, and it is named here, not ruled here.*
+
+*So, stated as a status and not only as a gap: **the withdrawn permission is now
+a rule people follow, not a wall**, and it is the same kind of thing the
+promotion rule is in an agent's shell. Both are wording that an agent reads and
+keeps. Neither refuses an agent. The store's refusals of a promotion are about
+the run, never about who asks, and `digline promote` and `digline migrate` both
+run for whoever invokes them. Rule 1's own rungs name that level: a
+protection the identity can bypass is a preference. The two differ in one place
+only, and this should not be read as more parity than there is. `promote` also
+meets the plugin's hook, which asks a person before it runs, and `migrate` does
+not. The hook is a prompt on the same rung, not a wall either. On the MCP
+surface neither exists as a tool (ADR 0011 §1). That difference is left as it
+is, deliberately. Closing it is a decision about the hook, and this amendment
+records a condition that fired, not a new control.*
 
 **A third finding, on a different axis, and deliberately not ruled here.**
 `digline view` renders `render_html` directly (`src/digline/report/pages.py`),

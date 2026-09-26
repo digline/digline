@@ -44,6 +44,23 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   already testing yours. This is the same family as the flag bullet above,
   where a test stays correct about a request while what stands in front of
   it moves, and it has four instances in one week.
+- **If you write a permission as a condition, write what fires it.** A
+  condition says *when* the answer will change, and that is worth doing: ADR
+  0032 §4a let an agent run `digline migrate` "for as long as every step is
+  required to write nothing semantic", so the permission could not outlive the
+  property it rested on. The day came with schema 17, and the answer flipped as
+  written. **No test caught it.** The only standing check covered two fields,
+  and the step that met the condition moved neither. A person noticed, by
+  reading the previous release's changelog while writing the next one.
+
+  That is the shape: **a condition that describes when it will fire, with
+  nothing that fires it, is a condition somebody has to notice.** It expires
+  silently on every day nobody is reading. So when you write the next one, put
+  the check beside the sentence: a test that turns red on the day the property
+  breaks, named where the condition is stated. If none can be written, say so
+  in the same place, and say who is expected to notice. Then pin the answer
+  once it has flipped, because the flip is a new rule and it can drift like
+  any other.
 - **Decisions in `CLAUDE.md` marked fixed need an ADR in `docs/adr/` first**,
   not a pull request that quietly works around them.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.
