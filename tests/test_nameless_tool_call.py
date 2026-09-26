@@ -311,7 +311,8 @@ def test_the_step_to_thirteen_writes_nothing() -> None:
     """
     run = execute(nameless_suite(), unnamed_then_lookup(), created_at=CREATED)
     current = run_to_dict(run)
-    assert SCHEMA_VERSION == 16
+    # 16 -> 17 writes only onto a calibration band, and this run has none.
+    assert SCHEMA_VERSION == 17
     assert upgrade_document({**current, "schema_version": 12}) == current
 
 

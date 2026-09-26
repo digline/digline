@@ -297,7 +297,7 @@ def test_a_binary_check_that_is_not_judged_is_never_read() -> None:
 
 
 def test_canary_calibration_and_errored_verdicts_are_left_out() -> None:
-    band = CalibrationBand("llm_rubric", 0.3, 0.7)
+    band = CalibrationBand("llm_rubric", 0.3, 0.7, "id-llm_rubric")
     now = run_of(
         CaseResult("one", (verdict((0.5,)),)),
         CaseResult("probe", (verdict((1.0,)),), canary=True),

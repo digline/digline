@@ -7,8 +7,8 @@ correct, so a judge that still places values on a scale scores it somewhere in
 the middle — and a judge that has gone binary scores it at an extreme, which is
 the one thing a repeatability figure cannot see (ADR 0024 §1, §4).
 
-What lives here is the half that crosses into a run: the name of the check and
-two numbers. The answer itself is payload and is declared in
+What lives here is the half that crosses into a run: which check, by identity
+and by name, and two numbers. The answer itself is payload and is declared in
 `digline.run.Calibration`; it is never written.
 """
 
@@ -38,11 +38,20 @@ class CalibrationBand:
     the one thing it exists for: a judge that has collapsed onto the extremes
     passes it forever. That is fixed decision 3, applied to the instrument
     rather than to the system. (ADR 0024 §4.2)
+
+    **`assertion_id` is what binds, `check` is what is said.** The suite
+    resolves the declared name to exactly one assertion when it loads, and the
+    identity it resolved to is what a verdict carries; a verdict's
+    `score.name` is whatever the assertion chose to call its `Score`, and a
+    third-party one may call it otherwise. Binding on the name let such a band
+    match nothing and read as *no band was lost*. (ADR 0024 §4.7, amended
+    2026-09-26)
     """
 
     check: str
     low: float
     high: float
+    assertion_id: str
 
     def __post_init__(self) -> None:
         if not self.check:
@@ -50,17 +59,35 @@ class CalibrationBand:
                 "a calibration names no check: the band has to belong to the "
                 "judged assertion it calibrates"
             )
-        low, high = at_precision(self.low), at_precision(self.high)
+        if not self.assertion_id:
+            raise ValueError(
+                f"the calibration of {self.check!r} carries no assertion_id: a "
+                "band binds to its verdict by identity, and one with none "
+                "binds to nothing"
+            )
+        low, high = self.bounds(self.check, self.low, self.high)
+        object.__setattr__(self, "low", low)
+        object.__setattr__(self, "high", high)
+
+    @staticmethod
+    def bounds(check: str, low: float, high: float) -> tuple[float, float]:
+        """`low` and `high` at storage precision, or the refusal of the band.
+
+        Separate from the constructor because a declaration is checked before
+        any identity exists: `Calibration` refuses a malformed band when the
+        suite is written, and the band itself is built only once the suite has
+        resolved which assertion it belongs to.
+        """
+        low, high = at_precision(low), at_precision(high)
         if not (0.0 < low <= high < 1.0):
             raise ValueError(
-                f"the calibration of {self.check!r} declares the band "
+                f"the calibration of {check!r} declares the band "
                 f"{low:.6f}–{high:.6f}. Both ends must lie strictly between 0 "
                 "and 1, with low no greater than high: a band that contains an "
                 "extreme counts a judge that has collapsed onto that extreme as "
                 "in band, so it cannot detect the one thing it exists for"
             )
-        object.__setattr__(self, "low", low)
-        object.__setattr__(self, "high", high)
+        return low, high
 
     def holds(self, score: float) -> bool:
         """Whether `score` lies inside the band, both ends inclusive."""
@@ -100,6 +127,11 @@ def scale_lost(run: Run) -> tuple[ScaleLost, ...]:
 
     The score read is the recorded one — the folded mean, which is what every
     other verdict is judged on.
+
+    **The band binds by `assertion_id`, and a band that binds nothing cannot
+    reach here**: `Run` refuses it at construction. Empty therefore means *every
+    band was checked and held*, never *no band was checked* — the two used to be
+    the same value. (ADR 0024 §4.7, amended 2026-09-26)
     """
     lost: list[ScaleLost] = []
     for case in run.results:
@@ -107,7 +139,7 @@ def scale_lost(run: Run) -> tuple[ScaleLost, ...]:
         if band is None:
             continue
         for verdict in case.verdicts:
-            if verdict.score.name != band.check or verdict.status == "error":
+            if verdict.assertion_id != band.assertion_id or verdict.status == "error":
                 continue
             score = verdict.score.score
             if score is None or band.holds(score):

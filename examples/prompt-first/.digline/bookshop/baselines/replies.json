@@ -342,6 +342,7 @@
     },
     {
       "calibration": {
+        "assertion_id": "d0891fbb13f6509e",
         "check": "llm_rubric",
         "high": 0.95,
         "low": 0.7
@@ -381,7 +382,7 @@
       ]
     }
   ],
-  "schema_version": 16,
+  "schema_version": 17,
   "suite": "replies",
   "target_config": {
     "values": {

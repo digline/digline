@@ -173,6 +173,10 @@ RELEASED: dict[str, int] = {
     "0.19.2": 16,
     "0.20.0": 16,
     "0.20.1": 16,
+    # 17 — a calibration band binds by identity (ADR 0024 §4.7, amended
+    # 2026-09-26). One passenger, alone, because its step writes a value and a
+    # run that exited 0 can read as exit 2 after migrating.
+    "0.21.0": 17,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

@@ -618,16 +618,15 @@ def _calibrate(
     does not have, and `ToolsCalled` a trajectory nobody produced; run on this
     case each would error, and every suite with a budget and a calibration case
     would exit 2 on every run for nothing. The skip is recorded rather than
-    hidden: the run carries the band, whose `check` is the one verdict the case
-    holds. (ADR 0024 §4.3)
+    hidden: the run carries the band, whose `assertion_id` is the one verdict
+    the case holds. (ADR 0024 §4.3)
 
     `suite.samples` repeats the judge alone here. Nothing is recorded into
     `responses`, whatever the suite asked for: the answer is already in the
     committed cases file. (ADR 0024 §4.7)
     """
-    band = calibration.band
-    # `Suite` has already refused a check that is absent or ambiguous.
-    check = next(a for a in suite.assertions if a.name == calibration.check)
+    band = suite.band(calibration)
+    check = suite.calibrated(calibration)
     response = Response(output=calibration.output, input=calibration.input)
     samples: list[EvaluatorInputs] = []
     for _ in range(suite.samples):
@@ -675,8 +674,7 @@ def _asked(suite: Suite, case: Case) -> frozenset[str]:
     if case.suspended is not None:
         return frozenset()
     if case.calibration is not None:
-        check = case.calibration.check
-        return frozenset(a.identity for a in suite.assertions if a.name == check)
+        return frozenset({suite.calibrated(case.calibration).identity})
     return frozenset(a.identity for a in suite.assertions)
 
 
