@@ -26,9 +26,25 @@ correct its structural mistakes and are not negotiable.
 7. **The core must accept a single response**, not only a matrix: the reactive
    side (shadow path / in-path) is not decided yet, but must not be precluded.
 8. **The tenant is the perimeter.** `Run.tenant` is mandatory and non-empty.
-   `compare()` and `promote_baseline` raise if the tenants differ. The tenant is
-   a directory in the layout — `.digline/<tenant>/` — so that the separation is
-   enforced by the filesystem, not by a field inside a document.
+   `compare()` and `diff()` raise if the tenants differ, and a promotion is
+   refused the same way through the `read_run` it begins with. The tenant is
+   a directory in the layout — `.digline/<tenant>/` — so that **addressing** is
+   enforced by the filesystem, not by a field inside a document: filing or
+   reading one client's history as another's is a **refused mistake, not an
+   impossible act**.
+   *Corrected 2026-09-26, twice over. It said "the separation is enforced by the
+   filesystem", which claimed access control digline does not provide — it never
+   sets or inspects a mode, reads no uid, calls no `stat`, and one OS user reads
+   every tenant. And it said `promote_baseline` raises: the refusal is real but
+   it belongs to the `read_run` promotion calls first (ADR 0002 §8). Separating
+   **access** is the operator's job (a repository per client, filesystem
+   permissions, separate hosts), and the per-tenant directory is what makes those
+   possible. The perimeter is enforced in the front ends and in the operations
+   that pair two runs — `compare()`, `diff()`, replay, and promotion through
+   `read_run` — never in the store's API, which takes a tenant as a string by
+   design.
+   `pytest-digline` combines suites into one session without comparing their
+   tenants, and that crossing is **unruled**. (ADR 0002 §1)*
    **No sub-perimeter**: `Run.environment` (mandatory, no default) says where
    inside the perimeter the run happened, does not enter the layout, and
    `compare()` reports it without constraining — comparing staging against the
