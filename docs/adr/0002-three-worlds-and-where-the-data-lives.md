@@ -53,6 +53,58 @@ separation is enforced by the filesystem instead of being described by a documen
 software house with twelve customers must not be one typo away from reading one's history
 as another's.
 
+*Corrected 2026-09-26, after measuring what the layout enforces. The paragraph above says
+the **separation** is enforced by the filesystem. What the filesystem enforces is
+**addressing**, and the two are different claims: the directory makes filing or reading one
+client's history as another's a **refused mistake**, not an impossible act. Everything the
+paragraph's own justification asks for lives in that first claim, and it holds — a tenant
+name is validated as one path segment, so `..` and `/` cannot climb out; a symlink leading
+out of the store is refused; and `read_run` and `read_baseline` raise `TenantMismatchError`
+when a document's declared tenant differs from the directory it was addressed through. The
+typo is caught.*
+
+*What the sentence claimed beyond that, and no longer does: **access**. digline creates a
+tenant's directories with whatever mode the process has and never sets or inspects one; it
+reads no uid, calls no `stat`, and checks no credential. The only explicit modes anywhere are
+two `os.open` creation flags on a register append and a journal leg, and neither is read back
+— the `O_EXCL` on the second is the resume race, not privacy. One OS user who can read one
+tenant's directory can read them all, and in a single repository every tenant's committed
+baselines share one history, so a clone brings all of them. **Separating access is the operator's
+job** — one repository per client, filesystem permissions, or separate hosts — and the
+per-tenant directory is what makes each of those possible without restructuring anything.
+That is what the directory is worth, and it is worth stating as what it is rather than as a
+guarantee nothing here provides.*
+
+*Where the perimeter is enforced, named because "the filesystem" was the wrong answer: in
+the **front ends**, where the suite picks the tenant and the flag only verifies it —
+`_check_perimeter` in the CLI and the same check in the MCP server, under the sentence "the
+suite decides; this flag only verifies"; and in **the operations that pair two runs**, where
+`compare()`, `diff()` and replay each raise rather than return a number about two perimeters,
+and promotion inherits the refusal from the `read_run` it begins with — §8 of this record says
+so, and it is why the bullet above naming `promote_baseline` describes where the condition
+holds rather than where it is written. **Not in the store's API**, which takes a tenant as a string by design
+and answers for whichever one it is handed.*
+
+*And the one place a front end of ours crosses it, named rather than left to be found:
+`pytest-digline` takes `--digline-suite` repeatably, collects every suite's rows into one
+session, and prints every headline under a single `digline` separator — and nothing there
+compares the suites' tenants, while `headline()` names neither the tenant nor the suite. Two
+clients' sentences can arrive one after the other, under one exit status, with nothing saying
+which client each is about. Recorded here as **unruled**: a record that describes a perimeter
+may not be silent about the one place its own front end walks through it, and whether that is
+refused or declared acceptable is not decided in this note.*
+
+*Two more places make the same claim and are owed the same correction, named here so that
+correcting one does not leave the others reading as measured: `store/file_store.py`'s module
+docstring — "the separation between perimeters is something the filesystem enforces rather
+than something a document merely describes" — and [ADR 0011](0011-the-mcp-server.md) §8,
+"`.digline/<tenant>/` puts the perimeter in the filesystem precisely so that it is not a field
+in a document somebody could get wrong". Both are true of addressing and neither is corrected
+by this note.*
+
+*The decision itself does not move. The tenant stays a directory, for the reason the
+paragraph above gives. What changes is the claim made for it.*
+
 Two runs from different perimeters produce numbers on the same scale: a wrong comparison
 would be arithmetically valid and factually meaningless. It is the kind of mistake that is
 never noticed, so it has to be made impossible.
@@ -397,6 +449,32 @@ a change to the configuration — visible in `config_hash` and in a pull request
 - The production → repo bridge is the point where anonymization is **mandatory**: it is
   the only place where payload and verdict touch, and the only one where a mistake is
   irreversible — once committed, it is in git's history.
+
+  *Corrected 2026-09-26: the requirement as written above cannot be met, and this note says
+  so and stops there. **Anonymising the input destroys the case.** The input is what a judge
+  judges, so a case whose input has been anonymised is not the same case weakened — it is a
+  different case, and the verdict recorded against it answers a question nobody asked. The
+  choice the material leaves is the text or no case, which is not a choice "mandatory
+  anonymization" admits. The second half of the bullet is untouched and remains true: this is
+  the one place payload and verdict touch, and once committed a mistake is in git's history.
+  What is wrong is only the requirement, and it has been wrong since this record was
+  accepted.*
+
+  *__What this note does not do, deliberately.__ It does not say what should replace the
+  requirement. [ADR 0023](0023-capture.md) §8 has a remedy — the regime becomes declared
+  rather than mandatory — and taking it here would be that record's amendment made by another
+  hand while it is still proposed, which is what its own header refuses: an amendment reading
+  as in force while the record that makes it is undecided would be a ruling and not a landing.
+  So the problem is stated and the remedy is left where it was decided, unaccepted.*
+
+  *__Why now rather than at 0023's acceptance.__ ADR 0023 promised two edits to this record —
+  §5's generated-id recipe and this bullet. The first was **written**: it sits, dated
+  2026-09-16, on the unmerged `capture` branch, and was deliberately not carried when 0023
+  landed on `main` as proposed. **This one was never drafted at all**, on any branch. So the
+  two are not in the same state, and only one of them is parked: waiting for 0023 protects a
+  text that exists, and for this bullet it protected nothing while a fixed-section record went
+  on stating a requirement its own successor had already shown could not be met. A record that
+  cannot be met should say so in its own voice, which needs no other record's status.*
 - Three planned packages, in the order they will be built after the offline driver:
   `digline.report` (the document for world 3), `digline.production` (the Postgres store
   with mandatory retention), `digline.bridge` (production → repo, with anonymization and a
