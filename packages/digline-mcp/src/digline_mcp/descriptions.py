@@ -30,11 +30,11 @@ evidence, name the run whose per-case profile is closest to typical, and
 recommend it; the human runs `digline promote`, or tells you to.
 
 If `skipped` or `note` is non-empty, stored runs were written under an older
-schema and this listing does not show them. Say so, and run `digline migrate` —
-you may, for as long as every step of a migration is required to write nothing
-semantic; the day one has to change content it becomes a decision, and this
-answer flips. It rewrites a committed file but selects nothing: `promote`
-changes what the reference says, `migrate` changes how it is spelled."""
+schema and this listing does not show them. Say so, and propose `digline
+migrate`. Do not run it on your own initiative: a person runs it, or tells you
+to. Since schema 17 a migration can change what a stored run says — a run that
+exited 0 can read as exit 2, a committed baseline included — so it is a decision
+about the reference, like `promote`, and no longer a respelling of it."""
 
 GET_RUN = """\
 One stored run: its verdicts, its measured intervals, and the configuration that

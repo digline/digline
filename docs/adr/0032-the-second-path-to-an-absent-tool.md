@@ -17,6 +17,11 @@
   One Consequences bullet, the one saying this record does not authenticate
   the view: the flagged server now promotes only for the browser that opened
   the address it printed. No decision moves
+- Amended: 2026-09-26, with schema 17. **§4a's condition met its own expiry,
+  and the answer flipped as written.** The 16 → 17 step writes content, so an
+  agent may no longer run `migrate` on its own initiative. `AGENTS.md` §8, both
+  copies of the skill and the MCP playbook say so, and a test in each place
+  pins it. No other decision moves
 - Opens: **nothing.** No schema moves, no document grows a field, no wire key
   is added or removed. `SCHEMA_VERSION`, `OUTPUT_VERSION`, `REGISTER_VERSION`
   and `JOURNAL_VERSION` all stay where they are. What moves is one default in
@@ -390,6 +395,48 @@ person noticing is a condition that expires silently, which is the failure mode
 §4b exists to prevent. The test that the semantic content of a document is
 unchanged across `upgrade_document` is owed by whichever release first ships a
 step that is not `return raw` or an added absence.
+
+*Amended 2026-09-26: **the condition met its own expiry, and the answer has
+flipped.** Schema 17's step (ADR 0024 §4.7, amended the same day) is the first
+since 9 to write a value, and unlike 9's it changes what a document says. It
+writes the identity a calibration band binds by. A stored run whose band bound
+nothing under 16 is read after migrating, so a run that exited 0 can read as
+exit 2, and a committed baseline can come to say that its calibration case was
+outside its band. That is a change to what the reference says, which is the
+line this section drew between `promote` and `migrate`. So `migrate` is now a
+decision, and **an agent may no longer run it on its own initiative**: it
+proposes it, and a person runs it or tells it to.*
+
+*The wording is the argument, and it is worth stating because it is the reason
+the flip needed no new ruling. **The permission was never about `migrate`.**
+It was about the property that every step wrote nothing semantic, and it was
+written as a consequence of that property precisely so that it could not
+outlive it. The property is gone, so the permission goes with it. What was
+ruled on 2026-09-26 is only that the condition had fired, and that all three
+surfaces say so before 0.21.0 ships. Nobody had to be persuaded that the answer
+should change.*
+
+*This is a record that carried its own expiry and met it, and it is named here
+as such. It is the second this week. The shape is worth recognising on sight,
+because its failure is quiet: a permission written as a verdict would still be
+in force today, and it would be wrong.*
+
+*What caught it, said plainly: not a test. The standing check above covers
+`config_hash` and `created_at`, and the new step moves neither. The expiry was
+noticed by a person reading this record's own sentence in 0.20.0's CHANGELOG
+while writing 0.21.0's, which is the silent-expiry route this section warned
+about, met and survived rather than prevented. The semantic-content test this
+section said was owed by the first release to ship such a step is not written.
+The property it would have guarded is the one this step breaks on purpose, so
+the test would be red by design. Its job passes to the pins that now hold the
+flipped answer word for word: `tests/test_agents.py` for `AGENTS.md` and the
+skill, and `packages/digline-mcp/tests/test_playbook.py` for the playbook. Each
+checks that the instruction is present and that the old grant is absent.*
+
+*What does not enforce it: the Claude Code plugin's `ask-a-person` hook
+intercepts `promote`, `register` and `view --allow-promote`, and not `migrate`.
+An agent that ignores the playbook meets no wall. Adding `migrate` to that hook
+is the route to one, and it is named here, not ruled here.*
 
 **A third finding, on a different axis, and deliberately not ruled here.**
 `digline view` renders `render_html` directly (`src/digline/report/pages.py`),

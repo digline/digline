@@ -70,6 +70,17 @@ you re-promote everything. A run at `samples=1` gains nothing but the version
 number, because at one sample there is no interval: `[score, score]` would be a
 noise floor of zero width dressed as a measurement.
 
+**Derived can still change what a run says.** Schema 17's step writes the
+identity a calibration band binds by, taking it from the verdicts the case
+already holds. Under 16 a band bound by name, and a band for a check that names
+its score otherwise bound nothing and read as held. After migrating, that band
+is read. **A run that exited 0 can read as exit 2**, and a committed baseline
+can come to say that its calibration case was outside its band. Nothing about
+the run changed: the document now says what happened. That is why `migrate` is a
+person's decision from 0.21.0 on, and why an agent proposes it and does not run
+it. A file whose verdicts do not say which check its band belongs to is refused
+and left as it was.
+
 One thing the step deliberately leaves alone: an **aggregate** — precision,
 accuracy — records no interval on migration. Sizing one needs the marks and the
 declared assertion, and a run file carries neither, so a migrated baseline sizes

@@ -847,6 +847,11 @@ migration (ADR 0017 §2).*
 document says ran", describe schemas 12–16 and are left as they were written.
 From 17 the identity is what the document says ran.*
 
+*A step that changes what a document says is the day
+[ADR 0032](0032-the-second-path-to-an-absent-tool.md) §4a named in advance. Its
+permission for an agent to run `migrate` rested on no step writing anything
+semantic, so it lapses with this one, as that record amends on the same day.*
+
 #### 4.8 Amendment, 2026-09-17: what building it found
 
 *The calibration case was built first, as §2 orders. Four places resisted the

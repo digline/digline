@@ -192,23 +192,25 @@ run there is proposing to buy the same answers twice.
 
 ## 8. When upgrading digline itself, migrate before you promote
 
-Run `digline migrate` after the bump. A stored run written under an older
-schema is skipped by a scan and refused by name until you do, so `--run latest`
-starts failing for a reason that has nothing to do with the run you asked for.
+A stored run written under an older schema is skipped by a scan and refused by
+name until it is migrated, so `--run latest` starts failing for a reason that
+has nothing to do with the run you asked for. When that happens, say so and
+propose `digline migrate`. Do not run it on your own initiative: a person
+runs it, or tells you to.
 
-**You may run it, and here is the condition that permission rests on.**
+**This was a permission until 0.21.0, and it carried its own expiry.** An agent
+could run `migrate` on one condition: that every step wrote nothing semantic.
+The day a step had to change content, the rule said, `migrate` would become a
+decision and the answer would flip. Schema 17's step is that day. It writes the
+identity a calibration band binds by, and a stored run whose band bound nothing
+is read after migrating: **a run that exited 0 can read as exit 2**, and a
+committed baseline can come to say that its calibration case was outside its
+band. That changes what the reference says, and saying what the reference says
+is rule 1's act, not a spelling.
 
-> An agent may run `digline migrate` for as long as every step is required to
-> write nothing semantic. The day a step has to change content, `migrate`
-> becomes a decision, and this answer flips.
-
-`migrate` touches a committed file, which is why it needs saying at all. It is
-still not rule 1's act: `promote` changes **what the reference says** — it
-selects one run out of several, and nothing but a person's judgement decides
-which — while `migrate` changes **how it is spelled**. A transformation with no
-selection in it has exactly one output for any input, so it is empty of content
-by construction, and the reviewed diff catches a migration that misbehaved in
-the one way it can never catch a promotion nobody wanted. (ADR 0032 §4a)
+The permission was never about `migrate`. It rested on the property that no
+step wrote anything semantic, and that property is gone, so the permission
+went with it. (ADR 0032 §4a, amended 2026-09-26)
 
 Re-promote only when the release notes say migration cannot supply something.
 Migration derives what it can from what the document already carries, and a

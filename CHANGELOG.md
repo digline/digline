@@ -53,6 +53,23 @@ digline migrate --suite suite.py
     refused**, and that run starts over. A journal is a work file and has no
     migration.
 
+### Changed — an agent no longer runs `digline migrate` on its own
+
+- **`migrate` is now a person's decision, and every agent-facing surface says
+  so.** `AGENTS.md` §8, the shipped skill and the MCP playbook used to let an
+  agent run it "for as long as every step is required to write nothing
+  semantic". The 16 → 17 step above writes content, so the condition was met
+  and the permission lapsed as it was written to. An agent now says the store
+  needs migrating and proposes the command, and a person runs it or tells the
+  agent to. The permission was never about `migrate`. It rested on a property
+  of the steps, and that property is gone.
+  ([ADR 0032 §4a](docs/adr/0032-the-second-path-to-an-absent-tool.md), amended
+  2026-09-26)
+  - **What enforces it is the wording.** Tests pin the sentence on all three
+    surfaces and check that the old grant is gone. The Claude Code plugin's
+    hook asks a person before `promote`, `register` and `view --allow-promote`,
+    but not before `migrate`.
+
 ### Changed — the promoting `digline view` promotes for one browser
 
 - **`digline view --allow-promote` now promotes only from the browser that
