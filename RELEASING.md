@@ -242,7 +242,10 @@ any of that release's features. `a72a8c0` built one of them and wrote
 `## 0.17.0 — unreleased`; `b70c5d4` dated it and touched `CHANGELOG.md`,
 `docs/assets/home/home.json` and four example locks. Two landings, in that order.
 
-So after the feature merges and before the tag:
+So after the feature merges and before the tag, on a branch of its own and
+through a pull request like every other change — **the tag then goes on that
+pull request's merge commit**, once it is on `main` (*Tag the merge commit, and
+nothing else*):
 
 1. **Date every heading the tag carries**, core and each plugin, in one commit.
    `test_a_dated_release_leaves_no_package_declared_unreleased` is green while the
@@ -272,7 +275,8 @@ catch up on. A tag is a commit, and a changelog written afterwards describes a
 release from a commit that is not in it: the file on PyPI and on `digline.dev`
 stays the one that says nothing about the version somebody just installed.
 Fixing that costs a re-tag, which is repeatable but only until the `pypi` job
-has run.
+has run — and, since release tags are protected, is the procedure in *Re-doing a
+tag*.
 
 **Date every package the tag carries, not only the core.** `publish.yml` builds
 the whole workspace and uploads everything the index lacks, so a `v*` tag
@@ -806,6 +810,107 @@ built on every tag, and `select_unpublished.py` uploads only what the index does
 not already have. So a plugin-only tag publishes only that plugin — because
 everything else is already released, not because the tag said so.
 
+### Tag the merge commit, and nothing else
+
+**The tag goes on the merge commit of the release pull request, once it is on
+`main`.** Not on the release commit on its branch, not on a branch head, not on
+anything `main` does not contain. `main` is protected — a pull request, the two
+`gates` checks on the ref — and a tag is not: before this rule a tag on an
+unmerged branch would have built, uploaded and spent the version number from
+code no gate had passed.
+
+```sh
+git fetch origin
+git log --oneline -1 origin/main        # the merge commit of the release PR
+git merge-base --is-ancestor <sha> origin/main && echo on-main
+git tag -a v<version> -m "<every package the run publishes>" <sha>
+git push origin v<version>
+```
+
+**`publish.yml` and `docker-publish.yml` refuse any other commit.** Their first
+job, `on-main`, runs `.github/on_main.py`, and every job that builds or publishes
+waits for it (`tests/test_release_from_main.py` fails if one does not — including
+a job added later, which is recognised by what it does, not by its name). What
+it actually checks is *is the tagged commit an ancestor of `origin/main`*; that
+also admits the release branch's head once the pull request has merged, and an
+older commit on `main`. The rule above is stricter than the check, on purpose:
+the merge commit is the one `gates` ran on as `main`.
+
+It does not refuse over a race. A commit that is not on `main` yet is fetched
+again, then looked up with `GET /repos/digline/digline/commits/<sha>/pulls`, and
+only then refused, with one of three messages. Each names the tag and the SHA:
+
+| The red says | It means | Do |
+|---|---|---|
+| `not on main` | no pull request into `main` carries the commit, or only one closed without merging | the tag is wrong: re-do it on the merge commit (*Re-doing a tag* below) |
+| `head of open PR #N: merge it, then tag the merge commit or re-run` | the tag went on before the merge | merge #N; then either re-run the failed workflow — the tagged commit is now on `main` — or re-do the tag on the merge commit, which is the rule |
+| `on merged PR #N but main does not show it yet: re-run` | the merge and the tag raced, and `main` had not propagated | re-run the failed jobs (`gh run rerun <id> --failed`); nothing needs re-tagging |
+
+A false red is the moment somebody is tempted to switch a guard off. None of the
+three is a reason to: each says what to do instead, and none of them needs the
+job removed.
+
+**On the first release after this landed** (2026-09-26, not yet exercised):
+open the `publish` run and the `docker-publish` run and confirm each has an
+`Is this commit on main?` job that ran and passed, printing `<tag> (<sha>) is
+on main.` — then delete this paragraph in the follow-up pull request. A green run
+whose job list lacks it is not the same evidence.
+
+### Re-doing a tag
+
+**Release tags are protected.** The tag ruleset `release-tags` on
+`digline/digline` covers `refs/tags/v*` and `refs/tags/*-v[0-9]*` — the two
+shapes `publish.yml` fires on, written as the `pypi` and `testpypi`
+environments write them — with the rules `deletion` and `update` and an empty
+bypass list. Creating a tag is free; deleting one or moving it is refused, for
+everybody. A re-tag is therefore a change to the ruleset, and it is written here
+because it is needed in the middle of a release that has gone wrong, which is
+the worst moment to work it out.
+
+**First: can it be re-done at all?** Only until the `pypi` job has uploaded. A
+version on PyPI is spent, and a re-tag after that re-releases nothing — cut the
+next version instead. Check the run's `pypi` job before touching anything.
+
+```sh
+repo=digline/digline tag=v<version>
+
+# 1. Stop what the old tag started, so nothing publishes while you work.
+gh run list --repo $repo --branch "$tag" --json databaseId,workflowName,status
+gh run cancel <id> --repo $repo            # each one still running
+
+# 2. The ruleset, as it is now. Keep the file: it is what step 5 compares to.
+id=$(gh api repos/$repo/rulesets --jq '.[] | select(.target == "tag") | .id')
+gh api repos/$repo/rulesets/$id > /tmp/release-tags.before.json
+
+# 3. Suspend it, delete the tag, and restore it — in that order, with nothing
+#    in between. Creating the new tag does not need the ruleset off.
+gh api -X PUT repos/$repo/rulesets/$id -f enforcement=disabled --jq .enforcement
+git push origin ":refs/tags/$tag"
+gh api -X PUT repos/$repo/rulesets/$id -f enforcement=active --jq .enforcement
+git tag -d "$tag"
+
+# 4. Tag the merge commit, as above, and push it.
+git tag -a "$tag" -m "<every package the run publishes>" <sha>
+git push origin "$tag"
+```
+
+**5. Confirm the ruleset is back, by reading it — not by remembering step 3.**
+
+```sh
+gh api repos/$repo/rulesets/$id --jq \
+  '{enforcement, rules: [.rules[].type], include: .conditions.ref_name.include, bypass: .bypass_actors}'
+```
+
+Expect `"enforcement": "active"`, `rules` `["deletion", "update"]`, the two
+patterns above, and `bypass` `[]` — the same as `/tmp/release-tags.before.json`
+said. A ruleset left disabled is the failure this step exists for: nothing
+reddens, and the next tag is unprotected. Then `gh run list --limit 3` to
+confirm `publish` started for the new tag.
+
+Why suspend the whole ruleset rather than add yourself to its bypass list: a
+bypass entry is a line somebody has to notice is still there, and the state to
+check afterwards is then a list; `enforcement` is one word, and step 5 reads it.
+
 ### Plugins ride the core tag, and the annotation names them
 
 That sweep is **intended**: it is how a family ships in one run, and `v0.15.0`
@@ -961,7 +1066,7 @@ re-tag: the packages are published, and only the site is behind. Add or renew
 the secret and re-run the failed job.
 
 **A re-run replays the workflow file from the tag's commit, not from `main`.**
-So a fix pushed to `main` does not reach a re-run of an older release — for that
+So a fix merged into `main` does not reach a re-run of an older release — for that
 one, either the secret has to match the name *that* commit expects, or the
 dispatch is sent by hand:
 
@@ -2097,7 +2202,8 @@ released versions, and all three tags on one digest.
 
 **The example legs need a dispatch after the lock regen.** Two things
 combine. `examples-from-pypi` is gated `if: github.event_name != 'push' &&
-!= 'pull_request'`, so pushing the lock commit does not run it; and the
+!= 'pull_request'`, so landing the lock commit — its pull request, and the push
+to `main` its merge makes — does not run it; and the
 `workflow_run` run that follows the tag checks out **the tag's commit**, which by
 construction predates the lock regen. So that run's legs read the *old* version
 and that is not a failure. On 0.8.0 two legs went red in that run for a second
@@ -2124,7 +2230,8 @@ sentence.
 The examples that carry a `uv.lock` pin the exact version; the rest resolve at
 install time. Regenerate every one of them — `ls examples/*/uv.lock` is the
 list, and `.github/release_followup.py` reads the same glob — with `uv lock
---upgrade-package digline` in each, commit, then dispatch. Do not work from a
+--upgrade-package digline` in each, commit on a branch, land it through a pull
+request, then dispatch against `main`. Do not work from a
 list written here: this sentence named five for as long as five was right, and
 `mcp-tools` arrived with a sixth that the ritual then skipped for a release.
 
@@ -2181,9 +2288,10 @@ behind a required reviewer, and why a mistyped tag is the one mistake here with
 no repair — the check that refuses a tag naming no package exists for that
 alone.
 
-Everything before PyPI is repeatable. A tag can be deleted and re-pushed on a
-fixed commit: the run starts over, and whatever reached TestPyPI in the meantime
-is skipped rather than re-uploaded.
+Everything before PyPI is repeatable. A tag can be re-done on a fixed commit —
+through the ruleset that protects it, by *Re-doing a tag*, and only on a commit
+`main` contains: the run starts over, and whatever reached TestPyPI in the
+meantime is skipped rather than re-uploaded.
 
 `digline.dev` is rebuilt only on a `v*` tag. The site describes what the core
 says — the quickstart, the format, `docs/` — and a plugin release changes none

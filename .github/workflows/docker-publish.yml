@@ -3,7 +3,10 @@ name: docker-publish
 # The official image, `ghcr.io/digline/digline`, built on a workspace tag and
 # pushed to GHCR — or by hand, for a rebuild:
 #
-#     gh workflow run docker-publish.yml --ref <branch>
+#     gh workflow run docker-publish.yml --ref main -f ref=<tag>
+#
+# Either way the commit built must be one `main` contains: the `on-main` job
+# refuses anything else, so a rebuild from an unmerged branch is refused too.
 #
 # The image installs digline from PyPI, so it can only be built *after* the
 # release has finished publishing. This workflow starts on the same tag push as
@@ -47,8 +50,40 @@ env:
   IMAGE: ghcr.io/digline/digline
 
 jobs:
+  on-main:
+    name: Is this commit on main?
+    # Before anything is built: a tag is not protected the way `main` is, and a
+    # version number is spent the moment it is uploaded. `.github/on_main.py`
+    # says why it retries before refusing and what each of its three messages
+    # means; RELEASING.md, *Tag the merge commit*, says what to do about each.
+    # Every job below waits for this one, directly or through `needs:`, and
+    # `tests/test_release_from_main.py` fails if one does not.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `GET /commits/{sha}/pulls`, asked only when the commit is not on main.
+      pull-requests: read
+    outputs:
+      # The commit that was checked, so the jobs below build that one and not
+      # whatever `inputs.ref` names by the time they check it out.
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - id: check
+        name: Refuse a commit main does not contain
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ inputs.ref || github.ref_name }}
+        run: |
+          python3 .github/on_main.py HEAD "$LABEL"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   smoke:
     name: The quickstart, inside the image
+    needs: on-main
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.plan.outputs.version }}
@@ -57,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.on-main.outputs.sha }}
 
       - id: plan
         name: Read the version out of the Dockerfile, derive the tags
@@ -149,7 +184,7 @@ jobs:
 
   publish:
     name: Build multi-arch and push to GHCR
-    needs: smoke
+    needs: [on-main, smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -160,7 +195,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.on-main.outputs.sha }}
 
       # arm64 is built under emulation. It is a CLI that shells out to nothing
       # at build time beyond apt and pip, so this is slow and not fragile.

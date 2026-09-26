@@ -31,8 +31,35 @@ permissions:
   contents: read
 
 jobs:
+  on-main:
+    name: Is this commit on main?
+    # Before anything is built: a tag is not protected the way `main` is, and a
+    # version number is spent the moment it is uploaded. `.github/on_main.py`
+    # says why it retries before refusing and what each of its three messages
+    # means; RELEASING.md, *Tag the merge commit*, says what to do about each.
+    # Every job below waits for this one, directly or through `needs:`, and
+    # `tests/test_release_from_main.py` fails if one does not.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `GET /commits/{sha}/pulls`, asked only when the commit is not on main.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: check
+        name: Refuse a commit main does not contain
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ github.ref_name }}
+        run: |
+          python3 .github/on_main.py HEAD "$LABEL"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build and check every package
+    needs: on-main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
