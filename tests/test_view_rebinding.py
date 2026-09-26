@@ -44,6 +44,13 @@ from digline.cli.view import (
 #: refuse for a reason that has nothing to do with the name.
 REBOUND = "evil.example"
 
+#: What `view.py` says for each of the three refusals a POST can meet, in the
+#: order it applies them. Asserted beside every 403 in this file, because all
+#: three are 403s and a status cannot tell them apart.
+HOST_REFUSED = "addressed to a name this server does not answer to"
+ORIGIN_REFUSED = "this request came from another origin"
+KEY_REFUSED = "promotes only from the browser that opened the address"
+
 
 @pytest.fixture
 def served(repo: Path) -> Iterator[tuple[int, str, str]]:
@@ -154,7 +161,7 @@ def test_a_post_from_a_rebound_name_is_refused(
     # The control, and it is the point of the test: the check does work when the
     # attacker cannot also choose `Host`. Without this line a refusal for any
     # reason at all would read as success.
-    refused, _ = request(
+    refused, said = request(
         port,
         "POST",
         "/promote",
@@ -164,6 +171,7 @@ def test_a_post_from_a_rebound_name_is_refused(
         cookie=cookie,
     )
     assert refused == 403, "the control failed: a plain cross-origin POST got through"
+    assert ORIGIN_REFUSED in said, said
 
     status, body = request(
         port,
@@ -178,6 +186,55 @@ def test_a_post_from_a_rebound_name_is_refused(
         f"a POST whose Origin and Host are both {rebound!r} was answered "
         f"{status}: the origin check compares two headers the same attacker "
         f"chose. Body: {body[:200]!r}"
+    )
+    # The status alone does not say which guard refused, and here that is the
+    # whole question: with the `Host` check deleted this request is *still* a
+    # 403, from the origin check behind it — measured, not supposed. Only the
+    # sentence says the guard this test is named after is the one that held.
+    assert HOST_REFUSED in body, (
+        f"the rebound POST was refused, but not by the Host check: {body[:200]!r}"
+    )
+
+
+def test_the_same_post_from_the_server_s_own_name_is_accepted(
+    served: tuple[int, str, str],
+) -> None:
+    """The positive control for the test above.
+
+    Every refusal there is a 403, and so is the launch key's. Without a request
+    that differs from the rebound one only in `Host` and `Origin`, and is
+    accepted, a key that had stopped matching would refuse everything in that
+    file and every test would stay green. Re-promoting the baseline over itself
+    is a write that moves nothing, as in `test_view.py`.
+    """
+    port, key, cookie = served
+    here = f"127.0.0.1:{port}"
+    form = f"run={key}&replacing={key}&locale=en"
+
+    status, body = request(
+        port,
+        "POST",
+        "/promote",
+        host=here,
+        origin=f"http://{here}",
+        body=form,
+        cookie=cookie + "-not-the-key",
+    )
+    assert status == 403 and KEY_REFUSED in body, (
+        f"the launch key's own refusal changed shape: {status} {body[:200]!r}"
+    )
+
+    status, body = request(
+        port,
+        "POST",
+        "/promote",
+        host=here,
+        origin=f"http://{here}",
+        body=form,
+        cookie=cookie,
+    )
+    assert status == 200 and f"Baseline set to {key}." in body, (
+        f"the legitimate POST was answered {status}: {body[:200]!r}"
     )
 
 
