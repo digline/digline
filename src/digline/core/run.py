@@ -482,7 +482,14 @@ class SystemConfig:
         return "base_url" in self.values or "base_url" in self.withheld
 
     def perimeter(self) -> frozenset[str]:
-        """The fields this configuration keeps back at a boundary."""
+        """The fields this configuration keeps back at a boundary.
+
+        **This** configuration: the widening is decided by the `base_url` on
+        the object it is called on, and `Run.judge_config` is a `SystemConfig`
+        like `Run.target_config`. A judge behind a gateway withholds its
+        `resolved_model`; a target that names no endpoint carries it in clear.
+        One document routinely holds both. (ADR 0005 §9)
+        """
         if not self._at_named_endpoint:
             return PERIMETER_FIELDS
         return PERIMETER_FIELDS | ENDPOINT_PERIMETER_FIELDS

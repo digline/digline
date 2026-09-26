@@ -522,6 +522,19 @@ written in the suite, and the suite goes through a review — the same argument
 ADR 0003 §4 makes for opting artifacts in. The observed one is written by the
 server and nobody reviewed it. Two model names, two provenances, two answers.
 
+**The test is on the configuration, not on the side it describes.**
+`perimeter()` reads `base_url` from the object it is called on, and
+`Run.judge_config` is a `SystemConfig` exactly as `Run.target_config` is. So a
+**judge** behind a customer's gateway withholds its `resolved_model`, and a
+**target** that declares no `base_url` — a plugin on the official endpoint, an
+application reporting its own configuration — carries it in clear. Written
+down because the rule is easy to carry away as a target's rule, and it is
+not: the two sides differ only in how often each names an endpoint while
+reporting a resolved id, which a judge rarely does and a target behind a
+gateway usually does. Both happen in one document as soon as the target names
+an endpoint and the judge does not. *(Added 2026-09-26, after the two were
+measured side by side in one redacted document.)*
+
 **Inside the perimeter it always travels.** World 1 is the developer, who sees
 everything; this is a boundary rule, not a storage rule, and an unredacted run
 records `resolved_model` whatever the endpoint. What is lost is narrow and
