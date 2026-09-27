@@ -412,8 +412,10 @@ on counsel. §5 implements the rule; it does not make it.
 
 *2026-09-27, at acceptance: acceptance no longer waits on counsel, so the
 reason above has gone. The placement stays, for a reason of its own.* The rule
-corrects ADR 0010 §1's premise, so it belongs in ADR 0010. Its deadline is the
-first committed file, and acceptance does not move that.
+corrects ADR 0010 §1's premise, so it belongs in ADR 0010, and it is made there:
+[ADR 0010](0010-per-group-aggregates.md) §1, amended the same day, before this
+acceptance. Its deadline was the first committed file, and nothing has been
+committed.
 
 ### 6. The name table
 
