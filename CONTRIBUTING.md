@@ -63,6 +63,27 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   any other.
 - **Decisions in `CLAUDE.md` marked fixed need an ADR in `docs/adr/` first**,
   not a pull request that quietly works around them.
+- **When you amend a record, sweep for its premise with the line breaks
+  folded.** Prose here wraps at about 79 columns, so a sentence worth amending
+  is usually two lines, and `grep "the whole sentence"` finds none of the places
+  it is written — including the file you are editing. Match against a form with
+  runs of whitespace collapsed (`re.sub(r"\s+", " ", text)`), over every `*.md`
+  and the `*.py` under `src/` and `tests/`.
+
+  **This is the difference between one site and two.** ADR 0010 §1's premise,
+  *"Which cases were in it stays in the repository"*, returned **nothing** to a
+  phrase search in the very record that contains it. Folded, it returned two:
+  §1 itself, and ADR 0028's `Assumes` line citing the same property. The second
+  one had to be read and deliberately left — what it depends on survived the
+  amendment — and that is a decision nobody can make about a site they did not
+  find.
+
+  **Then say in the amendment which method built the list.** *"One other site"*
+  is a claim about a search before it is a claim about the repository, and a
+  reader who cannot tell which search you ran cannot tell whether the list is
+  short or the sweep was. The same applies to `git grep -i <word>` for a word
+  that appears in more spellings than you checked: state the pattern, not the
+  count alone.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.
   Never required to contribute.
 - **One check runs only in CI, and it is not required.** The `docs` job builds
