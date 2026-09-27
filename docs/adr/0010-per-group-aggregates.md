@@ -7,6 +7,17 @@
   [ADR 0008](0008-the-two-run-report.md) were
 - Shipped: 0.6.0
 - Date: 2026-09-08
+- Amended: 2026-09-27, in §1 only. Its closing premise — *"Which cases were in
+  it stays in the repository"* — is true of a store the repository holds and
+  false of one it does not, and where it is false the group's label leaves
+  inside §3's name. The rule is now **the label resolves where the cases are**:
+  the label is not withheld, and nothing about the grammar, the identity or the
+  code moves. §1's own sentence is kept above the correction, which says what it
+  said, what it says now, and why. **It has a deadline, stated there**, and the
+  deadline is not this record's to keep — it belongs to whoever commits the
+  first reference under a store outside the repository. No other section is
+  touched: §3's `[group=…]` is unchanged, §4's identity exclusions are
+  unchanged, and no code changes
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels) and §10 (the aggregate is
   the gate, the per-case is the diagnosis, and where to put a threshold),
@@ -105,6 +116,93 @@ confusion matrix, which is seven integers. Which cases were in it stays in the
 repository. That is ADR 0002 §2 holding without being asked to: the counts are a
 measurement of the system, the membership is the customer's data about their own
 cases, and the split falls where it already falls.
+
+*__Amended 2026-09-27. The last sentence above is a premise, not a mechanism,
+and where the store is not in the repository it is false.__ The paragraph is
+kept as written, because it was right about the world it was written for and a
+reader who cites it should meet this.*
+
+*__What it said:__ which cases were in a group stays in the repository, so the
+only thing about a group that crosses a boundary is its name and its seven
+integers.*
+
+*__What it says now: the label resolves where the cases are.__ The name still
+carries the group — §3's `[group=…]`, unchanged — and what the name carries
+**out of the perimeter that owns the cases** is a stable substitute for the
+label, resolved back to the label where the cases are. Inside a repository that
+holds its own cases nothing changes at all: the label is the developer's own
+text about their own data, and it travels exactly as it always has.*
+
+*__Why, and this needs no other record's authority:__ §1's sentence names **the
+repository** as the place membership stays, and ADR 0002 §6 has contemplated a
+store outside it since before this record existed — Postgres, "inside the end
+company's perimeter". **A store the repository does not hold is a store whose
+cases the repository does not hold.** Then the label on a case is the data
+owner's text, and §3 is explicit that the name is a public string which lands in
+`Run.aggregate[].assertion` in every run file and every promoted baseline, in
+`compare --json`, in `diff --json` and in both rendered documents. The premise
+is checkable by reading those two sections against each other; no third record
+is required to see it.*
+
+*__What this is not: a reversal.__ §1 decided knowingly that a group's name may
+cross, and gave its reason. The reason was sound and its scope was the world
+where one party holds the cases, the code and the reference. This is that
+decision meeting a world its reason did not cover, which is why the amendment
+changes where the label is **resolved** and not whether a group may be named.*
+
+*__What the label is not: withheld.__ Withholding it would make a grouped
+aggregate unreadable — `family[group=…]` would stop parsing, `compare()` could
+no longer tell a group that is new from one that has just become grouped, and a
+stored run carries the group nowhere else, so the grouping **structure** would
+go with the label. An index in its place is worse than withholding: positions
+shift when a group is added or dropped, and two documents would silently pair
+different groups.*
+
+*__The shape this rule is implemented by — cited, not decided here:__
+[ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md) §5
+makes the label a stable token in the projection and §6 puts the table that
+resolves it where the cases are. That record is the shape; this one is the rule,
+and the rule is why §5 has something to implement. Neither depends on the
+other's status for the premise above to be false.*
+
+*__The deadline, and what it is a deadline for.__ **This amendment has to be in
+force before the first reference is committed under a store outside the
+repository.** A committed file cannot be amended afterwards: the label would be
+in a repository's history, and a group's aggregate is **run-level** — redaction
+copies the name, and the aggregate belongs to no case — so deleting every case
+row for a subject removes what the other routes carried and leaves this one
+standing, with the group's counts still computed over the deleted case.
+Recomputing an aggregate needs the payload, and under a store outside the
+repository the payload is on the other side. **The holder of such a reference
+can cut it; it cannot correct it.** That is the whole of why this one has a date
+and the other amendments in its family do not.*
+
+*__What would remove the date without removing the amendment.__ The deadline
+rests on there being a committed reference to precede. If the shape ADR 0034
+proposes falls — its own §6 names the question that would fell it, and its
+*Alternatives considered* names what the design becomes instead, a comparison
+performed where the data is — then nothing is committed, and the date has
+nothing to attach to. **The amendment would still be owed**, because the premise
+would still be false wherever the cases are not in the repository; only its
+urgency would go.*
+
+*__What this closes, and it is one of six.__ It closes the group label, and
+nothing else. A document that has been redacted still carries text by five other
+routes, enumerated in [ADR
+0034](0034-the-store-outside-and-the-reference-that-names-nothing.md) §7, and
+that record says in its own voice that a green by its enumeration means **no
+string** rather than **no content**. Nobody should read this amendment as making
+a redacted document text-free; it makes exactly one sentence of this record true
+again.*
+
+*__Where else this premise is written, and how that list was built.__ One other
+place: [ADR 0028](0028-the-rules-that-moved.md)'s `Assumes` line, which cites
+this section as *"group membership stays in the repository"*. It is **checked and
+deliberately not edited**: what 0028 §6 depends on is that the label is a string
+which pairs across two documents, and a stable substitute pairs exactly as the
+label did. The list was built by folding line breaks before matching, over every
+`*.md` in the repository and every `*.py` under `src/` and `tests/`, because this
+sentence wraps and a plain phrase search misses every site where it does.*
 
 ### 2. `by_group` expands, and the expansion adds
 
