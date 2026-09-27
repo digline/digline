@@ -16,6 +16,13 @@ correct its structural mistakes and are not negotiable.
    user's repo: config and baselines versioned in git, run artifacts
    gitignored. Behind the `ResultStore` protocol, file-based implementation by
    default. Never a DB in the home directory, never global state on the machine.
+   *Widened 2026-09-27 (ADR 0034 §1, amending ADR 0002 §6).* Where the cases
+   are the end company's, the store lives **inside its perimeter**: cases,
+   runs, recorded responses, the journal and the full reference, in the same
+   `.digline/<tenant>/` layout and under the same key. The user's repository
+   then commits the key and a **projection** of the reference. The reason above
+   is unchanged: still no DB in the home directory and no global state. What
+   moves is which perimeter the directory sits in.
 3. **No vacuously green assertion.** Every assertion has a mandatory threshold
    or a default that can fail. A default of 0 that always passes is a bug.
 4. **Cost and latency are budgets, not metrics.** A declared ceiling fails the
@@ -60,6 +67,18 @@ correct its structural mistakes and are not negotiable.
    recorded in every run and cross a boundary only under
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
    the prudent default holds here too. (ADR 0003)
+   *Narrowed 2026-09-27 (ADR 0034 §4, §5, §8).* A **projected** reference, the
+   file committed when the store lives with the end company, carries less than
+   the list above. The `case_id`, a verdict's name, a group label, a
+   calibration band's check word, artifact paths and reported configuration
+   keys and values become **tokens**, resolved only where the store is. Every
+   field is classified, and an unclassified one is refused. The document
+   declares the regime it was produced under, and that is verified, not
+   believed. It is a narrowing, declared: nothing that *may* cross is forced to.
+   The digests stay as they are. A green means *no string*, not *no content*,
+   and no adversary is addressed by them, because the reference and the suite
+   share a repository (ADR 0034 §12). That ruling holds only while a reference
+   cannot reach a place the suite does not.
 
 ## Structure
 

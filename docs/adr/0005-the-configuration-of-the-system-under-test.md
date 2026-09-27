@@ -30,6 +30,12 @@
   also states the consequence it does **not** repair — `model` is mandatory over
   HTTP and equally unreviewed — which is
   [ADR 0030](0030-the-configuration-an-application-reports.md)
+- Amended: 2026-09-27 — §9, what survives a **projection**, by
+  [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+  §4 at its acceptance. One sentence owed as a consequence of that record's
+  enumeration: in a projected document every reported configuration key and
+  value is a token or absent. Nothing is recorded differently, and the rule for
+  a redacted document is unchanged
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -763,6 +769,29 @@ decision 9, it changes what an existing document carries, and it has its own
 record in [ADR 0030](0030-the-configuration-an-application-reports.md). Opening
 `resolved_model` here would have shipped half of that decision inside a release
 built to let a pilot read its tool calls.
+
+#### What survives a projection
+
+*Amendment, 2026-09-27, by
+[ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md) §4,
+at its acceptance. It changes what crosses one boundary and nothing about what
+is recorded: §3 holds, and the fields above are still recorded beside the hash
+and never inside it.*
+
+**In a projected document, `target_config` and `judge_config` are ADR 0034's
+class (c): every key and every value is a token or absent, whatever the
+endpoint.** That includes `resolved_model` and `fingerprint`. The perimeter
+rule above decides what a **redacted** document carries, and it is unchanged.
+A projection carries less, because its rule is an enumeration: a field that is
+neither digline's own vocabulary nor the committing party's own string does
+not cross as text. A reported value is neither. The provider wrote it, or the
+end company's own application did.
+
+**Inside the perimeter nothing moves.** The run at the data owner records every
+field this section admits, and the alias-roll sentence §9 exists for is read
+there, where the store is. What the software house loses is that sentence in
+the committed file. Under ADR 0034 §15 that absence is declared in words and never
+filled in silence.
 
 ## Consequences
 

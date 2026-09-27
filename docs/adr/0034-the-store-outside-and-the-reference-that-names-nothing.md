@@ -1,21 +1,29 @@
 # ADR 0034 — The store outside the repository, and the reference that names nothing
 
-- Status: proposed — the text first, checkpointed before any code, the way
-  [ADR 0021](0021-the-register.md) and [ADR 0023](0023-capture.md) were. Landed
-  on `main` as proposed so that its number is a record and not a hole; nothing
-  in it is implemented. **Acceptance waits on two answers, and neither of them
-  is in this tree.** The first is not ours: whether a record that carries
+- Status: accepted — the text first, checkpointed before any code, the way
+  [ADR 0021](0021-the-register.md) and [ADR 0023](0023-capture.md) were; nothing
+  in it is implemented. Landed on `main` as proposed on 2026-09-27 and accepted
+  the same day. **It said acceptance waited on two answers. One is answered and
+  the other is sidestepped, and the two are not the same act.**
+  **Answered — who the digests protect against: nobody in particular** (§12).
+  The committed file and the suite live in one repository, so whoever obtains
+  one obtains the other, and a digest of text they already hold gives them
+  nothing. `assertion_id` and `config_hash` stay as they are.
+  **Sidestepped, not answered — counsel's question** (§6): whether a record of
   structural identifiers and no text, left in a repository's history, is still
-  personal data once the mapping that resolves it has been destroyed — §6
-  states both branches and what each does to §2. The second is ours and is
-  stated as a question rather than answered: **who the digests protect
-  against** (§12), which decides what happens to `assertion_id` and
-  `config_hash`; until it is answered §12 lists options and ranks none. **What
-  it amends waits for its acceptance**: the sections named in *Amends* are
-  edited when this is accepted, not when it lands. An amendment to a record the
-  *fixed* section rests on, reading as in force while the record that makes it
-  is undecided, would be a ruling and not a landing. Until then *Amends* says
-  what acceptance would change
+  personal data once the mapping that resolves it is destroyed. It is still
+  counsel's and still open. This record is accepted on the branch where
+  destroying the mapping is enough, **and that is a premise, not a finding.**
+  **What reopens acceptance:** counsel answering the other way. §2's committed
+  shape then falls, the design becomes compare-at-the-owner (§*Alternatives
+  considered*), and this record is proposed again. Nothing is committed until
+  the projection is built, so the first committed file is where a wrong premise
+  stops being cheap: a projection already in history stays there. **What
+  reopens §12:** a committed file reaching a place the suite does not — a fork,
+  a backup, a handover — because that removes the reason, and the ruling goes
+  with it. **Its amendments are made in the same change as this acceptance**,
+  as *Amends* said they would be: ADR 0002 §6 and its *Consequences*, ADR 0005
+  §9, and `CLAUDE.md`'s decisions 2 and 9
 - Shipped: unreleased
 - Date: 2026-09-27
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -75,7 +83,8 @@
   `key_of` lives in the core) and §2 (where the key is carried);
   [ADR 0033](0033-the-server-that-promotes-for-one-browser.md) §6 (world 2
   stays out, and what it needs first)
-- Amends, **at acceptance and not on landing**:
+- Amends, **at acceptance and not on landing** — made on 2026-09-27, in the
+  change that accepted this record:
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §6 — its carve-out
   widens from *the production stream* to *offline runs against the end
   company's own cases*, which is §1 below and the whole of what fixed decision
@@ -401,6 +410,11 @@ first file this one commits.** The reason is this record's own status line: an
 amendment with a deadline must not sit inside a record whose acceptance waits
 on counsel. §5 implements the rule; it does not make it.
 
+*2026-09-27, at acceptance: acceptance no longer waits on counsel, so the
+reason above has gone. The placement stays, for a reason of its own.* The rule
+corrects ADR 0010 §1's premise, so it belongs in ADR 0010. Its deadline is the
+first committed file, and acceptance does not move that.
+
 ### 6. The name table
 
 **One table per (tenant, suite), on the data owner's side, behind its own
@@ -431,6 +445,12 @@ at nothing. If a record left in history counts whatever it resolves to, the
 committed shape falls and the design becomes compare-at-the-owner
 (§*Alternatives considered*). **It blocks accepting this record. It does not
 block writing it.** Nothing here is legal advice.
+
+*Accepted 2026-09-27 without this answer.* The sentence above was true when it
+was written, and it is kept. Acceptance did not make it false; it went around
+it. The record is accepted on the first branch, as a premise, and the second
+branch is what reopens it (*Status*). The question is still counsel's and is
+still open.
 
 ### 7. The six routes, and which of them this record closes
 
@@ -665,6 +685,52 @@ the artifact — a leak, a later maintainer, the repository host — and not the
 party.** Until that is ruled, this section states the question and §16 reports
 the green with the sentence above beside it.
 
+**Ruled 2026-09-27, at acceptance: nobody in particular.** This is an answer,
+not a deferral: **no adversary is addressed by these digests.** The reason
+stands on its own. The committed file and the suite live in one repository, so
+whoever obtains one obtains the other. The loop above recovers a rubric from
+`assertion_id`, and anybody who could run it can open the suite and read the
+rubric. The *honest reading* above named a leak, a later maintainer and the
+repository host. Each of them obtains the repository, and so the suite with it.
+
+**`assertion_id` and `config_hash` stay as they are.** The three options are
+recorded as refused, and they are refused for this reason, not for their
+costs. All three will be proposed again, and a proposal should meet the reason
+it was refused for:
+
+- **Excluding the free-text fields from identity.** Refused: it removes from a
+  digest a text the digest's reader already holds. Its costs to the pairing make
+  it worse; they are not why it is refused.
+- **A keyed hash.** Refused: a salt protects against somebody who holds the file
+  without the key, and nobody holds the file without the suite. This is the
+  third refusal of a salt in these records, and it argues its own case, as the
+  paragraph above required. It does not rest on ADR 0022 §6's *"not a secret"*.
+  The costs ADR 0022 priced still apply, and they are not the reason either.
+- **Comparing only at the owner, as a remedy for the digests.** Refused: it
+  would give up the software house's ability to pair two files it holds, to
+  protect against a reader who holds the suite anyway. The same shape is still
+  what this design becomes if §6's question goes the other way, and this ruling
+  does not touch that branch.
+
+**What reopens it, written as a condition:** **a committed file reaching a place
+the suite does not.** A fork or a partial copy that carries `.digline/<tenant>/`
+without the suite, a backup of the baselines taken apart from the source, or a
+file handed to an auditor or a new supplier without `suite.py` each removes the
+reason, and the ruling goes with it. So does any later design that ships a
+reference on its own, and that is the first thing to check such a design
+against.
+
+**This is consistent with the sentence this section began with, and does not
+weaken it.** *No string* is not *no content*: the digests carry content, and this
+record never claimed otherwise. The ruling says who that content reaches, which
+is a reader who already has it.
+
+**The pricing digest inherits the ruling.** The declared rate is written in the
+suite (`[target.pricing]`, ADR 0022), so a reader who could narrow it from
+`config_hash` can read it from the file. ADR 0022 §6's conclusion, a latch and no
+salt, is right for this reason and not for the one it gives. Its amendment is
+owed to ADR 0022 and made there.
+
 ### 13. What decides the tenant when the suite is not loaded
 
 **Today the suite decides and the flag only verifies.** Every command loads a
@@ -875,7 +941,8 @@ should find it named rather than assume it was settled.
   whether a served page may carry the rule the end company is judged by, and
   whether a read is recorded. All three arrive with the door in §1 and none is
   answered.
-- **Whether the identities and the pricing digest change recipe** (§12), and
+- ~~**Whether the identities and the pricing digest change recipe** (§12)~~ —
+  **decided at acceptance: they do not** (§12, *Ruled 2026-09-27*). And
   **whether digline refuses a bad co-versioning claim or records it** (§11).
 
 ## What this record does not claim

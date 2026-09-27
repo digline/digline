@@ -255,6 +255,26 @@ mandatory constructor parameter, not a setting with a generous default. An archi
 grows forever is an incident waiting to happen, and the convenient default is how you get
 there.
 
+*Amended 2026-09-27, by [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+§1, at its acceptance. **The carve-out widens.*** This section put the **production stream**
+outside the repository. It now also puts **offline runs against the end company's own
+cases** there, because they have the same volume, life cycle and owner as the stream, which
+is the line the first paragraph drew. So cases, runs, recorded responses, the journal and the
+full reference live inside the end company's perimeter, addressed by the same key they have
+today. The repository holds two things: the key, which links a commit to the reference it
+was judged against, and a **projection** of that reference (ADR 0034 §2). Fixed decision 2's
+reason is untouched: nothing goes in a home directory, nothing becomes global state on a
+machine, and the layout is still `.digline/<tenant>/`. What changes is the perimeter that
+directory sits in.
+
+*Two things in this section do not extend to the widened part, so that nobody reads them as
+inherited:*
+- **Postgres** is this section's choice for the stream. It says nothing about the form of
+  the offline store, and ADR 0034 leaves files or a database open.
+- **Mandatory retention** belongs to a store whose purpose is a stream. A reference that can
+  expire is a reference that can vanish from under a gate, so the offline store takes
+  ADR 0034 §14's contract for forgetting instead.
+
 ### 7. A single way in: `EvaluatorInputs` via a mapper
 
 Whatever is evaluated — an offline matrix, a production stream, a single response —
@@ -446,6 +466,14 @@ a change to the configuration — visible in `config_hash` and in a pull request
 
 - `compare()` and `promote_baseline` have one more error path, and it is right that it is
   an exception and not a return value: crossing a perimeter is not an outcome.
+- **A committed reference may be a projection of one.** *Added 2026-09-27, by
+  [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md) §2, at its
+  acceptance.* Where the store lives inside the end company's perimeter (§6 as amended),
+  the promotion happens there. The file the repository commits is then derived from the
+  reference `promote_baseline` returned: promote first, then project. **Every condition in
+  §8 is unchanged.** None is re-implemented and none is relaxed, because the projection is
+  made from a promotion that has already passed them. What §8 approves is still the
+  reference, and the committed file is its derivative.
 - The production → repo bridge is the point where anonymization is **mandatory**: it is
   the only place where payload and verdict touch, and the only one where a mistake is
   irreversible — once committed, it is in git's history.
