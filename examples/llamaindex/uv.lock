@@ -1144,15 +1144,15 @@ wheels = [
 
 [[package]]
 name = "llama-index-llms-anthropic"
-version = "0.12.0"
+version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic", extra = ["bedrock", "vertex"] },
     { name = "llama-index-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/9a/18cdaa73dc55e01d4177409cd61183fafb0a747de82a6997101cb07514df/llama_index_llms_anthropic-0.12.0.tar.gz", hash = "sha256:2811b6f27f884da12ec796697d509792fcd333be0b565db9141713c68a1343a3", size = 16179, upload-time = "2026-08-31T15:54:49.031Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/f8/d76cf55c59b807b1dc2be812d3eb9228c662970db7ea13640fd1bf883e21/llama_index_llms_anthropic-0.12.1.tar.gz", hash = "sha256:b75c9dd9b4cf53905869418b495603903f6613fa428098c0c607836f8dd6e423", size = 16197, upload-time = "2026-09-25T23:12:11.617Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/3f/511f59095257276ef7a23fce3f52fa65a3fe42e9e8813a831cae5834feb5/llama_index_llms_anthropic-0.12.0-py3-none-any.whl", hash = "sha256:65234eb122de62361d3a204571f80b07ba979c3dece53646eccdf3f3cee4959f", size = 16601, upload-time = "2026-08-31T15:54:48.115Z" },
+    { url = "https://files.pythonhosted.org/packages/57/d8/8b37300f3ce0195d97654cc1de9602ddbb7d03918604fd9230cdfa190d4b/llama_index_llms_anthropic-0.12.1-py3-none-any.whl", hash = "sha256:2d23113c7cec907056e92fc9646c6189cc9c4d384df612fa5732cb5209de50dd", size = 16621, upload-time = "2026-09-25T23:12:10.766Z" },
 ]
 
 [[package]]
