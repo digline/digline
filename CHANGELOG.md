@@ -8,6 +8,18 @@ notes under them are this file, verbatim.
 
 ## 0.22.1 — unreleased
 
+digline **0.22.1**. One addition and two fixes. Nothing to migrate.
+
+- **The addition is new function, not a repair.** `digline view` now shows a
+  run on its own before there is a baseline, where it answered 404. It is in a
+  patch because it replaces a refusal with content: nothing that worked on
+  0.22.0 stops working or changes meaning, and the one public name it adds,
+  `digline.report.run_page`, is an addition.
+- **One exit code moves, and only to agree with the page it is printed
+  under.** `digline report --redacted` exits `2` in the one case where its own
+  document already said a pinned file moved. That is the code the same report
+  without `--redacted`, and `compare`, already gave for the same runs.
+
 ### Added — `digline view` shows a run before there is a baseline
 
 - **`/compare` with no baseline now serves the run on its own** instead of

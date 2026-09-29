@@ -139,6 +139,19 @@ RECORDED: dict[str, dict[str, str]] = {
             "shipped the unwired pin set and the pass that caught it, told as the "
             "reason the check sits here. History, not the current version"
         ),
+        "0.22.0": (
+            "'(Delta-pass over 0.22.0, D-1)' — the pass that found an assertion "
+            "could forge the driver's markers, named as why `unmarked` is called "
+            "here. The pass dates the lesson; moving the number would claim a "
+            "later pass audited its own output"
+        ),
+    },
+    "src/digline/core/naming.py": {
+        "0.22.0": (
+            "'(Delta-pass over 0.22.0, D-1)' — the pass that found `misnamed` "
+            "could be written by the assertion it distrusts, named as why "
+            "`DRIVER_MARKERS` exists. History, not the current version"
+        ),
     },
     "AGENTS.md": {
         "0.21.0": "'a permission until 0.21.0' — the release that withdrew the "
@@ -179,6 +192,11 @@ RECORDED: dict[str, dict[str, str]] = {
             "first, a day earlier, is the one that called the thinking split "
             "proven. Moving the number would claim a later pass audited its "
             "own output"
+        ),
+        "0.22.0": (
+            "the delta-pass over 0.22.0 (D-1), which reopened the second 0.17.0 "
+            "pass's ruling that a forged gap was harmless — which release's pass "
+            "found what this file now does, told as history"
         ),
     },
     "src/digline/core/types.py": {
@@ -296,6 +314,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.22.0": (
+            "the release whose bump (#204) is quoted as the image job the "
+            "substitution kept green, the minor on the way to which step 5 was "
+            "found unwritten and the early bump was ruled out, and its "
+            "index-race status (the waits, the in-build install, the signature "
+            "verified from outside the run). Every one is a fact about a release "
+            "that shipped"
+        ),
         "0.21.2": (
             "the release commit whose image job skipped, the release on the way "
             "to which the on-main job was confirmed, its index-race status (the "
