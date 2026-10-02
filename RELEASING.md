@@ -801,7 +801,7 @@ pull request, wait for green, then merge.** Here, since 2026-09-29, "merge"
 means enqueue. The queue runs the gates once more and lands the commit about
 three minutes later, so "digline has landed" is the pull request reading
 `MERGED`, not the enqueue returning. `main` here is protected by a
-ruleset nothing bypasses — a pull request (zero approvals), the two `gates`
+ruleset nothing bypasses — a pull request (zero approvals), the three `gates`
 checks on the ref, and the branch up to date before merging — so a direct push
 is refused and `git push origin main` is not a step in this file. The ruleset
 has required the pull request only since 2026-09-24; it was needed before that
@@ -828,7 +828,7 @@ unaffected, and is still this one.
   `pypi`, where everything irreversible has already happened, and a failure
   there would stop nothing while making a foreseeable wait look like a defect.
 
-- This repository's `main` requires `gates (3.12)` and `gates (3.13)`, and
+- This repository's `main` requires `gates (3.12)`, `gates (3.13)` and `gates (3.14)`, and
   **nothing else**. The `docs` job — `The site still builds from these docs`,
   which clones the site and builds it — was required from 2026-09-22 and is
   **not** required since 2026-09-23. `gates` does not set
@@ -892,7 +892,7 @@ so repair the site first: nearly always the right fix, and usually a minute.
 This paragraph used to offer `gh pr merge --admin`, over a `RepositoryRole:
 always` bypass kept for the purpose. That bypass is gone: the ruleset's
 `bypass_actors` is empty, and `--admin` is refused like any other merge. When
-`gates (3.12)` or `gates (3.13)` is red, the remedy is to fix what reddened it —
+a `gates` check is red, the remedy is to fix what reddened it —
 the code, or the check if the check is wrong — on a branch, through a pull
 request, like every other change. Suspending the requirement is not a remedy
 either: it is the thing nobody remembers to restore.
@@ -950,9 +950,9 @@ still skip, and the skip now says what went unverified rather than only how to
 fix it. Set `DIGLINE_SITE_CONFIG` to run them, or do not; the variable that
 forbids the skip is set in one job, deliberately.
 
-CI also runs the gates on **3.12 and 3.13**. One locally is enough before a
-tag — the second is what CI is for — but a failure on 3.13 alone is a real
-failure, not a runner quirk.
+CI also runs the gates on **3.12, 3.13 and 3.14**. One locally is enough before
+a tag — the others are what CI is for — but a failure on one version alone is
+a real failure, not a runner quirk. #365 was a defect on 3.14 alone.
 
 ## The two tag shapes
 
@@ -1000,7 +1000,7 @@ everything else is already released, not because the tag said so.
 
 **The tag goes on the merge commit of the release pull request, once it is on
 `main`.** Not on the release commit on its branch, not on a branch head, not on
-anything `main` does not contain. `main` is protected — a pull request, the two
+anything `main` does not contain. `main` is protected — a pull request, the three
 `gates` checks on the ref — and a tag is not: before this rule a tag on an
 unmerged branch would have built, uploaded and spent the version number from
 code no gate had passed.
