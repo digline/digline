@@ -19,8 +19,11 @@ The rest is about documents: what a run file declares is read as declared, or
 refused, and never converted into something else. A plain run flagged redacted
 was read as redacted, and promoting it committed a baseline that said redacted
 and still held the run's metadata. Every document refused for that is one no
-released digline wrote. Nothing to migrate, no schema change, `OUTPUT_VERSION`
-unchanged, and no public name added or removed.
+released digline wrote. A store directory that cannot be opened is refused
+rather than read as empty, and every directory refused for that is one no
+released digline could read. Nothing to migrate, no schema change,
+`OUTPUT_VERSION` unchanged, no public name removed, and one added:
+`DirectoryUnreadableError`.
 
 ### Changed — a tolerance that is not finite is refused, from a file and from code (#379)
 
@@ -98,6 +101,35 @@ unchanged, and no public name added or removed.
   fields, no migration does, and none wrote a reason into a redacted
   document. So a document this refuses was edited by hand or written by
   another program.
+
+### Fixed — a store directory that cannot be opened read as empty (#365)
+
+- **With a suite's run directory at mode `000`, `digline list`, `log` and
+  `migrate` said there was nothing and exited 0.** `compare --run latest` said
+  to run the suite first. `Path.glob` catches the error that opening the
+  directory raises and returns no matches, on Python 3.12, 3.13 and 3.14 alike,
+  so "there are no runs" and "the runs could not be read" printed the same.
+  Measured on 3.14.5, macOS; `view` and `digline-mcp` list the same way and
+  were not run.
+- **A journal directory that cannot be opened read as nothing pending**, so
+  `--resume` answered `pending: none`. Inside an unreadable run directory it
+  did so on 3.14 only, through an `is_dir()` that answers `False` there.
+- **The baselines and register directories were not silent on 3.12 or 3.13,
+  and were on 3.14.** A baseline and a register are read by name, not listed,
+  and their `exists()` check raised a bare `PermissionError` on 3.12 and 3.13,
+  a traceback at the command line. Python 3.14 answers `False` instead, so
+  `read_baseline` returned no baseline and `read_register` an empty register.
+  3.14 is a classifier in `pyproject.toml`, and CI runs 3.12 and 3.13 only.
+- **Each is now refused as `DirectoryUnreadableError`**, naming the path and
+  the operating system's reason, on every version. A directory or file that is
+  absent is still an empty list, no baseline or an empty register, as before.
+  It is a refusal, not a count in the listing's note: the note counts files
+  that were opened and could not be placed, and here nothing was opened, so no
+  count would be true.
+- **Not measured on Linux or Windows.** The `glob` that swallows the error is
+  the standard library's own Python, the same on every platform, so the
+  refusal is expected wherever `os.scandir` refuses. Root is expected to read
+  a mode-`000` directory on Linux, and then there is nothing to refuse.
 
 ## digline-anthropic 0.5.4 — 2026-10-02
 

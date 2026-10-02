@@ -1651,7 +1651,9 @@ held against the baseline's by name.
   document says which table minted it, and that is ADR 0036's open question.
 
 `PathRefusedError` is raised when `tenant` or `suite` is not one safe name.
-A suite with no runs is an empty list, not a refusal.
+A suite with no runs is an empty list, not a refusal. A run directory that
+exists and cannot be opened is not an empty list: it raises
+`DirectoryUnreadableError`, because nothing in it was read (#365).
 
 `scan_runs` and `list_runs` stay internal. `suite_runs` is the read for a
 program that shows runs. `resolve_key(store, suite, "latest")` is the one for a

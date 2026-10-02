@@ -44,6 +44,7 @@ from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
+    DirectoryUnreadableError,
     ErroredRunError,
     JournalBusyError,
     JournalRefusedError,
@@ -91,6 +92,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     BaselineMovedError,
     PathRefusedError,
     RunNotFoundError,
+    DirectoryUnreadableError,
     RegisterRefusedError,
     JournalRefusedError,
     JournalBusyError,

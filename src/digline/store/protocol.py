@@ -176,6 +176,23 @@ class PathRefusedError(ValueError):
     """
 
 
+class DirectoryUnreadableError(Exception):
+    """Raised when a directory the store lists exists and cannot be opened.
+
+    `Path.glob` catches the `OSError` that `os.scandir` raises and returns no
+    matches, on 3.12, 3.13 and 3.14 alike, so a run directory at mode `000` was
+    listed as a suite with no runs and a journal directory as nothing pending:
+    "there is nothing" and "I could not look" printed the same. On 3.14
+    `exists()` answers the same way for a file inside such a directory, so a
+    baseline there read as no baseline. (#365)
+
+    **Refused, not counted.** `Listing` counts what a scan opened and could not
+    place, one file of many. Here nothing was opened, so no count is true: the
+    directory may hold no runs or two hundred, and a survey that cannot say
+    which has no survey to return.
+    """
+
+
 class RunNotFoundError(FileNotFoundError):
     """Raised when a run key names no stored run.
 
@@ -384,7 +401,9 @@ class ResultStore(Protocol):
 
         The counterpart of `read_run`, which refuses a foreign schema because
         the caller named that file. Here nothing was named, so an unreadable
-        file is reported and stepped over.
+        file is reported and stepped over. A directory that exists and cannot
+        be opened is not stepped over: it raises `DirectoryUnreadableError`,
+        because nothing in it was surveyed. (#365)
         """
         ...
 
@@ -715,7 +734,11 @@ class SupportsJournal(Protocol):
         ...
 
     def pending(self, tenant: str, suite: str) -> tuple[Pending, ...]:
-        """Every run of this suite that was started and never written."""
+        """Every run of this suite that was started and never written.
+
+        Raises `DirectoryUnreadableError` when the journal directory exists and
+        cannot be opened, rather than answering that nothing is pending. (#365)
+        """
         ...
 
     def drop_pending(self, tenant: str, suite: str, key: str) -> None:
