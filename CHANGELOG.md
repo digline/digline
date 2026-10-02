@@ -57,6 +57,26 @@ Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
 
 ## Unreleased
 
+### Changed — a run-level verdict in `error` refuses promotion (#374)
+
+- **`promote` refused a run with an errored case, and promoted one whose only
+  error was a run-level figure.** ADR 0002 §8's condition 3 says *"one or more
+  verdicts are in `error`"*; `refusals_for` read case verdicts only. An
+  aggregate over an empty denominator (a `Recall` over a group with no
+  positive case, or every case suspended) is `error`, and that run became a
+  baseline without a word. It is now refused with `ErroredRunError`, and the
+  message names the check: *"could not judge 1 run-level check(s)
+  (recall[group=travel])"*.
+- **What it costs.** Under `by_group`, small groups error routinely (ADR 0010
+  §8). A suite with one could promote its runs until now and cannot after
+  this. The remedy is the one ADR 0010 §8 names, in the suite: the group is
+  too small, or the aggregate is the wrong question for it.
+- **What did not move.** No exit code: an errored aggregate still exits 0,
+  as ADR 0010 §8 rules. ADR 0027 says it should not, and the two records
+  disagree; that half is open on #374. `digline view` still offers the
+  promote button on such a row, and the store refuses the click, as it
+  already did for a calibration case outside its band.
+
 ### Fixed — a projected list of runs no longer carries the file names (#362)
 
 - **`SuiteRuns.listing` is `None` on a projected list.** #333 kept file names

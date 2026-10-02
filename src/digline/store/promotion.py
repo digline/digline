@@ -135,14 +135,31 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
             if verdict.status == "error"
         }
     )
-    if errored:
+    # Condition 3 says *any* verdict, and a run-level one is a verdict: an
+    # aggregate in `error` is a figure nobody has, and a reference missing its
+    # gate is no reference either. Read here and not in the exit code, which
+    # ADR 0010 §8 keeps on case verdicts only. (#374)
+    figures = sorted(
+        {verdict.score.name for verdict in run.aggregate if verdict.status == "error"}
+    )
+    if errored or figures:
+        what: list[str] = []
+        remedies: list[str] = []
+        if errored:
+            what.append(f"{len(errored)} case(s) ({', '.join(errored)})")
+            remedies.append("fix the case or remove it from the suite")
+        if figures:
+            what.append(f"{len(figures)} run-level check(s) ({', '.join(figures)})")
+            # Not "fix the figure": an aggregate that cannot be computed is the
+            # suite asking a question its cases cannot answer. (ADR 0010 §8)
+            remedies.append("change the suite so the check can be computed")
+        remedy = ", and ".join(remedies)
         refusals.append(
             ErroredRunError(
-                f"run {key} could not judge {len(errored)} case(s) "
-                f"({', '.join(errored)}): a baseline is an approved reference "
-                "and an error is not one. Fix the case or remove it from the "
-                "suite; promoting it would freeze a red line no reader could "
-                "tell apart from a new failure"
+                f"run {key} could not judge {' and '.join(what)}: a baseline is "
+                "an approved reference and an error is not one. "
+                f"{remedy[0].upper()}{remedy[1:]}; promoting it would freeze a "
+                "red line no reader could tell apart from a new failure"
             )
         )
 

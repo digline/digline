@@ -386,6 +386,11 @@ would not find it.*
    The remedy for an unstable case is to fix it or take it out of the suite, not to
    enshrine it. It is the natural sequel to ADR 0001's rule that `error` is not green and
    is not a regression: it is not a reference either.
+   *Read as written since 2026-10-02 (#374). "One or more verdicts" was implemented as
+   case verdicts only, so a run whose only error was a run-level figure — an aggregate
+   over an empty denominator, say — was promoted. A run-level verdict is a verdict: the
+   refusal now names it beside the cases, as a run-level check. The exit code still
+   counts cases only, which is ADR 0010 §8's ruling and is not changed here.*
 
 4. **`ReplayedRunError`** — the run declares `rejudged_from`. The answers must have been
    *measured*, or the interval promoted with them was measured without the target in it.
