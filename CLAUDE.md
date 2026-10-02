@@ -85,8 +85,14 @@ correct its structural mistakes and are not negotiable.
    believed. It is a narrowing, declared: nothing that *may* cross is forced to.
    The digests stay as they are. A green means *no string*, not *no content*,
    and no adversary is addressed by them, because the reference and the suite
-   share a repository (ADR 0034 §12). That ruling holds only while a reference
-   cannot reach a place the suite does not.
+   share a repository (ADR 0034 §12). That ruling holds only while no document
+   that carries a digest can reach a place the suite does not.
+   *Corrected 2026-10-02:* this sentence said "a reference" instead of "a
+   document that carries a digest". The reason is where the digest's reader
+   stands, and a reference is only one of these documents. A served
+   projection, a page rendered from one that shows a comparison or a run key,
+   a run file, the register, `compare --json` and an MCP response are others. This is the reading ruled
+   on 2026-09-29, reaching the text. (ADR 0034 §12)
    *Added 2026-10-01 (ADR 0038).* A page served to the software house shows a
    **served projection**: a run, promoted or not, projected the same way. It
    carries what a projected reference carries, plus what a current run adds,
