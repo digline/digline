@@ -9,6 +9,14 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   it. `--locked` matches CI: it refuses a `uv.lock` that has fallen behind
   `pyproject.toml` rather than rewriting it, so a lock you forgot to commit
   fails here instead of passing locally and reddening the pull request.
+- **Run pyright as `uv run pyright`, which is how CI runs it.** pyright does
+  not use the venv its own script sits in. It reads the packages of whichever
+  `python` comes first on `PATH`. Called as `.venv/bin/pyright` from a shell
+  where the venv is not activated, it checked `/usr/bin/python3`'s packages,
+  found none of the plugins' SDKs, and reported **2567 errors on a tree that
+  had none** (2026-10-02). `uv run` sets `VIRTUAL_ENV` and puts the venv first
+  on `PATH`, and on the same tree it reported 0. So did `.venv/bin/pyright`
+  with those two set by hand.
 - **`tests/test_layering.py` is not a style test.** It keeps `digline.core`
   pure and importable on its own. If it fails, the change is wrong, not the test.
 - **Every assertion needs a failing case.** A check that cannot fail is a bug
