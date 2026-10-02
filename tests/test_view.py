@@ -369,20 +369,31 @@ def test_without_a_reason_there_is_no_snippet_to_copy() -> None:
 
 
 @contextmanager
-def server(repo: Path, *flags: str) -> Generator[tuple[str, str]]:
+def server(repo: Path, *flags: str, before: str = "") -> Generator[tuple[str, str]]:
     """A real `digline view` on an ephemeral port, over a real store.
 
     The bound URL is read off the startup line, which is why that line keeps
     the URL as its fourth word whichever server it is: the mode goes after it.
     What is yielded is the address without its query — on the flagged server
     the printed one carries the launch key, which `launch_of` reads.
+
+    `before` is Python run in the server's process ahead of the CLI: how a test
+    injects a fault the store's contents can no longer produce, without a hook
+    in the product for it.
     """
+    entry = (
+        ["-m", "digline.cli"]
+        if not before
+        else [
+            "-c",
+            f"{before}\nfrom digline.cli.main import main\nraise SystemExit(main())",
+        ]
+    )
     process = subprocess.Popen(
         [
             sys.executable,
             "-u",
-            "-m",
-            "digline.cli",
+            *entry,
             "view",
             "--suite",
             "suite_qa.py",
@@ -862,8 +873,40 @@ def test_the_first_day_one_run_opened_then_promoted_through_the_view(
     assert baseline_in(repo) == key
 
 
+#: The sentence the injected fault raises, and so the `why` the fallback page
+#: must carry. A marker, so the page can be searched for it, and the controls
+#: F-2 is about, so the fallback's escaping is measured on its own sentence too.
+INJECTED = "injected-scan-fault \x1b[2K\r\u202eFORGED\x9bEND"
+
+
+@pytest.fixture
+def served_with_a_list_that_fails(repo: Path) -> Iterator[tuple[str, str, str]]:
+    """`served_promoting`, except that every scan of the store raises.
+
+    **The fault is injected, in the server's process and by the test.** Since
+    #350 nothing a store can hold fails the list whole: `scan_runs` counts a
+    file it cannot place as unreadable, and `suite_runs` names a run or a
+    baseline the reader refuses. The fallback below is for a list that raises
+    after a write *anyway*, so it is tested with a list made to raise — not
+    with a defect kept alive for the purpose, which is what these tests leaned
+    on until #350 closed it. Nothing in the product reads a hook for this.
+
+    The promotion itself never scans: it reads the named run and the baseline.
+    So the fault reaches only the list drawn after the write.
+    """
+    key = promoted(repo)
+    before = (
+        "from digline.store import FileResultStore\n"
+        "def _raise(self, tenant, suite):\n"
+        f"    raise ValueError({INJECTED!r})\n"
+        "FileResultStore.scan_runs = _raise"
+    )
+    with server(repo, "--allow-promote", before=before) as (base, line):
+        yield base, key, hand_over(port_of(base), launch_of(line))
+
+
 def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
-    repo: Path, served_promoting: tuple[str, str, str]
+    repo: Path, served_with_a_list_that_fails: tuple[str, str, str]
 ) -> None:
     """Friction 59's worst half. One unreadable run file anywhere in the store,
     and a promotion of a *good* run wrote the baseline and then answered with a
@@ -871,17 +914,12 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     A promotion that looks failed and is not. The outcome must arrive whatever
     the list does.
 
-    **What breaks the list changed with #314.** A malformed run did, until the
-    list read through `suite_runs`, which leaves such a run out and names it.
-    What still fails the list whole is the scan itself: `scan_runs` reads
-    `schema_version` with `int()` outside its handler, so a version that is not
-    a number raises out of it. That is a defect of its own, and the day it is
-    fixed this test needs another way to break the list, or the fallback has
-    none left."""
-    base, key, cookie = served_promoting
+    The list fails here because the fixture makes it fail, and the page must
+    say so **with the injected sentence**: a page that fell back for another
+    reason, or drew the list, fails this test rather than passing it."""
+    base, key, cookie = served_with_a_list_that_fails
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
-    plant(repo, key, "zz-malformed", schema_version="not-a-version")
 
     status, page = post_page(
         base, f"run={key}&replacing={key}&locale=en", cookie=cookie
@@ -889,34 +927,36 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
 
     assert status == 200
     assert f"Baseline set to {key}." in page
-    assert "The list of runs could not be drawn" in page
+    assert "The list of runs could not be drawn: injected-scan-fault" in page
     # And it did happen: the page is telling the truth about the write.
     assert json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"] != before
 
 
 def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
-    repo: Path, served_promoting: tuple[str, str, str]
+    repo: Path, served_with_a_list_that_fails: tuple[str, str, str]
 ) -> None:
     """The fallback page — the outcome of a promotion when the list of runs
     cannot be drawn — escaped with `html.escape`, which leaves C0, C1 and the
     bidi overrides alone. A refusal quoting a committed baseline's
     `promoted_at` therefore wrote them raw: an RLO reverses the sentence that
     names which key was found. Every other page goes through `report.escape`.
-    (0.20.0 delta-pass, F-2)"""
-    base, key, cookie = served_promoting
+    (0.20.0 delta-pass, F-2)
+
+    Both sentences on the page carry the controls: the refusal, through
+    `promoted_at`, and the reason the list is missing, through the injected
+    fault (see the fixture)."""
+    base, key, cookie = served_with_a_list_that_fails
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     document = json.loads(baseline.read_text(encoding="utf-8"))
     document["promoted_at"] = "\x1b[2K\r\u202eFORGED\x9bEND"
     baseline.write_text(json.dumps(document), encoding="utf-8")
-    # What still breaks the list whole: see the test above. (#314)
-    plant(repo, key, "zz-malformed", schema_version="not-a-version")
 
     # `none` over a baseline that exists: refused, naming what it found.
     status, page = post_page(base, f"run={key}&replacing=none&locale=en", cookie=cookie)
 
     assert status == 200
-    assert "The list of runs could not be drawn" in page
-    assert "FORGED" in page
+    assert "The list of runs could not be drawn: injected-scan-fault" in page
+    assert page.count("FORGED") == 2, page
     for raw in ("\x1b", "\r", "\u202e", "\x9b"):
         assert raw not in page, f"{raw!r} reached the page raw"
 

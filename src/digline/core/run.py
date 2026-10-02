@@ -2729,8 +2729,67 @@ def run_from_dict(raw: object) -> Run:
         raise DocumentRefusedError(str(exc)) from exc
 
 
+def declared_integer(raw: Mapping[str, Any], field: str) -> int:
+    """The integer a document declares under `field`, which it must carry.
+
+    **Only an `int` that is not a `bool` counts.** This replaced `int()`, which
+    read `"18"`, `18.0` and `18.9` as 18 — so a run declaring a schema that
+    does not exist was read as a current run, and could be listed, compared
+    and promoted — and read `1.5` and `true` as 1, a schema the file does not
+    declare (#350). A version is a declaration, and one that has to be
+    converted before it can be read was not made.
+
+    The refusal names the field and the value's *type*, never the value: the
+    value is text from a file, and it would reach a terminal and a page.
+    Not in `__all__`: the store reads it, on the documents it opens.
+    """
+    if field not in raw:
+        raise DocumentRefusedError(
+            f"the document is missing the mandatory field {field!r}"
+        )
+    value = raw[field]
+    # `bool` is a subclass of `int` in Python, so `isinstance(True, int)`
+    # holds: the second test is what keeps `true` from reading as 1.
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise DocumentRefusedError(
+            f"{field!r} is a JSON {_json_type(value)}, not an integer"
+        )
+    return value
+
+
+def declared_version(raw: Mapping[str, Any]) -> int:
+    """The schema a document declares: `0` when it declares none, and refused
+    by `declared_integer`'s rule when what it declares is not an integer.
+
+    An absent version stays `0` on purpose: that is what a document from
+    before `schema_version` existed looks like, and `migrate` names what it
+    lacks. Not in `__all__`, like `declared_integer`.
+    """
+    if "schema_version" not in raw:
+        return 0
+    return declared_integer(raw, "schema_version")
+
+
+def _json_type(value: object) -> str:
+    """The JSON name of a parsed value's type — the word the file's author
+    wrote, where `str` and `NoneType` are Python's."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
 def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
-    version = int(raw.get("schema_version", 0))
+    version = declared_version(raw)
     if version != SCHEMA_VERSION:
         raise ValueError(
             f"schema_version {version} is not supported (expected {SCHEMA_VERSION})"
