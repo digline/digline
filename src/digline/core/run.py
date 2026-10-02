@@ -2644,7 +2644,9 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
     """The inverse, and public for the same reason: a journal is read back."""
     where = "case result"
     suspended: str | None = None
-    if bool(_required(raw, "suspended", where)):
+    # Declared, not converted: whether `suspended_reason` is read at all
+    # depends on this flag. (#379)
+    if declared_boolean(raw, "suspended", where):
         suspended = (
             REDACTED if redacted else str(_required(raw, "suspended_reason", where))
         )
@@ -2757,6 +2759,30 @@ def declared_integer(raw: Mapping[str, Any], field: str) -> int:
     return value
 
 
+def declared_boolean(raw: Mapping[str, Any], field: str, where: str) -> bool:
+    """The flag a document declares under `field`, which it must carry.
+
+    **Only a JSON boolean counts.** This replaced `bool()`, under which every
+    non-empty string is true: a plain run declaring `"redacted": "false"` was
+    read as redacted, its reasons were never read, and promoting it committed a
+    baseline that declared `"redacted": true` while still carrying the run's
+    metadata — a false declaration about the perimeter, written into git.
+    The falsy direction is the same mistake: `"suspended": 0` read a suspended
+    case as one that was not, and its reason was never read (#379).
+
+    The refusal names where, the field and the value's *type*, never the
+    value, for `declared_integer`'s reason. Not in `__all__`.
+    """
+    if field not in raw:
+        raise DocumentRefusedError(f"{where} is missing the mandatory field {field!r}")
+    value = raw[field]
+    if not isinstance(value, bool):
+        raise DocumentRefusedError(
+            f"{where}: {field!r} is a JSON {_json_type(value)}, not a boolean"
+        )
+    return value
+
+
 def declared_version(raw: Mapping[str, Any]) -> int:
     """The schema a document declares: `0` when it declares none, and refused
     by `declared_integer`'s rule when what it declares is not an integer.
@@ -2795,8 +2821,11 @@ def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
             f"schema_version {version} is not supported (expected {SCHEMA_VERSION})"
         )
     results = cast(Sequence[Mapping[str, Any]], raw.get("results") or ())
-    redacted = bool(_required(raw, "redacted", "run"))
-    projected = bool(_required(raw, "projected", "run"))
+    # Read as declared, before anything else is read: the reader acts on
+    # `redacted` — it does not read a reason it believes was removed — so a
+    # flag converted here would decide what the rest of the file says. (#379)
+    redacted = declared_boolean(raw, "redacted", "run")
+    projected = declared_boolean(raw, "projected", "run")
     artifacts = {
         path: _artifact_from_dict(item, path)
         for path, item in cast(

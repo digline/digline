@@ -84,6 +84,31 @@ there, deprecated, and `None` on a projected list.
   before, is refused now (#350).
 - **The examples' caps move to `<0.27`**, as on every minor.
 
+### Fixed — `redacted`, `projected` and `suspended` are read as declared, never through `bool()` (#379)
+
+- **A plain run declaring `"redacted": "false"` was promoted into a baseline
+  that declared `"redacted": true` and still carried the run's payload.**
+  `bool()` reads every non-empty string as true, and `1` and `[0]` too. The
+  reader does not read a reason it believes was removed, so it dropped every
+  reason and suspension reason, and kept the metadata beside them. Promoting
+  that run wrote the misreading into `baselines/`: no reason left, `"customer":
+  "Mario Rossi"` still there, under a flag that says redacted. Nothing was
+  refused at any step.
+- **`suspended` lost content the other way.** `0`, `""` and `null` read a
+  suspended case as one that was not, and its reason was never read.
+- **All three are now read by `declared_boolean`**: a JSON boolean, and
+  anything else refused naming the field and the JSON type, never the value.
+  The refusals that did happen before named something else: a missing
+  `reason`, a `config_hash` that is not a digest, a configuration with no
+  model.
+- **What this does not close.** A plain run that declares a real `true` is
+  still read as redacted, and still promoted that way, because the reader
+  takes the flag at its word. That is not a conversion, and this entry does
+  not claim it.
+- No released digline wrote anything but `true` or `false` here, and no
+  migration does. So the document this refuses was edited by hand or written
+  by another program.
+
 ### Fixed — a replay's judge count is read as declared, never through `int()` (#367)
 
 - **`Run.judge_samples` was read with `int(raw.get("judge_samples") or 0)`**,
