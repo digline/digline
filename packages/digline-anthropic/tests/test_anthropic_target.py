@@ -172,7 +172,7 @@ def test_the_reply_becomes_a_priced_response(prompt: Path) -> None:
     response = target(Case(id="it", vars={"country": "Italy"}))
 
     assert response.output == "Rome, in Italy."
-    assert response.cost_usd == pytest.approx(3.0)
+    assert response.cost_usd == pytest.approx(2.0)  # Sonnet 5, $2 per MTok in
     assert response.metadata["model"] == "claude-sonnet-5"
 
 
@@ -195,7 +195,7 @@ def test_cached_reads_are_counted_and_priced(prompt: Path) -> None:
         ),
     )
     response = target(Case(id="it", vars={"country": "Italy"}))
-    assert response.cost_usd == pytest.approx(0.30)
+    assert response.cost_usd == pytest.approx(0.20)  # Sonnet 5, $0.20 per MTok read
     assert response.metadata["cache_read_tokens"] == 1_000_000
 
 
@@ -233,6 +233,42 @@ def test_the_price_list_says_when_it_was_read() -> None:
     assert PRICES_READ_ON.count("-") == 2
     assert ANTHROPIC_PRICING.knows("claude-sonnet-5")
     assert isinstance(ANTHROPIC_PRICING, Pricing)
+
+
+#: The published rates, as (input, output, cache read, 5-minute cache write) per
+#: million tokens. Read from platform.claude.com/docs/en/about-claude/pricing
+#: and claude.com/pricing on 2026-10-02, which agreed on every figure. A
+#: change here is a change to that page, read again on the day it is made.
+PUBLISHED = {
+    "claude-fable-5-1": (10.0, 50.0, 0.25, 12.50),
+    "claude-opus-5-5": (4.0, 20.0, 0.20, 5.0),
+    "claude-sonnet-5-5": (2.0, 10.0, 0.20, 2.50),
+    "claude-fable-5": (10.0, 50.0, 1.0, 12.50),
+    "claude-opus-5": (5.0, 25.0, 0.50, 6.25),
+    "claude-sonnet-5": (2.0, 10.0, 0.20, 2.50),
+    "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25),
+    "claude-haiku-4-5-20251001": (1.0, 5.0, 0.10, 1.25),
+}
+
+
+@pytest.mark.parametrize("model", sorted(PUBLISHED))
+def test_each_model_is_priced_as_published(model: str) -> None:
+    """Fable 5 was priced at $3/$15 against a published $10/$50: a budget on it
+    passed on spend that exceeded it. Opus 5 and Sonnet 5 were priced above
+    their rates. (#293)"""
+    price = ANTHROPIC_PRICING.per_model[model]
+    assert (
+        price.input_per_mtok,
+        price.output_per_mtok,
+        price.cache_read_per_mtok,
+        price.cache_write_per_mtok,
+    ) == PUBLISHED[model]
+
+
+def test_the_list_prices_exactly_the_published_models() -> None:
+    """A current model missing from the list fails `preflight` for every suite
+    that names it, which blocks rather than misprices."""
+    assert set(ANTHROPIC_PRICING.per_model) == set(PUBLISHED)
 
 
 def test_no_key_is_read_or_passed_by_this_package() -> None:

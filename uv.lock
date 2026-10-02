@@ -614,7 +614,7 @@ dev = [
 
 [[package]]
 name = "digline-anthropic"
-version = "0.5.3"
+version = "0.5.4"
 source = { editable = "packages/digline-anthropic" }
 dependencies = [
     { name = "anthropic" },
