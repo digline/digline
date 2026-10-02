@@ -527,4 +527,14 @@ class BedrockChat:
             # naming. The original stays on `__cause__` for a debugger.
             raise BedrockCallFailed(f"{type(exc).__name__}: {scrub(str(exc))}") from exc
 
-        return completion_of(reply, model, pricing)
+        try:
+            return completion_of(reply, model, pricing)
+        except (UnknownModelError, ValueError) as exc:
+            # The same scrub, for the same reason, and outside the `try` above
+            # only because reading a reply is not calling the API. The model is
+            # quoted in these refusals, and an application inference profile is
+            # an ARN carrying the customer's account: before this scrub it reached
+            # every verdict's reason and the run file in clear. The class is
+            # kept, so a refusal is still classified as the one it is.
+            # (SECURITY.md, *Defects in a released package, declared*)
+            raise type(exc)(scrub(str(exc))) from exc

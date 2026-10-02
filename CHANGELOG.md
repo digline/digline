@@ -6,6 +6,28 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-bedrock 0.6.1 — unreleased
+
+Published by its own tag, `digline-bedrock-v0.6.1`. The core does not move.
+A patch: nothing that ran on 0.6.0 stops running.
+
+### Security — an AWS account no longer reaches the verdicts through a refused reply
+
+- **Two refusals of a reply quoted the model, and were never scrubbed.** One
+  is the 1-hour cache write, new in 0.6.0. The other is a reply with no usage
+  block, there since the plugin's first release. When the model is an
+  application inference profile, it is an ARN carrying the customer's AWS
+  account. The plugin scrubs ARNs and accounts out of every error the API
+  raises, and these two are raised after that. **So the account reached every
+  verdict's `reason`, the run file and the HTML report in clear.** It did not
+  reach a redacted document, the wire's run document, or a committed baseline,
+  which a run with a refused case cannot become.
+- **Both refusals are now scrubbed the same way**, and keep their class:
+  `UnknownModelError` and `ValueError`. A test drives both through the driver
+  and fails against 0.6.0.
+- Found by the delta-pass over 0.6.0, the day 0.6.0 was published.
+  `SECURITY.md` declares it, under *Defects in a released package, declared*.
+
 ## digline-bedrock 0.6.0 — 2026-10-02
 
 Published by the tag `digline-bedrock-v0.6.0`, **together with digline-anthropic
