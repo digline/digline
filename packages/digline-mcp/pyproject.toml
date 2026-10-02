@@ -74,15 +74,15 @@ dependencies = [
     # first ships in 0.25.2, so a run the store refuses is left out and counted
     # rather than failing the tool (#314).
     #
-    # Raised to 0.25.4 by signature, not by name: `list_runs` passes `note`,
+    # Raised to 0.26.0 by signature, not by name: `list_runs` passes `note`,
     # `refused` and `baseline_unreadable` to `runs_json`, which first take them
-    # in 0.25.4 (#314, #349). Against 0.25.2 or 0.25.3 the call raises
+    # in 0.26.0 (#314, #349). Against 0.25.2 or 0.25.3 the call raises
     # `TypeError`. `test_plugin_floors.py` dates names, so it cannot see a
     # widened signature, and `INTRODUCED` still dates `runs_json` and
     # `suite_runs` to the releases that first carried the names. This floor was
     # written at the cut, because a floor may not name a release that does not
     # exist yet.
-    "digline>=0.25.4",
+    "digline>=0.26.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

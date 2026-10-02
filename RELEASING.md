@@ -20,8 +20,8 @@ Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
 **Open, not ruled: whether the criterion measures only what breaks.** Raised
-on 2026-10-01, cutting 0.25.2. Its heading had been opened as
-`0.26.0 — unreleased` with no reason recorded. The diff against `v0.25.1`
+on 2026-10-01, cutting 0.25.2. Its heading had been opened as the next
+minor, `— unreleased`, with no reason recorded. The diff against `v0.25.1`
 showed:
 - no schema change and no CLI change;
 - no public name removed, and three added;

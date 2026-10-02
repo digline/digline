@@ -55,9 +55,15 @@ Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
 - Nothing yet notices a stale list. A scheduled comparison with the source is
   proposed and not built (#370).
 
-## 0.25.4 — unreleased
+## 0.26.0 — unreleased
 
-digline **0.25.4**, with **`digline-mcp` 0.4.3** on the same tag. A projected
+digline **0.26.0**, with **`digline-mcp` 0.4.3** on the same tag. **A minor,
+because a run that could be promoted on 0.25.3 can be refused now**: a run
+whose run-level verdict is in `error` is refused promotion (#374). Under
+`by_group` a small group errors routinely, so a suite with one promoted its
+runs until this release and cannot from it. Read that entry before upgrading.
+
+The rest leaves existing suites, scripts and documents working. A projected
 list of runs no longer carries the store's file names, in a field or in its
 `repr` (#362). One run the store refuses no longer fails a whole list, in
 `list`, `log`, `view` and MCP (#314). A version a file declares is read as
@@ -76,6 +82,7 @@ there, deprecated, and `None` on a projected list.
   list the rest and exit 0**, naming what they left out (#314). And a file
   digline did not write that declares `18.0` or `"18"` as its version, read
   before, is refused now (#350).
+- **The examples' caps move to `<0.27`**, as on every minor.
 
 ### Changed — a run-level verdict in `error` refuses promotion (#374)
 
@@ -308,7 +315,7 @@ there, deprecated, and `None` on a projected list.
 
 ## digline-mcp 0.4.3 — unreleased
 
-Published by digline's `v0.25.4` tag, with the core.
+Published by digline's `v0.26.0` tag, with the core.
 
 - **`list_runs` reads through `suite_runs`**, so one run the store refuses is
   left out and counted instead of failing the tool for every run beside it
@@ -316,8 +323,8 @@ Published by digline's `v0.25.4` tag, with the core.
   count of runs the store would not read, and `baseline_unreadable`, so that
   `baseline_key: null` cannot read as a suite with no baseline. Its `note`
   names what was left out.
-- **The floor is `digline>=0.25.4`.** `list_runs` passes `note`, `refused` and
-  `baseline_unreadable` to `runs_json`, which first take them in 0.25.4, and
+- **The floor is `digline>=0.26.0`.** `list_runs` passes `note`, `refused` and
+  `baseline_unreadable` to `runs_json`, which first take them in 0.26.0, and
   against 0.25.2 or 0.25.3 the call raises `TypeError`. A floor may not name a
   release that does not exist yet, so it was raised at the cut.
 - **0.4.2 keeps working against this core**, and is not broken by it: it

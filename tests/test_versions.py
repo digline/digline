@@ -348,11 +348,6 @@ RECORDED: dict[str, dict[str, str]] = {
             "status, the 2026-10-01 delta-pass rules and their first pass are "
             "recorded for. Every one is a fact about a release that shipped"
         ),
-        "0.26.0": (
-            "the number 0.25.2's heading was first opened under with no reason "
-            "recorded, told as the start of the open question: a number that "
-            "was never released"
-        ),
         "0.2.1": (
             "pytest-digline's version that 1653ce6's type-only change rode, "
             "told as the moment the carried list emptied. It names a plugin "
