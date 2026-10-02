@@ -142,8 +142,8 @@ jobs:
         # the same day every example lock named digline 0.21.1 while the tree
         # was 0.21.2. It does not reach the examples without a lock, which
         # resolve at install time, or the Java services, which
-        # `java-example.yml` builds. And it proves Linux on 3.12 and 3.13, while
-        # the locks are universal. A green here means "installs as pinned,
+        # `java-example.yml` builds. And it proves Linux on 3.12, 3.13 and
+        # 3.14, while the locks are universal. A green here means "installs as pinned,
         # here" and nothing about whether an example works: that question is
         # still `examples-from-pypi`'s.
         run: uv run --python ${{ matrix.python }} python tools/example_locks.py
@@ -329,7 +329,7 @@ jobs:
     #    to write it in words here or to cut the subsets again there; both are
     #    valid when Plex has the glyph, and the second is the site's to make.
     #
-    # Not a required check, and deliberately: `CLAUDE.md`, beside the two
+    # Not a required check, and deliberately: `CLAUDE.md`, beside the three
     # `gates`, says why — item 3 above is a red this repository did not cause.
     runs-on: ubuntu-latest
     steps:

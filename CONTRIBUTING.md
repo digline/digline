@@ -4,7 +4,7 @@ Thanks for looking. A few things worth knowing before you open a pull request.
 
 - **Run the gates**: `uv sync --all-packages --locked`, then
   `pytest -m "not live"`, `ruff format --check .`, `ruff check .`, `pyright`.
-  All of them are green on `main`, and CI runs them on 3.12 and 3.13 — the
+  All of them are green on `main`, and CI runs them on 3.12, 3.13 and 3.14 — the
   `gates` job of `.github/workflows/ci.yml` is the list, and this is a copy of
   it. `--locked` matches CI: it refuses a `uv.lock` that has fallen behind
   `pyproject.toml` rather than rewriting it, so a lock you forgot to commit
@@ -326,7 +326,7 @@ Thanks for looking. A few things worth knowing before you open a pull request.
 - **`-m live` costs money** and needs `ANTHROPIC_API_KEY` *and* `DIGLINE_LIVE=1`.
   Never required to contribute.
 - **One check runs only in CI, and it is not required.** The `docs` job builds
-  the digline.dev site from your branch's docs. `main` requires only the two
+  the digline.dev site from your branch's docs. `main` requires only the three
   `gates` checks, and `RELEASING.md`, *Queued for the next site push*, says why
   `docs` cannot be one of them — so a red `docs` does not stop a merge. Read it
   anyway: it is the only place these mistakes show.
