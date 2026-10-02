@@ -6,16 +6,24 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.26.1 — unreleased
+## 0.27.0 — unreleased
 
-digline **0.26.1**. A run document that is not what its flags say is refused
-rather than read. A plain run flagged redacted was read as redacted, and
-promoting it committed a baseline that said redacted and still held the run's
-metadata. And a store directory that cannot be opened is refused rather than
-listed as empty. Nothing to migrate, no schema change, `OUTPUT_VERSION`
-unchanged, no public name removed, and one added: `DirectoryUnreadableError`. A
-patch, because every document refused here is one no released digline wrote,
-and every directory refused here was one no released digline could read.
+digline **0.27.0**. **A minor, because a suite that passed on 0.26.0 can
+error now**: a check declared with a tolerance that is not finite, such as
+`tolerance=math.inf`, produces an `error` verdict where it produced a pass.
+Such a check could never report a score that moved, and decision 3 forbids
+it. But the rule for the number measures what stops working for whoever
+upgrades, and this does. Read that entry before upgrading.
+
+The rest is about documents: what a run file declares is read as declared, or
+refused, and never converted into something else. A plain run flagged redacted
+was read as redacted, and promoting it committed a baseline that said redacted
+and still held the run's metadata. Every document refused for that is one no
+released digline wrote. A store directory that cannot be opened is refused
+rather than read as empty, and every directory refused for that is one no
+released digline could read. Nothing to migrate, no schema change,
+`OUTPUT_VERSION` unchanged, no public name removed, and one added:
+`DirectoryUnreadableError`.
 
 ### Fixed — a plain run could be promoted as redacted, and three flags were read through `bool()` (#379)
 
