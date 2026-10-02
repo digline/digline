@@ -328,6 +328,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "9.9.9": (
+            "not a digline version: the version no package has, asked of PyPI's "
+            "version endpoint as the control that must answer 404 beside the "
+            "release that must answer 200"
+        ),
         "0.25.3": (
             "the release whose index-race status is recorded: the capture's first "
             "divergence, the tag message checked before the tag, the installed "
