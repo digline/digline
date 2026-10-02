@@ -1654,6 +1654,61 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-bedrock-v0.6.0 — the first tag to publish two plugins, and it
+  published both.** One tag carried `digline-bedrock` 0.6.0 and
+  `digline-anthropic` 0.6.0, because both versions moved in #395 and a tag
+  publishes every workspace package the index lacks. `publish`
+  (`37012587825`) passed on attempt 1. `github-release` and the two site jobs
+  were skipped, as on any plugin tag.
+
+  **`tag_names.py`, both directions.** On #395's tree, the message naming
+  `digline-anthropic 0.6.0` alone exited 1 with *"this run will publish 2
+  package(s)"*. That is what ruled one tag rather than two. On #397's merge
+  commit, `b589136`, immediately before the tag, the message
+  `digline-bedrock 0.6.0, digline-anthropic 0.6.0` printed *"this run will
+  publish 2 package(s): digline-anthropic 0.6.0, digline-bedrock 0.6.0"* and
+  *"the message names every one of them"*, and exited 0. Its whole output
+  was read, not only the code: the one other line was `uv`'s warning about a
+  `VIRTUAL_ENV` it ignored.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on `pypi`,
+  and the environment reads `can_admins_bypass: false`. The TestPyPI job
+  finished at 13:25:50, and the `pypi` job started at 13:39:15. Before the
+  click, the session reported the jobs' states and that PyPI served neither
+  0.6.0. The counts, read afterwards from the finished jobs:
+  - 12 `twine check` `PASSED` in the build, then 4 on `to-publish/`;
+  - TestPyPI's selection, and PyPI's, 4 `publish` and 8 `skip`. The four are
+    the two plugins, wheel and sdist. The eight are `digline` 0.26.0,
+    `digline-mcp` 0.4.3, `digline-openai` 0.5.2 and `pytest-digline` 0.2.1,
+    each already on the index;
+  - `imported 6`, and the quickstart's 3 calls.
+
+  **Both on PyPI, and the project page said otherwise.** The four files were
+  uploaded between 13:39:55.5 and 13:40:00.6. Read right after the run, the
+  project JSON (`/pypi/<name>/json`) still named 0.5.4 and 0.5.1 as latest
+  and listed no 0.6.0 file. The version JSON (`/pypi/<name>/0.6.0/json`)
+  answered 200 with both files for each package, and the control,
+  `/pypi/<name>/9.9.9/json`, answered 404. **Read the version endpoint, with a
+  control that must fail.** The project endpoint lags, and on a check of what
+  shipped, a lag looks the same as a package that did not.
+
+  **Steps 2, 5 and 6 were not run, and none of them was skipped.**
+  `docker-publish` triggers on `v*` only (its own comment says why), so no
+  image was built. There was no `served` line to read, no digest to compare,
+  and no `index-capture` pair: the capture was *never asked*, which is not the
+  same as agreeing. The Dockerfile's pins already name both 0.6.0s, and the
+  image takes them at the next workspace release. No committed `report.html`
+  names a plugin's version, so nothing in step 5 moved.
+
+  **Elsewhere.** The three example locks that pin `digline-anthropic` moved
+  from 0.5.4 to 0.6.0, and their hashes match the release's attestations.
+  **`examples/langchain`'s first `uv lock -q --upgrade-package
+  digline-anthropic` exited 0 and moved nothing**, minutes after the upload;
+  the second moved it. A quiet lock is not a moved lock: read the diff.
+
+  **The next plugin-only tag must show** the version endpoint read with its
+  control, and every lock's diff, not its exit code.
+
 - **v0.26.0 — the pair agreed for every pin, the signatures' wait was
   answered on its first read, and the counts reached the approver after the
   click, now by rule.** `publish` (`36991389633`) and `docker-publish`
