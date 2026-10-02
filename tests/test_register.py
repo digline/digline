@@ -325,8 +325,13 @@ HOSTILE = {
         with_raw(("exit_code",), "9" * 5000),
         "digits",
     ),
+    # Ten million, not a hundred thousand: since 3.14 the decoder's recursion
+    # guard measures the real C stack, and on Linux, with its 8 MiB main
+    # thread, a hundred thousand levels parsed. The line was still refused, but
+    # as a list where a string belongs, so `RecursionError` went untested
+    # there. Ten million exceeds any default stack by an order of magnitude.
     "nesting deeper than a line holds": (
-        with_raw(("run", "environment"), "[" * 100_000 + "]" * 100_000),
+        with_raw(("run", "environment"), "[" * 10_000_000 + "]" * 10_000_000),
         "nested",
     ),
     "a duplicate key": (
