@@ -19,11 +19,26 @@ the reason is right. Scope: `digline.core` only, which is where the checks a
 document meets at construction live. The same keys are read by text in
 `targets`, `host`, `report` and `wire`, and none of those is watched here.
 
-One instance outside that scope is known and left as it is, because it is ADR
-0034 §15's question (what a reader at the software house loses) and not this
-one. On a comparison of two projections, a first-party `resolved_model` arrives
-as a token, so `report.render` misses it in `OBSERVED_FIELDS` and says "not
-sent for the reference" where the same delta in clear says "not reported". (#275)
+Outside that scope, a sweep of `report`, `wire`, `host`, `cli` and `run` for
+these keys and sets found three kinds of use, and none of them is watched here
+either:
+
+- **Sentences that came out false on a projected document**, repaired in #275.
+  The report chose a verb or a headline by finding a key in `OBSERVED_FIELDS`,
+  and a token is never there. The choice is now one that stays true when the
+  lookup misses: `render.field_verb` says "recorded" for a token's key, and the
+  headline counts the withheld fields rather than naming one. That was not ADR
+  0034 §15's question, as this file used to say: §15 is an accepted rule, and
+  a false sentence breaks it whatever a reader loses.
+- **A qualification lost in silence**, left as it is. `render.echoed_model`
+  finds `"resolved_model"` and `"model"` by text, so on a projection the
+  "echoed" clause is dropped without a word. Nothing false is said: something
+  is lost, and what a reader at the software house loses is §15's question.
+- **A crash**, #402. `report.log.sighting` reads `values["provider"]`, which
+  raises on a projected baseline.
+
+The sweep was a search for the literal keys and the names of the sets. A key
+read through a variable would not show up in it.
 """
 
 from __future__ import annotations

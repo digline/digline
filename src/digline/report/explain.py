@@ -21,7 +21,6 @@ from typing import Literal, assert_never
 from digline.core import (
     AGREEMENT_FIELD,
     IDENTITY_FIELD,
-    OBSERVED_FIELDS,
     ArtifactDelta,
     AssertionDelta,
     Comparison,
@@ -53,6 +52,7 @@ from digline.report.render import (
     diff_tally,
     echoed_model,
     errored_verdicts,
+    field_verb,
     fmt_score,
     fmt_value,
     on_the_line_count,
@@ -991,21 +991,24 @@ def _rule_line(fact: SettingFact, locale: Locale, *, before: str, after: str) ->
 
 
 def _verb(fact: SettingFact) -> str:
-    """The suffix that picks the verb: withheld, reported, or configured.
+    """The suffix that picks the verb: withheld, reported, recorded, or
+    configured.
 
     A sent parameter is one the suite *configured*; an `OBSERVED_FIELDS` one is
     one the provider *reported*, and saying the run "was configured with"
     `resolved_model` would be as false as the "answered with" this replaces —
-    nobody configured it. `render.py` splits the same way off the same set, and
-    only where a verb is spoken: `new`, `missing` and `unknown` say "recorded",
-    which is true of both. (ADR 0005 §9; ADR 0020 §3, row 7)
+    nobody configured it. Where the name is a token neither can be told, and
+    the verb is "recorded", which is true of both (#275). `render.field_verb`
+    makes that split, for this reading and for the report, and only where a
+    verb is spoken: `new`, `missing` and `unknown` say "recorded" already.
+    (ADR 0005 §9; ADR 0020 §3, row 7)
     """
     if fact.outcome is None and fact.withheld:
         # `.withheld` exists on the `alone` keys only. Compared, a withheld
         # field is `unknown`, and that string already says "or it was withheld".
         return ".withheld"
-    if fact.outcome in (None, "changed") and fact.name in OBSERVED_FIELDS:
-        return ".observed"
+    if fact.outcome in (None, "changed"):
+        return field_verb(fact.name)
     return ""
 
 
