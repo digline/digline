@@ -328,6 +328,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.6.1": (
+            "digline-bedrock's version, in the installed-packages line v0.27.0's "
+            "Status paragraph quotes from both image builds: evidence of what "
+            "the image held, told as history"
+        ),
         "0.26.0": (
             "the release whose index-race status is recorded (the pair agreeing "
             "for every pin, the tag message checked before the tag, the installed "
