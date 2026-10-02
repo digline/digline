@@ -224,6 +224,7 @@ from digline.core.types import (
     canonical,
     meets,
     output_kind,
+    tolerance_is_blind,
     travels,
     within,
 )
@@ -370,6 +371,7 @@ __all__ = [
     "GapKind",
     "meets",
     "within",
+    "tolerance_is_blind",
     "budget_exceedances",
     "budget_score",
     "combine_samples",

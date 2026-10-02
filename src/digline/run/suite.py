@@ -30,14 +30,17 @@ from digline.core import (
     config_hash,
     expand_by_group,
     judged,
+    tolerance_is_blind,
 )
 from digline.core.ratio import Ratio, as_agreement
 
 __all__ = [
+    "BlindTolerance",
     "Calibration",
     "CallPlan",
     "Case",
     "Suite",
+    "blind_tolerances",
     "planned_calls",
     "undeclared_kinds",
 ]
@@ -654,6 +657,52 @@ def _unresolved(assertion: Assertion) -> bool:
     if kind is None:
         return True
     return kind == "wrapper" and not isinstance(getattr(inner, "judged", None), bool)
+
+
+@dataclass(frozen=True, slots=True)
+class BlindTolerance:
+    """A check whose declared tolerance holds every movement its score can make
+    without crossing its threshold, so `compare()` reports it only on a flip.
+
+    Said, never refused. A tolerance is a choice written in the suite, and
+    digline does not tell anybody how much movement matters to them. But one
+    that covers the whole range is not a threshold on movement, it switches
+    the check off, and whoever wrote it most likely does not know. (#386)
+    """
+
+    name: str
+    threshold: float
+    tolerance: float
+
+    def sentence(self) -> str:
+        """One line for a terminal, the same in every front end that prints it,
+        which is why it lives here and not in one of them."""
+        return (
+            f"tolerance {self.tolerance:g} on {self.name!r} (threshold "
+            f"{self.threshold:g}) covers every movement its score can make "
+            "without crossing the threshold: compare will report this check "
+            "only when it flips between pass and fail"
+        )
+
+
+def blind_tolerances(suite: Suite) -> tuple[BlindTolerance, ...]:
+    """The checks, per case and over the run, whose tolerance is blind by
+    `tolerance_is_blind`.
+
+    Read off the declaration, which is where the author is, before the first
+    call: the `Assertion` and `RunAssertion` protocols both require a
+    threshold and a tolerance, so a check of your own is read like a built-in
+    one. **Silence is not a clean bill.** Four ways to a blind check cannot be
+    seen from a declaration — a tolerance wide for how the scores actually
+    move, scores on a grid, the noise floor, a threshold that moved — and
+    `tolerance_is_blind` names each one.
+    """
+    checks: list[Assertion | RunAssertion] = [*suite.assertions, *suite.run_assertions]
+    return tuple(
+        BlindTolerance(check.name, float(check.threshold), float(check.tolerance))
+        for check in checks
+        if tolerance_is_blind(float(check.threshold), float(check.tolerance))
+    )
 
 
 def _as_paths(
