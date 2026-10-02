@@ -209,7 +209,6 @@ def history(
     and the reading says so rather than showing an empty register.
     """
     listed = suite_runs(store, suite.tenant, suite.name, mint=None)
-    listing = listed.listing
     baseline = store.read_baseline(suite.tenant, suite.name)
     try:
         register = store.read_register(suite.tenant, suite.name)
@@ -222,8 +221,8 @@ def history(
         suite=suite.name,
         since=since,
         until=until,
-        skipped=listing.skipped,
-        unreadable=len(listing.unreadable),
+        skipped=listed.skipped,
+        unreadable=listed.unreadable_count,
         refused=len(listed.refused),
         baseline=(
             None

@@ -12,6 +12,7 @@ needs, and the store's scan is one step of it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import NoReturn, cast
 
@@ -55,7 +56,9 @@ _DOCUMENT_REFUSALS = (
 )
 
 
-@dataclass(frozen=True, slots=True)
+# `repr=False`: the `__repr__` below is written by hand, because the generated
+# one prints every field, and `listing` holds file names. (#362)
+@dataclass(frozen=True, slots=True, repr=False)
 class SuiteRuns:
     """What `suite_runs` read, and what it could not.
 
@@ -76,14 +79,74 @@ class SuiteRuns:
     because the only name it had was a file name that is not a run key: a
     readable run filed under a name other than its `key_of`, or a refused file
     whose name has no run key's form. Always 0 on a listing in clear.
+
+    `skipped` and `unreadable_count` are the scan's part, as data and in both
+    regimes: how many files were left out for their schema, by version, and
+    how many this version cannot place at all. **Counts, never names**, and
+    the second is not called `unreadable` because `Listing.unreadable`, one
+    attribute away, is the file names. One word for a count in one place and
+    for names in the other is how a reader takes one for the other. (#362)
+
+    `listing` is the store's scan as it returned it, **in clear only**. It is
+    `None` on a projected list, because its `runs` and its `unreadable` are
+    file names, and the names are what a projected list exists to keep off a
+    page: no reader needed them, every reader needed the counts above.
+    Deprecated in clear too, and kept for the published `digline-mcp` that
+    passes it to `runs_json`. It goes in a step of its own. (#362)
     """
 
     runs: tuple[tuple[str, Run], ...]
     baseline_key: str | None
     baseline_refused: str
-    listing: Listing
     refused: tuple[tuple[str, str], ...]
     unnamed: int
+    skipped: Mapping[int, int]
+    unreadable_count: int
+    listing: Listing | None
+
+    def __post_init__(self) -> None:
+        # The counts and the scan are one fact said twice where both are
+        # present; a value that said them two ways would answer differently
+        # depending on which attribute a caller read.
+        if self.listing is not None and (
+            dict(self.listing.skipped) != dict(self.skipped)
+            or len(self.listing.unreadable) != self.unreadable_count
+        ):
+            raise ValueError(
+                "SuiteRuns' counts disagree with its listing: skipped "
+                f"{dict(self.skipped)} against {dict(self.listing.skipped)}, "
+                f"{self.unreadable_count} unreadable against "
+                f"{len(self.listing.unreadable)}"
+            )
+
+    def __repr__(self) -> str:
+        """Keys and counts, and never the scan.
+
+        The generated `repr` printed `listing`, so a projected list put every
+        file name back — a person's name, control characters — wherever it was
+        logged, formatted or shown in a traceback. It also printed every `Run`
+        in full. This shows what the fields already show on the regime they
+        were built for: the keys of `runs` and `refused`, which on a projected
+        list have a run key's form, and the counts. Strings through `!r`, so a
+        control character in clear is escaped rather than written. (#362)
+        """
+        return (
+            "SuiteRuns("
+            f"runs={[key for key, _ in self.runs]!r}, "
+            f"baseline_key={self.baseline_key!r}, "
+            f"baseline_refused={self.baseline_refused!r}, "
+            f"refused={[key for key, _ in self.refused]!r}, "
+            f"unnamed={self.unnamed}, "
+            f"skipped={dict(sorted(self.skipped.items()))!r}, "
+            f"unreadable_count={self.unreadable_count}, "
+            f"listing={'None' if self.listing is None else '<in clear>'})"
+        )
+
+    def advice(self) -> tuple[str, ...]:
+        """What to do about the runs skipped for their schema, in the
+        direction the versions say: `Listing.advice`, on `skipped`. The one
+        thing a caller read `listing` for that a count does not answer."""
+        return Listing(runs=(), skipped=self.skipped).advice()
 
     def note(self) -> str:
         """One line naming what was left out, or empty when nothing was.
@@ -117,23 +180,22 @@ def left_out(listed: SuiteRuns, *, locale: Locale) -> str:
 
 def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[str]:
     parts: list[str] = []
-    scan = listed.listing
     skipped = [
         phrase(locale, "left_out.schema", count=count, version=version)
-        for version, count in sorted(scan.skipped.items())
+        for version, count in sorted(listed.skipped.items())
     ]
-    if scan.unreadable:
+    if listed.unreadable_count:
         skipped.append(
-            phrase(locale, "left_out.unreadable", count=len(scan.unreadable))
+            phrase(locale, "left_out.unreadable", count=listed.unreadable_count)
         )
     if skipped:
         parts.append(phrase(locale, "left_out.ignored", parts=", ".join(skipped)))
     if advise:
         # `Listing.advice` in the reader's language: the same two directions,
         # on the same comparison with the schema this digline writes.
-        if any(version < SCHEMA_VERSION for version in scan.skipped):
+        if any(version < SCHEMA_VERSION for version in listed.skipped):
             parts.append(phrase(locale, "left_out.migrate"))
-        if any(version > SCHEMA_VERSION for version in scan.skipped):
+        if any(version > SCHEMA_VERSION for version in listed.skipped):
             parts.append(phrase(locale, "left_out.upgrade"))
     if listed.refused:
         named = [f"{key} ({why})" for key, why in listed.refused[:_NAMED_REFUSALS]]
@@ -261,9 +323,13 @@ def suite_runs(
         runs=tuple(runs),
         baseline_key=baseline_key,
         baseline_refused=baseline_refused,
-        listing=listing,
         refused=tuple(refused),
         unnamed=unnamed,
+        skipped=dict(listing.skipped),
+        unreadable_count=len(listing.unreadable),
+        # Withheld on a projected list: its `runs` and `unreadable` are file
+        # names, which the fields above exist to keep off a page. (#362)
+        listing=listing if table is None else None,
     )
 
 

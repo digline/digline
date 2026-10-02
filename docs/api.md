@@ -1570,8 +1570,17 @@ a program that shows it somewhere else (#276). It returns a **`SuiteRuns`**:
   with. `None` when there is no baseline, **or** when one is there and could
   not be read. `baseline_refused` tells the two apart. It is empty for the
   first and holds what refused the read for the second.
-- `listing`: the scan, with what it skipped by schema and what it could not
-  parse.
+- `skipped`: how many files the scan left out for their schema, by version.
+- `unreadable_count`: how many files this version cannot place at all. A
+  **count**: `Listing.unreadable` is the file names, and the two are named
+  apart so that one is not read for the other.
+- `advice()`: what to do about `skipped`, in the direction the versions say.
+- `listing`: the store's scan as it returned it, **in clear only, and
+  deprecated**. It is `None` on a projected list, because its `runs` and its
+  `unreadable` are file names, which a projected list keeps off the page.
+  Read `skipped`, `unreadable_count` and `advice()` instead, in either
+  regime. It stays in clear for now because a published `digline-mcp`
+  passes it to `runs_json`, and it is removed in a release of its own (#362).
 - `refused`: `(key, what refused it)` for each run the scan found and the read
   did not show. **One run the store refuses does not take the others down.**
 - `unnamed`: on a projected list, how many files were left out **without a
@@ -1590,7 +1599,7 @@ a program that shows it somewhere else (#276). It returns a **`SuiteRuns`**:
 document's language. `locale` is mandatory, with no default, as on
 `render_html`. Only the frame is translated: in clear, a refusal's sentence is
 the store's and stays in English. It adds what to do about runs skipped for
-their schema, which `note()` leaves to `listing.advice()`, because a page has
+their schema, which `note()` leaves to `advice()`, because a page has
 no second line to put it on. `digline view` shows it under the list and under a
 case's history (#339).
 
