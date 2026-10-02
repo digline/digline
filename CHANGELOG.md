@@ -8,6 +8,34 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Fixed — a projected list of runs no longer carries the file names (#362)
+
+- **`SuiteRuns.listing` is `None` on a projected list.** #333 kept file names
+  out of `note()`, `runs` and `refused`, and counted them in `unnamed`. The
+  same `SuiteRuns` still carried the store's scan in `listing`, unchanged.
+  Its `runs` held every file the scan kept, including the ones `unnamed`
+  counts so as not to name them, and its `unreadable` held each file's
+  name, control characters included. That is the delta-pass F-1 loss, by a
+  door #333 did not close. Only a caller passing a minter met it: every call
+  in this repository passes `mint=None`.
+- **And it did not have to be read to leak.** `SuiteRuns` had the generated
+  `repr`, which printed `listing`. So any log line, f-string or traceback
+  that printed a projected list put the names back. The `repr` is now
+  written by hand. It shows the keys of `runs` and `refused` and the counts,
+  in both regimes, and never the scan or a `Run` in full.
+- **The scan's counts are on `SuiteRuns` now**, in both regimes:
+  `skipped` (by schema version), `unreadable_count` and `advice()`. Before,
+  they existed only inside `listing`. No reader, here or in `digline-ward`,
+  ever read `listing.runs` or the names in `unreadable`, and every reader
+  read the counts. `unreadable_count` is not called `unreadable`, because
+  `Listing.unreadable`, one attribute away, is names.
+- **`listing` is deprecated in clear too, and stays for now.** The published
+  `digline-mcp` passes `listed.listing` to `runs_json`, and removing it
+  would break that published caller. It goes in a step of its own, with
+  `runs_json` taking the counts.
+- **This is a change you can see** only from a program that passes a minter
+  and read `listing`. It now gets `None` and reads the counts.
+
 ### Changed — what a list of runs left out, in the page's language and at a bounded length (#339)
 
 - **`digline view` says what the read left out in the page's language.** The

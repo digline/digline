@@ -636,7 +636,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         say(f"no runs for suite {suite.name!r} in tenant {suite.tenant!r}")
         if note:
             say(note)
-            for line in listed.listing.advice():
+            for line in listed.advice():
                 say(line)
         return EXIT_OK
 
@@ -686,7 +686,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         # listing of a shorter history.
         say()
         say(note)
-        for line in listed.listing.advice():
+        for line in listed.advice():
             say(line)
     _warn_if_ahead(*rows)
     return EXIT_OK

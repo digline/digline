@@ -219,6 +219,10 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # A run the store refuses is left out and counted, rather than failing
         # the tool for every run beside it. (#314)
         listed = suite_runs(store, loaded_suite.tenant, loaded_suite.name, mint=None)
+        # In clear, so the scan is there. `runs_json` still takes it whole,
+        # as the published `digline-mcp` passes it; both move to the counts
+        # in the step that removes `SuiteRuns.listing`. (#362)
+        assert listed.listing is not None
         return runs_json(
             listed.runs,
             tenant=loaded_suite.tenant,

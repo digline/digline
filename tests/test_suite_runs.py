@@ -172,9 +172,11 @@ def left(
         runs=(),
         baseline_key=baseline_key,
         baseline_refused=baseline_refused,
-        listing=Listing(runs=(), skipped=skipped or {}, unreadable=unreadable),
         refused=refused,
         unnamed=unnamed,
+        skipped=skipped or {},
+        unreadable_count=len(unreadable),
+        listing=Listing(runs=(), skipped=skipped or {}, unreadable=unreadable),
     )
 
 
@@ -247,6 +249,7 @@ def test_the_note_keeps_its_advice_off_the_line() -> None:
     listed = left(skipped={SCHEMA_VERSION - 1: 2})
 
     assert listed.note() == f"ignored: 2 run(s) at schema {SCHEMA_VERSION - 1}"
+    assert listed.listing is not None
     assert listed.note() == listed.listing.note()
 
 
@@ -500,3 +503,117 @@ def test_a_refused_file_with_a_run_keys_form_is_still_named(tmp_path: Path) -> N
     assert [k for k, _ in listed.refused] == [
         "2026-09-29T11-00-00-00-00-deadbeefdeadbeef"
     ]
+
+
+# --------------------------------------------------------------------------- #
+# The scan on a projected list: counts, never names (#362)
+# --------------------------------------------------------------------------- #
+
+
+#: Every file name the scan can hold on to, and nothing else in the store
+#: that is a name: a run filed under a person, a file that is not JSON, one
+#: whose version is not an integer, one at a foreign schema, and a refused
+#: file whose name carries control characters.
+NAMES_ON_DISK = (PERSON, "bianchi-anna", "verdi-luca", "neri-paola", "x\x1b[31mred\x9b")
+
+
+def every_kind_of_file(root: Path) -> FileResultStore:
+    kept, moved = current(T1), current(T2)
+    store = stored(root, kept, moved)
+    renamed(store, moved, PERSON)
+    directory = store.runs_dir(TENANT) / SUITE
+    (directory / "bianchi-anna.json").write_text("{not json", encoding="utf-8")
+    (directory / "verdi-luca.json").write_text(
+        json.dumps({"schema_version": "x"}), encoding="utf-8"
+    )
+    (directory / "neri-paola.json").write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION - 1}), encoding="utf-8"
+    )
+    broken(store, "x\x1b[31mred\x9b")
+    return store
+
+
+def test_a_projected_list_carries_no_scan(tmp_path: Path) -> None:
+    """`listing.runs` held every file the scan kept, the ones `unnamed` counts
+    so as not to name them included, and `listing.unreadable` each file's
+    name. Nobody read either; everybody read the counts."""
+    listed = suite_runs(every_kind_of_file(tmp_path), TENANT, SUITE, mint=Table())
+
+    assert listed.listing is None
+
+
+def test_a_projected_list_keeps_the_scans_counts(tmp_path: Path) -> None:
+    """The counts are the same whichever regime read the store: what is
+    withheld is the names, not the facts."""
+    store = every_kind_of_file(tmp_path)
+
+    projected = suite_runs(store, TENANT, SUITE, mint=Table())
+    in_clear = suite_runs(store, TENANT, SUITE, mint=None)
+
+    assert dict(projected.skipped) == {SCHEMA_VERSION - 1: 1}
+    assert projected.unreadable_count == 2
+    assert dict(projected.skipped) == dict(in_clear.skipped)
+    assert projected.unreadable_count == in_clear.unreadable_count
+    assert projected.advice() == in_clear.advice()
+    assert projected.advice() == ("run `digline migrate` to bring them up to date",)
+
+
+def test_no_file_name_reaches_any_field_or_the_repr(tmp_path: Path) -> None:
+    """The generated `repr` printed `listing`, so a projected list put the
+    names and the control characters back wherever it was logged or shown
+    in a traceback. Read over every field and the `repr` both."""
+    listed = suite_runs(every_kind_of_file(tmp_path), TENANT, SUITE, mint=Table())
+
+    seen = [
+        repr(listed),
+        str(listed),
+        f"{listed}",
+        listed.note(),
+        left_out(listed, locale="it"),
+        *(str(getattr(listed, name)) for name in SuiteRuns.__slots__),
+    ]
+    for text in seen:
+        for name in NAMES_ON_DISK:
+            assert name not in text, (name, text)
+        for raw in ("\x1b", "\x9b", "\\x1b", "\\x9b"):
+            assert raw not in text, (raw, text)
+
+
+def test_the_repr_shows_keys_and_counts(tmp_path: Path) -> None:
+    """What the fields show on the regime they were built for, and no `Run`
+    in full: a repr is read by a person in a log."""
+    listed = suite_runs(every_kind_of_file(tmp_path), TENANT, SUITE, mint=Table())
+
+    assert repr(listed) == (
+        f"SuiteRuns(runs={[key(current(T1))]!r}, baseline_key=None, "
+        "baseline_refused='', refused=[], unnamed=2, "
+        f"skipped={{{SCHEMA_VERSION - 1}: 1}}, unreadable_count=2, listing=None)"
+    )
+
+
+def test_in_clear_the_scan_is_still_there_and_the_repr_withholds_it(
+    tmp_path: Path,
+) -> None:
+    """Deprecated, and kept for the published `digline-mcp` that passes it
+    to `runs_json`. The repr does not print it in clear either: a repr is
+    not where a caller reads the owner's file names from."""
+    listed = suite_runs(every_kind_of_file(tmp_path), TENANT, SUITE, mint=None)
+
+    assert listed.listing is not None
+    assert listed.listing.unreadable == ("bianchi-anna.json", "verdi-luca.json")
+    assert "bianchi-anna" not in repr(listed)
+    assert repr(listed).endswith("listing=<in clear>)")
+
+
+def test_counts_that_disagree_with_the_scan_are_refused() -> None:
+    with pytest.raises(ValueError, match="disagree with its listing"):
+        SuiteRuns(
+            runs=(),
+            baseline_key=None,
+            baseline_refused="",
+            refused=(),
+            unnamed=0,
+            skipped={},
+            unreadable_count=0,
+            listing=Listing(runs=(), unreadable=("a.json",)),
+        )
