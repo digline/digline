@@ -8,6 +8,12 @@
   [ADR 0013](0013-the-pytest-plugin.md) were
 - Shipped: 0.10.0
 - Date: 2026-09-11
+- Amended: 2026-10-02 — **§5's last sentence gains a dated note beside it,
+  and the sentence is kept as written.** It called the promoted baseline
+  *payload-free*, and a promoted baseline keeps every `reason`, which ADR 0002
+  §2 names as payload. What holds is that no recorded answer is committed.
+  The same sentence in ADR 0018 §2 gains the same note. Nothing in the code
+  moved (#391)
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels), §3 (`Disclosure` is
   asymmetric), §8 (promotion has three conditions);
@@ -211,6 +217,21 @@ baseline is an approved reference of *verdicts*, and §6's replay reads a stored
 **run**, never the baseline. The one committed artifact in this product stays
 payload-free, which is the property that made committing it defensible in the
 first place.
+
+*Corrected 2026-10-02, the paragraph above kept as written.* The last sentence
+says more than §5 did. **What it claimed:** that the committed baseline carries
+no payload. **What is true:** it carries no recorded answer. Promotion strips
+`responses`, and that is what this section decided. In world 1 the baseline
+also sits inside the developer's perimeter (fixed decision 2), so nothing in
+it crosses a boundary. **What is not true:** that it carries no payload.
+Promotion keeps every `reason`, and a judge's reason quotes the output, which
+is why ADR 0002 §2 names it as payload and fixed decision 9 lists it first
+among what does not cross. A plain run promoted on `8db9602` committed
+`"redacted": false` with its verdict's reason intact. The software house's
+shape, which the paragraph above warns about, is closed elsewhere: ADR 0034
+moves the store to the end company and commits only a projection of the
+reference. Nothing more is decided here, including whether promotion should
+say what a committed baseline still carries (#391).
 
 ### 6. `digline rejudge`: the honest answer to the cache
 
