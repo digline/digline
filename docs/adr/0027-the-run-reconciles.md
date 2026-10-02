@@ -362,3 +362,11 @@ the declared count, and recording the count would board a schema train.
   have one today, which nothing in this record does. **It belongs in the next
   minor, with a changelog line of its own.** It is not a question waiting for
   an answer.
+
+  *Half of it landed 2026-10-02 (#374), and late: no issue carried it, and
+  several minors shipped first. Promotion now refuses a run-level verdict in
+  `error`, which ADR 0002 §8's condition 3 already said ("one or more
+  verdicts"). **The exit code half is still open**, and it is not only late:
+  ADR 0010 §8, accepted, says an errored aggregate moves no exit code "and
+  nothing here should", and this bullet did not amend it. Two accepted records
+  disagree, and the disagreement needs a record, not a patch.*

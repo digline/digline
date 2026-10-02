@@ -10,17 +10,22 @@ The promotion behaviour they back — which refusal a person actually sees — i
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from digline.core import (
     UNRECONCILED,
+    Accuracy,
     CalibrationBand,
     CaseResult,
+    Contains,
     Run,
     Score,
     Verdict,
     key_of,
 )
+from digline.run import Case, Response, Suite, execute
 from digline.store import (
     BaselineMovedError,
     ConfigMismatchError,
@@ -127,6 +132,69 @@ def test_an_errored_verdict_is_refused() -> None:
     (refusal,) = refusals_for(run(broken), CFG)
     assert isinstance(refusal, ErroredRunError)
     assert "could not judge" in str(refusal)
+
+
+def test_an_errored_run_level_verdict_is_refused() -> None:
+    """Condition 3 says *any* verdict, and an aggregate is one. Every case
+    judged, and the only error is the figure: before #374 this was promoted."""
+    figure = verdict(name="precision[group=travel]", score=None, status="error")
+    (refusal,) = refusals_for(replace(run(), aggregate=(figure,)), CFG)
+    assert isinstance(refusal, ErroredRunError)
+    assert "1 run-level check(s) (precision[group=travel])" in str(refusal)
+    assert "Change the suite so the check can be computed" in str(refusal)
+    assert "case(s)" not in str(refusal)
+
+
+def test_a_passing_run_level_verdict_refuses_nothing() -> None:
+    """The control: an aggregate is not refused for being there."""
+    assert refusals_for(replace(run(), aggregate=(verdict(name="recall"),)), CFG) == ()
+
+
+def test_errored_cases_and_figures_are_one_refusal() -> None:
+    """One condition, one refusal: the tuple counts conditions, so both kinds of
+    error are named inside it rather than added beside it."""
+    broken = CaseResult("case-1", (verdict(score=None, status="error"),))
+    figure = verdict(name="accuracy", score=None, status="error")
+    (refusal,) = refusals_for(replace(run(broken), aggregate=(figure,)), CFG)
+    text = str(refusal)
+    assert "1 case(s) (case-1) and 1 run-level check(s) (accuracy)" in text
+    assert "Fix the case or remove it from the suite, and change the suite" in text
+
+
+def test_every_case_suspended_under_an_aggregate_is_refused() -> None:
+    """#360's route where the suite declares an aggregate: nothing judged, the
+    empty denominator is `error` (ADR 0002 §10), and that error now reaches
+    condition 3. Without an aggregate the same run still refuses nothing, which
+    is what #360 keeps open."""
+
+    def suite(*, aggregate: bool) -> Suite:
+        return Suite(
+            tenant="acme",
+            environment="test",
+            name="qa",
+            assertions=[Contains(needle="MATCH", name="agrees")],
+            run_assertions=(
+                [Accuracy(over="agrees", threshold=0.5, tolerance=0.0)]
+                if aggregate
+                else []
+            ),
+            cases=[
+                Case(id="a", label="positive", suspended="ticket 1"),
+                Case(id="b", label="negative", suspended="ticket 2"),
+            ],
+        )
+
+    def target(case: Case) -> Response:
+        return Response(output="MATCH", cost_usd=0.001)
+
+    at = "2026-01-01T10:00:00+00:00"
+    measured = execute(suite(aggregate=True), target, created_at=at)
+    (refusal,) = refusals_for(measured, measured.config_hash)
+    assert isinstance(refusal, ErroredRunError)
+    assert "1 run-level check(s) (accuracy)" in str(refusal)
+
+    bare = execute(suite(aggregate=False), target, created_at=at)
+    assert refusals_for(bare, bare.config_hash) == ()
 
 
 def test_a_calibration_case_outside_its_band_is_refused() -> None:
