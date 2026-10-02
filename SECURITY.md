@@ -36,13 +36,29 @@ Not every security fix is an advisory, and a project that publishes one for
 everything teaches its readers to skim them. The line here is **exposure**, and
 it is drawn in one place:
 
-- **A published advisory** — GitHub Security Advisory, with a CVE where one
-  applies — for a vulnerability that **shipped**: a released version, on an
-  index somebody could install from, that a user could be hurt by. The list
-  below is a copy, written out because nothing here can read it at build time;
-  the source is this repository's own advisories, which
-  `gh api repos/digline/digline/security-advisories` returns and the Security
-  tab shows — ask that, not this paragraph, for how many there are.
+- **A published advisory** — GitHub Security Advisory with a CVE, requested
+  in the same click that publishes it — for a vulnerability that **shipped**:
+  a released version, on an index somebody could install from, that a user
+  could be hurt by. The list below is a copy, written out because nothing here
+  can read it at build time; the source is this repository's own advisories,
+  which `gh api repos/digline/digline/security-advisories` returns and the
+  Security tab shows — ask that, not this paragraph, for how many there are.
+
+  **The CVE has no exception, and severity is not one.** It is what puts the
+  advisory in front of somebody who depends on the package and never reads
+  this repository, because a dependency scanner matches on it. An advisory
+  without one is seen only by whoever comes looking. **An advisory published
+  without a CVE is a mistake to repair**: request one afterwards, with `POST
+  /repos/{owner}/{repo}/security-advisories/{ghsa_id}/cve`, which accepts an
+  advisory that is already published.
+
+  *Written 2026-10-02, replacing "with a CVE where one applies".* That clause
+  named no case where a CVE does not apply, and the eight advisories published
+  under it all went out without one, the high one included. No decision not
+  to request one was recorded anywhere. It was a rule not applied, not a
+  precedent. CVEs were requested for all eight that day. If an advisory is ever
+  about something no scanner could match, such as a workflow or the site, the
+  exception is written then, with the real case in front of it.
 
   **Grouped by what the looking was aimed at, because those are not
   interchangeable and the grouping is meant to help somebody decide where to
