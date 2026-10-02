@@ -3043,4 +3043,12 @@ def run_to_json(
 
 
 def run_from_json(payload: str) -> Run:
-    return run_from_dict(json.loads(payload))
+    # Text that is not JSON is refused by the same type as a document that is
+    # not a run (#353): `JSONDecodeError` is a `ValueError` outside `REFUSALS`,
+    # and the S-1 conversion in `run_from_dict` runs one call too late to see
+    # it. Its message is a description and a position, never an excerpt.
+    try:
+        raw = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise DocumentRefusedError(f"the run document is not JSON ({exc})") from exc
+    return run_from_dict(raw)

@@ -131,6 +131,20 @@ released digline could read. Nothing to migrate, no schema change,
   refusal is expected wherever `os.scandir` refuses. Root is expected to read
   a mode-`000` directory on Linux, and then there is nothing to refuse.
 
+### Fixed — text that is not JSON is refused as `DocumentRefusedError` (#353)
+
+- **`run_from_json` let `json.JSONDecodeError` through bare.** It is a
+  `ValueError` that is not in `REFUSALS`, the types `digline-mcp` translates.
+  The route certain to reach it is a program outside digline reading a
+  committed projection; whether a store read reaches it was not checked. The
+  0.21.0 conversion of a bare `ValueError` could not see it: that conversion
+  is in `run_from_dict`, and the text is parsed one call earlier.
+- **It is now refused as `DocumentRefusedError`**, with the `JSONDecodeError`
+  chained as its cause. The message is a description and a position, never a
+  part of the document.
+- **The limit 0.26.0 wrote on the API page is gone**, because it is no longer
+  true. 0.26.0's own entry still states it, and of 0.26.0 it is true.
+
 ### Documented — a promoted baseline holds no recorded answer, and keeps every reason (#391)
 
 - **ADR 0015 §5 called the committed baseline *payload-free*.** Promotion

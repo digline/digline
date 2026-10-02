@@ -19,6 +19,7 @@ from digline.core import (
     Artifact,
     CalibrationBand,
     CaseResult,
+    DocumentRefusedError,
     ProjectionRefusedError,
     RecordedResponse,
     Run,
@@ -429,3 +430,25 @@ def test_a_document_that_does_not_say_whether_it_is_projected_is_refused() -> No
     del raw["projected"]
     with pytest.raises(ValueError, match="projected"):
         run_from_json(json.dumps(raw))
+
+
+NOT_JSON: list[tuple[str, Callable[[str], str]]] = [
+    ("truncated", lambda text: text[: len(text) // 2]),
+    ("trailing data", lambda text: text + "x"),
+    ("empty", lambda text: ""),
+]
+
+
+@pytest.mark.parametrize(("label", "cut"), NOT_JSON)
+def test_text_that_is_not_json_is_refused_by_a_type_the_front_ends_translate(
+    label: str, cut: Callable[[str], str]
+) -> None:
+    table = Table()
+    document = run_to_json(project(promoted(), table))
+    with pytest.raises(DocumentRefusedError) as refused:
+        run_from_json(cut(document))
+    assert type(refused.value) is DocumentRefusedError, label
+    assert isinstance(refused.value.__cause__, json.JSONDecodeError), label
+    assert DocumentRefusedError in REFUSALS
+    for token in table.rows.values():
+        assert token not in str(refused.value), label
