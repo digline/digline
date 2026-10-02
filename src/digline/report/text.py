@@ -680,7 +680,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.votes": "Votes",
         "view.no_runs": "No run has been recorded yet.",
         "view.no_aggregates": "This suite declares no aggregate.",
-        "view.ignored": "Not shown: {note}. Run `digline migrate`.",
+        "view.ignored": "Not shown: {note}.",
+        # What a list of runs left out (`digline.host.left_out`, #339). True
+        # beside a list and beside one case's history alike.
+        "left_out.ignored": "ignored: {parts}",
+        "left_out.schema": "{count} run(s) at schema {version}",
+        "left_out.unreadable": "{count} unreadable file(s)",
+        "left_out.migrate": "run `digline migrate` to bring them up to date",
+        "left_out.upgrade": "upgrade digline to read the newer ones",
+        "left_out.refused": "refused: {count} run(s): {keys}",
+        "left_out.more": "and {count} more",
+        "left_out.unnamed": (
+            "left out without a name: {count} file(s) whose name is not a run key"
+        ),
+        "left_out.baseline_refused": "the baseline could not be read: {why}",
+        "left_out.baseline_missing": (
+            "the run the baseline was promoted from, {run_key}, is not among the "
+            "runs read"
+        ),
         "view.compare.pick": "Compare",
         "view.compare.against": "against",
         "view.compare.go": "Show",
@@ -1791,7 +1808,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.votes": "Voti",
         "view.no_runs": "Nessuna esecuzione registrata.",
         "view.no_aggregates": "Questa suite non dichiara aggregati.",
-        "view.ignored": "Non mostrate: {note}. Esegui `digline migrate`.",
+        "view.ignored": "Non mostrate: {note}.",
+        "left_out.ignored": "ignorate: {parts}",
+        "left_out.schema": "run allo schema {version}: {count}",
+        "left_out.unreadable": "file illeggibili: {count}",
+        "left_out.migrate": "esegui `digline migrate` per aggiornarle",
+        "left_out.upgrade": "aggiorna digline per leggere le più recenti",
+        "left_out.refused": "rifiutate: {count} run: {keys}",
+        "left_out.more": "e altre {count}",
+        "left_out.unnamed": (
+            "lasciati fuori senza nome: {count} file il cui nome non è una "
+            "chiave di run"
+        ),
+        "left_out.baseline_refused": "la baseline non si è potuta leggere: {why}",
+        "left_out.baseline_missing": (
+            "la run da cui è stata promossa la baseline, {run_key}, non è tra le run "
+            "lette"
+        ),
         "view.compare.pick": "Confronta",
         "view.compare.against": "con",
         "view.compare.go": "Mostra",

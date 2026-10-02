@@ -25,8 +25,8 @@ from digline.core import (
     run_to_json,
 )
 from digline.core.run import SCHEMA_VERSION
-from digline.host import REFUSALS, suite_runs
-from digline.store import FileResultStore, PathRefusedError, RunRef
+from digline.host import REFUSALS, SuiteRuns, left_out, suite_runs
+from digline.store import FileResultStore, Listing, PathRefusedError, RunRef
 
 TENANT, SUITE = "acme", "support"
 T1, T2, T3 = (
@@ -136,9 +136,126 @@ def test_a_baseline_whose_run_is_not_listed_is_said(tmp_path: Path) -> None:
     listed = suite_runs(store, TENANT, SUITE, mint=None)
 
     assert listed.baseline_key == key(gone)
-    assert f"promoted from run {key(gone)}, which is not in this list" in (
-        listed.note()
+    assert f"promoted from, {key(gone)}, is not among the runs read" in listed.note()
+
+
+def test_the_baseline_line_is_true_beside_one_cases_history(tmp_path: Path) -> None:
+    """`docs/api.md` puts the note beside a case's history, which has no
+    baseline and compares nothing. The line says only what holds there too:
+    the run is missing. (#339)"""
+    gone, kept = current(T1), current(T2)
+    store = stored(tmp_path, gone, kept)
+    promote(store, gone)
+    store.run_path(RunRef(tenant=TENANT, suite=SUITE, key=key(gone))).unlink()
+
+    note = suite_runs(store, TENANT, SUITE, mint=None).note()
+
+    assert "this list" not in note
+    assert "compared" not in note
+
+
+# --------------------------------------------------------------------------- #
+# The line's length, and its language (#339)
+# --------------------------------------------------------------------------- #
+
+
+def left(
+    *,
+    refused: tuple[tuple[str, str], ...] = (),
+    skipped: dict[int, int] | None = None,
+    unreadable: tuple[str, ...] = (),
+    unnamed: int = 0,
+    baseline_key: str | None = None,
+    baseline_refused: str = "",
+) -> SuiteRuns:
+    return SuiteRuns(
+        runs=(),
+        baseline_key=baseline_key,
+        baseline_refused=baseline_refused,
+        listing=Listing(runs=(), skipped=skipped or {}, unreadable=unreadable),
+        refused=refused,
+        unnamed=unnamed,
     )
+
+
+def test_the_note_names_three_refused_runs_and_counts_the_rest() -> None:
+    refused = tuple((f"run-{n}", "Refused") for n in range(5))
+
+    note = left(refused=refused).note()
+
+    assert note == (
+        "refused: 5 run(s): run-0 (Refused), run-1 (Refused), run-2 (Refused), "
+        "and 2 more"
+    )
+    assert "run-3" not in note and "run-4" not in note
+
+
+def test_three_refused_runs_are_all_named_with_nothing_counted() -> None:
+    refused = tuple((f"run-{n}", "Refused") for n in range(3))
+
+    note = left(refused=refused).note()
+
+    assert "run-2 (Refused)" in note
+    assert "more" not in note
+
+
+def test_left_out_frames_every_part_in_the_documents_language() -> None:
+    listed = left(
+        refused=tuple((f"run-{n}", "Refused") for n in range(5)),
+        skipped={SCHEMA_VERSION - 1: 2, SCHEMA_VERSION + 1: 1},
+        unreadable=("x.json",),
+        unnamed=1,
+        baseline_key="gone-key",
+    )
+
+    line = left_out(listed, locale="it")
+
+    assert "rifiutate: 5 run" in line and "e altre 2" in line
+    assert "gone-key" in line
+    for english in (
+        "ignored",
+        "refused",
+        "unreadable",
+        "left out",
+        "baseline was",
+        "among the runs",
+        "more",
+        "upgrade",
+        "bring them",
+    ):
+        assert english not in line, english
+
+
+def test_left_out_has_no_default_locale() -> None:
+    assert inspect.signature(left_out).parameters["locale"].default is (
+        inspect.Parameter.empty
+    )
+
+
+def test_left_out_advises_in_the_direction_the_schemas_say() -> None:
+    older = left_out(left(skipped={SCHEMA_VERSION - 1: 2}), locale="en")
+    newer = left_out(left(skipped={SCHEMA_VERSION + 1: 1}), locale="en")
+    refused = left_out(left(refused=(("run-0", "Refused"),)), locale="en")
+
+    assert "digline migrate" in older and "upgrade" not in older
+    assert "upgrade digline" in newer and "migrate" not in newer
+    assert "migrate" not in refused and "upgrade" not in refused
+
+
+def test_the_note_keeps_its_advice_off_the_line() -> None:
+    """A terminal prints `Listing.advice()` on lines of its own."""
+    listed = left(skipped={SCHEMA_VERSION - 1: 2})
+
+    assert listed.note() == f"ignored: 2 run(s) at schema {SCHEMA_VERSION - 1}"
+    assert listed.note() == listed.listing.note()
+
+
+def test_in_english_left_out_is_the_note_where_nothing_is_advised() -> None:
+    listed = left(
+        refused=(("run-0", "Refused"),), unnamed=2, baseline_refused="Refused"
+    )
+
+    assert left_out(listed, locale="en") == listed.note()
 
 
 def test_a_name_that_is_not_one_segment_refuses_the_whole_call(

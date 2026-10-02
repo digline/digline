@@ -8,6 +8,33 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Changed — what a list of runs left out, in the page's language and at a bounded length (#339)
+
+- **`digline view` says what the read left out in the page's language.** The
+  line under the list was English inside an Italian sentence on `?locale=it`.
+  It is now built by **`digline.host.left_out(listed, *, locale)`**, new and
+  public, with the locale mandatory as on `render_html`. In clear, a refusal's
+  own sentence is the store's and stays in English.
+- **A case's history shows the line too.** `docs/api.md` says whoever shows a
+  history shows it beside it, and `view`'s case page did not. `case_page` takes
+  it as `ignored`, which defaults to empty.
+- **The line names at most three refused runs** and counts the rest: `and 2
+  more`. Every refused run is still in `SuiteRuns.refused`. This changes the
+  `note` string in `list`, `--json` and MCP's `list_runs`, not its key, so
+  there is no `OUTPUT_VERSION` bump.
+- **The baseline's part says only what is true beside a history.** It said
+  *"the baseline was promoted from run …, which is not in this list, so no run
+  is compared with it"*. It now says *"the run the baseline was promoted from,
+  …, is not among the runs read"*. On the list, the missing `*` says the rest.
+- **`view` no longer advises `digline migrate` for every line.** Since #314 the
+  line also names refused runs and an unreadable baseline, which no migration
+  recovers. The advice now comes with the schema skips it is about, in the
+  direction the numbers say.
+- **`SuiteRuns.note()` keeps its signature.** It stays the English line for a
+  terminal and for `--json`.
+- Not here: on a projected list, `SuiteRuns.listing` still carries file names
+  (#362).
+
 ### Documented — the tenant directory gives addressing, not access (#140); the resolver's row (#354)
 
 - **Five more places said the filesystem enforces the *separation* between

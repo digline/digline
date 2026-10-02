@@ -193,7 +193,11 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
         ignored="ignored: 3 run(s) at schema 5",
         allow_promote=True,
     )
-    assert "schema 5" in html and "migrate" in html
+    assert "schema 5" in html
+    # The advice is the line's, where it applies (`left_out`), and not the
+    # page's: since #314 the line also names refused runs, which no migration
+    # recovers. (#339)
+    assert "migrate" not in html
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:

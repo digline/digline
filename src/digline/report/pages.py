@@ -861,8 +861,13 @@ def _diff_order(difference: Difference) -> Sequence[CheckDifference]:
 # --------------------------------------------------------------------------- #
 
 
-def case_page(history: CaseHistory, *, locale: Locale, suite: str) -> str:
+def case_page(
+    history: CaseHistory, *, locale: Locale, suite: str, ignored: str = ""
+) -> str:
     """The calibration table: one row per run, one column per assertion.
+
+    `ignored` is what the read left out, in `locale`: `digline.host.left_out`.
+    A run left out is no row at all, so whoever shows a history shows it.
 
     Sampled checks show their raw votes under the combined score. That is the
     view that was built by hand with a script to decide which run to promote,
@@ -892,6 +897,9 @@ def case_page(history: CaseHistory, *, locale: Locale, suite: str) -> str:
         + f'<p class="note"><a href="/suspend/{escape(history.case_id)}'
         + f'?locale={locale}">{escape(set_aside)}</a></p>\n'
     )
+    if ignored:
+        told = phrase(locale, "view.ignored", note=ignored)
+        body += f'<p class="note">{escape(told)}</p>\n'
     return _document(title, locale, body, wide=True)
 
 

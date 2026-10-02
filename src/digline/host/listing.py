@@ -25,7 +25,8 @@ from digline.core import (
     key_of,
     project_served,
 )
-from digline.core.run import is_run_key
+from digline.core.run import SCHEMA_VERSION, is_run_key
+from digline.report import Locale, phrase
 from digline.store import (
     Listing,
     NotAReferenceError,
@@ -36,7 +37,12 @@ from digline.store import (
     TenantMismatchError,
 )
 
-__all__ = ["SuiteRuns", "suite_runs"]
+__all__ = ["SuiteRuns", "left_out", "suite_runs"]
+
+#: How many refused runs the line names before it counts the rest. The line
+#: sits above or beside a table it qualifies, and every refused run is still
+#: in `SuiteRuns.refused` for a caller that wants them all. (#339)
+_NAMED_REFUSALS = 3
 
 #: What the store refuses of one document it was asked to read. A run refused
 #: this way is left out of the list and named; the others are still listed.
@@ -86,28 +92,75 @@ class SuiteRuns:
         scan skipped, what the read refused, and a baseline whose run is not in
         the list. A run removed from the store is said only in that last case,
         for the reason `resolve_key` gives (#286).
+
+        In English, for a terminal and for `--json`. A document shows
+        `left_out`, which says the same in its locale. (#339)
         """
-        parts: list[str] = []
-        if scanned := self.listing.note():
-            parts.append(scanned)
-        if self.refused:
-            keys = ", ".join(f"{key} ({why})" for key, why in self.refused)
-            parts.append(f"refused: {len(self.refused)} run(s): {keys}")
-        if self.unnamed:
-            parts.append(
-                f"left out without a name: {self.unnamed} file(s) whose name is "
-                "not a run key, which this list may not show"
+        return "; ".join(_parts(self, "en", advise=False))
+
+
+def left_out(listed: SuiteRuns, *, locale: Locale) -> str:
+    """`listed.note()` as a document shows it, in the document's language.
+
+    `locale` is **mandatory, with no default**, as on `render_html`: the line
+    sits on a page with a recipient. Only its frame is translated. A refusal's
+    sentence, in clear, is the store's and stays as the store wrote it.
+
+    It says one thing `note()` does not: what to do about runs skipped for
+    their schema, because a page has no second line to put that on.
+
+    **It is true wherever it is shown**, beside a list or beside one case's
+    history: neither line says anything that holds only for a list. (#339)
+    """
+    return "; ".join(_parts(listed, locale, advise=True))
+
+
+def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[str]:
+    parts: list[str] = []
+    scan = listed.listing
+    skipped = [
+        phrase(locale, "left_out.schema", count=count, version=version)
+        for version, count in sorted(scan.skipped.items())
+    ]
+    if scan.unreadable:
+        skipped.append(
+            phrase(locale, "left_out.unreadable", count=len(scan.unreadable))
+        )
+    if skipped:
+        parts.append(phrase(locale, "left_out.ignored", parts=", ".join(skipped)))
+    if advise:
+        # `Listing.advice` in the reader's language: the same two directions,
+        # on the same comparison with the schema this digline writes.
+        if any(version < SCHEMA_VERSION for version in scan.skipped):
+            parts.append(phrase(locale, "left_out.migrate"))
+        if any(version > SCHEMA_VERSION for version in scan.skipped):
+            parts.append(phrase(locale, "left_out.upgrade"))
+    if listed.refused:
+        named = [f"{key} ({why})" for key, why in listed.refused[:_NAMED_REFUSALS]]
+        rest = len(listed.refused) - _NAMED_REFUSALS
+        if rest > 0:
+            named.append(phrase(locale, "left_out.more", count=rest))
+        parts.append(
+            phrase(
+                locale,
+                "left_out.refused",
+                count=len(listed.refused),
+                keys=", ".join(named),
             )
-        if self.baseline_refused:
-            parts.append(f"the baseline could not be read: {self.baseline_refused}")
-        elif self.baseline_key is not None and self.baseline_key not in {
-            key for key, _ in self.runs
-        }:
-            parts.append(
-                f"the baseline was promoted from run {self.baseline_key}, which "
-                "is not in this list, so no run is compared with it"
-            )
-        return "; ".join(parts)
+        )
+    if listed.unnamed:
+        parts.append(phrase(locale, "left_out.unnamed", count=listed.unnamed))
+    if listed.baseline_refused:
+        parts.append(
+            phrase(locale, "left_out.baseline_refused", why=listed.baseline_refused)
+        )
+    elif listed.baseline_key is not None and listed.baseline_key not in {
+        key for key, _ in listed.runs
+    }:
+        parts.append(
+            phrase(locale, "left_out.baseline_missing", run_key=listed.baseline_key)
+        )
+    return parts
 
 
 def suite_runs(

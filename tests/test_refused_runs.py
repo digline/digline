@@ -150,6 +150,45 @@ def test_view_serves_the_list_and_the_case_page_past_a_refused_run(
     assert case_status == 200
 
 
+def test_view_names_the_refused_run_beside_a_cases_history(repo: Path) -> None:
+    """A run left out of a history is no row at all, so the rows around it
+    close up. `docs/api.md` says whoever shows a history shows the note beside
+    it, and `view`'s own case page did not. (#339)"""
+    promoted(repo)
+    plant(repo)
+
+    with server(repo) as (base, _line):
+        status, page = get(base + "/case/q1")
+
+    assert status == 200, page
+    assert "refused: 1 run(s): not-a-run (" in page
+
+
+def test_view_says_what_was_left_out_in_the_pages_language(repo: Path) -> None:
+    promoted(repo)
+    plant(repo)
+
+    with server(repo) as (base, _line):
+        _status, runs = get(base + "/?locale=it")
+        _status, case = get(base + "/case/q1?locale=it")
+
+    for page in (runs, case):
+        assert "rifiutate: 1 run: not-a-run (" in page
+        assert "refused:" not in page
+
+
+def test_view_does_not_advise_a_migration_for_a_refused_run(repo: Path) -> None:
+    """No migration reads a document that has nothing of a run in it."""
+    promoted(repo)
+    plant(repo)
+
+    with server(repo) as (base, _line):
+        _status, page = get(base + "/")
+
+    assert "not-a-run" in page
+    assert "migrate" not in page
+
+
 # --------------------------------------------------------------------------- #
 # The wire, for a caller that predates #314
 # --------------------------------------------------------------------------- #
