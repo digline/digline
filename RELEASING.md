@@ -223,7 +223,6 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | `list_runs` passes `note`, `refused` and `baseline_unreadable` to `runs_json` (#314, #349). Against any core released before them the call raises `TypeError`. | this release | replace the *Owed at the cut* paragraph beside the floor with the reason the floor moved, and give `digline-mcp` a release of its own on this tag |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

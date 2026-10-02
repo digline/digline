@@ -55,7 +55,27 @@ Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
 - Nothing yet notices a stale list. A scheduled comparison with the source is
   proposed and not built (#370).
 
-## Unreleased
+## 0.25.4 — unreleased
+
+digline **0.25.4**, with **`digline-mcp` 0.4.3** on the same tag. A projected
+list of runs no longer carries the store's file names, in a field or in its
+`repr` (#362). One run the store refuses no longer fails a whole list, in
+`list`, `log`, `view` and MCP (#314). A version a file declares is read as
+declared, never through `int()` (#350). And the line under a list says what
+was left out in the page's language (#339). Nothing to migrate, no schema
+change, `OUTPUT_VERSION` unchanged with two added keys, and no public name
+removed. One name is added, `digline.host.left_out`, and `SuiteRuns` gains
+`skipped`, `unreadable_count` and `advice()`. `SuiteRuns.listing` is still
+there, deprecated, and `None` on a projected list.
+
+- **A program that builds a `SuiteRuns` itself must pass the two new
+  fields.** `skipped` and `unreadable_count` have no default, and `listing` is
+  now the last field, typed `Listing | None`. Nothing in this repository or in
+  `digline-ward` builds one: `suite_runs` is how a `SuiteRuns` is made.
+- **Where `list` or `log` exited 64 over one file the store refuses, they now
+  list the rest and exit 0**, naming what they left out (#314). And a file
+  digline did not write that declares `18.0` or `"18"` as its version, read
+  before, is refused now (#350).
 
 ### Fixed — a projected list of runs no longer carries the file names (#362)
 
@@ -265,6 +285,25 @@ Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
   `name` and `score`, which every table of results reads, and `sample_means`.
   `Verdict.judged` is named beside them.
 - **Nothing in the code moved.** Every name was already exported.
+
+## digline-mcp 0.4.3 — unreleased
+
+Published by digline's `v0.25.4` tag, with the core.
+
+- **`list_runs` reads through `suite_runs`**, so one run the store refuses is
+  left out and counted instead of failing the tool for every run beside it
+  (#314). The response carries the two keys the core added: `refused`, the
+  count of runs the store would not read, and `baseline_unreadable`, so that
+  `baseline_key: null` cannot read as a suite with no baseline. Its `note`
+  names what was left out.
+- **The floor is `digline>=0.25.4`.** `list_runs` passes `note`, `refused` and
+  `baseline_unreadable` to `runs_json`, which first take them in 0.25.4, and
+  against 0.25.2 or 0.25.3 the call raises `TypeError`. A floor may not name a
+  release that does not exist yet, so it was raised at the cut.
+- **0.4.2 keeps working against this core**, and is not broken by it: it
+  never calls `suite_runs`, and `runs_json`'s three new arguments have
+  defaults that are true for a caller written before them. What 0.4.2 does not
+  have is the list that survives a refused run.
 
 ## 0.25.3 — 2026-10-01
 

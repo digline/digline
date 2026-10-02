@@ -328,6 +328,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.25.3": (
+            "the release whose index-race status is recorded: the capture's first "
+            "divergence, the tag message checked before the tag, the installed "
+            "versions and the seven locks; and the release whose public field "
+            "missed by the diff of the `__all__`s is why the delta-pass reads "
+            "dataclass fields. Facts about a release that shipped"
+        ),
         "0.25.2": (
             "the release whose cut raised the open question on the version "
             "criterion, and whose index-race status is recorded: the first read "
