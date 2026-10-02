@@ -137,7 +137,7 @@ calls write to the 1-hour cache.
 - A reply served with `inference_geo: "us"` costs 1.1x on Claude 4.6 and later
   models, and is priced at the global rate (#392).
 
-## 0.27.0 — unreleased
+## 0.27.0 — 2026-10-02
 
 digline **0.27.0**. **A minor, because a suite that passed on 0.26.0 can
 error now**: a check declared with a tolerance that is not finite, such as
@@ -157,6 +157,16 @@ released digline could read. Nothing to migrate, no schema change,
 `DirectoryUnreadableError`, and `tolerance_is_blind`, `blind_tolerances` and
 `BlindTolerance` for the line `run` now prints about a tolerance that switches
 its check off.
+
+Four more say what is true where they said something else. Text that is not
+JSON is refused as `DocumentRefusedError`, which `digline-mcp` translates,
+rather than escaping as a bare `JSONDecodeError` (#353). A comparison no longer
+calls a configuration the same when a withheld field moved behind it, and
+calls a token's field *recorded* (#275). Every `--json` document's keys and
+types are a table a test reads, so a key that moves without a bump of
+`OUTPUT_VERSION` fails the suite (#312). And ADR 0015 §5 no longer calls a
+promoted baseline *payload-free*: it holds no recorded answer and keeps every
+reason (#391).
 
 ### Changed — a tolerance that is not finite is refused, from a file and from code (#379)
 
