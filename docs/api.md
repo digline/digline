@@ -37,7 +37,7 @@ and `read_run` and `read_baseline` —
 Two more, for anything that drives digline rather than declares a suite.
 `digline.host` is the layer that touches the world — `load_suite`, `Loaded`,
 `load_target`, `read_artifacts`, `git_commit`, `utc_now_iso`, `resolve_key`,
-`suite_runs` and `SuiteRuns`, `promote` and `REFUSALS`.
+`suite_runs`, `SuiteRuns` and `left_out`, `promote` and `REFUSALS`.
 `digline.wire` is the machine surface: `OUTPUT_VERSION`, the exit codes, and the
 functions that build every `--json` and every MCP response. A script that loads
 a suite imports the first. A front end imports the second, and so does **a
@@ -1581,6 +1581,18 @@ a program that shows it somewhere else (#276). It returns a **`SuiteRuns`**:
   baseline whose run is not in the list. Empty when there is nothing to say.
   **An empty note does not mean nothing is missing**: a run removed from the
   store is named only where the baseline remembers it, as with `resolve_key`.
+  - It is in English, for a terminal and for `--json`.
+  - It names three refused runs and counts the rest. Every one is in
+    `refused`.
+  - It is true beside the list and beside one case's history alike.
+
+**`left_out(listed, *, locale)`** is that line as a document shows it, in the
+document's language. `locale` is mandatory, with no default, as on
+`render_html`. Only the frame is translated: in clear, a refusal's sentence is
+the store's and stays in English. It adds what to do about runs skipped for
+their schema, which `note()` leaves to `listing.advice()`, because a page has
+no second line to put it on. `digline view` shows it under the list and under a
+case's history (#339).
 
 Each `run` in `runs` is a `Run`, a frozen dataclass. These are the fields a
 list of runs reads:
@@ -1652,6 +1664,8 @@ history = case_history(listed.runs, case_id)
 print(listed.note())  # what the history does not cover
 ```
 
+On a page, show `left_out(listed, locale=...)` there instead.
+
 Both are frozen dataclasses. A **`CaseHistory`** carries:
 
 - `case_id`: the case it follows, as it was asked for: a name in clear, or a
@@ -1681,8 +1695,9 @@ A **`CaseEntry`** is how one run judged the case:
   row. A case added or removed shows as a gap.
 - **The history covers the runs it was given, and only those.** A run the
   read left out is no row at all, and the rows around it close up, so the gap
-  reads as continuity. What was left out is in `SuiteRuns.note()`. **Whoever
-  shows a history shows that note beside it.**
+  reads as continuity. What was left out is in `SuiteRuns.note()`, and in
+  `left_out` for a page. **Whoever shows a history shows that line beside
+  it.**
 
 It refuses, as `DifferentRegimesError`, two ways:
 

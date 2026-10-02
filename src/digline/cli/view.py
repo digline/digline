@@ -71,7 +71,14 @@ from pathlib import Path
 
 from digline.cli.output import say
 from digline.core import key_of
-from digline.host import REFUSALS, SuiteRuns, promote_priced, suite_runs, utc_now_iso
+from digline.host import (
+    REFUSALS,
+    SuiteRuns,
+    left_out,
+    promote_priced,
+    suite_runs,
+    utc_now_iso,
+)
 from digline.report import Locale, case_history, escape, pages
 from digline.run import Suite
 from digline.store import ResultStore, RunRef
@@ -518,7 +525,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 locale=locale,
                 suite=self.suite.name,
                 allow_promote=self.allow_promote,
-                ignored=listed.note(),
+                ignored=left_out(listed, locale=locale),
                 message=message,
             ),
         )
@@ -594,8 +601,17 @@ class ViewHandler(BaseHTTPRequestHandler):
         )
 
     def _screen_case(self, locale: Locale, case_id: str) -> None:
-        history = case_history(self._runs().runs, case_id)
-        self._send(200, pages.case_page(history, locale=locale, suite=self.suite.name))
+        listed = self._runs()
+        history = case_history(listed.runs, case_id)
+        self._send(
+            200,
+            pages.case_page(
+                history,
+                locale=locale,
+                suite=self.suite.name,
+                ignored=left_out(listed, locale=locale),
+            ),
+        )
 
     def _screen_suspend(
         self, locale: Locale, case_id: str, query: Mapping[str, Sequence[str]]
