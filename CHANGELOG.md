@@ -6,6 +6,45 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.26.1 — unreleased
+
+digline **0.26.1**. A run document that is not what its flags say is refused
+rather than read. A plain run flagged redacted was read as redacted, and
+promoting it committed a baseline that said redacted and still held the run's
+metadata. Nothing to migrate, no schema change, `OUTPUT_VERSION` unchanged, and
+no public name added or removed. A patch, because every document refused here
+is one no released digline wrote.
+
+### Fixed — a plain run could be promoted as redacted, and three flags were read through `bool()` (#379)
+
+- **A plain run whose file said `"redacted": true` was promoted into a
+  baseline that declared itself redacted and still carried the run's
+  payload.** The reader does not read a reason it believes was removed, so it
+  dropped every reason and suspension reason, and kept the metadata beside
+  them. Promoting that run wrote the misreading into `baselines/`: no reason
+  left, `"customer": "Mario Rossi"` still there, under a flag that says
+  redacted. Nothing was refused at any step. The flag did not even have to be
+  `true`: `bool()` read `"false"`, `1` and `[0]` the same way.
+- **A document that declares itself redacted and still carries a `reason` or
+  a `suspended_reason` is now refused.** Decision 9 already says those fields
+  are absent in a redacted document, and every digline that ever wrote one
+  omitted them. **What it cannot check is metadata and artifact text**: a
+  `Disclosure` may let them cross, so under `"redacted": true` they are a
+  legal shape that nothing in the file tells apart from a plain run's.
+  A plain run with no reason anywhere, flagged `true`, is still read as
+  redacted.
+- **`suspended` lost content the other way.** `0`, `""` and `null` read a
+  suspended case as one that was not, and its reason was never read.
+- **All three are now read by `declared_boolean`**: a JSON boolean, and
+  anything else refused naming the field and the JSON type, never the value.
+  The refusals that did happen before named something else: a missing
+  `reason`, a `config_hash` that is not a digest, a configuration with no
+  model.
+- No released digline wrote anything but `true` or `false` in these three
+  fields, no migration does, and none wrote a reason into a redacted
+  document. So a document this refuses was edited by hand or written by
+  another program.
+
 ## digline-anthropic 0.5.4 — 2026-10-02
 
 Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
