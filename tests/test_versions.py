@@ -328,6 +328,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.26.0": (
+            "the release whose index-race status is recorded (the pair agreeing "
+            "for every pin, the tag message checked before the tag, the installed "
+            "versions and the seven locks), the release the approval order was "
+            "ruled at, and the core version digline-bedrock-v0.6.0's run skipped "
+            "as already on the index: history, told as such now that 0.27.0 is "
+            "the tree's version"
+        ),
         "9.9.9": (
             "not a digline version: the version no package has, asked of PyPI's "
             "version endpoint as the control that must answer 404 beside the "
