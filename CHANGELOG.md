@@ -6,9 +6,12 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline-bedrock 0.6.0 — unreleased
+## digline-bedrock 0.6.0 — 2026-10-02
 
-Published by its own tag, `digline-bedrock-v0.6.0`. The core does not move.
+Published by the tag `digline-bedrock-v0.6.0`, **together with digline-anthropic
+0.6.0**: both versions moved in one pull request (#395), and a tag publishes
+every workspace package the index lacks, so one tag carries both and its
+annotation names both. The core does not move.
 **A minor, for two reasons.** A suite whose calls write to the 1-hour cache is
 refused where it ran before. And the public name `BASE_PRICES` is gone:
 `SEEDED_PRICES` replaces it, a table by region, because one price per model
@@ -80,9 +83,14 @@ cannot say what Bedrock bills.
 - A suite that already corrected a price with `Pricing.override` is
   unaffected: a declared price wins.
 
-## digline-anthropic 0.6.0 — unreleased
+## digline-anthropic 0.6.0 — 2026-10-02
 
-Published by its own tag, `digline-anthropic-v0.6.0`. The core does not move.
+Published by the tag `digline-bedrock-v0.6.0`, **together with digline-bedrock
+0.6.0**. There is no `digline-anthropic-v0.6.0`, and that is not a mistake:
+both versions moved in one pull request (#395), and a tag publishes every
+workspace package the index lacks, so the first tag would have published both
+and a second would have published nothing. One tag carries both, and its
+annotation names both. The core does not move.
 **A minor, because a suite that ran on 0.5.4 can be refused now**: one whose
 calls write to the 1-hour cache.
 
