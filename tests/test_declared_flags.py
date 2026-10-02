@@ -13,8 +13,16 @@ which every non-empty string is true and `0`, `""` and `null` are false:
   `reason`, a `config_hash` that is not a digest, a configuration missing its
   model.
 
-Each refusal test here fails on the tree before #379. A JSON boolean reads as
-it always did.
+Converting was half of it. A plain run declaring a real `true` did the same
+damage, because the reader believed the flag and never read the reasons. So a
+document that declares itself redacted and still carries a `reason` or a
+`suspended_reason` is now refused: decision 9 says those fields are absent in
+a redacted document, and no digline ever wrote one there. Metadata cannot be
+checked the same way, since a `Disclosure` may let it cross, and the last test
+here pins that limit rather than hiding it.
+
+Each refusal test here fails on the tree before #379. A JSON boolean, and a
+document that is what its flag says, read as they always did.
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ from typing import Any
 
 import pytest
 
-from digline.core import CaseResult, Run, Score, Verdict
+from digline.core import CaseResult, Disclosure, Run, Score, Verdict, redact
 from digline.core.run import (
     DocumentRefusedError,
     case_from_dict,
@@ -151,23 +159,33 @@ def test_an_absent_run_flag_is_refused_by_name(field: str) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_a_plain_run_declaring_redacted_as_a_string_is_never_promoted(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("declared", "refusal"),
+    [
+        ('"false"', "'redacted' is a JSON string, not a boolean"),
+        ("true", "carries 'reason', but the run declares itself redacted"),
+    ],
+    ids=["a string", "a real true"],
+)
+def test_a_plain_run_declaring_itself_redacted_is_never_promoted(
+    tmp_path: Path, declared: str, refusal: str
 ) -> None:
-    """Before #379 this promotion succeeded, and the committed baseline said
+    """Before #379 both promotions succeeded, and the committed baseline said
     `"redacted": true`, held no reason, and still held `"customer": "Mario
     Rossi"`: a misreading, a false declaration in git, and the content that
-    declaration denies — in one gesture, refused nowhere."""
+    declaration denies — in one gesture, refused nowhere. The real `true` is
+    the case that shows it was never only a conversion."""
     store = FileResultStore(tmp_path)
     ref = store.write_run(a_plain_run())
     path = store.run_path(ref)
     written = path.read_text(encoding="utf-8")
     assert written.count('"redacted": false') == 1
     path.write_text(
-        written.replace('"redacted": false', '"redacted": "false"'), encoding="utf-8"
+        written.replace('"redacted": false', f'"redacted": {declared}'),
+        encoding="utf-8",
     )
 
-    with pytest.raises(DocumentRefusedError, match="'redacted' is a JSON string"):
+    with pytest.raises(DocumentRefusedError, match=refusal):
         store.promote_baseline(
             ref,
             "hash-a",
@@ -175,3 +193,56 @@ def test_a_plain_run_declaring_redacted_as_a_string_is_never_promoted(
             promoted_at="2026-01-03T10:00:00+00:00",
         )
     assert not store.baseline_path("acme", "qa").exists()
+
+
+# --------------------------------------------------------------------------- #
+# A redacted document is verified against what redaction omits
+# --------------------------------------------------------------------------- #
+
+
+def test_a_redacted_run_reads_as_it_always_did() -> None:
+    run = run_from_dict(run_to_dict(redact(a_plain_run())))
+    assert run.redacted
+    assert run.results[0].verdicts[0].reason == "<redacted>"
+    assert run.results[1].suspended == "<redacted>"
+
+
+def test_a_plain_run_declaring_true_is_refused_naming_the_field_not_its_text() -> None:
+    document = declaring("redacted", True)
+    with pytest.raises(DocumentRefusedError) as refused:
+        run_from_dict(document)
+    message = str(refused.value)
+    assert "verdict carries 'reason', but the run declares itself redacted" in (message)
+    assert "Mario Rossi" not in message
+
+
+def test_a_redacted_case_carrying_its_suspension_reason_is_refused() -> None:
+    record = {"case_id": "c", "suspended": True, "suspended_reason": HOSTILE}
+    with pytest.raises(DocumentRefusedError) as refused:
+        case_from_dict(record, redacted=True)
+    message = str(refused.value)
+    assert "case result carries 'suspended_reason'" in message
+    assert HOSTILE not in message
+
+
+def test_a_redacted_case_carrying_a_stray_suspension_reason_is_refused() -> None:
+    """Absent means absent: a reason beside `"suspended": false` is still a
+    reason a redacted document was not supposed to hold."""
+    record = {"case_id": "c", "suspended": False, "suspended_reason": "down"}
+    with pytest.raises(DocumentRefusedError, match="carries 'suspended_reason'"):
+        case_from_dict(record, redacted=True)
+
+
+def test_metadata_under_a_redacted_flag_is_the_limit_and_reads() -> None:
+    """**The limit, pinned rather than hidden.** A `Disclosure` may let a run's
+    and a score's metadata cross, so a redacted document carrying them is a
+    legal shape, and nothing in the file tells it from a plain run's. This
+    reads; if a reader ever learns to tell them apart, this test is where it
+    says so."""
+    disclosure = Disclosure(
+        score_metadata=frozenset({"quote"}), run_metadata=frozenset({"customer"})
+    )
+    run = run_from_dict(run_to_dict(redact(a_plain_run(), disclosure)))
+    assert run.redacted
+    assert run.metadata == {"customer": "Mario Rossi"}
+    assert run.results[0].verdicts[0].reason == "<redacted>"

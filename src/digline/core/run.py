@@ -2037,6 +2037,34 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     return payload
 
 
+def _refuse_what_redaction_omits(
+    raw: Mapping[str, Any], field: str, where: str
+) -> None:
+    """Refuse a document that declares itself redacted and still carries a
+    field redaction omits.
+
+    In a redacted document the payload fields are absent, not emptied
+    (decision 9), and every digline that ever wrote one omitted them. The
+    reader does not read them on a redacted run, so before this a plain run
+    whose flag said `true` lost every reason in silence — and promoting it
+    committed a baseline declaring itself redacted with the run's metadata
+    still in it. (#379)
+
+    **What this cannot verify:** metadata and artifact text. A `Disclosure`
+    declared in code may legitimately let a score's or a run's metadata cross,
+    and an artifact's text, so either present under `"redacted": true` is a
+    legal shape, and nothing in the document tells it from a plain run's. Only
+    the reasons, which no `Disclosure` field covers, are checked here. The
+    refusal names the field, never its text.
+    """
+    if field in raw:
+        raise DocumentRefusedError(
+            f"{where} carries {field!r}, but the run declares itself redacted: "
+            "a redacted document omits it, so this file is not what its flag "
+            "says"
+        )
+
+
 def _required(raw: Mapping[str, Any], key: str, where: str) -> Any:
     """Read a mandatory field, naming it when it is absent.
 
@@ -2053,6 +2081,8 @@ def _required(raw: Mapping[str, Any], key: str, where: str) -> Any:
 
 def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
     where = "verdict"
+    if redacted:
+        _refuse_what_redaction_omits(raw, "reason", where)
     raw_score = _required(raw, "score", where)
     # Read together, and left absent together. A half-present interval is
     # refused by `Score` rather than repaired here: the missing half is not
@@ -2082,7 +2112,8 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         tolerance=float(_required(raw, "tolerance", where)),
         status=cast(Status, str(_required(raw, "status", where))),
         # A redacted document has no `reason` to read; the marker keeps the
-        # reconstructed verdict valid without inventing content.
+        # reconstructed verdict valid without inventing content. One that
+        # still carries it is refused above, never silently emptied.
         reason=REDACTED if redacted else str(_required(raw, "reason", where)),
         assertion_id=str(_required(raw, "assertion_id", where)),
         # Absent is *not recorded as judged*, which is true of every verdict
@@ -2644,6 +2675,8 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
     """The inverse, and public for the same reason: a journal is read back."""
     where = "case result"
     suspended: str | None = None
+    if redacted:
+        _refuse_what_redaction_omits(raw, "suspended_reason", where)
     # Declared, not converted: whether `suspended_reason` is read at all
     # depends on this flag. (#379)
     if declared_boolean(raw, "suspended", where):

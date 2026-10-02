@@ -84,16 +84,24 @@ there, deprecated, and `None` on a projected list.
   before, is refused now (#350).
 - **The examples' caps move to `<0.27`**, as on every minor.
 
-### Fixed — `redacted`, `projected` and `suspended` are read as declared, never through `bool()` (#379)
+### Fixed — a plain run could be promoted as redacted, and three flags were read through `bool()` (#379)
 
-- **A plain run declaring `"redacted": "false"` was promoted into a baseline
-  that declared `"redacted": true` and still carried the run's payload.**
-  `bool()` reads every non-empty string as true, and `1` and `[0]` too. The
-  reader does not read a reason it believes was removed, so it dropped every
-  reason and suspension reason, and kept the metadata beside them. Promoting
-  that run wrote the misreading into `baselines/`: no reason left, `"customer":
-  "Mario Rossi"` still there, under a flag that says redacted. Nothing was
-  refused at any step.
+- **A plain run whose file said `"redacted": true` was promoted into a
+  baseline that declared itself redacted and still carried the run's
+  payload.** The reader does not read a reason it believes was removed, so it
+  dropped every reason and suspension reason, and kept the metadata beside
+  them. Promoting that run wrote the misreading into `baselines/`: no reason
+  left, `"customer": "Mario Rossi"` still there, under a flag that says
+  redacted. Nothing was refused at any step. The flag did not even have to be
+  `true`: `bool()` read `"false"`, `1` and `[0]` the same way.
+- **A document that declares itself redacted and still carries a `reason` or
+  a `suspended_reason` is now refused.** Decision 9 already says those fields
+  are absent in a redacted document, and every digline that ever wrote one
+  omitted them. **What it cannot check is metadata and artifact text**: a
+  `Disclosure` may let them cross, so under `"redacted": true` they are a
+  legal shape that nothing in the file tells apart from a plain run's.
+  A plain run with no reason anywhere, flagged `true`, is still read as
+  redacted.
 - **`suspended` lost content the other way.** `0`, `""` and `null` read a
   suspended case as one that was not, and its reason was never read.
 - **All three are now read by `declared_boolean`**: a JSON boolean, and
@@ -101,13 +109,10 @@ there, deprecated, and `None` on a projected list.
   The refusals that did happen before named something else: a missing
   `reason`, a `config_hash` that is not a digest, a configuration with no
   model.
-- **What this does not close.** A plain run that declares a real `true` is
-  still read as redacted, and still promoted that way, because the reader
-  takes the flag at its word. That is not a conversion, and this entry does
-  not claim it.
-- No released digline wrote anything but `true` or `false` here, and no
-  migration does. So the document this refuses was edited by hand or written
-  by another program.
+- No released digline wrote anything but `true` or `false` in these three
+  fields, no migration does, and none wrote a reason into a redacted
+  document. So a document this refuses was edited by hand or written by
+  another program.
 
 ### Fixed — a replay's judge count is read as declared, never through `int()` (#367)
 
