@@ -1654,6 +1654,68 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v0.26.0 — the pair agreed for every pin, the signatures' wait was
+  answered on its first read, and the counts reached the approver after the
+  click, now by rule.** `publish` (`36991389633`) and `docker-publish`
+  (`36991389648`) both passed on attempt 1, `github-release` included.
+  `tools/tag_names.py "digline 0.26.0, digline-mcp 0.4.3"` ran before the tag:
+  two packages, both named. The control naming the core alone exited 1.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on `pypi`,
+  and the environment reads `can_admins_bypass: false`. The run was seen
+  waiting at 09:45:46 and the `pypi` job started at 09:45:47. It is the third
+  release in a row where the approval came before the counts could, and the
+  order is now written the other way round (*After the tag*, the paragraph
+  after *The approval is a person's click*). The counts, read afterwards from
+  the finished jobs:
+  - 12 files built and 12 `twine check` `PASSED`, then 4 more on
+    `to-publish/`;
+  - TestPyPI's selection 4 `publish` and 8 `skip`. The four are `digline`
+    0.26.0 and `digline-mcp` 0.4.3, wheel and sdist; the eight are the four
+    other packages, each *already on the index*;
+  - `imported 6`, and the quickstart's 3 calls.
+
+  **The signatures' wait was answered on its first read.** The four uploads
+  answered `200 OK` between 09:46:09.6 and 09:46:12.9. The step ran from
+  09:46:52.5 to 09:46:53.5, with no `waiting` and no `served` line. **So the
+  first read fell about 40 seconds after the last upload, and was answered.**
+  Four bundles, the first release to carry four because `digline-mcp` rode the
+  tag, all `OK`. Eight files skipped, each with the tag that published it.
+  - **Against the earlier tags:** served at ~40 (here and v0.24.1), ~36–48
+    (v0.25.2), ~44–45 (v0.25.3), 58.6 (v0.25.0) and 59 (v0.24.0). Not served
+    at 36 (v0.23.0) and 43 (v0.22.0), before the loop existed. v0.25.1 was
+    absent until about 92 and served at about 102.
+
+  **`/simple/` caught up in 10 seconds**, the sixth tag in a row at 10 or 11:
+  one `waiting` line per new package, then `every version is served (after
+  10s)`.
+
+  **Inside the builds, the pair agreed for every pin.**
+  - The smoke build and the multi-arch build each carry a `side=wait` and a
+    `side=pip` line for all four pins, with the same `serial` and `etag` on
+    both sides. For `digline` that is `41724613` and
+    `pCDsC+sFtKRY7XzSWbbVMw`: the page with 0.26.0, where v0.25.3's pip read
+    the one before it.
+  - The runner's wait for the smoke took 180 seconds. It started at 09:43:21,
+    before the upload, and saw the new serial at 09:46:21. The in-build waits
+    said `after 0s` and `after 1s`.
+  - pip's half printed 66 lines across the two builds.
+  - Both builds installed `digline-0.26.0`, `digline-anthropic-0.5.4`,
+    `digline-openai-0.5.2` and `digline-bedrock-0.5.1`.
+  - The multi-arch amd64 layers `#10` to `#13` were `CACHED`.
+  - The three tags resolve to one digest,
+    `sha256:ac722635e63bff589d729546d261213de75d4fe0a4d823d3dde50c23d6ae0315`.
+  - **Row one did not recur.** v0.25.3's divergence stays one reading, and
+    nothing makes it a pattern yet.
+
+  **Elsewhere.** The seven example locks moved to 0.26.0 with
+  `--upgrade-package digline` (#383). The three that pin `digline-anthropic`
+  moved it from 0.5.3 to 0.5.4, which its own tag published that morning and
+  which no lock had picked up.
+
+  **The next tag must show** the pair for every pin again, and the counts
+  after the click.
+
 - **v0.25.3 — the capture caught its first divergence: inside the smoke
   build, the wait saw the new page and pip, 1.4 seconds later, the old one.
   Row one of the table: per-server luck, confirmed.** `publish`
@@ -3456,15 +3518,37 @@ a post-tag commit — but if a lock can be written against the version about to
 ship, the dispatch stops being necessary.)*
 
 **The approval is a person's click, and never a session's.** A session that
-drives a release stops at the `[GATE]`, gives the counts, and waits. The
-approval is given in the Actions tab by the person who owns the account. A
-session never approves it through the API — no `POST` to
+drives a release stops at the `[GATE]`, says the run is waiting for `pypi`,
+and waits. The approval is given in the Actions tab by the person who owns the
+account. A session never approves it through the API — no `POST` to
 `pending_deployments`, not even when told "approve". An API approval is
 recorded under that person's login, and nothing afterwards tells it apart from
 their click. It is the one point of this file where somebody has to stop. If a
 session clicks it, the gate becomes an automatic step with a person's name on
 it, which certifies a decision nobody made. Ruled on 2026-09-30, at v0.24.0,
 after a session offered to approve it.
+
+**The counts come after the click, and they are owed.** They are:
+- the files built, and the `twine check` lines that read `PASSED`;
+- TestPyPI's selection, `publish` against `skip`;
+- the `imported` line;
+- the quickstart's calls.
+
+They are read from the finished jobs' logs. That takes longer than the click,
+so they reach the approver after it, and the session does not hold the gate
+open to read them first. **They are still owed.** The session reads them once
+the approval is recorded and gives them to the approver. They then go into the
+release's paragraph in *Status: what each path has proven*. A count that never
+arrives is the failure, not a count that arrives after the click. A count that
+does not match what the tag was meant to publish is read as a finding, as it
+would have been before the click: the upload is spent by then, and that is the
+same as on every release before this rule.
+
+Ruled on 2026-10-02, at v0.26.0, after three releases in a row where the
+approval came before the counts could. It came in an 11-second window that a
+20-second poll never saw (v0.25.2), about 4 seconds after the wait (v0.25.3),
+and 1 second after it (v0.26.0). Recording each time that the old order had not
+worked was recording the same thing three times. The order changed instead.
 
 **Whether the reviewer gate actually held is not visible in the run's green.**
 A fast approval passes through `waiting` in seconds — on 0.7.1 it was **16** —
