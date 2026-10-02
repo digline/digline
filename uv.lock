@@ -629,7 +629,7 @@ requires-dist = [
 
 [[package]]
 name = "digline-bedrock"
-version = "0.6.0"
+version = "0.6.1"
 source = { editable = "packages/digline-bedrock" }
 dependencies = [
     { name = "boto3" },

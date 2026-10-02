@@ -696,6 +696,16 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.6.0": (
+            "digline-bedrock's release that shipped an AWS account into verdict "
+            "reasons, and the release the delta-pass that found it was run over: "
+            "history, declared in *Defects in a released package*"
+        ),
+        "0.6.1": (
+            "digline-bedrock's release that scrubs it: the fix the declaration "
+            "names, a record of which release repairs it rather than a claim "
+            "about the current one"
+        ),
         "0.19.0": (
             "the 0.19.0 delta-pass, named as the pass that found the bidirectional-"
             "control gap: which pass found it, told as history, and not a claim "
@@ -788,8 +798,10 @@ RECORDED: dict[str, dict[str, str]] = {
     "docker/Dockerfile": {
         "0.5.2": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.6.0": "digline-anthropic's and digline-bedrock's version, each "
-        "pinned to its own pyproject by tests/test_docker.py",
+        "0.6.0": "digline-anthropic's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
+        "0.6.1": "digline-bedrock's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
     },
     "src/digline/store/migrate.py": {
         "0.5.0": "'digline-anthropic 0.5.0 or earlier' — the plugin releases "
@@ -1191,7 +1203,13 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: sentence somebody writes and somebody reads, which is the point. What it
 #: must not become is the way to make this red go away: the red it exists for
 #: is `v0.17.0` publishing two plugins and leaving both declared unreleased.
-UNRELEASED_ON_PURPOSE: dict[str, str] = {}
+UNRELEASED_ON_PURPOSE: dict[str, str] = {
+    "digline-bedrock": (
+        "0.6.1 waits for its own tag, digline-bedrock-v0.6.1, which goes on the "
+        "merge commit of its release pull request; that pull request dates the "
+        "heading and removes this entry"
+    ),
+}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:

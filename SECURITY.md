@@ -233,6 +233,50 @@ declared, and why.
   transport that loads mcp's auth code, or mcp moves PyJWT onto the stdio path,
   the ruling lapses and the question is open again.
 
+## Defects in a released package, declared
+
+The section above answers for what a dependency ships. This one answers for
+what a package of ours shipped with a defect in it: what the defect puts where,
+who can reach it, and which release takes it out. It is written when the defect
+is found, not when the advisory question is settled, so somebody who installed
+the version can read it today.
+
+- **digline-bedrock 0.6.0, and every earlier release on the second route below:
+  an AWS account in verdict reasons, written by the plugin. Fixed in 0.6.1.**
+  Found by the delta-pass over 0.6.0, the day 0.6.0 was published.
+  - **What it writes, and where.** Two refusals of a reply quote the model:
+    a 1-hour cache write (new in 0.6.0), and a reply with no usage block
+    (older). When the model is an **application inference profile**, it is
+    an ARN, and an ARN carries the customer's twelve-digit AWS account. The
+    plugin scrubs ARNs and accounts out of every error the API raises, but
+    these two refusals are raised after that scrub. So the account reached,
+    in clear:
+    - every verdict's `reason` for the case;
+    - the run file;
+    - the HTML report.
+
+    Measured: it did **not** reach a redacted run document or the
+    `run_document` the wire builds for `--json` and MCP, which do not carry
+    the `reason`. The terminal was not measured.
+  - **Who is exposed.** A suite whose Bedrock model is an application
+    inference profile ARN, priced with an explicit `pricing=`, as the
+    package's README shows. The 1-hour route also needs a request that asks
+    for the 1-hour cache, and the plugin's target sends none. The no-usage
+    route needs only a reply without `usage`.
+  - **What it does not reach: a committed baseline.** A run with a refused
+    case is an errored run, and promotion refuses it (condition 3). That was
+    measured with one case refused, and with one refused beside one that
+    passed.
+  - **What 0.6.1 does.** It scrubs both refusals the way the API's errors are
+    scrubbed, and keeps their class. A test drives both through the driver
+    and fails against 0.6.0.
+  - **What it is not.** A suite that names an ARN as its model has that ARN
+    in its run's `target_config`, and in a promoted baseline's, because the
+    model is recorded as configured. That value is the suite author's own,
+    written by them. It is not this defect, and 0.6.1 does not change it.
+  - **Whether this earns a published advisory** is ruled separately. This
+    entry is not that ruling.
+
 ## Scorecard checks that read low by construction
 
 **Maintained reads 0 until 2026-11-24, whatever the activity.** OpenSSF
