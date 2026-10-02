@@ -26,7 +26,14 @@
   suite does not**: a fork or partial copy, a backup taken apart from the
   source, a handover to a third party, or a later design that ships a
   reference on its own. That removes the reason the digest ruling stands on,
-  and §12's options reopen with it. **A third, narrower, reopens §12 for one
+  and §12's options reopen with it. *Corrected 2026-10-02, the clause above
+  kept as written:* the trigger is **any document that carries a digest**
+  reaching a place the suite does not, and a reference is one of them. That
+  includes a served projection and a page rendered from one that shows a
+  comparison or a run key, a run file, the register, `compare --json` and an
+  MCP response. The reason is about where
+  the reader stands. When the clause was written, a reference was the only
+  such document this design sent out. **A third, narrower, reopens §12 for one
   suite rather than this record:** a `suite.py` that builds a digest's inputs —
   a rubric, a declared rate — from outside the repository. **What it amends was made one change after
   the acceptance, on the same day.** The amendments belonged in the change that
@@ -74,6 +81,15 @@
   case paired as `new` plus `missing` and a regression exited 0. The same
   failure between two projections from different tables stays open, as ADR
   0036's question
+- Amended: 2026-10-02 — **§12's condition is written in the form of its
+  reason: a document, not a reference.** The status line's reopening clause,
+  §12's ruling and its second condition each gain a dated note beside the
+  text, which is kept as written. The reason was always where a digest's
+  reader stands relative to the suite. The clause named a reference because,
+  on 2026-09-27, the committed reference was the only document this design
+  sent to the software house. This is the ruling of 2026-09-29 reaching the
+  public text: it read the condition by its reason when ADR 0035's ledger met
+  it. It rules nothing new, and ADR 0022 §6's amendment already had this form
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no migration — nothing is
   implemented. At implementation §8 is a field in the run document and
@@ -942,12 +958,29 @@ question and all three options are open again. **The sentence above stands
 unchanged**: the digests still carry content, and what the ruling settles is
 who reads it.
 
+*Corrected 2026-10-02, the condition above kept as written.* The ruling holds
+for as long as **no document that carries a digest** can reach a place the
+suite does not. A redacted reference is one such document. Others are a
+served projection, a page rendered from one that shows a comparison or a run
+key (a page can be saved), a run file, the register, `compare --json` and an
+MCP response. Each of them carries `config_hash`, in its body or in a run key. The reason was never that the
+document is a reference. It is that whoever reads the digest already holds
+its inputs. That reading was ruled on 2026-09-29, when ADR 0035's ledger, which
+is not a reference, met this condition, and the literal reading fell.
+
 **A second condition, narrower than the first.** *Added 2026-09-27.* The ruling
 holds **for as long as a digest's inputs are in the repository that carries the
 reference.** A suite that builds them from outside is the exception, and for
 that suite the ruling does not hold. The first condition depends on **where the
 reference travels**. This one depends on **what the suite does**, and it can
 fire with the reference never leaving the repository.
+
+*Corrected 2026-10-02, the paragraph above kept as written.* The repository
+meant here is **the suite's own**, not one a document sits in: a served
+projection, or a page rendered from it, sits in no repository at all. The
+condition reads: the ruling holds for as long as a digest's inputs are
+written in the suite's own repository. Read the same way, the first
+condition depends on **where a document that carries a digest travels**.
 
 - **The rubric.** A data suite's rubric is in the file by construction. A
   `suite.py` can read one from an environment variable, from a file the
