@@ -1812,8 +1812,12 @@ else:
 | `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, or a pinned file drifted from the reference |
 
 - **`exit_code(head)` is the rule**, read from a `Headline`. A regression or a
-  moved canary outranks the causes of `2`. A suspension never fails. The
-  headline's `locale` does not change the number.
+  moved canary outranks the causes of `2`. A suspension never fails. That
+  rule was never deliberated: it arrived with the first commit and no ADR
+  rules on it. So a run whose cases are **all** suspended exits `0` too, and
+  whether it should is open on
+  [#360](https://github.com/digline/digline/issues/360). The headline's
+  `locale` does not change the number.
 - **`run_exit_code(run)` is the same rule with nothing to compare against.**
   It never returns `1`, because *worse*, a moved canary and a drifted pin are
   relations. What is left is `2` for an unjudged case or a lost scale, read

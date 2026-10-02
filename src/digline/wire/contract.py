@@ -264,7 +264,12 @@ def exit_code(head: Headline) -> int:
     flaky provider.
 
     A suspension never fails: it is a decision someone already made, not an
-    outcome.
+    outcome. **That sentence is the whole of the rule, and it was never
+    deliberated.** It arrived with the first commit (`ae4a2af`), no ADR rules on
+    it, and ADR 0013 builds on it without examining it. What it justifies is one
+    suspension among judged cases. A run in which every case is suspended is a
+    state no single suspension decided, and what that run should exit is open
+    on #360.
 
     `2` has three causes and this body is the enumeration of them — the one place
     an enumeration is safe, because it is the source rather than a description of
