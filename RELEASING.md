@@ -3031,11 +3031,14 @@ the earlier pass already read: that is the work it was born of.
   the tree being tagged. Do not count them from memory: on 0.25.1 a count
   given from memory said five, and there were four.
 - **The keys of the JSON contract**, which a pipeline parses as surely as a
-  program imports a name. Diff `src/digline/wire/contract.py` between the two
-  tags: every key added without a bump of `OUTPUT_VERSION` is recorded there,
-  beside the version it did not move, with its reason. On 0.25.1 that diff
-  names `on_record_not_read` and `unread_on_record` (#287). The pass over
-  0.25.1 left them out, because the rule then said *names*.
+  program imports a name. Diff `_ADDED` in `src/digline/wire/contract.py`
+  between the two tags: since #312 every key added without a bump of
+  `OUTPUT_VERSION` is an entry there, with the issue or ADR that added it, and
+  `tests/test_wire_keys.py` refuses a document that carries a key the table
+  does not name. For a tag older than the table, the record is the prose above
+  `OUTPUT_VERSION`, written by hand. On 0.25.1 that diff names
+  `on_record_not_read` and `unread_on_record` (#287). The pass over 0.25.1
+  left them out, because the rule then said *names*.
 - **The fields of every dataclass an `__all__` lists.** A dataclass is its
   fields, so a field added to a class that was already public is new surface,
   and the diff of the `__all__`s cannot see it: the class's name did not move.
@@ -3068,6 +3071,14 @@ them:
 - **A change inside a function that moves no name, no key and no field**: a
   key renamed, removed or retyped inside a `wire/` builder, read by nobody
   because no diff pointed at it. That is #312.
+  *Narrowed 2026-10-02, the bullet above kept as written.* A key renamed,
+  removed or retyped inside a `wire/` builder now fails
+  `tests/test_wire_keys.py`. If the table is edited to match, `_BASE`'s digest
+  fails it, and what that test asks for is a bump. What still moves no name,
+  no key and no field, and is in no diff here: a value from a vocabulary that
+  becomes another word, a number that changes meaning, bytes inside a string,
+  and a type on a branch no fixture reaches. `contract.py` names the four
+  beside the table (#312).
 
 **What holds that record, said here because it is weaker than the first.** An
 `__all__` is code, so a new name cannot be exported without appearing in it.
@@ -3081,6 +3092,18 @@ not its wire keys. Counted on 2026-10-01: nineteen `*_json` functions in
 `src/digline/wire/` between the same two tags, read for added keys. A key that
 appears there and not in `contract.py` is a record somebody owes, and it is
 still surface to pass over.
+
+*Corrected 2026-10-02, the paragraph above kept as written.* The record is no
+longer prose alone. `_BASE` and `_ADDED` in `contract.py` are a table, and
+`tests/test_wire_keys.py` holds every document `wire/` builds to it, key and
+type, at every level, under fixtures that reach every shape and key in it. An
+addition cannot reach `main` without an `_ADDED` entry, so the diff of `_ADDED`
+is the list, and the diff of `wire/` is no longer the control. The count above
+was also short. There were twenty-three builders, the four `run_document`
+helpers among them. `shape_json` and `config_json` were each pinned by one
+test, which the search that counted them did not find. Measured before the
+table: of sixteen changes to keys quoted in no test, fifteen left the suite
+green (#312).
 
 Ruled 2026-10-01, the names in the morning, the keys the same day, and the
 fields of a listed dataclass that afternoon, before the tag of 0.25.3.

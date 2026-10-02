@@ -259,8 +259,11 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     that document is under `SCHEMA_VERSION` — two contracts, two lifetimes.
     Inheriting the projection would mean the boundary moves whenever the storage
     document moves; choosing it means the boundary moves when ADR 0011 §5 does,
-    and only then. `tests/test_wire_boundary.py` is what makes the difference
-    real: a field added here without a decision fails a test.
+    and only then. `tests/test_wire_keys.py` is what makes the difference real:
+    a field added here without an entry in `contract.py`'s `_ADDED` fails it.
+    Until #312 this sentence named `tests/test_wire_boundary.py`, which tests
+    what must be absent and fails on no added field. Measured on 2026-10-02, a
+    key added here left the whole suite green.
 
     What crosses is the verdict. What does not: `Verdict.reason`, the stated
     reason a case was suspended, `Score.metadata` the suite did not disclose,
