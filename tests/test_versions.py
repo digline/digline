@@ -498,6 +498,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "strict build was written after it. History: the release has shipped "
         "and the incident is what the paragraph is about, so the number is "
         "the evidence rather than a claim about what digline is at now",
+        "0.4.3": "digline-mcp's version, which rode v0.26.0's tag: named in "
+        "the tag message and counted in the Status block's v0.26.0 paragraph. "
+        "It names a plugin release, not the core's",
+        "0.5.4": "digline-anthropic's version, installed by v0.26.0's image "
+        "builds and moved into three example locks by #383, told in the "
+        "Status block's v0.26.0 paragraph. It names a plugin release",
         "0.5.3": "digline-anthropic's version, quoted in the Status block's "
         "v0.17.0 paragraph. It is the package the wait and pip disagreed "
         "about on attempt 1, so the number is the evidence: a paragraph that "
