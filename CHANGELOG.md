@@ -6,14 +6,68 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.26.1 — unreleased
+## 0.27.0 — unreleased
 
-digline **0.26.1**. A run document that is not what its flags say is refused
-rather than read. A plain run flagged redacted was read as redacted, and
-promoting it committed a baseline that said redacted and still held the run's
-metadata. Nothing to migrate, no schema change, `OUTPUT_VERSION` unchanged, and
-no public name added or removed. A patch, because every document refused here
-is one no released digline wrote.
+digline **0.27.0**. **A minor, because a suite that passed on 0.26.0 can
+error now**: a check declared with a tolerance that is not finite, such as
+`tolerance=math.inf`, produces an `error` verdict where it produced a pass.
+Such a check could never report a score that moved, and decision 3 forbids
+it. But the rule for the number measures what stops working for whoever
+upgrades, and this does. Read that entry before upgrading.
+
+The rest is about documents: what a run file declares is read as declared, or
+refused, and never converted into something else. A plain run flagged redacted
+was read as redacted, and promoting it committed a baseline that said redacted
+and still held the run's metadata. Every document refused for that is one no
+released digline wrote. Nothing to migrate, no schema change, `OUTPUT_VERSION`
+unchanged, and no public name added or removed.
+
+### Changed — a tolerance that is not finite is refused, from a file and from code (#379)
+
+- **A run file whose verdict said `"tolerance": true` or `Infinity` compared
+  a drop from 0.95 to 0.6 as *unchanged*, and `compare` stayed green.**
+  `float()` read `true` as 1.0, and `Infinity` is a literal Python's JSON
+  parser accepts although JSON has no such number. A tolerance at least as
+  wide as the scale holds every score movement, so the gate passed a
+  regression it was there to catch.
+- **The reader now refuses both**, along with `NaN`, by field and JSON type.
+- **`Verdict` itself now refuses a tolerance that is not finite.** `inf < 0.0`
+  is false, so the one check it had let `Infinity` and `NaN` through when a
+  verdict was built in code. **This is what can break a suite**: an assertion
+  declared with `tolerance=math.inf` now raises when it builds its verdict,
+  and the run records that check as `error`.
+- **What this does not close.** A finite tolerance of 1 or more holds every
+  score movement in the same way, from a file or from code, and nothing
+  refuses it. It is a vacuous green by declaration, not a conversion, and it
+  is #386. Neither one hides an outcome that changes: a flip from `pass` to
+  `fail` is a regression at any tolerance.
+
+### Fixed — numbers, counts and flags in a run file are read as declared (#379)
+
+- **Usage counts and the bill line were truncated or invented.** `int()` read
+  `5.9` as 5, `0.9` as 0, `true` as 1 and `"5"` as 5, and `or 0` read a `null`
+  cache count as 0. They are now read by `declared_integer`.
+- **Every other number went through `float()`**: `threshold`, `spent_usd`, a
+  score, its samples and their interval, a calibration band's ends, and a
+  recorded answer's `cost_usd` and `latency_ms`. That read `"0.5"` as 0.5 and
+  `true` as 1.0. `cost_usd` and `latency_ms` took `NaN` and `Infinity`, and
+  samples written as the string `"01"` read as two samples, one per
+  character. They are now read by `declared_number`: a JSON number, finite,
+  never a boolean. **An integer is accepted where a number is declared,**
+  because JSON does not tell `1` from `1.0` and another program's serializer
+  may write either.
+- **`canary`, `judged`, `withheld`, `oversize` and the journal header's
+  `record_responses` went through `bool()`.** `"false"` read a plain case as a
+  canary and a deterministic check as judged, and `null` read a canary as a
+  plain case. They are now read by `declared_boolean`.
+- **Absent still means what it meant.** No cost, no cache count, no flag:
+  `None`, 0 and false, as before. What changed is `null`, which is now
+  refused wherever the history shows no writer ever put one. Every writer of
+  `cost_usd` and `latency_ms` was guarded by `is not None`, the cache counts
+  are written only when not zero, the flags only when true, and no migration
+  writes any of them.
+- Each refusal names the record, the field and the JSON type, never the value.
+  `int()`'s own message used to echo the file's text.
 
 ### Fixed — a plain run could be promoted as redacted, and three flags were read through `bool()` (#379)
 
