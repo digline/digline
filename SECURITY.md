@@ -233,6 +233,23 @@ declared, and why.
   transport that loads mcp's auth code, or mcp moves PyJWT onto the stdio path,
   the ruling lapses and the question is open again.
 
+## Scorecard checks that read low by construction
+
+**Maintained reads 0 until 2026-11-24, whatever the activity.** OpenSSF
+Scorecard gives its minimum score to any repository created in the last 90
+days, before it counts a single commit or issue. This repository was created
+on 2026-08-26 at 13:07:35 UTC, so the rule holds until **2026-11-24 at
+13:07:35 UTC**. Until then, no number of releases or pull requests moves the
+check. Read from `checks/evaluation/maintained.go` on Scorecard's `main`
+branch on 2026-10-02, not from the exact release the workflow pins.
+
+**The 0 is explained by this paragraph only while the report gives this
+reason**: *"project was created within the last 90 days"*. After that date the
+check counts commits, plus issues updated by a member of the project, over 90
+days. About twelve of them score 10, so a low score is a finding again. A
+report that gives any other reason for a 0, *"project is archived"* or a
+count, is not covered here either.
+
 ## Out of scope
 
 **The behaviour of the models you evaluate.** Prompt injection, jailbreaks and
