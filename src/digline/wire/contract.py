@@ -7,8 +7,14 @@ module, so `from digline.cli import EXIT_OK, OUTPUT_VERSION` keeps working.
 
 from __future__ import annotations
 
-from digline.core import Run, scale_lost
+import hashlib
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Literal, get_args
+
+from digline.core import Outcome, Run, scale_lost
 from digline.report import Headline, unjudged_cases
+from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
 __all__ = [
     "EXIT_OK",
@@ -238,6 +244,10 @@ __all__ = [
 #: reading: a check can look for numbers, it cannot ask whether a set has an
 #: amendment procedure. So, when you add a key here: there is no total to
 #: correct, because none is written.
+#:
+#: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
+#: a key, the record is an entry in `_ADDED` at the end of this module, and a
+#: test refuses the key until it is there. A paragraph here may still say why.
 OUTPUT_VERSION = 2
 
 EXIT_OK = 0
@@ -332,3 +342,628 @@ def run_exit_code(run: Run) -> int:
     if unjudged_cases(run) or scale_lost(run):
         return EXIT_UNJUDGED
     return EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
+# The shape of every document this package builds, as a table a test reads
+# --------------------------------------------------------------------------- #
+#
+# The record above is prose, and no test can read it. What follows is the same
+# contract in a form one can: every object the builders in this package emit,
+# named, with each key and the JSON types its value may take.
+# `tests/test_wire_keys.py` builds every document from fixtures that reach
+# every branch, walks it against this table, and fails on a key the table does
+# not name, on a key it names and the document lacks, and on a value of a type
+# it does not allow. It also fails on a shape or an optional key no fixture
+# reached, so no pin here goes vacuous. (#312)
+#
+# **Two parts, so that an addition and a change cannot look alike.** `_BASE` is
+# the shape as it stood when this table was written, under `OUTPUT_VERSION = 2`,
+# and it does not move: `_BASE_DIGEST` holds its digest beside the version, and
+# the test fails when the two disagree. `_ADDED` is where every key added since
+# goes, one entry each, and `_SHAPES` is derived from the two. So:
+#
+# - **adding a key** is one entry in `_ADDED`, naming why. That is what
+#   `OUTPUT_VERSION = 2`'s rule allows without a bump, and a release diffs
+#   `_ADDED` between two tags to list what it added (`RELEASING.md`);
+# - **renaming or removing a key, or changing what type a value may take**, is
+#   an edit to `_BASE` or to an existing `_ADDED` entry. A consumer parsing the
+#   old shape breaks, so it is a bump of `OUTPUT_VERSION`: fold `_ADDED` into
+#   `_BASE`, empty `_ADDED`, and pin the new digest beside the new version.
+#
+# **What this does not catch, stated where the claim is made.** A value from a
+# vocabulary a consumer matches on, such as an outcome or a kind, moving to
+# another word: the type is still a string. A number that changes meaning, like
+# the `counts` entries above. Bytes inside a string, like the bump to 2. A type
+# a value may take on a branch no fixture reaches: a type listed here and never
+# produced is allowed and not demanded. And the digest is a tripwire, not a
+# lock: anybody can overwrite it, and the diff between two tags is where that
+# is seen.
+#
+# **This is an enumeration**, which the record above warns against: a list
+# kept beside the set it describes goes stale and says nothing. What keeps this
+# one from going stale is that the test compares by **equality**. A key the
+# builders emit and the table omits is a failure, not a silence, so the table
+# cannot fall behind the code without a red.
+#
+# The prose record above stays as written, as the history up to this table.
+# From #312 on, an added key is recorded in `_ADDED`; a paragraph above may
+# still say why, and the entry points at it.
+
+#: A JSON value's type, as a parser sees it. `integer` is never a `bool`, which
+#: Python counts as one, and `number` is an integer or a float but never a
+#: `bool` either: `False == 0` is exactly the confusion this table is for.
+#: `any` is a value this table does not type, and only a mapping whose values
+#: the suite declares, such as disclosed metadata, uses it.
+type _Json = Literal["string", "integer", "number", "boolean", "null", "any"]
+
+
+@dataclass(frozen=True, slots=True)
+class _Obj:
+    """An object of a named shape in `_SHAPES`."""
+
+    shape: str
+
+
+@dataclass(frozen=True, slots=True)
+class _Arr:
+    """A list whose every item is one of `of`."""
+
+    of: frozenset[_Type]
+
+
+@dataclass(frozen=True, slots=True)
+class _Map:
+    """An object whose keys come from the data rather than from the code.
+
+    `keys` is the closed vocabulary they are drawn from, where there is one,
+    taken from the module that owns it and never copied here; `None` where the
+    set is open, like a path or a name a suite declared. Sparse either way: a
+    key that would carry nothing may be absent.
+    """
+
+    of: frozenset[_Type]
+    keys: frozenset[str] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _OneOf:
+    """An object of exactly one of `shapes`, told apart by its keys."""
+
+    shapes: tuple[str, ...]
+
+
+type _Type = _Json | _Obj | _Arr | _Map | _OneOf
+
+
+@dataclass(frozen=True, slots=True)
+class _Key:
+    """One key of a shape: the types its value may take, and whether the key may
+    be absent. An optional key is absent on some documents and present on
+    others; it is never present and empty in place of absent."""
+
+    types: frozenset[_Type]
+    optional: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _AddedKey:
+    """One key added under the current `OUTPUT_VERSION`, without a bump.
+
+    `ref` names the issue or the ADR that added it. There is no release field:
+    the release a key shipped in is the first tag whose `_ADDED` holds it, and a
+    field written by hand would add one more line to sweep at every cut.
+    """
+
+    shape: str
+    key: str
+    value: _Key
+    ref: str
+
+
+def _k(*types: _Type, optional: bool = False) -> _Key:
+    return _Key(frozenset(types), optional)
+
+
+def _arr(*types: _Type) -> _Arr:
+    return _Arr(frozenset(types))
+
+
+def _map(*types: _Type, keys: frozenset[str] | None = None) -> _Map:
+    return _Map(frozenset(types), keys)
+
+
+_STR = _k("string")
+_INT = _k("integer")
+_NUM = _k("number")
+_BOOL = _k("boolean")
+_STR_OR_NULL = _k("string", "null")
+_NUM_OR_NULL = _k("number", "null")
+_STRINGS = _k(_arr("string"))
+#: `ConfigValue` on the wire: what a configuration field, or a setting fact,
+#: may hold.
+_SCALAR = _k("string", "integer", "number", "boolean", "null")
+_COUNTS = _map("integer")
+
+_HEADLINE: Mapping[str, _Key] = {
+    "output_version": _INT,
+    "worse": _BOOL,
+    "unjudged": _INT,
+    "suspended": _INT,
+    "config_changed": _BOOL,
+    "counts": _k(_map("integer", keys=frozenset(get_args(Outcome.__value__)))),
+    "reasons_available": _BOOL,
+    "sentence": _STR,
+    "artifacts_changed": _BOOL,
+    "target_config_changed": _BOOL,
+    "judge_config_changed": _BOOL,
+    "rejudged": _BOOL,
+    "canary_moved": _BOOL,
+    "pinned_drifted": _BOOL,
+    "pinned_unchecked": _INT,
+    "target_echoed": _BOOL,
+    "on_the_line": _INT,
+    "within_noise": _INT,
+    "scale_lost": _BOOL,
+    "denominator_moved": _INT,
+    "unreconciled": _INT,
+    "reference_unreconciled": _INT,
+    "misnamed": _INT,
+    "exit_code": _INT,
+    "baseline_key": _STR,
+}
+
+_DIFF: Mapping[str, _Key] = {
+    "output_version": _INT,
+    "tenant": _STR,
+    "suite": _STR,
+    "runs": _k(_Obj("diff.runs")),
+    "counts": _k(_Obj("diff.counts")),
+    "systems_differ": _BOOL,
+    "artifacts_differ": _BOOL,
+    "judges": _STRINGS,
+    "sentence": _STR,
+}
+
+_VERDICT: Mapping[str, _Key] = {
+    "name": _STR,
+    "assertion_id": _STR,
+    "status": _STR,
+    "score": _NUM_OR_NULL,
+    "threshold": _NUM,
+    "tolerance": _NUM,
+}
+
+#: The shape of every document as it stood on 2026-10-02, when this table was
+#: written. **It does not move** under `OUTPUT_VERSION = 2`: an added key goes
+#: in `_ADDED`, and anything else here is a bump.
+_BASE: Mapping[str, Mapping[str, _Key]] = {
+    # `compare --json`, and the MCP `compare` tool. (compare.py)
+    "compare": _HEADLINE,
+    "compare.full": {
+        **_HEADLINE,
+        "deltas": _k(_arr(_Obj("delta"))),
+        "shape": _k(_arr(_Obj("shape"))),
+        "target_config_deltas": _k(_arr(_Obj("config_delta"))),
+        "judge_config_deltas": _k(_arr(_Obj("config_delta"))),
+        "suite_deltas": _k(_arr(_Obj("rule_delta"))),
+    },
+    "delta": {
+        "case_id": _STR,
+        "scope": _STR,
+        "assertion": _STR,
+        "outcome": _STR,
+        "before": _NUM_OR_NULL,
+        "after": _NUM_OR_NULL,
+        "delta": _NUM_OR_NULL,
+        "within_noise": _BOOL,
+        "noise_min": _NUM_OR_NULL,
+        "noise_max": _NUM_OR_NULL,
+        "noise_samples": _INT,
+        "canary": _BOOL,
+        "calibration": _BOOL,
+        "denominator_moved": _BOOL,
+    },
+    "shape": {
+        "check": _STR,
+        "assertion_id": _STR,
+        "run": _k(_Obj("shape.side")),
+        "reference": _k(_Obj("shape.side"), "null"),
+    },
+    "shape.side": {
+        "extremes": _INT,
+        "scores": _INT,
+        "single_claim": _INT,
+        "claims_unrecorded": _INT,
+        "sample_means": _INT,
+    },
+    "config_delta": {
+        "field": _STR,
+        "outcome": _STR,
+        "before": _SCALAR,
+        "after": _SCALAR,
+        "withheld": _BOOL,
+    },
+    "rule_delta": {
+        "rule": _STR,
+        "assertion_id": _STR,
+        "scope": _STR,
+        "outcome": _STR,
+        "direction": _STR,
+        "field": _STR,
+        "before": _NUM_OR_NULL,
+        "after": _NUM_OR_NULL,
+        "expansion": _STR,
+    },
+    # `diff --json`. (diff.py)
+    "diff": _DIFF,
+    "diff.full": {
+        **_DIFF,
+        "checks": _k(_arr(_Obj("diff.check"))),
+        "target_config_deltas": _k(_arr(_Obj("config_delta"))),
+    },
+    "diff.runs": {"left": _k(_Obj("diff.run")), "right": _k(_Obj("diff.run"))},
+    "diff.run": {
+        "key": _STR,
+        "label": _STR,
+        "created_at": _STR,
+        "environment": _STR,
+    },
+    "diff.counts": {
+        "total": _INT,
+        "differing": _INT,
+        "favours_left": _INT,
+        "favours_right": _INT,
+        "within_tolerance": _INT,
+        "only_left": _INT,
+        "only_right": _INT,
+        "errored": _INT,
+        "interval_pairs": _INT,
+        "left_exceeds": _INT,
+        "right_exceeds": _INT,
+    },
+    "diff.check": {
+        "case_id": _STR,
+        "scope": _STR,
+        "assertion": _STR,
+        "outcome": _STR,
+        "favours": _STR,
+        "left": _NUM_OR_NULL,
+        "right": _NUM_OR_NULL,
+        "delta": _NUM_OR_NULL,
+        "tolerance": _NUM,
+        "flipped": _BOOL,
+        "left_interval": _k(_Obj("interval"), "null"),
+        "right_interval": _k(_Obj("interval"), "null"),
+        "intervals_overlap": _BOOL,
+        "intervals_disjoint": _BOOL,
+    },
+    "interval": {"min": _NUM, "max": _NUM, "samples": _INT},
+    # `explain --json`. (explain.py)
+    "explain": {
+        "output_version": _INT,
+        "scope": _STR,
+        "exit_code": _INT,
+        "facts": _k(_arr(_OneOf(("fact.check", "fact.setting", "fact.tally")))),
+    },
+    "fact.check": {
+        "about": _STR,
+        "kind": _STR,
+        "scope": _STR,
+        "case_id": _STR,
+        "assertion": _STR,
+        "assertion_id": _STR,
+        "before": _NUM_OR_NULL,
+        "after": _NUM_OR_NULL,
+        "delta": _NUM_OR_NULL,
+        "threshold": _NUM_OR_NULL,
+        "noise_min": _NUM_OR_NULL,
+        "noise_max": _NUM_OR_NULL,
+        "noise_samples": _INT,
+        "denominator_moved": _BOOL,
+    },
+    "fact.setting": {
+        "about": _STR,
+        "kind": _STR,
+        "name": _STR,
+        "outcome": _STR_OR_NULL,
+        "before": _SCALAR,
+        "after": _SCALAR,
+        "withheld": _BOOL,
+        "added": _INT,
+        "removed": _INT,
+        "direction": _k("string", optional=True),
+        "expansion": _k("string", optional=True),
+    },
+    "fact.tally": {
+        "about": _STR,
+        "kind": _STR,
+        "count": _INT,
+        "state": _k("boolean", "null"),
+        "shape": _k(_Obj("shape"), optional=True),
+    },
+    # `log --json`. (log.py)
+    "log": {
+        "output_version": _INT,
+        "tenant": _STR,
+        "suite": _STR,
+        "window": _k(_Obj("log.window")),
+        "runs": _INT,
+        "first": _STR_OR_NULL,
+        "last": _STR_OR_NULL,
+        "spans": _k(_arr(_Obj("log.span"))),
+        "rolls": _k(_arr(_Obj("log.roll"))),
+        "spread": _k(_arr(_Obj("log.spread"))),
+        "spread_absence": _k(_map("integer", keys=frozenset(SPREAD_ABSENCES))),
+        "replays": _k(_arr(_Obj("log.replay"))),
+        # Keyed by the schema version a skipped document declared.
+        "skipped": _k(_COUNTS),
+        "unreadable": _INT,
+        "refused": _INT,
+        "on_record_not_read": _STRINGS,
+        "reference": _k(_Obj("log.reference"), "null"),
+        "register": _k(_arr(_Obj("register_entry"))),
+        "register_torn": _BOOL,
+        "register_unreadable": _BOOL,
+    },
+    "log.window": {"since": _STR_OR_NULL, "until": _STR_OR_NULL},
+    "log.sighting": {
+        "provider": _STR,
+        "sent": _STRINGS,
+        "answered": _STR_OR_NULL,
+        "absence": _STR_OR_NULL,
+    },
+    "log.span": {
+        "side": _STR,
+        "provider": _STR,
+        "sent": _STRINGS,
+        "answered": _STR_OR_NULL,
+        "absence": _STR_OR_NULL,
+        "first_seen": _STR,
+        "last_seen": _STR,
+        "runs": _INT,
+        "environments": _STRINGS,
+        "unread_on_record": _INT,
+    },
+    "log.roll": {
+        "side": _STR,
+        "provider": _STR,
+        "sent": _STR,
+        "before": _STR,
+        "after": _STR,
+        "last_before": _STR,
+        "first_after": _STR,
+        "silent_between": _INT,
+        "unread_on_record": _INT,
+    },
+    "log.spread": {
+        "name": _STR,
+        "latest": _NUM,
+        "reference": _NUM_OR_NULL,
+        "low": _NUM_OR_NULL,
+        "high": _NUM_OR_NULL,
+        "runs": _INT,
+        "excluded": _k(_map("integer", keys=frozenset(EXCLUSIONS))),
+        "unidentified": _INT,
+        "commits": _INT,
+        "versions": _STRINGS,
+        "within_run_low": _NUM_OR_NULL,
+        "within_run_high": _NUM_OR_NULL,
+    },
+    "log.replay": {"key": _STR, "created_at": _STR, "source": _STR},
+    "log.reference": {
+        "key": _STR,
+        "created_at": _STR,
+        "promoted_at": _STR_OR_NULL,
+        "target": _k(_Obj("log.sighting")),
+        "judge": _k(_Obj("log.sighting")),
+    },
+    "register_entry": {
+        "recorded_at": _STR,
+        "digline_version": _STR,
+        "disposition": _STR,
+        "run": _k(_Obj("register_entry.run")),
+        "baseline": _k(_Obj("register_entry.baseline")),
+        "outcome": _k(_Obj("register_entry.outcome")),
+        "exit_code": _INT,
+    },
+    "register_entry.run": {
+        "key": _STR,
+        "created_at": _STR,
+        "config_hash": _STR,
+        "environment": _STR,
+        "digline_version": _STR,
+        "rejudged": _BOOL,
+    },
+    "register_entry.baseline": {
+        "key": _STR,
+        "config_hash": _STR,
+        "promoted_at": _STR_OR_NULL,
+    },
+    "register_entry.outcome": {
+        "regressed": _INT,
+        "improved": _INT,
+        "unchanged": _INT,
+        "new": _INT,
+        "missing": _INT,
+        "errored": _INT,
+        "unjudged": _INT,
+        "suspended": _INT,
+        "within_noise": _INT,
+        "on_the_line": _INT,
+        "worse": _BOOL,
+        "canary_moved": _BOOL,
+        "config_changed": _BOOL,
+        "artifacts_changed": _BOOL,
+        "target_config_changed": _BOOL,
+        "judge_config_changed": _BOOL,
+        "rejudged": _BOOL,
+    },
+    # `run --json`, `list --json` and the MCP `run`, `list_runs` and `get_run`
+    # tools. (run.py)
+    "run": {
+        "output_version": _INT,
+        "key": _STR,
+        "tenant": _STR,
+        "suite": _STR,
+        "sentence": _STR,
+        "resumed": _BOOL,
+        "reused": _INT,
+        "judge_reading": _k("string", optional=True),
+        "usage": _k(_Obj("usage"), optional=True),
+    },
+    "runs": {
+        "output_version": _INT,
+        "tenant": _STR,
+        "suite": _STR,
+        "baseline_key": _STR_OR_NULL,
+        "runs": _k(_arr(_Obj("runs.row"))),
+        "note": _STR,
+        "advice": _STRINGS,
+        # Keyed by the schema version a skipped document declared.
+        "skipped": _k(_COUNTS),
+        "unreadable": _INT,
+        "refused": _INT,
+        "baseline_unreadable": _BOOL,
+    },
+    "runs.row": {
+        "key": _STR,
+        "created_at": _STR,
+        "environment": _STR,
+        "git_commit": _STR_OR_NULL,
+        "cases": _INT,
+        "digline_version": _STR,
+        "aggregate": _k(_arr(_Obj("runs.verdict"))),
+    },
+    "runs.verdict": _VERDICT,
+    "run_document": {
+        "output_version": _INT,
+        "tenant": _STR,
+        "environment": _STR,
+        "suite": _STR,
+        "config_hash": _STR,
+        "created_at": _STR,
+        "git_commit": _STR_OR_NULL,
+        "digline_version": _STR,
+        "promoted_at": _STR,
+        "rejudged_from": _STR,
+        "results": _k(_arr(_Obj("run_document.case"))),
+        "aggregate": _k(_arr(_Obj("run_document.verdict"))),
+        "target_config": _k(_Obj("system_config")),
+        "judge_config": _k(_Obj("system_config")),
+        # Keyed by an artifact's path.
+        "artifacts": _k(_map(_OneOf(("artifact.disclosed", "artifact.withheld")))),
+        "pinned": _STRINGS,
+        "usage": _k(_Obj("usage"), "null"),
+        # Keyed by a name the suite disclosed; the values are the suite's.
+        "metadata": _k(_map("any")),
+        "disclosure": _k(_Obj("disclosure")),
+    },
+    "run_document.case": {
+        "case_id": _STR,
+        "suspended": _BOOL,
+        "canary": _BOOL,
+        "calibration": _k(_Obj("calibration"), "null"),
+        "verdicts": _k(_arr(_Obj("run_document.verdict"))),
+    },
+    "run_document.verdict": {
+        **_VERDICT,
+        "samples": _k(_arr("number")),
+        "sample_min": _NUM_OR_NULL,
+        "sample_max": _NUM_OR_NULL,
+        "sample_means": _BOOL,
+        "judged": _BOOL,
+        # Keyed by a metric the suite disclosed; the values are the suite's.
+        "metadata": _k(_map("any")),
+    },
+    "calibration": {"check": _STR, "low": _NUM, "high": _NUM},
+    "artifact.disclosed": {"sha": _STR, "text": _STR},
+    "artifact.withheld": {"withheld": _BOOL},
+    "system_config": {
+        # Keyed by a configuration field a target or a judge declared.
+        "values": _k(_map("string", "integer", "number", "boolean", "null")),
+        "withheld": _STRINGS,
+        "identities": _STRINGS,
+    },
+    "disclosure": {
+        "run_metadata": _STRINGS,
+        "score_metadata": _STRINGS,
+        "artifacts": _BOOL,
+    },
+    "usage": {"target": _k(_Obj("usage.line")), "judge": _k(_Obj("usage.line"))},
+    "usage.line": {
+        "calls": _INT,
+        "counted": _INT,
+        "partial": _BOOL,
+        "input_tokens": _INT,
+        "output_tokens": _INT,
+        "cache_read_tokens": _INT,
+        "cache_write_tokens": _INT,
+        "thinking_tokens": _k("integer", "null"),
+        "spent_usd": _NUM,
+    },
+}
+
+#: Every key added under `OUTPUT_VERSION = 2` since `_BASE` was written, one
+#: entry each. Appended to, never edited: changing an entry's types is a change
+#: a consumer can see, and the rule for that is a bump.
+_ADDED: tuple[_AddedKey, ...] = ()
+
+
+def _derive(
+    base: Mapping[str, Mapping[str, _Key]], added: tuple[_AddedKey, ...]
+) -> Mapping[str, Mapping[str, _Key]]:
+    shapes = {name: dict(keys) for name, keys in base.items()}
+    for entry in added:
+        shapes.setdefault(entry.shape, {})[entry.key] = entry.value
+    return shapes
+
+
+#: The contract as it stands: `_BASE` with every `_ADDED` entry in it. Derived,
+#: so the two parts above are the only places a key is written.
+_SHAPES: Mapping[str, Mapping[str, _Key]] = _derive(_BASE, _ADDED)
+
+
+def _spell(value: _Type) -> str:
+    match value:
+        case str():
+            return value
+        case _Obj(shape):
+            return f"<{shape}>"
+        case _Arr(of):
+            return f"[{_spell_all(of)}]"
+        case _Map(of, keys):
+            vocabulary = "" if keys is None else "|".join(sorted(keys))
+            return f"map<{vocabulary}>[{_spell_all(of)}]"
+        case _OneOf(shapes):
+            return "one of(" + "|".join(f"<{s}>" for s in shapes) + ")"
+
+
+def _spell_all(types: frozenset[_Type]) -> str:
+    return "|".join(sorted(_spell(t) for t in types))
+
+
+def _lines(shapes: Mapping[str, Mapping[str, _Key]]) -> list[str]:
+    """The table as one line per key, in a fixed order: what the digest is taken
+    over, and what a failure prints, so the two read the same."""
+    return [
+        f"{name}.{key}{'?' if spec.optional else ''}: {_spell_all(spec.types)}"
+        for name in sorted(shapes)
+        for key, spec in sorted(shapes[name].items())
+    ]
+
+
+# Read by `tests/test_wire_keys.py`, and by nothing in this package: the digest
+# is a check on the table, not something a builder needs.
+def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore[reportUnusedFunction]
+    text = "\n".join(_lines(shapes))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+#: The `OUTPUT_VERSION` `_BASE` belongs to, and `_BASE`'s digest. A test holds
+#: both: a `_BASE` that moved under the same version is a rename, a removal or
+#: a type change that did not bump.
+_BASE_DIGEST: tuple[int, str] = (
+    2,
+    "6d8ccb58a32a164b0c99fcbc5bfd411c99f0184b5bfd4d27bf9a5f11bbf05835",
+)

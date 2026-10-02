@@ -254,6 +254,38 @@ released digline could read. Nothing to migrate, no schema change,
 - **The limit 0.26.0 wrote on the API page is gone**, because it is no longer
   true. 0.26.0's own entry still states it, and of 0.26.0 it is true.
 
+### Changed — the JSON contract is a table a test reads (#312)
+
+- **Until now one `--json` builder of twenty-three had its keys pinned**:
+  `compare`, through `COMPARE_KEYS`. In the others a key could be renamed,
+  removed or given another type with the suite green and no bump of
+  `OUTPUT_VERSION`. Measured before this change: 31 of the 297 literal keys in
+  `src/digline/wire/` were quoted in no test, and of sixteen changes made to
+  them (eight keys renamed, a key added to eight builders), fifteen left the
+  whole suite green.
+- **`contract.py` now holds every document's shape as a table**: each object
+  the builders emit, its keys, and the JSON types each value may take, with
+  `bool` and `int` told apart. `tests/test_wire_keys.py` builds every document
+  under fixtures that reach every shape and key, and fails on a key the table
+  does not name, a key it names and the document lacks, and a value of another
+  type. The same sixteen changes, plus four type changes, now fail it, twenty
+  of twenty.
+- **An addition and a change are told apart.** The table as it stands today is
+  `_BASE`, pinned by a digest beside `OUTPUT_VERSION`. A key added from now on
+  is an entry in `_ADDED`, and a release lists its new keys by diffing `_ADDED`
+  between two tags (`RELEASING.md`). Editing `_BASE` fails the test, and what
+  it asks for is a bump.
+- **What it does not catch, written beside the table:** a vocabulary value
+  that becomes another word, a number that changes meaning, bytes inside a
+  string, and a type on a branch no fixture reaches.
+- **`run_document`'s docstring promised a test that did not exist.** It said
+  *"a field added here without a decision fails a test"*, and named
+  `tests/test_wire_boundary.py`, which tests what must be absent. A key added
+  to the document that crosses the boundary left the suite green. It names the
+  test that now holds it, and says what it said before.
+- Nothing a consumer reads moved: no key, no type, `OUTPUT_VERSION` unchanged.
+  The table and the test are private, and no public name was added.
+
 ### Documented — a promoted baseline holds no recorded answer, and keeps every reason (#391)
 
 - **ADR 0015 §5 called the committed baseline *payload-free*.** Promotion
