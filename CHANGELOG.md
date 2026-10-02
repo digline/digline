@@ -6,6 +6,55 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-anthropic 0.5.4 — unreleased
+
+Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
+
+### Fixed — the price list, against Anthropic's published rates (#293)
+
+- **Three of the four models were priced wrong.** The rates were read again
+  from Anthropic's pricing page on 2026-10-02:
+  - **Fable 5** was priced at $3 / $15 against a published **$10 / $50**. Its
+    cost was under-counted by ×0.3, so a `CostBudget` on it could **pass on
+    spend that exceeded it**. That is the reason for this release.
+  - **Opus 5** was priced at $15 / $75 against $5 / $25, over-counted ×3.
+  - **Sonnet 5** was priced at $3 / $15 against $2 / $10, over-counted ×1.5.
+    Anthropic's page says $2 / $10, introductory until 2026-08-31, is now the
+    standard price, and the increase to $3 / $15 will not occur.
+  - **Haiku 4.5** was right, and is unchanged.
+
+  Cache rates move with each model.
+- **The three current models are priced: Fable 5.1, Opus 5.5 and Sonnet 5.5.**
+  Without a price, `preflight` refused every suite that named one, and the
+  only way through was `Pricing.override`. Fable 5.1 and Opus 5.5 read the
+  cache at 0.025x and 0.05x the input rate, not the usual 0.1x, and the list
+  carries those rates.
+- `PRICES_READ_ON` is `2026-10-02`, and the module names the page it was read
+  from. The page it named before now redirects to another one.
+- **The module's rule on releases now depends on the error's direction.** It
+  said a moved price never earns a release. It now says a list that prices
+  below cost is repaired with a release, because it lets a budget pass in
+  silence, and one that prices above can wait.
+
+### What you will see
+
+- **On a run made after upgrading, a Fable 5 suite costs ×3.3 against its
+  baseline, and nothing in the system changed.** Opus 5 reads ×0.33 and
+  Sonnet 5 ×0.67. A shipped price does not enter `config_hash` (ADR 0022 §3),
+  so **the comparison will not say the rules changed**. The baseline is still
+  promotable, and its cost was read on the old list. A `CostBudget` calibrated
+  on those figures was calibrated on false costs. Read it again before trusting
+  its verdict, or re-promote once a run on the new prices is green.
+- A suite that already corrected a price with `Pricing.override` is
+  unaffected: a declared price wins.
+
+### Not here
+
+- A 1-hour cache write is still priced at the 5-minute rate (#368).
+- `digline-bedrock`'s list has not been checked (#369).
+- Nothing yet notices a stale list. A scheduled comparison with the source is
+  proposed and not built (#370).
+
 ## Unreleased
 
 ### Changed — what a list of runs left out, in the page's language and at a bounded length (#339)
