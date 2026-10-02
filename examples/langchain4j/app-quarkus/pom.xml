@@ -21,21 +21,31 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Ahead of what this Quarkus manages, and declared before the BOM so
-           it wins. Two advisories published 2026-09-30 (GHSA-cxp5-3px4-pw24,
-           GHSA-wv8q-qhhj-9h54) are fixed in 2.22.3; quarkus-bom 3.39.5
-           manages 2.22.2. The 3.40.1 BOM would fix them too, but by moving
-           back from the 2.22 line to 2.21.7, a minor line backwards for a
-           patch, so the one artifact is pinned instead, as app-spring pins
-           its own. They reached this repository through Scorecard alone:
-           GitHub's dependency graph reads only this pom's direct
-           dependencies and holds no jackson-databind, so Dependabot raised
-           nothing. It goes away when the BOM's own managed version passes
-           it. -->
+      <!-- Jackson's own BOM, ahead of what this Quarkus manages, and
+           declared before quarkus-bom so it wins: of two imported BOMs, the
+           first one declared wins. quarkus-bom 3.39.5 manages Jackson at
+           2.22.2.
+           Two advisories published 2026-09-30 (GHSA-cxp5-3px4-pw24,
+           GHSA-wv8q-qhhj-9h54) were fixed in jackson-databind 2.22.3. The
+           3.40.1 BOM would fix them too, but by moving back from the 2.22
+           line to 2.21.7, a minor line backwards for a patch.
+           **Why the whole BOM and not one artifact.** On 2026-09-30 this
+           pinned jackson-databind alone. On 2026-10-01 two advisories arrived
+           against its sibling, jackson-core (GHSA-7hhh-6rmp-j9qf,
+           GHSA-p6pp-m3f8-5c89, fixed in 2.22.3), which the single pin left at
+           the BOM's 2.22.2. app-spring pins the whole BOM and did not have
+           them. A pin on one artifact covers one advisory; the BOM covers
+           the class, every Jackson artifact moving together.
+           They reached this repository through Scorecard alone. GitHub's
+           dependency graph reads only this pom's direct dependencies, which
+           name no Jackson artifact, so Dependabot raised nothing. This pin
+           goes away when quarkus-bom's own managed version passes it. -->
       <dependency>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-databind</artifactId>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
         <version>2.22.3</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
