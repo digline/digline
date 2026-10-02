@@ -67,9 +67,9 @@ The rest leaves existing suites, scripts and documents working. A projected
 list of runs no longer carries the store's file names, in a field or in its
 `repr` (#362). One run the store refuses no longer fails a whole list, in
 `list`, `log`, `view` and MCP (#314). A version a file declares is read as
-declared, never through `int()` (#350). And the line under a list says what
-was left out in the page's language (#339). Nothing to migrate, no schema
-change, `OUTPUT_VERSION` unchanged with two added keys, and no public name
+declared, never through `int()` (#350), and so is a replay's judge count
+(#367). And the line under a list says what was left out in the page's
+language (#339). Nothing to migrate, no schema change, `OUTPUT_VERSION` unchanged with two added keys, and no public name
 removed. One name is added, `digline.host.left_out`, and `SuiteRuns` gains
 `skipped`, `unreadable_count` and `advice()`. `SuiteRuns.listing` is still
 there, deprecated, and `None` on a projected list.
