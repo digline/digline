@@ -84,6 +84,26 @@ there, deprecated, and `None` on a projected list.
   before, is refused now (#350).
 - **The examples' caps move to `<0.27`**, as on every minor.
 
+### Fixed — a replay's judge count is read as declared, never through `int()` (#367)
+
+- **`Run.judge_samples` was read with `int(raw.get("judge_samples") or 0)`**,
+  the coercion #350 removed from `schema_version`, applied to a count. `5.9`
+  read as 5, a count the replay did not use. `0.9`, `false`, `""`, `0.0` and
+  `null` read as 0, a replay that never measured the judge's range, so the
+  report said the range was not measured. `"5"` read as 5.
+- **It is now read by `declared_integer`**: an `int` that is not a `bool`,
+  and anything else refused naming the field and the JSON type, never the
+  value. Two refusals were wrong before: `true` was refused with a sentence
+  about `1`, a value the file does not hold, and `"x"` with `int()`'s
+  message, which echoed the file's text.
+- **What did not move.** An absent key is still 0, which is how a run that
+  did not measure is written. An explicit `0` is still accepted, and so is
+  any integer. Whether a count is allowed (0, or at least 2) is still
+  `Run`'s own rule.
+- No released digline wrote a non-integer here: `run_to_dict` writes an `int`,
+  and only when it is not 0. So the document this refuses was edited by hand
+  or written by another program.
+
 ### Changed — a run-level verdict in `error` refuses promotion (#374)
 
 - **`promote` refused a run with an errored case, and promoted one whose only

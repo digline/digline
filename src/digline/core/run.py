@@ -2842,7 +2842,14 @@ def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
         resumed_at=tuple(
             str(stamp) for stamp in cast(Sequence[Any], raw.get("resumed_at") or ())
         ),
-        judge_samples=int(raw.get("judge_samples") or 0),
+        # A count read as declared, never converted into one: `int()` read 5.9
+        # as 5, and 0.9 or `false` as a replay that never measured the judge.
+        # Absent is 0, which is how `run_to_dict` writes a run that did not
+        # measure; what the count may be — 0, or at least 2 — is
+        # `__post_init__`'s rule, and it sees the number the file holds. (#367)
+        judge_samples=(
+            0 if "judge_samples" not in raw else declared_integer(raw, "judge_samples")
+        ),
         # `in`, not `.get()`: an absent key is *not recorded* and a null is a
         # malformed document, and the two must not arrive here as one value.
         usage=(None if "usage" not in raw else _run_usage_from_dict(raw["usage"])),
