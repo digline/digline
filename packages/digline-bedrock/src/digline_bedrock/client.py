@@ -30,7 +30,14 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from digline.core import Finish, canonical
-from digline.targets import Completion, Pricing, ToolCall, Usage, finish_of
+from digline.targets import (
+    Completion,
+    Pricing,
+    ToolCall,
+    UnknownModelError,
+    Usage,
+    finish_of,
+)
 
 __all__ = [
     "ACCOUNT_RE",
@@ -381,6 +388,14 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     A reply with no usage block is refused, unless the model is priced at zero
     anyway — which is to say unless you said, with `free()`, that this one is
     billed by the hour rather than by the token.
+
+    **A 1-hour cache write is refused, not priced.** `cacheDetails` splits the
+    writes by TTL, and AWS bills the 1-hour write at 1.6x the 5-minute one.
+    `Usage` has one write count with one rate behind it, so pricing those
+    tokens at the 5-minute rate would report a run as cheaper than it was. A
+    reply that reports any is refused, the way a cached read with no rate is
+    refused, and so is a TTL this plugin has never seen. A reply with no
+    `cacheDetails` is read as before. (#368)
     """
     raw_usage = reply.get("usage")
     if not isinstance(raw_usage, Mapping):
@@ -393,6 +408,7 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
             "`pricing=free(...)`"
         )
     usage = cast("Mapping[str, Any]", raw_usage)
+    _refuse_unpriced_writes(usage, model)
     reported_input = _count(usage, "inputTokens")
     cache_read = _count(usage, "cacheReadInputTokens")
     cache_write = _count(usage, "cacheWriteInputTokens")
@@ -407,6 +423,27 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
         cache_read_tokens=cache_read,
         cache_write_tokens=cache_write,
     )
+
+
+def _refuse_unpriced_writes(usage: Mapping[str, Any], model: str) -> None:
+    """Raise when `cacheDetails` reports writes at a TTL this list cannot price."""
+    details: object = usage.get("cacheDetails") or []
+    if not isinstance(details, list):
+        raise ValueError("usage.cacheDetails is not a list of cache writes")
+    for detail in cast("list[Any]", details):
+        if not isinstance(detail, Mapping):
+            raise ValueError("usage.cacheDetails holds an entry that is not a record")
+        entry = cast("Mapping[str, Any]", detail)
+        tokens = _count(entry, "inputTokens")
+        if not tokens or entry.get("ttl") == "5m":
+            continue
+        ttl = "1h" if entry.get("ttl") == "1h" else "an unknown TTL"
+        raise UnknownModelError(
+            f"model {model!r} wrote {tokens} tokens to the cache at {ttl}, and "
+            "this price list has one cache-write rate, the 5-minute one: "
+            "pricing them at it would report a run as cheaper than it was. Use "
+            "the 5-minute cache: a 1-hour write has no rate in digline yet (#368)"
+        )
 
 
 def _count(usage: Mapping[str, Any], key: str) -> int:

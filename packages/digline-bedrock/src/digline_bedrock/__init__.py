@@ -14,8 +14,8 @@ from digline.targets import Provider
 from digline_bedrock.client import BedrockCallFailed, BedrockChat, scrub
 from digline_bedrock.judge import BedrockClaimJudge, BedrockJudge
 from digline_bedrock.pricing import (
-    BASE_PRICES,
     PRICES_READ_ON,
+    SEEDED_PRICES,
     SEEDED_REGIONS,
     bedrock_pricing,
     free,
@@ -35,8 +35,8 @@ PROVIDER = Provider(
 )
 __all__ = [
     "PROVIDER",
-    "BASE_PRICES",
     "PRICES_READ_ON",
+    "SEEDED_PRICES",
     "SEEDED_REGIONS",
     "BedrockCallFailed",
     "BedrockChat",

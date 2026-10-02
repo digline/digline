@@ -160,13 +160,15 @@ def test_the_counters_accumulate_and_are_never_reset(client: FakeClient) -> None
     judge("p")
     judge("p")
     assert judge.calls == 2
-    # claude-haiku-4-5 at 1.0 per million input tokens, twice.
-    assert judge.spent_usd == pytest.approx(2.0)
+    # claude-haiku-4-5 through its `eu.` profile, at the Standard 1.10 per
+    # million input tokens, twice. This read 1.0 before #369, the global rate
+    # a geographic profile does not get. (#369)
+    assert judge.spent_usd == pytest.approx(2.2)
     assert judge.latency_ms > 0
 
     before = judge.spent_usd
     judge("p")
-    assert judge.spent_usd - before == pytest.approx(1.0)
+    assert judge.spent_usd - before == pytest.approx(1.1)
 
 
 def test_a_call_that_raises_is_not_counted(client: FakeClient) -> None:

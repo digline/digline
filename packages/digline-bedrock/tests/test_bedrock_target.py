@@ -20,10 +20,10 @@ import pytest
 from _bedrock_fakes import FakeClient, converse_reply
 
 from digline.run import Case
-from digline.targets import ModelPrice, Pricing, Usage
+from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
 from digline_bedrock import (
-    BASE_PRICES,
     PRICES_READ_ON,
+    SEEDED_PRICES,
     SEEDED_REGIONS,
     BedrockCallFailed,
     BedrockTarget,
@@ -314,11 +314,117 @@ def test_an_unseeded_region_says_it_is_the_region_that_is_missing() -> None:
         bedrock_pricing("sa-east-1")
 
 
-def test_every_seeded_region_prices_every_base_model() -> None:
+def test_each_region_is_priced_as_the_table_says() -> None:
     for region in SEEDED_REGIONS:
-        pricing = bedrock_pricing(region)
-        for model in BASE_PRICES:
-            assert pricing.knows(model), (region, model)
+        assert dict(bedrock_pricing(region).per_model) == dict(SEEDED_PRICES[region])
+
+
+US = ("us-east-1", "us-west-2")
+EU = ("eu-west-1", "eu-central-1", "eu-west-3")
+OPUS_4_1 = "anthropic.claude-opus-4-1-20250805-v1:0"
+HAIKU_3_5 = "anthropic.claude-3-5-haiku-20241022-v1:0"
+HAIKU_4_5 = "anthropic.claude-haiku-4-5-20251001-v1:0"
+SONNET_3_5_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+#: Read on 2026-10-02 from AWS's Price List API (`AmazonBedrockFoundationModels`,
+#: publication 2026-09-30T00:19:12Z), and from the pricing page for 3.5 Sonnet
+#: v2. (input, output, cache read, cache write), USD per million tokens.
+PUBLISHED: dict[tuple[str, str], tuple[float, float, float, float]] = {
+    ("us-east-1", OPUS_4_1): (15.0, 75.0, 1.50, 18.75),
+    ("us-east-1", f"us.{OPUS_4_1}"): (15.0, 75.0, 1.50, 18.75),
+    ("eu-west-1", SONNET): (3.0, 15.0, 0.30, 3.75),
+    ("eu-west-1", EU_SONNET): (3.0, 15.0, 0.30, 3.75),
+    ("eu-west-1", f"global.{SONNET}"): (3.0, 15.0, 0.30, 3.75),
+    ("eu-west-1", f"eu.{HAIKU_4_5}"): (1.10, 5.50, 0.11, 1.375),
+    ("us-west-2", f"us.{HAIKU_4_5}"): (1.10, 5.50, 0.11, 1.375),
+    ("eu-central-1", f"global.{HAIKU_4_5}"): (1.0, 5.0, 0.10, 1.25),
+    ("us-east-1", SONNET_3_5_V2): (6.0, 30.0, 0.60, 7.50),
+    ("us-west-2", f"us.{HAIKU_3_5}"): (0.80, 4.0, 0.08, 1.0),
+    ("us-east-1", "us.anthropic.claude-fable-5-1"): (11.0, 55.0, 0.275, 13.75),
+    ("eu-west-3", "global.anthropic.claude-fable-5-1"): (10.0, 50.0, 0.25, 12.50),
+    ("eu-central-1", "eu.anthropic.claude-opus-5-5"): (4.40, 22.0, 0.22, 5.50),
+    ("us-east-1", "global.anthropic.claude-opus-5-5"): (4.0, 20.0, 0.20, 5.0),
+    ("eu-west-1", "eu.anthropic.claude-sonnet-5-5"): (2.20, 11.0, 0.22, 2.75),
+    ("us-west-2", "global.anthropic.claude-sonnet-5-5"): (2.0, 10.0, 0.20, 2.50),
+}
+
+
+@pytest.mark.parametrize(("region", "model"), sorted(PUBLISHED), ids=str)
+def test_each_model_is_priced_as_published(region: str, model: str) -> None:
+    price = SEEDED_PRICES[region][model]
+    assert (
+        price.input_per_mtok,
+        price.output_per_mtok,
+        price.cache_read_per_mtok,
+        price.cache_write_per_mtok,
+    ) == PUBLISHED[(region, model)]
+
+
+@pytest.mark.parametrize("region", EU)
+@pytest.mark.parametrize("model", [OPUS_4_1, HAIKU_3_5, SONNET_3_5_V2])
+def test_a_model_aws_does_not_sell_in_a_region_is_not_priced_there(
+    region: str, model: str
+) -> None:
+    """Before #369 Opus 4.1 and 3.5 Haiku were priced in all three EU regions,
+    where AWS does not sell them, by a file whose own docstring says a figure
+    invented for a region nobody checked is worse than no figure."""
+    pricing = bedrock_pricing(region)
+    assert not pricing.knows(model)
+    assert not pricing.knows(f"eu.{model}")
+
+
+#: The models AWS bills at two prices, Standard and global (Haiku 4.5 and on).
+TWO_PRICES = [
+    HAIKU_4_5,
+    "anthropic.claude-fable-5-1",
+    "anthropic.claude-opus-5-5",
+    "anthropic.claude-sonnet-5-5",
+]
+
+
+@pytest.mark.parametrize("region", US + EU)
+@pytest.mark.parametrize("model", TWO_PRICES)
+def test_a_geographic_profile_pays_more_than_the_global_one(
+    region: str, model: str
+) -> None:
+    """From Haiku 4.5 on, `us.` and `eu.` pay Standard, and only `global.` gets
+    the ~10% saving. Before #369 Haiku 4.5's geographic profiles were priced at
+    the global rate: 10% under on every token, in the direction nobody notices.
+    Strictly more, so a geographic price copied from the global one fails."""
+    geo = SEEDED_PRICES[region].get(("us." if region in US else "eu.") + model)
+    if geo is None:
+        return  # no geographic profile here (Fable 5.1 in the EU)
+    cheaper = SEEDED_PRICES[region][f"global.{model}"]
+    assert geo.input_per_mtok > cheaper.input_per_mtok
+    assert geo.output_per_mtok > cheaper.output_per_mtok
+    assert (geo.cache_read_per_mtok or 0) > (cheaper.cache_read_per_mtok or 0)
+    assert (geo.cache_write_per_mtok or 0) > (cheaper.cache_write_per_mtok or 0)
+
+
+@pytest.mark.parametrize("region", US + EU)
+@pytest.mark.parametrize(
+    "model",
+    [
+        "anthropic.claude-fable-5-1",
+        "anthropic.claude-opus-5-5",
+        "anthropic.claude-sonnet-5-5",
+    ],
+)
+def test_a_current_model_has_no_bare_id_and_is_priced_through_its_profiles(
+    region: str, model: str
+) -> None:
+    """AWS takes none of the three bare on `bedrock-runtime` in these regions."""
+    pricing = bedrock_pricing(region)
+    assert not pricing.knows(model)
+    assert pricing.knows(f"global.{model}")
+
+
+def test_fable_5_1_has_no_eu_profile() -> None:
+    """In the EU, AWS routes Fable 5.1 through `global.` only."""
+    for region in EU:
+        assert not bedrock_pricing(region).knows("eu.anthropic.claude-fable-5-1")
+    for region in US:
+        assert bedrock_pricing(region).knows("us.anthropic.claude-fable-5-1")
 
 
 def test_an_application_inference_profile_arn_is_not_priced(
@@ -516,6 +622,57 @@ def test_text_of_and_usage_of_read_a_dict_not_an_object() -> None:
     assert text_of(reply) == "Rome."
     usage = usage_of(reply, SONNET, bedrock_pricing("eu-west-1"))
     assert usage.output_tokens == 7 and usage.cache_read_tokens == 40
+
+
+def with_cache_details(*details: dict[str, Any]) -> dict[str, Any]:
+    reply = converse_reply(
+        "Rome.",
+        input_tokens=10,
+        output_tokens=7,
+        cache_write=sum(d.get("inputTokens", 0) for d in details),
+    )
+    reply["usage"]["cacheDetails"] = list(details)
+    return reply
+
+
+def test_a_five_minute_write_is_read_and_priced_as_before() -> None:
+    reply = with_cache_details({"ttl": "5m", "inputTokens": 900})
+    usage = usage_of(reply, SONNET, bedrock_pricing("eu-west-1"))
+    assert usage.cache_write_tokens == 900
+
+
+@pytest.mark.parametrize(
+    ("details", "words"),
+    [
+        (
+            [{"ttl": "1h", "inputTokens": 600}, {"ttl": "5m", "inputTokens": 300}],
+            "wrote 600 tokens to the cache at 1h",
+        ),
+        ([{"ttl": "1d", "inputTokens": 50}], "at an unknown TTL"),
+    ],
+    ids=["one hour", "unknown"],
+)
+def test_a_write_this_list_cannot_price_is_refused(
+    details: list[dict[str, Any]], words: str
+) -> None:
+    """Before #368 every write was priced at the 5-minute rate, and AWS bills
+    the 1-hour one at 1.6x it: under on every such token. Refused by the class
+    that refuses a cached read with no rate."""
+    with pytest.raises(UnknownModelError) as refused:
+        usage_of(with_cache_details(*details), SONNET, bedrock_pricing("eu-west-1"))
+    message = str(refused.value)
+    assert words in message
+    assert SONNET in message and "#368" in message
+
+
+def test_a_reply_without_cache_details_is_read_as_before() -> None:
+    """**The limit, pinned.** AWS documents `cacheDetails` as empty when nothing
+    was written; a reply with writes and no split is read as before."""
+    reply = converse_reply("Rome.", input_tokens=10, output_tokens=7, cache_write=40)
+    assert "cacheDetails" not in reply["usage"]
+    assert (
+        usage_of(reply, SONNET, bedrock_pricing("eu-west-1")).cache_write_tokens == 40
+    )
 
 
 def test_converse_reports_no_thinking_split_and_this_plugin_says_so() -> None:
