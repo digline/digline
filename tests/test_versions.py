@@ -1208,13 +1208,7 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: sentence somebody writes and somebody reads, which is the point. What it
 #: must not become is the way to make this red go away: the red it exists for
 #: is `v0.17.0` publishing two plugins and leaving both declared unreleased.
-UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-bedrock": (
-        "0.6.1 waits for its own tag, digline-bedrock-v0.6.1, which goes on the "
-        "merge commit of its release pull request; that pull request dates the "
-        "heading and removes this entry"
-    ),
-}
+UNRELEASED_ON_PURPOSE: dict[str, str] = {}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:
