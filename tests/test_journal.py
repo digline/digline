@@ -882,3 +882,34 @@ def test_run_json_says_what_this_launch_did(project: Path) -> None:
         ]
         is False
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("journal_version", str(JOURNAL_VERSION)),
+        ("journal_version", float(JOURNAL_VERSION)),
+        ("journal_version", JOURNAL_VERSION + 0.9),
+        ("leg", True),
+        ("leg", "1"),
+    ],
+)
+def test_a_header_whose_integer_is_not_one_is_refused_by_name(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    """`int()` read `"3"` and `3.9` as journal format 3, and `true` as leg 1:
+    a header that declares neither was resumed as if it had. The refusal names
+    the field and never echoes what the file holds. (#350)"""
+    key = killed(tmp_path, a_suite(), Counting(die_at=3))
+    path = legs(tmp_path, key)[0]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    header[field] = value
+    lines[0] = json.dumps(header)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    pending = FileResultStore(tmp_path).pending(TENANT, SUITE)[0]
+
+    assert f"{field!r} is a JSON " in pending.refusal, pending.refusal
+    assert "not an integer" in pending.refusal
+    assert path.exists()

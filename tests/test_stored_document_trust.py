@@ -63,6 +63,13 @@ CRASHED: list[tuple[str, object]] = [
 ]
 
 
+#: Where a field has a refusal more precise than the shape's. A `null` version
+#: reached `int()` and was refused as a `TypeError`'s shape until #350, which
+#: reads a version as declared and names the field. The exit and the absent
+#: traceback are what finding 6 is about, and they are asserted unchanged.
+SENTENCE = {"schema_version": "'schema_version' is a JSON null, not an integer"}
+
+
 @pytest.mark.parametrize(("field", "value"), CRASHED)
 def test_a_malformed_field_is_refused_and_never_reads_as_a_regression(
     repo: Path, field: str, value: object
@@ -79,7 +86,7 @@ def test_a_malformed_field_is_refused_and_never_reads_as_a_regression(
     # when this gained a type so `digline-mcp` could translate it, and a
     # test that pins a type name fails for a rename while a test that pins
     # the sentence fails only if the refusal stops saying what it is.
-    assert "does not have the shape of a run" in done.stderr
+    assert SENTENCE.get(field, "does not have the shape of a run") in done.stderr
 
 
 @pytest.mark.parametrize("command", ["compare", "explain"])
@@ -100,9 +107,13 @@ def test_the_reader_refuses_without_a_front_end_too() -> None:
     """The rule lives in the core, where Plumbline and every driver meet it."""
     with pytest.raises(ValueError, match="not an object"):
         run_from_dict([])
-    with pytest.raises(ValueError, match="does not have the shape of a run") as caught:
+    # A `null` version was this test's shape refusal: `int(None)` raised the
+    # `TypeError` that `run_from_dict` turns into one. Since #350 the version
+    # is read as declared and refused by its own name, before any shape is
+    # read. The `TypeError` route is still walked end to end by the eight other
+    # fields of `CRASHED`, each one field away from a valid document.
+    with pytest.raises(ValueError, match="'schema_version' is a JSON null"):
         run_from_dict({"schema_version": None})
-    assert isinstance(caught.value.__cause__, TypeError)
 
 
 def test_migrate_lists_a_malformed_document_as_refused_and_carries_on(

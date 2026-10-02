@@ -48,6 +48,8 @@ from digline.core.run import (
     case_to_dict,
     config_from_dict,
     config_to_dict,
+    declared_integer,
+    declared_version,
     key_of,
     run_from_json,
     run_to_json,
@@ -294,7 +296,15 @@ class FileResultStore:
             # `json.loads` returns `Any`; narrowing once here is what keeps the
             # rest of the loop checkable.
             document = cast(Mapping[str, object], raw)
-            version = int(cast(int, document.get("schema_version", 0)))
+            try:
+                version = declared_version(document)
+            except ValueError:
+                # A version that is not an integer has no schema to be counted
+                # under and nothing that recovers it, so `skipped` — whose
+                # advice points at `migrate` or an upgrade — would be false.
+                # It is a document this version cannot place. (#350)
+                unreadable.append(path.name)
+                continue
             if version == SCHEMA_VERSION:
                 keep.append(RunRef(tenant=tenant, suite=suite, key=path.stem))
             else:
@@ -1092,8 +1102,9 @@ def _header_from_dict(raw: Mapping[str, object]) -> JournalHeader:
         judge_config=config_from_dict(
             cast(Mapping[str, object], raw.get("judge_config") or {}), "judge_config"
         ),
-        journal_version=int(cast(int, raw["journal_version"])),
-        leg=int(cast(int, raw["leg"])),
+        # Declared, not converted: `int()` read "3" and 3.9 as format 3. (#350)
+        journal_version=declared_integer(raw, "journal_version"),
+        leg=declared_integer(raw, "leg"),
     )
 
 

@@ -35,6 +35,49 @@ notes under them are this file, verbatim.
 - Not here: on a projected list, `SuiteRuns.listing` still carries file names
   (#362).
 
+### Fixed — a version is read as declared, never through `int()` (#350)
+
+- **A run declaring `18.9` or `"18"` was read as a current run.** The reader
+  turned `schema_version` into an integer with `int()`, so `18.0`, `18.9` and
+  `"18"` all read as schema 18, and the file could be listed, compared and
+  promoted as a run this version understands. Nothing said so. It is refused
+  now, by the reader itself, and `read_run` names why.
+- **One such file no longer fails every list of its suite.** `scan_runs` read
+  the version outside its handler: `"x"` raised `ValueError`, and `null` or a
+  list raised `TypeError`. With `null`, `digline list` exited **1** with a
+  traceback. `1` is `EXIT_WORSE`, so a crash read as a verdict. `digline view`
+  closed the connection. `log`, MCP and `--run latest` failed the same way,
+  which was read from their code and not run: each calls `scan_runs` first.
+  The scan now counts the file as **unreadable**:
+  `ignored: 1 unreadable file(s)`, and the rest of the list stands.
+- **`1.5` and `true` are no longer counted under schema 1.** `int()` made them
+  1, so the listing said *1 run(s) at schema 1* and advised `digline migrate`,
+  which then refused by naming what schema 1 lacks. They are unreadable too,
+  and no advice is given, because nothing recovers them.
+- **Why *unreadable* and not *skipped*.** `skipped` counts by a schema the file
+  declares, and `advice()` points at `migrate` or at an upgrade. Neither
+  recovers a version that is not an integer, so either sentence would be false.
+  A third count would have moved `OUTPUT_VERSION` to tell apart two things
+  nobody can act on differently.
+- **The rule is one function, read in four places.** `declared_integer` and
+  `declared_version` in `digline.core.run` (not in `__all__`) accept an `int`
+  that is not a `bool` and refuse anything else. They are read by the reader,
+  `migrate`, the scan, and the journal header's `journal_version` and `leg`,
+  where `int()` read `"3"` and `3.9` as journal format 3. The refusal names the
+  field and the value's JSON type, **never the value**, because the value is
+  text from a file and would reach a terminal and a page.
+- **This is a change you can see** only on a file digline did not write.
+  digline has always written the version as an integer. A file edited by hand
+  or written by another tool, run or baseline, that declares `18.0` was read
+  before and is refused now.
+- **`view`'s fallback after a promotion has no store-made trigger left.** Its
+  two tests broke the list with this defect. They now inject the fault into
+  the server's process and assert that the injected sentence reaches the page.
+  The fallback stays: it is for a list that raises after a write *anyway*.
+  **Declared, not ruled:** it catches `REFUSALS` and `ValueError`, which is
+  narrower than its docstring's *whatever the list does*. That narrower catch
+  is why `null` closed the connection.
+
 ### Documented — the tenant directory gives addressing, not access (#140); the resolver's row (#354)
 
 - **Five more places said the filesystem enforces the *separation* between
