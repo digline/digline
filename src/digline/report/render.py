@@ -39,6 +39,7 @@ from digline.core import (
     checked_denominator,
     considered_cases,
     directions,
+    is_token,
     key_of,
     misnamed,
     on_the_line,
@@ -333,8 +334,8 @@ def _change(delta: ConfigDelta, locale: Locale) -> str:
     # either side. `changed` needs no variant — a value that moved reads the
     # same however it was learnt. (ADR 0005 §9)
     key = f"config.change.{delta.outcome}"
-    if delta.outcome != "changed" and delta.field in OBSERVED_FIELDS:
-        key += ".observed"
+    if delta.outcome != "changed":
+        key += field_verb(delta.field)
     return phrase(
         locale,
         key,
@@ -342,6 +343,30 @@ def _change(delta: ConfigDelta, locale: Locale) -> str:
         before=fmt_value(delta.before),
         after=fmt_value(delta.after),
     )
+
+
+def field_verb(field: str) -> str:
+    """The suffix that picks how a configuration field was learnt: reported,
+    not knowable, or sent.
+
+    `.observed` for a field the provider *reported* (`OBSERVED_FIELDS`), `""`
+    for one the suite *sent*, and **`.recorded` where the key is a token.** On a
+    projected document every key is one, so which of the two it was cannot be
+    told, and "recorded" is the verb that is true of both. Without that branch
+    the lookup missed and the sentence for a sent field was used, which is false
+    of a reported one (#275). A key in clear that merely has a token's form gets
+    "recorded" too: less than could be said, and still true.
+
+    The verb depends on the regime, and that is the price of the distinction.
+    One verb everywhere would be true, and would lose what ADR 0005 §9 and ADR
+    0020 ruled worth saying in clear. Every branch is true. `explain.py` picks
+    its verb off this function too.
+    """
+    if field in OBSERVED_FIELDS:
+        return ".observed"
+    if is_token(field):
+        return ".recorded"
+    return ""
 
 
 def config_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
@@ -1272,12 +1297,23 @@ def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> 
     as one: a run compared against a baseline that predates the record says so,
     which is a different sentence from "it moved" and from "it did not".
 
-    **Nor is a withheld identity an unchanged one.** At a named endpoint the
-    answering model is a perimeter field and is withheld inside the comparison,
-    so every declared field can match while the model behind the endpoint
-    changed. "The same configuration" there was a withheld identity read as
-    confirmation; the sentence now says what is known and what is not, and
-    reveals nothing about the withheld value in doing so.
+    **Nor is a withheld field an unchanged one.** A perimeter field is withheld
+    inside the comparison, so every declared field can match while what is
+    behind it changed: the answering model at a named endpoint, the endpoint
+    itself, a fingerprint. "The same configuration" there was a withheld field
+    read as confirmation; the sentence says what is known and what is not, and
+    reveals nothing about the withheld values in doing so.
+
+    **It counts the withheld fields and does not name them**, and that is what
+    makes it true on a projected document as well as in clear. It used to say
+    "the answering model is withheld", chosen by finding a withheld field in
+    `OBSERVED_FIELDS`. Projected, the key is a token, the lookup missed, and a
+    model that changed behind a named endpoint read as "the same
+    configuration" (#275). In clear the same lookup was wrong twice: a moved
+    `base_url` is not in the set, so "the same configuration" was said over it,
+    and a withheld `fingerprint` is, so "the answering model is withheld" was
+    said with the answering model in clear beside it. **The price** is in clear
+    at a named endpoint: a count where the answering model used to be named.
     """
     if not deltas:
         return ""
@@ -1286,10 +1322,11 @@ def _config_fact(deltas: Sequence[ConfigDelta], locale: Locale, *, key: str) -> 
         return phrase(locale, f"fact.{key}.changed", changes=changes)
     if all(delta.outcome == "unknown" for delta in deltas):
         return phrase(locale, f"fact.{key}.unknown")
-    if key == "target_config" and any(
-        delta.withheld and delta.field in OBSERVED_FIELDS for delta in deltas
-    ):
-        return phrase(locale, f"fact.{key}.withheld_identity")
+    withheld = sum(1 for delta in deltas if delta.withheld)
+    if key == "target_config" and withheld == 1:
+        return phrase(locale, f"fact.{key}.withheld.one")
+    if key == "target_config" and withheld:
+        return phrase(locale, f"fact.{key}.withheld.many", count=withheld)
     return phrase(locale, f"fact.{key}.unchanged")
 
 

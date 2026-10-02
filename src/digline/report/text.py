@@ -289,12 +289,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The configuration of the system under test is not recorded on "
             "both sides, so whether it changed is not known."
         ),
-        # Never "the same configuration" over an identity that was withheld: a
-        # withheld answering model is not an unchanged one, and saying so would
-        # be the report asserting what it does not know.
-        "fact.target_config.withheld_identity": (
+        # Never "the same configuration" over a field that was withheld: a
+        # withheld field is not an unchanged one, and saying so would be the
+        # report asserting what it does not know. Counted and not named, because
+        # a count is true in clear and on a projected document alike, where the
+        # name is a token and which field it is cannot be told. (#275)
+        "fact.target_config.withheld.one": (
             "The system under test answered under the same declared "
-            "configuration; the answering model is withheld, so whether it "
+            "configuration; 1 of its fields is withheld, so whether it changed "
+            "is not known."
+        ),
+        "fact.target_config.withheld.many": (
+            "The system under test answered under the same declared "
+            "configuration; {count} of its fields are withheld, so whether they "
             "changed is not known."
         ),
         # An absence disguised as a presence, stated as a fact: the endpoint
@@ -385,6 +392,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{field} {after}, not reported for the reference"
         ),
         "config.change.missing.observed": "{field} {before}, no longer reported",
+        # A token's field may have been either, so the verb is the one true of
+        # both: on a projected document every key is a token. (#275)
+        "config.change.new.recorded": (
+            "{field} {after}, not recorded for the reference"
+        ),
+        "config.change.missing.recorded": "{field} {before}, no longer recorded",
         "config.judge.added": "{judge} was added as a judge",
         "config.judge.removed": "{judge} no longer judges",
         "config.coincides": " This drop coincides with {changes}.",
@@ -901,6 +914,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The system under test reported {name} {after}; the reference "
             "reported {before}."
         ),
+        # `.recorded`: the name is a token, so whether it was sent or reported
+        # cannot be told, and "recorded" is true of both. (#275)
+        "explain.setting.target.changed.recorded": (
+            "The system under test recorded {name} {after}; the reference "
+            "recorded {before}."
+        ),
         "explain.setting.target.new": (
             "The system under test recorded {name} {after}, which the "
             "reference did not record."
@@ -919,6 +938,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.setting.judge.changed.observed": (
             "The judge reported {name} {after}; the reference's judge "
             "reported {before}."
+        ),
+        "explain.setting.judge.changed.recorded": (
+            "The judge recorded {name} {after}; the reference's judge "
+            "recorded {before}."
         ),
         "explain.setting.judge.new": (
             "The judge recorded {name} {after}, which the reference did not record."
@@ -995,6 +1018,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The judge was configured with {name} {after}."
         ),
         "explain.setting.judge.alone.observed": ("The judge reported {name} {after}."),
+        "explain.setting.target.alone.recorded": (
+            "The system under test recorded {name} {after}."
+        ),
+        "explain.setting.judge.alone.recorded": ("The judge recorded {name} {after}."),
         "explain.setting.target.alone.withheld": (
             "The system under test recorded {name}; the value is not included."
         ),
@@ -1425,10 +1452,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "La configurazione del sistema in prova non è registrata da "
             "entrambe le parti, quindi non si sa se sia cambiata."
         ),
-        "fact.target_config.withheld_identity": (
+        "fact.target_config.withheld.one": (
             "Il sistema in prova ha risposto con la stessa configurazione "
-            "dichiarata; il modello che ha risposto è trattenuto, quindi non si "
-            "sa se sia cambiato."
+            "dichiarata; 1 dei suoi campi è trattenuto, quindi non si sa se sia "
+            "cambiato."
+        ),
+        "fact.target_config.withheld.many": (
+            "Il sistema in prova ha risposto con la stessa configurazione "
+            "dichiarata; {count} dei suoi campi sono trattenuti, quindi non si "
+            "sa se siano cambiati."
         ),
         "fact.target_config.echoed": (
             "L'endpoint ha restituito l'id richiesto, {model}, come modello che "
@@ -1514,6 +1546,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{field} {after}, non riportato per il riferimento"
         ),
         "config.change.missing.observed": "{field} {before}, non più riportato",
+        "config.change.new.recorded": (
+            "{field} {after}, non registrato per il riferimento"
+        ),
+        "config.change.missing.recorded": "{field} {before}, non più registrato",
         "config.judge.added": "{judge} è stato aggiunto come giudice",
         "config.judge.removed": "{judge} non giudica più",
         "config.coincides": " Questo calo coincide con {changes}.",
@@ -2019,6 +2055,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Il sistema sotto esame ha riportato {name} {after}; il "
             "riferimento ha riportato {before}."
         ),
+        "explain.setting.target.changed.recorded": (
+            "Il sistema sotto esame ha registrato {name} {after}; il "
+            "riferimento ha registrato {before}."
+        ),
         "explain.setting.target.new": (
             "Il sistema sotto esame ha registrato {name} {after}, che il "
             "riferimento non registrava."
@@ -2038,6 +2078,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.setting.judge.changed.observed": (
             "Il giudice ha riportato {name} {after}; il giudice del "
             "riferimento ha riportato {before}."
+        ),
+        "explain.setting.judge.changed.recorded": (
+            "Il giudice ha registrato {name} {after}; il giudice del "
+            "riferimento ha registrato {before}."
         ),
         "explain.setting.judge.new": (
             "Il giudice ha registrato {name} {after}, che il riferimento non "
@@ -2112,6 +2156,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.setting.judge.alone.observed": (
             "Il giudice ha riportato {name} {after}."
+        ),
+        "explain.setting.target.alone.recorded": (
+            "Il sistema sotto esame ha registrato {name} {after}."
+        ),
+        "explain.setting.judge.alone.recorded": (
+            "Il giudice ha registrato {name} {after}."
         ),
         "explain.setting.target.alone.withheld": (
             "Il sistema sotto esame ha registrato {name}; il valore non è incluso."

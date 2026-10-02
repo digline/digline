@@ -316,6 +316,36 @@ its check off.
 - **The limit 0.26.0 wrote on the API page is gone**, because it is no longer
   true. 0.26.0's own entry still states it, and of 0.26.0 it is true.
 
+### Fixed — a withheld field no longer reads as the same configuration, and a token's field is "recorded" (#275)
+
+- **On a comparison of two projections, a model that changed behind a named
+  endpoint read as *"the same configuration as the reference"*.** The
+  headline chose its sentence by finding a withheld field in
+  `OBSERVED_FIELDS`. On a projected document every configuration key is a
+  token, so the lookup missed. That falsely confirmed an identity, the same
+  defect 0.12.1 had repaired in clear.
+- **The same lookup was wrong in clear, twice.** A `base_url` that moved is
+  withheld and is not in the set, so the endpoint moved and the headline
+  said *"the same configuration"*. A withheld `fingerprint` is in the set, so
+  the headline said *"the answering model is withheld"* while the answering
+  model was in clear beside it.
+- **The headline now counts the withheld fields and names none**: *"the same
+  declared configuration; 2 of its fields are withheld, so whether they
+  changed is not known"*. That is true in clear and projected alike. **The
+  price**, in clear at a named endpoint: a count stands where the answering
+  model used to be named.
+- **On a projected document, the report and `explain` said a field the
+  provider reported was *"not sent for the reference"* or *"configured
+  with"*.** Where the key is a token, the verb is now *"recorded"*, which is
+  true of a sent field and of a reported one. In clear, a reported field
+  still says *reported* and a sent one *sent* or *configured*, as ADR 0005
+  §9 and ADR 0020 ruled. The verb depends on the regime because one verb
+  everywhere would lose that distinction, and every branch is true.
+- **Not changed:** on a projection, the *"echoed"* clause still drops
+  without a word, because the key it looks up is a token. Nothing false is
+  said there, and what a reader at the software house loses is ADR 0034
+  §15's question.
+
 ### Changed — the JSON contract is a table a test reads (#312)
 
 - **Until now one `--json` builder of twenty-three had its keys pinned**:
