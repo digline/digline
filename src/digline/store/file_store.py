@@ -50,6 +50,7 @@ from digline.core.run import (
     case_to_dict,
     config_from_dict,
     config_to_dict,
+    declared_boolean,
     declared_integer,
     declared_version,
     key_of,
@@ -1125,7 +1126,9 @@ def _header_from_dict(raw: Mapping[str, object]) -> JournalHeader:
         created_at=str(raw["created_at"]),
         started_at=str(raw["started_at"]),
         digline_version=str(raw["digline_version"]),
-        record_responses=bool(raw["record_responses"]),
+        # Declared, not converted: `bool("false")` is true, and a resumed run
+        # would have recorded answers the run it continues did not. (#379)
+        record_responses=declared_boolean(raw, "record_responses", "journal header"),
         git_commit=None if commit is None else str(commit),
         pinned=tuple(
             sorted(
