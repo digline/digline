@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -562,6 +563,70 @@ def test_the_scrubbed_message_is_what_reaches_the_verdicts(
     reasons = [v.reason for r in run.results for v in r.verdicts]
     assert reasons, "the driver produced no verdict to inspect"
     for reason in reasons:
+        assert "arn:aws" not in reason and "123456789012" not in reason
+
+
+#: An application inference profile: an ARN, and the customer's account in it.
+PROFILE_ARN = "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc"
+
+
+def one_hour_write() -> dict[str, Any]:
+    reply = converse_reply("Rome.", input_tokens=10, output_tokens=5, cache_write=100)
+    reply["usage"]["cacheDetails"] = [{"ttl": "1h", "inputTokens": 100}]
+    return reply
+
+
+def no_usage() -> dict[str, Any]:
+    return converse_reply("Rome.", usage=False)
+
+
+@pytest.mark.parametrize(
+    ("reply", "refusal"),
+    [(one_hour_write, UnknownModelError), (no_usage, ValueError)],
+    ids=["one-hour write", "no usage"],
+)
+def test_a_refusal_of_the_reply_does_not_carry_the_account_to_the_verdicts(
+    prompt: Path,
+    client: FakeClient,
+    reply: Callable[[], dict[str, Any]],
+    refusal: type[Exception],
+) -> None:
+    """F-1 of the delta-pass over 0.6.0. `complete` scrubbed what the API
+    raised, but the refusals of a reply are raised after that, and both quote
+    the model, which for an application inference profile is an ARN carrying
+    the customer's account. They reached every verdict's reason, and the run
+    file, in clear. The class is kept: a 1-hour write is still refused as
+    `UnknownModelError`, and a missing usage block as `ValueError`."""
+    from digline.core import Contains
+    from digline.run import Suite, execute
+
+    client.reply = reply()
+    target = BedrockTarget(
+        prompt,
+        PROFILE_ARN,
+        64,
+        client=client,
+        pricing=bedrock_pricing("eu-west-1").override(
+            PROFILE_ARN, ModelPrice(3.0, 15.0, 0.30, 3.75)
+        ),
+    )
+    with pytest.raises(refusal) as caught:
+        target(a_case())
+    assert "123456789012" not in str(caught.value)
+    assert "123456789012" in str(caught.value.__cause__)
+
+    suite = Suite(
+        tenant="t",
+        environment="test",
+        name="s",
+        assertions=[Contains("Rome")],
+        cases=[a_case()],
+    )
+    run = execute(suite, target, created_at="2026-10-02T00:00:00Z")
+    reasons = [v.reason for r in run.results for v in r.verdicts]
+    assert reasons, "the driver produced no verdict to inspect"
+    for reason in reasons:
+        assert refusal.__name__ in reason
         assert "arn:aws" not in reason and "123456789012" not in reason
 
 
