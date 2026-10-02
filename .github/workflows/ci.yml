@@ -46,7 +46,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.12", "3.13"]
+        # Every version `pyproject.toml` declares, and no fewer. 3.14 was a
+        # classifier with no gate, and a defect that exists only there was
+        # found by accident: its `exists()` answers False inside a directory
+        # nobody can search, where 3.12 and 3.13 raise, so an unreadable
+        # baseline read as no baseline (#365). A declared version nothing
+        # runs is a claim nothing checks.
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
