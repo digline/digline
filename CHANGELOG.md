@@ -55,7 +55,7 @@ Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
 - Nothing yet notices a stale list. A scheduled comparison with the source is
   proposed and not built (#370).
 
-## 0.26.0 — unreleased
+## 0.26.0 — 2026-10-02
 
 digline **0.26.0**, with **`digline-mcp` 0.4.3** on the same tag. **A minor,
 because a run that could be promoted on 0.25.3 can be refused now**: a run
@@ -313,7 +313,40 @@ there, deprecated, and `None` on a projected list.
   `Verdict.judged` is named beside them.
 - **Nothing in the code moved.** Every name was already exported.
 
-## digline-mcp 0.4.3 — unreleased
+### Seen working in a browser — the walkthrough, owed and run
+
+- **The walkthrough in `RELEASING.md` ran on 2026-10-02, before the tag,**
+  between about 09:17 and 09:25 UTC, in Safari on macOS, on `a453844`, in one
+  browser engine. It was owed because the page that carries the promote form
+  now reads its rows and its baseline through `suite_runs` (#314), and the
+  store refuses a promotion it allowed before (#374). The launch key, the
+  hand-over and the form did not change.
+  - **Which digline ran:** `digline.__file__` resolved to the release
+    checkout's `src/digline/`, and the promoted document says
+    `digline_version` 0.26.0.
+  - **The page read through `suite_runs` showed what was there:** three runs,
+    the baseline on the oldest, and no line under the list, which is right
+    for a store where nothing was left out.
+  - **The promotion worked.** *Make baseline*, pressed on the newest row,
+    moved the baseline to it. `git diff` on the committed baseline showed the
+    move, with `promoted_at` in microseconds and `projected: false`.
+  - **Four refusals, each a 403 with its own cause:**
+    - no cookie, in a private window;
+    - a cookie from an earlier start, after a restart;
+    - an address already opened, reopened in a private window;
+    - the button behind that address, with no cookie.
+
+    The baseline did not move after any of the four.
+  - **Not tried: #374's refusal, which is what is new in this release.** The
+    store had no run with a run-level verdict in `error`, because the
+    quickstart suite declares no aggregate. So no browser has seen `view`'s
+    promote button refused on such a row. The refusal is the store's, and
+    `tests/test_promotion_refusals.py` covers it. `ErroredRunError` is in
+    `digline.host.REFUSALS`, which `view` catches whole and shows as a
+    refusal, and that was read in the code, not seen in a browser.
+  - **Not tried:** a second browser engine.
+
+## digline-mcp 0.4.3 — 2026-10-02
 
 Published by digline's `v0.26.0` tag, with the core.
 
