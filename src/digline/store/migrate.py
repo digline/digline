@@ -30,6 +30,7 @@ from typing import Any, cast
 from digline.core.run import (
     SCHEMA_VERSION,
     DocumentRefusedError,
+    declared_version,
     run_from_dict,
     run_to_json,
 )
@@ -383,8 +384,10 @@ _NON_ADDITIVE: Mapping[int, str] = {
 
 
 def document_version(raw: Mapping[str, Any]) -> int:
-    """The schema a document declares. `0` when it declares none."""
-    return int(raw.get("schema_version", 0))
+    """The schema a document declares. `0` when it declares none, and a
+    `DocumentRefusedError` when what it declares is not an integer — never the
+    integer `int()` would make of it (#350)."""
+    return declared_version(raw)
 
 
 def upgrade_document(raw: Mapping[str, Any]) -> dict[str, Any]:

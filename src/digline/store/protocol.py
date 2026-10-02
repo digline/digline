@@ -285,7 +285,10 @@ class Listing:
     runs: tuple[RunRef, ...]
     #: schema version -> how many files carried it. Never emptied silently.
     skipped: Mapping[int, int] = field(default_factory=dict[int, int])
-    #: Files that are not readable JSON at all. Not a schema question.
+    #: Files this version cannot place: not JSON, not an object, outside the
+    #: store, or declaring a `schema_version` that is not an integer. Not a
+    #: schema question, because nothing — `migrate` or an upgrade — recovers
+    #: them, so `advice()` has nothing true to say about them. (#350)
     unreadable: tuple[str, ...] = ()
 
     @property
