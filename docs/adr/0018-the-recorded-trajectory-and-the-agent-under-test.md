@@ -21,6 +21,10 @@
   schema 13, justified by the train, not by the refusal. digline-anthropic
   0.5.1 shipped the plugin half first. Added rather than a new ADR on the first amendment's
   test: it fills in what §1's `tool` never said and overturns nothing
+- Amended: 2026-10-02 — **§2's "payload-free" gains a dated note beside it,
+  and the text is kept as written.** It repeated ADR 0015 §5's sentence, which
+  is corrected the same day: a promoted baseline holds no recorded answer and
+  no trajectory, and it keeps every `reason` (#391)
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
   payload stays where it is born, the verdict travels);
   [ADR 0004](0004-every-plugin-is-a-target-and-a-judge.md) §6 ("the names, not
@@ -438,6 +442,13 @@ through `without_responses`, so the one committed artifact in this product stays
 payload-free. A trajectory placed there inherits all of it and **adds no
 mechanism**. There is no new flag, no new disclosure, and no new question to get
 wrong at a boundary.
+
+*Corrected 2026-10-02, the paragraph above kept as written.* "The one
+committed artifact in this product stays payload-free" repeats ADR 0015 §5,
+and is corrected the same way there. What holds is what this section relies
+on: `promote_baseline` strips `RecordedResponse`, so no recorded answer and no
+trajectory is committed. The baseline is not payload-free, because promotion
+keeps every `reason`, which ADR 0002 §2 names as payload (#391).
 
 `Score.metadata` is the wrong home for the mirror-image reason. It is the bag
 that *is* projected onto the wire, filtered by `disclosure.score_metadata`, so

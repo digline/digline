@@ -131,6 +131,21 @@ released digline could read. Nothing to migrate, no schema change,
   refusal is expected wherever `os.scandir` refuses. Root is expected to read
   a mode-`000` directory on Linux, and then there is nothing to refuse.
 
+### Documented — a promoted baseline holds no recorded answer, and keeps every reason (#391)
+
+- **ADR 0015 §5 called the committed baseline *payload-free*.** Promotion
+  strips the recorded answers, and that holds. It keeps every verdict's
+  `reason`, which ADR 0002 §2 names as payload: a plain run promoted on
+  `8db9602` committed `"redacted": false` with its reason intact. §5 now has a
+  dated note beside the sentence, which is kept as written, saying what it
+  claimed, what is true and what is not.
+- **ADR 0018 §2 repeated the sentence**, and has the same note. A search of the
+  ADRs, `CLAUDE.md`, `docs/`, the READMEs and the code found no other place
+  that says it; *payload-free* appears in no docstring.
+- Nothing in the code moved. In world 1 the baseline stays inside the
+  developer's perimeter, and ADR 0034 already closes the software house's shape
+  by committing a projection of the reference.
+
 ## digline-anthropic 0.5.4 — 2026-10-02
 
 Published by its own tag, `digline-anthropic-v0.5.4`. The core does not move.
