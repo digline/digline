@@ -20,8 +20,8 @@ Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
 **Open, not ruled: whether the criterion measures only what breaks.** Raised
-on 2026-10-01, cutting 0.25.2. Its heading had been opened as
-`0.26.0 — unreleased` with no reason recorded. The diff against `v0.25.1`
+on 2026-10-01, cutting 0.25.2. Its heading had been opened as the next
+minor, `— unreleased`, with no reason recorded. The diff against `v0.25.1`
 showed:
 - no schema change and no CLI change;
 - no public name removed, and three added;
@@ -223,7 +223,6 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | `list_runs` passes `note`, `refused` and `baseline_unreadable` to `runs_json` (#314, #349). Against any core released before them the call raises `TypeError`. | this release | replace the *Owed at the cut* paragraph beside the floor with the reason the floor moved, and give `digline-mcp` a release of its own on this tag |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

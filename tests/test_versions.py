@@ -328,6 +328,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.25.3": (
+            "the release whose index-race status is recorded: the capture's first "
+            "divergence, the tag message checked before the tag, the installed "
+            "versions and the seven locks; and the release whose public field "
+            "missed by the diff of the `__all__`s is why the delta-pass reads "
+            "dataclass fields. Facts about a release that shipped"
+        ),
         "0.25.2": (
             "the release whose cut raised the open question on the version "
             "criterion, and whose index-race status is recorded: the first read "
@@ -340,11 +347,6 @@ RECORDED: dict[str, dict[str, str]] = {
             "the tag it was diffed against, and the release the index-race "
             "status, the 2026-10-01 delta-pass rules and their first pass are "
             "recorded for. Every one is a fact about a release that shipped"
-        ),
-        "0.26.0": (
-            "the number 0.25.2's heading was first opened under with no reason "
-            "recorded, told as the start of the open question: a number that "
-            "was never released"
         ),
         "0.2.1": (
             "pytest-digline's version that 1653ce6's type-only change rode, "
