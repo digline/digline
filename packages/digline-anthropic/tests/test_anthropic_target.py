@@ -17,7 +17,7 @@ from typing import Any, cast
 import pytest
 
 from digline.run import Case
-from digline.targets import ModelPrice, Pricing, Usage
+from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
 from digline_anthropic.client import tool_calls_of, tools_of, usage_of
 
@@ -56,6 +56,17 @@ class FakeUsage:
     #: shape a reply without the split gives. The fake keeps them the same on
     #: purpose: the plugin cannot tell them apart and must not pretend to.
     output_tokens_details: object | None = None
+    #: `anthropic.types.CacheCreation`, the split of the writes by duration.
+    #: `None` is a reply without it, which is what an older SDK gives.
+    cache_creation: object | None = None
+
+
+@dataclass
+class FakeCacheCreation:
+    """`anthropic.types.CacheCreation`, read off the SDK the workspace pins."""
+
+    ephemeral_5m_input_tokens: int = 0
+    ephemeral_1h_input_tokens: int = 0
 
 
 @dataclass
@@ -197,6 +208,57 @@ def test_cached_reads_are_counted_and_priced(prompt: Path) -> None:
     response = target(Case(id="it", vars={"country": "Italy"}))
     assert response.cost_usd == pytest.approx(0.20)  # Sonnet 5, $0.20 per MTok read
     assert response.metadata["cache_read_tokens"] == 1_000_000
+
+
+def test_a_five_minute_write_is_priced_at_the_five_minute_rate(prompt: Path) -> None:
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=0,
+            output_tokens=0,
+            cache_creation_input_tokens=1_000_000,
+            cache_creation=FakeCacheCreation(ephemeral_5m_input_tokens=1_000_000),
+        ),
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd == pytest.approx(2.50)  # Sonnet 5, $2.50 per MTok
+
+
+def test_a_one_hour_write_is_refused_rather_than_priced_low(prompt: Path) -> None:
+    """Before #368 these tokens were priced at the 5-minute rate, 1.25x the
+    input, when Anthropic bills them at 2x: 37.5% under on every one of them,
+    which a `CostBudget` reads as good news. Refused the way a cached read with
+    no rate is refused, by the same class."""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=10,
+            output_tokens=10,
+            cache_creation_input_tokens=1500,
+            cache_creation=FakeCacheCreation(
+                ephemeral_5m_input_tokens=500, ephemeral_1h_input_tokens=1000
+            ),
+        ),
+    )
+    with pytest.raises(UnknownModelError) as refused:
+        target(Case(id="it", vars={"country": "Italy"}))
+    message = str(refused.value)
+    assert "wrote 1000 tokens to the 1-hour cache" in message
+    assert "claude-fake-1-20260101" in message
+    assert "#368" in message
+
+
+def test_a_reply_without_the_split_is_priced_as_before() -> None:
+    """**The limit, pinned.** With no `cache_creation` the plugin cannot tell a
+    1-hour write from a 5-minute one, and reads them as before. The pinned SDK
+    carries the split; an older one does not."""
+    reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(input_tokens=0, output_tokens=0, cache_creation_input_tokens=7),
+    )
+    assert usage_of(reply).cache_write_tokens == 7
 
 
 def test_preflight_refuses_a_model_the_list_does_not_carry(prompt: Path) -> None:

@@ -4,7 +4,9 @@
 
 Cache **writes** are billed at 1.25x the input rate and are counted separately:
 the API does not fold them into `input_tokens` (friction 25). That is the
-5-minute rate. A 1-hour write costs 2x and is priced here at 1.25x (#368).
+5-minute rate. A 1-hour write costs 2x, and this list has no rate for it: a
+reply that reports one is refused by `usage_of` rather than priced at 1.25x,
+which under-counted those tokens by 37.5% before #368.
 
 That date is the first line of this file on purpose. A price list is a fact
 about a day, and the only honest thing a copy of one can carry is when it was

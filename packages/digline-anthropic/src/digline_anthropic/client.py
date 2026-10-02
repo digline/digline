@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 from digline.core import Finish
-from digline.targets import Completion, ToolCall, Usage, finish_of
+from digline.targets import Completion, ToolCall, UnknownModelError, Usage, finish_of
 
 __all__ = [
     "FINISH",
@@ -80,8 +80,30 @@ def usage_of(reply: Any) -> Usage:
     against the API on 2026-08-27: a call that wrote a 9202-token cache
     reported `input_tokens=10`. Reading only `input_tokens` there prices the
     call at a thousandth of what it cost. (friction 25)
+
+    **A 1-hour cache write is refused, not priced.** Anthropic bills it at 2x
+    the input rate, against 1.25x for the 5-minute write, and `Usage` has one
+    write count with one rate behind it. Pricing it at the 5-minute rate
+    under-counts those tokens by 37.5%, which a `CostBudget` reads as good
+    news. So a reply that reports any is refused, the way a cached read with no
+    rate is refused: *this cannot be priced* is true, and a number would not be.
+    (#368)
+
+    **What this cannot see.** The split lives in `usage.cache_creation`, which
+    the SDK the workspace pins carries. A reply without it — an older
+    SDK, or an API that did not send one — is read as before, every write at
+    the 5-minute rate.
     """
     usage = reply.usage
+    one_hour = _one_hour_writes(usage)
+    if one_hour:
+        raise UnknownModelError(
+            f"model {str(getattr(reply, 'model', '') or '?')!r} wrote {one_hour} "
+            "tokens to the 1-hour cache, which costs 2x the input rate, and this "
+            "price list has one cache-write rate, the 5-minute one: pricing "
+            "them at it would report a run as cheaper than it was. Use the "
+            "5-minute cache: the 1-hour write has no rate in digline yet (#368)"
+        )
     return Usage(
         input_tokens=int(getattr(usage, "input_tokens", 0)),
         output_tokens=int(getattr(usage, "output_tokens", 0)),
@@ -89,6 +111,14 @@ def usage_of(reply: Any) -> Usage:
         cache_write_tokens=int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
         thinking_tokens=_thinking(usage),
     )
+
+
+def _one_hour_writes(usage: Any) -> int:
+    """The tokens written to the 1-hour cache, or 0 when the reply has no split."""
+    split = getattr(usage, "cache_creation", None)
+    if split is None:
+        return 0
+    return int(getattr(split, "ephemeral_1h_input_tokens", 0) or 0)
 
 
 def _thinking(usage: Any) -> int | None:

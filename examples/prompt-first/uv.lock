@@ -69,7 +69,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "digline", specifier = ">=0.20,<0.27" },
-    { name = "digline-anthropic", specifier = ">=0.4,<0.6" },
+    { name = "digline-anthropic", specifier = ">=0.4,<0.7" },
 ]
 
 [package.metadata.requires-dev]
