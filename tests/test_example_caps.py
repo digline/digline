@@ -191,6 +191,7 @@ RELEASED: dict[str, int] = {
     "0.25.2": 18,
     "0.25.3": 18,
     "0.26.0": 18,
+    "0.27.0": 18,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
