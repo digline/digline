@@ -2088,28 +2088,23 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
     # refused by `Score` rather than repaired here: the missing half is not
     # derivable, and a noise floor quietly built from one end would admit
     # movement in a direction nobody measured.
-    raw_samples = raw.get("samples")
-    samples = (
-        ()
-        if raw_samples is None
-        else tuple(float(value) for value in cast(Sequence[Any], raw_samples))
-    )
+    samples = _declared_samples(raw, where)
     return Verdict(
         score=Score(
             name=str(_required(raw, "assertion", where)),
-            score=None if raw_score is None else float(raw_score),
+            # `null` is how an errored verdict writes no score; anything else
+            # is a number or a refusal. (#379)
+            score=None
+            if raw_score is None
+            else _number_from(raw_score, "score", where),
             metadata=dict(cast(Mapping[str, object], raw.get("metadata") or {})),
             samples=samples,
-            sample_min=(
-                None if raw.get("sample_min") is None else float(raw["sample_min"])
-            ),
-            sample_max=(
-                None if raw.get("sample_max") is None else float(raw["sample_max"])
-            ),
+            sample_min=_optional_number(raw, "sample_min", where),
+            sample_max=_optional_number(raw, "sample_max", where),
             sample_means=_sample_means(raw),
         ),
-        threshold=float(_required(raw, "threshold", where)),
-        tolerance=float(_required(raw, "tolerance", where)),
+        threshold=declared_number(raw, "threshold", where),
+        tolerance=declared_number(raw, "tolerance", where),
         status=cast(Status, str(_required(raw, "status", where))),
         # A redacted document has no `reason` to read; the marker keeps the
         # reconstructed verdict valid without inventing content. One that
@@ -2118,7 +2113,7 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         assertion_id=str(_required(raw, "assertion_id", where)),
         # Absent is *not recorded as judged*, which is true of every verdict
         # written before 12, and nothing is guessed from a check's name.
-        judged=bool(raw.get("judged", False)),
+        judged=_optional_flag(raw, "judged", where),
     )
 
 
@@ -2259,7 +2254,7 @@ def _artifact_to_dict(artifact: Artifact) -> dict[str, object]:
 def _artifact_from_dict(raw: Mapping[str, Any], path: str) -> Artifact:
     where = f"artifact {path!r}"
     text = raw.get("text")
-    withheld = bool(raw.get("withheld", False))
+    withheld = _optional_flag(raw, "withheld", where)
     sha = raw.get("sha")
     if sha is None and not withheld:
         raise ValueError(f"{where} is missing 'sha'")
@@ -2359,13 +2354,27 @@ def usage_from_dict(raw: object, where: str) -> Usage:
             "absence already says it"
         )
     return Usage(
-        input_tokens=int(_required(counts, "input_tokens", where)),
-        output_tokens=int(_required(counts, "output_tokens", where)),
-        cache_read_tokens=int(counts.get("cache_read_tokens") or 0),
-        cache_write_tokens=int(counts.get("cache_write_tokens") or 0),
+        input_tokens=declared_integer(counts, "input_tokens", where),
+        output_tokens=declared_integer(counts, "output_tokens", where),
+        # Absent is 0, which is how `usage_to_dict` writes a zero. `null` is
+        # refused rather than read as 0: no digline ever wrote one here. (#379)
+        cache_read_tokens=(
+            0
+            if "cache_read_tokens" not in counts
+            else declared_integer(counts, "cache_read_tokens", where)
+        ),
+        cache_write_tokens=(
+            0
+            if "cache_write_tokens" not in counts
+            else declared_integer(counts, "cache_write_tokens", where)
+        ),
         # `or 0` would read a reported zero as absent and vice versa, which is
         # the one distinction this field exists for.
-        thinking_tokens=None if thinking is None else int(thinking),
+        thinking_tokens=(
+            None
+            if thinking is None
+            else declared_integer(counts, "thinking_tokens", where)
+        ),
     )
 
 
@@ -2393,10 +2402,14 @@ def totals_from_dict(raw: object, where: str) -> CallTotals:
     line = cast(Mapping[str, Any], raw)
     tokens = line.get("tokens")
     return CallTotals(
-        calls=int(_required(line, "calls", where)),
-        counted=int(_required(line, "counted", where)),
+        calls=declared_integer(line, "calls", where),
+        counted=declared_integer(line, "counted", where),
         tokens=NO_USAGE if tokens is None else usage_from_dict(tokens, where),
-        spent_usd=float(line.get("spent_usd") or 0.0),
+        spent_usd=(
+            0.0
+            if "spent_usd" not in line
+            else declared_number(line, "spent_usd", where)
+        ),
     )
 
 
@@ -2645,15 +2658,19 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             "Output the text came from, and a replay that guessed would judge a "
             "different thing from the one that was measured"
         )
-    cost = raw.get("cost_usd")
-    latency = raw.get("latency_ms")
+    # Read before the `try` below, which prefixes what it catches: these
+    # refusals already say where they are. (#379)
+    cost = _optional_number(raw, "cost_usd", "recorded response")
+    latency = _optional_number(raw, "latency_ms", "recorded response")
+    withheld = _optional_flag(raw, "withheld", "recorded response")
+    oversize = _optional_flag(raw, "oversize", "recorded response")
     try:
         return RecordedResponse(
             output=None if raw.get("output") is None else str(raw["output"]),
             kind=None if kind is None else cast(OutputKind, str(kind)),
             input=None if raw.get("input") is None else str(raw["input"]),
-            cost_usd=None if cost is None else float(cost),
-            latency_ms=None if latency is None else float(latency),
+            cost_usd=cost,
+            latency_ms=latency,
             # Absent is `None` and `[]` is `()`: the two facts the document now
             # keeps apart. `or ()` would have collapsed them again.
             tool_calls=_recorded_calls(raw),
@@ -2664,9 +2681,12 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
                 if "usage" not in raw
                 else usage_from_dict(raw["usage"], "recorded response")
             ),
-            withheld=bool(raw.get("withheld", False)),
-            oversize=bool(raw.get("oversize", False)),
+            withheld=withheld,
+            oversize=oversize,
         )
+    except DocumentRefusedError:
+        # Already says where it is: `declared_integer` was told. (#379)
+        raise
     except ValueError as exc:
         raise ValueError(f"recorded response: {exc}") from exc
 
@@ -2694,7 +2714,7 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
             _response_from_dict(r)
             for r in cast(Sequence[Mapping[str, Any]], raw.get("responses") or ())
         ),
-        canary=bool(raw.get("canary", False)),
+        canary=_optional_flag(raw, "canary", where),
         calibration=_calibration_from_dict(raw.get("calibration")),
     )
 
@@ -2709,8 +2729,8 @@ def _calibration_from_dict(raw: object) -> CalibrationBand | None:
     return CalibrationBand(
         check=str(_required(fields_, "check", where)),
         assertion_id=str(_required(fields_, "assertion_id", where)),
-        low=float(_required(fields_, "low", where)),
-        high=float(_required(fields_, "high", where)),
+        low=declared_number(fields_, "low", where),
+        high=declared_number(fields_, "high", where),
     )
 
 
@@ -2764,7 +2784,9 @@ def run_from_dict(raw: object) -> Run:
         raise DocumentRefusedError(str(exc)) from exc
 
 
-def declared_integer(raw: Mapping[str, Any], field: str) -> int:
+def declared_integer(
+    raw: Mapping[str, Any], field: str, where: str | None = None
+) -> int:
     """The integer a document declares under `field`, which it must carry.
 
     **Only an `int` that is not a `bool` counts.** This replaced `int()`, which
@@ -2777,19 +2799,89 @@ def declared_integer(raw: Mapping[str, Any], field: str) -> int:
     The refusal names the field and the value's *type*, never the value: the
     value is text from a file, and it would reach a terminal and a page.
     Not in `__all__`: the store reads it, on the documents it opens.
+
+    `where` names the record the field sits in, for a field inside one — a
+    token count is in a usage record, not at the top of the document.
     """
     if field not in raw:
         raise DocumentRefusedError(
-            f"the document is missing the mandatory field {field!r}"
+            f"{where or 'the document'} is missing the mandatory field {field!r}"
         )
     value = raw[field]
     # `bool` is a subclass of `int` in Python, so `isinstance(True, int)`
     # holds: the second test is what keeps `true` from reading as 1.
     if not isinstance(value, int) or isinstance(value, bool):
+        prefix = "" if where is None else f"{where}: "
         raise DocumentRefusedError(
-            f"{field!r} is a JSON {_json_type(value)}, not an integer"
+            f"{prefix}{field!r} is a JSON {_json_type(value)}, not an integer"
         )
     return value
+
+
+def declared_number(raw: Mapping[str, Any], field: str, where: str) -> float:
+    """The number a document declares under `field`, which it must carry.
+
+    **A JSON number, finite, and never a boolean.** This replaced `float()`,
+    which read `"0.5"` as 0.5 and `true` as 1.0 — and read `Infinity` as a
+    number, which is how a verdict whose file said `"tolerance": Infinity` or
+    `true` turned a drop from 0.95 to 0.6 into *unchanged*, and `compare` stayed
+    green (#379). An `int` is accepted: JSON does not tell `1` from `1.0`, and
+    another program's serializer may write either. `NaN` and `Infinity` are
+    refused because they are not JSON at all; Python's parser accepts them as
+    an extension, so a type check alone would let them through.
+
+    The refusal names where, the field and the value's type, never the value.
+    Not in `__all__`.
+    """
+    if field not in raw:
+        raise DocumentRefusedError(f"{where} is missing the mandatory field {field!r}")
+    return _number_from(raw[field], field, where)
+
+
+def _number_from(value: object, name: str, where: str) -> float:
+    """`declared_number`'s rule on a value already taken out of the document:
+    an element of a list has no key of its own to be looked up by."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise DocumentRefusedError(
+            f"{where}: {name!r} is a JSON {_json_type(value)}, not a number"
+        )
+    if not math.isfinite(value):
+        raise DocumentRefusedError(
+            f"{where}: {name!r} is NaN or Infinity, which are not JSON numbers"
+        )
+    return float(value)
+
+
+def _optional_number(raw: Mapping[str, Any], field: str, where: str) -> float | None:
+    """`None` when the document does not carry `field`; otherwise
+    `declared_number`'s rule, `null` included. Every writer of the fields read
+    this way omits them rather than writing `null`, so a `null` is a document
+    no digline wrote. (#379)"""
+    return None if field not in raw else declared_number(raw, field, where)
+
+
+def _optional_flag(raw: Mapping[str, Any], field: str, where: str) -> bool:
+    """`False` when the document does not carry `field`, which is how a flag
+    written only when true says false; otherwise `declared_boolean`'s rule.
+    (#379)"""
+    return field in raw and declared_boolean(raw, field, where)
+
+
+def _declared_samples(raw: Mapping[str, Any], where: str) -> tuple[float, ...]:
+    """A verdict's samples: none when the key is absent, and otherwise a JSON
+    array of numbers, each held to `declared_number`'s rule. `float()` over
+    whatever was there read the string `"05"` as the samples 0.0 and 5.0, one
+    per character. (#379)"""
+    if "samples" not in raw:
+        return ()
+    samples = raw["samples"]
+    if not isinstance(samples, list):
+        raise DocumentRefusedError(
+            f"{where}: 'samples' is a JSON {_json_type(samples)}, not an array"
+        )
+    return tuple(
+        _number_from(value, "samples", where) for value in cast(list[object], samples)
+    )
 
 
 def declared_boolean(raw: Mapping[str, Any], field: str, where: str) -> bool:
