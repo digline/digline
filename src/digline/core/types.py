@@ -231,6 +231,46 @@ def within(value: float, limit: float) -> bool:
     return at_precision(value) <= at_precision(limit)
 
 
+def tolerance_is_blind(threshold: float, tolerance: float) -> bool:
+    """Whether `tolerance` holds every score movement `compare()` can measure
+    against it, so the check is reported only when its outcome flips.
+
+    `compare()` looks for a flip before it reads the tolerance, so the tolerance
+    only ever judges a score that stayed on one side of the threshold. On the
+    passing side a score lives in `[threshold, 1]` and moves by at most
+    `1 - threshold`. On the failing side it lives in `[0, threshold)`, and the
+    strict bound leaves `threshold - STORAGE_STEP` as its widest move, or
+    nothing when the threshold is 0. A tolerance at least the wider of the two
+    leaves no movement to report: at threshold 0.5 that is a tolerance of 0.5,
+    far below the 1.0 a reader would guess. (#386)
+
+    Both sides, never the passing side alone. A tolerance that covers only the
+    passing side still reports a failing score that moved, and calling it blind
+    would be digline ruling how much movement matters, which is the suite's
+    call. `tests/test_blind_tolerance.py` holds this against `compare()` itself,
+    so a change to the order of `compare()`'s rules reddens it.
+
+    A True is a fact about the declaration. **A False is not a clean bill**:
+    four ways to a blind check pass it, and none can be seen from a threshold
+    and a tolerance.
+
+    - **A tolerance wide for how the scores actually move.** 0.9 on a check
+      whose scores move by 0.2 is as blind, and only the measurements show it.
+    - **Scores on a grid.** This assumes any score in `[0, 1]` can occur. A
+      binary check folded over five samples scores 0, 0.2, … 1, and at
+      threshold 0.5 a tolerance of 0.4 already holds every move on either side,
+      which `examples/classifier` declares on purpose.
+    - **The noise floor (ADR 0006).** A second way to `unchanged`, measured
+      from the baseline's samples and never declared. A baseline whose samples
+      spanned 0 to 1 blinds the check the same way.
+    - **A threshold that moved between the baseline and this run.** The sides
+      are drawn at one threshold; a baseline measured under another has sides
+      of its own, and `compare()` reports that rule change as loosened.
+    """
+    failing = threshold - STORAGE_STEP if threshold > 0 else 0.0
+    return within(max(1.0 - threshold, failing), tolerance)
+
+
 def canonical(value: object) -> object:
     """Recursively reduce `value` to a JSON-serializable, deterministic form.
 

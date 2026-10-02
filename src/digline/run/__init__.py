@@ -20,15 +20,18 @@ from digline.run.driver import (
 )
 from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
 from digline.run.suite import (
+    BlindTolerance,
     Calibration,
     CallPlan,
     Case,
     Suite,
+    blind_tolerances,
     planned_calls,
     undeclared_kinds,
 )
 
 __all__ = [
+    "BlindTolerance",
     "Calibration",
     "CallPlan",
     "Case",
@@ -45,6 +48,7 @@ __all__ = [
     "execute",
     "judge_config",
     "judges",
+    "blind_tolerances",
     "planned_calls",
     "undeclared_kinds",
     "price_digest_of",
