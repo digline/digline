@@ -21,6 +21,8 @@ decision 8).
 
 from __future__ import annotations
 
+import errno
+import fnmatch
 import glob
 import json
 import os
@@ -65,6 +67,7 @@ from digline.store.promotion import (
 from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
+    DirectoryUnreadableError,
     JournalBusyError,
     JournalHeader,
     Listing,
@@ -152,6 +155,56 @@ def _write_atomic(path: Path, payload: str) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+
+
+#: The errors that mean a path is not there, as `Path.exists` read them on 3.12
+#: and 3.13. Python 3.14 reads *every* `OSError` as "not there", so a baseline
+#: inside a directory that cannot be searched became no baseline. (#365)
+_ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+
+
+def _exists(path: Path) -> bool:
+    """`path.exists()`, except that "could not look" is a refusal, not `False`.
+
+    On 3.12 and 3.13 that case raised a bare `PermissionError`, which reached a
+    person as a traceback. On 3.14 it returned `False`, and nothing at all
+    reached anyone.
+    """
+    try:
+        path.stat()
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return False
+        raise DirectoryUnreadableError(
+            f"cannot tell whether {path} exists: {exc.strerror or exc}. It was "
+            "not read, so this is not a missing file"
+        ) from exc
+    return True
+
+
+def _listed(directory: Path, pattern: str) -> list[Path]:
+    """The entries of `directory` matching `pattern`, sorted, or a refusal.
+
+    `directory.glob(pattern)` returned the same entries, and returned none when
+    the directory could not be opened: its own `os.scandir` raised and glob
+    caught it. Listing through `os.scandir` here keeps the `OSError` it raises.
+    `fnmatch.filter` matches the way `Path.glob` does, case included.
+
+    An absent directory is an empty list, as it was. It replaces an `is_dir()`
+    check that answered `False` on 3.14 for a directory nobody could search.
+    (#365)
+    """
+    try:
+        with os.scandir(directory) as entries:
+            names = [entry.name for entry in entries]
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return []
+        raise DirectoryUnreadableError(
+            f"cannot list {directory}: {exc.strerror or exc}. Nothing in it was "
+            "read, so this is not an empty directory"
+        ) from exc
+    return sorted(directory / name for name in fnmatch.filter(names, pattern))
 
 
 class FileResultStore:
@@ -253,11 +306,9 @@ class FileResultStore:
         use its `created_at`, which is the recorded fact rather than a filename.
         """
         directory = self.runs_dir(tenant) / _check_name(suite, "suite")
-        if not directory.is_dir():
-            return ()
         return tuple(
             RunRef(tenant=tenant, suite=suite, key=path.stem)
-            for path in sorted(directory.glob("*.json"))
+            for path in _listed(directory, "*.json")
         )
 
     def scan_runs(self, tenant: str, suite: str) -> Listing:
@@ -273,13 +324,10 @@ class FileResultStore:
         counted instead of raising.
         """
         directory = self.runs_dir(tenant) / _check_name(suite, "suite")
-        if not directory.is_dir():
-            return Listing(runs=())
-
         keep: list[RunRef] = []
         skipped: dict[int, int] = {}
         unreadable: list[str] = []
-        for path in sorted(directory.glob("*.json")):
+        for path in _listed(directory, "*.json"):
             try:
                 # The same rule as `read_run`, and here it decides whether a
                 # file is *opened* at all: a linked-out run is counted
@@ -329,9 +377,7 @@ class FileResultStore:
         2026-09-23, finding 3.)
         """
         directory = self.runs_dir(tenant) / _check_name(suite, "suite")
-        if not directory.is_dir():
-            return ()
-        paths = tuple(sorted(directory.glob("*.json")))
+        paths = tuple(_listed(directory, "*.json"))
         for path in paths:
             self._inside(path, "run")
         return paths
@@ -345,13 +391,13 @@ class FileResultStore:
         """
         paths = list(self.run_paths(tenant, suite))
         baseline = self.baseline_path(tenant, suite)
-        if baseline.exists():
+        if _exists(baseline):
             paths.append(self._inside(baseline, "baseline"))
         return tuple(paths)
 
     def read_run(self, ref: RunRef) -> Run:
         path = self.run_path(ref)
-        if not path.exists():
+        if not _exists(path):
             raise RunNotFoundError(f"run not found: {path}")
         path = self._inside(path, "run")
         run = run_from_json(path.read_text(encoding="utf-8"))
@@ -371,7 +417,7 @@ class FileResultStore:
 
     def read_baseline(self, tenant: str, suite: str) -> Run | None:
         path = self.baseline_path(tenant, suite)
-        if not path.exists():
+        if not _exists(path):
             return None
         path = self._inside(path, "baseline")
         run = run_from_json(path.read_text(encoding="utf-8"))
@@ -489,7 +535,7 @@ class FileResultStore:
         (0.13.0 delta-pass)
         """
         path = self.register_path(tenant, suite)
-        if not path.exists():
+        if not _exists(path):
             return Register()
         data = self._inside(path, "register").read_bytes()
         try:
@@ -597,7 +643,7 @@ class FileResultStore:
         self.ensure_layout(tenant)
         path.parent.mkdir(parents=True, exist_ok=True)
         path = self._inside(path, "register")
-        joined = path.exists() and path.stat().st_size > 0
+        joined = _exists(path) and path.stat().st_size > 0
         if joined:
             joined = not path.read_bytes().endswith(b"\n")
         line = json.dumps(
@@ -640,11 +686,9 @@ class FileResultStore:
         slugged `created_at` of the run that started it.
         """
         directory = self.journal_dir(tenant, suite)
-        if not directory.is_dir():
-            return ()
         grouped: dict[str, list[tuple[int, Path]]] = {}
         foreign: list[Pending] = []
-        for path in sorted(directory.glob("*.jsonl")):
+        for path in _listed(directory, "*.jsonl"):
             match = _LEG_RE.match(path.stem)
             if match is None:
                 # Named, never deleted: this directory is digline's, but a file
@@ -669,8 +713,6 @@ class FileResultStore:
     def drop_pending(self, tenant: str, suite: str, key: str) -> None:
         """Remove every leg of one journal. See the protocol for when."""
         directory = self.journal_dir(tenant, suite)
-        if not directory.is_dir():
-            return
         for _, path in self._legs(directory, key):
             self._inside(path, "journal").unlink(missing_ok=True)
         with suppress(OSError):
@@ -678,7 +720,7 @@ class FileResultStore:
 
     def _legs(self, directory: Path, key: str) -> list[tuple[int, Path]]:
         legs: list[tuple[int, Path]] = []
-        for path in directory.glob(f"{glob.escape(key)}.*.jsonl"):
+        for path in _listed(directory, f"{glob.escape(key)}.*.jsonl"):
             match = _LEG_RE.match(path.stem)
             if match is not None and match["key"] == key:
                 legs.append((int(match["leg"]), path))
@@ -799,9 +841,9 @@ class FileResultStore:
             },
             observed_target=observed_target,
             observed_judge=observed_judge,
-            finished=self.run_path(
-                RunRef(tenant=tenant, suite=suite, key=key)
-            ).exists(),
+            finished=_exists(
+                self.run_path(RunRef(tenant=tenant, suite=suite, key=key))
+            ),
         )
 
 
@@ -1031,7 +1073,7 @@ def _entry_from_dict(raw: Mapping[str, object]) -> RegisterEntry:
 
 #: Where journals live: a dot-directory under the suite's runs, so the generated
 #: `.gitignore` already covers it (`*/runs/` ignores the directory and
-#: everything beneath it) and every `*.json` glob in this module steps over it.
+#: everything beneath it) and every `*.json` listing in this module steps over it.
 #: A journal is not a document: nothing lists it, compares it, migrates it or
 #: renders it. (ADR 0017 §2)
 PENDING_DIRNAME = ".pending"
@@ -1199,6 +1241,10 @@ class FileJournal:
         """The run is written; every leg goes."""
         self._handle.close()
         directory = self._path.parent
+        # `glob`, not `_listed`, and on purpose: the run file is already
+        # written, so a refusal here would report a finished run as failed.
+        # A leg this cannot see stays on disk, and `pending` names it as
+        # finished and removes it once the directory can be read. (#365)
         for leg in sorted(directory.glob(f"{glob.escape(self.key)}.*.jsonl")):
             leg.unlink(missing_ok=True)
         # Only when nothing else is pending: another run of the same suite may
