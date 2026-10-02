@@ -6,6 +6,107 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-bedrock 0.6.0 — unreleased
+
+Published by its own tag, `digline-bedrock-v0.6.0`. The core does not move.
+**A minor, for two reasons.** A suite whose calls write to the 1-hour cache is
+refused where it ran before. And the public name `BASE_PRICES` is gone:
+`SEEDED_PRICES` replaces it, a table by region, because one price per model
+cannot say what Bedrock bills.
+
+### Fixed — the price list, read again against AWS (#369)
+
+- **The list priced models in regions where AWS does not sell them, and its
+  own docstring forbade exactly that.** Claude Opus 4.1 and Claude 3.5 Haiku
+  were priced in eu-west-1, eu-central-1 and eu-west-3, and AWS's Price List
+  has no row for either there. Claude 3.5 Sonnet v2 was priced in all three:
+  the Price List has no row for it in eu-central-1, rows without cache rates
+  in the other two, and the pricing page sells it in the US only. The same
+  file said *"a figure invented for a region nobody checked is worse than no
+  figure at all"*. It cost nothing, because a call to a model AWS does not
+  serve fails. **The claim was false all the same.** They are no longer priced
+  there, and a test holds the rule for every seeded region.
+- **Claude Haiku 4.5 was priced 10% under on every `us.` and `eu.` call.**
+  From Haiku 4.5 on, AWS bills a geographic profile at the *Standard* price
+  and only `global.` at about 10% less. The list priced the geographic profiles
+  at the global rate, which is the direction a `CostBudget` reads as good news.
+  **That is the reason for this release.** Haiku 4.5 is now $1.10 / $5.50
+  through `us.` and `eu.`, and $1.00 / $5.00 through `global.`.
+- **Claude 3.5 Sonnet v2: the two AWS sources disagree, and the list takes the
+  higher.** The pricing page lists it under *"Public Extended Access,
+  Effective 1 Dec 2025"* at **$6 / $30**, cache writes $7.50 and reads $0.60,
+  in US East and US West only. The Price List API still says $3 / $15, and so
+  did this list. If the page is right, the list was 50% under. It now carries
+  the page's figure, and the module says why.
+- **The three current models are priced: Claude Fable 5.1, Opus 5.5 and
+  Sonnet 5.5**, under `anthropic.claude-fable-5-1`, `anthropic.claude-opus-5-5`
+  and `anthropic.claude-sonnet-5-5`. AWS takes none of the three by its bare id
+  in the seeded regions, so each is priced through its profiles. Fable 5.1 has
+  a `us.` profile and, in the EU, `global.` only. Without a price, `preflight`
+  refused every suite that named one.
+- **`global.` profiles are priced** wherever the source lists a global price.
+  Before this, the cheapest profile failed `preflight`.
+- Opus 4.1, Sonnet 4 and 3.5 Haiku were right where AWS sells them, and are
+  unchanged there.
+- `PRICES_READ_ON` is `2026-10-02`. The module names the source: AWS's Price
+  List API, offer `AmazonBedrockFoundationModels`, publication
+  2026-09-30T00:19:12Z.
+
+### Fixed — a 1-hour cache write is refused, not priced low (#368)
+
+- **`cacheDetails` splits a reply's cache writes by TTL**, and AWS bills the
+  1-hour write at 1.6x the 5-minute one. `usage_of` read only
+  `cacheWriteInputTokens` and priced all of it at the 5-minute rate. A reply
+  that reports 1-hour writes, or writes at a TTL this plugin does not know, is
+  now refused with `UnknownModelError`. That is the class that already refuses
+  a cached read with no rate. **Pricing it properly needs a second write rate
+  and a split count on `Usage`**, a core change, and is not done here.
+- `BedrockTarget` sends no `cachePoint`, so this reaches an injected client or
+  a request field. Sonnet 5.5 and Opus 5.5 also list *implicit* prompt
+  caching. Whether that writes to the cache without a request, and at which
+  TTL, was not measured.
+
+### What you will see
+
+- **A Haiku 4.5 suite on a geographic profile costs ×1.1 against its
+  baseline, and nothing in the system changed.** A 3.5 Sonnet v2 suite costs
+  ×2. A shipped price does not enter `config_hash` (ADR 0022 §3), so **the
+  comparison will not say the rules changed**. A `CostBudget` calibrated on the
+  old figures was calibrated on costs that were too low. Read it again before
+  trusting its verdict.
+- A suite that names Opus 4.1, 3.5 Haiku or 3.5 Sonnet v2 in an EU region now
+  fails at `preflight`. Its calls were failing anyway.
+- A suite that imported `BASE_PRICES` reads `SEEDED_PRICES[region]` instead.
+- A suite that already corrected a price with `Pricing.override` is
+  unaffected: a declared price wins.
+
+## digline-anthropic 0.6.0 — unreleased
+
+Published by its own tag, `digline-anthropic-v0.6.0`. The core does not move.
+**A minor, because a suite that ran on 0.5.4 can be refused now**: one whose
+calls write to the 1-hour cache.
+
+### Fixed — a 1-hour cache write is refused, not priced low (#368)
+
+- **Anthropic bills a 1-hour cache write at 2x the input rate. This plugin
+  priced it at 1.25x**, the 5-minute rate, because `Usage` has one write count
+  with one rate behind it. That is 37.5% under on every such token, the same
+  silent direction as Fable 5 in 0.5.4: a `CostBudget` could pass on spend that
+  exceeded it.
+- **A reply that reports 1-hour writes is now refused** with
+  `UnknownModelError`, the class that already refuses a cached read with no
+  rate. The split is read from `usage.cache_creation`, which the pinned SDK
+  (1.8.0) carries. A reply without it is read as before.
+- **Pricing it properly needs a second write rate and a split count on
+  `Usage`.** That is a core change, and it is not done here.
+- `AnthropicTarget` sets no `cache_control`, so nothing it sends asks for a
+  1-hour cache. This reaches an injected client.
+
+### Not here
+
+- A reply served with `inference_geo: "us"` costs 1.1x on Claude 4.6 and later
+  models, and is priced at the global rate (#392).
+
 ## 0.27.0 — unreleased
 
 digline **0.27.0**. **A minor, because a suite that passed on 0.26.0 can
