@@ -562,6 +562,14 @@ class Verdict:
             raise ValueError(
                 f"Verdict.tolerance must not be negative, got {self.tolerance}"
             )
+        # `nan < 0.0` is false and so is `inf < 0.0`, so the test above let
+        # both through. An infinite tolerance holds every movement within it:
+        # a drop from 0.95 to 0.6 compared as *unchanged*, and `compare` stayed
+        # green — a vacuous green, which decision 3 forbids. (#379)
+        if not math.isfinite(self.tolerance):
+            raise ValueError(
+                f"Verdict.tolerance must be a finite number, got {self.tolerance}"
+            )
         if self.status == "error":
             if self.score.score is not None:
                 raise ValueError("a Verdict in error must not carry a score")
