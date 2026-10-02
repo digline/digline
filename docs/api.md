@@ -1186,6 +1186,47 @@ which one spoke. A tolerance that was set generously as a hand-rolled noise
 floor can be tightened back to what a reviewer actually means to allow; nothing
 forces it, and nothing breaks if nobody does.
 
+### A tolerance that switches the check off
+
+`compare` reads a flip between pass and fail before it reads the tolerance, so a
+tolerance only ever judges a score that stayed on one side of its threshold. On
+the passing side a score moves by at most `1 - threshold`. On the failing side it
+moves by at most just under `threshold`. **A tolerance at least as wide as the
+wider of the two holds every movement there is**, and the check speaks only when
+it flips. That happens far lower than 1.0: at `threshold=0.5` a tolerance of
+`0.5` is already there, and at `threshold=0.8` one of `0.799999`.
+
+digline does not refuse it, because a tolerance is the suite's choice. It says
+so, on stderr, where the suite is loaded: `digline run` prints one line per
+such check, before the first call, and the exit code does not move.
+
+```text
+digline: tolerance 0.5 on 'loose' (threshold 0.5) covers every movement its score can make without crossing the threshold: compare will report this check only when it flips between pass and fail
+```
+
+`digline.core.tolerance_is_blind(threshold, tolerance)` is the rule, and
+`digline.run.blind_tolerances(suite)` returns the checks it names, per case and
+over the run. Two surfaces do not carry the line yet: the MCP `run` tool, which
+has no stderr, and `pytest --digline-run`, for the reason
+[the pytest page](pytest.md) gives about the `KIND` note (#396).
+
+**Silence is not a clean bill.** Four ways to a blind check cannot be seen from a
+threshold and a tolerance, and the line says nothing about them:
+
+- **A tolerance wide for how the scores actually move.** `0.9` on a check whose
+  scores move by `0.2` is as blind. Only the measurements show it: the procedure
+  above.
+- **Scores on a grid.** The rule assumes any score in `[0, 1]` can occur. A
+  binary check folded over five samples scores `0, 0.2, … 1`, and at
+  `threshold=0.5` a tolerance of `0.4` already holds every move on either side.
+  `examples/classifier` declares exactly that, on purpose.
+- **The noise floor.** A second way to `unchanged`, measured from the baseline's
+  samples and never declared. A baseline whose samples spanned 0 to 1 blinds the
+  check the same way, and no declaration can show it.
+- **A threshold that moved between the baseline and this run.** The sides are
+  drawn at the suite's threshold. A baseline measured under another one has
+  sides of its own, and `compare` reports that change as a loosened rule.
+
 A command doing the five steps (`digline calibrate`) is planned and not written
 yet: first we need to see how the procedure behaves by hand.
 

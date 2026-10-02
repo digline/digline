@@ -83,6 +83,7 @@ from digline.report import diff as diff_report
 from digline.run import (
     ReplayError,
     Suite,
+    blind_tolerances,
     planned_calls,
     rejudge,
     undeclared_kinds,
@@ -290,6 +291,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     undeclared = undeclared_kinds(suite)
     if undeclared:
         say(f"digline: {_undeclared_note(undeclared)}", err=True)
+    # The same place for the same reason: a tolerance that switches a check off
+    # is read by whoever declared it here, and nowhere later — `compare` is
+    # read by CI and reviewers, every time, and a line repeated there forever is
+    # one people learn to skip. Said, never refused, and no exit code. (#386)
+    for blind in blind_tolerances(suite):
+        say(f"digline: {blind.sentence()}", err=True)
     if prepared.retrying:
         say(f"digline: retrying {_retry_note(prepared.retrying)}", err=True)
 

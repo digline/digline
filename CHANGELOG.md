@@ -131,8 +131,10 @@ and still held the run's metadata. Every document refused for that is one no
 released digline wrote. A store directory that cannot be opened is refused
 rather than read as empty, and every directory refused for that is one no
 released digline could read. Nothing to migrate, no schema change,
-`OUTPUT_VERSION` unchanged, no public name removed, and one added:
-`DirectoryUnreadableError`.
+`OUTPUT_VERSION` unchanged, and no public name removed. Four are added:
+`DirectoryUnreadableError`, and `tolerance_is_blind`, `blind_tolerances` and
+`BlindTolerance` for the line `run` now prints about a tolerance that switches
+its check off.
 
 ### Changed — a tolerance that is not finite is refused, from a file and from code (#379)
 
@@ -148,11 +150,49 @@ released digline could read. Nothing to migrate, no schema change,
   verdict was built in code. **This is what can break a suite**: an assertion
   declared with `tolerance=math.inf` now raises when it builds its verdict,
   and the run records that check as `error`.
-- **What this does not close.** A finite tolerance of 1 or more holds every
-  score movement in the same way, from a file or from code, and nothing
-  refuses it. It is a vacuous green by declaration, not a conversion, and it
-  is #386. Neither one hides an outcome that changes: a flip from `pass` to
+- **What this does not close.** A finite tolerance can hold every score
+  movement in the same way, from a file or from code, and nothing refuses it.
+  This entry first said *of 1 or more*, and that was wrong: blindness starts
+  at 0.5, see the next entry. It is a vacuous green by declaration, not a
+  conversion. Neither one hides an outcome that changes: a flip from `pass` to
   `fail` is a regression at any tolerance.
+
+### Added — `run` says when a tolerance switches its check off (#386)
+
+- **A tolerance at least as wide as the wider side of its threshold holds
+  every movement a score can make, and the check then speaks only when it
+  flips.** `compare` reads a flip before the tolerance, so the tolerance only
+  judges a score that stayed on one side: at most `1 - threshold` on the
+  passing side, just under `threshold` on the failing one. At `threshold=0.5`
+  a tolerance of `0.5` is already blind. #386 had put the start at 1.0, and
+  measured through `compare` the drop from 1.0 to 0.5 is *unchanged* at
+  tolerance 0.5 and *regressed* at 0.49.
+- **Said, never refused.** A tolerance is the suite's choice, and digline does
+  not say how much movement matters. `digline run` prints one line per such
+  check on stderr, before the first call, beside the note about a check that
+  declares no `KIND`. The exit code does not move.
+- **`tolerance_is_blind(threshold, tolerance)`** in `digline.core` is the
+  rule, and **`blind_tolerances(suite)`** in `digline.run` returns a
+  `BlindTolerance` for each check it names, per case and over the run. A test
+  holds the rule against `compare()` itself, at the widest move on each side,
+  so a change to `compare()`'s order or precision reddens it.
+- **Silence is not a clean bill**, and four blind checks pass it, none
+  visible from a declaration:
+  - a tolerance wide for how the scores actually move, such as `0.9` on scores
+    that move by `0.2`;
+  - scores on a grid, such as `examples/classifier`'s `0.4` over five binary
+    samples at `threshold=0.5`, blind on purpose;
+  - the noise floor, a second way to *unchanged*, measured and never
+    declared, which blinds the check the same way when a baseline's samples
+    spanned 0 to 1;
+  - a threshold that moved between the baseline and the run.
+- **Not here: MCP and `pytest-digline`.** The MCP `run` tool has no stderr
+  and carries neither this line nor the `KIND` note. `pytest --digline-run`
+  prints neither, by the rule `docs/pytest.md` records: a line on stderr is
+  not worth raising the plugin's `digline` floor for, and the cost would fall
+  on whoever uses the plugin. Whoever writes a suite in pytest may never run
+  `digline run`, and is the one these notes are for, so #396 covers both
+  notes on both surfaces.
 
 ### Fixed — numbers, counts and flags in a run file are read as declared (#379)
 
