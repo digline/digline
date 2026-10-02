@@ -91,10 +91,14 @@ print(f"{judge.calls} judgements, {judge.spent_usd:.4f} USD, {judge.latency_ms:.
 ## Prices, and what is not priced
 
 `bedrock_pricing(region)` is seeded for **us-east-1, us-west-2, eu-west-1,
-eu-central-1 and eu-west-3**, with the Anthropic models. Bedrock prices by model
-*and* by region, and a figure invented for a region nobody checked would be
-wrong in the direction nobody notices — so everything else raises at `preflight`
-and is served with one argument:
+eu-central-1 and eu-west-3**, with the Anthropic models AWS sells in each, read
+from AWS's Price List API on the date `PRICES_READ_ON` carries. A model is
+priced only under the ids that reach it there: its `us.` or `eu.` profile at
+the Standard price, `global.` at the global one (about 10% less from Haiku 4.5
+on), and its bare id only where AWS takes it. `SEEDED_PRICES` is the whole
+table. Bedrock prices by model, by region and by endpoint, and a figure invented
+for a region nobody checked would be wrong in the direction nobody notices — so
+everything else raises at `preflight` and is served with one argument:
 
 ```python
 from digline.targets import ModelPrice
