@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline-anthropic 0.6.1 — unreleased
+## digline-anthropic 0.6.1 — 2026-10-03
 
 Published by its own tag, `digline-anthropic-v0.6.1`. The core does not move.
 A patch: nothing that ran on 0.6.0 stops running.
