@@ -1854,6 +1854,13 @@ else:
 | `1` | `EXIT_WORSE` | a check got worse, or a canary moved |
 | `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, or a pinned file drifted from the reference |
 
+Two more codes are exported beside them, and `exit_code()` never returns
+either, because neither is a verdict on the suite. `EXIT_USAGE` (`64`) is the
+command line refusing the request. `EXIT_INTERNAL` (`70`) is a failure nobody
+anticipated: the command line prints its traceback and exits `70`, never `1`,
+so a gate that measured nothing neither passes nor reports a regression
+([ADR 0041](adr/0041-the-exit-code-of-a-failure-nobody-anticipated.md)).
+
 - **`exit_code(head)` is the rule**, read from a `Headline`. A regression or a
   moved canary outranks the causes of `2`. A suspension never fails. That
   rule was never deliberated: it arrived with the first commit and no ADR
@@ -1923,7 +1930,8 @@ name.
 
 `REFUSALS` is a tuple of every exception class digline raises on purpose, with
 a sentence written for a reader. Anything else that escapes digline is a bug
-and should travel as one. What it commits to:
+and should travel as one: digline's command line exits `70` on it, with the
+traceback. What it commits to:
 
 - **Complete.** Every refusal digline defines is in it, and a test fails on
   one that is not. digline's own command line, `digline view` and

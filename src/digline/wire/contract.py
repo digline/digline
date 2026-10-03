@@ -260,6 +260,13 @@ EXIT_UNJUDGED = 2
 #: reader asking what `2` means should not find three answers here and one
 #: somewhere else.
 EXIT_USAGE = 64
+#: Not a verdict either, and `exit_code()` never returns it: a failure nobody
+#: anticipated, which is not a fact about the suite. Before ADR 0041 it was 1,
+#: Python's default, which read as "worse" from a gate that measured nothing
+#: and from a reading that never gates. It is `EX_SOFTWARE` in `sysexits.h`,
+#: beside 64's `EX_USAGE`, and that pairing is a choice: nothing here declared
+#: 64 a `sysexits.h` value before. (ADR 0041)
+EXIT_INTERNAL = 70
 
 
 def exit_code(head: Headline) -> int:

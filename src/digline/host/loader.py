@@ -27,8 +27,11 @@ See ADR 0002 §9 for all three.
 from __future__ import annotations
 
 import importlib
+import json
 import os
+import shlex
 import sys
+import traceback
 from dataclasses import dataclass
 from importlib.machinery import (
     EXTENSION_SUFFIXES,
@@ -41,8 +44,11 @@ from pathlib import Path
 from types import CodeType, ModuleType
 from typing import TYPE_CHECKING
 
+import digline
 from digline.host.errors import UsageError
+from digline.host.refusals import REFUSALS
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.report.render import visible
 from digline.run import Suite, Target
 
 if TYPE_CHECKING:
@@ -189,8 +195,16 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # nobody's refusal, so the MCP server passed it on as the bare "Error
         # executing tool <name>" and put the module's name on stderr, where no
         # client reads it — the common case under `uvx`, where a plugin the
-        # suite imports is not installed. Only `ImportError`: any other failure
-        # in the suite's own code stays the unexpected exception it is.
+        # suite imports is not installed.
+        #
+        # **And any other exception the suite raises while it loads**, which
+        # until ADR 0041 stayed "the unexpected exception it is" (27bc37e) and
+        # so exited 1, "worse", from a suite that never got as far as running.
+        # By who raised it, in order: a refusal, a `ValueError` or an `OSError`
+        # passes through as before; one raised inside digline is left to exit
+        # 70, because the sentence digline did not write is its own defect; and
+        # anything else is the suite's, refused with the location 27bc37e was
+        # protecting and the command that prints the traceback. (ADR 0041 §4.1)
         try:
             exec(code, module.__dict__)  # noqa: S102 — the user's own suite, by request
         except ImportError as exc:
@@ -201,12 +215,83 @@ def _import(module_part: str, spec: str) -> ModuleType:
                 "provider plugin, the application under test and its SDK — has "
                 "to be installed there."
             ) from exc
+        except _PASSED_THROUGH:
+            raise
+        except Exception as exc:
+            if _raised_inside_digline(exc):
+                raise
+            reproduce = (
+                f"cd {shlex.quote(str(path.parent))} && python -c "
+                + shlex.quote(f"import runpy; runpy.run_path({json.dumps(path.name)})")
+            )
+            raise _raised_while_loading(str(path), exc, reproduce) from exc
         return module
 
     try:
         return importlib.import_module(module_part)
     except ImportError as exc:
         raise UsageError(f"cannot import module {module_part!r}: {exc}") from exc
+    except _PASSED_THROUGH:
+        raise
+    except Exception as exc:
+        if _raised_inside_digline(exc):
+            raise
+        reproduce = "python -c " + shlex.quote(f"import {module_part}")
+        raise _raised_while_loading(repr(module_part), exc, reproduce) from exc
+
+
+#: What the suite may raise while it loads and still reach a person as its own
+#: sentence, unwrapped: the front ends translate each of these already.
+_PASSED_THROUGH: tuple[type[Exception], ...] = (*REFUSALS, ValueError, OSError)
+
+
+#: Where digline's own code lives. A frame under it is digline's; anything else,
+#: a provider plugin included, is the suite's or something the suite called.
+_DIGLINE = Path(digline.__file__).resolve().parent
+
+
+def _is_digline(filename: str) -> bool:
+    return Path(filename).resolve().is_relative_to(_DIGLINE)
+
+
+def _raised_inside_digline(exc: BaseException) -> bool:
+    """Whether the innermost frame is digline's. Then the suite's misuse made
+    digline raise something it wrote no sentence for, and the missing sentence
+    is digline's defect: it is left to exit 70. A wrong argument to a digline
+    API does not land here, because Python raises it at the call site, in the
+    suite's frame. (ADR 0041 §4, measured)"""
+    frames = traceback.extract_tb(exc.__traceback__)
+    return bool(frames) and _is_digline(frames[-1].filename)
+
+
+def _raised_while_loading(where: str, exc: Exception, reproduce: str) -> UsageError:
+    """The refusal of a suite whose own code raised while it loaded, with the
+    location in place of the traceback.
+
+    27bc37e left this exception unexpected, because a sentence without the
+    traceback would hide where the suite failed. The location answers that, and
+    so does the command that prints the full traceback. The text is the same
+    for every front end, and it is passed through `visible`, because an
+    exception's message is not digline's to vouch for. (ADR 0041 §4)
+    """
+    frames = [
+        frame
+        for frame in traceback.extract_tb(exc.__traceback__)
+        if not _is_digline(frame.filename) and not frame.filename.startswith("<")
+    ]
+    at = ""
+    if frames:
+        inner, outer = frames[-1], frames[0]
+        at = f" at {inner.filename}:{inner.lineno}"
+        if (outer.filename, outer.lineno) != (inner.filename, inner.lineno):
+            at += f", reached from {outer.filename}:{outer.lineno}"
+    return UsageError(
+        visible(
+            f"{where} raised {type(exc).__name__}: {exc}{at}, while it was being "
+            "loaded. That is the suite's own code, or code it called, run before "
+            f"anything was measured. For the full traceback, run: {reproduce}"
+        )
+    )
 
 
 def _pick(module: ModuleType, attr: str, spec: str, kind: str) -> object:

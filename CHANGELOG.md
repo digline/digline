@@ -6,9 +6,14 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.27.1 — unreleased
+## 0.28.0 — unreleased
 
-A patch: nothing that ran on 0.27.0 stops running.
+**A minor, not a patch.** The exit code contract gains a value. A consumer
+that enumerated `0`, `1`, `2` and `64` now receives `70`, and
+`examples/operator/loop.py` stops where it used to carry on. That is an
+improvement, and it is still a change somebody upgrading can see. The
+criterion is whether something a user relies on stops working, not whether
+the old behaviour was right (ADR 0041).
 
 ### Fixed — `digline log` reads a projected baseline, and says only what is true of it (#402)
 
@@ -47,11 +52,48 @@ A patch: nothing that ran on 0.27.0 stops running.
   The word is recorded in `_ADDED_WORDS` in `wire/contract.py`, beside
   `_ADDED`.
 
+### Fixed — a failure nobody anticipated exits 70, not 1 (#412, ADR 0041)
+
+- **An exception the command line did not translate exited 1, `EXIT_WORSE`**,
+  on every command. That was Python's default. A gate that measured nothing
+  reported a regression, and readings that never gate (`log`, `diff`, `list`
+  and the others) did too. #402 was one such failure.
+- **It now exits 70**, a fifth code, `EXIT_INTERNAL`, exported beside the
+  others. It prints the traceback, through the same sanitiser as every other
+  line, and then *"the failure above was not anticipated. It is not a verdict
+  on the suite (exit 70)."* `exit_code()` never returns it. 70 is
+  `EX_SOFTWARE` in `sysexits.h`. Nothing here had ever declared 64 a
+  `sysexits.h` value, so the pairing is a choice.
+- **Three refusals that reached the same path now exit 64**, each like its
+  precedent:
+  - a custom assertion that is not a dataclass, and the two `by_group`
+    mistakes, raise `AssertionShapeError`, a `TypeError` listed in
+    `REFUSALS`;
+  - a file that cannot be read (`PermissionError`, `IsADirectoryError`) is
+    refused like a directory that cannot be listed already was;
+  - a suite that raises while it loads is refused like one that does not
+    parse or cannot import a module already was. The refusal names the type,
+    the message, the line that raised and the suite's own line, and ends with
+    the command that prints the full traceback. This reverses 27bc37e, which
+    kept such a failure unexpected so that a sentence would not hide where it
+    happened. The location keeps that promise. Something raised inside digline
+    itself while a suite loads still exits 70 (ADR 0041 §4.1).
+
+  Measured before the change, from the CLI: an unreadable baseline made
+  `compare` exit 1.
+- **What a consumer sees.** A script that stops on any non-zero code behaves as
+  before. A script matching `1` no longer reads these failures as a
+  regression. `AGENTS.md` §6 and the `operating-digline` skill name `70`.
+  `examples/operator/loop.py` already stopped on any code outside `(0, 1, 2)`.
+  Until now such a failure read 1 there, and the operator carried on hunting a
+  regression that did not exist.
+
 ### Not changed
 
-- **An exception digline does not anticipate still exits 1, which is
-  `EXIT_WORSE`**, on every command. #402 removed one bug that reached that
-  path, and the path is still open. Recorded as #412.
+- **A suite that calls `sys.exit(n)` while it loads still makes `n` the exit
+  code** (#414). **Every `ValueError` still exits 64**, so a `ValueError` that
+  is a failure inside digline still reads as a refused request (#415). Both
+  are recorded in ADR 0041 and not repaired.
 
 ## digline-bedrock 0.6.1 — 2026-10-02
 

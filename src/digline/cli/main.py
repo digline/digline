@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -97,6 +98,7 @@ from digline.store import (
     migrate_paths,
 )
 from digline.wire import (
+    EXIT_INTERNAL,
     EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_USAGE,
@@ -1170,14 +1172,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Every refusal digline raises on purpose, from the classification rather
     # than listed here — so a refusal type added anywhere reaches a person as
     # its sentence, not as a traceback, without this line being touched.
-    # Bare `ValueError` and `FileNotFoundError` stay beside it, as they always
-    # were: narrowing them is a separate decision about what a bug looks like.
-    # (friction 59)
-    except (*REFUSALS, ValueError, FileNotFoundError) as exc:
+    # Bare `ValueError` stays beside it, as it always was: narrowing it is a
+    # separate decision about what a bug looks like (friction 59, #415).
+    # `OSError` is where `FileNotFoundError`, one of its subclasses, was: a file
+    # that could not be read is the environment, as the store's
+    # `DirectoryUnreadableError` already says of a directory. (ADR 0041 §4)
+    except (*REFUSALS, ValueError, OSError) as exc:
         # They are the user's to fix: a crossed perimeter, a moved configuration
-        # or baseline, a run that could not judge.
+        # or baseline, a run that could not judge, a file that cannot be read.
         say(f"digline: {type(exc).__name__}: {exc}", err=True)
         return EXIT_USAGE
+    # Anything else was anticipated by nobody. It exits 70 and never 1, which
+    # is "worse" and was Python's default here: a gate that measured nothing
+    # must not pass, and must not report a regression either. The traceback is
+    # the report, so it is printed, a line at a time through `say`, because an
+    # exception's message can quote a document. `KeyboardInterrupt` and
+    # `SystemExit` are not `Exception`s and keep their behaviour (#414).
+    # (ADR 0041 §2, §5)
+    except Exception:
+        for line in traceback.format_exc().splitlines():
+            say(line, err=True)
+        say(
+            "digline: the failure above was not anticipated. It is not a verdict "
+            f"on the suite (exit {EXIT_INTERNAL}).",
+            err=True,
+        )
+        return EXIT_INTERNAL
 
 
 if __name__ == "__main__":  # pragma: no cover

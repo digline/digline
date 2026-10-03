@@ -43,6 +43,7 @@ from digline.core.types import (
 __all__ = [
     "Affix",
     "AssertionBase",
+    "AssertionShapeError",
     "Contains",
     "CostBudget",
     "Equals",
@@ -65,6 +66,19 @@ __all__ = [
 ]
 
 
+class AssertionShapeError(TypeError):
+    """Raised when a check is declared in a shape digline cannot use: not a
+    dataclass, so it has no identity, or opted into `by_group` without what
+    expanding it needs.
+
+    A refusal of the user's suite, with a sentence written for its author. A
+    `TypeError` before it was a class of its own, and still one, so a caller
+    that catches `TypeError` catches it. As a bare `TypeError` no front end
+    recognised it, and it reached a person as a traceback with exit 1, which is
+    "worse". (ADR 0041 §4)
+    """
+
+
 def dataclass_identity(obj: object, excluded: frozenset[str]) -> str:
     """A stable fingerprint of a dataclass's declared fields, minus `excluded`.
 
@@ -73,7 +87,7 @@ def dataclass_identity(obj: object, excluded: frozenset[str]) -> str:
     two drifting apart.
     """
     if not is_dataclass(obj):
-        raise TypeError(
+        raise AssertionShapeError(
             f"{type(obj).__name__} is not a dataclass, so its identity cannot "
             "be derived from its declared fields. Decorate it with "
             "@dataclass(frozen=True), or override `identity` with a stable "

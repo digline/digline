@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from digline.core.assertions import AssertionShapeError
 from digline.core.compare import DifferentRegimesError, DifferentTenantsError
 from digline.core.diff import DifferentJudgesError, DifferentSuitesError
 from digline.core.projection import ProjectionRefusedError
@@ -67,6 +68,7 @@ __all__ = ["NOT_REFUSALS", "REFUSALS"]
 #: every class is *classified*, and a class covered by accident is not.
 REFUSALS: tuple[type[Exception], ...] = (
     # core
+    AssertionShapeError,
     DifferentSuitesError,
     DifferentJudgesError,
     DifferentRegimesError,
