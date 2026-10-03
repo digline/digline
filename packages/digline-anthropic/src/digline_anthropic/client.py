@@ -11,16 +11,27 @@ run with no SDK installed and no network at all.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from digline.core import Finish
-from digline.targets import Completion, ToolCall, UnknownModelError, Usage, finish_of
+from digline.targets import (
+    Completion,
+    Pricing,
+    ToolCall,
+    UnknownModelError,
+    Usage,
+    finish_of,
+)
 
 __all__ = [
     "FINISH",
+    "GEO_MULTIPLIERS",
     "completion_of",
     "build_client",
+    "geo_multiplier",
+    "priced_where_served",
     "text_of",
     "tool_calls_of",
     "tools_of",
@@ -48,6 +59,77 @@ FINISH: dict[str, Finish] = {
     "refusal": "filtered",
     "pause_turn": "other",
 }
+
+
+#: What a reply's `usage.inference_geo` multiplies every token category by.
+#: Read on 2026-10-03 from Anthropic's pricing page, *Data residency
+#: pricing*: "For Claude 4.6 and later models, specifying US-only inference
+#: through the `inference_geo` parameter incurs a 1.1x multiplier on all token
+#: pricing categories, including input tokens, output tokens, cache writes, and
+#: cache reads. Global routing (the default) uses standard pricing." No model
+#: condition is needed here: the same page says a request with the parameter
+#: on an earlier model returns a 400, so a reply that reports `"us"` came from
+#: a model it applies to. `None` is a reply that did not say, which is every
+#: reply from an SDK or a model without the field. (#392)
+GEO_MULTIPLIERS: Mapping[str | None, float] = {None: 1.0, "global": 1.0, "us": 1.1}
+
+
+def geo_multiplier(reply: Any) -> float:
+    """The multiplier for where this reply's inference ran.
+
+    **It reaches the target's own requests**, though the target never sends
+    `inference_geo`: a workspace's `default_inference_geo` decides when the
+    request does not, and every workspace migrated from the legacy US opt-out
+    defaults to `"us"` (Anthropic's data-residency page, read 2026-10-03). So
+    the price follows what the reply reports, not what was asked.
+
+    **A geography with no rate is refused, not priced**, the way a 1-hour
+    cache write is (#368). Anthropic documents two, `"us"` and `"global"`, and
+    a third would have a rate nobody here has read.
+    """
+    geo = getattr(getattr(reply, "usage", None), "inference_geo", None)
+    if geo in GEO_MULTIPLIERS:
+        return GEO_MULTIPLIERS[geo]
+    raise UnknownModelError(
+        f"model {str(getattr(reply, 'model', '') or '?')!r} ran in inference "
+        f'geography {geo!r}, and this price list has a rate for "global" and '
+        'for "us" only: pricing it at the global rate could report a run as '
+        "cheaper than it was. Pin the request or the workspace to one of the "
+        "two: this geography has no rate in digline yet (#392)"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _WhereServed(Pricing):
+    """A price list that prices each call where it was served. (#392)
+
+    The core prices a call with `pricing.cost(model, usage)`, and neither
+    argument says where inference ran. This view keeps the list's fields, so
+    the declared price, `preflight` and `config_hash` read exactly what they
+    read before, and multiplies the cost by the factor `take` hands over for
+    the call being priced.
+
+    **The hand-off is correct because calls are sequential.** `_complete` sets
+    the factor after reading a reply, and the core prices that reply next, in
+    the same call. Nothing in digline calls one target or judge from two
+    threads. `take` returns the factor and resets it, so a cost is never
+    priced at another call's geography.
+    """
+
+    take: Callable[[], float] = field(default=lambda: 1.0, compare=False, repr=False)
+
+    def cost(self, model: str, usage: Usage) -> float:
+        # `Pricing.cost(self, ...)` and not `super()`: the zero-argument form
+        # does not work in a dataclass built with `slots=True`, because the
+        # decorator replaces the class that `super()` was compiled against.
+        return Pricing.cost(self, model, usage) * self.take()
+
+
+def priced_where_served(pricing: Pricing, take: Callable[[], float]) -> Pricing:
+    """`pricing`, with each call's cost multiplied by what `take` returns."""
+    return _WhereServed(
+        per_model=pricing.per_model, declared=pricing.declared, take=take
+    )
 
 
 def build_client() -> Any:

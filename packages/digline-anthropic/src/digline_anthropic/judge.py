@@ -15,7 +15,12 @@ from dataclasses import replace
 from typing import Any
 
 from digline.targets import ClaimCountJudge, Completion, JudgeBase, Pricing, ScoreJudge
-from digline_anthropic.client import build_client, completion_of
+from digline_anthropic.client import (
+    build_client,
+    completion_of,
+    geo_multiplier,
+    priced_where_served,
+)
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
 __all__ = ["AnthropicClaimJudge", "AnthropicJudge"]
@@ -64,6 +69,14 @@ class _AnthropicJudge(JudgeBase):
         )
         self.prefill = prefill
         self._injected = client
+        #: Where the call in flight was served, as a price multiplier: set by
+        #: `_complete`, taken once by the price list. See `priced_where_served`.
+        self._geo = 1.0
+        self.pricing = priced_where_served(self.pricing, self._take_geo)
+
+    def _take_geo(self) -> float:
+        taken, self._geo = self._geo, 1.0
+        return taken
 
     def __repr__(self) -> str:
         return (
@@ -89,7 +102,11 @@ class _AnthropicJudge(JudgeBase):
         if self.temperature is not None:
             request["temperature"] = self.temperature
 
-        reply = completion_of(self._client().messages.create(**request))
+        raw = self._client().messages.create(**request)
+        # As in `AnthropicTarget._complete`: read first, handed over last.
+        geo = geo_multiplier(raw)
+        reply = completion_of(raw)
+        self._geo = geo
         if self.prefill is None:
             return reply
         # The reply *is* the prefill plus the completion, and a parser handed

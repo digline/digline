@@ -19,7 +19,7 @@ import pytest
 from digline.run import Case
 from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
-from digline_anthropic.client import tool_calls_of, tools_of, usage_of
+from digline_anthropic.client import GEO_MULTIPLIERS, tool_calls_of, tools_of, usage_of
 
 
 @dataclass
@@ -59,6 +59,9 @@ class FakeUsage:
     #: `anthropic.types.CacheCreation`, the split of the writes by duration.
     #: `None` is a reply without it, which is what an older SDK gives.
     cache_creation: object | None = None
+    #: Where inference ran: `"global"` or `"us"`, or `None` where the reply does
+    #: not say. `anthropic.types.Usage` types it `Optional[str]` (1.8.0). (#392)
+    inference_geo: str | None = None
 
 
 @dataclass
@@ -248,6 +251,134 @@ def test_a_one_hour_write_is_refused_rather_than_priced_low(prompt: Path) -> Non
     assert "wrote 1000 tokens to the 1-hour cache" in message
     assert "claude-fake-1-20260101" in message
     assert "#368" in message
+
+
+# --------------------------------------------------------------------------- #
+# Where inference ran (#392)
+# --------------------------------------------------------------------------- #
+
+#: One million of each category on Sonnet 5: $2 in, $10 out, $0.20 read, $2.50
+#: written, so $14.70 at the global rate.
+EVERY_CATEGORY = {
+    "input_tokens": 1_000_000,
+    "output_tokens": 1_000_000,
+    "cache_read_input_tokens": 1_000_000,
+    "cache_creation_input_tokens": 1_000_000,
+}
+
+
+@pytest.mark.parametrize(
+    ("geo", "cost"),
+    [
+        pytest.param(None, 14.70, id="not-reported"),
+        pytest.param("global", 14.70, id="global"),
+        pytest.param("us", 16.17, id="us"),
+    ],
+)
+def test_a_us_only_reply_costs_1_1x_on_every_category(
+    prompt: Path, geo: str | None, cost: float
+) -> None:
+    """Before #392 a US-only reply was priced at the global rate, 10% under on
+    every token, which a `CostBudget` reads as good news. Every category moves,
+    as the pricing page says: input, output, cache reads and cache writes."""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(**EVERY_CATEGORY, inference_geo=geo),
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd == pytest.approx(cost)
+
+
+def test_the_tokens_are_not_multiplied_only_the_cost(prompt: Path) -> None:
+    """The counts are what the provider reported, and stay so: the multiplier is
+    a price, not a token count."""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(input_tokens=1000, output_tokens=10, inference_geo="us"),
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.usage is not None
+    assert (response.usage.input_tokens, response.usage.output_tokens) == (1000, 10)
+
+
+def test_a_call_never_inherits_the_last_calls_geography(prompt: Path) -> None:
+    """The multiplier is handed from `_complete` to `__call__` on the instance,
+    which is correct only if it never outlives its call."""
+    target, client = a_target(prompt)
+    case = Case(id="it", vars={"country": "Italy"})
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(input_tokens=1_000_000, output_tokens=0, inference_geo="us"),
+    )
+    assert target(case).cost_usd == pytest.approx(2.20)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(input_tokens=1_000_000, output_tokens=0),
+    )
+    assert target(case).cost_usd == pytest.approx(2.00)
+
+
+def test_a_geography_with_no_rate_is_refused_rather_than_priced(
+    prompt: Path,
+) -> None:
+    """Anthropic documents two geographies. A third has a rate nobody here has
+    read, and the global one could be under it: refused, by the class and in
+    the shape of the 1-hour write's refusal."""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")], usage=FakeUsage(inference_geo="eu")
+    )
+    with pytest.raises(UnknownModelError) as refused:
+        target(Case(id="it", vars={"country": "Italy"}))
+    message = str(refused.value)
+    assert "inference geography 'eu'" in message
+    assert "claude-fake-1-20260101" in message
+    assert "#392" in message
+
+
+def test_the_price_view_declares_exactly_what_the_suite_declared(
+    prompt: Path,
+) -> None:
+    """The cost is multiplied through a view of the price list. The view must
+    leave the declared price alone, because that is what enters `config_hash`:
+    a plugin release that moved it would unpromote every baseline. (ADR 0022)"""
+    from digline.targets.pricing import ModelPrice
+
+    declared = ANTHROPIC_PRICING.override(
+        "claude-sonnet-5", ModelPrice(input_per_mtok=3.0, output_per_mtok=15.0)
+    )
+    target, _client = a_target(prompt, pricing=declared)
+    assert target.pricing.per_model == declared.per_model
+    assert target.pricing.declared == declared.declared
+    assert target.pricing.declared_price("claude-sonnet-5") == declared.declared_price(
+        "claude-sonnet-5"
+    )
+
+
+def test_the_price_list_does_not_keep_the_last_calls_geography(
+    prompt: Path,
+) -> None:
+    """`target.pricing` is public. Asked for a cost after a US-only call, it
+    must answer at the listed rate: the factor belonged to that call, and was
+    used up when that call was priced."""
+    from digline.targets import Usage
+
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(input_tokens=1_000_000, output_tokens=0, inference_geo="us"),
+    )
+    target(Case(id="it", vars={"country": "Italy"}))
+    asked = target.pricing.cost("claude-sonnet-5", Usage(1_000_000, 0))
+    assert asked == pytest.approx(2.00)
+
+
+def test_the_multiplier_is_the_published_one() -> None:
+    """Read on 2026-10-03 from Anthropic's pricing page, *Data residency
+    pricing*. Here so that changing it is a change somebody reads."""
+    assert GEO_MULTIPLIERS == {None: 1.0, "global": 1.0, "us": 1.1}
 
 
 def test_a_reply_without_the_split_is_priced_as_before() -> None:
