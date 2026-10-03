@@ -6,6 +6,39 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-anthropic 0.6.1 — unreleased
+
+Published by its own tag, `digline-anthropic-v0.6.1`. The core does not move.
+A patch: nothing that ran on 0.6.0 stops running.
+
+### Fixed — a US-only reply is priced at 1.1x, not at the global rate (#392)
+
+- **A reply served with `inference_geo: "us"` was priced at the global
+  rate.** For Claude 4.6 and later models, Anthropic bills US-only inference
+  at 1.1x on every token category: input, output, cache writes and cache
+  reads. So the run's cost and the judge's `spent_usd` were 10% under, which a
+  `CostBudget` reads as good news.
+- **It reached `AnthropicTarget`'s own requests**, though the target never
+  sends `inference_geo`. A workspace's `default_inference_geo` decides when the
+  request does not, and Anthropic configured every workspace that had opted
+  out of global routing with `default_inference_geo: "us"`.
+- **The cost now follows what the reply reports.** `"us"` is priced at 1.1x,
+  and `"global"` or no field at the listed rate. The token counts are not
+  touched, only the cost. Anthropic documents only those two geographies, so
+  any other value is refused with `UnknownModelError` rather than priced at the
+  global rate, as the 1-hour cache write is (#368).
+- Read on 2026-10-03 from Anthropic's pricing page, *Data residency pricing*,
+  and its data-residency page. `GEO_MULTIPLIERS` in `digline_anthropic.client`
+  carries the figures, and a test holds them to what was read.
+- **How it is applied, stated because it is a workaround.** The core prices a
+  call from the model and the token counts, and neither says where inference
+  ran. So the target and the judge hold a view of their price list that
+  multiplies each call's cost by the factor the reply reported. The view keeps
+  the list's fields, so the declared price and `config_hash` do not move. The
+  factor is handed over from the method that reads the reply, which is correct
+  because calls to one target or judge are sequential. Neither the call nor
+  the parse is overridden: the core's stay the only ones.
+
 ## 0.28.0 — unreleased
 
 **A minor, not a patch.** The exit code contract gains a value. A consumer

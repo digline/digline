@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from digline.core import ClaimJudge, EvaluatorInputs, Faithfulness, Judge, LlmRubric
-from digline.targets import CLAIM_SYSTEM, SCORE_SYSTEM
+from digline.targets import CLAIM_SYSTEM, SCORE_SYSTEM, UnknownModelError
 from digline_anthropic import AnthropicClaimJudge, AnthropicJudge
 
 
@@ -34,6 +34,8 @@ class FakeUsage:
     output_tokens: int = 0
     cache_read_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
+    #: Where inference ran, or `None` where the reply does not say. (#392)
+    inference_geo: str | None = None
 
 
 @dataclass
@@ -165,6 +167,55 @@ def test_a_cache_write_is_priced_on_a_judging_call_too(client: FakeClient) -> No
     judge("p")
     # 10 in + 4 out + 9202 written at 1.25/Mtok.
     assert judge.spent_usd == pytest.approx(0.011532, abs=1e-6)
+
+
+def test_a_us_only_judging_call_is_spent_at_1_1x(client: FakeClient) -> None:
+    """The judge prices in the core too, so it is held separately: `spent_usd`
+    is what a `CostBudget` on judging reads. (#392)"""
+    client.messages.reply = FakeReply(
+        content=[FakeBlock('"score": 1, "reason": "fine"}')],
+        usage=FakeUsage(inference_geo="us"),
+    )
+    judge = AnthropicJudge(model="claude-sonnet-5", client=client)
+    judge("p")
+    # One million input tokens on Sonnet 5, $2, at 1.1x.
+    assert judge.spent_usd == pytest.approx(2.20)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock('"score": 1, "reason": "fine"}')],
+        usage=FakeUsage(inference_geo="global"),
+    )
+    judge("p")
+    # The second call at the global rate, and not at the first one's.
+    assert judge.spent_usd == pytest.approx(4.20)
+    assert judge.calls == 2
+
+
+def test_the_judges_price_list_does_not_keep_the_last_calls_geography(
+    client: FakeClient,
+) -> None:
+    from digline.targets import Usage
+
+    client.messages.reply = FakeReply(
+        content=[FakeBlock('"score": 1, "reason": "fine"}')],
+        usage=FakeUsage(inference_geo="us"),
+    )
+    judge = AnthropicJudge(model="claude-sonnet-5", client=client)
+    judge("p")
+    asked = judge.pricing.cost("claude-sonnet-5", Usage(1_000_000, 0))
+    assert asked == pytest.approx(2.00)
+
+
+def test_a_judging_call_in_an_unpriced_geography_is_refused_and_not_counted(
+    client: FakeClient,
+) -> None:
+    client.messages.reply = FakeReply(
+        content=[FakeBlock('"score": 1, "reason": "fine"}')],
+        usage=FakeUsage(inference_geo="eu"),
+    )
+    judge = a_judge(client)
+    with pytest.raises(UnknownModelError, match="#392"):
+        judge("p")
+    assert judge.calls == 0 and judge.spent_usd == 0.0
 
 
 def test_an_unpriced_judge_model_is_refused(client: FakeClient) -> None:

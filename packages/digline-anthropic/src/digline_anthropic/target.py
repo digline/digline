@@ -19,7 +19,12 @@ from typing import Any
 
 from digline.core import ConfigValue
 from digline.targets import Completion, Pricing, ProviderTarget, sent
-from digline_anthropic.client import build_client, completion_of
+from digline_anthropic.client import (
+    build_client,
+    completion_of,
+    geo_multiplier,
+    priced_where_served,
+)
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
 __all__ = ["AnthropicTarget"]
@@ -73,6 +78,14 @@ class AnthropicTarget(ProviderTarget):
         #: invalid JSON. (friction 27)
         self.prefill = prefill
         self._injected = client
+        #: Where the call in flight was served, as a price multiplier: set by
+        #: `_complete`, taken once by the price list. See `priced_where_served`.
+        self._geo = 1.0
+        self.pricing = priced_where_served(self.pricing, self._take_geo)
+
+    def _take_geo(self) -> float:
+        taken, self._geo = self._geo, 1.0
+        return taken
 
     @property
     def config(self) -> Mapping[str, ConfigValue]:
@@ -108,7 +121,13 @@ class AnthropicTarget(ProviderTarget):
         if self.temperature is not None:
             request["temperature"] = self.temperature
 
-        reply = completion_of(self._client().messages.create(**request))
+        raw = self._client().messages.create(**request)
+        # Read before `completion_of`, so a geography with no rate is refused
+        # before anything else is read off the reply; handed over only after
+        # it, so a reply refused for another reason leaves nothing behind.
+        geo = geo_multiplier(raw)
+        reply = completion_of(raw)
+        self._geo = geo
         if self.prefill is None:
             return reply
         # The reply *is* the prefill plus the completion, and a parser handed
