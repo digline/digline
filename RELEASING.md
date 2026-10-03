@@ -1654,6 +1654,64 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v0.27.0 — the pair agreed for every pin in both builds, and the smoke
+  build waited for the upload instead of racing it.** `publish`
+  (`37029824468`) and `docker-publish` (`37029824521`) both passed on attempt
+  1, `github-release` and the site jobs included. `tools/tag_names.py "digline
+  0.27.0"` ran on #407's merge commit, `0128afb`, immediately before the tag.
+  Its whole output was read: one package, named, exit 0, and the `uv` note
+  about a `VIRTUAL_ENV` it ignored.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on `pypi`,
+  and the environment reads `can_admins_bypass: false`. The run was seen
+  waiting at 15:53:23, and the `pypi` job started at 15:54:01. The counts,
+  read after the click from the finished jobs:
+  - 12 `twine check` `PASSED` in the build, then 2 on `to-publish/`;
+  - TestPyPI's selection, and PyPI's, 2 `publish` and 10 `skip`. The two are
+    `digline` 0.27.0, wheel and sdist. The ten are the five other packages,
+    each already on the index;
+  - `imported 6`, and the quickstart's 3 calls.
+
+  Uploads landed at 15:54:23.1 and 15:54:24.6. The version endpoint answered
+  200 and its control, `/pypi/digline/9.9.9/json`, answered 404.
+
+  **The index race, both builds.**
+  - **The smoke build started at 15:51, before the click.** It saw `digline`
+    0.27.0 absent from `/simple/` on every 30-second poll from 15:51:31 to
+    15:54:32. It was served at 15:55:02, `after 240s`. That is the wait doing
+    its job across the approval, not a race.
+  - **The multi-arch build saw every pin served `after 1s`.** Its amd64 layers
+    `#10` to `#13` were `CACHED`, and prove nothing new.
+  - Both builds installed `digline-0.27.0`, `digline-anthropic-0.6.0`,
+    `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
+  - `0.27.0`, `0.27` and `latest` were pushed onto one digest,
+    `sha256:c9ee72309c0bc4a8d4d0508dd7f6bec66ca2067d07a68f16cbdb2cc9e5839623`.
+    That was read from the push log, because the session's token cannot list
+    the package.
+
+  **Step 6, the capture: it ran, the pair was present for every pin, and it
+  had nothing to explain.** In both builds, `side=wait` and `side=pip` were
+  logged for `digline`, `digline-anthropic`, `digline-openai` and
+  `digline-bedrock`, and each pair carried the same serial and the same etag.
+  For `digline` that was serial 41738883, the one after the upload.
+
+  **Elsewhere.**
+  - The seven example locks moved to 0.27.0 with `--upgrade-package digline`.
+    Their diff was read, three lines per lock, and nothing else moved.
+  - Nine reports were re-rendered in a chain from that commit, each naming the
+    one before it, and the reachability check found all of them reachable.
+    `classifier` (`-dirty`) and `prompt-first` (live) were left alone.
+  - **Masked for keys and times, every re-rendered report reads exactly as it
+    did on 0.26.0.** Against a control, two different reports differ by 201
+    lines, so the masking does not erase what it compares.
+  - `rag`'s `report` exits 1. It is the example of a regression, and the exit
+    code gates like `compare`'s.
+  - `release-followup`'s first run, at 15:55:12, said the registry had no
+    0.27.0 image. It asked before `docker-publish` had pushed, around 15:58.
+
+  **The next tag must show** the pair for every pin again, the counts after
+  the click, and the reports' text against the release before it.
+
 - **digline-bedrock-v0.6.0 — the first tag to publish two plugins, and it
   published both.** One tag carried `digline-bedrock` 0.6.0 and
   `digline-anthropic` 0.6.0, because both versions moved in #395 and a tag
