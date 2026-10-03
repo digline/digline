@@ -73,7 +73,10 @@ it is drawn in one place:
   (low, a credential in a target URL reaching stderr and a CI log); and the
   delta-pass over 0.12.0, fixed in 0.12.1,
   [GHSA-g25g-q7j3-jcgp](https://github.com/digline/digline/security/advisories/GHSA-g25g-q7j3-jcgp)
-  (low, perimeter fields in comparison deltas).
+  (low, perimeter fields in comparison deltas); and the delta-pass over
+  digline-bedrock 0.6.0, fixed in 0.6.1,
+  [GHSA-j589-v38m-4pwh](https://github.com/digline/digline/security/advisories/GHSA-j589-v38m-4pwh)
+  (low, an AWS account in verdict reasons, run files and reports).
 
   *Looking at whatever a sentence had to be precise about* — the denominator
   article, fixed across 0.15.1 to 0.15.3,
@@ -290,8 +293,11 @@ the version can read it today.
     in its run's `target_config`, and in a promoted baseline's, because the
     model is recorded as configured. That value is the suite author's own,
     written by them. It is not this defect, and 0.6.1 does not change it.
-  - **Whether this earns a published advisory** is ruled separately. This
-    entry is not that ruling.
+  - **Published as
+    [GHSA-j589-v38m-4pwh](https://github.com/digline/digline/security/advisories/GHSA-j589-v38m-4pwh)**,
+    low, on 2026-10-02, with a CVE requested in the same click. No CVE was
+    assigned when this line was written. Read it from the advisory, not from
+    here.
 
 ## Scorecard checks that read low by construction
 
