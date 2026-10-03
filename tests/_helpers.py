@@ -12,17 +12,21 @@ from __future__ import annotations
 
 import http.client
 import json
+import secrets
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 from digline.cli import EXIT_OK
-from digline.core import NO_BASELINE, key_of
+from digline.core import NO_BASELINE, key_of, project
+from digline.core.run import run_from_json, run_to_json
 from digline.store import FileResultStore
 
 __all__ = [
     "SUITE_SOURCE",
     "cli",
+    "configured_repo",
     "git",
     "hand_over",
     "run_key",
@@ -176,3 +180,55 @@ def hand_over(port: int, launch: str) -> str:
     assert answer.status == 303, f"the hand-over answered {answer.status}"
     set_cookie = answer.getheader("Set-Cookie") or ""
     return set_cookie.split(";", 1)[0]
+
+
+CONFIGURED_TARGET = """
+
+_plain = target
+
+
+class _Configured:
+    config = {config!r}
+
+    def __call__(self, case):
+        return _plain(case)
+
+
+target = _Configured()
+"""
+
+
+def configured_repo(
+    root: Path, values: Mapping[str, object], *, projected: bool
+) -> Path:
+    """The shared suite with a target that declares `values`, run and promoted
+    through the CLI. With `projected`, the baseline is then replaced by its
+    projection, which is the file the software house commits: nothing in
+    digline writes a projected reference into a store, it arrives. (#402)
+
+    The minter is one random token per name, which is all a reading needs: the
+    table that could resolve them is never on this side.
+    """
+    git(root, "init", "-q")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "Test")
+    suite = write_suite(root)
+    with suite.open("a", encoding="utf-8") as handle:
+        handle.write(CONFIGURED_TARGET.format(config=dict(values)))
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "initial")
+    key = run_key(root)
+    done = cli(
+        root, "promote", "--suite", "suite_qa.py", "--run", key, "--replacing", "none"
+    )
+    assert done.returncode == EXIT_OK, done.stderr
+    if projected:
+        (path,) = (root / ".digline").glob("*/baselines/*.json")
+        clear = run_from_json(path.read_text(encoding="utf-8"))
+        rows: dict[tuple[str, str], str] = {}
+
+        def mint(kind: str, text: str) -> str:
+            return rows.setdefault((kind, text), secrets.token_urlsafe(16))
+
+        path.write_text(run_to_json(project(clear, mint)), encoding="utf-8")
+    return root

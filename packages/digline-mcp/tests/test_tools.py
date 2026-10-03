@@ -15,7 +15,7 @@ import anyio
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
-from tests._helpers import cli, run_key, write_suite
+from tests._helpers import cli, configured_repo, run_key, write_suite
 
 from digline.core.run import SCHEMA_VERSION
 from digline.store import PENDING_DIRNAME
@@ -540,4 +540,19 @@ def test_log_reads_past_a_refused_run_and_matches_the_cli(promoted: Path) -> Non
     answered = call(promoted, "log", suite=str(promoted / "suite_qa.py"))
 
     assert answered["refused"] == 1
+    assert answered == json.loads(shown.stdout)
+
+
+def test_log_reads_a_projected_baseline_and_matches_the_cli(tmp_path: Path) -> None:
+    """On a projected baseline the tool failed as an unexpected error, not a
+    refusal: the reading looked a tokenised key up by its text (#402). It now
+    answers with the absence, and the same document the CLI prints."""
+    root = configured_repo(
+        tmp_path, {"provider": "openai", "model": "gpt-5"}, projected=True
+    )
+
+    shown = cli(root, "log", "--suite", "suite_qa.py", "--json")
+    answered = call(root, "log", suite=str(root / "suite_qa.py"))
+
+    assert answered["reference"]["target"]["absence"] == "projected"
     assert answered == json.loads(shown.stdout)

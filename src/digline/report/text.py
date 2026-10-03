@@ -1123,6 +1123,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.sighting.absent": "{who}: {absence}",
         "log.absence.declared_nothing": "declared no configuration",
         "log.absence.several_judges": "several judges; no single answering model",
+        # Row 8: names no token. A token tells a terminal's reader nothing, and
+        # two printed side by side invite matching them by eye. (ADR 0020 §3,
+        # amended 2026-10-03)
+        "log.absence.projected": (
+            "the configuration is projected, so who was asked and what answered "
+            "are tokens that only the name table can read"
+        ),
         "log.absence.withheld": ("the answering model is withheld at a named endpoint"),
         "log.absence.not_reported": "no answering model was reported",
         "log.absence.not_recorded": (
@@ -1188,6 +1195,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.scoreless": (
             "  {count} run-level check(s) recorded no score, so there is no "
             "range to read for them."
+        ),
+        # A flip that cannot be ruled out carries no interval either: the
+        # reference names its checks by tokens. (ADR 0024 §7.5, amended
+        # 2026-10-03)
+        "log.spread.projected": (
+            "  The reference is projected, so its run-level checks are named by "
+            "tokens and cannot be paired with these {count}. Whether one "
+            "changed status against it is not known, so no range is read for "
+            "them: a changed status carries no interval."
         ),
         "log.spread.set": (
             "  Across {count} comparable run(s) in this store, in this window — "
@@ -2257,6 +2273,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.absence.several_judges": (
             "più giudici; nessun singolo modello che ha risposto"
         ),
+        "log.absence.projected": (
+            "la configurazione è proiettata, quindi a chi è stato chiesto e chi "
+            "ha risposto sono token che solo la tabella dei nomi può leggere"
+        ),
         "log.absence.withheld": (
             "il modello che ha risposto è trattenuto presso un endpoint nominato"
         ),
@@ -2313,6 +2333,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.scoreless": (
             "  {count} controlli di run non hanno registrato un punteggio, "
             "quindi per loro non c'è nessun intervallo da leggere."
+        ),
+        "log.spread.projected": (
+            "  Il riferimento è proiettato, quindi i suoi controlli di run hanno "
+            "per nome dei token e non si possono accoppiare con questi {count}. "
+            "Se uno abbia cambiato stato rispetto a esso non è noto, quindi per "
+            "loro non si legge nessun intervallo: un cambio di stato non porta "
+            "un intervallo."
         ),
         "log.spread.set": (
             "  Su {count} run confrontabili in questo store, in questa "

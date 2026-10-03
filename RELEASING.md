@@ -3091,7 +3091,9 @@ the earlier pass already read: that is the work it was born of.
 - **The keys of the JSON contract**, which a pipeline parses as surely as a
   program imports a name. Diff `_ADDED` in `src/digline/wire/contract.py`
   between the two tags: since #312 every key added without a bump of
-  `OUTPUT_VERSION` is an entry there, with the issue or ADR that added it, and
+  `OUTPUT_VERSION` is an entry there, with the issue or ADR that added it.
+  Diff `_ADDED_WORDS` beside it: since #402 a word added to a map's closed key
+  vocabulary, such as a cause in `spread_absence`, is an entry there. And
   `tests/test_wire_keys.py` refuses a document that carries a key the table
   does not name. For a tag older than the table, the record is the prose above
   `OUTPUT_VERSION`, written by hand. On 0.25.1 that diff names

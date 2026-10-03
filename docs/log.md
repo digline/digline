@@ -59,7 +59,7 @@ A provider that names a snapshot we did not ask for has told us more than one
 that echoes the id we sent — no passthrough produces a string nobody supplied —
 but it has still only told us. Nothing here attests anything: the provider could
 report any string, and a proxy in front of it could rewrite the one it did.
-digline has a vocabulary for *we cannot identify what answered* — the seven
+digline has a vocabulary for *we cannot identify what answered* — the
 absences below — and none for *we were told and could not check*, which is why
 this paragraph once said "verified". The gap is named, not filled.
 
@@ -128,7 +128,7 @@ and nothing is said.** No count here means no run on record went unread. It
 does not mean no run is missing. The count of silences under a roll is a count
 of runs *read*, for the same reason.
 
-## The absences, and there are seven
+## The absences, and there are eight
 
 A reading of identity over real history is mostly absence, and **each absence is
 a different fact**. They are checked in this order, and the first that applies
@@ -143,9 +143,10 @@ names the run:
 | 5 | a configuration, a writer that names itself, no `resolved_model` | `no answering model was reported` |
 | 6 | a configuration, no `resolved_model`, and no `digline_version` | `not recorded: the document does not name its writer` |
 | 7 | `resolved_model` in clear and **literally equal** to the sent model | `the endpoint echoed the requested id, so what answered is not identified` |
+| 8 | a projected configuration, checked after rows 2 and 3 and before rows 4–7 | `the configuration is projected, so who was asked and what answered are tokens that only the name table can read` |
 
 Row 1 is not a sighting of anything, so it is a count on the reading rather than
-a kind on a span; rows 2–7 are the six kinds a span can carry.
+a kind on a span; rows 2–8 are the seven kinds a span can carry.
 
 **Row 5 cannot say who was silent.** The provider may return no model id — AWS
 Bedrock does not, by its own service model — or a plugin may not pass one on.
@@ -167,6 +168,17 @@ literal and nothing is normalised, because normalising is interpretation. It is
 checked only where `resolved_model` is in clear: at a named endpoint row 4
 applies first and has to, since the sent id travels in clear and saying *echoed*
 about a withheld value would disclose it exactly.
+
+**Row 8 is the one a projected reference reads.** A projected document
+([ADR 0034](adr/0034-the-store-outside-and-the-reference-that-names-nothing.md))
+carries its configuration keys and values as tokens, so nothing in it says
+which key is the provider and which the reported model. Rows 2 and 3 stay true
+on a projection, because emptiness and the number of judges survive it, so they
+are checked first. Rows 4–7 cannot be read on one, so row 8 comes before them.
+It prints no token. It is not among the rows the canary sentence below is
+about: a projected document may identify the answering model, under a token
+this reading cannot read. Through 0.27.0 a projected reference with a
+configuration ended `digline log` in a traceback (#402).
 
 Four of those rows — **withheld, not reported, not recorded, echoed** — identify
 no answering model, and the reading says so once, beneath any span table holding
@@ -208,7 +220,7 @@ nothing to read across runs.`, and no suite-wide number is invented out of the
 per-case checks: a summary nobody asked for is the thing this product exists to
 argue against.
 
-It is read off the **latest run's** aggregates, and it comes out empty for four
+It is read off the **latest run's** aggregates, and it comes out empty for five
 different reasons. Each gets its own sentence, because only one of them is a
 fact about the suite:
 
@@ -218,6 +230,7 @@ fact about the suite:
 | the suite declares no run-level check | exactly that — the one case that *is* about the suite |
 | every check changed status against the reference | how many, and that a changed status carries no interval |
 | every check recorded no score | how many |
+| the reference is projected, so its checks are named by tokens and cannot be paired with these | how many, that whether one changed status is not known, and that a changed status carries no interval |
 
 Where two hold at once — one check flipped, another scoreless — **both**
 sentences print, counted by cause and never as a total. Until 2026-09-22 all
@@ -226,6 +239,12 @@ run-level check: on a fresh clone or a hosted runner, where
 [decision 2](adr/0002-three-worlds-and-where-the-data-lives.md) means there is
 no history at all, that is the first thing the command ever said. A checkable
 sentence standing in for one that cannot be checked.
+
+The fifth is a flip that **cannot be ruled out**. A projected reference names
+its checks by tokens, so the reading cannot tell whether one changed status
+against it, and a range printed there would invite arguing away a change nobody
+excluded. Through 0.27.0 the lookup missed in silence and printed a range where
+the status had flipped (#402).
 
 ### Comparable is checked, never assumed
 
