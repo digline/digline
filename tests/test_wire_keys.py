@@ -16,7 +16,8 @@ module holds three things to it:
 - **every shape and every key in it was reached** by some fixture here, so a
   pin cannot go vacuous by belonging to a branch nobody builds;
 - **`_BASE` has not moved under this `OUTPUT_VERSION`**, by its digest: an added
-  key goes in `_ADDED`, and anything else is a bump.
+  key goes in `_ADDED`, a word added to a map's key vocabulary goes in
+  `_ADDED_WORDS`, and anything else is a bump.
 
 The fixtures are built from the dataclasses the builders read, directly, where
 that reaches a branch more cheaply than a store would. Where a builder reads a
@@ -52,6 +53,7 @@ from digline.core.register import RecordedOutcome
 from digline.core.run import CallTotals
 from digline.report import facts, headline
 from digline.report.log import (
+    SPREAD_ABSENCES,
     AggregateSpread,
     IdentityLog,
     IdentitySpan,
@@ -74,6 +76,7 @@ from digline.wire import (
 )
 from digline.wire.contract import (  # pyright: ignore[reportPrivateUsage]
     _ADDED,  # pyright: ignore[reportPrivateUsage]
+    _ADDED_WORDS,  # pyright: ignore[reportPrivateUsage]
     _BASE,  # pyright: ignore[reportPrivateUsage]
     _BASE_DIGEST,  # pyright: ignore[reportPrivateUsage]
     _SHAPES,  # pyright: ignore[reportPrivateUsage]
@@ -624,6 +627,36 @@ def test_an_added_key_is_new_and_named_once() -> None:
         assert where not in seen, where
         assert entry.ref, where
         seen.add(where)
+
+
+def _vocabulary(
+    shapes: Mapping[str, Mapping[str, _Key]], shape: str, key: str
+) -> frozenset[str]:
+    (found,) = [t for t in shapes[shape][key].types if isinstance(t, _Map)]
+    assert found.keys is not None, f"{shape}.{key} has an open vocabulary"
+    return found.keys
+
+
+def test_an_added_word_is_new_and_named_once() -> None:
+    """`_ADDED_WORDS`' counterpart of the test above. A word `_BASE` already
+    had would be a change wearing an addition's name. A word the derived table
+    lacks would be an entry that added nothing. (#402)"""
+    seen: set[tuple[str, str, str]] = set()
+    for entry in _ADDED_WORDS:
+        where = (entry.shape, entry.key, entry.word)
+        assert entry.word not in _vocabulary(_BASE, entry.shape, entry.key), where
+        assert entry.word in _vocabulary(_SHAPES, entry.shape, entry.key), where
+        assert where not in seen, where
+        assert entry.ref, where
+        seen.add(where)
+
+
+def test_an_added_word_is_a_word_its_owner_has() -> None:
+    """`_BASE` reads the vocabulary from the module that owns it, minus the
+    added words, and `_derive` puts them back. So the derived vocabulary is the
+    owner's, exactly. An entry naming a word the owner never had would put it
+    on the wire's table and in no document."""
+    assert _vocabulary(_SHAPES, "log", "spread_absence") == frozenset(SPREAD_ABSENCES)
 
 
 def test_no_value_may_be_two_kinds_of_object() -> None:

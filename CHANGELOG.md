@@ -6,6 +6,53 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.27.1 — unreleased
+
+A patch: nothing that ran on 0.27.0 stops running.
+
+### Fixed — `digline log` reads a projected baseline, and says only what is true of it (#402)
+
+- **On a projected baseline, `digline log` ended in a Python traceback,
+  `KeyError: 'provider'`, and exited 1.** In digline's table, 1 is
+  `EXIT_WORSE`, and `log` is never a gate. The MCP `log` tool failed the same
+  way, as an unexpected error rather than a refusal. A projected reference
+  carries its configuration keys as tokens, and the reading looked
+  `provider` up by its text. It happened whenever either side of the
+  reference carried configuration values.
+- **A repair that only stopped the crash would have printed a false
+  sentence**, and it was measured before anything was repaired. Make the
+  lookup tolerant, and both a reference that reported its model and one that
+  withheld it read *"no answering model was reported"*. The lines after the
+  crash have #275's shape.
+- **The reference now reads *"the configuration is projected, so who was asked
+  and what answered are tokens that only the name table can read"***. It is
+  the eighth absence of ADR 0020 §3, amended. *Declared no configuration* and
+  *several judges* stay true on a projection and still come first. No token is
+  printed. On `--json` the sighting has row 2's shape, with `absence:
+  "projected"`.
+- **Behind the crash, a second defect: a flip against a projected reference
+  was missed, and a range was printed.** The spread found the reference's
+  aggregate by name, which a projection tokenises. On a projected reference no
+  range is read, and the reading says why (ADR 0024 §7.5, amended).
+  `spread_absence` gains the key `projected`. This also reached output where
+  neither side of the reference carries configuration values, because there
+  the crash did not come first.
+
+### Changed — a new word in a map's key vocabulary is an added key
+
+- **`spread_absence` gains `projected` without a bump of `OUTPUT_VERSION`.**
+  The JSON contract counted a map's closed key vocabulary as part of its type,
+  so a new word moved `_BASE` and, by its rule, was a bump. Ruled now: a new
+  key met in a map is what a consumer meets when a key is added to an object.
+  The word is recorded in `_ADDED_WORDS` in `wire/contract.py`, beside
+  `_ADDED`.
+
+### Not changed
+
+- **An exception digline does not anticipate still exits 1, which is
+  `EXIT_WORSE`**, on every command. #402 removed one bug that reached that
+  path, and the path is still open. Recorded as #412.
+
 ## digline-bedrock 0.6.1 — 2026-10-02
 
 Published by its own tag, `digline-bedrock-v0.6.1`. The core does not move.

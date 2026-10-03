@@ -124,6 +124,15 @@
   verdict is refused, and `SCHEMA_VERSION` moves 16 → 17 for it alone. This
   makes §9's *"a name and two numbers"* and §4.8's *"the band's `check` is what
   the document says ran"* true of schemas 12–16 only
+- Amended: 2026-10-03 — §7.5, **a flip that cannot be ruled out is silent
+  too.** The spread found the reference's aggregate by `score.name`, which a
+  projected reference carries as a token. The lookup missed, so the flip check
+  never ran, a range was printed where the latest run's status had flipped,
+  and `--json` said `reference: null` about a reference that exists. On a
+  projected reference no range is read, and a fifth cause, `projected`, says
+  why. `spread_absence` gains the word. Under a contract rule ruled the same
+  day, a new word in a map's closed key vocabulary is an added key, so this is
+  no bump (#402)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -1759,6 +1768,60 @@ about.
 `--json` gains `spread_absence` beside `spread`: a consumer reading an empty
 list could not tell the four apart either, and the seven absences of ADR 0020
 §3 cross for the same reason. Added key, `OUTPUT_VERSION` 1 (ADR 0011 §4).
+
+##### Amendment, 2026-10-03: a flip that cannot be ruled out
+
+*Silent on a flip assumed the reading could tell whether there was one.
+Against a projected reference it cannot.*
+
+The flip check finds the reference's aggregate by `score.name`. A projected
+reference
+([ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+§4) carries a verdict's name as a token, so the lookup finds nothing whenever
+the latest run is in clear. That is
+[#275](https://github.com/digline/digline/issues/275)'s shape on a verdict name
+instead of a configuration key: a lookup that misses on a token, and the
+branch for the other case taken in silence. Measured with `test_a_flip_is_silent`'s
+runs and the reference projected:
+
+```
+clear      spread=()               spread_absence={'flipped': 1}
+projected  spread=(accuracy, latest 0.2, reference None, range 0.71-0.86)
+           spread_absence={}
+```
+
+**The flip is missed, so a range is printed where this section says none
+is.** `--json` also says `reference: null` about a reference that exists. In
+most cases the crash of #402 hid it, because the reading of the reference's
+identity raised first. It did not hide it where neither side of the reference
+carries configuration values, as in a suite whose target and judge declare
+nothing.
+
+**Ruled: on a projected reference, no range is read for any scored
+aggregate, and a fifth cause says why.** This section's reason is that a flip
+carries no interval. That reason holds just as well for a flip that cannot be
+ruled out: printing a range invites the reader to argue away a change nobody
+has excluded. *Scoreless* is checked first, because it stays true on a
+projection. *Projected* comes next, and *flipped* is never reached on a
+projected reference, because it cannot be decided.
+
+| cause | what it means | whose fact it is |
+|---|---|---|
+| `projected` | the reference is projected, so its run-level checks are named by tokens and cannot be paired with the latest run's; whether a status changed is not known | the reading's |
+
+**Considered and refused: pairing by `assertion_id`.** It is a digest and
+stays in clear on a projection, so it would pair most aggregates. Nobody has
+verified that it is unique within an aggregate, and the verdicts of a grouped
+aggregate probably share it, so a pairing that holds for most would be wrong
+for some in silence.
+
+**On the wire.** `spread_absence` gains the key `projected`. Its key
+vocabulary is part of the contract's type (`map<declares_none|flipped|…>`), and
+by the table's rule as written a new word moved `_BASE` and was a bump. **Ruled
+the same day: a new word in a map's closed key vocabulary is an added key.** A
+JSON consumer meets a key in a map it did not know, which is exactly what it
+meets with a key added to an object. The word is recorded in `_ADDED_WORDS` in
+`wire/contract.py`, and `_BASE` does not move. `OUTPUT_VERSION` stays at 2.
 
 ### 8. What this record does not touch
 

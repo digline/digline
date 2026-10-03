@@ -58,12 +58,15 @@ __all__ = [
 
 type Side = Literal["target", "judge"]
 
-#: §3's rows 2–7, in the order they are checked. Row 1 — a file that was not
+#: §3's rows 2–8, in the order they are checked. Row 1 — a file that was not
 #: read at all — is not a sighting of anything, so it is a count on the log
-#: rather than a kind here.
+#: rather than a kind here. Row 8, `projected`, is checked third, after the two
+#: that stay true on a projection and before the four that cannot be read on
+#: one. (ADR 0020 §3, amended 2026-10-03)
 type AbsenceKind = Literal[
     "declared_nothing",
     "several_judges",
+    "projected",
     "withheld",
     "not_reported",
     "not_recorded",
@@ -74,6 +77,7 @@ SIDES: tuple[Side, ...] = ("target", "judge")
 ABSENCES: tuple[AbsenceKind, ...] = (
     "declared_nothing",
     "several_judges",
+    "projected",
     "withheld",
     "not_reported",
     "not_recorded",
@@ -83,6 +87,10 @@ ABSENCES: tuple[AbsenceKind, ...] = (
 #: The absences under which no answering model is identified, so the canary is
 #: the only instrument that sees whether behaviour changed (ADR 0020 §3). A
 #: fact about which instruments can see what — the reading states it once.
+#:
+#: `projected` is not here. A projected document may identify the answering
+#: model under a token: the identity is there and cannot be read, which is not
+#: the fact the canary sentence states. (ADR 0020 §3, amended 2026-10-03)
 UNIDENTIFIED: frozenset[AbsenceKind] = frozenset(
     {"withheld", "not_reported", "not_recorded", "echoed"}
 )
@@ -215,11 +223,17 @@ EXCLUSIONS: tuple[ExclusionKind, ...] = (
 #: had flipped. A checkable sentence standing in for one that cannot be
 #: checked, which is the defect §7.4's amendment closed on the exclusion
 #: clause. (ADR 0024 §7.5, amended 2026-09-22)
+#:
+#: `projected` is the fifth: a projected reference names its aggregates by
+#: tokens, so whether a status flipped against it cannot be decided, and a flip
+#: that cannot be ruled out carries no interval either. (ADR 0024 §7.5, amended
+#: 2026-10-03)
 type SpreadAbsence = Literal[
     "no_runs",
     "declares_none",
     "flipped",
     "scoreless",
+    "projected",
 ]
 
 SPREAD_ABSENCES: tuple[SpreadAbsence, ...] = (
@@ -227,6 +241,7 @@ SPREAD_ABSENCES: tuple[SpreadAbsence, ...] = (
     "declares_none",
     "flipped",
     "scoreless",
+    "projected",
 )
 
 
@@ -333,11 +348,11 @@ class IdentityLog:
     #: The count is how many of the latest run's aggregates the cause accounts
     #: for. It is genuinely `0` for the two causes that mean there were none to
     #: account for — no run read, or a suite that declares no run-level check —
-    #: and above zero for the two that are facts about aggregates that do
-    #: exist. Both entries are present where both hold: a run with one flipped
+    #: and above zero for the three that are facts about aggregates that do
+    #: exist. Every entry that holds is present: a run with one flipped
     #: aggregate and one scoreless one is two facts, and printing one of them
     #: would be the substitution this field exists to end.
-    #: (ADR 0024 §7.5, amended 2026-09-22)
+    #: (ADR 0024 §7.5, amended 2026-09-22 and 2026-10-03)
     spread_absence: Mapping[SpreadAbsence, int] = field(
         default_factory=dict[SpreadAbsence, int]
     )
@@ -368,6 +383,13 @@ def sighting(config: SystemConfig, *, writer: str) -> Sighting:
         return Sighting("", seen.identities, None, "several_judges")
     if not seen.values:
         return Sighting("", (), None, "declared_nothing")
+    if seen.projected:
+        # Row 8. Every key below is read by its text, and on a projected
+        # document the keys are tokens. A subscript raised here (#402), and a
+        # membership test missed and said "not reported" about a model the
+        # document records, which is #275's shape. The two rows above stay true
+        # on a projection; nothing below can be read on one.
+        return Sighting("", (), None, "projected")
     provider = str(seen.values["provider"])
     sent = (str(seen.values["model"]),)
     answered = seen.values.get("resolved_model")
@@ -562,6 +584,12 @@ def _spread(
     reference and the latest run, no spread is produced for it: ADR 0006 §6, a
     flip carries no interval, and printing one invites the reader to argue it
     away. (ADR 0024 §7.5)
+
+    **Silent where a flip cannot be ruled out.** A projected reference names
+    its aggregates by tokens, so looking one up by the latest run's name finds
+    nothing, and the flip check would pass without having looked. No range is
+    read against it, and `projected` says why. (#402; ADR 0024 §7.5, amended
+    2026-10-03)
     """
     if not ordered:
         # Zero aggregates because there was no run to read them off, which is
@@ -598,6 +626,9 @@ def _spread(
         name = verdict.score.name
         if verdict.score.score is None:
             absence["scoreless"] = absence.get("scoreless", 0) + 1
+            continue
+        if reference is not None and reference.projected:
+            absence["projected"] = absence.get("projected", 0) + 1
             continue
         before = None if reference is None else _aggregate(reference, name)
         if before is not None and before.status != verdict.status:
@@ -843,6 +874,7 @@ _ABSENCE_STRING: Mapping[SpreadAbsence, str] = {
     "declares_none": "log.spread.none",
     "flipped": "log.spread.flipped",
     "scoreless": "log.spread.scoreless",
+    "projected": "log.spread.projected",
 }
 
 

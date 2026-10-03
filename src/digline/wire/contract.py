@@ -8,8 +8,8 @@ module, so `from digline.cli import EXIT_OK, OUTPUT_VERSION` keeps working.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 from typing import Literal, get_args
 
 from digline.core import Outcome, Run, scale_lost
@@ -375,6 +375,11 @@ def run_exit_code(run: Run) -> int:
 # - **adding a key** is one entry in `_ADDED`, naming why. That is what
 #   `OUTPUT_VERSION = 2`'s rule allows without a bump, and a release diffs
 #   `_ADDED` between two tags to list what it added (`RELEASING.md`);
+# - **adding a word to a map's closed key vocabulary** is one entry in
+#   `_ADDED_WORDS`, naming why, under the same rule. A consumer meets a key in a
+#   map it did not know, which is what it meets when a key is added to an
+#   object. Ruled 2026-10-03: until then the vocabulary was part of the type,
+#   and a new word moved `_BASE` (#402; ADR 0024 §7.5, amended 2026-10-03);
 # - **renaming or removing a key, or changing what type a value may take**, is
 #   an edit to `_BASE` or to an existing `_ADDED` entry. A consumer parsing the
 #   old shape breaks, so it is a bump of `OUTPUT_VERSION`: fold `_ADDED` into
@@ -468,6 +473,40 @@ class _AddedKey:
     key: str
     value: _Key
     ref: str
+
+
+@dataclass(frozen=True, slots=True)
+class _AddedWord:
+    """One word added to a map's closed key vocabulary under the current
+    `OUTPUT_VERSION`, without a bump. `ref` as on `_AddedKey`.
+
+    The vocabulary is still taken from the module that owns it. `_BASE` reads
+    it with these words taken out and `_derive` puts them back, so the owner
+    stays the one place a word is written.
+    """
+
+    shape: str
+    key: str
+    word: str
+    ref: str
+
+
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 2`.
+#: Appended to, never edited, like `_ADDED`.
+_ADDED_WORDS: tuple[_AddedWord, ...] = (
+    _AddedWord(
+        "log",
+        "spread_absence",
+        "projected",
+        "#402; ADR 0024 §7.5, amended 2026-10-03",
+    ),
+)
+
+
+def _as_written(shape: str, key: str, vocabulary: Iterable[str]) -> frozenset[str]:
+    """`vocabulary` as `_BASE` was written: without the words added since."""
+    added = {w.word for w in _ADDED_WORDS if (w.shape, w.key) == (shape, key)}
+    return frozenset(vocabulary) - added
 
 
 def _k(*types: _Type, optional: bool = False) -> _Key:
@@ -704,7 +743,12 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "spans": _k(_arr(_Obj("log.span"))),
         "rolls": _k(_arr(_Obj("log.roll"))),
         "spread": _k(_arr(_Obj("log.spread"))),
-        "spread_absence": _k(_map("integer", keys=frozenset(SPREAD_ABSENCES))),
+        "spread_absence": _k(
+            _map(
+                "integer",
+                keys=_as_written("log", "spread_absence", SPREAD_ABSENCES),
+            )
+        ),
         "replays": _k(_arr(_Obj("log.replay"))),
         # Keyed by the schema version a skipped document declared.
         "skipped": _k(_COUNTS),
@@ -923,17 +967,30 @@ _ADDED: tuple[_AddedKey, ...] = ()
 
 
 def _derive(
-    base: Mapping[str, Mapping[str, _Key]], added: tuple[_AddedKey, ...]
+    base: Mapping[str, Mapping[str, _Key]],
+    added: tuple[_AddedKey, ...],
+    words: tuple[_AddedWord, ...] = (),
 ) -> Mapping[str, Mapping[str, _Key]]:
     shapes = {name: dict(keys) for name, keys in base.items()}
     for entry in added:
         shapes.setdefault(entry.shape, {})[entry.key] = entry.value
+    for word in words:
+        spec = shapes[word.shape][word.key]
+        shapes[word.shape][word.key] = replace(
+            spec, types=frozenset(_with_word(t, word.word) for t in spec.types)
+        )
     return shapes
+
+
+def _with_word(value: _Type, word: str) -> _Type:
+    if isinstance(value, _Map) and value.keys is not None:
+        return _Map(value.of, value.keys | {word})
+    return value
 
 
 #: The contract as it stands: `_BASE` with every `_ADDED` entry in it. Derived,
 #: so the two parts above are the only places a key is written.
-_SHAPES: Mapping[str, Mapping[str, _Key]] = _derive(_BASE, _ADDED)
+_SHAPES: Mapping[str, Mapping[str, _Key]] = _derive(_BASE, _ADDED, _ADDED_WORDS)
 
 
 def _spell(value: _Type) -> str:

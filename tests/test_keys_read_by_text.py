@@ -34,8 +34,13 @@ either:
   finds `"resolved_model"` and `"model"` by text, so on a projection the
   "echoed" clause is dropped without a word. Nothing false is said: something
   is lost, and what a reader at the software house loses is §15's question.
-- **A crash**, #402. `report.log.sighting` reads `values["provider"]`, which
-  raises on a projected baseline.
+- **A crash, repaired in #402.** `report.log.sighting` read
+  `values["provider"]`, which raised on a projected baseline, and the
+  membership tests after it had #275's shape. It now returns the absence
+  `projected` before any key is read by text. The repair also found a lookup
+  by **verdict name**, `report.log._aggregate`, which a sweep for
+  configuration keys cannot find: a projected reference names its aggregates
+  by tokens, so the flip check missed in silence. Neither is watched here.
 
 The sweep was a search for the literal keys and the names of the sets. A key
 read through a variable would not show up in it.
