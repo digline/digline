@@ -47,6 +47,15 @@
   §4 gains one sentence and loses nothing: a reading may group runs by identity
   and read their aggregates, in a type of its own. Identity decides which runs
   are grouped; scores never decide identity
+- Amended: 2026-10-03 — §3 gains an **eighth absence: a projected document.**
+  Its configuration keys and string values are tokens
+  ([ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+  §4), so nothing in it says which key is `provider` and which is
+  `resolved_model`. The reading read them by text, and on a projected baseline
+  `digline log` ended in a traceback (#402). No sentence about the identity is
+  true of a projected document, so the absence is the one true thing to say,
+  as ADR 0034 §15 requires. It is checked after rows 2 and 3 and before rows
+  4–7, and it is not among the absences the canary sentence is about
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the payload
   stays where it is born, the verdict travels);
@@ -266,6 +275,65 @@ Absence is **never collapsed into its neighbours**. A span of silent runs is its
 own row, between the sightings on either side of it, so that a reader cannot
 mistake *nothing was recorded for four days* for *the same model answered for
 four days*.
+
+##### Amendment, 2026-10-03: the eighth absence, a projected document
+
+*The heading above says seven, and stays as it was written. There are eight
+now.*
+
+A projected document
+([ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+§4) carries its configuration with every key, every string value and every
+judge identity replaced by a token. Every row above is read off keys by their
+text. Row 4 asks whether `resolved_model` is in `withheld`, row 7 compares
+`resolved_model` with `model`, and every sighting is named by `provider` and
+`model`. On a projected document none of those keys is there to find.
+
+**What happened.** The reading looked up `provider` by subscript, and on a
+projected baseline `digline log` ended in a traceback with exit 1 (#402). The
+lines after it looked up `resolved_model` by membership, which is
+[#275](https://github.com/digline/digline/issues/275)'s shape: a lookup that
+misses on a token picks the sentence for the other case. This was measured on
+the repair that makes the subscript tolerant. A first-party reference that
+reported `gpt-5-2026` and a named endpoint that withheld it both read **"no
+answering model was reported"**, and both exit 0. Both sentences are false.
+The crash was what stopped that sentence being printed.
+
+**What is true of a projected document, and what is not.**
+
+| | The sentence | Why |
+|---|---|---|
+| true | declared nothing (row 2) | emptiness survives tokenisation |
+| true | several judges; no single answering model (row 3) | the number of identities survives |
+| true | the configuration is projected | the document declares it, and ADR 0034 §8 verifies the declaration |
+| not knowable | withheld (row 4) | which key was withheld is a token |
+| not knowable | echoed (row 7) | equal tokens can be seen, but not which keys are the model and the reported model |
+| false | not reported (row 5), not recorded (row 6) | the document may record the model, under a token |
+| not knowable | a sighting by provider and model | the names are tokens |
+
+**Ruled: row 8, *projected*.** It is checked after rows 2 and 3, because what
+they say stays true on a projection. It is checked before rows 4–7, because
+none of those can be read. The sentence says that the configuration is
+projected, so who was asked and what answered are tokens that only the name
+table can read. It prints no token: a token tells the reader of a terminal
+nothing, and printing two would invite matching them by eye.
+
+**It is not one of the absences the canary sentence is about.** Rows 4–7 say
+the answering model is not identified, so only a canary sees a change. A
+projected document may identify it. The identity is in the document and cannot
+be read here. That is a different fact, and the canary sentence would claim
+more than the document shows.
+
+**On the wire** the sighting carries `absence: "projected"`, `provider: ""`,
+`sent: []` and `answered: null`, which is the shape row 2 already has.
+`absence` is a string in the contract, so no key and no type moves. A consumer
+matching on the seven words meets an eighth only where `log` used to end in a
+traceback.
+
+**Where it applies.** The projected document the reading can meet today is the
+reference, because `read_baseline` accepts a projected reference. The fold
+applies the same row to any configuration that declares itself projected, so
+the rule does not depend on where the document came from.
 
 ### 4. The row has no score, by type
 
