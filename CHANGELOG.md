@@ -6,9 +6,14 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.27.1 — unreleased
+## 0.28.0 — unreleased
 
-A patch: nothing that ran on 0.27.0 stops running.
+**A minor, not a patch.** The exit code contract gains a value. A consumer
+that enumerated `0`, `1`, `2` and `64` now receives `70`, and
+`examples/operator/loop.py` stops where it used to carry on. That is an
+improvement, and it is still a change somebody upgrading can see. The
+criterion is whether something a user relies on stops working, not whether
+the old behaviour was right (ADR 0041).
 
 ### Fixed — `digline log` reads a projected baseline, and says only what is true of it (#402)
 
