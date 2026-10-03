@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, ClassVar, Literal, Protocol, cast
 
-from digline.core.assertions import dataclass_identity
+from digline.core.assertions import AssertionShapeError, dataclass_identity
 from digline.core.ratio import Ratio, as_ratio
 from digline.core.types import CheckKind, Score, Verdict, at_precision, meets
 
@@ -559,13 +559,13 @@ def _check_expandable(assertion: RunAssertion) -> None:
     slot that does not exist.
     """
     if not is_dataclass(assertion) or isinstance(assertion, type):
-        raise TypeError(
+        raise AssertionShapeError(
             f"{type(assertion).__name__} sets by_group but is not a dataclass, "
             "so it cannot be copied per group. Subclass RunAssertionBase and "
             "declare it with @dataclass(frozen=True)"
         )
     if not any(f.name == "group" for f in fields(assertion)):
-        raise TypeError(
+        raise AssertionShapeError(
             f"{type(assertion).__name__} sets by_group but declares no `group` "
             "field, so an expanded copy would have nowhere to record which "
             "group it counts. Add "

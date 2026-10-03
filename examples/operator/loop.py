@@ -249,8 +249,14 @@ def observe(config: Config, *, seed: int, root: Path) -> Observation:
         seed=seed,
         root=root,
     )
+    # Only the three verdicts are read as one. 64 is a refused request, and 70
+    # a failure nobody anticipated: both stop the loop here. Before ADR 0041 a
+    # failure like that exited 1, "worse", and the loop went on to hunt a
+    # regression that did not exist.
     if read.returncode not in (EXIT_OK, EXIT_WORSE, EXIT_UNJUDGED):
-        raise SystemExit(f"digline explain refused the request:\n{read.stderr}")
+        raise SystemExit(
+            f"digline explain gave no verdict (exit {read.returncode}):\n{read.stderr}"
+        )
     reading = cast("Mapping[str, Any]", json.loads(read.stdout))
     if reading["scope"] != "comparison":
         # Without a baseline `explain` reads the run alone, and alone it can

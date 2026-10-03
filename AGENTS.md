@@ -143,8 +143,10 @@ of `1`, you are arguing with the instrument. The rules are
 
 `0` proceed. `1` stop and report what got worse. `2` stop — the run could not
 be judged, and nothing downstream of it is meaningful, including any conclusion
-you were about to draw from the green checks beside it. Anything else (`64`) is
-the CLI refusing the request you made, not a verdict on the suite.
+you were about to draw from the green checks beside it. `64` is the CLI
+refusing the request you made. `70` is a failure nobody anticipated, printed
+with its traceback: report it, and do not read it as a regression or re-run the
+suite to make it go away. Neither is a verdict on the suite.
 
 Never parse the prose headline in a script. It is a *document* sentence, it is
 localized, and it is written for the customer who reads the report. `--json`

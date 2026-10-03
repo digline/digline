@@ -3,7 +3,10 @@
 - Status: accepted 2026-10-03. Ruled before any code, on the measurement in
   §*Context*: a fifth exit code, 70, for a failure digline did not anticipate;
   the three refusals that reached the same path moved to 64 in the same change;
-  and a traceback printed beside one line that says what it is not
+  a traceback printed beside one line that says what it is not; and, ruled
+  after the first text when the MCP test pinning 27bc37e turned red, the rule
+  in §4.1 by which a suite's failure while it loads is refused with its
+  location
 - Shipped: unreleased
 - Date: 2026-10-03
 - Opens: **a fifth exit code.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`: a
@@ -135,14 +138,71 @@ the environment. So they move in the same change, each to its precedent:
 - **(B)** `main()` translates `OSError` where it translated
   `FileNotFoundError`, which is one of its subclasses. The store's
   `DirectoryUnreadableError` is the precedent: *could not look* is a refusal.
-- **(C)** The loader wraps any exception the suite raises while it loads, as it
-  already wraps `SyntaxError` and `ImportError`, on the file form and on the
-  dotted form. A refusal or a `ValueError` the suite raises passes through
-  unwrapped, as before.
+- **(C)** A suite that raises while it loads is refused with the location of
+  what raised, by the rule in §4.1, on the file form and on the dotted form.
 - **(D)** Everything else that is an `Exception` exits 70.
 
 `KeyboardInterrupt` and `SystemExit` are `BaseException`s and keep their
 behaviour. Ctrl-C is the convention, and a suite's `SystemExit` is #414.
+
+### 4.1 (C), and the commit it reverses
+
+**It reverses
+[27bc37e](https://github.com/digline/digline/commit/27bc37e), of 2026-09-30.**
+That commit wrapped a suite's `ImportError` in a refusal and left every other
+exception from a suite unexpected, *"Only an import is wrapped"*. An MCP test
+pinned it on ADR 0011 §10: *"dressing it as a tool result would hide a bug
+behind a sentence"*. **That concern stands, and this record meets it with the
+location instead of the traceback.** What hid the failure was a sentence with
+no location in it, not the code 64. And what changed is that after this record
+*unexpected* means exit 70, *"digline failed"*. 27bc37e did not have to
+consider that. Said about the user's own code, 70 would be the very defect
+this record repairs, pointed the other way.
+
+**The rule, by who raised the exception**, read from the traceback's innermost
+frame and checked in this order:
+
+1. **A refusal, a `ValueError` or an `OSError` passes through as before**,
+   whatever the frame, and exits 64 with digline's own sentence. That covers
+   every misuse digline already refuses in words. **It keeps a known defect, on
+   purpose:** a `ValueError` raised by a failure inside digline still reads as
+   *"your request was wrong"*. The recon behind this record found it, and it is
+   recorded as #415 and in *Not decided here*. It is held to its existing
+   behaviour here, not forgotten.
+2. **Any other exception whose innermost frame is in the `digline` package is
+   not wrapped.** It reaches the front end as a failure nobody anticipated,
+   and the CLI exits 70. If a suite's misuse makes digline raise something it
+   wrote no sentence for, the missing sentence is digline's defect.
+3. **Anything else is a refusal, 64**: the suite, the application it imports,
+   a third-party library, a provider plugin. The sentence carries the type, the
+   message, the innermost frame's `file:line`, the suite's own `file:line`
+   where that is another frame, and the command that prints the full
+   traceback. For a file that is `cd DIR && python -c 'import runpy;
+   runpy.run_path("suite.py")'`, which puts the directory on `sys.path` as the
+   loader does and runs no `__main__` block. For a dotted name it is
+   `python -c 'import pkg.module'`. The text is the same on every front end and
+   passes through `visible`, because an exception's message is not digline's
+   to vouch for.
+
+**The measurement that makes rule 2 safe.** Calling a digline API with the
+wrong arguments raises at the call site, so the innermost frame is the suite's
+and the mistake falls under rule 3. Measured with a wrong keyword to a digline
+dataclass (`Case(idd=...)`) and to a digline function: both innermost frames
+were the suite's. Without that, *classify by who raised it* would have blamed
+digline for a user's typo, and the most frequent mistake would have exited 70.
+
+**The consequence for provider plugins, stated so it is seen rather than
+found.** *The `digline` package* is the directory of `digline.__file__`. A
+provider plugin is a separate package, so a plugin's failure while a suite
+loads falls under rule 3. It exits 64, with a location that points into the
+plugin's own files, such as `digline_anthropic/...`, and that path is what
+says whose it is.
+
+**Held by tests on both front ends.** The MCP test that pinned 27bc37e is
+rewritten to the new rule and keeps its control. It asserts that the type, the
+message and the line reach the agent, because a sentence without them would
+be the hiding §10 refused. A second test holds rule 2: a failure raised inside
+digline while a suite loads still reaches the agent as an unexpected error.
 
 ## 5. A traceback, and one line beside it
 
@@ -181,10 +241,12 @@ claims only what is known.
   `main()`'s own comment, friction 59). Narrowing it would turn each
   deliberate `ValueError` refusal into a 70, and how many there are has not
   been counted.
-- **The MCP server.** It has no exit code. A refusal reaches the agent as a
-  `ToolError`, and anything else as the SDK's unexpected error. Whether (B) and
-  (C) should be translated there too, for parity with the CLI, is not ruled
-  here.
+- **(B) on the MCP server.** It has no exit code. A refusal reaches the agent
+  as a `ToolError`, and anything else as the SDK's unexpected error. (A) and (C)
+  reach it as refusals, because `AssertionShapeError` is in `REFUSALS` and (C)
+  is done in the loader both front ends share. (B) is done in the CLI's
+  `main()`, so on the MCP an unreadable file is still an unexpected error.
+  Whether it should be translated there too is not ruled here.
 - **`pytest-digline`** reports through pytest's own exit codes and is not
   touched.
 
@@ -194,5 +256,6 @@ claims only what is known.
   regression. A script that stops on any non-zero code behaves exactly as
   before.
 - A failure of class (A), (B) or (C) exits 64 with one line instead of 1 with
-  a traceback.
+  a traceback. For (C), that line carries the location and the command that
+  prints the traceback.
 - `AGENTS.md` §6 has five codes, not four.

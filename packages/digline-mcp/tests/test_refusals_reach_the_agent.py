@@ -167,12 +167,32 @@ def test_a_suite_whose_import_is_missing_is_refused_in_words(repo: Path) -> None
     assert "digline_plugin_that_is_not_installed" in message, message
 
 
-def test_a_suite_that_fails_for_another_reason_still_crashes(repo: Path) -> None:
-    """The control for the test above: only an import is a refusal. A suite
-    whose own code raises is a bug, and dressing it as a sentence would hide
-    it (ADR 0011 §10)."""
+def test_a_suite_whose_own_code_raises_is_refused_with_its_location(
+    repo: Path,
+) -> None:
+    """The control for the test above, rewritten when ADR 0041 reversed
+    27bc37e. That commit kept a suite's own failure an unexpected exception,
+    because a sentence would hide where the suite failed (ADR 0011 §10). The
+    concern stands, and it is met by the location instead of the traceback: so
+    what is asserted is that the type, the message and the line all reach the
+    agent. A sentence without them would be the hiding §10 refused."""
     (repo / "suite_broken.py").write_text(
         "raise RuntimeError('a bug in the suite')\n", encoding="utf-8"
     )
-    _message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_broken.py"))
+    message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_broken.py"))
+    assert kind is not UnexpectedToolError, kind.__name__
+    assert "raised RuntimeError: a bug in the suite" in message, message
+    assert f"at {(repo / 'suite_broken.py').resolve()}:1," in message, message
+    assert "For the full traceback, run:" in message, message
+
+
+def test_what_digline_raises_while_a_suite_loads_still_crashes(repo: Path) -> None:
+    """What 27bc37e protected, where it still applies: the innermost frame is
+    digline's, so it is a failure nobody anticipated, and it is not dressed as
+    a sentence about the suite (ADR 0011 §10, ADR 0041 §4 rule 2)."""
+    (repo / "suite_digline.py").write_text(
+        "from digline.report import phrase\nphrase('en', 'no.such')\n",
+        encoding="utf-8",
+    )
+    _message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_digline.py"))
     assert kind is UnexpectedToolError, kind.__name__

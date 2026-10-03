@@ -14,6 +14,7 @@ from digline.cli.main import build_parser, main
 # end can reach them without importing a front end (ADR 0011 §6). This keeps
 # `from digline.cli import EXIT_OK` working for everything that already does.
 from digline.wire import (
+    EXIT_INTERNAL,
     EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_USAGE,
@@ -23,6 +24,7 @@ from digline.wire import (
 )
 
 __all__ = [
+    "EXIT_INTERNAL",
     "EXIT_OK",
     "EXIT_UNJUDGED",
     "EXIT_USAGE",

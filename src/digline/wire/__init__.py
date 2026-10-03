@@ -19,6 +19,7 @@ Pure, like the report: no I/O, no clock, held to it by
 
 from digline.wire.compare import compare_json, config_json, delta_json
 from digline.wire.contract import (
+    EXIT_INTERNAL,
     EXIT_OK,
     EXIT_UNJUDGED,
     EXIT_USAGE,
@@ -34,6 +35,7 @@ from digline.wire.run import run_document, run_json, runs_json, usage_lines
 from digline.wire.version import ahead_note, writer_ahead
 
 __all__ = [
+    "EXIT_INTERNAL",
     "EXIT_OK",
     "EXIT_UNJUDGED",
     "EXIT_USAGE",
