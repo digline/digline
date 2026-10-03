@@ -1712,6 +1712,37 @@ is the one a quiet log cannot supply.
   **The next tag must show** the pair for every pin again, the counts after
   the click, and the reports' text against the release before it.
 
+- **digline-bedrock-v0.6.1 — a security patch, one package, and the gate
+  read before the click.** It shipped the fix for F-1 of the delta-pass over
+  0.6.0, the same day 0.6.0 was published. `publish` (`37021061817`) passed on
+  attempt 1. `github-release` and the site jobs were skipped, as on any plugin
+  tag, and `docker-publish` did not run.
+  - **`tag_names.py "digline-bedrock 0.6.1"`** ran on #403's merge commit,
+    `9c5be9d`, immediately before the tag. Its whole output was read: one
+    package, named, and the `uv` note about a `VIRTUAL_ENV` it ignored. The
+    first read sent stdout and the exit code to `/dev/null` together, so the
+    code was read again on its own: 0.
+  - **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on
+    `pypi`. The run was seen waiting at 14:39:17, and the `pypi` job started at
+    14:40:29. **This time the counts were read and reported before the click**,
+    from the jobs that had finished:
+    - 12 `twine check` `PASSED` in the build;
+    - TestPyPI's selection, 2 `publish` and 10 `skip`. The two are the wheel
+      and sdist of `digline-bedrock` 0.6.1;
+    - `imported 6`, and the quickstart's 3 calls;
+    - the version endpoint answering 404.
+
+    PyPI's own selection, read afterwards, was the same 2 and 10.
+  - **On PyPI:** uploads at 14:40:49.2 and 14:40:50.6. The version endpoint
+    answered 200 and its control, `/pypi/digline-bedrock/9.9.9/json`, answered
+    404.
+  - **Steps 3, 5 and 6 had nothing to do.** No example pins `digline-bedrock`,
+    and no report names it. With no image build, the capture was never asked.
+  - **The advisory:** GHSA-j589-v38m-4pwh, low, drafted by the session and
+    published by Alessandro with a CVE requested. It is the first of the nine
+    published advisories whose CVE was asked for at publication (see
+    `SECURITY.md`).
+
 - **digline-bedrock-v0.6.0 — the first tag to publish two plugins, and it
   published both.** One tag carried `digline-bedrock` 0.6.0 and
   `digline-anthropic` 0.6.0, because both versions moved in #395 and a tag
