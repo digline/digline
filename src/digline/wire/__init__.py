@@ -4,7 +4,9 @@
 choose English. This is the other recipient. One subject, two renderings — and
 **one** rendering per recipient, which is the whole reason this package exists:
 every `--json` the CLI prints and every response the MCP server returns is built
-by a function in here, so two front ends cannot drift into two answers.
+by a function in here, so two front ends cannot drift into two answers. The one
+thing the server adds to such a document is the run's `key`, beside it, on three
+tools; `contract.py` says where that is pinned.
 
 It is the one place where fixed decision 9's boundary is a function you can
 point at. Nothing in here emits a `Verdict.reason`, a suspension reason, or

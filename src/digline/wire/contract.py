@@ -357,6 +357,15 @@ def run_exit_code(run: Run) -> int:
 # it does not allow. It also fails on a shape or an optional key no fixture
 # reached, so no pin here goes vacuous. (#312)
 #
+# **What this table does not hold: a key a front end splices beside a
+# document.** It types what the builders in this package emit, and that is
+# not every response `digline-mcp` returns. Its `explain`, `get_run` and
+# `get_baseline` tools return a builder's document with the run's `key` added
+# beside it. That key is pinned elsewhere: by name, in `digline-mcp`'s
+# `SPLICE_ALLOWED`, and by its tool tests. Nothing here moves if it does.
+# Measured in the release that shipped this table: renamed in the server, the
+# key left this table's test green and failed four of `digline-mcp`'s.
+#
 # **Two parts, so that an addition and a change cannot look alike.** `_BASE` is
 # the shape as it stood when this table was written, under `OUTPUT_VERSION = 2`,
 # and it does not move: `_BASE_DIGEST` holds its digest beside the version, and
@@ -639,7 +648,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "intervals_disjoint": _BOOL,
     },
     "interval": {"min": _NUM, "max": _NUM, "samples": _INT},
-    # `explain --json`. (explain.py)
+    # `explain --json`, and the MCP `explain` tool, which adds `key` beside it
+    # (above). (explain.py)
     "explain": {
         "output_version": _INT,
         "scope": _STR,
@@ -799,8 +809,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "judge_config_changed": _BOOL,
         "rejudged": _BOOL,
     },
-    # `run --json`, `list --json` and the MCP `run`, `list_runs` and `get_run`
-    # tools. (run.py)
+    # `run --json`, `rejudge --json` and the MCP `run` tool. (run.py)
     "run": {
         "output_version": _INT,
         "key": _STR,
@@ -812,6 +821,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "judge_reading": _k("string", optional=True),
         "usage": _k(_Obj("usage"), optional=True),
     },
+    # The MCP `list_runs` tool. `list` prints no JSON. (run.py)
     "runs": {
         "output_version": _INT,
         "tenant": _STR,
@@ -836,6 +846,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "aggregate": _k(_arr(_Obj("runs.verdict"))),
     },
     "runs.verdict": _VERDICT,
+    # The MCP `get_run` and `get_baseline` tools, which add `key` beside it
+    # (above). (run.py)
     "run_document": {
         "output_version": _INT,
         "tenant": _STR,
