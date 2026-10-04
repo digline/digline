@@ -283,7 +283,7 @@ So, of the 235:
   - the locale, `diff` across suites, `--judge-samples` below two;
   - a trajectory a target reported in a shape that cannot be recorded, which
     the driver records outside its catch.
-- **84 stay bare** because the same `raise` serves digline's own computation:
+- **83 stay bare** because the same `raise` serves digline's own computation:
   - `Score`, `Verdict`, `Usage`, `JudgeReply` and `ClaimReply` (25);
   - the `Run` family, `CalibrationBand` included (50);
   - four guards only digline reaches from a front end: `combine_samples`,
@@ -309,10 +309,13 @@ So, of the 235:
 calls it at declaration, so its error reaches a front end along the user's
 road. Left bare, a band declared at 0 would have moved from 64 to 70.
 
-**The number was corrected before it was ruled.** The first count of the sites
-in the second bullet was *about six*. It was taken from the messages, and a
-message does not say who calls the code. Counted again over the callers, by
-AST, it is 84.
+**The number was corrected twice.** The first count of the sites in the
+second bullet was *about six*. It was taken from the messages, and a message
+does not say who calls the code. Counted again over the callers, by AST, it was
+84, and 84 is what was ruled. Then, while the code was written, the road of one
+of them was read: `CalibrationBand.bounds`, above, reaches a front end along
+the user's road. So 83 stay bare. The ruling did not move, but one site
+changed sides under it.
 
 **Two alternatives were refused.**
 
