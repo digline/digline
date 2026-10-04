@@ -94,7 +94,15 @@ jobs:
       - run: uv build --all-packages
 
       - name: Check the metadata renders on PyPI
-        run: uv run --no-project --with twine twine check --strict dist/*
+        # To a file and not through `tee`: a `run:` with no `shell:` is
+        # `bash -e` without `pipefail`, so a pipe would hide twine's failure.
+        # The count goes to the job summary, which the reviewer at the `pypi`
+        # gate reads (gate_summary.py says why it is not a session's report).
+        run: |
+          uv run --no-project --with twine twine check --strict dist/* \
+            > /tmp/twine.txt 2>&1 || { cat /tmp/twine.txt; exit 1; }
+          cat /tmp/twine.txt
+          python .github/gate_summary.py twine /tmp/twine.txt
 
       - name: Every wheel installs on its own
         # A fresh venv per wheel: this is what a user gets, and the only place a
@@ -154,6 +162,7 @@ jobs:
         name: Keep only what the index does not have
         env:
           INDEX: https://test.pypi.org
+          SUMMARY_TITLE: TestPyPI's selection
         run: python .github/select_unpublished.py
 
       - if: steps.select.outputs.count != '0'
@@ -179,12 +188,34 @@ jobs:
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
-          .github/verify_imports.sh /tmp/from-index/bin/python /tmp/manifest
+          # Each output to a file and then shown, never piped: see the twine
+          # step for why. The files feed the job summary below.
+          .github/verify_imports.sh /tmp/from-index/bin/python /tmp/manifest \
+            > /tmp/imports.txt
+          cat /tmp/imports.txt
           tar -xzf dist/digline-*.tar.gz -C /tmp
           cd /tmp/digline-*/examples/quickstart
-          /tmp/from-index/bin/digline run --suite suite.py
+          /tmp/from-index/bin/digline run --suite suite.py \
+            2> /tmp/run-stderr.txt || { cat /tmp/run-stderr.txt >&2; exit 1; }
+          cat /tmp/run-stderr.txt >&2
           /tmp/from-index/bin/digline promote --suite suite.py --run latest --replacing none
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
+          cd "$GITHUB_WORKSPACE"
+          python .github/gate_summary.py install TestPyPI \
+            /tmp/imports.txt /tmp/run-stderr.txt
+
+      - id: preview
+        name: What PyPI would take, read before the gate
+        # The `pypi` job selects against PyPI only after the reviewer approves,
+        # and TestPyPI's selection above is against another index with another
+        # history. So PyPI is asked here, read-only, and its answer goes in the
+        # job summary the reviewer reads before the click. Nothing is uploaded:
+        # the copies land in a directory nothing publishes from.
+        env:
+          INDEX: https://pypi.org
+          OUT: /tmp/pypi-preview
+          SUMMARY_TITLE: PyPI's selection, read before the gate
+        run: python .github/select_unpublished.py
 
   pypi:
     name: PyPI
