@@ -872,17 +872,20 @@ def _refuse_uncallable_judge(judge: object, owner: str) -> None:
     """
     if not callable(judge):
         raise AssertionShapeError(
-            f"{owner}.judge is a {type(judge).__name__}, which cannot be called: "
-            "digline calls the judge once per case, after the target has "
-            "answered, so it is refused here, before anything is paid for. Pass "
-            "a function or a judge object."
+            f"{owner}.judge is of type {type(judge).__name__}, which cannot be "
+            "called: digline calls the judge once per case, after the target "
+            "has answered, so it is refused here, before anything is paid for. "
+            "Pass a function or a judge object."
         )
 
 
 def _wrong_reply(reply: object, expected: type) -> str:
     """The reason for a judge that answered with something other than its reply
     type. It names the judge, because the judge is what returned it."""
-    return f"the judge returned a {type(reply).__name__}, not a {expected.__name__}"
+    return (
+        f"the judge returned a value of type {type(reply).__name__}, not a "
+        f"{expected.__name__}"
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -72,8 +72,9 @@ def test_a_judge_that_cannot_be_called_is_refused_when_declared(
     with pytest.raises(AssertionShapeError) as refused:
         build(judge)  # pyright: ignore[reportCallIssue]
 
-    assert f"{owner}.judge is a {type(judge).__name__}, which cannot be called" in str(
-        refused.value
+    assert (
+        f"{owner}.judge is of type {type(judge).__name__}, which cannot be called"
+        in str(refused.value)
     )
     assert "before anything is paid for" in str(refused.value)
 
@@ -82,7 +83,7 @@ def test_a_rubric_judge_returning_the_wrong_type_is_named_as_the_judges() -> Non
     verdict = rubric(answering({"score": 1.0}))(INPUTS)
 
     assert verdict.status == "error"
-    assert verdict.reason == "the judge returned a dict, not a JudgeReply"
+    assert verdict.reason == "the judge returned a value of type dict, not a JudgeReply"
 
 
 def test_a_claim_judge_returning_the_wrong_type_is_named_as_the_judges() -> None:
@@ -91,7 +92,10 @@ def test_a_claim_judge_returning_the_wrong_type_is_named_as_the_judges() -> None
     verdict = faithful(answering(JudgeReply(score=1.0, reason="ok")))(INPUTS)
 
     assert verdict.status == "error"
-    assert verdict.reason == "the judge returned a JudgeReply, not a ClaimReply"
+    assert (
+        verdict.reason
+        == "the judge returned a value of type JudgeReply, not a ClaimReply"
+    )
 
 
 def test_the_right_reply_types_still_grade() -> None:
@@ -137,6 +141,6 @@ def test_a_judge_that_cannot_be_called_exits_64_before_the_target_is_called(
     done = cli(root, "run", *SUITE)
 
     assert done.returncode == EXIT_USAGE, done.stderr
-    assert "LlmRubric.judge is a str, which cannot be called" in done.stderr
+    assert "LlmRubric.judge is of type str, which cannot be called" in done.stderr
     assert "Traceback" not in done.stderr
     assert not calls.exists()

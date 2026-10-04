@@ -188,8 +188,8 @@ the old behaviour was right (ADR 0041).
   'score'"*. The reply was read outside the `try` that catches the judge, so
   the driver's catch named the check, the one component that was innocent.
   `Faithfulness` did the same with `total`.
-- **The reason now names the judge**: *"the judge returned a dict, not a
-  JudgeReply"*, or *"… not a ClaimReply"* for `Faithfulness`. It is still an
+- **The reason now names the judge**: *"the judge returned a value of type
+  dict, not a JudgeReply"*, or *"… not a ClaimReply"* for `Faithfulness`. It is still an
   errored verdict, because a reply exists only once the judge has answered.
 
 ### Fixed — a judge that cannot be called is refused when it is declared (#423)
