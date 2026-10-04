@@ -192,7 +192,7 @@ the old behaviour was right (ADR 0041).
   dict, not a JudgeReply"*, or *"… not a ClaimReply"* for `Faithfulness`. It is still an
   errored verdict, because a reply exists only once the judge has answered.
 
-### Fixed — a judge that cannot be called is refused when it is declared (#423)
+### Fixed — a judge of the wrong shape is refused before anything is paid (#423)
 
 - **`LlmRubric(judge="nope")` exited 0**, with an errored verdict on every
   case, after the target had been paid for every one. The judge is first
@@ -201,6 +201,9 @@ the old behaviour was right (ADR 0041).
   with `AssertionShapeError` when they are built, exit 64, before any call.
   This is the shape check above, carried to the one field of a check that is
   called after the target.
+- **A judge whose `config` is not a mapping of scalars exited 70**, as a bare
+  `ValueError`, while the run was prepared. Nothing had been paid yet. It is
+  now `AssertionShapeError`, exit 64, and the sentence names the judge's class.
 
 ### Changed — a `Suite`'s `assertions` and `cases` are tuples
 

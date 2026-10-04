@@ -30,6 +30,7 @@ from digline.core import (
     JudgeReply,
     LlmRubric,
 )
+from digline.run import Case, Response, Suite, execute
 
 SUITE = ("--suite", "suite_qa.py")
 
@@ -144,3 +145,101 @@ def test_a_judge_that_cannot_be_called_exits_64_before_the_target_is_called(
     assert "LlmRubric.judge is of type str, which cannot be called" in done.stderr
     assert "Traceback" not in done.stderr
     assert not calls.exists()
+
+
+# --------------------------------------------------------------------------- #
+# A judge's `config`: read before the first case, and exited 70
+# --------------------------------------------------------------------------- #
+
+
+class Configured:
+    """A judge that grades everything 1.0 and declares `config`."""
+
+    def __init__(self, config: object) -> None:
+        self.config = config
+
+    def __call__(self, prompt: str) -> JudgeReply:
+        return JudgeReply(score=1.0, reason="ok")
+
+
+class CountingTarget:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def __call__(self, case: Case) -> Response:
+        self.calls += 1
+        return Response(output="Paris.")
+
+
+@pytest.mark.parametrize(
+    ("config", "said"),
+    [
+        ("x", "the judge Configured's `config` is of type str, not a mapping"),
+        (
+            ["provider"],
+            "the judge Configured's `config` is of type list, not a mapping",
+        ),
+        (
+            {"provider": "p", "model": "m", "nested": {"a": 1}},
+            "a judge's `config` is refused: SystemConfig records 'nested' as a dict",
+        ),
+    ],
+    ids=["str", "list", "nested"],
+)
+def test_a_judge_config_of_the_wrong_shape_is_refused_before_the_first_call(
+    config: object, said: str
+) -> None:
+    """`dict("x")` and `SystemConfig` raised a bare `ValueError`, exit 70, while
+    the run was prepared (#423)."""
+    target = CountingTarget()
+    suite = Suite(
+        tenant="t",
+        environment="e",
+        name="s",
+        assertions=[rubric(Configured(config))],
+        cases=[Case(id="c1")],
+    )
+
+    with pytest.raises(AssertionShapeError) as refused:
+        execute(suite, target, created_at="2026-10-04T00:00:00+00:00")
+
+    assert said in str(refused.value)
+    assert target.calls == 0
+
+
+def test_a_judge_config_that_is_a_mapping_still_records() -> None:
+    """The control."""
+    suite = Suite(
+        tenant="t",
+        environment="e",
+        name="s",
+        assertions=[rubric(Configured({"provider": "p", "model": "m"}))],
+        cases=[Case(id="c1")],
+    )
+
+    run = execute(suite, CountingTarget(), created_at="2026-10-04T00:00:00+00:00")
+
+    assert run.judge_config is not None
+    assert run.judge_config.identities == ("p/m",)
+
+
+def test_a_judge_config_of_the_wrong_shape_exits_64(tmp_path: Path) -> None:
+    source = suite_source(
+        preamble=(
+            "class _Shaped:\n"
+            "    config = 'x'\n"
+            "    def __call__(self, prompt):\n"
+            "        return _judge(prompt)\n"
+        )
+    )
+    source = source.replace("judge=_judge", "judge=_Shaped()")
+    assert "judge=_Shaped()" in source
+    root = committed(tmp_path / "repo", source)
+
+    done = cli(root, "run", *SUITE)
+
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert "AssertionShapeError: the judge _Shaped's `config` is of type str" in (
+        done.stderr
+    )
+    assert "Traceback" not in done.stderr
