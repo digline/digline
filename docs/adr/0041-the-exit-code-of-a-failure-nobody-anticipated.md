@@ -9,6 +9,11 @@
   location
 - Shipped: unreleased
 - Date: 2026-10-03
+- Amended: 2026-10-04, before 0.28.0 was cut, in §4.1's rule 1, in a new §4.2,
+  in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
+  passes through as a refusal. A refusal written in words is `RefusedError`, a
+  subclass, and a bare `ValueError` that reaches a front end exits 70 (#415).
+  No other section changes, and the five codes do not move
 - Opens: **a fifth exit code.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`: a
   failure of this kind produces no document, and the MCP server has no process
   to exit
@@ -169,6 +174,13 @@ frame and checked in this order:
    *"your request was wrong"*. The recon behind this record found it, and it is
    recorded as #415 and in *Not decided here*. It is held to its existing
    behaviour here, not forgotten.
+
+   *__Amended 2026-10-04.__ The rule now reads "a refusal or an `OSError`". A
+   bare `ValueError` is no longer in it, and falls under rule 2 or rule 3 by
+   its frame like any other exception. A `ValueError` the suite raises itself
+   is therefore refused with its location, and still exits 64: the sentence
+   changes, not the verdict. The rule is kept as written above, because it was
+   the ruling of 2026-10-03, and §4.2 is the repair.*
 2. **Any other exception whose innermost frame is in the `digline` package is
    not wrapped.** It reaches the front end as a failure nobody anticipated,
    and the CLI exits 70. If a suite's misuse makes digline raise something it
@@ -203,6 +215,146 @@ rewritten to the new rule and keeps its control. It asserts that the type, the
 message and the line reach the agent, because a sentence without them would
 be the hiding §10 refused. A second test holds rule 2: a failure raised inside
 digline while a suite loads still reaches the agent as an unexpected error.
+
+### 4.2 A bare `ValueError` (amended 2026-10-04, #415)
+
+**Rule 1 kept a known defect, and this repairs it.** Until now a `ValueError`
+digline raised by mistake read *"your request was wrong"*. It is the defect
+this record repaired one level further in.
+
+**Measured at `2e67e42`, in four ways.**
+
+1. **The whole test suite, with `main()` instrumented** to log each exception
+   its 64 branch caught (`pytest -m "not live" -n 4`, 4152 tests): 67, and one
+   bare `ValueError`. That one was raised by a test's own suite while it
+   loaded. The rest were classes already in `REFUSALS`, or `OSError`s.
+2. **Every `raise` in `src/digline`, by AST**: 282 sites raise from the
+   `ValueError` family. 47 raise one of the 17 typed refusals that subclass it.
+   **235 raise the bare builtin, and every one of them carries a sentence
+   written for a reader**. None declares a defect.
+3. **Scenarios run from the CLI in a real repository.** `Contains(needle="")`,
+   `Length()` with no bound, an `HttpTarget` whose URL names no host, and an
+   endpoint that does not answer at preflight: each exits 64 on a bare
+   `ValueError`. A baseline, a run file or a suite that is not UTF-8 exits 64 on
+   an **implicit** `UnicodeDecodeError`. It is right by accident.
+4. **Implicit sources**: 84 calls to `int`, `float`, `json.loads`, `decode`
+   and `read_text`, 64 of them unguarded in their own function. They cannot be
+   enumerated, for the reason §*Context* gives.
+
+**The frame cannot tell them apart.** A deliberate refusal and a bug both
+start inside digline. `Contains(needle="")` has its innermost frame at
+`core/assertions.py:312`. An `int("x")` written by mistake in a digline
+function has its innermost frame in that function, because `int` has no
+Python frame. A `json.loads` written by mistake has its innermost frame in the
+standard library, which would classify it as *not digline's*, the wrong way
+round. The frame says *who* raised. Only the type can say *on purpose*. §4.1's
+frame rule stays where it is, separating the suite's code from digline's.
+
+**Ruled: a class, not a rule.** `RefusedError(ValueError)` is defined in the
+core and listed in `REFUSALS`. It follows the move §4 made for (A),
+`AssertionShapeError` under `TypeError`, so a caller catching `ValueError`
+still catches it. `main()`, `digline view` and the loader's pass-through list
+drop the bare `ValueError` and keep `OSError`.
+
+**Which sites become `RefusedError`: decided by the road the error takes to a
+front end, not by who builds the object.** There are four roads, each measured
+from the CLI:
+
+| road | measured with | ends |
+|---|---|---|
+| the user, at run time | a check's `_graded(1.5, …)`; a target's `Usage(input_tokens=-1)`; a judge's `JudgeReply(score=2.0)` | an errored verdict or case, exit 0. The driver and the assertion catch it, and `main()` never sees it |
+| the user, while the suite loads | `Contains(needle="")`, `Score(name="x", score=1.5)` at module level | the front end |
+| a document | a baseline whose score is out of range | the boundaries in `run_from_dict`, `projection` and `resolution`, which convert to a typed refusal |
+| digline's own computation | none observed | the front end: the bug this separates |
+
+So, of the 235:
+
+- **86 become `RefusedError`.** These are the sites whose error reaches a front
+  end along the user's road:
+  - the shipped checks' declarations and `Suite`, `Case` and `Calibration`;
+  - a target's and a judge's construction and preflight;
+  - `HttpTarget`'s load-time checks and `expected_config`;
+  - `free()`, `split_coordinate` and a provider's registration;
+  - `Repeated`, `PiiPattern`, `as_ratio` and `as_agreement`;
+  - the locale, `diff` across suites, `--judge-samples` below two;
+  - a trajectory a target reported in a shape that cannot be recorded, which
+    the driver records outside its catch.
+- **84 stay bare** because the same `raise` serves digline's own computation:
+  - `Score`, `Verdict`, `Usage`, `JudgeReply` and `ClaimReply` (25);
+  - the `Run` family, `CalibrationBand` included (50);
+  - four guards only digline reaches from a front end: `combine_samples`,
+    `fold_judgements`, `record_output` and `Usage.__add__`, whose two operands
+    each already satisfy the bound their sum is checked against (4);
+  - `Completion`, `ToolCall` and `SuiteRuns` (4).
+
+  From a front end their error arrives along digline's road, or along the
+  document's, which the boundaries already convert.
+- **41 stay bare because they are raised inside a run-time catch**: a reply
+  parsed by a judge, an endpoint's answer read by `HttpTarget`, a template
+  rendered during a call. The exit code never sees them. Their **type name is
+  written into the errored verdict's `reason`**, and that reason is committed
+  in the baseline.
+- **21 stay bare in the document readers behind `run_from_dict`**, which
+  converts them.
+- **4 stay bare in `execute`**: the pin-set invariant, a non-replay under
+  `judge_samples`, and the two `done` checks. A front end cannot reach them
+  except through its own wiring mistake. The journal is refused earlier, by
+  ADR 0017 §6.
+
+`CalibrationBand.bounds` is one of the 86 and not of the 50. `Calibration`
+calls it at declaration, so its error reaches a front end along the user's
+road. Left bare, a band declared at 0 would have moved from 64 to 70.
+
+**The number was corrected before it was ruled.** The first count of the sites
+in the second bullet was *about six*. It was taken from the messages, and a
+message does not say who calls the code. Counted again over the callers, by
+AST, it is 84.
+
+**Two alternatives were refused.**
+
+- ***`RefusedError` on the value types as well.*** It would make a bug in
+  digline's computation read as the user's request once more, on the types
+  where such a bug is most likely. And it changes a versioned document: an
+  errored verdict's reason would read *"assertion raised RefusedError: …"* in
+  every baseline that carries one, which puts the name of an internal class
+  into the committed format. The same reason keeps the 41 run-time sites bare.
+- ***A frame rule for the loader***, by which an exception raised in a
+  `__post_init__` entered directly from the suite's frame is the suite's. It
+  would repair the module-level case below, at the cost of a second frame rule
+  and an amendment to rule 2.
+
+**The `UnicodeDecodeError`, at its five sites.** A file that is not UTF-8 is
+the user's, so it is refused at the read where it happens. Those reads are
+the suite file read by the loader and by the TOML loader, a run read by the
+store, a baseline read by the store, and a document read by `migrate`. It is
+not refused in `main()` beside `OSError`: a general rule there would also
+catch a decode error inside digline itself, which is the confusion this
+removes.
+
+**What it gives the MCP server, which is where it matters most.** The server
+translates `REFUSALS` and nothing else (`digline_mcp/errors.py`). Every bare `ValueError`
+refusal therefore reached an agent as the SDK's *unexpected error*, with the
+sentence on stderr, where no client reads it. The loader's comment on its
+pass-through list said *"the front ends translate each of these already"*, and
+for `ValueError` that was false on the MCP. After this amendment the 86 reach
+an agent as their sentence, and the comment is true.
+
+**What it leaves, stated where it is.**
+
+- **A bug in a document reader still exits 64.** The three boundaries keep
+  converting a bare `ValueError` into a typed refusal, because a document
+  whose score is out of range is the document's fault. A reader that fails by
+  mistake is converted the same way. This is the cost `run_from_dict`'s
+  docstring already states, and it is not repaired here.
+- **A value type built at module level while the suite loads exits 70.** It is
+  measured with `Score(name="x", score=1.5)`: its innermost frame is digline's,
+  so it falls under rule 2. No example, test or page builds one there.
+- **A caller that tests `type(exc) is ValueError`** no longer matches the 86.
+  `except ValueError` still does. The three such tests inside digline are the
+  boundaries above, and they keep their meaning.
+- **A library caller's own misuse of the 8 bare guards** (`combine_samples`,
+  `execute`, …) still raises a `ValueError`, as before. Only what a front end
+  does with it changes.
 
 ## 5. A traceback, and one line beside it
 
@@ -241,6 +393,8 @@ claims only what is known.
   `main()`'s own comment, friction 59). Narrowing it would turn each
   deliberate `ValueError` refusal into a 70, and how many there are has not
   been counted.
+  *Decided 2026-10-04, in §4.2: they were counted, 86 of them became
+  `RefusedError`, and a bare `ValueError` exits 70.*
 - **(B) on the MCP server.** It has no exit code. A refusal reaches the agent
   as a `ToolError`, and anything else as the SDK's unexpected error. (A) and (C)
   reach it as refusals, because `AssertionShapeError` is in `REFUSALS` and (C)
@@ -259,3 +413,8 @@ claims only what is known.
   a traceback. For (C), that line carries the location and the command that
   prints the traceback.
 - `AGENTS.md` §6 has five codes, not four.
+- *Amended 2026-10-04 (§4.2).* A refusal digline writes in words is a
+  `RefusedError`, and on the MCP server it reaches an agent as its sentence
+  instead of an unexpected error. A bare `ValueError` that reaches a front end
+  exits 70. On the command line the refusal's line names `RefusedError` where
+  it named `ValueError`, and the exit code stays 64.
