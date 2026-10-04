@@ -78,7 +78,9 @@ INTRODUCED: dict[str, str] = {
     # location, and the MCP server answers it instead of ending (#414, ADR 0041
     # §4.3). Not released yet, so digline-mcp's floor is owed at the cut, and
     # `test_the_floor_covers_every_core_name_the_plugin_uses` reads the row in
-    # RELEASING.md until then.
+    # RELEASING.md until then. The cut removes three things together: the row,
+    # this note, and RELEASING.md's `0.28.0` in `test_versions.py`'s
+    # `RECORDED`. The row names the other two.
     "refused_exit": "0.28.0",
     # 0.25.2 — the list a program that shows runs reads (#276, `44e64ee`,
     # `v0.25.2~9^2`). digline-mcp's `list_runs` reads through it since #314.
@@ -330,6 +332,12 @@ def test_the_floor_covers_every_core_name_the_plugin_uses(plugin: Path) -> None:
     # owed at the cut is the promise instead. It counts only beside the marker
     # in the plugin's own pyproject, and the cut deletes the row, after which
     # this reads the real floor again.
+    #
+    # **A temporary relaxation, and weaker than what it replaces.** A row is a
+    # promise somebody has to keep at the cut, and a floor is the fact a
+    # resolver reads. Between the pull request that writes the row and the cut
+    # that deletes it, this gate holds the promise, not the fact. It regains
+    # its strength only at the cut. (#414)
     owed = owed_floor(plugin)
     if owed is not None and version_tuple(owed) > version_tuple(declared):
         declared = owed
