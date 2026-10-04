@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 # `from digline.targets.pricing import Usage` importing the *same class*,
 # so no plugin release is forced by the move. (ADR 0025 §5)
 from digline.core import Usage
+from digline.core.refused import RefusedError
 
 __all__ = ["ModelPrice", "Pricing", "Usage", "UnknownModelError", "free"]
 
@@ -142,7 +143,7 @@ def free(*models: str) -> Pricing:
     and hashes differently from this one.
     """
     if not models:
-        raise ValueError(
+        raise RefusedError(
             "free() needs at least one model name: an empty price list knows "
             "nothing and every model would fail preflight"
         )

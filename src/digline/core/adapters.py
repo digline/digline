@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar, Protocol, cast
 
 from digline.core.assertions import AssertionBase
+from digline.core.refused import RefusedError
 from digline.core.types import (
     TEXT_ONLY,
     CheckKind,
@@ -109,7 +110,7 @@ class FromAutoevals(AssertionBase):
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.threshold <= 1.0):
-            raise ValueError(f"threshold must be within [0, 1], got {self.threshold}")
+            raise RefusedError(f"threshold must be within [0, 1], got {self.threshold}")
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         if (err := self._accept(inputs.output)) is not None:

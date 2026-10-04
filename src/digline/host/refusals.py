@@ -28,6 +28,7 @@ from digline.core.assertions import AssertionShapeError
 from digline.core.compare import DifferentRegimesError, DifferentTenantsError
 from digline.core.diff import DifferentJudgesError, DifferentSuitesError
 from digline.core.projection import ProjectionRefusedError
+from digline.core.refused import RefusedError
 from digline.core.resolution import (
     DuplicateNameError,
     IncoherentRowsError,
@@ -68,6 +69,7 @@ __all__ = ["NOT_REFUSALS", "REFUSALS"]
 #: every class is *classified*, and a class covered by accident is not.
 REFUSALS: tuple[type[Exception], ...] = (
     # core
+    RefusedError,
     AssertionShapeError,
     DifferentSuitesError,
     DifferentJudgesError,

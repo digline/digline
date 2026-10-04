@@ -21,6 +21,7 @@ from typing import ClassVar, cast
 from digline.core.assertions import AssertionBase
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
+from digline.core.refused import RefusedError
 from digline.core.types import (
     STORAGE_STEP,
     CheckKind,
@@ -472,7 +473,7 @@ class Repeated(AssertionBase):
         object.__setattr__(self, "tolerance", self.inner.tolerance)
         object.__setattr__(self, "accepts", self.inner.accepts)
         if self.samples < 2:
-            raise ValueError(
+            raise RefusedError(
                 f"Repeated.samples must be at least 2, got {self.samples}: "
                 "repeating once is the assertion itself"
             )

@@ -1171,13 +1171,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_USAGE
     # Every refusal digline raises on purpose, from the classification rather
     # than listed here — so a refusal type added anywhere reaches a person as
-    # its sentence, not as a traceback, without this line being touched.
-    # Bare `ValueError` stays beside it, as it always was: narrowing it is a
-    # separate decision about what a bug looks like (friction 59, #415).
+    # its sentence, not as a traceback, without this line being touched. A
+    # refusal written in words is a `RefusedError`. A bare `ValueError` is not
+    # one, so it is not here: it falls through to 70 below, because the type is
+    # the only thing that says *on purpose* (friction 59, ADR 0041 §4.2).
     # `OSError` is where `FileNotFoundError`, one of its subclasses, was: a file
     # that could not be read is the environment, as the store's
     # `DirectoryUnreadableError` already says of a directory. (ADR 0041 §4)
-    except (*REFUSALS, ValueError, OSError) as exc:
+    except (*REFUSALS, OSError) as exc:
         # They are the user's to fix: a crossed perimeter, a moved configuration
         # or baseline, a run that could not judge, a file that cannot be read.
         say(f"digline: {type(exc).__name__}: {exc}", err=True)

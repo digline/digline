@@ -21,6 +21,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal
 
+from digline.core.refused import RefusedError
+
 __all__ = ["LOCALES", "MONTHS", "TEXT", "Locale", "phrase", "strings"]
 
 type Locale = Literal["en", "it"]
@@ -2423,7 +2425,7 @@ def strings(locale: Locale) -> Mapping[str, str]:
     table = TEXT.get(locale)
     if table is None:
         available = ", ".join(sorted(TEXT))
-        raise ValueError(f"unknown locale {locale!r}; available: {available}")
+        raise RefusedError(f"unknown locale {locale!r}; available: {available}")
     return table
 
 

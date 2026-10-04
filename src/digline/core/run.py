@@ -18,6 +18,7 @@ from typing import Any, cast
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
+from digline.core.refused import RefusedError
 from digline.core.text import recordable
 from digline.core.tokens import is_token
 from digline.core.types import (
@@ -730,14 +731,14 @@ def record_trajectory(
         # The target said nothing about tools — not that the model called none.
         return None
     if isinstance(found, str) or not isinstance(found, Sequence):
-        raise ValueError(
+        raise RefusedError(
             f"a target reported its tool calls as a {type(found).__name__}, not "
             "a sequence of calls: there is no trajectory to record"
         )
     calls: list[RecordedToolCall] = []
     for entry in cast("Sequence[object]", found):
         if not isinstance(entry, Mapping):
-            raise ValueError(
+            raise RefusedError(
                 f"a target reported a tool call as a {type(entry).__name__}, "
                 "not a mapping with a 'tool' in it"
             )
@@ -775,14 +776,14 @@ def _reported_tool(item: Mapping[str, object]) -> str | None:
     turned `None` into a tool named `"None"`. (ADR 0018 §1, amended 2026-09-17)
     """
     if "tool" not in item:
-        raise ValueError(
+        raise RefusedError(
             "a target reported a tool call with no 'tool' in it: a call whose "
             'tool nobody named says so with "tool": None'
         )
     tool = item["tool"]
     if tool is None or isinstance(tool, str):
         return tool
-    raise ValueError(
+    raise RefusedError(
         f"a target reported a tool call whose 'tool' is {type(tool).__name__}, "
         "not a name"
     )
@@ -2769,7 +2770,7 @@ def run_from_dict(raw: object) -> Run:
     except ValueError as exc:
         # **A bare `ValueError` is a refusal nobody classified** (0.21.0
         # delta-pass, S-1). The validators behind this call raise the builtin
-        # type with a sentence written for a reader, and the CLI maps
+        # type with a sentence written for a reader, and the CLI then mapped
         # any `ValueError` to exit 64 — so on the command line they always
         # looked handled. `digline-mcp` translates only the types listed in
         # `host.REFUSALS`, and a builtin is not one: an edited document reached
@@ -2779,6 +2780,11 @@ def run_from_dict(raw: object) -> Run:
         # construction. Named here, at the one boundary every stored document
         # crosses, rather than at each raise site. A typed refusal already
         # carries its name and passes through unchanged.
+        #
+        # Since ADR 0041 §4.2 a bare `ValueError` that reaches a front end
+        # exits 70, so this conversion is also what keeps a document's fault a
+        # refusal. The cost is the one §4.2 states: a bug in this reader is
+        # converted the same way, and still reads as a refused document.
         if type(exc) is not ValueError:
             raise
         raise DocumentRefusedError(str(exc)) from exc

@@ -27,6 +27,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from digline.core.refused import RefusedError
+
 __all__ = [
     "ITALIAN_PII",
     "PiiPattern",
@@ -57,11 +59,11 @@ class PiiPattern:
 
     def __post_init__(self) -> None:
         if not self.name:
-            raise ValueError("PiiPattern.name must not be empty")
+            raise RefusedError("PiiPattern.name must not be empty")
         try:
             compiled = re.compile(self.pattern)
         except re.error as exc:
-            raise ValueError(
+            raise RefusedError(
                 f"PiiPattern {self.name!r} does not compile: {exc}"
             ) from exc
         object.__setattr__(self, "compiled", compiled)

@@ -33,6 +33,7 @@ from digline.core import (
     JudgeReply,
     Usage,
 )
+from digline.core.refused import RefusedError
 from digline.targets.completion import (
     WHY_SILENT,
     Completion,
@@ -246,7 +247,7 @@ class JudgeBase(ABC):
         temperature: float | None = None,
     ) -> None:
         if max_tokens < 1:
-            raise ValueError(f"{type(self).__name__}.max_tokens must be at least 1")
+            raise RefusedError(f"{type(self).__name__}.max_tokens must be at least 1")
         self.model = model
         self.max_tokens = max_tokens
         self.pricing = pricing
@@ -334,7 +335,7 @@ class JudgeBase(ABC):
         """
         if not self.pricing.knows(self.model):
             known = ", ".join(sorted(self.pricing.per_model)) or "none"
-            raise ValueError(
+            raise RefusedError(
                 f"judge model {self.model!r} has no price (known: {known}); "
                 "pass `pricing=` to add it"
             )

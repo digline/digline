@@ -37,6 +37,7 @@ from digline.core.compare import (
     index_verdicts,
     suite_deltas,
 )
+from digline.core.refused import RefusedError
 from digline.core.run import Run
 from digline.core.types import Verdict, at_precision, within
 
@@ -385,7 +386,7 @@ def _refuse(left: Run, right: Run) -> None:
         # Two suites can legitimately share a fingerprint — the same checks at
         # the same bars over different cases — so this is checked on the name
         # and not left to the hash below.
-        raise ValueError(
+        raise RefusedError(
             f"cannot diff across suites: one run is {left.suite!r}, the other "
             f"is {right.suite!r}"
         )
