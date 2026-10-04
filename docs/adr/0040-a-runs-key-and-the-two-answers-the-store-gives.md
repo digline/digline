@@ -41,14 +41,34 @@ and never renamed. #332 records the split, and F-1 of the delta-pass over
 **The two answers, at `b3f991b`:**
 - **The file's stem.** `FileResultStore.list_runs` and `scan_runs` build each
   `RunRef` with `key=path.stem` (`store/file_store.py`). That feeds
-  `digline list`, `digline view`, MCP's `list_runs`, `host.history` and
-  `host.suite_runs`. `read_run` addresses the file by the stem, and never
-  compares the stem with the document.
+  `digline view`, MCP's `list_runs`, `host.history` and `host.suite_runs`,
+  and which runs `digline list` shows, though not the key it prints.
+  `read_run` addresses the file by the stem, and never compares the stem with
+  the document.
 - **`key_of(created_at, config_hash)`.** `write_run` files a run under it.
   `resolve_key` returns it for `latest`. `compare --json` prints it,
   `promote --replacing` takes it back, `suite_runs` marks the baseline with it,
   `journal_key` restates it over a journal header, and the register commits it
   to git.
+
+*Corrected 2026-10-04, on two points, measured at `33409a6`.*
+- **`digline list` prints `key_of`, not the stem.** The text above said the
+  stem feeds `digline list`. It feeds only which runs are listed: `cmd_list`
+  prints `key_of(run.created_at, run.config_hash)` on every row
+  (`cli/main.py`). So for a renamed run, `list` prints a key that `read_run`
+  does not answer to. It marks that row `*` as the baseline, and below the
+  table it says *"the run the baseline was promoted from, … is not among the
+  runs read"*. `digline view`, over the same store, lists the run under its
+  stem, with no baseline mark. So the split shows up inside `list`'s own
+  output, as well as between the two front ends.
+- **F-1 stated that renaming is an ordinary mistake. It did not observe one.**
+  The text below said F-1 *found* it. Run files are gitignored, so git cannot
+  record a rename, and no run file has ever been tracked. The 64 local run
+  files swept on this date have no stem that differs from its `key_of`: 42 in
+  `examples/`, the other 22 in the stores of two other projects. No record,
+  friction or issue reports a rename met in use. Every renamed file in the
+  records was made on purpose by a probe. **So the case §3 prices every
+  option against is hypothetical.**
 
 **What is already ruled: B, the local repair.** It was built for F-1 and merged
 as #333. On a projected list, a readable run is listed only if its stem is its
@@ -253,8 +273,9 @@ document. The `Listing` counts it.
 ## What this record does not claim
 
 - **That a renamed file is common.** The probe renamed one on purpose. F-1
-  found that renaming is an ordinary mistake, made by whoever can put a file in
-  the store. How often it happens is not measured.
+  stated that renaming is an ordinary mistake, made by whoever can put a file
+  in the store. It did not observe one. How often it happens is not measured
+  (§*Context*, the correction of 2026-10-04).
 - **That the option list is complete.** These are the three #332 and the
   delta-pass named.
 - **That any option is free.** §3 prices each against one case, a file renamed
