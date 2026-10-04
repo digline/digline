@@ -163,6 +163,38 @@ the old behaviour was right (ADR 0041).
   must say so. A command that has changed nothing can refuse and stop.
   Friction 59 was a promotion that looked failed and was not.
 
+### Fixed — a check of the wrong shape is refused before anything is paid, with where it is written (#420)
+
+- **A check missing `name`, `identity`, `threshold` or `tolerance` exited 70**,
+  *"not anticipated"*, on what is the user's mistake. The protocol is
+  duck-typed, so nothing asked for them until the first reader did:
+  `config_hash`, or the step that prepares the run, as an `AttributeError`.
+  A class that does not inherit `AssertionBase` was the ordinary way to get
+  there. A run assertion of the wrong shape failed the same way while the
+  suite loaded.
+- **A check that cannot be called exited 0**, with an errored verdict on every
+  case, after every call to the target had been paid for.
+- **Both are now `AssertionShapeError` when the `Suite` is built**, exit 64,
+  before any call. The sentence names the missing members and where the class
+  is written. `AssertionShapeError` itself improves too. It was raised lazily,
+  inside `config_hash`, and named no location. A class that is not a dataclass
+  is now refused at the same moment, with the same location.
+
+### Changed — a `Suite`'s `assertions` and `cases` are tuples
+
+- **`Suite.assertions` and `Suite.cases` are tuples once the suite is built**,
+  whatever sequence was passed. `run_assertions` already was one.
+- **Why.** Every check in the `Suite`'s construction is made once. A list
+  appended to afterwards, with `suite.assertions.append(...)`, skipped all of
+  them: the shape above, a case id already declared, an aggregate over a name
+  now shared.
+- **Who sees it.** Code that appends to or edits those lists now gets an
+  `AttributeError` or a `TypeError` on its own line. In a suite file, that is
+  refused with the location, exit 64. Build a new suite instead, with
+  `dataclasses.replace(suite, assertions=[*suite.assertions, check])`, which
+  runs the checks again. No page, example or plugin in this repository did
+  this. One test fixture did, and it was rewritten that way.
+
 ### Not changed
 
 - **A suite that calls `sys.exit(n)` while it loads still makes `n` the exit
