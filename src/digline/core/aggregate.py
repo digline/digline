@@ -18,13 +18,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any, ClassVar, Literal, Protocol, cast
 
-from digline.core.assertions import AssertionShapeError, dataclass_identity
+from digline.core.assertions import (
+    ASSERTION_MEMBERS,
+    AssertionShapeError,
+    dataclass_identity,
+)
 from digline.core.ratio import Ratio, as_ratio
 from digline.core.types import CheckKind, Score, Verdict, at_precision, meets
 
 __all__ = [
     "F1",
     "GROUP_MARKER",
+    "RUN_ASSERTION_MEMBERS",
     "Accuracy",
     "CaseOutcome",
     "Label",
@@ -199,6 +204,11 @@ class RunAssertion(Protocol):
         ...
 
     def __call__(self, outcomes: Sequence[CaseOutcome]) -> Verdict: ...
+
+
+#: What digline reads of a run assertion while the suite is assembled and the
+#: run is prepared. See `ASSERTION_MEMBERS`. (#420)
+RUN_ASSERTION_MEMBERS: tuple[str, ...] = (*ASSERTION_MEMBERS, "over", "requires_label")
 
 
 class RunAssertionBase:

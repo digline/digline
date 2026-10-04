@@ -44,6 +44,7 @@ from digline.core.types import (
 __all__ = [
     "Affix",
     "AssertionBase",
+    "ASSERTION_MEMBERS",
     "AssertionShapeError",
     "Contains",
     "CostBudget",
@@ -62,6 +63,7 @@ __all__ = [
     "ToolsCalled",
     "budget_score",
     "budget_score_at_precision",
+    "check_shape",
     "error_verdict",
     "levenshtein_distance",
 ]
@@ -78,6 +80,56 @@ class AssertionShapeError(TypeError):
     recognised it, and it reached a person as a traceback with exit 1, which is
     "worse". (ADR 0041 §4)
     """
+
+
+#: What digline reads of an assertion before any call is paid for: `name` while
+#: the run is prepared, the other three in `config_hash`. `accepts` is left out
+#: because only the assertion's own call reads it. A missing one of these exited
+#: 70 at first use, digline failing on the user's mistake (#420).
+ASSERTION_MEMBERS: tuple[str, ...] = ("name", "identity", "threshold", "tolerance")
+
+
+def check_shape(obj: object, members: tuple[str, ...], kind: str) -> None:
+    """Refuse `obj` unless it has every one of `members` and can be called.
+
+    **Checked when the suite is assembled, and never again.** The protocol is
+    duck-typed, so nothing else asks for these members until the first reader
+    does: `config_hash`, while the run is prepared, where a missing one was an
+    `AttributeError` and exit 70. A check without `__call__` was found later
+    still, as an errored verdict on every case, after every call to the target
+    had been paid for. Refuse before paying is the rule preflight already keeps.
+    (#420, ADR 0041 §4.1 rule 2: the missing sentence is digline's defect)
+
+    `hasattr` evaluates a property, so the `identity` of an `AssertionBase` that
+    is not a dataclass raises its own `AssertionShapeError` here too, at
+    assembly, rather than in `config_hash`.
+
+    The sentence names where the class is written, from its code objects only:
+    the core reads no file.
+    """
+    missing = [member for member in members if not hasattr(obj, member)]
+    if not callable(obj):
+        missing.append("__call__")
+    if missing:
+        them = "them" if len(missing) > 1 else "it"
+        base = "RunAssertionBase" if "over" in members else "AssertionBase"
+        raise AssertionShapeError(
+            f"{_written_at(type(obj))} is declared as {kind} and has no "
+            f"{', '.join(f'`{m}`' for m in missing)}: digline reads {them} "
+            f"before anything is paid for. Inherit {base} and declare the class "
+            f"with @dataclass(frozen=True), or define {them}."
+        )
+
+
+def _written_at(cls: type) -> str:
+    """`Name, defined at file:line`, from the first function written in the
+    class body. A class with no function of its own is named by its module."""
+    for value in vars(cls).values():
+        code = getattr(value, "__code__", None)
+        if code is not None and not code.co_filename.startswith("<"):
+            where = f"{code.co_filename}:{code.co_firstlineno}"
+            return f"{cls.__qualname__}, defined at {where}"
+    return f"{cls.__qualname__}, in {cls.__module__}"
 
 
 def dataclass_identity(obj: object, excluded: frozenset[str]) -> str:

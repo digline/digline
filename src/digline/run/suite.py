@@ -32,6 +32,8 @@ from digline.core import (
     judged,
     tolerance_is_blind,
 )
+from digline.core.aggregate import RUN_ASSERTION_MEMBERS
+from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.refused import RefusedError
 
@@ -311,6 +313,17 @@ class Suite:
     record_responses: bool = False
 
     def __post_init__(self) -> None:
+        # **Frozen first, because every check below is made once.** A list
+        # appended to after construction skipped all of them, not only the
+        # shape of what was appended: a second case under an id already
+        # declared, an aggregate over a name now shared. A tuple has no
+        # `append`, so that mistake is an `AttributeError` on the suite's own
+        # line, which the loader refuses with its location. `run_assertions`
+        # needs no line here: `expand_by_group` replaces it with a tuple at the
+        # end of this method, and nothing reads it after construction before
+        # then. (#420)
+        object.__setattr__(self, "assertions", tuple(self.assertions))
+        object.__setattr__(self, "cases", tuple(self.cases))
         if not self.tenant:
             raise RefusedError("Suite.tenant must not be empty")
         if not self.environment:
@@ -324,6 +337,12 @@ class Suite:
             )
         if not self.cases:
             raise RefusedError(f"suite {self.name!r} declares no cases")
+        # Before anything below reads a member of them, and before anything is
+        # paid for. (#420)
+        for assertion in self.assertions:
+            check_shape(assertion, ASSERTION_MEMBERS, "an assertion")
+        for aggregate in self.run_assertions:
+            check_shape(aggregate, RUN_ASSERTION_MEMBERS, "a run assertion")
         # Before the duplicate check below, so `"prompt.md"` and
         # `Path("prompt.md")` are one artifact declared twice rather than two.
         object.__setattr__(
