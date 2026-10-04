@@ -12,13 +12,14 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from digline import __version__
 from digline.core import (
     MAX_RECORDED_CHARS,
     Artifact,
     Assertion,
+    AssertionShapeError,
     CallTotals,
     CaseOutcome,
     CaseProgress,
@@ -210,7 +211,7 @@ def judge_config(suite: Suite) -> SystemConfig:
     A judge that declares nothing — no `provider`, no `model` — is passed over
     the way a plain-function target is: what names no instrument records none.
     """
-    found = [dict(judge.config) for judge in judges(suite.assertions)]
+    found = [_judge_values(judge) for judge in judges(suite.assertions)]
     declared = [c for c in found if c.get("provider") and c.get("model")]
     if not declared:
         return SystemConfig()
@@ -229,7 +230,32 @@ def judge_config(suite: Suite) -> SystemConfig:
     }
     # `provider` and `model` survive the merge by construction: a single
     # identity is what makes them equal across every judge here.
-    return SystemConfig(values=agreed, identities=identities)
+    try:
+        return SystemConfig(values=agreed, identities=identities)
+    except ValueError as exc:
+        # `SystemConfig` says what is wrong with the values. Bare, a
+        # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
+        # judge's declaration, not digline failing (#423).
+        raise AssertionShapeError(f"a judge's `config` is refused: {exc}") from exc
+
+
+def _judge_values(judge: HasConfig) -> dict[str, ConfigValue]:
+    """One judge's declared configuration, refused unless it is a mapping.
+
+    `dict("x")` raised a bare `ValueError`, exit 70, before the first case.
+    The judge is a field of a check, so its shape is refused the way the check's
+    is, with `AssertionShapeError`, exit 64 (#423).
+    """
+    # Read as `object`: the protocol is a promise, and this is the check.
+    declared = cast(object, judge.config)
+    if not isinstance(declared, Mapping):
+        raise AssertionShapeError(
+            f"the judge {type(judge).__name__}'s `config` is of type "
+            f"{type(declared).__name__}, not a mapping: digline records it as "
+            "the configuration of the instrument that graded, one field per "
+            "key. Return a dict of scalars, or remove the attribute."
+        )
+    return dict(cast(Mapping[str, ConfigValue], declared))
 
 
 #: Distinct from `None`, which is a value a config may legitimately hold.
