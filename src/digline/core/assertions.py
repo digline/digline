@@ -27,7 +27,9 @@ from digline.core.types import (
     TEXT_OR_CONVERSATION,
     TEXT_OR_STRUCTURED,
     CheckKind,
+    ClaimReply,
     EvaluatorInputs,
+    JudgeReply,
     Message,
     Output,
     OutputKind,
@@ -860,6 +862,29 @@ def judge_prompt(instruction: str, sections: Mapping[str, str], output: str) -> 
     return "\n\n".join(parts)
 
 
+def _refuse_uncallable_judge(judge: object, owner: str) -> None:
+    """Refuse a judge that cannot be called, when the check is declared.
+
+    The judge is first called after the target has answered a case, so a judge
+    that is a string or a number was found as an errored verdict on every case,
+    after every call to the target had been paid for. Refuse before paying, as
+    `check_shape` does for the check itself (#420, #423).
+    """
+    if not callable(judge):
+        raise AssertionShapeError(
+            f"{owner}.judge is a {type(judge).__name__}, which cannot be called: "
+            "digline calls the judge once per case, after the target has "
+            "answered, so it is refused here, before anything is paid for. Pass "
+            "a function or a judge object."
+        )
+
+
+def _wrong_reply(reply: object, expected: type) -> str:
+    """The reason for a judge that answered with something other than its reply
+    type. It names the judge, because the judge is what returned it."""
+    return f"the judge returned a {type(reply).__name__}, not a {expected.__name__}"
+
+
 @dataclass(frozen=True, slots=True)
 class LlmRubric(AssertionBase):
     """An LLM judgement against a textual rubric.
@@ -878,6 +903,7 @@ class LlmRubric(AssertionBase):
     accepts: frozenset[OutputKind] = TEXT_OR_CONVERSATION
 
     def __post_init__(self) -> None:
+        _refuse_uncallable_judge(self.judge, "LlmRubric")
         if not self.rubric:
             raise RefusedError("LlmRubric.rubric must not be empty")
         if not (0.0 <= self.threshold <= 1.0):
@@ -923,6 +949,12 @@ class LlmRubric(AssertionBase):
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
+        # Read before any field of it, so a reply of the wrong type is named as
+        # the judge's. Reading `reply.score` first raised outside the `try`
+        # above, and the driver reported *assertion raised AttributeError*: the
+        # sentence blamed the check for the judge's defect (#423).
+        if not isinstance(reply, JudgeReply):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return self._error(_wrong_reply(reply, JudgeReply))
         if not (0.0 <= reply.score <= 1.0):
             return self._error(
                 f"the judge returned a score outside [0, 1]: {reply.score}"
@@ -1040,6 +1072,7 @@ class Faithfulness(AssertionBase):
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
+        _refuse_uncallable_judge(self.judge, "Faithfulness")
         if not (0.0 <= self.threshold <= 1.0):
             raise RefusedError(
                 f"Faithfulness.threshold must be within [0, 1], got {self.threshold}"
@@ -1088,6 +1121,9 @@ class Faithfulness(AssertionBase):
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
+        # Before any field of it, for the reason `LlmRubric` gives (#423).
+        if not isinstance(reply, ClaimReply):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return self._error(_wrong_reply(reply, ClaimReply))
         if reply.total == 0:
             # One world, not two. Until a judge could decline, this sentence
             # covered both "the output asserts nothing" and "the judge could not

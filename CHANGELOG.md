@@ -180,6 +180,28 @@ the old behaviour was right (ADR 0041).
   inside `config_hash`, and named no location. A class that is not a dataclass
   is now refused at the same moment, with the same location.
 
+### Fixed — a judge that returns the wrong type is named, not the check (#423)
+
+- **A judge that returned something other than its reply was reported as the
+  check's defect.** A `dict` from an `LlmRubric` judge errored every case with
+  *"assertion raised AttributeError: 'dict' object has no attribute
+  'score'"*. The reply was read outside the `try` that catches the judge, so
+  the driver's catch named the check, the one component that was innocent.
+  `Faithfulness` did the same with `total`.
+- **The reason now names the judge**: *"the judge returned a dict, not a
+  JudgeReply"*, or *"… not a ClaimReply"* for `Faithfulness`. It is still an
+  errored verdict, because a reply exists only once the judge has answered.
+
+### Fixed — a judge that cannot be called is refused when it is declared (#423)
+
+- **`LlmRubric(judge="nope")` exited 0**, with an errored verdict on every
+  case, after the target had been paid for every one. The judge is first
+  called after the target answers, so nothing noticed sooner.
+- **`LlmRubric` and `Faithfulness` now refuse a judge that cannot be called**
+  with `AssertionShapeError` when they are built, exit 64, before any call.
+  This is the shape check above, carried to the one field of a check that is
+  called after the target.
+
 ### Changed — a `Suite`'s `assertions` and `cases` are tuples
 
 - **`Suite.assertions` and `Suite.cases` are tuples once the suite is built**,
