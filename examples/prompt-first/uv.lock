@@ -92,15 +92,15 @@ wheels = [
 
 [[package]]
 name = "digline-anthropic"
-version = "0.6.0"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
     { name = "digline" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a6/65/3c80565005cdbe040b639d603c33c84f6238e84e7fe23e1c3dd3ec09a984/digline_anthropic-0.6.0.tar.gz", hash = "sha256:38b3ce5366d0641c03528d91ae1efcd2406a92e4493df5f9e1b20ea50db6b849", size = 22253, upload-time = "2026-10-02T13:39:59.226Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/61/b75dea25556dcb4322516d36db250b647576f3a08a8e2abe1df3827d8ea0/digline_anthropic-0.6.1.tar.gz", hash = "sha256:04b1c0bbc328a7de4cd126c7cdf6cb1cf20ef5ed83b3ee6dcfbfedb6271a7012", size = 25332, upload-time = "2026-10-03T12:59:31.691Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/07/9568d976910715eed03e63e4f23a413bf4786248fa86d5c9d39fcb938402/digline_anthropic-0.6.0-py3-none-any.whl", hash = "sha256:829c672c0dc81efa8c0d6c3e7874d3f60c5361306eadbffee1c74baf42ac7157", size = 13767, upload-time = "2026-10-02T13:39:55.47Z" },
+    { url = "https://files.pythonhosted.org/packages/8b/f0/34faf72b8fb9018744d3d13e50bb92a936622e92006d3e599ff3422d5c8d/digline_anthropic-0.6.1-py3-none-any.whl", hash = "sha256:366836510405bd123136262972278529fa0a2ed8c8d9d3086495ebe183137671", size = 15556, upload-time = "2026-10-03T12:59:30.523Z" },
 ]
 
 [[package]]
