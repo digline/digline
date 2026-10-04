@@ -64,6 +64,7 @@ from digline.host import (
     read_pinned,
     read_run,
     record,
+    refused_exit,
     reported,
     resolve_key,
     suite_runs,
@@ -1187,9 +1188,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # is "worse" and was Python's default here: a gate that measured nothing
     # must not pass, and must not report a regression either. The traceback is
     # the report, so it is printed, a line at a time through `say`, because an
-    # exception's message can quote a document. `KeyboardInterrupt` and
-    # `SystemExit` are not `Exception`s and keep their behaviour (#414).
-    # (ADR 0041 §2, §5)
+    # exception's message can quote a document. `KeyboardInterrupt` is not an
+    # `Exception` and keeps its behaviour: Ctrl-C is the person who owns the
+    # process. (ADR 0041 §2, §5)
     except Exception:
         for line in traceback.format_exc().splitlines():
             say(line, err=True)
@@ -1199,6 +1200,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             err=True,
         )
         return EXIT_INTERNAL
+    # Code digline ran asked to end the process: a target, a check, a judge,
+    # anything the suite reaches once it has loaded. The command stops, as
+    # asked, but the exit code is digline's contract with whoever invoked it,
+    # so it is refused with the location. `sys.exit(0)` from a target used to
+    # make `run` exit 0 with no run written, and `compare --run latest` then
+    # passed on the baseline alone. One raised by digline itself is left
+    # alone. (ADR 0041 §4.3)
+    except SystemExit as exc:
+        refused = refused_exit(exc)
+        if refused is None:
+            raise
+        say(f"digline: {refused}", err=True)
+        return EXIT_USAGE
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -33,6 +33,7 @@ from digline.host.loader import (
     SourceOnlyLoader,
     load_suite,
     load_target,
+    refused_exit,
 )
 from digline.host.measure import (
     Measured,
@@ -88,6 +89,7 @@ __all__ = [
     "left_out",
     "instant",
     "load_suite",
+    "refused_exit",
     "load_target",
     "load_toml_suite",
     "measure",

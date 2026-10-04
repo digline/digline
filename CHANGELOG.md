@@ -257,10 +257,37 @@ the old behaviour was right (ADR 0041).
   runs the checks again. No page, example or plugin in this repository did
   this. One test fixture did, and it was rewritten that way.
 
-### Not changed
+### Fixed — code digline runs no longer chooses its exit code (#414, ADR 0041 §4.3)
 
-- **A suite that calls `sys.exit(n)` while it loads still makes `n` the exit
-  code** (#414). It is recorded in ADR 0041 and not repaired.
+- **`digline run && digline compare --run latest` passed having measured
+  nothing.** A target that called `sys.exit(0)` made `run` exit 0. It printed
+  nothing and wrote no run. `compare --run latest` then read the latest stored
+  run, which was the baseline, compared it with itself, and exited 0.
+- **On the MCP server, one tool call ended the session.** A suite that called
+  `sys.exit` while it loaded left the call unanswered. The server ended at the
+  next request, and the agent read an EOF. That was measured with a client in
+  another process, because a test in the server's own process cannot see it.
+- **While a suite loaded, `sys.exit(n)` made `n` digline's exit code** on every
+  command, with nothing printed. `1` read as *worse* and `2` as *unjudged*, and
+  `0` or a bare `raise SystemExit` made `compare`, `report` and `explain` pass.
+  An application module that calls `parse_args()` when it is imported reads
+  digline's own arguments, and exited 2.
+- **Now the request to stop is honoured, and the code is not.** The person or
+  pipeline that invoked digline owns the process.
+  - While a suite loads, the exit is refused with its location and the code
+    that was asked for, exit 64, like any other failure of the suite's own code.
+  - Once it has loaded, the command stops and refuses the same way. That covers
+    a target, a check, a judge, a `preflight`.
+  - A run in progress keeps its journal, and `digline run --resume` continues
+    it.
+  - On the MCP server the call answers with the sentence, and the session goes
+    on. That half ships with the digline-mcp release that follows this one,
+    because the server needs a name new in this core.
+- **Not changed.** `execute()` and `measure()` still propagate a `SystemExit` to
+  a library caller, which owns its own process. Ctrl-C still exits 130 and keeps
+  the journal. A frame cannot tell a real one from code that raises
+  `KeyboardInterrupt`, so the two are not told apart. `pytest-digline` is not
+  touched.
 
 ## digline-bedrock 0.6.1 — 2026-10-02
 

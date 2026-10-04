@@ -62,6 +62,7 @@ __all__ = [
     "UsageError",
     "load_suite",
     "load_target",
+    "refused_exit",
 ]
 
 SUITE_ATTR = "suite"
@@ -225,7 +226,11 @@ def _import(module_part: str, spec: str) -> ModuleType:
             ) from exc
         except _PASSED_THROUGH:
             raise
-        except Exception as exc:
+        # A `SystemExit` beside the rest: not an `Exception`, but the suite's
+        # code asking to end digline's process, which is not the suite's to
+        # end. Refused by the same rule, with the code it asked for.
+        # (ADR 0041 §4.3)
+        except (Exception, SystemExit) as exc:
             if _raised_inside_digline(exc):
                 raise
             reproduce = (
@@ -241,7 +246,7 @@ def _import(module_part: str, spec: str) -> ModuleType:
         raise UsageError(f"cannot import module {module_part!r}: {exc}") from exc
     except _PASSED_THROUGH:
         raise
-    except Exception as exc:
+    except (Exception, SystemExit) as exc:
         if _raised_inside_digline(exc):
             raise
         reproduce = "python -c " + shlex.quote(f"import {module_part}")
@@ -276,7 +281,7 @@ def _raised_inside_digline(exc: BaseException) -> bool:
     return bool(frames) and _is_digline(frames[-1].filename)
 
 
-def _raised_while_loading(where: str, exc: Exception, reproduce: str) -> UsageError:
+def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> UsageError:
     """The refusal of a suite whose own code raised while it loaded, with the
     location in place of the traceback.
 
@@ -285,25 +290,74 @@ def _raised_while_loading(where: str, exc: Exception, reproduce: str) -> UsageEr
     so does the command that prints the full traceback. The text is the same
     for every front end, and it is passed through `visible`, because an
     exception's message is not digline's to vouch for. (ADR 0041 §4)
+
+    A `SystemExit` is refused here too, and says so: the suite asked digline to
+    stop, and digline did, but the code it asked for is not the suite's to
+    choose. (ADR 0041 §4.3)
     """
+    stopped = (
+        " digline stopped, as asked, but the code it runs does not choose its "
+        "exit code."
+        if isinstance(exc, SystemExit)
+        else ""
+    )
+    return UsageError(
+        visible(
+            f"{where} raised {_described(exc)}{_location(exc)}, while it was being "
+            "loaded. That is the suite's own code, or code it called, run before "
+            f"anything was measured.{stopped} For the full traceback, run: "
+            f"{reproduce}"
+        )
+    )
+
+
+def refused_exit(exc: SystemExit) -> UsageError | None:
+    """The refusal for a `SystemExit` raised by code digline runs, or `None`
+    when digline raised it.
+
+    For the front ends, around everything after the suite has loaded: a
+    target, a mapper, a check, a judge, a `preflight` or a property digline
+    reads. The request to stop is honoured, because the command stops. The code
+    is not, because the person or pipeline that invoked digline owns the
+    process, and to them the exit code is digline's contract. A run in progress
+    keeps its journal. The driver does not call this: a library caller owns its
+    own process, and gets the `SystemExit`. (ADR 0041 §4.3)
+    """
+    if _raised_inside_digline(exc):
+        return None
+    return UsageError(
+        visible(
+            f"code digline ran raised {_described(exc)}{_location(exc)}. digline "
+            "stopped, as asked, but the code it runs does not choose its exit "
+            "code. A run in progress keeps its journal: `digline run --resume` "
+            "continues it."
+        )
+    )
+
+
+def _described(exc: BaseException) -> str:
+    """`SystemExit(0)` for an exit, so the code asked for is in the sentence
+    (`str()` of one is the bare code, or nothing); `Type: message` otherwise."""
+    if isinstance(exc, SystemExit):
+        return f"SystemExit({exc.code!r})"
+    return f"{type(exc).__name__}: {exc}"
+
+
+def _location(exc: BaseException) -> str:
+    """` at inner:line, reached from outer:line`, over the frames that are not
+    digline's, or nothing when there are none."""
     frames = [
         frame
         for frame in traceback.extract_tb(exc.__traceback__)
         if not _is_digline(frame.filename) and not frame.filename.startswith("<")
     ]
-    at = ""
-    if frames:
-        inner, outer = frames[-1], frames[0]
-        at = f" at {inner.filename}:{inner.lineno}"
-        if (outer.filename, outer.lineno) != (inner.filename, inner.lineno):
-            at += f", reached from {outer.filename}:{outer.lineno}"
-    return UsageError(
-        visible(
-            f"{where} raised {type(exc).__name__}: {exc}{at}, while it was being "
-            "loaded. That is the suite's own code, or code it called, run before "
-            f"anything was measured. For the full traceback, run: {reproduce}"
-        )
-    )
+    if not frames:
+        return ""
+    inner, outer = frames[-1], frames[0]
+    at = f" at {inner.filename}:{inner.lineno}"
+    if (outer.filename, outer.lineno) != (inner.filename, inner.lineno):
+        at += f", reached from {outer.filename}:{outer.lineno}"
+    return at
 
 
 def _pick(module: ModuleType, attr: str, spec: str, kind: str) -> object:

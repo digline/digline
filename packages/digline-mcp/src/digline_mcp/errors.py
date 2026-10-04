@@ -39,7 +39,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from digline.core import (
     json_visible,
 )
-from digline.host import REFUSALS
+from digline.host import REFUSALS, refused_exit
 
 __all__ = ["TRANSLATED", "translated"]
 
@@ -76,6 +76,15 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             return fn(*args, **kwargs)
         except TRANSLATED as exc:
             raise ToolError(json_visible(str(exc))) from exc
+        # Code the tool ran asked to end the process. Uncaught, it passed
+        # through the SDK's worker thread: the call never answered, the server
+        # ended at the next request, and the agent read an EOF. The tool stops,
+        # as asked, and the session goes on. (ADR 0041 §4.3)
+        except SystemExit as exc:
+            refused = refused_exit(exc)
+            if refused is None:
+                raise
+            raise ToolError(json_visible(str(refused))) from exc
 
     return wrapper
 

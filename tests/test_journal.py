@@ -795,6 +795,7 @@ def test_planned_calls_subtracts_what_it_will_not_call() -> None:
 
 
 JOURNALLED_SUITE = """\
+import os
 from pathlib import Path
 
 from digline.core import Contains
@@ -815,7 +816,10 @@ def target(case):
     seen = STATE.read_text().split()
     STATE.write_text(" ".join([*seen, case.id]))
     if len(seen) + 1 == int((Path(__file__).parent / "die.txt").read_text()):
-        raise SystemExit(9)
+        # What a kill does: the process ends with no unwinding. A `SystemExit`
+        # stood in for it until ADR 0041 §4.3, and a front end now stops on one
+        # and refuses it.
+        os._exit(9)
     return Response(output="yes")
 """
 

@@ -13,7 +13,11 @@
   in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
   passes through as a refusal. A refusal written in words is `RefusedError`, a
   subclass, and a bare `ValueError` that reaches a front end exits 70 (#415).
-  No other section changes, and the five codes do not move
+  No other section changes, and the five codes do not move.
+  Amended again the same day, before the cut, in §4, in a new §4.3, in *Not
+  decided here* and in *Consequences*. A `SystemExit` raised by code digline
+  runs no longer chooses digline's exit code. The command stops, as asked, and
+  exits 64 with the location (#414). `KeyboardInterrupt` does not change
 - Opens: **a fifth exit code.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`: a
   failure of this kind produces no document, and the MCP server has no process
   to exit
@@ -149,6 +153,9 @@ the environment. So they move in the same change, each to its precedent:
 
 `KeyboardInterrupt` and `SystemExit` are `BaseException`s and keep their
 behaviour. Ctrl-C is the convention, and a suite's `SystemExit` is #414.
+
+*__Amended 2026-10-04.__ `KeyboardInterrupt` still keeps its behaviour. A
+`SystemExit` raised by code digline runs no longer does: §4.3.*
 
 ### 4.1 (C), and the commit it reverses
 
@@ -375,6 +382,108 @@ an agent as their sentence, and the comment is true.
   `execute`, …) still raises a `ValueError`, as before. Only what a front end
   does with it changes.
 
+### 4.3 A `SystemExit` from code digline runs (amended 2026-10-04, #414)
+
+**What it did.** `SystemExit` is a `BaseException`. Neither the loader nor
+`main()` caught it, so code that digline imports or calls chose digline's exit
+code. That code is a suite, the application the suite imports, a target, a
+mapper, a check or a judge.
+
+**Measured at `33409a6`, from the command line and from an MCP client in a
+separate process.**
+
+1. **The pipeline.** A target that calls `sys.exit(0)` makes `run` exit 0. It
+   prints nothing on stdout and writes no run. A journal holding only its
+   header stays in `.pending`. Then `compare --run latest` reads the latest
+   *stored* run, which is the baseline, compares it with itself, and exits 0.
+   So `digline run && digline compare --run latest` passes having measured
+   nothing. §2 says a gate that measured nothing must not pass.
+2. **The MCP server.** A suite that exits while it loads, reached through
+   `compare` by a stdio client:
+   - the call never answers;
+   - the server process ends at the client's next request, with the suite's
+     code (0, 1, or −2 for `KeyboardInterrupt`), and the agent reads an EOF.
+
+   So one tool call ends the session. The SDK runs a tool in a worker thread,
+   through `anyio.to_thread.run_sync`, and contains `Exception` only. A test
+   that calls `server.call_tool` in its own process cannot see this, because
+   there is no server process for the exit to end.
+3. **While a suite loads, on the command line.** A baseline is promoted, and
+   with nothing exiting `compare`, `report` and `explain` each exit 0:
+
+   | the suite calls | `run` | `compare`, `report`, `explain` |
+   |---|---|---|
+   | `sys.exit(1)` | 1 | 1, *worse*, and nothing printed |
+   | `sys.exit(2)` | 2 | 2, *unjudged*, and nothing printed |
+   | `sys.exit(0)`, or a bare `raise SystemExit` | 0 | **0**, and nothing printed |
+   | `sys.exit("a message")` | 1 | 1, and the message |
+
+   A target, or a check, that calls `sys.exit(n)` while the run is under way
+   ends `run` with `n` in the same way.
+4. **A source that does not look like one.** An application module that calls
+   `parser.parse_args()` when it is imported reads digline's own arguments.
+   `compare` then exits 2, *unjudged*, with *"app: error: unrecognized
+   arguments: compare --suite …"*. An `if __name__ == "__main__":` block is
+   not a source: the loader names the module `_digline_suite_<stem>`.
+5. **The deliberate uses are tests, and they stand in for a kill.** The
+   *Context* above already counted them: three tests in
+   `tests/test_journal.py` raise `SystemExit(9)` from a target, through the
+   command line, and expect exit 9. Two more in `digline-mcp` do the same
+   through the `run` tool, in process. Each one stands in for a killed
+   process, and `test_journal.py` also does it through `measure()` as a
+   library. The `SystemExit`s in `examples/operator/` and the two in
+   `docs/guide.md` are in programs that drive digline. Digline does not run
+   that code.
+
+   **A process that is killed does not raise `SystemExit`. It dies.** So these
+   tests stood in for a kill with a behaviour this section changes on purpose.
+   The command-line tests now end the process with `os._exit(9)`, which is
+   what a kill does: no unwinding, no `finally`, and the same code. The two
+   `digline-mcp` tests run inside pytest, where `os._exit` would end pytest
+   itself, so they raise a private `BaseException` that no front end
+   catches. What the tests hold does not move: the journal survives, and
+   `--resume` finishes the run.
+
+**The reading.** A `SystemExit` is a request, not an error. But it does not
+come from whoever owns the process. The person or the pipeline that invoked
+digline owns it, and to them the exit code is digline's contract (ADR 0008
+§2). Code that digline imports or calls is a module, not the program. **So the
+request to stop is honoured, and the code is not.**
+
+**The rule.** It applies to a `SystemExit` whose innermost frame is not in the
+`digline` package, which is the test rule 2 already uses. A third-party
+library's frame counts as not digline's, as in rule 3. `argparse` raising for
+an application is the case in point.
+
+- **While a suite loads**, the loader refuses it by rule 3, on the file form
+  and on the dotted form. The sentence carries the code that was asked for,
+  the location and the command that prints the traceback. Exit 64.
+- **At any later point**, the front end stops the command, as asked, and
+  refuses with the location. Exit 64. A run in progress keeps its journal, and
+  `digline run --resume` continues it. On the MCP server the tool answers with
+  a `ToolError` and the server stays up.
+- **A `SystemExit` whose innermost frame is digline's keeps its behaviour.**
+  `src/digline` raises one only in its two entry points, and each of those is
+  outside every `try`.
+
+**Where, and where not.** In the loader and in the two front ends, and **not in
+the driver**:
+- `execute()` and `measure()` still propagate a `SystemExit` to a library
+  caller, which owns its own process. The tests in `tests/test_journal.py`
+  that call `measure()` do not change.
+- An errored case was the alternative, the way a target that raises becomes
+  one. It is refused because it would ignore the request to stop, and pay for
+  every case left.
+
+**`KeyboardInterrupt` keeps its behaviour, and that is measured too.** A real
+`SIGINT` sent to `run` while it is under way exits 130, and the journal stays,
+so `--resume` continues it. It is not classified by frame. `SIGINT` raises it
+in whichever frame is running, which is often the user's, so a frame cannot
+tell a real Ctrl-C from code that raises one.
+
+**What it leaves.** `pytest-digline` reports through pytest's own exit codes
+and is not touched, as *Not decided here* already says of it.
+
 ## 5. A traceback, and one line beside it
 
 A refusal prints one line, because it was written for a reader. A failure
@@ -407,6 +516,9 @@ claims only what is known.
 - **A suite that calls `sys.exit(n)` while it loads** makes `n` digline's exit
   code, so `sys.exit(1)` reads as worse (#414). Some uses are deliberate, so
   it is not translated here.
+  *Decided 2026-10-04, in §4.3: the one deliberate use goes through the
+  library, which still propagates. A `SystemExit` from code digline runs
+  stops the command, and exits 64 with the location, on either front end.*
 - **Every `ValueError` still exits 64**, so a `ValueError` that is a failure
   inside digline still tells the user their request was wrong (#415, and
   `main()`'s own comment, friction 59). Narrowing it would turn each
@@ -437,3 +549,8 @@ claims only what is known.
   instead of an unexpected error. A bare `ValueError` that reaches a front end
   exits 70. On the command line the refusal's line names `RefusedError` where
   it named `ValueError`, and the exit code stays 64.
+- *Amended 2026-10-04 (§4.3).* A suite, a target, a check or a judge that
+  calls `sys.exit(n)` no longer decides digline's exit code. The command stops
+  and exits 64, with the location and the code that was asked for. A run in
+  progress keeps its journal. On the MCP server the call answers with a
+  `ToolError`, and the session goes on.
