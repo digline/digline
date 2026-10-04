@@ -156,6 +156,12 @@ a file renamed by hand in a store that already exists.** Under ADR 0034 §1 that
 store can be the end company's, where nobody at the software house can rename
 anything back.
 
+**That case has never been observed.** Every renamed file this record measures
+was made on purpose by a probe. No rename has been met in use, and git cannot
+record one, because run files are gitignored. So each cost below is the cost of
+a hypothetical case, and that holds for all three options alike. The sweep
+behind this is in §*Context*, in the correction of 2026-10-04.
+
 ### A. Keep the split; B is the remedy
 
 Nothing changes in the store. B stays the projected page's guard.
