@@ -9,6 +9,7 @@ about the baseline would have two reasons to change.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
@@ -64,6 +65,8 @@ __all__ = [
     "Preflight",
     "Response",
     "Target",
+    "TargetShapeError",
+    "check_target",
     "default_mapper",
     "execute",
     "judge_config",
@@ -102,6 +105,18 @@ class Response:
     #: recorded response are built from this field alone. (ADR 0025 §5)
     usage: Usage | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+
+
+class TargetShapeError(TypeError):
+    """Raised when a target answers, or declares, in a shape digline cannot use.
+
+    A refusal of the user's object, with a sentence written for its author:
+    a `preflight` that cannot be called, a `config` that is not a flat mapping
+    of scalars, a `price_digest` that `pricing_digest` did not produce. Each was
+    found by the first reader, as a bare `TypeError` or `ValueError` and exit
+    70, or not found at all. A `TypeError`, so a caller that catches one catches
+    this, as with `AssertionShapeError`. (#423, ADR 0041 §4.1 rule 2)
+    """
 
 
 class Target(Protocol):
@@ -183,7 +198,21 @@ def target_config(target: object) -> SystemConfig:
     """
     if not isinstance(target, HasConfig):
         return SystemConfig()
-    return SystemConfig(values=dict(target.config))
+    # Read as `object`: the protocol is a promise, and this is the check.
+    declared = cast(object, target.config)
+    if not isinstance(declared, Mapping):
+        raise TargetShapeError(
+            f"the target's `config` is of type {type(declared).__name__}, not "
+            "a mapping: digline records it as the run's configuration, one field "
+            "per key. Return a dict of scalars, or remove the attribute."
+        )
+    try:
+        return SystemConfig(values=dict(cast(Mapping[str, ConfigValue], declared)))
+    except ValueError as exc:
+        # `SystemConfig` states what is wrong with the values. Raised bare, a
+        # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
+        # target's declaration, not digline failing.
+        raise TargetShapeError(f"the target's `config` is refused: {exc}") from exc
 
 
 def judge_config(suite: Suite) -> SystemConfig:
@@ -614,6 +643,30 @@ def _run_case(
                 line,
             )
 
+        if not isinstance(response, Response):  # pyright: ignore[reportUnnecessaryIsInstance]
+            # Seen only once it is called, so an errored case, as a target that
+            # raises is, never a refusal: a target may return `None` on one
+            # path and a `Response` on every other. Read before `usage`, which
+            # raised outside the `try` above and exited 70, after the call had
+            # been paid for. The sentence says it is the target's code, not the
+            # endpoint, for the developer who reads it. (#423; for a reader who
+            # does not receive the reason, #425.)
+            return (
+                CaseResult(
+                    case_id=case.id,
+                    verdicts=_failed(
+                        suite,
+                        f"the target returned a value of type "
+                        f"{type(response).__name__}, not a Response: that is "
+                        "the target's code, not the endpoint. "
+                        "Wrap what it answers in Response(output=...)",
+                    ),
+                    canary=case.canary,
+                ),
+                "target",
+                # The call was made, and reported no counts.
+                line.plus(tokens=None, spent_usd=0.0),
+            )
         line = line.plus(tokens=response.usage, spent_usd=response.cost_usd or 0.0)
         if suite.record_responses:
             answers.append(recorded(response))
@@ -888,8 +941,75 @@ def price_digest_of(target: object) -> str:
     One function for every call site that computes the hash — `execute`, the
     journal header, `promote`, `view`, `rejudge` — so none of them can come to
     read a target's price differently. (ADR 0022 §4)
+
+    **And the one place its shape is checked.** The digest enters `config_hash`
+    as it is, so `3`, `"3"` and `"anything"` were three run keys, moved for a
+    reason no reader could see, and a baseline promoted under one matched
+    nothing else. A falsy value that is not `""` vanished from the hash without
+    a word. Only `ProviderTarget` produces a digest, from a price the suite
+    declared, so one of any other shape is a price declaration that went round
+    ADR 0022, and it is refused (#423).
     """
-    return target.price_digest if isinstance(target, DeclaresPrice) else ""
+    if not isinstance(target, DeclaresPrice):
+        return ""
+    digest = cast(object, target.price_digest)
+    if digest == "":
+        return ""
+    if not isinstance(digest, str):
+        raise TargetShapeError(
+            f"the target's `price_digest` is of type {type(digest).__name__}: it "
+            "enters config_hash, the run's identity, as it is, so a value "
+            "`pricing_digest` did not produce moves the run's key for a reason "
+            "nobody reading the run can see. Declare the price through "
+            "ProviderTarget's pricing (ADR 0022), or remove the attribute."
+        )
+    if not _PRICING_DIGEST.fullmatch(digest):
+        shown = digest if len(digest) <= 40 else digest[:40] + "..."
+        raise TargetShapeError(
+            f"the target's `price_digest` is {shown!r}, which is not the "
+            f"shape `pricing_digest` produces ({_PRICING_DIGEST_SHAPE}): a "
+            "digest written by hand is a price declaration that goes round "
+            "ADR 0022, and it would move the run's key for a reason nobody "
+            "reading the run can see. Declare the price through "
+            "ProviderTarget's pricing, or remove the attribute."
+        )
+    return digest
+
+
+#: What `pricing_digest` returns: the first 16 hex characters of a SHA-256.
+#: `tests/test_target_shape.py` holds the two together.
+_PRICING_DIGEST = re.compile(r"[0-9a-f]{16}")
+_PRICING_DIGEST_SHAPE = "16 lowercase hexadecimal characters"
+
+
+def check_target(target: object) -> None:
+    """Refuse a target whose declared members digline cannot use.
+
+    Everything a target declares beside being callable is asked for rather
+    than required, and was read only by its first reader: a `preflight` that is
+    not callable raised `TypeError` where it was called, a `config` of the
+    wrong shape a bare `ValueError`, both exit 70. A `price_digest` of the wrong
+    shape was taken into the run's identity. Each now raises
+    `TargetShapeError`, exit 64. (#423)
+
+    **Called from two places.** `execute()` calls it first, because a library
+    caller hands it a target nobody loaded. `load_target` calls it as the
+    target is picked, so a command that loads a target and never runs it,
+    `promote --target` among them, refuses the same shapes. The digest needs
+    neither: `price_digest_of` refuses it wherever it is read, and every
+    command reads it there. What this cannot see is what a target returns, or a
+    configuration it learns only by answering: those exist only once it is
+    called.
+    """
+    if isinstance(target, Preflight) and not callable(target.preflight):
+        raise TargetShapeError(
+            f"the target's `preflight` is of type "
+            f"{type(cast(object, target.preflight)).__name__}, which cannot be "
+            "called: digline calls it with the suite's cases before the first "
+            "call to the target. Define it as a method, or remove it."
+        )
+    price_digest_of(target)
+    target_config(target)
 
 
 def execute(
@@ -991,12 +1111,13 @@ def execute(
     # Asked before anything is called. A target that can check itself against
     # the suite says so by having the method; the ones that cannot are plain
     # functions and are left alone.
+    # Its shape first, so a `preflight` that cannot be called, or a declared
+    # configuration or price of the wrong shape, is refused before the suite is
+    # paid for, not after. The configuration's answer is discarded: it is asked
+    # for again below.
+    check_target(target)
     if isinstance(target, Preflight):
         target.preflight(suite.cases)
-    # Asked here for the same reason as `preflight`: a target whose declared
-    # configuration is malformed must say so before the suite is paid for, not
-    # after. The answer is discarded — it is asked for again below.
-    target_config(target)
     # And the judge's, for the same reason and discarded the same way: a judge
     # that names no price or no instrument should say so before the suite is
     # paid for. The answer recorded is the one taken after the last case.

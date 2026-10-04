@@ -41,6 +41,7 @@ from digline.core.resolution import (
 from digline.core.run import DocumentRefusedError
 from digline.core.types import UnidentifiedVerdictError
 from digline.host.errors import UsageError
+from digline.run.driver import TargetShapeError
 from digline.run.replay import ReplayError
 from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
@@ -103,6 +104,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     NonAdditiveError,
     # run
     ReplayError,
+    TargetShapeError,
     # targets
     UnknownModelError,
     ProviderNotFound,

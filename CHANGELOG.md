@@ -205,6 +205,43 @@ the old behaviour was right (ADR 0041).
   `ValueError`, while the run was prepared. Nothing had been paid yet. It is
   now `AssertionShapeError`, exit 64, and the sentence names the judge's class.
 
+### Fixed — a target's `price_digest` no longer moves the run's identity without a word (#423)
+
+- **A `price_digest` that `pricing_digest` did not produce was taken into the
+  run's identity as it was.** The digest enters `config_hash` unchanged, so
+  `3`, `"3"` and `"anything"` gave three different run keys, and none of them
+  was the key with no price declared. The key moved for a reason nobody reading
+  the run could see, and a baseline promoted that way matched nothing else. A
+  falsy value other than `""`, such as `0` or `None`, dropped out of the hash
+  without a word. The run exited 0.
+- **It is now refused with `TargetShapeError`, exit 64, before any call.** That
+  applies to a value that is not a string, and to a string that is not the
+  shape `pricing_digest` produces: 16 lowercase hexadecimal characters. Only
+  `ProviderTarget` produces a digest, from a price the suite declared, so a
+  digest written by hand is a price declaration that goes round ADR 0022. `""`
+  still means nothing was declared. `price_digest_of` makes the check, and
+  every command that reads the digest reads it there: `run`, `promote`,
+  `view`, `rejudge`, the journal.
+
+### Fixed — a target of the wrong shape is refused, or named as the target's code (#423)
+
+- **`preflight = 3` and `config = "x"` exited 70**, *"not anticipated"*, as a
+  bare `TypeError` and a bare `ValueError`. A `config` whose values are not
+  scalars did the same, from `SystemConfig`. They were found before any call,
+  so nothing was paid, but the sentence said digline had failed. All three are
+  now `TargetShapeError`, a refusal, exit 64.
+- **`check_target` makes the check**, and both entry points call it.
+  `execute()` calls it for a library caller, and `load_target` as the target
+  is picked, so `promote --target` refuses a target it never runs.
+- **A target that returned a `str`, `None` or a `dict` exited 70 after the
+  first paid call.** `response.usage` was read outside the target's `try`. It
+  is now an errored case, the way a target that raises already is, with the
+  reason *"the target returned a value of type str, not a Response: that is the
+  target's code, not the endpoint"*. Every case is attempted, because a target
+  can return `None` on one path and a `Response` on every other. The call is on
+  the bill, with no counts. Under redaction that reason does not cross, so the
+  run there does not tell this case from an endpoint that failed. That is #425.
+
 ### Changed — a `Suite`'s `assertions` and `cases` are tuples
 
 - **`Suite.assertions` and `Suite.cases` are tuples once the suite is built**,
