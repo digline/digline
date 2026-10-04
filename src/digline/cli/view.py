@@ -764,14 +764,16 @@ class ViewHandler(BaseHTTPRequestHandler):
         believes it did. So the list is optional here and the sentence is not.
         (friction 59)
 
-        **So this catches every exception, and it is the one place in `view`
-        that does.** It is not a classification. The other handlers say what a
-        failure *is*: a refusal is a 400, and a failure nobody anticipated is
-        left to be one. This one guards a fact that is already true. When ADR
-        0041 §4.2 took the bare `ValueError` out of the refusals, catching only
-        `REFUSALS` here would have brought the closed connection back for any
-        failure that is not one, and the test that injects a fault into the
-        list caught exactly that.
+        **So this catches every exception, and it answers a different
+        requirement from the other handlers, not an exception to theirs.**
+        They classify a failure that happens before anything has changed: a
+        refusal is a 400, and a failure nobody anticipated is left to be one.
+        Here the state has already changed, and a front end that has changed
+        state must say so whatever fails afterwards. The catch classifies
+        nothing. When ADR 0041 §4.2 took the bare `ValueError` out of the
+        refusals, catching only `REFUSALS` here would have reopened friction 59
+        for every failure that is not a refusal, and the test that injects a
+        fault into the list caught exactly that.
         """
         try:
             self._screen_runs(locale, outcome)

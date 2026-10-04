@@ -254,11 +254,22 @@ frame rule stays where it is, separating the suite's code from digline's.
 core and listed in `REFUSALS`. It follows the move §4 made for (A),
 `AssertionShapeError` under `TypeError`, so a caller catching `ValueError`
 still catches it. `main()`, `digline view`'s request handler and the loader's
-pass-through list drop the bare `ValueError` and keep `OSError`. One handler in
-`view` goes the other way: the page after a promotion now catches every
-exception, because that page exists to say a promotion happened whatever the
-list of runs under it does (friction 59), and a bug in the list must not
-close the connection on a baseline that has already moved.
+pass-through list drop the bare `ValueError` and keep `OSError`.
+
+**The page `view` draws after a promotion has a different requirement, and
+catches every exception.** It is not an exception to the rule above. That rule
+classifies a failure that happens before anything has changed. A front end
+that has changed nothing can refuse and stop, and the refusal is the whole
+answer. The page after a promotion is drawn once the baseline has moved. A
+front end that has already changed state must say so, whatever fails after
+the change, and the list of runs under it is optional. Friction 59 shows the
+difference. The list raised after the write and the connection closed, so a
+person who had just promoted concluded that nothing had happened. A promotion
+that looks failed and is not is worse than one that failed. So the catch
+classifies nothing. It keeps a fact that is already true in front of the
+person it is true for. Catching only `REFUSALS` there would have reopened
+friction 59 for every failure that is not a refusal, and the test that
+injects a fault into the list found exactly that.
 
 **Which sites become `RefusedError`: decided by the road the error takes to a
 front end, not by who builds the object.** There are four roads, each measured

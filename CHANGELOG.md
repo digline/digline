@@ -156,8 +156,12 @@ the old behaviour was right (ADR 0041).
 - **What it leaves.** A bug in a document reader still reads as a refused
   document, because the reader converts a bare `ValueError` into one: a
   document whose score is out of range is the document's fault. A `Score` built
-  at module level in a suite exits 70. `digline view`'s page after a promotion
-  now shows the outcome whatever the list of runs under it raises.
+  at module level in a suite exits 70.
+- **`digline view`'s page after a promotion shows the outcome, whatever the
+  list of runs under it raises.** That page has a different requirement from
+  a refusal. The baseline has already moved, and a page that has changed state
+  must say so. A command that has changed nothing can refuse and stop.
+  Friction 59 was a promotion that looked failed and was not.
 
 ### Not changed
 
