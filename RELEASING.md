@@ -1703,6 +1703,18 @@ is the one a quiet log cannot supply.
   click, by a mechanism that does not race the click. Until there is one, a
   [GATE] that a session announces by polling is a courtesy, not a stop.
 
+  *Corrected 2026-10-04, the paragraphs above kept as written.* They read the
+  late warning as a miss, and the cause as new. Neither was. On 2026-10-02, at
+  v0.26.0, *After the tag* ruled that **the counts come after the click**,
+  after three releases in a row where the approval had come first (v0.25.2,
+  v0.25.3, v0.26.0), and v0.25.3's entry already says *"a shorter poll does
+  not fix that, because the reading takes longer than the click"*. So the
+  session followed the rule, and the record should have cited it. What this tag
+  adds is the contrast: 76 seconds of waiting on digline-bedrock-v0.6.1
+  against 10 here, both the reviewer's time. The mechanism the paragraph asks
+  for is the job summary. It followed this tag, and *After the tag* says what
+  it writes.
+
 - **v0.27.0 — the pair agreed for every pin in both builds, and the smoke
   build waited for the upload instead of racing it.** `publish`
   (`37029824468`) and `docker-publish` (`37029824521`) both passed on attempt
@@ -3751,6 +3763,24 @@ after a session offered to approve it.
 - TestPyPI's selection, `publish` against `skip`;
 - the `imported` line;
 - the quickstart's calls.
+
+*Amended 2026-10-04: the counts are now in front of the approver before the
+click.* `publish.yml` writes them to the job summary, on the run's page where
+*Review deployments* is, before the `pypi` job starts waiting. The build job
+writes the `twine check` count. The `testpypi` job writes TestPyPI's
+selection, the `imported` line, the quickstart's calls, and **PyPI's own
+selection, asked before the gate**. That last one is new: the `pypi` job
+selects only after the click, and TestPyPI's selection is against another
+index with another history. Nothing races the click, because the summary is
+written by the run and not reported by a session
+(`.github/gate_summary.py`). **Not yet seen:** whether the summary shows
+beside the button on this repository's page, and how a wait timer on `pypi`
+would interact with its required reviewer. The next release is the test of
+both.
+
+The ruling below stands for what it rules: a session still reads the counts
+from the logs once the approval is recorded, and records them. As written on
+2026-10-02:
 
 They are read from the finished jobs' logs. That takes longer than the click,
 so they reach the approver after it, and the session does not hold the gate
