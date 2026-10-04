@@ -253,8 +253,12 @@ frame rule stays where it is, separating the suite's code from digline's.
 **Ruled: a class, not a rule.** `RefusedError(ValueError)` is defined in the
 core and listed in `REFUSALS`. It follows the move §4 made for (A),
 `AssertionShapeError` under `TypeError`, so a caller catching `ValueError`
-still catches it. `main()`, `digline view` and the loader's pass-through list
-drop the bare `ValueError` and keep `OSError`.
+still catches it. `main()`, `digline view`'s request handler and the loader's
+pass-through list drop the bare `ValueError` and keep `OSError`. One handler in
+`view` goes the other way: the page after a promotion now catches every
+exception, because that page exists to say a promotion happened whatever the
+list of runs under it does (friction 59), and a bug in the list must not
+close the connection on a baseline that has already moved.
 
 **Which sites become `RefusedError`: decided by the road the error takes to a
 front end, not by who builds the object.** There are four roads, each measured
@@ -324,12 +328,13 @@ AST, it is 84.
   and an amendment to rule 2.
 
 **The `UnicodeDecodeError`, at its five sites.** A file that is not UTF-8 is
-the user's, so it is refused at the read where it happens. Those reads are
-the suite file read by the loader and by the TOML loader, a run read by the
-store, a baseline read by the store, and a document read by `migrate`. It is
-not refused in `main()` beside `OSError`: a general rule there would also
-catch a decode error inside digline itself, which is the confusion this
-removes.
+the user's, so it is refused at the read where it happens. Those reads are a
+Python suite read by the loader, a cases file read by the TOML loader, a run
+and a baseline read by the store, and a declared artifact. The TOML suite file
+and the register already refused it, and `migrate` lists it among the
+documents it refused. It is not refused in `main()` beside `OSError`: a
+general rule there would also catch a decode error inside digline itself,
+which is the confusion this removes.
 
 **What it gives the MCP server, which is where it matters most.** The server
 translates `REFUSALS` and nothing else (`digline_mcp/errors.py`). Every bare `ValueError`
