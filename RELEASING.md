@@ -1654,6 +1654,55 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-anthropic-v0.6.1 — one package, and the warning at the gate came
+  after the click.** It shipped #392's repair: a US-only reply priced at 1.1x.
+  `publish` (`37124536845`) passed on attempt 1. `github-release` and the site
+  jobs were skipped, as on any plugin tag, and `docker-publish` did not run.
+  - **`tag_names.py "digline-anthropic 0.6.1"`** ran on #418's merge commit,
+    `2e67e42`, which was `origin/main`, immediately before the tag. Its whole
+    output was read: one package, named, *"the message names every one of
+    them"*, exit 0.
+  - **The check a person makes until it is built.** No other package's `src/`
+    moved since the tag that published its version: 0 files each for
+    digline-openai 0.5.2 (`v0.17.0`), digline-bedrock 0.6.1 (its own tag),
+    digline-mcp 0.4.3 (`v0.26.0`) and pytest-digline 0.2.1 (its own tag). The
+    core's `src/` had moved since `v0.27.0` (#413, #416). That rides the next
+    core release, and this tag did not publish the core.
+  - **The reviewer gate held, and the session's warning came after the
+    click.** `/approvals` reads `approved` by `alexpran` on `pypi`, and the
+    environment reads `can_admins_bypass: false`. The `pypi` job was created,
+    and so began waiting, at 12:59:04, and started at 12:59:14. The session
+    watched with a poll every 20 seconds and never saw the waiting state, so
+    the counts reached Alessandro after he had approved.
+  - **The cause, which is worth more than the miss.** Those ten seconds were
+    not a window of the workflow. They were the time to the click. On
+    digline-bedrock-v0.6.1 the same wait lasted 76 seconds (14:39:13 to
+    14:40:29), and the session reported in time. A watch that polls cannot
+    promise to see a state that lasts exactly as long as the reviewer takes,
+    and GitHub notifies the reviewer itself. The wait did not go wrong. It was
+    too slow for that window, and any poll is a race against the person it
+    exists to inform.
+  - **The counts, read after the click from the finished jobs:**
+    - 12 `twine check` `PASSED` in the build, then 2 on `to-publish/`;
+    - TestPyPI's selection, and PyPI's, 2 `publish` and 10 `skip`. The two are
+      `digline-anthropic` 0.6.1, wheel and sdist. The ten are the five other
+      packages, each already on the index;
+    - `imported 6`, and the quickstart's 3 calls, after TestPyPI and again
+      after PyPI.
+  - **On PyPI:** uploads at 12:59:30.5 and 12:59:31.7. The run's wait saw
+    0.6.1 served `after 10s`. The version endpoint answered 200, and its
+    control, `/pypi/digline-anthropic/9.9.9/json`, answered 404.
+  - **Step 3 had work, for the first time on a plugin tag.** `langchain`,
+    `llamaindex` and `prompt-first` locked `digline-anthropic` 0.6.0, and kept
+    pricing a US-only reply low. Each moved to 0.6.1 with `--upgrade-package
+    digline-anthropic`, three lines per lock and nothing else. `ci.yml` is
+    dispatched once that lands. **Step 5 had nothing to do:** no committed
+    report names digline-anthropic.
+
+  **The next tag must show** the counts in front of the reviewer before the
+  click, by a mechanism that does not race the click. Until there is one, a
+  [GATE] that a session announces by polling is a courtesy, not a stop.
+
 - **v0.27.0 — the pair agreed for every pin in both builds, and the smoke
   build waited for the upload instead of racing it.** `publish`
   (`37029824468`) and `docker-publish` (`37029824521`) both passed on attempt
