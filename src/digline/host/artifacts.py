@@ -64,10 +64,17 @@ def read_artifacts(
         # has no such fallback: outside the perimeter it yields `../secret.env`,
         # which is the truth and reads as one.
         key = _key(path, root or base)
-        found[key] = Artifact(
-            sha=hashlib.sha256(data).hexdigest(),
-            text=data.decode("utf-8"),
-        )
+        # The file under test is the user's, so a file that is not UTF-8 is
+        # refused at the read, where it happens. (ADR 0041 §4.2)
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise UsageError(
+                f"suite {suite.name!r} declares the artifact {entry}, which is "
+                f"not UTF-8 at byte {exc.start}: an artifact is recorded as its "
+                "text, so these bytes cannot be"
+            ) from None
+        found[key] = Artifact(sha=hashlib.sha256(data).hexdigest(), text=text)
     return found
 
 

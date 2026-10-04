@@ -473,6 +473,9 @@ def _cases(path: Path, where: str) -> list[Case]:
             f"{where}, [suite]: the cases file {path.name} could not be read "
             f"at {path}: {exc}"
         ) from exc
+    # The same refusal `_parse` gives the suite file. (ADR 0041 §4.2)
+    except UnicodeDecodeError as exc:
+        raise UsageError(f"{path} is not UTF-8: {exc}") from exc
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
