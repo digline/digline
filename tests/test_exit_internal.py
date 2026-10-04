@@ -431,14 +431,143 @@ def test_a_bare_value_error_from_inside_digline_exits_70(
     assert "ValueError: invalid literal for int()" in err
 
 
-def test_a_suite_that_exits_while_it_loads_still_passes_its_code_through(
+# --------------------------------------------------------------------------- #
+# A `SystemExit` from code digline runs (ADR 0041 §4.3, #414)
+# --------------------------------------------------------------------------- #
+
+#: What a suite may write to end the process, and what the sentence then says
+#: was asked for. `0` and the bare form were the green ones.
+EXITS = {
+    "sys.exit(0)": ("import sys\nsys.exit(0)", "SystemExit(0)"),
+    "sys.exit(1)": ("import sys\nsys.exit(1)", "SystemExit(1)"),
+    "sys.exit(2)": ("import sys\nsys.exit(2)", "SystemExit(2)"),
+    "a message": ("import sys\nsys.exit('a message')", "SystemExit('a message')"),
+    "bare": ("raise SystemExit", "SystemExit(None)"),
+}
+
+
+@pytest.mark.parametrize("command", ["run", "compare"])
+@pytest.mark.parametrize("exiting", list(EXITS))
+def test_a_suite_that_exits_while_it_loads_is_refused_with_its_location(
+    tmp_path: Path, exiting: str, command: str
+) -> None:
+    """It made `n` digline's exit code: `compare` exited 0 with nothing
+    printed, which is a gate that passed having measured nothing."""
+    preamble, asked = EXITS[exiting]
+    root = suite_repo(tmp_path, preamble=preamble)
+    extra = ["--run", "latest"] if command == "compare" else []
+
+    done = cli(root, command, *SUITE, *extra)
+
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert f"suite_qa.py raised {asked} at " in done.stderr
+    assert "while it was being loaded" in done.stderr
+    assert "digline stopped, as asked, but the code it runs does not choose" in (
+        done.stderr
+    )
+    assert "Traceback" not in done.stderr
+    assert done.stdout == ""
+
+
+EXITING_TARGET = """
+
+_answering = target
+
+
+def target(case):
+    if case.id == "capital-fr":
+        import sys
+
+        sys.exit(0)
+    return _answering(case)
+"""
+
+
+def test_a_target_that_exits_does_not_make_the_pipeline_green(
     tmp_path: Path,
 ) -> None:
-    """Recorded, not repaired: #414. Pinned so that a change to it is a
-    decision somebody sees, not a side effect."""
-    root = suite_repo(tmp_path, preamble="raise SystemExit(3)")
+    """The finding at the head of #414. `run` exited 0 and wrote no run, so
+    `digline run && digline compare --run latest` compared the baseline with
+    itself and passed. Now `run` refuses, so the `&&` stops there."""
+    root = suite_repo(tmp_path)
+    promoted = cli(
+        root, "promote", *SUITE, "--run", run_key(root), "--replacing", "none"
+    )
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+    with (root / "suite_qa.py").open("a", encoding="utf-8") as handle:
+        handle.write(EXITING_TARGET)
+    runs = root / ".digline" / "acme-bank" / "runs" / "qa"
+    before = sorted(runs.glob("*.json"))
+
     done = cli(root, "run", *SUITE)
-    assert done.returncode == 3
+
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert done.stdout == "", "no run key: nothing was written"
+    assert "code digline ran raised SystemExit(0) at " in done.stderr
+    assert "suite_qa.py:" in done.stderr
+    assert "`digline run --resume` continues it" in done.stderr
+    assert sorted(runs.glob("*.json")) == before
+    # Stopped, as asked, with the first case on disk for `--resume`.
+    legs = list((runs / ".pending").glob("*.jsonl"))
+    assert len(legs) == 1
+    assert '"capital-it"' in legs[0].read_text(encoding="utf-8")
+
+
+def test_a_check_that_exits_while_the_run_is_under_way_is_refused(
+    tmp_path: Path,
+) -> None:
+    """The same path from a check rather than the target: anything the suite
+    reaches once it has loaded."""
+    check = """
+
+import dataclasses
+from digline.core import AssertionBase
+
+
+@dataclasses.dataclass(frozen=True)
+class Exiting(AssertionBase):
+    name: str = "exiting"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+
+    def __call__(self, inputs):
+        raise SystemExit(1)
+
+
+suite = dataclasses.replace(suite, assertions=[*suite.assertions, Exiting()])
+"""
+    done = cli(suite_repo(tmp_path, extra=check), "run", *SUITE)
+
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert "code digline ran raised SystemExit(1) at " in done.stderr
+
+
+@pytest.mark.parametrize(
+    ("args", "code"),
+    [(["--help"], EXIT_OK), (["run", "--no-such-flag"], 2)],
+    ids=["help", "bad-flag"],
+)
+def test_digline_s_own_argument_parser_still_exits_as_before(
+    tmp_path: Path, args: list[str], code: int
+) -> None:
+    """The control: `argparse` raises `SystemExit` for digline itself, outside
+    the `try` the rule lives in, and keeps its codes."""
+    done = cli(tmp_path, *args)
+
+    assert done.returncode == code
+    assert "code digline ran" not in done.stderr
+
+
+def test_a_keyboard_interrupt_keeps_its_behaviour(tmp_path: Path) -> None:
+    """Not classified by frame: `SIGINT` raises it in whichever frame is
+    running, so a frame cannot tell a real Ctrl-C from code that raises one.
+    Python ends on it with the signal, 130 in a shell. (ADR 0041 §4.3)"""
+    root = suite_repo(tmp_path, preamble="raise KeyboardInterrupt")
+
+    done = cli(root, "run", *SUITE)
+
+    assert done.returncode in (130, -2), done.stderr
+    assert "KeyboardInterrupt" in done.stderr
 
 
 def test_the_refusal_is_neutralised_before_any_front_end_sees_it(
@@ -452,3 +581,57 @@ def test_the_refusal_is_neutralised_before_any_front_end_sees_it(
     assert "\x1b" not in str(refused.value)
     assert "\x9b" not in str(refused.value)
     assert "gone" in str(refused.value)
+
+
+SLOW_TARGET = """
+
+_answering = target
+
+
+def target(case):
+    if case.id == "capital-fr":
+        import time
+
+        time.sleep(60)
+    return _answering(case)
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGINT is a POSIX signal")
+def test_a_real_ctrl_c_still_exits_130_and_keeps_the_journal(tmp_path: Path) -> None:
+    """Measured for §4.3, and held: the person who owns the process asked."""
+    import signal
+    import time
+
+    root = suite_repo(tmp_path, extra=SLOW_TARGET)
+    pending = root / ".digline" / "acme-bank" / "runs" / "qa" / ".pending"
+    running = subprocess.Popen(
+        [sys.executable, "-m", "digline.cli", "run", *SUITE],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        # A child inherits an ignored SIGINT from a parent that ignores it,
+        # which a test runner in the background can be.
+        preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
+    )
+    try:
+        deadline = time.monotonic() + 30
+        while not any(
+            '"capital-it"' in leg.read_text(encoding="utf-8")
+            for leg in pending.glob("*.jsonl")
+        ):
+            assert running.poll() is None, running.communicate()
+            assert time.monotonic() < deadline, (
+                "the first case never reached the journal"
+            )
+            time.sleep(0.1)
+        running.send_signal(signal.SIGINT)
+        _, err = running.communicate(timeout=30)
+    finally:
+        if running.poll() is None:
+            running.kill()
+
+    assert running.returncode in (130, -2), err
+    assert "code digline ran" not in err
+    assert len(list(pending.glob("*.jsonl"))) == 1

@@ -223,6 +223,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `digline-mcp` | `errors.translated` imports `refused_exit`, new in the core release that carries #414 (ADR 0041 §4.3) | `0.28.0` | release digline-mcp on its own tag, once the core is on PyPI, and drop `refused_exit`'s note in `test_plugin_floors.py` and RELEASING.md's `0.28.0` in `test_versions.py`'s `RECORDED` |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

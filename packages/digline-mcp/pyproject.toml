@@ -82,6 +82,13 @@ dependencies = [
     # `suite_runs` to the releases that first carried the names. This floor was
     # written at the cut, because a floor may not name a release that does not
     # exist yet.
+    #
+    # **Owed at the cut: raise to the core release that carries #414.**
+    # `errors.translated` imports `refused_exit`, new in that release, so a
+    # `SystemExit` from a suite answers the call instead of ending the server
+    # (ADR 0041 §4.3). A floor may not name a release that does not exist yet,
+    # so the row is in RELEASING.md's table of floors owed to the release, and
+    # this package takes a release of its own after the core's.
     "digline>=0.26.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

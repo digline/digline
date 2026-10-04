@@ -22,7 +22,7 @@ from typing import Any
 import anyio
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.types import CallToolResult, TextContent
-from tests._helpers import run_key
+from tests._helpers import run_key, suite_source
 
 from digline.wire import OUTPUT_VERSION
 
@@ -105,3 +105,71 @@ def test_a_real_client_sees_eight_tools_and_no_promote(promoted: Path) -> None:
     )
     assert "2 calls to the target" in text
     assert "acknowledge_calls=2" in text
+
+
+EXITING_TARGET = """
+
+_answering = target
+
+
+def target(case):
+    if case.id == "capital-fr":
+        import sys
+
+        sys.exit(0)
+    return _answering(case)
+"""
+
+
+def text_of(result: Any) -> str:
+    assert isinstance(result, CallToolResult)
+    return "".join(
+        block.text for block in result.content if isinstance(block, TextContent)
+    )
+
+
+def test_code_that_exits_ends_the_call_and_not_the_session(promoted: Path) -> None:
+    """Measured for ADR 0041 §4.3 with a client like this one, in another
+    process: a suite's `sys.exit` passed through the SDK's worker thread, the
+    call never answered, the server ended at the next request, and the agent
+    read an EOF. A test that calls the server in its own process cannot see
+    that, because there is no server process for the exit to end.
+
+    Before the repair this test does not fail on an assertion: it times out."""
+    (promoted / "exits_loading.py").write_text(
+        suite_source(preamble="import sys\nsys.exit(0)"), encoding="utf-8"
+    )
+    (promoted / "exits_running.py").write_text(
+        suite_source() + EXITING_TARGET, encoding="utf-8"
+    )
+    key = run_key(promoted)
+
+    _, loading, running, after = served(
+        promoted,
+        [
+            ("compare", {"suite": str(promoted / "exits_loading.py"), "run": key}),
+            (
+                "run",
+                {
+                    "suite": str(promoted / "exits_running.py"),
+                    "acknowledge_calls": 2,
+                },
+            ),
+            ("compare", {"suite": str(promoted / "suite_qa.py"), "run": key}),
+        ],
+    )
+
+    assert isinstance(loading, CallToolResult)
+    assert loading.is_error is True
+    assert "raised SystemExit(0) at " in text_of(loading)
+    assert "while it was being loaded" in text_of(loading)
+
+    assert isinstance(running, CallToolResult)
+    assert running.is_error is True
+    assert "code digline ran raised SystemExit(0) at " in text_of(running)
+
+    # The session goes on: the next call is answered, by the same server.
+    assert isinstance(after, CallToolResult)
+    assert after.is_error is False
+    assert after.structured_content is not None
+    assert after.structured_content["exit_code"] == 0

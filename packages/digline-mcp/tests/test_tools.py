@@ -204,10 +204,19 @@ def target(case):
     return Response(output="The capital is Rome.", input="What is the capital?")
 """
 
-#: `SystemExit` and not an ordinary exception: the driver contains `Exception`
-#: and errors the case, which is what a provider timing out looks like. This is
-#: what a supervisor looks like.
-KILLS_ON_THE_SECOND = '    if case.id == "capital-fr":\n        raise SystemExit(9)'
+#: A `BaseException` and not an ordinary exception: the driver contains
+#: `Exception` and errors the case, which is what a provider timing out looks
+#: like. This stands in for a supervisor's kill.
+#:
+#: Not `SystemExit`, which this was until ADR 0041 §4.3: a killed process does
+#: not raise one, it dies, and a front end now stops on a `SystemExit` and
+#: answers. Not `os._exit` either, which the command-line tests use, because
+#: this server runs inside pytest. A class of the suite's own, which nothing
+#: catches.
+KILLS_ON_THE_SECOND = (
+    "    class Killed(BaseException):\n        pass\n\n"
+    '    if case.id == "capital-fr":\n        raise Killed'
+)
 ANSWERS = "    pass"
 
 
@@ -233,8 +242,9 @@ def test_a_killed_run_from_this_surface_leaves_a_journal(repo: Path) -> None:
     write_agent_suite(repo, KILLS_ON_THE_SECOND)
     assert not legs(repo)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(BaseException) as killed:
         call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
+    assert type(killed.value).__name__ == "Killed", killed.value
 
     written = legs(repo)
     assert len(written) == 1, written
@@ -251,8 +261,9 @@ def test_the_cli_finishes_what_this_surface_started(repo: Path) -> None:
     leg `--resume` reads — the two front ends write the same journal because
     they are the same function underneath."""
     write_agent_suite(repo, KILLS_ON_THE_SECOND)
-    with pytest.raises(SystemExit):
+    with pytest.raises(BaseException) as killed:
         call(repo, "run", suite=str(repo / "suite_qa.py"), acknowledge_calls=2)
+    assert type(killed.value).__name__ == "Killed", killed.value
     assert legs(repo)
 
     # A target that answers, so the second leg completes what the first paid

@@ -328,6 +328,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.28.0": (
+            "the core release digline-mcp's floor is owed to, in the table of "
+            "floors owed to the release (#414): the cut that ships 0.28.0 raises "
+            "the floor and deletes the row, and this entry with it"
+        ),
         "0.6.1": (
             "digline-bedrock's version, in the installed-packages line v0.27.0's "
             "Status paragraph quotes from both image builds: evidence of what "
