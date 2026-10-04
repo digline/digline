@@ -49,7 +49,7 @@ from digline.host.errors import UsageError
 from digline.host.refusals import REFUSALS
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 from digline.report.render import visible
-from digline.run import Suite, Target
+from digline.run import Suite, Target, check_target
 
 if TYPE_CHECKING:
     from _typeshed import ReadableBuffer
@@ -380,6 +380,7 @@ def load_target(spec: str | None, loaded: Loaded, suite_spec: str) -> Target:
                 "Python attribute would put code back into a suite that is "
                 "meant not to have any. Drop the flag, or write a suite.py."
             )
+        check_target(loaded.target)
         return loaded.target
 
     assert loaded.module is not None  # noqa: S101 — one of the two is always set
@@ -391,4 +392,7 @@ def load_target(spec: str | None, loaded: Loaded, suite_spec: str) -> Target:
         value = _pick(module, attr or TARGET_ATTR, spec, "target")
     if not callable(value):
         raise UsageError(f"the target is a {type(value).__name__}, not callable")
+    # Here as well as in `execute()`, so a command that loads the target and
+    # never runs it refuses the same shapes. (#423)
+    check_target(value)
     return value  # type: ignore[return-value]
