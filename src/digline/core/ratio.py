@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
+from digline.core.refused import RefusedError
 from digline.core.types import at_precision
 
 __all__ = ["Ratio", "as_agreement", "as_ratio", "reachable_agreements"]
@@ -35,7 +36,7 @@ def as_ratio(value: Ratio, *, field: str) -> float:
         try:
             return float(Fraction(value))
         except (ValueError, ZeroDivisionError) as exc:
-            raise ValueError(
+            raise RefusedError(
                 f'{field} is {value!r}, which is not a number or a fraction like "2/3"'
             ) from exc
     return float(value)
@@ -70,7 +71,7 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
     """
     parsed = as_ratio(value, field=field)
     if not (0.0 < parsed <= 1.0):
-        raise ValueError(
+        raise RefusedError(
             f"{field} is {parsed}, which is outside (0, 1]: an agreement is a "
             "fraction of the samples"
         )
@@ -89,7 +90,7 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
     options = ", ".join(
         f"{k}/{samples} = {k / samples:.6f}" for k in range(1, samples + 1)
     )
-    raise ValueError(
+    raise RefusedError(
         f"{field} is {parsed:.6f}, which {samples} samples cannot produce: "
         f"agreement is a count of samples, so it is one of {options}. "
         'Write the fraction if that is what you mean, e.g. "2/3".'

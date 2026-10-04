@@ -509,9 +509,10 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._error(404, f"no such page: {path}")
         except FileNotFoundError as exc:
             self._error(404, str(exc))
-        # Every refusal digline raises on purpose, derived rather than listed,
-        # and bare `ValueError` beside it as the CLI keeps it. (friction 59)
-        except (*REFUSALS, ValueError) as exc:
+        # Every refusal digline raises on purpose, derived rather than listed.
+        # A bare `ValueError` is no longer one: it is a failure nobody
+        # anticipated, as on the command line. (friction 59, ADR 0041 §4.2)
+        except REFUSALS as exc:
             self._error(400, str(exc))
 
     def _screen_runs(self, locale: Locale, message: str = "") -> None:
@@ -572,7 +573,7 @@ class ViewHandler(BaseHTTPRequestHandler):
             against = self.store.read_run(
                 RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=other)
             )
-            # A refusal from ADR 0008 §3 is a `ValueError`, which `do_GET`
+            # A refusal from ADR 0008 §3 is in `REFUSALS`, which `do_GET`
             # already turns into a 400 carrying `str(exc)` — so the screen shows
             # **the same sentence the CLI prints**, naming the same remedy. The
             # page around it is plain and may stay plain; the sentence is the
@@ -762,10 +763,21 @@ class ViewHandler(BaseHTTPRequestHandler):
         not is worse than one that failed: the reference moved and nobody
         believes it did. So the list is optional here and the sentence is not.
         (friction 59)
+
+        **So this catches every exception, and it answers a different
+        requirement from the other handlers, not an exception to theirs.**
+        They classify a failure that happens before anything has changed: a
+        refusal is a 400, and a failure nobody anticipated is left to be one.
+        Here the state has already changed, and a front end that has changed
+        state must say so whatever fails afterwards. The catch classifies
+        nothing. When ADR 0041 §4.2 took the bare `ValueError` out of the
+        refusals, catching only `REFUSALS` here would have reopened friction 59
+        for every failure that is not a refusal, and the test that injects a
+        fault into the list caught exactly that.
         """
         try:
             self._screen_runs(locale, outcome)
-        except (*REFUSALS, ValueError) as exc:
+        except Exception as exc:  # noqa: BLE001 — the outcome must arrive whatever the list does
             self._plain(
                 200,
                 outcome,

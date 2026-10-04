@@ -121,12 +121,52 @@ the old behaviour was right (ADR 0041).
   Until now such a failure read 1 there, and the operator carried on hunting a
   regression that did not exist.
 
+### Fixed — a refusal reaches an agent as its sentence, and a bare `ValueError` is not a refusal (#415, ADR 0041 §4.2)
+
+- **On the MCP server, most of digline's written refusals reached an agent as
+  *"Error executing tool"*.** `Contains(needle="")`, a `Suite` naming a check it
+  does not have, an endpoint that does not answer at preflight: each raised a
+  bare `ValueError` with a sentence written for its reader. The server
+  translates `REFUSALS` and nothing else, so the sentence went to stderr, where
+  no client reads it. The loader's comment said the front ends translated
+  these, and on the MCP server they did not. They now arrive as their sentence.
+- **They are `RefusedError`**, a new class exported from `digline.core` and
+  listed in `REFUSALS`. It subclasses `ValueError`, so `except ValueError` and
+  `pytest.raises(ValueError)` still catch them. 86 sites raise it.
+- **And a bare `ValueError` that reaches a front end now exits 70.** Before,
+  the command line exited 64 on every `ValueError`, *"your request was
+  wrong"*, so a `ValueError` raised by a mistake inside digline blamed the
+  user. A deliberate refusal and a bug both start inside digline, so the frame
+  cannot tell them apart. The type is what says *on purpose*.
+- **On the command line, a refusal's line names `RefusedError` where it named
+  `ValueError`, and the exit stays 64.** A `ValueError` the suite raises
+  itself while it loads is now refused with its location, like any other
+  exception from the suite's code. It still exits 64: the sentence changes, not
+  the verdict.
+- **A file that is not UTF-8 is refused where it is read**: a Python suite, a
+  TOML suite's cases file, a run, a baseline, a declared artifact. Before, each
+  exited 64 by accident, on the codec's own `UnicodeDecodeError`.
+- **Deliberately unchanged: the value types keep their bare `ValueError`.**
+  That is `Score`, `Verdict`, `Usage`, `JudgeReply`, `ClaimReply` and the `Run`
+  family. Digline builds them in its own computation too, so a `RefusedError`
+  there would make digline's bug read as the user's again. The parsers inside a
+  target's or a judge's call keep it too. Their type name is written into an
+  errored verdict's `reason`, which a baseline commits, and nothing in a
+  committed document changes.
+- **What it leaves.** A bug in a document reader still reads as a refused
+  document, because the reader converts a bare `ValueError` into one: a
+  document whose score is out of range is the document's fault. A `Score` built
+  at module level in a suite exits 70.
+- **`digline view`'s page after a promotion shows the outcome, whatever the
+  list of runs under it raises.** That page has a different requirement from
+  a refusal. The baseline has already moved, and a page that has changed state
+  must say so. A command that has changed nothing can refuse and stop.
+  Friction 59 was a promotion that looked failed and was not.
+
 ### Not changed
 
 - **A suite that calls `sys.exit(n)` while it loads still makes `n` the exit
-  code** (#414). **Every `ValueError` still exits 64**, so a `ValueError` that
-  is a failure inside digline still reads as a refused request (#415). Both
-  are recorded in ADR 0041 and not repaired.
+  code** (#414). It is recorded in ADR 0041 and not repaired.
 
 ## digline-bedrock 0.6.1 — 2026-10-02
 

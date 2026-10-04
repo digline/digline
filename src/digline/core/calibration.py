@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from digline.core.refused import RefusedError
 from digline.core.types import at_precision
 
 if TYPE_CHECKING:
@@ -80,7 +81,7 @@ class CalibrationBand:
         """
         low, high = at_precision(low), at_precision(high)
         if not (0.0 < low <= high < 1.0):
-            raise ValueError(
+            raise RefusedError(
                 f"the calibration of {check!r} declares the band "
                 f"{low:.6f}–{high:.6f}. Both ends must lie strictly between 0 "
                 "and 1, with low no greater than high: a band that contains an "

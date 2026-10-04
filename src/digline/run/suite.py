@@ -33,6 +33,7 @@ from digline.core import (
     tolerance_is_blind,
 )
 from digline.core.ratio import Ratio, as_agreement
+from digline.core.refused import RefusedError
 
 __all__ = [
     "BlindTolerance",
@@ -96,7 +97,7 @@ class Calibration:
             # The `expected=""` refusal, for the same reason: an empty answer
             # is not partially correct, it is nothing, and a band placed around
             # the score of nothing calibrates nothing.
-            raise ValueError(
+            raise RefusedError(
                 f"the calibration of {self.check!r} declares an empty output: a "
                 "calibration answer is one known to be partially correct, and "
                 "an empty one is not an answer at all"
@@ -173,9 +174,9 @@ class Case:
 
     def __post_init__(self) -> None:
         if not self.id:
-            raise ValueError("Case.id must not be empty")
+            raise RefusedError("Case.id must not be empty")
         if self.suspended is not None and not self.suspended:
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} is suspended without a stated reason: "
                 "a suspension nobody can justify is a case quietly dropped"
             )
@@ -187,7 +188,7 @@ class Case:
             # behaviours defensible on their own, composing into a check that
             # cannot fail. Refused here rather than in the assertions, because
             # it is the case that is malformed. (fixed decision 3)
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} declares an empty expected: an empty "
                 "expectation is a perfect match against an empty output. "
                 "Leave it unset if the case has nothing to compare against — "
@@ -197,7 +198,7 @@ class Case:
             # `None` and `""` would otherwise be two spellings of "no group"
             # with different consequences: the empty one names a group, so it
             # would expand into `precision[group=]`, a gate nobody can read.
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} declares an empty group: leave it unset to "
                 "put the case in no group"
             )
@@ -207,20 +208,20 @@ class Case:
             # produce a per-group aggregate with an empty denominator, which is
             # an `error` gate nobody declared, appearing because a case was
             # flagged. (ADR 0016 §1)
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} is a canary and declares the group "
                 f"{self.group!r}: a canary is counted in no aggregate, so the "
                 "group would be a gate with nothing in it. Leave the group unset"
             )
         if self.calibration is not None and self.canary:
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} is both a canary and a calibration case: a "
                 "canary asks the target and a calibration case bypasses it, so "
                 "one case cannot be both. Declare two cases"
             )
         if self.calibration is not None and self.group is not None:
             # The canary's refusal, for the canary's reason. (ADR 0024 §4.2)
-            raise ValueError(
+            raise RefusedError(
                 f"case {self.id!r} is a calibration case and declares the group "
                 f"{self.group!r}: a calibration case is counted in no aggregate, "
                 "so the group would be a gate with nothing in it. Leave the "
@@ -311,25 +312,25 @@ class Suite:
 
     def __post_init__(self) -> None:
         if not self.tenant:
-            raise ValueError("Suite.tenant must not be empty")
+            raise RefusedError("Suite.tenant must not be empty")
         if not self.environment:
-            raise ValueError("Suite.environment must not be empty")
+            raise RefusedError("Suite.environment must not be empty")
         if not self.name:
-            raise ValueError("Suite.name must not be empty")
+            raise RefusedError("Suite.name must not be empty")
         if not self.assertions:
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} declares no assertions: a run that checks "
                 "nothing passes vacuously, which is what fixed decision 3 forbids"
             )
         if not self.cases:
-            raise ValueError(f"suite {self.name!r} declares no cases")
+            raise RefusedError(f"suite {self.name!r} declares no cases")
         # Before the duplicate check below, so `"prompt.md"` and
         # `Path("prompt.md")` are one artifact declared twice rather than two.
         object.__setattr__(
             self, "artifacts", _as_paths(self.artifacts, suite=self.name)
         )
         if len({str(p) for p in self.artifacts}) != len(self.artifacts):
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} declares the same artifact twice: the "
                 "path is the key a run files it under"
             )
@@ -342,12 +343,12 @@ class Suite:
             self, "pinned", _as_paths(self.pinned, suite=self.name, field="pinned")
         )
         if len({str(p) for p in self.pinned}) != len(self.pinned):
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} pins the same path twice: a path that must "
                 "not drift is named once, and naming it again says nothing more"
             )
         if self.samples < 1:
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} asks for {self.samples} samples: at least "
                 "one call per case is needed to judge anything"
             )
@@ -359,7 +360,7 @@ class Suite:
             # ignore. The cost is stated rather than buried: `samples` is
             # suite-wide, so a canary multiplies every case's calls.
             # (ADR 0016 §6)
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} declares a canary and samples "
                 f"{self.samples} time(s). A canary is read by whether it moved "
                 "beyond its own noise, and at one sample there is no noise to "
@@ -374,7 +375,7 @@ class Suite:
             # is not called, so `samples` repeats the judge alone. A single
             # judgement landing outside the band on a noisy judge would be a
             # red light nobody chose. (ADR 0024 §4.2)
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} declares a calibration case and samples "
                 f"{self.samples} time(s). A calibration case is read by where the "
                 "judge places a known answer, and one judgement of it is one "
@@ -384,7 +385,7 @@ class Suite:
                 "calibration case"
             )
         if self.samples > 1 and self.min_agreement is None:
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} samples {self.samples} times without "
                 "declaring min_agreement. Sampling measures how much the system "
                 "wobbles; without a stated floor nobody has said how much wobble "
@@ -408,7 +409,7 @@ class Suite:
         seen: set[str] = set()
         for case in self.cases:
             if case.id in seen:
-                raise ValueError(
+                raise RefusedError(
                     f"suite {self.name!r} declares case id {case.id!r} twice: "
                     "ids are how a result finds its counterpart in the baseline"
                 )
@@ -480,13 +481,13 @@ class Suite:
             matches = [a for a in self.assertions if a.name == calibration.check]
             if not matches:
                 available = ", ".join(sorted({a.name for a in self.assertions}))
-                raise ValueError(
+                raise RefusedError(
                     f"case {case.id!r} calibrates {calibration.check!r}, which "
                     f"no assertion in suite {self.name!r} is called. Declared: "
                     f"{available}"
                 )
             if len(matches) > 1:
-                raise ValueError(
+                raise RefusedError(
                     f"case {case.id!r} calibrates {calibration.check!r}, which "
                     f"{len(matches)} assertions in suite {self.name!r} share. "
                     "Give the one you mean a distinct `name`: a band read against "
@@ -494,7 +495,7 @@ class Suite:
                 )
             check = _unwrapped(matches[0])
             if not judged(check):
-                raise ValueError(
+                raise RefusedError(
                     f"case {case.id!r} calibrates {calibration.check!r}, which is "
                     "not a judged check: nothing places its score on a scale, so "
                     "there is no scale for a calibration case to watch"
@@ -507,7 +508,7 @@ class Suite:
                 # the target that renders it is not called here. Graded without
                 # it, the calibration would measure a different question. `""`
                 # declares that the real cases have none either.
-                raise ValueError(
+                raise RefusedError(
                     f"case {case.id!r} calibrates {calibration.check!r} and "
                     "declares no input. That check shows the judge the question "
                     "beside the answer, and the target that would render it is "
@@ -528,7 +529,7 @@ class Suite:
         """
         for aggregate in self.run_assertions:
             if GROUP_MARKER in aggregate.name:
-                raise ValueError(
+                raise RefusedError(
                     f"aggregate {aggregate.name!r} writes {GROUP_MARKER!r} in "
                     "its own name, which is the form an expanded aggregate "
                     "takes. Two checks could then arrive under one name, which "
@@ -539,13 +540,13 @@ class Suite:
             matches = [a for a in self.assertions if a.name == aggregate.over]
             if not matches:
                 available = ", ".join(sorted({a.name for a in self.assertions}))
-                raise ValueError(
+                raise RefusedError(
                     f"{aggregate.name!r} aggregates over {aggregate.over!r}, "
                     f"which no assertion in suite {self.name!r} is called. "
                     f"Declared: {available}"
                 )
             if len(matches) > 1:
-                raise ValueError(
+                raise RefusedError(
                     f"{aggregate.name!r} aggregates over {aggregate.over!r}, "
                     f"which {len(matches)} assertions in suite {self.name!r} "
                     "share. Give the one you mean a distinct `name`: an "
@@ -564,7 +565,7 @@ class Suite:
             if c.label is None and not c.canary and c.calibration is None
         )
         if unlabelled:
-            raise ValueError(
+            raise RefusedError(
                 f"suite {self.name!r} declares an aggregate that counts a "
                 f"confusion matrix, so every case needs a label. Missing on: "
                 f"{', '.join(unlabelled)}"
@@ -732,7 +733,7 @@ def _as_paths(
         # one wrong value this rule would otherwise accept enthusiastically,
         # and it is grouped here with what cannot be iterated at all so that
         # neither escapes as a bare `TypeError` from the loop below.
-        raise ValueError(
+        raise RefusedError(
             f"suite {suite!r} declares `{field}` as `{type(values).__name__}`"
             ": it is a list of the files under test, one str or Path each — "
             'write ["p.md"]'
@@ -744,7 +745,7 @@ def _as_paths(
         elif isinstance(entry, Path):
             coerced.append(entry)
         else:
-            raise ValueError(
+            raise RefusedError(
                 f"suite {suite!r} declares `{field}` entry {len(coerced)} "
                 f"as `{type(entry).__name__}`: an artifact is the file that is "
                 "the thing under test, and it is named by a str or a Path"

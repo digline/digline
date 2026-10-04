@@ -196,3 +196,34 @@ def test_what_digline_raises_while_a_suite_loads_still_crashes(repo: Path) -> No
     )
     _message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_digline.py"))
     assert kind is UnexpectedToolError, kind.__name__
+
+
+def test_a_refusal_digline_writes_while_a_suite_loads_reaches_the_agent(
+    repo: Path,
+) -> None:
+    """#415, and where the repair is worth most. `Contains(needle="")` was
+    refused with a bare `ValueError`. The CLI showed it as a refusal, because
+    `main()` took every `ValueError` for one. This server translates
+    `REFUSALS` and nothing else, so the same sentence reached an agent as
+    *"Error executing tool"*. The loader's comment said the front ends
+    translated it, and here they did not. As a `RefusedError` it is a refusal
+    on both front ends. (ADR 0041 §4.2)"""
+    (repo / "suite_needle.py").write_text(
+        "from digline.core import Contains\nContains(needle='')\n", encoding="utf-8"
+    )
+    message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_needle.py"))
+    assert kind is not UnexpectedToolError, kind.__name__
+    assert "Contains.needle must not be empty" in message, message
+
+
+def test_a_run_file_that_is_not_utf8_is_refused_in_words(repo: Path) -> None:
+    """An implicit `UnicodeDecodeError` is a `ValueError`. On the CLI it exited
+    64 by accident, and here it was an unexpected error. It is now named at the
+    read, where it happens, rather than by a rule that would also catch digline's
+    own decode errors. (ADR 0041 §4.2)"""
+    key = run_key(repo)
+    stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
+    stored.write_bytes(b'{"a": "\xff"}')
+    message, kind = refusal(repo, "get_run", suite=str(repo / "suite_qa.py"), run=key)
+    assert kind is not UnexpectedToolError, kind.__name__
+    assert "is not UTF-8 at byte" in message, message

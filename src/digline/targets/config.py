@@ -23,6 +23,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from digline.core import SYSTEM_NAME_FIELDS, ConfigValue
+from digline.core.refused import RefusedError
 
 #: What may appear in a hostname: letters, digits, dot, dash, underscore, and
 #: the `[`, `]`, `:` and `%` an IPv6 literal with a zone id needs. Deliberately
@@ -192,14 +193,14 @@ def expected_config(found: object, *, where: str) -> dict[str, ConfigValue]:
     cannot fail is the bug fixed decision 3 names.
     """
     if not isinstance(found, Mapping):
-        raise ValueError(
+        raise RefusedError(
             f"{where} is a {type(found).__name__}, not a table: a declared "
             "configuration is the same flat object of scalars an application "
             "reports, so that the two can be compared field by field"
         )
     entries = cast("Mapping[str, object]", found)
     if not entries:
-        raise ValueError(
+        raise RefusedError(
             f"{where} declares nothing. An empty declaration accepts every "
             "configuration an application could report, which is the state a "
             "suite is in when it omits the key — so it is refused rather than "
@@ -209,7 +210,7 @@ def expected_config(found: object, *, where: str) -> dict[str, ConfigValue]:
 
     unknown = sorted(set(entries) - CONTRACT_FIELDS)
     if unknown:
-        raise ValueError(
+        raise RefusedError(
             f"{where} declares {', '.join(unknown)}, which is not part of the "
             f"configuration contract (ADR 0005 §1). Allowed: "
             f"{', '.join(sorted(CONTRACT_FIELDS))}. An application cannot "
@@ -226,14 +227,14 @@ def expected_config(found: object, *, where: str) -> dict[str, ConfigValue]:
         # leaving the key out already says.
         if value is None or not isinstance(value, str | int | float | bool):
             named = "nothing" if value is None else type(value).__name__
-            raise ValueError(
+            raise RefusedError(
                 f"{where} declares {key!r} as {named}, which is not a scalar "
                 "value to compare against: an expectation is met by equality "
                 "with what the application reported, so it has to be the value "
                 "you expect"
             )
         if isinstance(value, str) and not value:
-            raise ValueError(
+            raise RefusedError(
                 f"{where} declares {key!r} as an empty string: an application "
                 "that reported one would be refused by the contract, so this "
                 "expectation could never be met"

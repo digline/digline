@@ -20,6 +20,7 @@ from time import perf_counter
 from typing import ClassVar
 
 from digline.core import ConfigValue, Output, pricing_digest
+from digline.core.refused import RefusedError
 from digline.run import Case, Response
 from digline.targets.completion import (
     Completion,
@@ -68,7 +69,7 @@ class ProviderTarget(ABC):
         system_file: str | Path | None = None,
     ) -> None:
         if system is not None and system_file is not None:
-            raise ValueError(
+            raise RefusedError(
                 "give `system` or `system_file`, not both: two system prompts "
                 "is a question about which one ran"
             )
@@ -189,7 +190,7 @@ class ProviderTarget(ABC):
                         f"{', '.join(sorted(missing))} for {template.name}"
                     )
         if problems:
-            raise ValueError(
+            raise RefusedError(
                 f"{type(self).__name__} cannot run this suite:\n  "
                 + "\n  ".join(problems)
             )

@@ -52,6 +52,7 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.protocols import DeclaresPrice
+from digline.core.refused import RefusedError
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -951,7 +952,7 @@ def execute(
         from digline.run.replay import Replay
 
         if judge_samples < 2:
-            raise ValueError(
+            raise RefusedError(
                 f"judge_samples is {judge_samples}: asking the judge once is an "
                 "ordinary judgement, and a range needs at least two"
             )

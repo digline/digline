@@ -44,6 +44,7 @@ from digline.core.run import (
     CallTotals,
     CaseProgress,
     CaseResult,
+    DocumentRefusedError,
     Run,
     SystemConfig,
     case_from_dict,
@@ -162,6 +163,25 @@ def _write_atomic(path: Path, payload: str) -> None:
 #: and 3.13. Python 3.14 reads *every* `OSError` as "not there", so a baseline
 #: inside a directory that cannot be searched became no baseline. (#365)
 _ABSENT = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+
+
+def _document_text(path: Path) -> str:
+    """A stored run or baseline as text, or a refusal naming the byte that is
+    not UTF-8.
+
+    Bare, the `UnicodeDecodeError` is a `ValueError`, and since ADR 0041 §4.2 a
+    bare `ValueError` that reaches a front end exits 70, *"not anticipated"*.
+    A file somebody edited or corrupted is the document's fault, so it is named
+    at the read, where it happens, and not by a rule in `main()` that would also
+    catch a decode error inside digline itself.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise DocumentRefusedError(
+            f"{path} is not UTF-8 at byte {exc.start}: digline writes a run "
+            "document as UTF-8, so these bytes are not one"
+        ) from None
 
 
 def _exists(path: Path) -> bool:
@@ -401,7 +421,7 @@ class FileResultStore:
         if not _exists(path):
             raise RunNotFoundError(f"run not found: {path}")
         path = self._inside(path, "run")
-        run = run_from_json(path.read_text(encoding="utf-8"))
+        run = run_from_json(_document_text(path))
         if run.tenant != ref.tenant:
             raise TenantMismatchError(
                 f"the run stored at {path} declares tenant {run.tenant!r} but "
@@ -421,7 +441,7 @@ class FileResultStore:
         if not _exists(path):
             return None
         path = self._inside(path, "baseline")
-        run = run_from_json(path.read_text(encoding="utf-8"))
+        run = run_from_json(_document_text(path))
         if run.tenant != tenant:
             raise TenantMismatchError(
                 f"the baseline at {path} declares tenant {run.tenant!r} but was "

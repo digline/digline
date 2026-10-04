@@ -29,6 +29,8 @@ from functools import cache
 from importlib.metadata import EntryPoint, entry_points
 from typing import TYPE_CHECKING
 
+from digline.core.refused import RefusedError
+
 if TYPE_CHECKING:
     from digline.core import ClaimJudge, Judge
     from digline.run import Target
@@ -99,7 +101,7 @@ class Provider:
 
     def __post_init__(self) -> None:
         if not self.name:
-            raise ValueError("Provider.name must not be empty")
+            raise RefusedError("Provider.name must not be empty")
 
 
 @cache
@@ -205,7 +207,7 @@ def split_coordinate(text: str, *, field: str) -> tuple[str, str]:
     """
     provider, sep, model = text.partition("/")
     if not sep or not provider or not model:
-        raise ValueError(
+        raise RefusedError(
             f"{field} is {text!r}, which is not a provider/model coordinate. "
             "Write the provider, a slash, and the model — for example "
             "'anthropic/claude-haiku-4-5'"

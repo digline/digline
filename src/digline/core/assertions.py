@@ -19,6 +19,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 from digline.core.pii import ITALIAN_PII, PiiPattern
 from digline.core.protocols import Assertion, ClaimJudge, Judge, JudgeAbstained
+from digline.core.refused import RefusedError
 from digline.core.types import (
     ALL_KINDS,
     STORAGE_STEP,
@@ -309,7 +310,7 @@ class Contains(AssertionBase):
 
     def __post_init__(self) -> None:
         if not self.needle:
-            raise ValueError(
+            raise RefusedError(
                 "Contains.needle must not be empty: searching for '' always passes"
             )
 
@@ -350,7 +351,7 @@ class NotContains(AssertionBase):
         if not self.needle:
             # The mirror of `Contains`: there, `''` always passes; here it always
             # fails. Both are checks that say nothing about the output.
-            raise ValueError(
+            raise RefusedError(
                 "NotContains.needle must not be empty: '' is in every output, "
                 "so the check would always fail"
             )
@@ -400,11 +401,11 @@ class Affix(AssertionBase):
 
     def __post_init__(self) -> None:
         if not self.affix:
-            raise ValueError(
+            raise RefusedError(
                 "Affix.affix must not be empty: every output starts and ends with ''"
             )
         if self.at not in ("start", "end"):
-            raise ValueError(f"Affix.at must be 'start' or 'end', got {self.at!r}")
+            raise RefusedError(f"Affix.at must be 'start' or 'end', got {self.at!r}")
         if not self.name:
             # `object.__setattr__` is how a frozen dataclass fills in a derived
             # default: normal assignment would raise. Done here rather than in a
@@ -461,7 +462,7 @@ class IsJson(AssertionBase):
 
     def __post_init__(self) -> None:
         if self.top_level not in ("any", "object", "array"):
-            raise ValueError(
+            raise RefusedError(
                 "IsJson.top_level must be 'any', 'object' or 'array', got "
                 f"{self.top_level!r}"
             )
@@ -526,23 +527,25 @@ class Length(AssertionBase):
 
     def __post_init__(self) -> None:
         if self.minimum is None and self.maximum is None:
-            raise ValueError(
+            raise RefusedError(
                 "Length needs a minimum, a maximum or both: with neither, every "
                 "output passes"
             )
         if self.minimum is not None and self.minimum < 0:
-            raise ValueError(f"Length.minimum must not be negative, got {self.minimum}")
+            raise RefusedError(
+                f"Length.minimum must not be negative, got {self.minimum}"
+            )
         if (
             self.minimum is not None
             and self.maximum is not None
             and self.minimum > self.maximum
         ):
-            raise ValueError(
+            raise RefusedError(
                 f"Length.minimum ({self.minimum}) is above its maximum "
                 f"({self.maximum}): no output can satisfy both"
             )
         if self.unit not in ("characters", "words"):
-            raise ValueError(
+            raise RefusedError(
                 f"Length.unit must be 'characters' or 'words', got {self.unit!r}"
             )
 
@@ -646,7 +649,7 @@ class Levenshtein(AssertionBase):
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.threshold <= 1.0):
-            raise ValueError(
+            raise RefusedError(
                 f"Levenshtein.threshold must be within [0, 1], got {self.threshold}"
             )
 
@@ -702,7 +705,7 @@ class Regex(AssertionBase):
         try:
             re.compile(self.pattern)
         except re.error as exc:
-            raise ValueError(f"Regex.pattern does not compile: {exc}") from exc
+            raise RefusedError(f"Regex.pattern does not compile: {exc}") from exc
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         if (err := self._accept(inputs.output)) is not None:
@@ -734,7 +737,7 @@ class JsonSchema(AssertionBase):
         try:
             Draft202012Validator.check_schema(dict(self.schema))
         except SchemaError as exc:
-            raise ValueError(
+            raise RefusedError(
                 f"JsonSchema.schema is not a valid schema: {exc.message}"
             ) from exc
 
@@ -824,9 +827,9 @@ class LlmRubric(AssertionBase):
 
     def __post_init__(self) -> None:
         if not self.rubric:
-            raise ValueError("LlmRubric.rubric must not be empty")
+            raise RefusedError("LlmRubric.rubric must not be empty")
         if not (0.0 <= self.threshold <= 1.0):
-            raise ValueError(
+            raise RefusedError(
                 f"LlmRubric.threshold must be within [0, 1], got {self.threshold}"
             )
 
@@ -913,7 +916,7 @@ class PiiAbsent(AssertionBase):
 
     def __post_init__(self) -> None:
         if not self.patterns:
-            raise ValueError(
+            raise RefusedError(
                 "PiiAbsent needs at least one pattern: with none, every output passes"
             )
         seen = [p.name for p in self.patterns]
@@ -921,7 +924,7 @@ class PiiAbsent(AssertionBase):
         if duplicates:
             # Two patterns under one name would sum into a single count, so a
             # reader could not tell which of them fired.
-            raise ValueError(
+            raise RefusedError(
                 f"PiiAbsent has more than one pattern named {duplicates}: "
                 "their counts would be indistinguishable"
             )
@@ -986,7 +989,7 @@ class Faithfulness(AssertionBase):
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.threshold <= 1.0):
-            raise ValueError(
+            raise RefusedError(
                 f"Faithfulness.threshold must be within [0, 1], got {self.threshold}"
             )
 
@@ -1230,17 +1233,17 @@ class ToolCalledWith(AssertionBase):
 
     def __post_init__(self) -> None:
         if not self.tool:
-            raise ValueError(
+            raise RefusedError(
                 "ToolCalledWith.tool must not be empty: a check on a call to "
                 "nothing is a check on nothing"
             )
         if not self.arguments:
-            raise ValueError(
+            raise RefusedError(
                 "ToolCalledWith.arguments must not be empty: a matcher with "
                 "nothing to match passes on every trajectory"
             )
         if self.match not in ("exact", "subset"):
-            raise ValueError(
+            raise RefusedError(
                 f"ToolCalledWith.match must be 'exact' or 'subset', got {self.match!r}"
             )
 
@@ -1479,7 +1482,9 @@ class CostBudget(AssertionBase):
 
     def __post_init__(self) -> None:
         if self.max_usd <= 0:
-            raise ValueError(f"CostBudget.max_usd must be positive, got {self.max_usd}")
+            raise RefusedError(
+                f"CostBudget.max_usd must be positive, got {self.max_usd}"
+            )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         # A budget does not read the output: it has nothing to reject on type.
@@ -1527,7 +1532,7 @@ class LatencyBudget(AssertionBase):
 
     def __post_init__(self) -> None:
         if self.max_ms <= 0:
-            raise ValueError(
+            raise RefusedError(
                 f"LatencyBudget.max_ms must be positive, got {self.max_ms}"
             )
 

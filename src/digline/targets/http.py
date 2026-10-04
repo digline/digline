@@ -22,6 +22,7 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 
 from digline.core import ConfigValue, Output, Usage
+from digline.core.refused import RefusedError
 from digline.run import Case, Response
 from digline.targets.completion import ToolCall
 from digline.targets.config import (
@@ -94,17 +95,17 @@ def _check_path(reference: str, where: str) -> None:
     _, _, path = reference.partition(REFERENCE)
     head, _, rest = path.partition(".")
     if head not in READABLE:
-        raise ValueError(
+        raise RefusedError(
             f"{where} is {reference!r}, and a case has no {head!r}. "
             f"Readable: {', '.join('case.' + name for name in READABLE)}"
         )
     if head in ("vars", "metadata") and not rest:
-        raise ValueError(
+        raise RefusedError(
             f"{where} is {reference!r}, which names the whole mapping rather "
             f"than a value in it. Write case.{head}.<key>"
         )
     if head not in ("vars", "metadata") and rest:
-        raise ValueError(
+        raise RefusedError(
             f"{where} is {reference!r}: case.{head} is a value, so nothing follows it"
         )
 
@@ -209,7 +210,7 @@ class HttpTarget:
         timeout: float = 30.0,
     ) -> None:
         if (request is None) == (body is None):
-            raise ValueError(
+            raise RefusedError(
                 "HttpTarget needs `request` or `body`, and not both: they are "
                 "two ways of saying what to post, and two would be a question "
                 "about which one was sent"
@@ -226,7 +227,7 @@ class HttpTarget:
             # No `or url` fallback. That fallback is what made the reduction
             # conditional on the URL being well formed — exactly the case where
             # a person is most likely to have mistyped a secret into it.
-            raise ValueError(
+            raise RefusedError(
                 "url names no host. An endpoint is recorded and spoken about "
                 "by host, so a value without one cannot be reduced to one, and "
                 "printing the value instead is what this refuses. Check the "
@@ -274,7 +275,7 @@ class HttpTarget:
             # A gate on a value nothing reads passes everything. Refused at
             # construction rather than left to be noticed, because the run it
             # would produce is green and means nothing (fixed decision 3).
-            raise ValueError(
+            raise RefusedError(
                 "`expect_config` declares the configuration this endpoint "
                 "should report, and without `config_path` no configuration is "
                 "ever read: the check never runs, and the run is green whatever "
@@ -372,7 +373,7 @@ class HttpTarget:
         except urllib.error.HTTPError:
             return
         except _ENDPOINT_ERRORS as exc:
-            raise ValueError(
+            raise RefusedError(
                 f"nothing answered at {self._spoken}: {self._said(exc)}. The "
                 f"suite declares {len(cases)} case(s) and every one of them "
                 "would fail the same way — start the application, or point the "

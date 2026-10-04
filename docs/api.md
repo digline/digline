@@ -1950,10 +1950,25 @@ traceback. What it commits to:
 It is a tuple because `except` takes a class or a tuple of classes, and nothing
 else. It is meant for catching, not for extending. To catch your own errors
 beside digline's, compose them: `except (*REFUSALS, MyError)`. digline's
-command line does the same with `ValueError`. No program outside digline has
+command line does the same with `OSError`. No program outside digline has
 needed digline's front ends to show one of its errors as a refusal. **If a
 plugin ever does**, the form is a common base class the refusals inherit,
 which can be added without breaking a caller of the tuple.
+
+**`RefusedError` is the refusal that has no name of its own.** Most of the
+sentences digline writes for a declaration it cannot accept are raised as it:
+`Contains(needle="")`, a `Suite` that names a check it does not have, an
+endpoint that does not answer at preflight. It is a subclass of `ValueError`,
+so `except ValueError` still catches it, and it is in the tuple. A bare
+`ValueError` is not, and has not been since ADR 0041 §4.2. When one reaches a
+front end it is a failure nobody anticipated: the command line exits `70` on
+it, and `digline-mcp` passes it on as an unexpected error.
+
+Some validators still raise a bare `ValueError` on purpose. These are `Score`,
+`Verdict`, `Usage`, the `Run` family, and the parsers that run inside a
+target's or a judge's call. The same `raise` also guards digline's own
+computation, or is caught before it could reach a front end. A program that
+builds those values catches `ValueError`, as before.
 
 `NOT_REFUSALS` is exported beside it and is not documented. It is the other
 half of the classification's bookkeeping and stays internal.

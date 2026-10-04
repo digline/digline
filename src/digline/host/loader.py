@@ -168,6 +168,13 @@ def _import(module_part: str, spec: str) -> ModuleType:
             code = compile(path.read_text(encoding="utf-8"), str(path), "exec")
         except SyntaxError as exc:
             raise UsageError(f"{path} does not parse: {exc}") from exc
+        # Named here, at the read, and not by a rule in `main()` that would also
+        # catch a decode error inside digline itself. (ADR 0041 §4.2)
+        except UnicodeDecodeError as exc:
+            raise UsageError(
+                f"{path} is not UTF-8 at byte {exc.start}: a suite is read as "
+                "UTF-8 source"
+            ) from None
 
         # The suite's own directory goes on the path before it runs.
         #
@@ -200,11 +207,12 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # **And any other exception the suite raises while it loads**, which
         # until ADR 0041 stayed "the unexpected exception it is" (27bc37e) and
         # so exited 1, "worse", from a suite that never got as far as running.
-        # By who raised it, in order: a refusal, a `ValueError` or an `OSError`
-        # passes through as before; one raised inside digline is left to exit
-        # 70, because the sentence digline did not write is its own defect; and
-        # anything else is the suite's, refused with the location 27bc37e was
-        # protecting and the command that prints the traceback. (ADR 0041 §4.1)
+        # By who raised it, in order: a refusal or an `OSError` passes through
+        # as before (a bare `ValueError` no longer does, ADR 0041 §4.2); one
+        # raised inside digline is left to exit 70, because the sentence
+        # digline did not write is its own defect; and anything else is the
+        # suite's, refused with the location 27bc37e was protecting and the
+        # command that prints the traceback. (ADR 0041 §4.1)
         try:
             exec(code, module.__dict__)  # noqa: S102 — the user's own suite, by request
         except ImportError as exc:
@@ -241,8 +249,12 @@ def _import(module_part: str, spec: str) -> ModuleType:
 
 
 #: What the suite may raise while it loads and still reach a person as its own
-#: sentence, unwrapped: the front ends translate each of these already.
-_PASSED_THROUGH: tuple[type[Exception], ...] = (*REFUSALS, ValueError, OSError)
+#: sentence, unwrapped. The front ends translate each of these already. That
+#: was false of a bare `ValueError` on the MCP server, which translates
+#: `REFUSALS` alone, so it left the list (ADR 0041 §4.2). A suite's own
+#: `ValueError` is now refused with its location. Digline's deliberate ones are
+#: `RefusedError`s and pass through as refusals.
+_PASSED_THROUGH: tuple[type[Exception], ...] = (*REFUSALS, OSError)
 
 
 #: Where digline's own code lives. A frame under it is digline's; anything else,

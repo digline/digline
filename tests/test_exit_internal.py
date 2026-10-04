@@ -355,16 +355,78 @@ def test_what_digline_raised_while_the_suite_loaded_is_not_the_suites(
     assert "while it was being loaded" not in done.stderr
 
 
-def test_a_refusal_the_suite_raises_while_it_loads_is_not_rewrapped(
+def test_a_value_error_the_suite_raises_while_it_loads_is_refused_with_its_location(
     tmp_path: Path,
 ) -> None:
-    """A `ValueError` already reached a person as its own sentence. Wrapping it
-    would only bury that sentence one level down."""
+    """Reversed by ADR 0041 §4.2. Until then a bare `ValueError` passed through
+    unwrapped, because every `ValueError` was taken for a refusal. It is the
+    suite's own code, so it is refused like any other exception the suite
+    raises, with the location. **The exit stays 64: the sentence changes, not
+    the verdict.**"""
     root = suite_repo(tmp_path, preamble="raise ValueError('a sentence of its own')")
     done = cli(root, "run", *SUITE)
     assert done.returncode == EXIT_USAGE, done.stderr
-    assert "ValueError: a sentence of its own" in done.stderr
-    assert "while it was being loaded" not in done.stderr
+    assert "raised ValueError: a sentence of its own" in done.stderr
+    assert "suite_qa.py:4" in done.stderr
+    assert "while it was being loaded" in done.stderr
+    assert "Traceback" not in done.stderr
+
+
+def test_a_refusal_digline_writes_while_the_suite_loads_is_its_sentence(
+    tmp_path: Path,
+) -> None:
+    """The other half of the same line. `Contains(needle="")` is refused inside
+    digline, so by its frame it would be rule 2 and exit 70. Its type is what
+    says it is on purpose. (ADR 0041 §4.2)"""
+    root = suite_repo(tmp_path, preamble="Contains(needle='')")
+    done = cli(root, "run", *SUITE)
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert "RefusedError: Contains.needle must not be empty" in done.stderr
+    assert "Traceback" not in done.stderr
+
+
+def test_a_calibration_band_declared_out_of_range_is_still_a_refusal(
+    tmp_path: Path,
+) -> None:
+    """`CalibrationBand.bounds` belongs to the `Run` family's class, whose
+    `raise`s stay bare. But `Calibration` calls it at declaration, so its error
+    reaches a front end along the user's road. Left bare, this was 64 and would
+    have become 70. (ADR 0041 §4.2)"""
+    root = suite_repo(
+        tmp_path,
+        preamble=(
+            "from digline.run import Calibration\n"
+            "Calibration(output='Rome', check='answers?', low=0.0, high=0.5)"
+        ),
+    )
+    done = cli(root, "run", *SUITE)
+    assert done.returncode == EXIT_USAGE, done.stderr
+    assert "RefusedError:" in done.stderr
+    assert "strictly between 0" in done.stderr
+
+
+def test_a_bare_value_error_from_inside_digline_exits_70(
+    compared: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#415. The defect ADR 0041 kept on purpose in its rule 1, and §4.2
+    repaired. A `ValueError` digline raises by mistake told the user their
+    request was wrong. The type is the only thing that can say *on purpose*, so
+    a bare one is a failure nobody anticipated, on a gate as on a reading."""
+
+    def mistaken(*args: object, **kwargs: object) -> object:
+        return int("not a number")
+
+    monkeypatch.chdir(compared)
+    monkeypatch.setattr(cli_main, "compare", mistaken)
+
+    code = cli_main.main(["compare", *SUITE, "--run", "latest"])
+
+    assert code == EXIT_INTERNAL
+    err = capsys.readouterr().err
+    assert "Traceback (most recent call last):" in err
+    assert "ValueError: invalid literal for int()" in err
 
 
 def test_a_suite_that_exits_while_it_loads_still_passes_its_code_through(
