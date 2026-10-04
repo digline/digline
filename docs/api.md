@@ -86,7 +86,17 @@ Neither has a default, and the CLI **verifies** them with `--tenant` / `--env`
 without ever overwriting them.
 
 Refused at construction: empty `assertions` (a run that checks nothing passes
-vacuously), empty `cases`, two `Case`s with the same `id`.
+vacuously), empty `cases`, two `Case`s with the same `id`, and a check that
+lacks a member digline reads before anything is paid for. That last one is
+`AssertionShapeError`, naming the missing members and where the class is
+written (see [Custom assertions](#custom-assertions)).
+
+**`assertions`, `cases` and `run_assertions` are tuples once the `Suite` is
+built**, whatever sequence was handed in. Every check above is made once, at
+construction, so a list appended to afterwards skipped all of them. To add a
+check to a suite that already exists, build a new one with
+`dataclasses.replace(suite, assertions=[*suite.assertions, check])`, which runs
+the checks again. (#420)
 
 `config_hash()` is the fingerprint of the configuration — assertions,
 thresholds, tolerances — and not of the test data. It is what `promote`
@@ -1235,6 +1245,14 @@ yet: first we need to see how the procedure behaves by hand.
 Inherit from `AssertionBase` and be a dataclass — `identity` is derived from the
 declared fields, so without a dataclass there is nothing to fingerprint (and the
 message tells you so).
+
+**What digline reads before anything is paid for:** `name`, `identity`,
+`threshold` and `tolerance`, and the check must be callable. A `Suite` that
+holds a check without one of them is refused at construction with
+`AssertionShapeError`. The error names the missing members and the file and
+line where the class is written. A run assertion is read for `over` and
+`requires_label` as well. `AssertionBase` and `RunAssertionBase` provide
+`identity`. A class that inherits neither has to define every member itself.
 
 ```python
 from dataclasses import dataclass

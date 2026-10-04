@@ -131,6 +131,8 @@ def test_an_interrupt_is_not_turned_into_a_70(
 
 NOT_A_DATACLASS = """
 
+import dataclasses
+
 from digline.core import AssertionBase, Score
 
 
@@ -141,7 +143,7 @@ class Plain(AssertionBase):
         return Score(name="plain", score=1.0)
 
 
-suite.assertions.append(Plain())
+suite = dataclasses.replace(suite, assertions=[*suite.assertions, Plain()])
 """
 
 
