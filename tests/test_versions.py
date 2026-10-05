@@ -333,6 +333,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.2.2": (
+            "pytest-digline's version in v0.29.0's tag message and in the "
+            "files that tag published, in its index-race status: history"
+        ),
+        "0.4.4": (
+            "digline-mcp's version and the tag it was published by, named in "
+            "v0.29.0's index-race status as the one whose `src/` had moved: "
+            "history"
+        ),
         "0.28.0": (
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
