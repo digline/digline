@@ -6,9 +6,9 @@ whatever the suite format, and whether the suite or its target declared it.
 **The exit boundary (§3).** A file inside the perimeter under `.digline` or
 `.git`, or a key that leaves the perimeter, is refused at each of the three
 places an artifact's text leaves the `Run` object: `redact()`, `run_document`
-and promotion. One predicate, `held_back`, decides for all three, and each exit
-has its own test here, so that removing the call from any one of them alone
-turns its test red.
+and promotion. One predicate, `barred_from_crossing`, decides for all three,
+and each exit has its own test here, so that removing the call from any one of
+them alone turns its test red.
 
 The keys below are the ones a prefix test would miss: the case-folded forms,
 which open the store on a case-insensitive filesystem, and the nested form,
@@ -33,7 +33,7 @@ from digline.core import (
     Disclosure,
     RefusedError,
     Run,
-    held_back,
+    barred_from_crossing,
     project_served,
     redact,
 )
@@ -89,14 +89,14 @@ def _run(*keys: str) -> Run:
 
 @pytest.mark.parametrize("key", sorted(HELD), ids=lambda k: HELD[k])
 def test_the_predicate_holds_back_every_listed_key(key: str) -> None:
-    assert held_back(key) is not None, key
+    assert barred_from_crossing(key) is not None, key
 
 
 @pytest.mark.parametrize("key", FREE)
 def test_the_predicate_lets_its_neighbours_cross(key: str) -> None:
     """A name that only starts like `.git` or `.digline` is not one: the
     comparison is by whole segment."""
-    assert held_back(key) is None, key
+    assert barred_from_crossing(key) is None, key
 
 
 def test_the_refusal_is_a_refusal_every_front_end_knows() -> None:
@@ -183,14 +183,16 @@ def test_refusals_for_is_silent_on_free_artifacts() -> None:
     assert refusals_for(run, run.config_hash) == ()
 
 
-def test_the_crossing_comes_after_the_conditions_already_in_place() -> None:
-    """Appended, so a caller raising the first still raises what it raised
-    before: a configuration that moved is refused as that."""
+def test_the_crossing_comes_before_a_moved_configuration() -> None:
+    """First, so a caller raising the first names what must be repaired
+    anyway: the artifact is refused until the suite changes, and a moved
+    configuration may be the change somebody intended. A choice made in the
+    change that implements ADR 0042, which does not place the condition."""
     run = _run(".git/config")
     refusals = refusals_for(run, "another-hash")
     assert [type(r).__name__ for r in refusals] == [
-        "ConfigMismatchError",
         "CrossingRefusedError",
+        "ConfigMismatchError",
     ]
 
 
@@ -458,4 +460,4 @@ def test_a_case_folded_store_path_is_the_store_on_this_filesystem(
     if not folded.is_file():
         pytest.skip("this filesystem is case-sensitive")
     key = os.path.relpath(folded.resolve(), repository.resolve())
-    assert held_back(key) is not None, key
+    assert barred_from_crossing(key) is not None, key

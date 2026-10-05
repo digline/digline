@@ -77,11 +77,12 @@ it is no longer enough on its own.
   or climbs out with `..`. The command exits 64 with the path. The document is
   never narrowed instead.
 
-**Added:** `digline.core.held_back(key)`, the one predicate all three exits
+**Added:** `digline.core.barred_from_crossing(key)`, the one predicate all three exits
 apply, `digline.core.crossing_refusal(run, going=...)`, and
 `CrossingRefusedError`, a `RefusedError`. It is the ninth promotion condition.
-It is in `PromotionRefusal` and answered by `refusals_for`, after the existing
-ones.
+It is in `PromotionRefusal` and answered first by `refusals_for`: an artifact
+that must not cross is refused until the suite changes, so it is named before a
+configuration that moved, which may have been meant.
 
 **What a path cannot see:** a committed `cases.json` beside its suite still
 crosses, because the question there is content and not path. So do files git

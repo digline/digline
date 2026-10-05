@@ -75,8 +75,11 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
     only the cases, and a run that does not reconcile does not know what it
     measured (ADR 0027 §3). The two share an exception type, so before this was
     a sequence you could look at, the order could only be inferred from which
-    exception escaped. Condition 9 comes after all of them: ADR 0042 does not
-    place it, and appending it leaves every order already relied on as it was.
+    exception escaped. **Condition 9 comes first**, and that is a choice made
+    when it was written, not a consequence of ADR 0042, which does not place
+    it: an artifact that must not cross is refused until the suite changes,
+    whereas a configuration that moved may be the change somebody intended.
+    Saying first what has to be repaired anyway saves a round.
 
     **A caller raises the first and is meant to choose that**: the tuple exists
     so that the choice — the first, all of them, none — stays with whoever
@@ -94,6 +97,22 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
     """
     key = key_of(run.created_at, run.config_hash)
     refusals: list[PromotionRefusal] = []
+
+    # Condition 9, first of the document's (the docstring says why), and
+    # whatever the `Disclosure`: a baseline is the complete run, every
+    # artifact's text included, written to `baselines/`, which is versioned
+    # and gets pushed. Promotion is an exit,
+    # and the predicate is the one `redact()` and `run_document` apply.
+    # (ADR 0042 §3)
+    crossing = crossing_refusal(
+        run,
+        going=(
+            "a baseline carries every artifact's text into baselines/, which is "
+            "versioned, whatever the suite discloses"
+        ),
+    )
+    if crossing is not None:
+        refusals.append(crossing)
 
     if run.config_hash != expected_config_hash:
         refusals.append(
@@ -181,21 +200,6 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
                 "long as it stands. Promote a run whose calibration held"
             )
         )
-
-    # Condition 9, last of the document's: whatever the `Disclosure`, because a
-    # baseline is the complete run, every artifact's text included, written to
-    # `baselines/`, which is versioned and gets pushed. Promotion is an exit,
-    # and the predicate is the one `redact()` and `run_document` apply.
-    # (ADR 0042 §3)
-    crossing = crossing_refusal(
-        run,
-        going=(
-            "a baseline carries every artifact's text into baselines/, which is "
-            "versioned, whatever the suite discloses"
-        ),
-    )
-    if crossing is not None:
-        refusals.append(crossing)
 
     return tuple(refusals)
 

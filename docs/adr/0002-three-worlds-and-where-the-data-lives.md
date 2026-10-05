@@ -448,7 +448,7 @@ list. What the test cannot see is stated in its own docstring.*
 9. **`CrossingRefusedError`** — the run records an artifact under `.digline` or `.git`,
    in any case and at any depth, or one keyed outside the perimeter. A baseline carries
    every artifact's full text into `baselines/`, which is versioned, so promotion is an
-   exit and this holds **whatever the `Disclosure`**. Answered by `refusals_for`, after 5.
+   exit and this holds **whatever the `Disclosure`**. Answered by `refusals_for`, first.
    *Added by [ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §3, and brought here
    by the change that implements it.*
 

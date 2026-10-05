@@ -1887,7 +1887,7 @@ _HELD_SEGMENTS: Mapping[str, str] = {
 _DRIVE = re.compile(r"^[A-Za-z]:")
 
 
-def held_back(key: str) -> str | None:
+def barred_from_crossing(key: str) -> str | None:
     """Why an artifact recorded under `key` must not cross, or `None` if it may.
 
     **The one predicate behind all three exits** — `redact()`, `run_document`
@@ -1905,6 +1905,11 @@ def held_back(key: str) -> str | None:
 
     Both separators are split on: a run recorded on Windows keys its artifacts
     with `\\`, and is read here wherever it is read.
+
+    **Named apart from `withheld` on purpose.** `withheld` is what a
+    `Disclosure` kept back, a choice the suite made and a field in the document.
+    This is a key no `Disclosure` releases, and the two meet on one line of
+    `crossing_refusal`, where a name like *held back* would read as the other.
     """
     if key.startswith(("/", "\\")) or _DRIVE.match(key):
         return "its key is absolute, outside the perimeter"
@@ -1931,7 +1936,7 @@ def crossing_refusal(run: Run, *, going: str) -> CrossingRefusedError | None:
     held = [
         (key, why)
         for key, artifact in sorted(run.artifacts.items())
-        if not artifact.withheld and (why := held_back(key)) is not None
+        if not artifact.withheld and (why := barred_from_crossing(key)) is not None
     ]
     if not held:
         return None
@@ -1962,7 +1967,7 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
     removed cannot come back.
 
     **It refuses rather than narrows** when the disclosure lets artifacts cross
-    and one of them is held back by `held_back`: this is one of the three exits
+    and `barred_from_crossing` bars one of them: this is one of the three exits
     ADR 0042 §3 names, and the refusal says so instead of filing the file under
     a `withheld` the suite did not choose.
     """
