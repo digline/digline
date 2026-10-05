@@ -9,6 +9,11 @@
   location
 - Shipped: 0.28.0
 - Date: 2026-10-03
+- Amended: 2026-10-05, by
+  [ADR 0043](0043-a-message-digline-did-not-write.md), in §4.1's rule 1, rule 3
+  and paragraph on tests, and in §4.3's sentence. A refusal is digline's only
+  when its innermost frame is, and an exception's message reaches the person
+  who ran the command and no agent. The five codes do not move
 - Amended: 2026-10-04, before 0.28.0 was cut, in §4.1's rule 1, in a new §4.2,
   in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
   passes through as a refusal. A refusal written in words is `RefusedError`, a
@@ -203,6 +208,13 @@ frame and checked in this order:
    passes through `visible`, because an exception's message is not digline's
    to vouch for.
 
+   *__Amended 2026-10-05.__ "The text is the same on every front end" is
+   struck: the refusal is the same, and its rendering is not. The message is
+   payload, and an agent receives the type, the locations and the command
+   without it. Rule 1 passes a refusal through only when its innermost frame
+   is digline's, and an `OSError` whatever its frame, until #451.
+   [ADR 0043](0043-a-message-digline-did-not-write.md) §1–§3.*
+
 **The measurement that makes rule 2 safe.** Calling a digline API with the
 wrong arguments raises at the call site, so the innermost frame is the suite's
 and the mistake falls under rule 3. Measured with a wrong keyword to a digline
@@ -222,6 +234,10 @@ rewritten to the new rule and keeps its control. It asserts that the type, the
 message and the line reach the agent, because a sentence without them would
 be the hiding §10 refused. A second test holds rule 2: a failure raised inside
 digline while a suite loads still reaches the agent as an unexpected error.
+
+*__Amended 2026-10-05.__ The MCP test asserts that the type, the line and the
+command reach the agent, and that the message does not. The command line keeps
+the message. [ADR 0043](0043-a-message-digline-did-not-write.md) §3.*
 
 ### 4.2 A bare `ValueError` (amended 2026-10-04, #415)
 
@@ -465,6 +481,11 @@ an application is the case in point.
 - **A `SystemExit` whose innermost frame is digline's keeps its behaviour.**
   `src/digline` raises one only in its two entry points, and each of those is
   outside every `try`.
+
+*__Amended 2026-10-05.__ "The code that was asked for" means an `int` code. A
+code that is not an `int`, as in `sys.exit("…")`, is a message, and an agent
+does not receive it, while loading or later.
+[ADR 0043](0043-a-message-digline-did-not-write.md) §5.*
 
 **Where, and where not.** In the loader and in the two front ends, and **not in
 the driver**:

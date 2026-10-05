@@ -1,7 +1,7 @@
 # ADR 0043 — A message digline did not write
 
-- Status: proposed 2026-10-05. Three questions were ruled in conversation
-  before any of this text was written: the frame decides authorship for a
+- Status: accepted 2026-10-05, before any code. Three questions were ruled
+  in conversation before any of this text was written: the frame decides authorship for a
   refusal too (§1), decision 9 gains a line (§8), and `docs/mcp.md` is
   corrected at once rather than with the release (§7). A fourth was ruled on
   the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
@@ -314,6 +314,11 @@ this record:
 > a target, a library. Who wrote a message is read from the frame that raised
 > it, through every wrap, never from its type. It reaches the person who ran the
 > command and no other recipient.
+
+Until the code ships, the line in `CLAUDE.md` carries one sentence more: it
+says that a refusal on the MCP server still carries such a message, and names
+the advisory. The sentence goes in the change that ships the repair. A rule
+that is not yet true says so where it is stated.
 
 ## Amendments
 
