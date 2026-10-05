@@ -419,6 +419,9 @@ table's state.
 **Not decided here, and already named in ADR 0036:** whether an elected case's
 token is the `case_id` kind or a kind of its own, and whether the id minted
 inside follows ADR 0036 §5's rule instead of §6's hash.
+*Ruled 2026-10-05, in ADR 0036 §7: the token is of the `case_id` kind, so the
+election and a later projection name one case with one token. The inside id's
+rule is still open. The sentence above is kept as written.*
 
 ### 9. ADR 0023 §8, amended: the election reaches the software house as a line
 
@@ -519,6 +522,8 @@ and lists, and a person names what is written.
 - **The hand-written case by a software house's person** inside the owner's
   perimeter (§4, ADR 0023 §8).
 - **The token's kind, and the inside id's rule** (§8, ADR 0036 §7).
+  *The kind was ruled on 2026-10-05, in ADR 0036 §7: `case_id`. The inside
+  id's rule is still open. The bullet is kept as written.*
 
 ## What this record does not claim
 
