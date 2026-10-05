@@ -238,7 +238,7 @@ refused only if the new run carries such a file.
 - **The promotion conditions are growing faster than anyone reads them
   together.** This is an observation, not a ruling.
   - This record's condition is the ninth by `store/promotion.py`'s count.
-  - Conditions 1 to 3 date from ADR 0001 (2026-08-25). Five more arrived in
+  - Conditions 1 to 3 are ADR 0002's own (2026-08-25). Five more arrived in
     fourteen days: 4 on 2026-09-11 (ADR 0015 §7), 5 on 09-16 (ADR 0024 §4.5),
     6 on 09-19 (ADR 0027 §3), and 7 and 8 on 09-24 (b3735a5 and ADR 0031 §1).
   - ADR 0002 §8, the section that collects them, names six. Its amendment of
