@@ -94,15 +94,57 @@ def _errors(path: Path) -> list[tuple[str, str]]:
     return out
 
 
+@pytest.fixture(autouse=True)
+def _alone(request: pytest.FixtureRequest) -> None:
+    """Refuses to plant while other tests run beside this file.
+
+    `_planted` writes into `src/digline/`, and at least four tests list that
+    tree and then read what they listed: `test_versions.py`'s sweep,
+    `test_layering.py` twice, and `test_claude_plugin.py`'s runnable modules.
+    Keeping them apart was a rule in `ci.yml` and `RELEASING.md` — run this file
+    alone, after the parallel step — and nothing refused a command that left the
+    split out, which is how it bit a second time (#446). Fixing each reader
+    would leave the next one exposed; refusing here covers every reader at once.
+
+    A failure and not a skip: a skipped gate leaves the run green with the gate
+    unrun, and a gate that reports nothing because it never ran looks exactly
+    like a clean tree. The rest of the run still reports; only these tests are
+    refused, before anything is planted.
+
+    The worker count is read from `workerinput`, not `PYTEST_XDIST_WORKER_COUNT`:
+    the variable is inherited by every process a worker starts, so a serial
+    pytest launched from a parallel test would see it and refuse wrongly.
+    Measured on pytest-xdist 3.8.0 (2026-10-05): from `-n 2`, a pytest started
+    as a subprocess saw `PYTEST_XDIST_WORKER_COUNT=2` and had no `workerinput`.
+    """
+    workerinput = cast(
+        "dict[str, object] | None", getattr(request.config, "workerinput", None)
+    )
+    workers = cast("int", workerinput["workercount"]) if workerinput else 1
+    here = Path(__file__).resolve()
+    others = {item.path for item in request.session.items} - {here}
+    if workers > 1 and others:
+        pytest.fail(
+            f"{here.name} writes into src/digline/ and cannot share a parallel run "
+            f"({workers} workers, {len(others)} other test files collected): tests "
+            "that list src/ would read a file it is about to delete. Run it on its "
+            "own, as ci.yml does:\n"
+            '  uv run pytest -q -m "not live" -n 4 --dist loadgroup '
+            "--ignore=tests/test_type_gate.py\n"
+            '  uv run pytest -q -m "not live" tests/test_type_gate.py',
+            pytrace=False,
+        )
+
+
 def _planted(source: str, name: str) -> Path:
     """Written inside the checked tree, because *where* a file sits is half of
     what is under test: resolution of `digline.*` is what broke, and a file
     outside the project resolves by different rules.
 
-    Which is why CI runs this file on its own, after the parallel run: a test
-    that lists `src/` while this file exists and reads it once it is gone
-    fails on a file nobody wrote (`FileNotFoundError` in `test_versions.py`,
-    2026-09-29)."""
+    Which is why this file refuses to share a parallel run (`_alone`, below):
+    a test that lists `src/` while this file exists and reads it once it is
+    gone fails on a file nobody wrote (`FileNotFoundError` in
+    `test_versions.py`, 2026-09-29 and again 2026-10-05)."""
     path = ROOT / "src" / "digline" / f"_type_gate_{name}.py"
     path.write_text(source, encoding="utf-8")
     return path
