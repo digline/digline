@@ -1,14 +1,15 @@
 # ADR 0040 — A run's key, and the two answers the store gives
 
-- Status: proposed 2026-10-01. The text comes first, checkpointed before any
-  code, the way [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md)
-  was proposed. **The option was ruled on 2026-10-04, in discussion: C,
-  checked in `scan_runs` (§4).** The four questions that ruling left open, and
-  a fifth, were ruled on 2026-10-05, also in discussion (§5). *Not decided
-  here* keeps what is still open: a document with no `key_of` to compute,
-  which no ruling covers; one case §5 found and did not rule; a defect it
-  names and leaves to #433; and the items of §3 no ruling named. The local repair ruled before this record (§*Context*) is recorded
-  as ruled
+- Status: accepted 2026-10-05, by Alessandro Prandini. It was proposed on
+  2026-10-01, the text first and before any code, the way
+  [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) was, and nothing
+  in it is implemented. **The option was ruled on 2026-10-04, in discussion:
+  C, checked in `scan_runs` (§4).** The four questions that ruling left
+  open, and a fifth, were ruled on 2026-10-05, also in discussion (§5). *Not
+  decided here* keeps what is still open: a document with no `key_of` to
+  compute, which no ruling covers; one case §5 found and did not rule; a
+  defect it names and leaves to #433; and the items of §3 no ruling named.
+  The local repair ruled before this record (§*Context*) is recorded as ruled
 - Shipped: unreleased
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -372,7 +373,14 @@ fall back.
 wrong name still has the wrong name, and `migrate` would rewrite it under that
 name. No upgrade step in `store/migrate.py` adds or renames `created_at` or
 `config_hash`, so every schema `migrate` reads carries both fields, and the
-check needs nothing a migration would supply.
+check needs nothing a migration would supply. **That is a deduction from the
+upgrade steps, not verified on old documents.**
+
+**It is about old schemas, not about malformed documents.** It says a
+well-formed document at an old schema has both fields. A document whose
+`created_at` or `config_hash` is missing or cannot be read, at any schema, is
+a different case: it has no `key_of` to compute, no ruling here covers it,
+and it is the first item of *Not decided here*.
 
 **Not ruled: two left-out files with one `key_of`, and no listed file under
 it**, for example a renamed run and a copy of the renamed file. That is D's
@@ -495,7 +503,9 @@ before that ruling. It is written here so that it does not read as open.
   a document without one. Today such a document passes the scan if its
   `schema_version` is current, and `read_run` refuses it afterwards, so **C
   does not touch it at all.** It is the first case whoever builds the repair
-  will meet.
+  will meet. **It is not §5.1's deduction about old schemas**, which is about
+  well-formed documents that carry both fields. This is about documents that
+  do not.
 - **Two left-out files with one `key_of`, and no listed file under it** (§5.1).
   A renamed run and a copy of the renamed file are one example. It is D's
   collision, inside the set C leaves out: which file the refusal names, and
