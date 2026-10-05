@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.29.0 — unreleased
+## 0.29.0 — 2026-10-05
 
 digline **0.29.0**. **A minor, because two things stop working for whoever
 upgrades** (ADR 0042, below). A `.py` suite that declares an artifact outside
@@ -226,9 +226,63 @@ rises to this release, in its own release after the core's. The row is in
 since 0.6.0, so its floor does not move. It needs a release of its own to
 ship this.
 
-## pytest-digline 0.2.2 — unreleased
+### Seen working in a browser — the walkthrough, run though not owed
 
-Published with digline 0.29.0. Its floor stays `digline>=0.20.0`.
+- **The walkthrough in `RELEASING.md` ran on 2026-10-05, before the tag,**
+  between about 13:47 and 13:55 UTC, in Safari on macOS, on the bumped tree
+  (#463), in one browser engine, by Alessandro. **By the rule it was not
+  owed:** the launch key, the hand-over and the promote form did not change.
+  `view.py` moved by two lines, `left_out` to `left_out_parts`, and the
+  `/promote` form is outside every hunk #444 changed. It was run for two
+  reasons the rule does not see. ADR 0042's ninth promotion condition now
+  answers under *Make baseline*, and the walkthrough as written does not
+  exercise it. And #440's new layout of the note had never been seen in a
+  browser.
+  - **Which digline ran:** `digline.__file__` resolved to the bump checkout's
+    `src/digline/`, and the promoted document says `digline_version` 0.29.0.
+  - **The store.** It is the quickstart, with the baseline on the oldest run
+    and committed. It holds a run moved by hand to a name that is not its key,
+    a Finder copy (`<key> copy.json`), and a run that records
+    `.digline/walk-notes.md` as an artifact. The page listed four runs, and
+    that run's row showed `prompt 056885e586b0` beside its date.
+  - **#440's note, seen in a browser for the first time.** The doubled frame
+    is gone, the two misfiled files are separate items, and each key appears
+    once. It reads.
+  - **Three presses of *Make baseline*, outside the refusal steps:**
+    - on the run that records `.digline/walk-notes.md`: **refused from the
+      button by ADR 0042**, naming the run, the artifact, why a baseline is
+      different, and what to do. Until then it had been seen only from the
+      command line;
+    - on the newest listed run: promoted, and `git diff .digline/*/baselines/`
+      showed it;
+    - on the oldest run, to put the store back as it was: promoted, from the
+      normal tab with its valid cookie, at 13:51:31 UTC, between the
+      promotion above and the private window below. The first account left this
+      press out. The baseline file showed it, holding the oldest run again with
+      a new `promoted_at`, and Alessandro confirmed it. It is written here so a
+      reader finds three presses and two promotions, not one.
+  - **Four refusals, each a 403 with its own cause:**
+    - no cookie, in a private window (*carries no cookie*);
+    - a cookie from an earlier start, after a restart (*not issued by this
+      start … from an earlier start*);
+    - an address already opened, reopened in a private window (*already been
+      opened*);
+    - the button behind that address, with no cookie (*carries no cookie*).
+
+    `git diff` showed nothing new after any of the four.
+  - **Checked by the session, on a copy of the store**, once the file and the
+    account disagreed: each row's form posts its own run, and the newest
+    row's form promotes that run (`Baseline set to …`, the baseline then
+    holding its `created_at`). The button does not promote another run.
+  - **Found, recorded and not repaired here:** ADR 0042's refusal says
+    *whatever the suite discloses* in two sentences in a row, and the second
+    generalises what the first has already said of this run. It is the same
+    kind of thing as #440's doubled note.
+  - **Not tried:** a second browser engine.
+
+## pytest-digline 0.2.2 — 2026-10-05
+
+Published by `v0.29.0`, with digline 0.29.0. Its floor stays `digline>=0.20.0`.
 
 - **`latest`'s note is printed under the suite's headline**, as `note: …`, in
   the `digline` section of the terminal summary: what resolving `latest`
