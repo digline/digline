@@ -48,6 +48,42 @@ improvement, and it is still a change somebody upgrading can see. The
 criterion is whether something a user relies on stops working, not whether
 the old behaviour was right (ADR 0041).
 
+### Fixed — a run has one key, and the store refuses a file named otherwise (#332, #429, ADR 0040)
+
+- **One file whose name was not a safe segment stopped `--run latest` for the
+  whole suite.** A Finder copy, `<key> copy.json`, was enough: `compare` and
+  `explain` exited 64 with `PathRefusedError`, measured. Every other caller of
+  `latest` fails the same way by the code, `digline-mcp` and
+  `pytest-digline` included, deduced and not driven. `digline list` already
+  stepped over it (#429).
+- **And the store answered *what is a run's key* two ways**, by the file's
+  name and by `key_of(created_at, config_hash)`. A run renamed by hand was
+  listed under one and remembered by the other: `latest` named a key the store
+  did not answer to, and `list` marked the baseline's row and said, below the
+  table, that the baseline's run was not among the runs read (#332).
+- **Now one key, enforced by the store.** The scan leaves out a file whose
+  name is not its run's key, before it looks at the schema, and `read_run`
+  refuses it by that name with `MisfiledRunError`, a `DocumentRefusedError`
+  (exit 64). The note says each file and what to do:
+  - a renamed file: *rename it to `<key>.json`*;
+  - a copy: the name is already taken, and nobody is told to rename it;
+  - two files that hold one run, neither under its key: both are named, and
+    neither is told to take the name;
+  - a key that is not a safe file name: said, and no name proposed.
+
+  The note never says the left-out run was newer. That would rest on a
+  `created_at` read from a document nobody validated.
+- **What a consumer sees.** A run file renamed by hand is no longer listed,
+  read or compared under its file name. Renaming it back to its key restores
+  it. MCP's `list_runs` gains `misfiled`, a count, as an added key with no
+  bump of `OUTPUT_VERSION`. `log --json` does not carry it, and ADR 0040 §6.5
+  says why that is a gap and not an oversight. A document with no
+  `created_at` or `config_hash` is not checked, and is refused by the read as
+  before (§6.1).
+- **The projected page's local guard (#333) stays.** Its branch for a
+  readable run under another name can no longer be reached on the file store.
+  Its branch for a refused file is still live.
+
 ### Fixed — `digline log` reads a projected baseline, and says only what is true of it (#402)
 
 - **On a projected baseline, `digline log` ended in a Python traceback,

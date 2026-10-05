@@ -73,6 +73,8 @@ from digline.store.protocol import (
     JournalBusyError,
     JournalHeader,
     Listing,
+    Misfiled,
+    MisfiledRunError,
     NotAReferenceError,
     PathRefusedError,
     Pending,
@@ -141,6 +143,40 @@ def _check_name(value: str, kind: str) -> str:
             "(letters, digits, dot, dash and underscore are allowed)"
         )
     return value
+
+
+def _declared_key(document: Mapping[str, object]) -> str | None:
+    """`key_of` of the document's own two fields, or `None` when either is
+    missing, not a string, or empty. Read from the parsed object: nothing is
+    validated, and no `Run` is built. (ADR 0040 §5.2)"""
+    created_at = document.get("created_at")
+    config_hash = document.get("config_hash")
+    if not isinstance(created_at, str) or not isinstance(config_hash, str):
+        return None
+    if not created_at or not config_hash:
+        return None
+    return key_of(created_at, config_hash)
+
+
+def _misfiled(
+    named_otherwise: list[tuple[str, str]], stems: set[str]
+) -> tuple[Misfiled, ...]:
+    """Each left-out file, with the facts about the directory its sentence
+    needs: is a file named by its key there, and how many left-out files hold
+    that same key where none is. (ADR 0040 §5.1, §5.3)"""
+    holders: dict[str, int] = {}
+    for _stem, key in named_otherwise:
+        holders[key] = holders.get(key, 0) + 1
+    return tuple(
+        Misfiled(
+            stem=stem,
+            key=key,
+            taken=key in stems,
+            safe=bool(_NAME_RE.match(key)),
+            sharing=1 if key in stems else holders[key],
+        )
+        for stem, key in named_otherwise
+    )
 
 
 def _write_atomic(path: Path, payload: str) -> None:
@@ -340,15 +376,25 @@ class FileResultStore:
         by `created_at` would mean building a `Run` from every file, including
         the ones this version cannot build a `Run` from at all.
 
-        Only `schema_version` is read from each document. A file is opened, but
-        nothing is constructed from it: that is what lets a foreign schema be
-        counted instead of raising.
+        Only `schema_version`, `created_at` and `config_hash` are read from
+        each document. A file is opened, but nothing is constructed from it:
+        that is what lets a foreign schema be counted instead of raising.
+
+        **A file whose name is not its run's key is left out first**, before
+        its schema is looked at: a file at an old schema with the wrong name
+        still has the wrong name, and `migrate` would rewrite it under that
+        name. Its key is `key_of` of the two fields, and no `Run` is built
+        from it. A document that lacks either field is not checked here and
+        goes on as it did before, to be refused by the read. (ADR 0040 §4,
+        §5; the last case is open there, and left as it was by ruling.)
         """
         directory = self.runs_dir(tenant) / _check_name(suite, "suite")
         keep: list[RunRef] = []
         skipped: dict[int, int] = {}
         unreadable: list[str] = []
-        for path in _listed(directory, "*.json"):
+        named_otherwise: list[tuple[str, str]] = []
+        paths = _listed(directory, "*.json")
+        for path in paths:
             try:
                 # The same rule as `read_run`, and here it decides whether a
                 # file is *opened* at all: a linked-out run is counted
@@ -365,6 +411,10 @@ class FileResultStore:
             # `json.loads` returns `Any`; narrowing once here is what keeps the
             # rest of the loop checkable.
             document = cast(Mapping[str, object], raw)
+            key = _declared_key(document)
+            if key is not None and key != path.stem:
+                named_otherwise.append((path.stem, key))
+                continue
             try:
                 version = declared_version(document)
             except ValueError:
@@ -378,7 +428,12 @@ class FileResultStore:
                 keep.append(RunRef(tenant=tenant, suite=suite, key=path.stem))
             else:
                 skipped[version] = skipped.get(version, 0) + 1
-        return Listing(runs=tuple(keep), skipped=skipped, unreadable=tuple(unreadable))
+        return Listing(
+            runs=tuple(keep),
+            skipped=skipped,
+            unreadable=tuple(unreadable),
+            misfiled=_misfiled(named_otherwise, {path.stem for path in paths}),
+        )
 
     def run_paths(self, tenant: str, suite: str) -> tuple[Path, ...]:
         """Every stored run file of a suite, readable or not — and every one
@@ -434,7 +489,30 @@ class FileResultStore:
                 f"{run.suite!r}'s baseline, which is the suite the document "
                 "names and not the one it was addressed through"
             )
+        if key_of(run.created_at, run.config_hash) != ref.key:
+            self._refuse_misfiled(ref)
         return run
+
+    def _refuse_misfiled(self, ref: RunRef) -> None:
+        """Raise `MisfiledRunError` with the scan's own sentence for this file.
+
+        The scan is read again rather than the sentence rebuilt here, because
+        two of its facts are about the directory and not about this file: is a
+        file named by the key there, and is the key held by another left-out
+        file too. Only a refusal pays for it. (ADR 0040 §5.3)
+        """
+        listing = self.scan_runs(ref.tenant, ref.suite)
+        listed = {other.key for other in listing.runs}
+        for misfiled in listing.misfiled:
+            if misfiled.stem == ref.key:
+                raise MisfiledRunError(
+                    f"run {ref.key!r} is filed under a name that is not its "
+                    f"key: {misfiled.sentence(listed=misfiled.key in listed)}"
+                )
+        # The file changed between the read and the scan.
+        raise MisfiledRunError(
+            f"run {ref.key!r} is filed under a name that is not its key"
+        )
 
     def read_baseline(self, tenant: str, suite: str) -> Run | None:
         path = self.baseline_path(tenant, suite)

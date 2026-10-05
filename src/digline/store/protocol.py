@@ -12,6 +12,7 @@ from digline.core.run import (
     CallTotals,
     CaseProgress,
     CaseResult,
+    DocumentRefusedError,
     Run,
     SystemConfig,
 )
@@ -30,6 +31,8 @@ __all__ = [
     "JournalHeader",
     "JournalRefusedError",
     "Listing",
+    "Misfiled",
+    "MisfiledRunError",
     "Pending",
     "ReplayedRunError",
     "UncalibratedRunError",
@@ -272,14 +275,79 @@ class BaselineMovedError(Exception):
 class RunRef:
     """An opaque reference to a persisted run.
 
-    `key` is a string chosen by the store, not a path: a store backed by a
-    database or by remote object storage must be able to use this same type.
+    `key` is the document's `key_of(created_at, config_hash)`, not a path: a
+    store files the run wherever it likes, and answers to that key alone. A
+    store backed by a database or by remote object storage uses this same type.
     `tenant` is part of the address because no run exists outside a perimeter.
+    (ADR 0040)
     """
 
     tenant: str
     suite: str
     key: str
+
+
+class MisfiledRunError(DocumentRefusedError):
+    """A run addressed by a name that is not its key.
+
+    The file holds a run, and the run's key is `key_of(created_at,
+    config_hash)`. A file named otherwise, renamed or copied by hand, is
+    refused by the read as it is left out by the scan: one key per run, and the
+    store answers to that one alone. The sentence is the scan's, so the two say
+    the same thing about the same file. (ADR 0040 §4)
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class Misfiled:
+    """A file a scan left out because its name is not its run's key.
+
+    `key` is `key_of` of the two fields read from the parsed document. **No
+    `Run` is built from the file** (ADR 0040 §5.2), so nothing else in it is
+    trusted, and in particular not its `created_at` as a time: the sentence
+    never says the run is newer.
+
+    `stem` is the file's name, and appears in clear only. `taken` says a file
+    named `<key>.json` is in the directory, whether or not the scan listed it:
+    it decides the instruction, because *rename it* would collide. Whether the
+    key is among the *listed* runs is a different question, asked for `latest`,
+    and `Listing` answers it (§5.1, ruled 2026-10-05). `safe` says the key is a
+    file name the store accepts. Where it is not, there is no name to propose
+    (§5.4). `sharing` counts the left-out files that hold the same key where no
+    file is named by it: above one, which is the original is not known, so no
+    file is told to take the name.
+    """
+
+    stem: str
+    key: str
+    taken: bool
+    safe: bool
+    sharing: int = 1
+
+    def sentence(self, *, listed: bool) -> str:
+        """What is wrong with this file, and what to do where something can be
+        said. `listed` is whether a run filed under `key` is among the runs
+        the scan listed."""
+        if not self.safe:
+            return (
+                f"{self.stem!r} is not named by its key, and its key is not a "
+                "safe file name"
+            )
+        if self.taken:
+            where = "" if listed else ", which is not among the listed runs"
+            return (
+                f"{self.stem!r} holds run {self.key}, already filed as "
+                f"{self.key}.json{where}"
+            )
+        if self.sharing > 1:
+            return (
+                f"{self.stem!r}: {self.sharing} files hold run {self.key}, and "
+                f"none is named {self.key}.json"
+            )
+        return (
+            f"{self.stem!r} holds run {self.key}, which is not among the listed "
+            f"runs: rename it to {self.key}.json"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -307,6 +375,9 @@ class Listing:
     #: schema question, because nothing — `migrate` or an upgrade — recovers
     #: them, so `advice()` has nothing true to say about them. (#350)
     unreadable: tuple[str, ...] = ()
+    #: Files left out because their name is not their run's key, checked
+    #: before the schema. Names, so in clear only. (ADR 0040 §4, §5)
+    misfiled: tuple[Misfiled, ...] = ()
 
     @property
     def skipped_total(self) -> int:
@@ -324,9 +395,19 @@ class Listing:
         ]
         if self.unreadable:
             parts.append(f"{len(self.unreadable)} unreadable file(s)")
-        if not parts:
-            return ""
-        return f"ignored: {', '.join(parts)}"
+        notes = [f"ignored: {', '.join(parts)}"] if parts else []
+        if self.misfiled:
+            notes.append(
+                f"left out for their name: {'; '.join(self.misfiled_sentences())}"
+            )
+        return "; ".join(notes)
+
+    def misfiled_sentences(self) -> tuple[str, ...]:
+        """One sentence per file left out for its name. Whether its key is
+        among the listed runs is answered here, for `latest`, and is never
+        *it was newer*: that needs a `created_at` nobody can trust."""
+        listed = {ref.key for ref in self.runs}
+        return tuple(m.sentence(listed=m.key in listed) for m in self.misfiled)
 
     def advice(self) -> tuple[str, ...]:
         """What to do about what was skipped, in the direction the numbers say.

@@ -708,6 +708,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "left_out.unnamed": (
             "left out without a name: {count} file(s) whose name is not a run key"
         ),
+        "left_out.misfiled": (
+            "left out for their name: {count} file(s) whose name is not their run's key"
+        ),
         "left_out.baseline_refused": "the baseline could not be read: {why}",
         "left_out.baseline_missing": (
             "the run the baseline was promoted from, {run_key}, is not among the "
@@ -1873,6 +1876,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "left_out.unnamed": (
             "lasciati fuori senza nome: {count} file il cui nome non è una "
             "chiave di run"
+        ),
+        "left_out.misfiled": (
+            "lasciati fuori per il nome: {count} file il cui nome non è la "
+            "chiave della loro run"
         ),
         "left_out.baseline_refused": "la baseline non si è potuta leggere: {why}",
         "left_out.baseline_missing": (

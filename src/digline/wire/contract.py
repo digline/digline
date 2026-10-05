@@ -970,7 +970,13 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
 #: Every key added under `OUTPUT_VERSION = 2` since `_BASE` was written, one
 #: entry each. Appended to, never edited: changing an entry's types is a change
 #: a consumer can see, and the rule for that is a bump.
-_ADDED: tuple[_AddedKey, ...] = ()
+_ADDED: tuple[_AddedKey, ...] = (
+    # MCP's `list_runs`: the files the scan left out because their name is not
+    # their run's key. A count, beside `unreadable` and `refused`. Not on
+    # `log --json`, which has `refused` for a run the store refuses: that gap
+    # is declared in ADR 0040 §6, not overlooked.
+    _AddedKey("runs", "misfiled", _INT, "#332, #429; ADR 0040 §5"),
+)
 
 
 def _derive(

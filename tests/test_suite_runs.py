@@ -426,6 +426,8 @@ def renamed(store: FileResultStore, run: Run, name: str) -> None:
 def test_a_run_filed_under_a_persons_name_is_not_named_on_a_projected_list(
     tmp_path: Path,
 ) -> None:
+    """Since ADR 0040's C the scan leaves the file out, and the projected page
+    counts it as misfiled. It was counted in `unnamed` while B alone held it."""
     kept, moved = current(T1), current(T2)
     store = stored(tmp_path, kept, moved)
     renamed(store, moved, PERSON)
@@ -433,29 +435,36 @@ def test_a_run_filed_under_a_persons_name_is_not_named_on_a_projected_list(
     listed = suite_runs(store, TENANT, SUITE, mint=Table())
 
     assert [k for k, _ in listed.runs] == [key(kept)]
-    assert listed.unnamed == 1
+    assert listed.misfiled == 1
+    assert listed.unnamed == 0
     assert listed.refused == ()
     assert PERSON not in listed.note()
-    assert "left out without a name: 1" in listed.note()
+    assert "left out for their name: 1 file(s)" in listed.note()
 
 
-def test_in_clear_the_same_run_is_listed_under_its_file_name(tmp_path: Path) -> None:
-    """The owner's own list addresses the file as the store does."""
+def test_in_clear_the_same_run_is_left_out_and_said_with_its_name(
+    tmp_path: Path,
+) -> None:
+    """Was: listed under its file name. One key per run now: the owner's list
+    leaves the file out, names it, and says what to do. (ADR 0040 §4)"""
     kept, moved = current(T1), current(T2)
     store = stored(tmp_path, kept, moved)
     renamed(store, moved, PERSON)
 
     listed = suite_runs(store, TENANT, SUITE, mint=None)
 
-    assert sorted(k for k, _ in listed.runs) == sorted([key(kept), PERSON])
-    assert listed.unnamed == 0
+    assert [k for k, _ in listed.runs] == [key(kept)]
+    assert listed.misfiled == 1
+    assert f"rename it to {key(moved)}.json" in listed.note()
+    assert "newer" not in listed.note()
 
 
-def test_a_run_filed_under_another_runs_key_is_not_listed_projected(
+def test_a_run_filed_under_another_runs_key_is_misfiled_not_unnamed(
     tmp_path: Path,
 ) -> None:
     """A run key's form is not enough: a readable run is listed only under its
-    own `key_of`."""
+    own `key_of`. And it is not `unnamed`, whose sentence, *whose name is not a
+    run key*, would be false of this name. (ADR 0040 §5, ruled 2026-10-05)"""
     moved = current(T2)
     store = stored(tmp_path, moved)
     renamed(store, moved, key(current(T1)))
@@ -463,7 +472,9 @@ def test_a_run_filed_under_another_runs_key_is_not_listed_projected(
     listed = suite_runs(store, TENANT, SUITE, mint=Table())
 
     assert listed.runs == ()
-    assert listed.unnamed == 1
+    assert listed.misfiled == 1
+    assert listed.unnamed == 0
+    assert "whose name is not a run key" not in listed.note()
 
 
 def test_a_refused_file_named_after_a_person_is_counted_not_named(
@@ -581,13 +592,15 @@ def test_no_file_name_reaches_any_field_or_the_repr(tmp_path: Path) -> None:
 
 def test_the_repr_shows_keys_and_counts(tmp_path: Path) -> None:
     """What the fields show on the regime they were built for, and no `Run`
-    in full: a repr is read by a person in a log."""
+    in full: a repr is read by a person in a log. The renamed run is misfiled
+    since ADR 0040's C; the broken file with a hostile name is still unnamed."""
     listed = suite_runs(every_kind_of_file(tmp_path), TENANT, SUITE, mint=Table())
 
     assert repr(listed) == (
         f"SuiteRuns(runs={[key(current(T1))]!r}, baseline_key=None, "
-        "baseline_refused='', refused=[], unnamed=2, "
-        f"skipped={{{SCHEMA_VERSION - 1}: 1}}, unreadable_count=2, listing=None)"
+        "baseline_refused='', refused=[], unnamed=1, "
+        f"skipped={{{SCHEMA_VERSION - 1}: 1}}, unreadable_count=2, misfiled=1, "
+        "listing=None)"
     )
 
 
