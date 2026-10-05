@@ -377,6 +377,11 @@ COMPARE_KEYS = {
     "counts",
     "reasons_available",
     "sentence",
+    # #433: what resolving the run stepped over, the line `--run latest` prints
+    # on stderr, and empty for a key typed by hand. An added key, the same rule
+    # again; it moves no exit code, and it is here because MCP's `compare`
+    # returns this object and has no stderr.
+    "note",
 }
 
 

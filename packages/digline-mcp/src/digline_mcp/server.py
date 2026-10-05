@@ -37,6 +37,7 @@ from digline.core import compare as compare_runs
 from digline.core import diff as diff_runs
 from digline.host import (
     Loaded,
+    Resolved,
     explained,
     git_commit,
     history,
@@ -206,12 +207,18 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         """The suite alone, for the tools that only read."""
         return opened(spec).loaded.suite
 
-    def named(suite: Suite, key: str) -> tuple[Run, str]:
-        """A run by key or by `latest`. The note the scan produced is dropped
-        here and reported by `list_runs`, which is where a caller can act on
-        it."""
+    def named(suite: Suite, key: str) -> tuple[Run, Resolved]:
+        """A run by key or by `latest`, and what resolving it stepped over.
+
+        The note goes into the answer of every tool that resolves a run.
+        `list_runs` carries the scan's part of it and not the part that
+        depends on which run `latest` picked: a baseline or a register line
+        naming a run newer than the pick. Without it, `compare` on that pick
+        holds an older run against a newer reference, and its `worse` is the
+        past rather than a regression. (#433)
+        """
         resolved = resolve_key(store, suite, key)
-        return read_run(store, suite, resolved.key), resolved.key
+        return read_run(store, suite, resolved.key), resolved
 
     @translated
     def list_runs(suite: str) -> dict[str, Any]:
@@ -237,8 +244,11 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     @translated
     def get_run(suite: str, run: str = "latest") -> dict[str, Any]:
         loaded_suite = loaded(suite)
-        found, key = named(loaded_suite, run)
-        return {**run_document(found, loaded_suite.disclosure), "key": key}
+        found, resolved = named(loaded_suite, run)
+        return {
+            **run_document(found, loaded_suite.disclosure, note=resolved.note),
+            "key": resolved.key,
+        }
 
     @translated
     def get_baseline(suite: str) -> dict[str, Any]:
@@ -252,20 +262,23 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     @translated
     def compare(suite: str, run: str = "latest") -> dict[str, Any]:
         loaded_suite = loaded(suite)
-        found, _key = named(loaded_suite, run)
+        found, resolved = named(loaded_suite, run)
         baseline = need_baseline(store, loaded_suite)
         comparison = compare_runs(found, baseline)
         # `en` and not a parameter: the sentence is a *document* string with a
         # recipient, and an agent is not that recipient. A caller who wants the
         # customer's sentence renders the report, which takes a mandatory locale.
         head = headline(comparison, found, baseline, locale="en")
-        return compare_json(comparison, head, baseline=baseline, full=True)
+        return compare_json(
+            comparison, head, baseline=baseline, full=True, note=resolved.note
+        )
 
     @translated
     def diff(suite: str, run1: str, run2: str) -> dict[str, Any]:
         loaded_suite = loaded(suite)
-        left, left_key = named(loaded_suite, run1)
-        right, right_key = named(loaded_suite, run2)
+        left, left_side = named(loaded_suite, run1)
+        right, right_side = named(loaded_suite, run2)
+        left_key, right_key = left_side.key, right_side.key
         if left_key == right_key:
             refuse(
                 f"both arguments resolve to the run {left_key}: a run diffed "
@@ -284,6 +297,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             labels=labels,
             sentence=diff_report.sentence(difference, locale="en", labels=labels),
             full=True,
+            notes=(left_side.note, right_side.note),
         )
 
     @translated
@@ -292,11 +306,16 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # one run differently. No locale: the fact list ships no prose, so there
         # is nothing to localise and nothing to choose. (ADR 0020 §8)
         loaded_suite = loaded(suite)
-        key = resolve_key(store, loaded_suite, run).key
-        read = explained(store, loaded_suite, key)
+        resolved = resolve_key(store, loaded_suite, run)
+        read = explained(store, loaded_suite, resolved.key)
         return {
-            **explain_json(read.reading, scope=read.scope, exit_code=read.exit_code),
-            "key": key,
+            **explain_json(
+                read.reading,
+                scope=read.scope,
+                exit_code=read.exit_code,
+                note=resolved.note,
+            ),
+            "key": resolved.key,
         }
 
     @translated

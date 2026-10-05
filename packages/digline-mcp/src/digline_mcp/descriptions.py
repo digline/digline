@@ -29,12 +29,31 @@ You cannot promote from here and there is no tool that can. Assemble the
 evidence, name the run whose per-case profile is closest to typical, and
 recommend it; the human runs `digline promote`, or tells you to.
 
-If `skipped` or `note` is non-empty, stored runs were written under an older
-schema and this listing does not show them. Say so, and propose `digline
-migrate`. Do not run it on your own initiative: a person runs it, or tells you
-to. Since schema 17 a migration can change what a stored run says — a run that
-exited 0 can read as exit 2, a committed baseline included — so it is a decision
-about the reference, like `promote`, and no longer a respelling of it."""
+`note` names what this listing left out: runs at a schema this digline does not
+read, files it could not read or the store refused, files not named by their
+run's key, and a baseline it could not read or whose run is not listed. An empty
+note does not mean nothing is missing. Say what it names.
+
+`advice` says what to do about runs skipped for their schema: for a newer schema,
+upgrading digline; for an older one, propose `digline migrate`. Do not run it on
+your own initiative: a person runs it, or tells you to. Since schema 17 a
+migration can change what a stored run says — a run that exited 0 can read as
+exit 2, a committed baseline included — so it is a decision about the reference,
+like `promote`, and no longer a respelling of it.
+
+A file left out for its name is not a migration. The note names the file and
+the name it should have, and renaming it is for a person."""
+
+# The rule every tool that resolves a run carries, because the note reaches all
+# of them and the misuse is the same on each. AGENTS.md rule 6 states it. (#433)
+_NOTE = """\
+`note` is what resolving `latest` stepped over, and is empty for a key you
+typed. Non-empty, it says the run you got is not the newest this store
+remembers, or that files were left out on the way: say it beside the result.
+Do not pass a run it names back as a run to read: by construction that run
+cannot be read here. Do not run the suite to make the note go away: a newer
+run silences it and finds nothing that was missing, and it costs a run. An
+empty note does not mean nothing is missing."""
 
 GET_RUN = """\
 One stored run: its verdicts, its measured intervals, and the configuration that
@@ -72,7 +91,11 @@ run, you are arguing with the instrument.
 A dip that does not recur on re-run is sampling noise: document it and move on.
 Decide the number of re-runs before running them — with a stochastic judge,
 enough re-runs always produce a green one, and a stopping rule chosen after the
-fact measures your patience rather than the system."""
+fact measures your patience rather than the system.
+
+When `note` names a baseline newer than the run, this held an older run against
+a newer reference: a `1` still stops you, and what you report is that the run is
+older than its reference, not that something regressed."""
 
 DIFF = """\
 Two runs, neither of them a reference. Answers: should I switch?
@@ -85,7 +108,10 @@ side of a diff was approved by anybody. Do not synthesise one.
 Where both sides were sampled, each check carries the two measured intervals.
 Overlapping intervals mean the two are not distinguishable by that check. That
 is evidence beside the count, never an excuse: a diff has no baseline, so no
-interval has the standing to overrule a difference."""
+interval has the standing to overrule a difference.
+
+Each side carries its own note, beside its key: `runs.left.note` and
+`runs.right.note`."""
 
 RUN = """\
 Execute the suite against its target and store the result.
@@ -139,11 +165,11 @@ runs `digline register` and puts the reason in the commit message."""
 
 DESCRIPTIONS: dict[str, str] = {
     "list_runs": LIST_RUNS,
-    "get_run": GET_RUN,
+    "get_run": f"{GET_RUN}\n\n{_NOTE}",
     "get_baseline": GET_BASELINE,
     "log": LOG,
-    "compare": COMPARE,
-    "diff": DIFF,
-    "explain": EXPLAIN,
+    "compare": f"{COMPARE}\n\n{_NOTE}",
+    "diff": f"{DIFF}\n\n{_NOTE}",
+    "explain": f"{EXPLAIN}\n\n{_NOTE}",
     "run": RUN,
 }

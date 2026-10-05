@@ -562,6 +562,12 @@ is said.
   `resolve_key`'s callers, of #396's family, and it predates this record:
   `_newer_on_record`'s sentences are lost the same way. It is named here and
   left to #433.
+  *Settled 2026-10-05 by #450, which closes #433.* The note now reaches every
+  front end that resolves a run: the `--json` of `compare`, `diff` and
+  `explain`, `digline-mcp`'s `get_run`, `compare`, `diff` and `explain`, and
+  `pytest-digline`'s summary. `_newer_on_record`'s sentences and §5.2's go
+  with it. The entry above stays as written, as what was open when this record
+  was accepted.
 - **`log --json` and the count** (§6.5): declared as a gap, not ruled out.
 - **Whether B's branch (a)**, which C makes unreachable on the file store, is
   kept as a guard against a second backend. The repair keeps it untouched.

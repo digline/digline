@@ -77,8 +77,8 @@ it is no longer enough on its own.
   or climbs out with `..`. The command exits 64 with the path. The document is
   never narrowed instead.
 
-**Added:** `digline.core.barred_from_crossing(key)`, the one predicate all three exits
-apply, `digline.core.crossing_refusal(run, going=...)`, and
+**Added:** `digline.core.barred_from_crossing(key)`, the one predicate all
+three exits apply, `digline.core.crossing_refusal(run, going=...)`, and
 `CrossingRefusedError`, a `RefusedError`. It is the ninth promotion condition.
 It is in `PromotionRefusal` and answered first by `refusals_for`: an artifact
 that must not cross is refused until the suite changes, so it is named before a
@@ -87,6 +87,68 @@ configuration that moved, which may have been meant.
 **What a path cannot see:** a committed `cases.json` beside its suite still
 crosses, because the question there is content and not path. So do files git
 ignores, such as `.env`. ADR 0042 names both limits.
+
+### Fixed — `latest`'s note reaches an agent and a pytest session (#433)
+
+`--run latest` resolves to the newest run this store can read, and says what
+it stepped over: runs at another schema, files left out for their name, and a
+baseline or register line that names a newer run nobody can read here. **Only
+the CLI said it**, on stderr. `digline-mcp` dropped it in `get_run`,
+`compare`, `diff` and `explain`, and `pytest-digline` dropped it after
+resolving its own `latest`.
+
+The case that made it matter: the baseline was promoted from the newest run,
+and that run's file is gone. `latest` is then an older run, and `compare`
+holds it against a newer reference. A `worse` there describes the past
+measured against the reference, not a regression. It is a false red, the twin
+of the vacuous green, and nothing on those surfaces said so.
+
+- **`compare --json`, `diff --json` and `explain --json` carry `note`**, the
+  sentence the terminal prints, and empty for a key typed by hand. `diff` has
+  one per side, beside each key (`runs.left.note`, `runs.right.note`). stderr
+  still says it. These are added keys under `OUTPUT_VERSION = 2`, in `_ADDED`.
+- **MCP's `get_run`, `compare`, `diff` and `explain` carry it too**, because
+  those tools return the same object as the `--json`s. `get_baseline` does
+  not: a baseline is never resolved, and an empty note there would claim a
+  resolution that did not happen.
+- **It is the sentence, not its facts**, as `list_runs`'s `note` already is.
+  The run it names cannot, by construction, be read here, and a key in a field
+  of its own would invite the `get_run` that fails.
+- **What an agent should do with it is in the tool descriptions and in
+  `AGENTS.md` rule 6:** say it beside the result. Do not pass the run it
+  names back. **Do not run the suite to make the note go away**: a newer run
+  silences it, finds nothing that was missing, and costs a run.
+- **`list_runs`'s description was wrong, and is corrected.** It said a
+  non-empty `note` meant runs at an older schema, and told the agent to
+  propose `digline migrate`. Since #429 the note also names files left out
+  for their name, and that is not a migration (ADR 0040 §5.3). The
+  description had to be true before the same note reached four more tools.
+- **`AGENTS.md` rule 8 was wrong in the same way, and is corrected.** It said
+  `--run latest` starts failing when stored runs are at an older schema. It
+  has stepped over them since the scan learned to: it resolves to the newest
+  run it can read, says in its note what it skipped, and fails only when no
+  readable run is left. The two copies of the `operating-digline` skill carry
+  the same correction.
+- **`docs/api.md` said the same thing about a renamed run**, under
+  `suite_runs`: that `--run latest` fails on a renamed newest run, that the
+  page repaired it and not the store, and that an ADR was owed. ADR 0040 is
+  accepted and shipped in 0.28.0. A file named otherwise is left out by the
+  scan on both lists and counted in `misfiled`, and `latest` resolves past it
+  and says so. The paragraph now says that.
+- **`pytest-digline` prints it** under the suite's headline in the `digline`
+  section of the terminal summary, as `note: …`. It is not a warning, because
+  under `-W error` a warning fails the session and a note is not a verdict.
+
+**Added:** `note=` on `compare_json`, `explain_json` and `run_document`, and
+`notes=` on `diff_json`. Each is keyword-only with a default, so a caller
+written before them still works. A `digline-mcp` released before this one,
+run against this core, answers with an empty note, and with none on `get_run`.
+
+**Owed at the cut:** `digline-mcp` passes the new arguments, so its floor
+rises to this release, in its own release after the core's. The row is in
+`RELEASING.md`'s table. `pytest-digline` reads only `Resolved.note`, public
+since 0.6.0, so its floor does not move. It needs a release of its own to
+ship this.
 
 ## digline-mcp 0.4.4 — 2026-10-05
 

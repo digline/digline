@@ -108,7 +108,7 @@ def fact_json(fact: Fact) -> dict[str, object]:
 
 
 def explain_json(
-    reading: Sequence[Fact], *, scope: str, exit_code: int
+    reading: Sequence[Fact], *, scope: str, exit_code: int, note: str = ""
 ) -> dict[str, object]:
     """The whole reading, for a program.
 
@@ -117,6 +117,9 @@ def explain_json(
     turned up. A run whose comparison found nothing and a run with no reference
     at all produce different readings, and the difference must not be something
     you deduce from an absence.
+
+    `note` is what resolving the run stepped over, `Resolved.note`, as on
+    `compare --json`. An added key. (#433)
     """
     return neutralised(
         {
@@ -127,5 +130,6 @@ def explain_json(
             # surfaces must not answer differently. (ADR 0011 §4)
             "exit_code": exit_code,
             "facts": [fact_json(fact) for fact in reading],
+            "note": note,
         }
     )

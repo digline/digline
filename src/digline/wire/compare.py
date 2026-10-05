@@ -140,7 +140,12 @@ def rule_json(delta: SuiteDelta) -> dict[str, object]:
 
 
 def compare_json(
-    comparison: Comparison, head: Headline, *, baseline: Run, full: bool
+    comparison: Comparison,
+    head: Headline,
+    *,
+    baseline: Run,
+    full: bool,
+    note: str = "",
 ) -> dict[str, object]:
     """The headline, not the document: a pipeline wants the facts, and the
     sentence it carries is the same one a customer will read.
@@ -166,6 +171,13 @@ def compare_json(
     # pass the key of a different reference. An added key under
     # `OUTPUT_VERSION = 2`'s rule. (ADR 0031 §2)
     payload["baseline_key"] = key_of(baseline.created_at, baseline.config_hash)
+    # What resolving the run stepped over: `Resolved.note`, empty for a key
+    # typed by hand. Its sharpest case is a baseline promoted from a run newer
+    # than the one `latest` picked, where a `worse` is the past held against
+    # the reference and not a regression. In every shape, for `baseline_key`'s
+    # reason. The default keeps a caller written before it working, and
+    # empty never meant *nothing is missing*. An added key. (#433)
+    payload["note"] = note
     if full:
         payload["deltas"] = [delta_json(d) for d in comparison.deltas]
         # The shape reading's numbers, beside the deltas they are read from. An
