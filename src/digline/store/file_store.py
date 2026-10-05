@@ -554,8 +554,8 @@ class FileResultStore:
         # as the run is read.
         run = self.read_run(ref)
 
-        # The five that answer from the document alone, in the order they are
-        # owed. The first is raised and the rest are not looked at, which is
+        # The conditions that answer from the document alone, in the order
+        # they are owed. The first is raised and the rest are not looked at, which is
         # what the body this replaced did; the tuple leaves that choice here
         # rather than making it for every backend.
         refusals = refusals_for(run, expected_config_hash)

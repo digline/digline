@@ -128,6 +128,14 @@ or when the key is **absolute, or begins with `..`**. A run recorded before §2
 can carry a file from outside the perimeter. §2 stops new ones being recorded,
 and this stops the old ones crossing.
 
+*Widened 2026-10-05, by the change that implements this record (#458).* The
+code refuses a key with a `..` segment **anywhere**, not only at the start. The
+two readings agree on every key `read_artifacts` writes, because `relpath` puts
+`..` only at the front. They differ only on a key edited by hand, where the
+wider one refuses. This note is here so that the code and this record say the
+same thing: without it, a later reader could take the wider rule for a defect
+and narrow the code back to the letter.
+
 **One predicate, in `core`, called from all three.** It reads the key string
 and nothing else, so it is pure, and it may live where `redact()` lives.
 

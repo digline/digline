@@ -56,6 +56,38 @@ since 0.26.0, and callers outside this repository may use it.
 **Not changed:** in clear, the store's sentences stay in English on an Italian
 page, as #440 left them.
 
+### Changed — an artifact has two boundaries, and a file from the store or `.git` does not cross (#432, ADR 0042)
+
+A suite could declare any UTF-8 file as an artifact, and under
+`Disclosure(artifacts=True)` its whole text crossed: the suite's cases file, a
+run under `.digline/`, the name table, `.git/config` with a token in a remote
+URL. `Disclosure(artifacts=True)` is still needed for an artifact to cross, but
+it is no longer enough on its own.
+
+- **Read.** A declared file outside the perimeter is refused before it is read,
+  for every suite format and for what a target names through `HasArtifacts`.
+  Until now only the TOML form was checked. A `.py` suite declaring
+  `../outside.txt` now fails at `run` with exit 64, naming the resolved path.
+- **Exit.** A file under `.digline` or `.git` is still recorded in the complete
+  run on your disk, and refused where its text would leave it:
+  `report --redacted` and the MCP refuse when the suite discloses artifacts,
+  and `promote` refuses **whatever the `Disclosure`**, because a baseline
+  carries every artifact's text into a versioned file. Any segment of the path
+  counts, compared without regard to case, and so does a key that is absolute
+  or climbs out with `..`. The command exits 64 with the path. The document is
+  never narrowed instead.
+
+**Added:** `digline.core.barred_from_crossing(key)`, the one predicate all
+three exits apply, `digline.core.crossing_refusal(run, going=...)`, and
+`CrossingRefusedError`, a `RefusedError`. It is the ninth promotion condition.
+It is in `PromotionRefusal` and answered first by `refusals_for`: an artifact
+that must not cross is refused until the suite changes, so it is named before a
+configuration that moved, which may have been meant.
+
+**What a path cannot see:** a committed `cases.json` beside its suite still
+crosses, because the question there is content and not path. So do files git
+ignores, such as `.env`. ADR 0042 names both limits.
+
 ### Fixed — `latest`'s note reaches an agent and a pytest session (#433)
 
 `--run latest` resolves to the newest run this store can read, and says what

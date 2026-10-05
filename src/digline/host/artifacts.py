@@ -39,14 +39,31 @@ def read_artifacts(
     A declared file that is missing raises. It is the thing under examination —
     a run that quietly recorded no prompt would be a run whose evidence is
     absent exactly when it matters.
+
+    **A declared file outside the perimeter is refused before it is read**, for
+    every suite format and for what a target answers through `HasArtifacts`:
+    ADR 0007 §6's read boundary, which reached the TOML form only. Resolved
+    first, so a symlink pointing outward is outside. A `.py` suite can open any
+    file itself; recording it in a run, which crosses on digline's channel, is
+    digline's act, and it does not perform it. (ADR 0042 §2)
     """
     declared: list[Path] = list(suite.artifacts)
     if isinstance(target, HasArtifacts):
         declared.extend(target.artifacts())
 
+    perimeter = (root or base).resolve()
     found: dict[str, Artifact] = {}
     for entry in declared:
         path = entry if entry.is_absolute() else base / entry
+        resolved = path.resolve()
+        if not resolved.is_relative_to(perimeter):
+            raise UsageError(
+                f"suite {suite.name!r} declares the artifact {entry}, which "
+                f"resolves to {resolved}, outside {perimeter}: `artifacts` "
+                "names a file outside the perimeter, and a file from outside "
+                "is never read into a run, whatever the suite format. Move it "
+                "into the project (ADR 0042 §2)"
+            )
         if not path.is_file():
             raise UsageError(
                 f"suite {suite.name!r} declares the artifact {entry}, which "

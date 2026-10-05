@@ -2,7 +2,7 @@
 
 `promote_baseline`'s conditions live in three places (see
 `digline/store/promotion.py`): the reading answers 1 and 7, `refusals_for`
-answers the five that follow from the document, and **8 is left to each
+answers the ones that follow from the document, and **8 is left to each
 backend, beside its own write** — because it asks what the store holds now, and
 a parameter carrying that answer in would hide the window ADR 0031 leaves open
 rather than close it.
@@ -50,8 +50,9 @@ _ANY_RUN = Run(
 #: function that writes its sentence.
 CONDITION_8 = refusal_for_a_moved_baseline.__name__
 
-#: The five that answer from the document, for the same reason.
-THE_FIVE = refusals_for.__name__
+#: The function that answers the conditions that follow from the document, for
+#: the same reason.
+DOCUMENT_CONDITIONS = refusals_for.__name__
 
 
 def _promoting_classes() -> dict[str, type[object]]:
@@ -208,19 +209,19 @@ def test_every_store_that_promotes_raises_condition_8() -> None:
     )
 
 
-def test_every_store_that_promotes_reaches_the_five() -> None:
-    """The same for 2 to 6, where the failure is quieter: a backend that
+def test_every_store_that_promotes_reaches_the_document_conditions() -> None:
+    """The same for 2 to 6 and 9, where the failure is quieter: a backend that
     restates them has a second copy to keep in step with this one, and the
     protocol's own docstring records what that costs — it said "five
     conditions" while there were six."""
     missing = sorted(
         name
         for name, cls in _promoting_classes().items()
-        if not _reaches(cls, THE_FIVE)
+        if not _reaches(cls, DOCUMENT_CONDITIONS)
     )
     assert not missing, (
         f"{', '.join(missing)} implements promote_baseline without calling "
-        f"{THE_FIVE}. The five conditions that answer from the document are a "
+        f"{DOCUMENT_CONDITIONS}. The conditions that answer from the document are a "
         "function so that no backend restates them."
     )
 

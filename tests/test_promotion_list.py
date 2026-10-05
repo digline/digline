@@ -16,7 +16,7 @@ condition can reuse a type: 6 raises `ErroredRunError` like 3, and the second
 amendment of 2026-09-22 records that anyone counting types *"finds five and
 stops"*. A comparison of type sets would have been blind to the same condition.
 It would also have been blind to the two conditions that were missing, because
-`PromotionRefusal` covers only the five that `refusals_for` answers. 7 belongs
+`PromotionRefusal` covers only the conditions `refusals_for` answers. 7 belongs
 to `read_run` and 8 to each backend's write, and neither is in the union.
 
 **The anchor in the code.** Every type in `PromotionRefusal`, and the type
@@ -103,7 +103,10 @@ def test_the_two_lists_are_found() -> None:
     for found in (adr_list(), protocol_list()):
         numbers = [n for n, _ in found]
         assert numbers == list(range(1, len(numbers) + 1)), found
-        assert len(numbers) >= 8, found
+        # Nine since ADR 0042 §3 added the artifact crossing. A floor, not the
+        # count: the two lists are held equal to each other below, and a floor
+        # only guards against both being found empty or cut short.
+        assert len(numbers) >= 9, found
 
 
 def test_section_8_names_every_condition_the_protocol_does() -> None:

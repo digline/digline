@@ -405,7 +405,10 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
             raise UsageError(f"no such file: {path.resolve()} (from {spec!r})")
         # `root` is the perimeter a data suite may read inside (ADR 0007 §6).
         # It reaches only the TOML form: a `.py` suite is code and can already
-        # open anything, so a boundary there would be decoration.
+        # open anything, so a boundary there would be decoration. That is
+        # true of reading. Crossing is ruled in ADR 0042: the declared
+        # artifacts of every format are held to the perimeter in
+        # `read_artifacts`, and refused at the exits under `.digline` or `.git`.
         suite, target = load_toml_suite(path, root=root)
         return suite, Loaded(suite=suite, target=target)
 

@@ -153,10 +153,14 @@ def test_a_sibling_directory_inside_the_repository_is_fine(tmp_path: Path) -> No
 
 
 def test_an_escape_can_never_hide_behind_a_basename(tmp_path: Path) -> None:
-    """A `.py` suite may still read outside the repository — it is code, and
-    code can already open anything. What it may not do is be recorded as
-    something else: `/etc/hosts` used to arrive in the run keyed as `hosts`,
-    which is the same name a file in the project would have had.
+    """`/etc/hosts` used to arrive in the run keyed as `hosts`, which is the
+    same name a file in the project would have had.
+
+    *Since ADR 0042 §2* a `.py` suite no longer records a file outside the
+    repository at all: this test said it *"may still read outside"*, and it was
+    true until the read boundary reached every suite format. The refusal names
+    the resolved path, so the escape is still visible, now in the sentence
+    rather than in a key.
     """
     root = tmp_path / "repo"
     root.mkdir()
@@ -171,8 +175,9 @@ def test_an_escape_can_never_hide_behind_a_basename(tmp_path: Path) -> None:
         cases=[Case(id="one")],
         artifacts=[outside],
     )
-    found = read_artifacts(suite, object(), root, root=root)
-    assert set(found) == {"../secret.env"}, "the escape must be visible in the key"
+    with pytest.raises(UsageError) as caught:
+        read_artifacts(suite, object(), root, root=root)
+    assert str(outside.resolve()) in str(caught.value), "the escape must be visible"
 
 
 def test_read_artifacts_without_a_root_keeps_the_old_keys(tmp_path: Path) -> None:
