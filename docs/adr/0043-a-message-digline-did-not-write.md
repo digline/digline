@@ -7,6 +7,12 @@
   the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
 - Shipped: unreleased
 - Date: 2026-10-05
+- Amended: 2026-10-05, before the repair, in §4, §6, §7 and the *Test plan*.
+  §6 said no site was found where digline hands a case's data to a builtin
+  whose message quotes it. One was found while writing the repair:
+  `compile()` in `loader.py`, whose `SyntaxError` can quote a name written in
+  a case. Its message is withheld on the MCP server whatever the frame, as a
+  site §6 names
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -208,6 +214,7 @@ were found by a grep for an exception's text interpolated into a string, over
 | `loader.py:222` and `:246`, an `ImportError`'s text | 0.24.0 | §*Context* 2 |
 | a type in `REFUSALS` raised by the suite, while it loads (rule 1 passes it through) | the first MCP release | §*Context* 2 |
 | a type in `REFUSALS` raised by code a tool runs: `preflight`, a target, a check | measured at `d786d6f` only | M4 |
+| `loader.py:169–171`, `compile()`'s `SyntaxError`, a builtin (§6) | 0.1.0, on the MCP since its first release | at `58dfb60` only (§6) |
 
 **It carries another library's words about the suite's own declarations:**
 
@@ -276,6 +283,52 @@ good as this: **digline does not pass a case's data to a builtin whose message
 quotes it, at a site whose exception reaches a front end.** No such site was
 found. The search was §4's grep, and it is not a proof. The gate in §7 drives
 the paths it knows. It cannot drive one nobody has written yet.
+
+*__Amended 2026-10-05, before the repair.__ The sentence "No such site was
+found" stopped being true that day. It is kept, because it was honest when it
+was written: it said that the search was a grep, and that a grep is not a
+proof. The site was found while writing the repair, by asking what
+`str(SyntaxError)` holds when `compile()` fails on a suite whose cases are
+written inline.*
+
+- **The site.** `loader.py:169–171` compiles the suite with `compile()`, a
+  builtin, and wrapped its `SyntaxError` as *"{path} does not parse: {exc}"*.
+  The innermost frame is `loader.py`'s, so §1 attributes the message to
+  digline, and it crossed. The wrap is in every release since 0.1.0. It has
+  reached an agent since the MCP server's first release, because `UsageError` is
+  in `REFUSALS`, but that was not measured on any release: only at `58dfb60`.
+- **The measurement.** A suite with its cases written inline and a marker in a
+  case, and the syntax error on the case's line or on the line beside it. 32
+  variants, on Python 3.12.13, 3.13.11 and 3.14.5, identical on all three.
+  `str(SyntaxError)` is always *"msg (suite.py, line N)"*, and the text of the
+  line (`exc.text`) is never in it. In 31 variants the marker was absent: the
+  messages are fixed, or quote a token of the grammar (`'}'`, `'z'`, `'=='`).
+  **One crossed:** *"keyword argument repeated: <name>"*, from a case written
+  as `vars=dict(IT60X0542811101=1, IT60X0542811101=2)`. It crosses only when
+  the data has the shape of a Python identifier and is written as a keyword's
+  name, twice. A value with a space, or one that starts with a digit, cannot
+  get there.
+- **Proved to the end, at `58dfb60`.** Over that suite, `list_runs` on the MCP
+  server answered with a `ToolError` whose text was *"…/suite2.py does not
+  parse: keyword argument repeated: IT60X0542811101 (suite2.py, line 7)"*. The
+  command line printed the same sentence and exited 64.
+- **Beside it, one character.** *"invalid character '’' (U+2019)"*, from a
+  value written between typographic quotes, quotes one character of the
+  case's line. It is not the marker. It is the same thing in small, and the
+  repair takes it by construction, with no rule of its own.
+
+**The repair, ruled 2026-10-05 before the code.** Digline's sentence says only
+*"{path} does not parse at line N, column M"*, from `exc.lineno` and
+`exc.offset`. `str(exc)` becomes §2's `message`, and on the MCP server it never
+crosses, **whatever the frame**. It is not left to §1, because §1 is what this
+site defeats. This site is declared here, by name, as one of §6's. §7's gate
+drives it, with its control on the command line.
+
+**What the finding says about §1.** The frame rule cannot see a builtin called
+by digline. This section already stated that as the limit, and its one defence
+was that no such site had been found. Now there is one. The next one is not
+excluded by anything in this record but the grep and the gate, and neither
+can drive a path nobody has written yet.
 
 ### 7. `docs/mcp.md`, and what holds it
 
@@ -416,3 +469,6 @@ record.
    `{exc}` fails it.
 7. **Rule 2 still holds:** a failure raised inside digline while a suite loads
    still reaches the agent as an unexpected error.
+8. **A suite that does not parse** (§6, amended): a case's name written as a
+   repeated keyword is absent from the MCP response, which keeps the line and
+   the column. The command line shows it.
