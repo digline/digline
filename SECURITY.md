@@ -260,6 +260,64 @@ who can reach it, and which release takes it out. It is written when the defect
 is found, not when the advisory question is settled, so somebody who installed
 the version can read it today.
 
+- **digline 0.6.0 and later, with digline-mcp 0.1.0 and later: a case's data in
+  a refusal returned to the MCP agent. Not fixed in any release yet.**
+  Found by the delta-pass over 0.28.0 (F-1), and measured back to the
+  server's first release on 2026-10-05.
+  - **What crosses, and where.** When code a suite runs raises, digline
+    refuses it with a sentence that carries the exception's message, and
+    digline-mcp returns that sentence to the agent as the tool's answer. The
+    suite's code wrote that message, or a library it calls did, and it can
+    quote what it rejected. `int()`, `float()`, `date.fromisoformat()` and
+    Pydantic's `ValidationError` all quote the value. A suite that raises with
+    the row it rejected quotes the row, its `vars` included. The answer goes
+    into a model's context, and from there into transcripts and caches nobody
+    controls.
+  - **By release.** Measured with a real MCP client over stdio, each server
+    installed from PyPI:
+    - **Since the first release** (digline-mcp 0.1.0, which requires
+      `digline>=0.6.0`): a suite that raises one of digline's own refusal
+      types, such as `UsageError`. The translation passes every refusal type,
+      and it cannot tell one digline raised from one the suite raised.
+    - **Since digline 0.24.0**: an `ImportError` raised while a suite loads,
+      such as `raise ImportError(f"unusable row {row}")`. It does not cross on
+      0.23.0.
+    - **0.28.0 widened the class. It did not open it.** It made three
+      additions. ADR 0041 §4.1, rule 3, extended the refusal to every exception
+      a suite raises while it loads. §4.3 added a `SystemExit` raised then. And
+      `refused_exit` added a `SystemExit` raised by a target while `run` is
+      under way. Before 0.28.0, a `SystemExit` ended the server instead.
+    - **Not measured: the releases between 0.6.0 and 0.23.0.** The range covers
+      them because the behaviour was measured at both ends of that gap, not
+      because each release was. The `ImportError` was not measured on 0.6.0.
+  - **Who is exposed.** Someone using digline-mcp whose suite's code raises,
+    with a message that carries case data. That code is the suite while it
+    loads or, since 0.28.0, a target that calls `sys.exit()` during `run`.
+  - **What it does not reach**, measured at `d786d6f`, on `main` after
+    0.28.0, with a marker string planted in a case's `vars`:
+    - **An answer, as opposed to a refusal.** A target that raises case by case
+      makes an errored verdict, whose `reason` the MCP projection never
+      carries. The marker was absent from the answer.
+    - **A page `digline view` serves.** The suite loads once, before the server
+      starts, so a suite that raises there gets no server, only the sentence on
+      stderr. The four reading pages carried no marker. `/promote` was not
+      measured.
+  - **The command line.** It prints the same sentence, to the terminal or the
+    CI log of whoever ran the command. That is inside the perimeter, and it
+    printed the message before 0.28.0 too, as Python's own traceback does.
+  - **What fixes it.** No release yet. The repair is tracked in
+    [#445](https://github.com/digline/digline/issues/445) and begins
+    with a decision record. The MCP answer will carry the exception's type, its
+    location and the command that prints the traceback, and not its message.
+    Until a release carries it, treat any refusal from digline-mcp as able to
+    hold case data. There is no earlier release to stay on.
+  - **Published as
+    [GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3)**,
+    low, on 2026-10-05. Its range was corrected the same day from
+    `>= 0.28.0` to `digline >= 0.6.0` and `digline-mcp >= 0.1.0`. No CVE had
+    been assigned when this line was written. Read it from the advisory, not
+    from here.
+
 - **digline-bedrock 0.6.0, and every earlier release on the second route below:
   an AWS account in verdict reasons, written by the plugin. Fixed in 0.6.1.**
   Found by the delta-pass over 0.6.0, the day 0.6.0 was published.
