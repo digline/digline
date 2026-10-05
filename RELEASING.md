@@ -1716,6 +1716,70 @@ is the one a quiet log cannot supply.
   for is the job summary. It followed this tag, and *After the tag* says what
   it writes.
 
+- **v0.28.0 — the first tag with the counts in the job summary, the pair
+  agreed for every pin in both builds, and the smoke build waited for the
+  upload again.** `publish` (`37283374437`) and `docker-publish`
+  (`37283374287`) both passed on attempt 1, `github-release` and the site jobs
+  included. `tools/tag_names.py "digline 0.28.0"` ran on #439's merge commit,
+  `ea8a1b3`, immediately before the tag: one package, named, exit 0.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on `pypi`,
+  and the environment reads `can_admins_bypass: false`. The `pypi` job started
+  at 08:28:18. **The counts reached the approver before the click this time**,
+  in the session's message, read from the finished jobs' logs while the run
+  waited:
+  - 12 `twine check` `PASSED`;
+  - TestPyPI's selection, and PyPI's read before the gate, 2 `publish` and 10
+    `skip`. The two are `digline` 0.28.0, wheel and sdist;
+  - `imported 6`, and the quickstart's 3 calls.
+
+  The steps that write the job summary (`gate_summary.py`, *What PyPI would
+  take, read before the gate*) succeeded in both jobs. The check-run API
+  carries no summary, so this session could not see what the page showed
+  beside *Review deployments*. Whether it was visible there is the approver's
+  to say, and it is not recorded here yet.
+
+  Uploads landed at 08:28:39.5 and 08:28:41.5. The version endpoint answered
+  200 and its control, `/pypi/digline/9.9.9/json`, answered 404.
+
+  **The index race, both builds.**
+  - **The smoke build started at 08:24, before the click.** It saw `digline`
+    0.28.0 absent from `/simple/` on every 30-second poll and was served
+    `after 300s`, at 08:29:08, half a minute after the upload. The step's
+    timeout is 1800 seconds, so that is the wait doing its job across the
+    approval, not a near miss.
+  - **The multi-arch build saw every pin served `after 1s`.** Its amd64 layers
+    `#10` to `#13` were `CACHED`, and prove nothing new. The arm64 leg ran.
+  - Both builds installed `digline-0.28.0`, `digline-anthropic-0.6.1`,
+    `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
+  - `0.28.0`, `0.28` and `latest` resolve to one digest,
+    `sha256:4c6902060e6bd64bccd4026773cc148c308c9d8e562d965bb1cb4572673f4494`,
+    read with `docker buildx imagetools inspect` on each tag.
+
+  **Step 6, the capture: it ran, the pair was present for every pin, and it
+  had nothing to explain.** In both builds, `side=wait` and `side=pip` were
+  logged for `digline`, `digline-anthropic`, `digline-openai` and
+  `digline-bedrock`, and each pair carried the same serial and the same etag.
+  For `digline` that was serial 41829479, the one after the upload.
+
+  **Elsewhere.**
+  - The seven example locks moved to 0.28.0 with `--upgrade-package digline`.
+    Their diff was read, three lines per lock, and nothing else moved.
+  - Nine reports were re-rendered in a chain from that commit, each naming the
+    one before it, and the reachability check found all of them reachable.
+    `classifier` (`-dirty`) and `prompt-first` (live) were left alone.
+  - **Masked for keys and times, every re-rendered report reads exactly as it
+    did on 0.27.0.** Against a control, two different reports differ by 21
+    lines, so the masking does not erase what it compares.
+  - `rag`'s `report` exits 1. It is the example of a regression, and the exit
+    code gates like `compare`'s.
+  - `release-followup`'s first run, at 08:29:44, said the registry had no
+    0.28.0 image. It asked before `docker-publish` had pushed, which finished
+    at 08:33:57.
+
+  **The next tag must show** the pair for every pin again, the counts before
+  the click, and whether the job summary is where the approver reads it.
+
 - **v0.27.0 — the pair agreed for every pin in both builds, and the smoke
   build waited for the upload instead of racing it.** `publish`
   (`37029824468`) and `docker-publish` (`37029824521`) both passed on attempt
