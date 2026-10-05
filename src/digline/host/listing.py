@@ -27,7 +27,7 @@ from digline.core import (
     project_served,
 )
 from digline.core.run import SCHEMA_VERSION, is_run_key
-from digline.report import Locale, phrase
+from digline.report import LeftOutPart, Locale, phrase
 from digline.store import (
     Listing,
     NotAReferenceError,
@@ -38,7 +38,7 @@ from digline.store import (
     TenantMismatchError,
 )
 
-__all__ = ["SuiteRuns", "left_out", "suite_runs"]
+__all__ = ["SuiteRuns", "left_out", "left_out_parts", "suite_runs"]
 
 #: How many refused runs the line names before it counts the rest. The line
 #: sits above or beside a table it qualifies, and every refused run is still
@@ -167,7 +167,7 @@ class SuiteRuns:
         In English, for a terminal and for `--json`. A document shows
         `left_out`, which says the same in its locale. (#339)
         """
-        return "; ".join(_parts(self, "en", advise=False))
+        return _line(_parts(self, "en", advise=False))
 
 
 def left_out(listed: SuiteRuns, *, locale: Locale) -> str:
@@ -183,11 +183,31 @@ def left_out(listed: SuiteRuns, *, locale: Locale) -> str:
     **It is true wherever it is shown**, beside a list or beside one case's
     history: neither line says anything that holds only for a list. (#339)
     """
-    return "; ".join(_parts(listed, locale, advise=True))
+    return _line(_parts(listed, locale, advise=True))
 
 
-def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[str]:
-    parts: list[str] = []
+def left_out_parts(listed: SuiteRuns, *, locale: Locale) -> tuple[LeftOutPart, ...]:
+    """`left_out` before it is joined into one line: the same parts, in the
+    same order and the same words, for a page that lays them out as a list.
+
+    Each part keeps its lead, because the lead is what says what the part is
+    wherever the line is shown without a frame. The files a misfiled part names
+    are its `items`, one sentence each, so a page can put each on its own line
+    instead of between semicolons. `left_out` is these parts joined, and stays
+    for a caller that wants one line. (#440)
+    """
+    return tuple(_parts(listed, locale, advise=True))
+
+
+def _line(parts: list[LeftOutPart]) -> str:
+    return "; ".join(
+        f"{part.lead}: {'; '.join(part.items)}" if part.items else part.lead
+        for part in parts
+    )
+
+
+def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[LeftOutPart]:
+    parts: list[LeftOutPart] = []
     skipped = [
         phrase(locale, "left_out.schema", count=count, version=version)
         for version, count in sorted(listed.skipped.items())
@@ -197,45 +217,54 @@ def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[str]:
             phrase(locale, "left_out.unreadable", count=listed.unreadable_count)
         )
     if skipped:
-        parts.append(phrase(locale, "left_out.ignored", parts=", ".join(skipped)))
+        parts.append(
+            LeftOutPart(phrase(locale, "left_out.ignored", parts=", ".join(skipped)))
+        )
     if advise:
         # `Listing.advice` in the reader's language: the same two directions,
         # on the same comparison with the schema this digline writes.
         if any(version < SCHEMA_VERSION for version in listed.skipped):
-            parts.append(phrase(locale, "left_out.migrate"))
+            parts.append(LeftOutPart(phrase(locale, "left_out.migrate")))
         if any(version > SCHEMA_VERSION for version in listed.skipped):
-            parts.append(phrase(locale, "left_out.upgrade"))
+            parts.append(LeftOutPart(phrase(locale, "left_out.upgrade")))
     if listed.refused:
         named = [f"{key} ({why})" for key, why in listed.refused[:_NAMED_REFUSALS]]
         rest = len(listed.refused) - _NAMED_REFUSALS
         if rest > 0:
             named.append(phrase(locale, "left_out.more", count=rest))
         parts.append(
-            phrase(
-                locale,
-                "left_out.refused",
-                count=len(listed.refused),
-                keys=", ".join(named),
+            LeftOutPart(
+                phrase(
+                    locale,
+                    "left_out.refused",
+                    count=len(listed.refused),
+                    keys=", ".join(named),
+                )
             )
         )
     if listed.unnamed:
-        parts.append(phrase(locale, "left_out.unnamed", count=listed.unnamed))
+        parts.append(
+            LeftOutPart(phrase(locale, "left_out.unnamed", count=listed.unnamed))
+        )
     if listed.misfiled:
-        part = phrase(locale, "left_out.misfiled", count=listed.misfiled)
-        if listed.listing is not None:
-            # In clear only, where a file's name may be shown. The sentences
-            # are the store's, as a refusal's are, and stay in its words.
-            part += ": " + "; ".join(listed.listing.misfiled_sentences())
-        parts.append(part)
+        lead = phrase(locale, "left_out.misfiled", count=listed.misfiled)
+        # In clear only, where a file's name may be shown. The sentences are
+        # the store's, as a refusal's are, and stay in its words.
+        files = () if listed.listing is None else listed.listing.misfiled_sentences()
+        parts.append(LeftOutPart(lead, files))
     if listed.baseline_refused:
         parts.append(
-            phrase(locale, "left_out.baseline_refused", why=listed.baseline_refused)
+            LeftOutPart(
+                phrase(locale, "left_out.baseline_refused", why=listed.baseline_refused)
+            )
         )
     elif listed.baseline_key is not None and listed.baseline_key not in {
         key for key, _ in listed.runs
     }:
         parts.append(
-            phrase(locale, "left_out.baseline_missing", run_key=listed.baseline_key)
+            LeftOutPart(
+                phrase(locale, "left_out.baseline_missing", run_key=listed.baseline_key)
+            )
         )
     return parts
 

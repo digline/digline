@@ -53,6 +53,8 @@ from digline.core import (
 )
 from digline.report import (
     VIEW_CSS,
+    LeftOutPart,
+    Locale,
     case_history,
     case_page,
     compare_page,
@@ -198,6 +200,69 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
     # page's: since #314 the line also names refused runs, which no migration
     # recovers. (#339)
     assert "migrate" not in html
+
+
+def page_with(parts: tuple[LeftOutPart, ...], locale: Locale = "en") -> str:
+    return runs_page(
+        [("key-a", RUN_A)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale=locale,
+        suite="brief",
+        ignored=parts,
+        allow_promote=True,
+    )
+
+
+ADVICE = LeftOutPart("run `digline migrate` to bring them up to date")
+SKIPPED = LeftOutPart("ignored: 3 run(s) at schema 5")
+
+
+def test_the_page_puts_no_frame_over_what_was_left_out() -> None:
+    """Each part says what it is. A frame over them said it twice, and over a
+    piece of advice it said the advice was the thing not shown. (#440)"""
+    for locale in ("en", "it"):
+        html = page_with((SKIPPED, ADVICE), locale)
+
+        assert "Not shown" not in html
+        assert "Non mostrate" not in html
+        assert "<li>Ignored: 3 run(s) at schema 5</li>" in html
+        assert "<li>Run `digline migrate` to bring them up to date</li>" in html
+
+
+def test_the_files_a_part_names_are_one_line_each() -> None:
+    """The structure `_parts` builds and the one-line join flattens: one item
+    per part, one sub-item per file, instead of five keys between semicolons
+    on one line. (#440)"""
+    misfiled = LeftOutPart(
+        "left out for their name: 2 file(s) whose name is not their run's key",
+        ("'k copy' holds a run already filed as k.json", "'x' holds a run …"),
+    )
+
+    html = page_with((misfiled,))
+
+    assert html.count('<ul class="note">') == 1
+    assert (
+        "<li>Left out for their name: 2 file(s) whose name is not their run&#x27;s "
+        "key<ul><li>&#x27;k copy&#x27; holds a run already filed as k.json</li>"
+    ) in html
+
+
+def test_one_line_is_still_shown_as_one_line() -> None:
+    """`left_out` returns a string, and a caller that passes it keeps
+    working: the page shows it as it is, with no frame. (#440)"""
+    html = runs_page(
+        [("key-a", RUN_A)],
+        baseline_key=None,
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        ignored="ignored: 3 run(s) at schema 5",
+        allow_promote=True,
+    )
+
+    assert '<p class="note">Ignored: 3 run(s) at schema 5</p>' in html
+    assert "Not shown" not in html
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:

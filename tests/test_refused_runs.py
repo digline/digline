@@ -161,7 +161,8 @@ def test_view_names_the_refused_run_beside_a_cases_history(repo: Path) -> None:
         status, page = get(base + "/case/q1")
 
     assert status == 200, page
-    assert "refused: 1 run(s): not-a-run (" in page
+    # A list item, so it starts with a capital: a sentence on a page. (#440)
+    assert "<li>Refused: 1 run(s): not-a-run (" in page
 
 
 def test_view_says_what_was_left_out_in_the_pages_language(repo: Path) -> None:
@@ -173,8 +174,8 @@ def test_view_says_what_was_left_out_in_the_pages_language(repo: Path) -> None:
         _status, case = get(base + "/case/q1?locale=it")
 
     for page in (runs, case):
-        assert "rifiutate: 1 run: not-a-run (" in page
-        assert "refused:" not in page
+        assert "<li>Rifiutate: 1 run: not-a-run (" in page
+        assert "refused:" not in page.lower()
 
 
 def test_view_does_not_advise_a_migration_for_a_refused_run(repo: Path) -> None:

@@ -27,6 +27,7 @@ from digline.report.log import (
 )
 from digline.report.pages import (
     VIEW_CSS,
+    LeftOutPart,
     case_page,
     compare_page,
     fmt3,
@@ -102,6 +103,7 @@ __all__ = [
     "check_line",
     "diff",
     "case_page",
+    "LeftOutPart",
     "config_changes",
     "config_lines",
     "rule_lines",

@@ -6,6 +6,56 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.28.1 — unreleased
+
+### Fixed — what a list of runs left out is said once, and laid out (#440)
+
+Seen in the 0.28.0 browser walkthrough, on the note under `digline view`'s list
+of runs. Two findings come first, because neither was in the issue:
+- **Under `Not shown:`, a piece of advice read as the thing not shown.** The
+  page framed the whole note with `Not shown: {note}.`, and since #339 the note
+  can carry *run `digline migrate` to bring them up to date* or *upgrade
+  digline to read the newer ones*. Under that frame, the advice reads as
+  something hidden. That sentence was false, not only redundant. *The
+  baseline could not be read* was not a thing not shown either.
+- **In Italian, `Non mostrate:` did not agree with what followed it.** It is
+  feminine plural and stood before *file illeggibili* and *la baseline …*.
+
+And what the issue reported:
+- **Two prefixes, one inside the other.** The doubling dates from the first
+  commit and held for every part, not only the misfiled one seen in Safari:
+  `Not shown: ignored:`, `Not shown: refused:`, `Not shown: left out without a
+  name:`, `Not shown: left out for their name:`. **The page's frame is gone, in
+  both languages, and each part keeps its own lead.** On a terminal, in
+  `--json`, in MCP and in `resolve`'s errors nothing frames the note, so the
+  lead is all that says what a part is.
+- **One key three times in one sentence.** A copy was said as `'<key> copy'
+  holds run <key>, already filed as <key>.json`. *Holds run `<key>`* added
+  nothing: when the name is taken, the run held is the one filed there. Now
+  `'<key> copy' holds a run already filed as <key>.json`. The rename and the
+  two-files sentences said the key twice and now say it once: `'<stem>' holds
+  a run not among the listed runs: rename it to <key>.json`, and `'<stem>': N
+  files hold the same run, and none is named <key>.json`. These are the
+  store's sentences, so `digline list`, `--json`, MCP and the errors of
+  `--run latest` change too. The `note` **string** changes. No key is added or
+  moved, so `OUTPUT_VERSION` does not move, as with #339.
+- **All on one line.** The page wraps the line as a terminal does. What
+  neither had was a break **between the parts**. That structure was always
+  there, in the parts the line is built from, and the join flattened it. The
+  page now shows each part as an item, and each file a misfiled part names as
+  a sub-item.
+
+**Added**, and nothing removed:
+- `digline.host.left_out_parts(listed, *, locale)`, the parts before the join.
+- `digline.report.LeftOutPart(lead, items)`, the value it returns.
+- `runs_page` and `case_page` accept either form in `ignored`.
+
+`left_out` keeps its signature and still returns the one line: it is public
+since 0.26.0, and callers outside this repository may use it.
+
+**Not changed:** in clear, the store's sentences stay in English on an Italian
+page, as #440 left them.
+
 ## digline-anthropic 0.6.1 — 2026-10-03
 
 Published by its own tag, `digline-anthropic-v0.6.1`. The core does not move.

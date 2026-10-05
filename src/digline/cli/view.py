@@ -74,7 +74,7 @@ from digline.core import key_of
 from digline.host import (
     REFUSALS,
     SuiteRuns,
-    left_out,
+    left_out_parts,
     promote_priced,
     suite_runs,
     utc_now_iso,
@@ -526,7 +526,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 locale=locale,
                 suite=self.suite.name,
                 allow_promote=self.allow_promote,
-                ignored=left_out(listed, locale=locale),
+                ignored=left_out_parts(listed, locale=locale),
                 message=message,
             ),
         )
@@ -610,7 +610,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 history,
                 locale=locale,
                 suite=self.suite.name,
-                ignored=left_out(listed, locale=locale),
+                ignored=left_out_parts(listed, locale=locale),
             ),
         )
 
