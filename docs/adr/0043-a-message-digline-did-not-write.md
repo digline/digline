@@ -5,7 +5,7 @@
   refusal too (§1), decision 9 gains a line (§8), and `docs/mcp.md` is
   corrected at once rather than with the release (§7). A fourth was ruled on
   the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
-- Shipped: unreleased
+- Shipped: 0.29.0
 - Date: 2026-10-05
 - Amended: 2026-10-05, before the repair, in §4, §6, §7 and the *Test plan*.
   §6 said no site was found where digline hands what a user wrote to a builtin

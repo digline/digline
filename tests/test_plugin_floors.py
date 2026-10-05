@@ -74,12 +74,12 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
-    # 0.28.1 — a refusal is classified by frame as well as by type, and the
+    # 0.29.0 — a refusal is classified by frame as well as by type, and the
     # MCP server renders it without a message digline did not write (#445,
     # ADR 0043 §3). Unreleased: digline-mcp's floor is owed at the cut, in
     # RELEASING.md's table.
-    "to_withhold": "0.28.1",
-    "refusal_text": "0.28.1",
+    "to_withhold": "0.29.0",
+    "refusal_text": "0.29.0",
     # 0.28.0 — a `SystemExit` from code digline runs is refused with its
     # location, and the MCP server answers it instead of ending (#414, ADR 0041
     # §4.3). digline-mcp's floor reached it in digline-mcp 0.4.4.
