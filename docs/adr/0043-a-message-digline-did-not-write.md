@@ -7,6 +7,10 @@
   the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
 - Shipped: 0.29.0
 - Date: 2026-10-05
+- Amended: 2026-10-05, after 0.29.0 shipped, in §5. The delta-pass over 0.29.0
+  measured two more deliberate routes past §1. §5 promises to state such a
+  route rather than leave it to be discovered, so it names them. Nothing in
+  the code changes
 - Amended: 2026-10-05, before the repair, in §4, §6, §7 and the *Test plan*.
   §6 said no site was found where digline hands what a user wrote to a builtin
   whose message quotes it. Two were found while writing the repair, and both
@@ -276,6 +280,35 @@ tenant), which decision 9 lets cross.
 - **`SystemExit`.** An `int` code is the code that was asked for, and it
   crosses. A code that is not an `int`, as in `sys.exit("…")`, is a message, and
   §2 holds it.
+
+*__Amended 2026-10-05, after 0.29.0 shipped, from the delta-pass over it
+(F-2).__* The `ImportError` imitation above is not the only deliberate route.
+This section says such a route *"is stated here rather than discovered"*, and
+two more were discovered. Each was measured on the packages PyPI serves,
+digline 0.29.0 and digline-mcp 0.4.5, with a marker in a case's `vars`. In
+each, the marker reached the agent's `ToolError`.
+
+- **An exception class named after the value.** For example
+  `raise type(row["iban"], (ValueError,), {})("…")`. The type's name is §2's
+  `kind`, which §2 calls code and lets cross, and here the suite chose it from
+  the data.
+- **A frame compiled under a file name inside digline's directory.** For
+  example `exec(compile("raise RefusedError(…)", <digline>/x.py, "exec"))`.
+  §1 reads the innermost frame's file name, and this one names a file of
+  digline's, so the message is taken for digline's. It is the trick
+  `packages/digline-mcp/tests/test_errors.py` uses on purpose, to stand for a
+  refusal digline raised.
+
+So there are three routes, and each one is a deliberate act. No library names
+an exception class after a value it rejected, and nothing compiles code under
+digline's path by accident. §1 closes the *accidental* message, which is the
+one #445 was. A suite that does any of the three chooses to send its text, as
+it could already print it.
+
+**Not an advisory, and why not.** Each route needs a deliberate act inside the
+repository, by the author of the suite, who already holds the data and runs
+the code. That is the reason no advisory was opened, and not that the routes
+were overlooked.
 
 ### 6. The limit, stated where the rule is
 

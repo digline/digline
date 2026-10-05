@@ -4,6 +4,9 @@
   The text comes first and the implementation is written against it
 - Shipped: 0.29.0
 - Date: 2026-10-05
+- Amended: 2026-10-05, after 0.29.0 shipped, in §5. The delta-pass over 0.29.0
+  measured a third instance of the limit this record declares: a hard link.
+  It is named beside the other two. Nothing in the code changes
 - Amends: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §4,
   by a pointer only. `Disclosure(artifacts=True)` stays necessary for an
   artifact to cross. It is no longer sufficient. Nothing else in 0003 changes,
@@ -205,6 +208,26 @@ for one bool.
   is not in the key, so §3 cannot see it, and no migration can put it back.
 - **Content.** A path rule says where a file sat, not what it holds. See *Not
   decided here*.
+- **A hard link.** *Added 2026-10-05, after 0.29.0 shipped, from the
+  delta-pass over it (F-1).* §3 reads the key, and the key is the resolved
+  path, so a symlink to `.git/config` is caught: measured, `report --redacted`
+  and `promote` both refused it. A hard link is not caught, because resolving
+  a path cannot see one. Measured on 0.29.0:
+  - the repository's `origin` URL carried a token, and `ln .git/config
+    notes.md` made a hard link to it;
+  - the suite declared `notes.md` under `Disclosure(artifacts=True)`;
+  - the run recorded the key `notes.md`, and `report --redacted` exited 0 with
+    the token in the HTML.
+
+  It is the third instance of the limit above, after a committed `cases.json`
+  and a `.env`: the file's content is what must not cross, and its path does
+  not say so.
+
+  **Not an advisory, and why not.** It needs a deliberate act inside the
+  repository: somebody makes the link and declares it as an artifact. And a
+  link that is committed stores the token in git as an ordinary file, so the
+  repository already carries it. That is the reason no advisory was opened
+  for it, and not that it was overlooked.
 
 ## Not decided here
 
