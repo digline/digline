@@ -465,12 +465,19 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
     yield (
         "compare_json",
         "compare",
-        compare_json(comparison, head, baseline=before, full=False),
+        compare_json(comparison, head, baseline=before, full=False, run=now),
     )
     yield (
         "compare_json full",
         "compare.full",
-        compare_json(comparison, head, baseline=before, full=True),
+        compare_json(comparison, head, baseline=before, full=True, run=now),
+    )
+    # A caller written before `run_key`, which passes no run: the optional key
+    # absent, and nothing else missing. (#448)
+    yield (
+        "compare_json without a run",
+        "compare",
+        compare_json(comparison, head, baseline=before, full=False),
     )
 
     # A diff refuses two suites, so its right side is `before`'s suite with
@@ -506,10 +513,21 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
     yield (
         "explain_json comparison",
         "explain",
-        explain_json(facts(now, comparison), scope="comparison", exit_code=1),
+        explain_json(
+            facts(now, comparison),
+            scope="comparison",
+            exit_code=1,
+            run=now,
+            baseline=before,
+        ),
     )
     yield (
         "explain_json run",
+        "explain",
+        explain_json(facts(now), scope="run", exit_code=0, run=now),
+    )
+    yield (
+        "explain_json without its documents",
         "explain",
         explain_json(facts(now), scope="run", exit_code=0),
     )

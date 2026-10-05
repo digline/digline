@@ -170,6 +170,14 @@ past, not a regression. It is a sentence, as `list_runs`'s `note` is, and not a
 key to pass back: the run it names cannot be read here. `get_baseline` has no
 `note`, because a baseline is never resolved. (#433)
 
+`compare` and `explain` carry **`run_key`**, the run they read, and `explain`
+carries **`baseline_key`** where its `scope` is `comparison`; `compare` always
+does. Both are derived from the documents read, not copied from your argument,
+so with `latest` they say which run was picked, and with a key they confirm it.
+Quote and recommend the run by `run_key`: a second `get_run(run="latest")` can
+resolve to a run that landed in between. `explain` also keeps the `key` it
+carried before, the same run, until the next `output_version`. (#448)
+
 ## What never crosses
 
 An MCP response goes into a model's context, and from there into transcripts and

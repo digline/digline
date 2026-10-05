@@ -95,7 +95,11 @@ fact measures your patience rather than the system.
 
 When `note` names a baseline newer than the run, this held an older run against
 a newer reference: a `1` still stops you, and what you report is that the run is
-older than its reference, not that something regressed."""
+older than its reference, not that something regressed.
+
+`run_key` is the run this compared and `baseline_key` the reference it was held
+against. Quote and recommend the run by `run_key`: calling `get_run` again to
+learn it can resolve `latest` to a run that landed in between."""
 
 DIFF = """\
 Two runs, neither of them a reference. Answers: should I switch?
@@ -134,7 +138,8 @@ EXPLAIN = """\
 A run read back as typed facts: what ran, what moved and by how much, against
 which measured interval, what was suspended, what could not be judged, and what
 differed underneath. Held against the baseline when there is one, read alone
-when there is not — `scope` says which.
+when there is not — `scope` says which. `run_key` names the run read, and
+`baseline_key` the reference where `scope` is `comparison`.
 
 `exit_code` is the contract, exactly as on `compare`: 0 proceed, 1 stop and
 report what got worse, 2 stop because nothing downstream is meaningful.

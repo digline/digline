@@ -987,6 +987,17 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("diff.run", "note", _STR, "#433"),
     _AddedKey("explain", "note", _STR, "#433"),
     _AddedKey("run_document", "note", _k("string", optional=True), "#433"),
+    # The run a document was read from, by its key, derived from the run as
+    # `baseline_key` is from the reference: with `latest` the caller typed a
+    # word, and a second call to learn the key can resolve a different run.
+    # `explain` also names its reference, where its scope is `"comparison"`.
+    # Optional because a builder's caller written before them passes no run;
+    # every front end here passes one. MCP's `explain` already splices `key`
+    # beside its document, so there it carries the run twice until a bump.
+    _AddedKey("compare", "run_key", _k("string", optional=True), "#448"),
+    _AddedKey("compare.full", "run_key", _k("string", optional=True), "#448"),
+    _AddedKey("explain", "run_key", _k("string", optional=True), "#448"),
+    _AddedKey("explain", "baseline_key", _k("string", optional=True), "#448"),
 )
 
 
