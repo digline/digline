@@ -6,6 +6,27 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-mcp 0.4.5 — 2026-10-05
+
+Published by its own tag, `digline-mcp-v0.4.5`, after digline 0.29.0 was on
+PyPI.
+
+- **A refusal no longer carries a message digline did not write to the
+  agent** ([GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3),
+  #445, ADR 0043). It classifies a refusal by type and then by frame, and
+  renders it through `digline.wire`: the type, the location and the command
+  that prints the traceback, without the message. **This is the release that
+  fixes the advisory for an MCP user.** digline 0.29.0 alone does not: with
+  digline-mcp 0.4.4 the message still crosses, because 0.4.4 returns the
+  refusal's whole text.
+- **`latest`'s note reaches the agent** on `get_run`, `compare`, `diff` and
+  `explain` (#433), and **`compare` and `explain` name the run they read**
+  (#448). This is the MCP half of digline 0.29.0's entries.
+- **The floor is `digline>=0.29.0`.** `errors.translated` imports
+  `to_withhold` and `refusal_text`, and the four tools pass arguments the
+  builders first take in 0.29.0. A floor may not name a release that does not
+  exist yet, so it was raised here, after the core.
+
 ## 0.29.0 — 2026-10-05
 
 digline **0.29.0**. **A minor, because two things stop working for whoever

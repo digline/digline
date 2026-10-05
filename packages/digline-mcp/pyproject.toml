@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.4.4"
+version = "0.4.5"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -89,19 +89,18 @@ dependencies = [
     # the cut and raised in this package's own release, after the core was on
     # PyPI, because a floor may not name a release that does not exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #433, #448 and
-    # #445.**
-    # `get_run`, `compare`, `diff` and `explain` pass `note` (`notes` on
-    # `diff_json`) to builders that first take it in that release, so the note
-    # `latest` leaves reaches the agent (#433). `compare` and `explain` pass
-    # `run`, and `explain` `baseline`, to builders that first take them in the
-    # same release, so the answer names the run it read (#448). And
-    # `errors.translated` imports `to_withhold` and `refusal_text`, which first
-    # ship in that release (#445, ADR 0043 §3). One raise, for all three.
-    # `test_plugin_floors.py` dates names and cannot see a widened signature,
-    # and a floor may not name a release that does not exist yet, so the row
-    # is in RELEASING.md's table of floors owed to the release.
-    "digline>=0.28.0",
+    # Raised to 0.29.0, for three reasons. By signature: `get_run`, `compare`,
+    # `diff` and `explain` pass `note` (`notes` on `diff_json`) to builders
+    # that first take it in 0.29.0, so the note `latest` leaves reaches the
+    # agent (#433), and `compare` and `explain` pass `run`, and `explain`
+    # `baseline`, so the answer names the run it read (#448). Against 0.28.0
+    # those calls raise `TypeError`. By name: `errors.translated` imports
+    # `to_withhold` and `refusal_text`, which first ship in 0.29.0, so a
+    # refusal reaches the agent without a message digline did not write (#445,
+    # ADR 0043 §3). It was owed at the cut and raised in this package's own
+    # release, after the core was on PyPI, because a floor may not name a
+    # release that does not exist yet.
+    "digline>=0.29.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
