@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import cast
 
 from digline.core.projection import rename
+from digline.core.refused import Quoted
 from digline.core.run import Run
 from digline.core.tokens import Lookup, TokenKind
 
@@ -181,7 +182,11 @@ def resolve_tokens(run: Run, lookup: Lookup) -> Run:
         if type(exc) is not ValueError:
             raise
         raise IncoherentRowsError(
-            f"the rows resolve one by one and together describe no run: {exc}"
+            Quoted.of(
+                exc,
+                "the rows resolve one by one and together describe no run: ",
+                named=False,
+            )
         ) from exc
 
 

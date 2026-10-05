@@ -22,7 +22,7 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 
 from digline.core import ConfigValue, Output, Usage
-from digline.core.refused import RefusedError
+from digline.core.refused import Quoted, RefusedError
 from digline.run import Case, Response
 from digline.targets.completion import ToolCall
 from digline.targets.config import (
@@ -373,11 +373,21 @@ class HttpTarget:
         except urllib.error.HTTPError:
             return
         except _ENDPOINT_ERRORS as exc:
+            # urllib's words are a library's, so they are quoted and not
+            # written into digline's sentence (ADR 0043 §4). What makes the
+            # diagnosis, "connection refused", is the system's description of
+            # an `errno`, and that is read off the exception.
+            described = _described(exc)
             raise RefusedError(
-                f"nothing answered at {self._spoken}: {self._said(exc)}. The "
-                f"suite declares {len(cases)} case(s) and every one of them "
-                "would fail the same way — start the application, or point the "
-                "target at it"
+                Quoted.of(
+                    exc,
+                    f"nothing answered at {self._spoken}{described}: ",
+                    f". The suite declares {len(cases)} case(s) and every one of "
+                    "them would fail the same way — start the application, or "
+                    "point the target at it",
+                    message=self._said(exc),
+                    named=False,
+                )
             ) from exc
 
     def _from_body(self, case: Case) -> Mapping[str, object]:
@@ -687,3 +697,12 @@ def reported_usage(found: object, path: str) -> Usage:
             None if thinking is None else _count(thinking, f"{path}.thinking_tokens")
         ),
     )
+
+
+def _described(exc: BaseException) -> str:
+    """` (Connection refused)`: the system's words for the `errno` beneath a
+    urllib error, read off its attributes, or nothing when there is none."""
+    reason = getattr(exc, "reason", exc)
+    if isinstance(reason, OSError) and reason.strerror:
+        return f" ({reason.strerror})"
+    return ""

@@ -16,6 +16,7 @@ from dataclasses import replace
 from typing import cast
 
 from digline.core.aggregate import grouped_name, split_grouped_name
+from digline.core.refused import Quoted
 from digline.core.run import CaseResult, Run, SystemConfig, redact
 from digline.core.tokens import Minter, TokenKind, is_token
 from digline.core.types import NOTHING_EXTRA, ConfigValue, Verdict
@@ -160,7 +161,7 @@ def project_served(run: Run, mint: Minter) -> Run:
         # 0.25.0, F-4)
         if type(exc) is not ValueError:
             raise
-        raise ProjectionRefusedError(str(exc)) from exc
+        raise ProjectionRefusedError(Quoted.of(exc, "", named=False)) from exc
 
 
 #: What `rename` is handed: the new text for a name of a kind. `project` hands

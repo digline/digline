@@ -200,3 +200,156 @@ def test_the_tools_still_answered(loaded: Path) -> None:
     assert '"spans"' in answers["log"]
     assert '"disposition"' in answers["log"]
     assert "acknowledge_calls=" in answers["run"]
+
+
+# --------------------------------------------------------------------------- #
+# The refusals: every path where code digline did not write can raise
+# --------------------------------------------------------------------------- #
+
+#: Where the marker sits in each suite below: a case's `vars`, the data. Shaped
+#: like an identifier on purpose, so the one builtin path that can quote a name
+#: (§6, amended) can quote this one.
+ROW = f'{{"iban": "{CASE_VAR}"}}'
+
+_HEAD = f"""
+import sys
+
+from digline.core import Contains, RefusedError
+from digline.host import UsageError
+from digline.run import Case, Response, Suite
+
+ROW = {ROW}
+suite = Suite(
+    tenant="acme-bank",
+    environment="staging",
+    name="qa",
+    assertions=[Contains(needle="Rome")],
+    cases=[Case(id="one", vars=ROW)],
+)
+"""
+
+_TARGET = """
+def target(case):
+    return Response(output="Rome", input="q", cost_usd=0.0, latency_ms=1.0)
+"""
+
+#: ADR 0043 §4's first table, a row at a time, plus the site §6's amendment
+#: found. Each is a suite whose code, or code a tool runs, raises with the case
+#: in reach, and the tool that reaches it. The dotted form of the loader's rule
+#: 3 and of its `ImportError` is not here: `within_root` refuses a dotted spec,
+#: so no tool can reach it, and the command line is its only recipient.
+CLASS: dict[str, tuple[str, str]] = {
+    "rule 3, the file form": (
+        _HEAD + "raise ValueError(f'cannot parse {ROW}')\n",
+        "list_runs",
+    ),
+    "a SystemExit code while loading": (
+        _HEAD + "sys.exit(f'bad row {ROW}')\n",
+        "list_runs",
+    ),
+    "refused_exit, during run": (
+        _HEAD + "def target(case):\n    sys.exit(f'bad row {case.vars}')\n",
+        "run",
+    ),
+    "an ImportError's text": (
+        _HEAD + "raise ImportError(f'no adapter for {ROW}')\n",
+        "list_runs",
+    ),
+    "a RefusedError the suite raises while loading": (
+        _HEAD + "raise RefusedError(f'refused {ROW}')\n",
+        "list_runs",
+    ),
+    "a UsageError the suite raises while loading": (
+        _HEAD + "raise UsageError(f'refused {ROW}')\n",
+        "list_runs",
+    ),
+    "a refusal raised by a preflight": (
+        _HEAD
+        + _TARGET
+        + "def _preflight(cases):\n"
+        + "    raise RefusedError(f'not up for {cases[-1].vars}')\n"
+        + "target.preflight = _preflight\n",
+        "run",
+    ),
+    "a refusal raised by a target's config": (
+        _HEAD
+        + "class Target:\n"
+        + "    @property\n"
+        + "    def config(self):\n"
+        + "        raise RefusedError(f'no config for {ROW}')\n"
+        + "    def __call__(self, case):\n"
+        + "        return Response(output='Rome', input='q', cost_usd=0.0,\n"
+        + "                        latency_ms=1.0)\n"
+        + "target = Target()\n",
+        "run",
+    ),
+    "a SyntaxError from compile(), a builtin (§6)": (
+        _HEAD.replace("vars=ROW)", f"vars=dict({CASE_VAR}=1, {CASE_VAR}=2))"),
+        "list_runs",
+    ),
+}
+
+
+def _refused(root: Path, tool: str, suite: str) -> str:
+    """The `ToolError`'s text, through the acknowledgement for `run`: the
+    first call is refused with the count, and the second types it back."""
+
+    async def go() -> str:
+        server = build_server(str(root), None, None)
+        arguments: dict[str, Any] = {"suite": suite}
+        for _ in range(2):
+            try:
+                await server.call_tool(tool, arguments)
+            except ToolError as refusal:
+                said = str(refusal)
+                if "acknowledge_calls=" in said and "acknowledge_calls" not in (
+                    arguments
+                ):
+                    count = said.split("acknowledge_calls=")[1].split(" ")[0]
+                    arguments["acknowledge_calls"] = int(count)
+                    continue
+                return said
+            pytest.fail(f"{tool} answered over a suite that raises")
+        pytest.fail(f"{tool} kept asking for the count")
+
+    return anyio.run(go)
+
+
+@pytest.fixture
+def raising(tmp_path: Path, request: pytest.FixtureRequest) -> tuple[Path, str]:
+    source, tool = CLASS[request.param]
+    git(tmp_path, "init", "-q")
+    (tmp_path / "suite_raises.py").write_text(source, encoding="utf-8")
+    return tmp_path, tool
+
+
+@pytest.mark.parametrize("raising", list(CLASS), indirect=True)
+def test_no_refusal_carries_the_case_to_the_agent(raising: tuple[Path, str]) -> None:
+    """ADR 0043 §7: the marker in `vars`, every member of the class provoked
+    through a tool, and the marker absent from the `ToolError`'s text. A
+    message digline did not write is payload, and it reaches the person who ran
+    the command and no other recipient. (#445)"""
+    root, tool = raising
+    said = _refused(root, tool, str(root / "suite_raises.py"))
+    assert CASE_VAR not in said, (
+        f"the case crossed the boundary in a refusal from {tool!r}: {said}"
+    )
+    # Refused in words, not crashed: the SDK's crash string would satisfy the
+    # line above for every path and prove nothing.
+    assert "Error executing tool" not in said.removeprefix(
+        f"Error executing tool {tool}: "
+    ), said
+
+
+@pytest.mark.parametrize("raising", list(CLASS), indirect=True)
+def test_the_command_line_shows_what_the_agent_does_not(
+    raising: tuple[Path, str],
+) -> None:
+    """The control, path by path. A gate that drives no path where the marker
+    could appear passes vacuously: each path above is one where the marker
+    **is** in the refusal, which the command line, for the person who ran it,
+    prints whole. (ADR 0043 §3, §7)"""
+    root, _tool = raising
+    done = cli(root, "run", "--suite", "suite_raises.py")
+    assert done.returncode == 64, done.stderr
+    assert CASE_VAR in done.stderr, done.stderr

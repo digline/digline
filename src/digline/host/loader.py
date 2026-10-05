@@ -31,7 +31,7 @@ import json
 import os
 import shlex
 import sys
-import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.machinery import (
     EXTENSION_SUFFIXES,
@@ -44,9 +44,12 @@ from pathlib import Path
 from types import CodeType, ModuleType
 from typing import TYPE_CHECKING
 
-import digline
+from digline.core import Quoted
+from digline.host.authorship import (
+    frames_outside,
+    raised_inside_digline,
+)
 from digline.host.errors import UsageError
-from digline.host.refusals import REFUSALS
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 from digline.report.render import visible
 from digline.run import Suite, Target, check_target
@@ -167,8 +170,19 @@ def _import(module_part: str, spec: str) -> ModuleType:
         name = f"_digline_suite_{path.stem}"
         try:
             code = compile(path.read_text(encoding="utf-8"), str(path), "exec")
+        # `compile` is a builtin, so the innermost frame is this one and the
+        # frame rule would call the message digline's. It is not: "keyword
+        # argument repeated: <name>" quotes a name written in a case, when the
+        # cases are written inline. So the site is declared by name, and the
+        # line and column are read off the exception. (ADR 0043 §6, amended)
         except SyntaxError as exc:
-            raise UsageError(f"{path} does not parse: {exc}") from exc
+            raise UsageError(
+                Quoted.of(
+                    exc,
+                    f"{path} does not parse{_line_and_column(exc)}: ",
+                    builtin=True,
+                )
+            ) from exc
         # Named here, at the read, and not by a rule in `main()` that would also
         # catch a decode error inside digline itself. (ADR 0041 §4.2)
         except UnicodeDecodeError as exc:
@@ -208,30 +222,29 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # **And any other exception the suite raises while it loads**, which
         # until ADR 0041 stayed "the unexpected exception it is" (27bc37e) and
         # so exited 1, "worse", from a suite that never got as far as running.
-        # By who raised it, in order: a refusal or an `OSError` passes through
-        # as before (a bare `ValueError` no longer does, ADR 0041 §4.2); one
-        # raised inside digline is left to exit 70, because the sentence
-        # digline did not write is its own defect; and anything else is the
-        # suite's, refused with the location 27bc37e was protecting and the
-        # command that prints the traceback. (ADR 0041 §4.1)
+        # By who raised it, in order: an `OSError` passes through whatever its
+        # frame, until #451 (ADR 0043 §1); anything raised inside digline passes
+        # through too, a refusal as the refusal it is and anything else to exit
+        # 70, because the sentence digline did not write is its own defect; and
+        # anything else is the suite's, **a refusal type included**, refused
+        # with the location 27bc37e was protecting and the command that prints
+        # the traceback. (ADR 0041 §4.1, ADR 0043 §1)
         try:
             exec(code, module.__dict__)  # noqa: S102 — the user's own suite, by request
         except ImportError as exc:
-            missing = repr(exc.name) if exc.name else "a module"
-            raise UsageError(
-                f"{path} could not import {missing}: {exc}. A suite runs in the "
-                "environment of the tool that loads it, so what it imports — a "
-                "provider plugin, the application under test and its SDK — has "
-                "to be installed there."
+            raise _could_not_import(
+                exc,
+                lambda what: f"{path} could not import {what}",
+                f". {_INSTALLED_THERE}",
             ) from exc
-        except _PASSED_THROUGH:
+        except OSError:
             raise
         # A `SystemExit` beside the rest: not an `Exception`, but the suite's
         # code asking to end digline's process, which is not the suite's to
         # end. Refused by the same rule, with the code it asked for.
         # (ADR 0041 §4.3)
         except (Exception, SystemExit) as exc:
-            if _raised_inside_digline(exc):
+            if raised_inside_digline(exc):
                 raise
             reproduce = (
                 f"cd {shlex.quote(str(path.parent))} && python -c "
@@ -243,42 +256,75 @@ def _import(module_part: str, spec: str) -> ModuleType:
     try:
         return importlib.import_module(module_part)
     except ImportError as exc:
-        raise UsageError(f"cannot import module {module_part!r}: {exc}") from exc
-    except _PASSED_THROUGH:
+        raise _could_not_import(
+            exc, lambda _what: f"cannot import module {module_part!r}"
+        ) from exc
+    except OSError:
         raise
     except (Exception, SystemExit) as exc:
-        if _raised_inside_digline(exc):
+        if raised_inside_digline(exc):
             raise
         reproduce = "python -c " + shlex.quote(f"import {module_part}")
         raise _raised_while_loading(repr(module_part), exc, reproduce) from exc
 
 
-#: What the suite may raise while it loads and still reach a person as its own
-#: sentence, unwrapped. The front ends translate each of these already. That
-#: was false of a bare `ValueError` on the MCP server, which translates
-#: `REFUSALS` alone, so it left the list (ADR 0041 §4.2). A suite's own
-#: `ValueError` is now refused with its location. Digline's deliberate ones are
-#: `RefusedError`s and pass through as refusals.
-_PASSED_THROUGH: tuple[type[Exception], ...] = (*REFUSALS, OSError)
+_INSTALLED_THERE = (
+    "A suite runs in the environment of the tool that loads it, so what it "
+    "imports — a provider plugin, the application under test and its SDK — has "
+    "to be installed there."
+)
 
 
-#: Where digline's own code lives. A frame under it is digline's; anything else,
-#: a provider plugin included, is the suite's or something the suite called.
-_DIGLINE = Path(digline.__file__).resolve().parent
+def _could_not_import(
+    exc: ImportError, subject: Callable[[str], str], after: str = ""
+) -> UsageError:
+    """A failed import, with the module's name when the import system named it.
+
+    The common case is the `uvx` one 27bc37e was written for: a plugin is not
+    installed, and the module's name is the whole diagnosis. When the message
+    is exactly the one the import system writes from the exception's own
+    attributes, digline writes it again from those attributes, and that text is
+    digline's. Any other message is quoted, because whoever raised it chose
+    its words. A suite that imitates the template on purpose gets its text
+    through: that is a deliberate act, stated here rather than discovered.
+    (ADR 0043 §5)
+
+    `subject` says what could not be imported, given the module's name or
+    "a module" when there is none digline can vouch for. A function rather
+    than a string, because the file form names the module and the dotted
+    form has already named it.
+    """
+    written = _import_system_said(exc)
+    if written is not None:
+        return UsageError(f"{subject(repr(exc.name))}: {written}{after}")
+    # Nor is `name` read when the message is not the import system's: it is an
+    # attribute whoever raised it set, like the message.
+    return UsageError(Quoted.of(exc, f"{subject('a module')}: ", after))
 
 
-def _is_digline(filename: str) -> bool:
-    return Path(filename).resolve().is_relative_to(_DIGLINE)
+def _import_system_said(exc: ImportError) -> str | None:
+    """The import system's own sentence, rebuilt from `name`, `name_from` and
+    `path`, when `str(exc)` is exactly that; `None` otherwise."""
+    name = exc.name
+    if name is None:
+        return None
+    candidates = [f"No module named {name!r}"]
+    # `name_from` is set by `from x import y` since Python 3.12, which is the
+    # floor this package declares.
+    name_from: object = getattr(exc, "name_from", None)
+    if isinstance(name_from, str):
+        where = exc.path if exc.path is not None else "unknown location"
+        candidates.append(f"cannot import name {name_from!r} from {name!r} ({where})")
+    said = str(exc)
+    return said if said in candidates else None
 
 
-def _raised_inside_digline(exc: BaseException) -> bool:
-    """Whether the innermost frame is digline's. Then the suite's misuse made
-    digline raise something it wrote no sentence for, and the missing sentence
-    is digline's defect: it is left to exit 70. A wrong argument to a digline
-    API does not land here, because Python raises it at the call site, in the
-    suite's frame. (ADR 0041 §4, measured)"""
-    frames = traceback.extract_tb(exc.__traceback__)
-    return bool(frames) and _is_digline(frames[-1].filename)
+def _line_and_column(exc: SyntaxError) -> str:
+    if exc.lineno is None:
+        return ""
+    if exc.offset is None:
+        return f" at line {exc.lineno}"
+    return f" at line {exc.lineno}, column {exc.offset}"
 
 
 def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> UsageError:
@@ -287,9 +333,11 @@ def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> Usa
 
     27bc37e left this exception unexpected, because a sentence without the
     traceback would hide where the suite failed. The location answers that, and
-    so does the command that prints the full traceback. The text is the same
-    for every front end, and it is passed through `visible`, because an
-    exception's message is not digline's to vouch for. (ADR 0041 §4)
+    so does the command that prints the full traceback. **The refusal is the
+    same on every front end, and its rendering is not:** the message is
+    `Quoted`'s, the command line prints it, and the MCP server does not. It is
+    passed through `visible`, because an exception's message is not digline's
+    to vouch for. (ADR 0041 §4, ADR 0043 §3)
 
     A `SystemExit` is refused here too, and says so: the suite asked digline to
     stop, and digline did, but the code it asked for is not the suite's to
@@ -302,13 +350,24 @@ def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> Usa
         else ""
     )
     return UsageError(
-        visible(
-            f"{where} raised {_described(exc)}{_location(exc)}, while it was being "
-            "loaded. That is the suite's own code, or code it called, run before "
-            f"anything was measured.{stopped} For the full traceback, run: "
-            f"{reproduce}"
+        Quoted.of(
+            exc,
+            f"{visible(where)} raised ",
+            ", while it was being loaded. That is the suite's own code, or code "
+            f"it called, run before anything was measured.{stopped}",
+            locations=tuple(visible(at) for at in frames_outside(exc)),
+            reproduce=visible(reproduce),
+            message=visible(_message(exc)),
         )
     )
+
+
+def _message(exc: BaseException) -> str:
+    """What `Quoted.of` would read, so it can be passed through `visible`."""
+    if isinstance(exc, SystemExit):
+        code = exc.code
+        return "" if code is None or isinstance(code, int) else repr(code)
+    return str(exc)
 
 
 def refused_exit(exc: SystemExit) -> UsageError | None:
@@ -323,41 +382,19 @@ def refused_exit(exc: SystemExit) -> UsageError | None:
     keeps its journal. The driver does not call this: a library caller owns its
     own process, and gets the `SystemExit`. (ADR 0041 §4.3)
     """
-    if _raised_inside_digline(exc):
+    if raised_inside_digline(exc):
         return None
     return UsageError(
-        visible(
-            f"code digline ran raised {_described(exc)}{_location(exc)}. digline "
-            "stopped, as asked, but the code it runs does not choose its exit "
-            "code. A run in progress keeps its journal: `digline run --resume` "
-            "continues it."
+        Quoted.of(
+            exc,
+            "code digline ran raised ",
+            ". digline stopped, as asked, but the code it runs does not choose "
+            "its exit code. A run in progress keeps its journal: `digline run "
+            "--resume` continues it.",
+            locations=tuple(visible(at) for at in frames_outside(exc)),
+            message=visible(_message(exc)),
         )
     )
-
-
-def _described(exc: BaseException) -> str:
-    """`SystemExit(0)` for an exit, so the code asked for is in the sentence
-    (`str()` of one is the bare code, or nothing); `Type: message` otherwise."""
-    if isinstance(exc, SystemExit):
-        return f"SystemExit({exc.code!r})"
-    return f"{type(exc).__name__}: {exc}"
-
-
-def _location(exc: BaseException) -> str:
-    """` at inner:line, reached from outer:line`, over the frames that are not
-    digline's, or nothing when there are none."""
-    frames = [
-        frame
-        for frame in traceback.extract_tb(exc.__traceback__)
-        if not _is_digline(frame.filename) and not frame.filename.startswith("<")
-    ]
-    if not frames:
-        return ""
-    inner, outer = frames[-1], frames[0]
-    at = f" at {inner.filename}:{inner.lineno}"
-    if (outer.filename, outer.lineno) != (inner.filename, inner.lineno):
-        at += f", reached from {outer.filename}:{outer.lineno}"
-    return at
 
 
 def _pick(module: ModuleType, attr: str, spec: str, kind: str) -> object:

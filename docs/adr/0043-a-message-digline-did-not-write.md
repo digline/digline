@@ -7,6 +7,14 @@
   the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
 - Shipped: unreleased
 - Date: 2026-10-05
+- Amended: 2026-10-05, before the repair, in §4, §6, §7 and the *Test plan*.
+  §6 said no site was found where digline hands what a user wrote to a builtin
+  whose message quotes it. Two were found while writing the repair, and both
+  were measured to the agent: `compile()` in `loader.py`, whose `SyntaxError`
+  can quote a name written in a case, and `bytes.decode()` in `toml_suite.py`,
+  whose `UnicodeDecodeError` quotes a byte of the suite file. The first is
+  declared by name and its message withheld whatever the frame; the second
+  quotes nothing any more
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -208,6 +216,8 @@ were found by a grep for an exception's text interpolated into a string, over
 | `loader.py:222` and `:246`, an `ImportError`'s text | 0.24.0 | §*Context* 2 |
 | a type in `REFUSALS` raised by the suite, while it loads (rule 1 passes it through) | the first MCP release | §*Context* 2 |
 | a type in `REFUSALS` raised by code a tool runs: `preflight`, a target, a check | measured at `d786d6f` only | M4 |
+| `loader.py:169–171`, `compile()`'s `SyntaxError`, a builtin (§6) | 0.1.0, on the MCP since its first release | at `58dfb60` only (§6) |
+| `toml_suite.py`, `_parse`: `bytes.decode()`'s `UnicodeDecodeError`, a builtin (§6) | 0.5.0, on the MCP since its first release | at `58dfb60` only (§6) |
 
 **It carries another library's words about the suite's own declarations:**
 
@@ -276,6 +286,83 @@ good as this: **digline does not pass a case's data to a builtin whose message
 quotes it, at a site whose exception reaches a front end.** No such site was
 found. The search was §4's grep, and it is not a proof. The gate in §7 drives
 the paths it knows. It cannot drive one nobody has written yet.
+
+*__Amended 2026-10-05, before the repair.__ The sentence "No such site was
+found" stopped being true that day. It is kept, because it was honest when it
+was written: it said that the search was a grep, and that a grep is not a
+proof. **Two sites were found while writing the repair, and both were
+measured to the agent.** This section is about the class, and the class now
+has two measured instances. The first was found by asking what
+`str(SyntaxError)` holds when `compile()` fails on a suite whose cases are
+written inline. The second was found while moving to §2 the sites
+listed by the gate on the wraps (*Consequences*). Once the loader's own sites
+were moved, that gate still read 38 hits in `src/` and `packages/`. Two were
+pytest's own `UsageError`, which is not digline's. Of the 36 left, §4's grep had
+listed 11. §4 was a grep, and the gate is a check.*
+
+**The first: `compile()`.**
+
+- **The site.** `loader.py:169–171` compiles the suite with `compile()`, a
+  builtin, and wrapped its `SyntaxError` as *"{path} does not parse: {exc}"*.
+  The innermost frame is `loader.py`'s, so §1 attributes the message to
+  digline, and it crossed. The wrap is in every release since 0.1.0. It has
+  reached an agent since the MCP server's first release, because `UsageError` is
+  in `REFUSALS`, but that was not measured on any release: only at `58dfb60`.
+- **The measurement.** A suite with its cases written inline and a marker in a
+  case, and the syntax error on the case's line or on the line beside it. 32
+  variants, on Python 3.12.13, 3.13.11 and 3.14.5, identical on all three.
+  `str(SyntaxError)` is always *"msg (suite.py, line N)"*, and the text of the
+  line (`exc.text`) is never in it. In 31 variants the marker was absent: the
+  messages are fixed, or quote a token of the grammar (`'}'`, `'z'`, `'=='`).
+  **One crossed:** *"keyword argument repeated: <name>"*, from a case written
+  as `vars=dict(IT60X0542811101=1, IT60X0542811101=2)`. It crosses only when
+  the data has the shape of a Python identifier and is written as a keyword's
+  name, twice. A value with a space, or one that starts with a digit, cannot
+  get there.
+- **Proved to the end, at `58dfb60`.** Over that suite, `list_runs` on the MCP
+  server answered with a `ToolError` whose text was *"…/suite2.py does not
+  parse: keyword argument repeated: IT60X0542811101 (suite2.py, line 7)"*. The
+  command line printed the same sentence and exited 64.
+- **Beside it, one character.** *"invalid character '’' (U+2019)"*, from a
+  value written between typographic quotes, quotes one character of the
+  case's line. It is not the marker. It is the same thing in small, and the
+  repair takes it by construction, with no rule of its own.
+
+**The second: `bytes.decode()`.**
+
+- **The site.** `toml_suite.py`'s `_parse` decoded the suite file with
+  `raw.decode("utf-8")`, a builtin, and wrapped its `UnicodeDecodeError` as
+  *"{path} is not UTF-8: {exc}"*. The innermost frame is `toml_suite.py`'s, so
+  §1 would attribute the message to digline. The message quotes the byte it could
+  not decode. The wrap is in every release since 0.5.0, and has reached an
+  agent since the MCP server's first release. That too was measured only at
+  `58dfb60`.
+- **The measurement.** A TOML suite carrying, in a comment, `Mario Rossi` with
+  the `è` written as the single Latin-1 byte `0xe8`. Over MCP's `list_runs`,
+  at `58dfb60` on Python 3.14.5, the agent received *"…/suite.toml is not
+  UTF-8: 'utf-8' codec can't decode byte 0xe8 in position 95: invalid
+  continuation byte"*. The command line printed the same and exited 64.
+- **What it quotes.** One byte and its offset: the same thing in small as
+  `invalid character`, above. It cannot carry a name or a value, but it is a
+  byte of a file the user wrote, chosen by the builtin, and the frame cannot
+  tell that apart from digline's own words.
+- **The repair.** It quotes nothing. Digline's sentence says *"{path} is not
+  UTF-8 at byte N"*, from `exc.start`, the form `loader.py` already used for a
+  suite written in Python. With nothing quoted there is no message to withhold,
+  so the site needs no declaration.
+
+**The repair of the first, ruled 2026-10-05 before the code.** Digline's sentence says only
+*"{path} does not parse at line N, column M"*, from `exc.lineno` and
+`exc.offset`. `str(exc)` becomes §2's `message`, and on the MCP server it never
+crosses, **whatever the frame**. It is not left to §1, because §1 is what this
+site defeats. This site is declared here, by name, as one of §6's. §7's gate
+drives it, with its control on the command line.
+
+**What the finding says about §1.** The frame rule cannot see a builtin called
+by digline. This section already stated that as the limit, and its one defence
+was that no such site had been found. Now there are two. The next one is not
+excluded by anything in this record but the grep and the gate, and neither
+can drive a path nobody has written yet.
 
 ### 7. `docs/mcp.md`, and what holds it
 
@@ -416,3 +503,8 @@ record.
    `{exc}` fails it.
 7. **Rule 2 still holds:** a failure raised inside digline while a suite loads
    still reaches the agent as an unexpected error.
+8. **A suite that does not parse** (§6, amended): a case's name written as a
+   repeated keyword is absent from the MCP response, which keeps the line and
+   the column. The command line shows it.
+9. **A TOML suite that is not UTF-8** (§6, amended): the byte is absent from
+   both front ends, and the offset is on both.

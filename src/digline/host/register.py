@@ -20,6 +20,7 @@ from digline import __version__
 from digline.core import (
     DISPOSITIONS,
     Disposition,
+    Quoted,
     RecordedOutcome,
     RegisterEntry,
     Run,
@@ -124,5 +125,5 @@ def record(
     try:
         store.append_register(suite.tenant, suite.name, entry)
     except RegisterRefusedError as exc:
-        raise UsageError(str(exc)) from exc
+        raise UsageError(Quoted.of(exc, "", named=False)) from exc
     return entry, store.register_path(suite.tenant, suite.name)

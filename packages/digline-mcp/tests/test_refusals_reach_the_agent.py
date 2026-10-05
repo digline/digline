@@ -24,8 +24,9 @@ from typing import Any
 import anyio
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
-from tests._helpers import run_key
+from tests._helpers import cli, run_key
 
+from digline.wire import EXIT_USAGE
 from digline_mcp.server import build_server
 
 
@@ -171,19 +172,25 @@ def test_a_suite_whose_own_code_raises_is_refused_with_its_location(
     repo: Path,
 ) -> None:
     """The control for the test above, rewritten when ADR 0041 reversed
-    27bc37e. That commit kept a suite's own failure an unexpected exception,
-    because a sentence would hide where the suite failed (ADR 0011 §10). The
-    concern stands, and it is met by the location instead of the traceback: so
-    what is asserted is that the type, the message and the line all reach the
-    agent. A sentence without them would be the hiding §10 refused."""
+    27bc37e, and again by ADR 0043. That commit kept a suite's own failure an
+    unexpected exception, because a sentence would hide where the suite failed
+    (ADR 0011 §10). The concern stands, and it is met by the location instead
+    of the traceback: so the type, the line and the command reach the agent.
+    **The message does not**: the suite's code wrote it, and it can quote a
+    case (#445). The command line is the control, where it is there."""
     (repo / "suite_broken.py").write_text(
         "raise RuntimeError('a bug in the suite')\n", encoding="utf-8"
     )
     message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_broken.py"))
     assert kind is not UnexpectedToolError, kind.__name__
-    assert "raised RuntimeError: a bug in the suite" in message, message
+    assert "raised RuntimeError at " in message, message
     assert f"at {(repo / 'suite_broken.py').resolve()}:1," in message, message
     assert "For the full traceback, run:" in message, message
+    assert "a bug in the suite" not in message, message
+
+    printed = cli(repo, "run", "--suite", "suite_broken.py")
+    assert printed.returncode == EXIT_USAGE, printed.stderr
+    assert "raised RuntimeError: a bug in the suite" in printed.stderr
 
 
 def test_what_digline_raises_while_a_suite_loads_still_crashes(repo: Path) -> None:

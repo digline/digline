@@ -38,6 +38,7 @@ from digline.cli.output import emit, say
 from digline.cli.view import serve
 from digline.core import (
     DISPOSITIONS,
+    Quoted,
     Run,
     compare,
     diff,
@@ -288,7 +289,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     except JournalRefusedError as exc:
         # A refused resume is a usage error and never a verdict: nothing was
         # measured, so 1 and 2 would both be lies about a suite. (ADR 0017 §11)
-        raise UsageError(str(exc)) from exc
+        raise UsageError(Quoted.of(exc, "", named=False)) from exc
 
     # Announced before the first call, on stderr so a shell capturing the key
     # still captures only the key. Arithmetic over the declared suite: no
@@ -472,7 +473,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             judge_samples=judge_samples,
         )
     except ReplayError as exc:
-        raise UsageError(str(exc)) from exc
+        raise UsageError(Quoted.of(exc, "", named=False)) from exc
 
     ref = store.write_run(run)
     # The measurement is reported by the command that took it, beside the line

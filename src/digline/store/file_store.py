@@ -34,6 +34,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
+from digline.core.refused import Quoted
 from digline.core.register import (
     DISPOSITIONS,
     RecordedOutcome,
@@ -233,8 +234,9 @@ def _exists(path: Path) -> bool:
         if exc.errno in _ABSENT:
             return False
         raise DirectoryUnreadableError(
-            f"cannot tell whether {path} exists: {exc.strerror or exc}. It was "
-            "not read, so this is not a missing file"
+            f"cannot tell whether {path} exists: "
+            f"{exc.strerror or f'errno {exc.errno}'}. It was not read, so this is "
+            "not a missing file"
         ) from exc
     return True
 
@@ -258,8 +260,8 @@ def _listed(directory: Path, pattern: str) -> list[Path]:
         if exc.errno in _ABSENT:
             return []
         raise DirectoryUnreadableError(
-            f"cannot list {directory}: {exc.strerror or exc}. Nothing in it was "
-            "read, so this is not an empty directory"
+            f"cannot list {directory}: {exc.strerror or f'errno {exc.errno}'}. "
+            "Nothing in it was read, so this is not an empty directory"
         ) from exc
     return sorted(directory / name for name in fnmatch.filter(names, pattern))
 
@@ -668,7 +670,9 @@ class FileResultStore:
             try:
                 raw = _parse_register_line(line)
             except _MalformedLine as exc:
-                raise RegisterRefusedError(_malformed(path, number, str(exc))) from None
+                raise RegisterRefusedError(
+                    Quoted.of(exc, *_malformed(path, number), named=False)
+                ) from None
             except ValueError:
                 if index == len(lines) - 1:
                     torn = True
@@ -701,7 +705,9 @@ class FileResultStore:
             try:
                 entries.append(_entry_from_dict(document))
             except _MalformedLine as exc:
-                raise RegisterRefusedError(_malformed(path, number, str(exc))) from None
+                raise RegisterRefusedError(
+                    Quoted.of(exc, *_malformed(path, number), named=False)
+                ) from None
         entries.sort(key=lambda entry: entry.recorded_at)
         return Register(entries=tuple(entries), torn=torn)
 
@@ -1057,10 +1063,12 @@ def _parse_register_line(line: str) -> object:
         raise _MalformedLine("it is nested deeper than any register line") from None
 
 
-def _malformed(path: Path, number: int, reason: str) -> str:
+def _malformed(path: Path, number: int) -> tuple[str, str]:
+    """Digline's words before and after the reason a line is malformed."""
     return (
-        f"{path} line {number} is malformed: {reason}. It is a committed record, "
-        "so it is named rather than repaired — restore the line from git"
+        f"{path} line {number} is malformed: ",
+        ". It is a committed record, so it is named rather than repaired — "
+        "restore the line from git",
     )
 
 

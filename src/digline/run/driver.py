@@ -54,7 +54,7 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.protocols import DeclaresPrice
-from digline.core.refused import RefusedError
+from digline.core.refused import Quoted, RefusedError
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -212,7 +212,9 @@ def target_config(target: object) -> SystemConfig:
         # `SystemConfig` states what is wrong with the values. Raised bare, a
         # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
         # target's declaration, not digline failing.
-        raise TargetShapeError(f"the target's `config` is refused: {exc}") from exc
+        raise TargetShapeError(
+            Quoted.of(exc, "the target's `config` is refused: ", named=False)
+        ) from exc
 
 
 def judge_config(suite: Suite) -> SystemConfig:
@@ -265,7 +267,9 @@ def judge_config(suite: Suite) -> SystemConfig:
         # `SystemConfig` says what is wrong with the values. Bare, a
         # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
         # judge's declaration, not digline failing (#423).
-        raise AssertionShapeError(f"a judge's `config` is refused: {exc}") from exc
+        raise AssertionShapeError(
+            Quoted.of(exc, "a judge's `config` is refused: ", named=False)
+        ) from exc
 
 
 def _judge_values(judge: HasConfig) -> dict[str, ConfigValue]:

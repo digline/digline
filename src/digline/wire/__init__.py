@@ -31,6 +31,7 @@ from digline.wire.contract import (
 from digline.wire.diff import check_json, diff_json, interval_json
 from digline.wire.explain import explain_json, fact_json
 from digline.wire.log import log_json
+from digline.wire.refusal import WITHHELD, refusal_text
 from digline.wire.run import run_document, run_json, runs_json, usage_lines
 from digline.wire.version import ahead_note, writer_ahead
 
@@ -41,6 +42,7 @@ __all__ = [
     "EXIT_USAGE",
     "EXIT_WORSE",
     "OUTPUT_VERSION",
+    "WITHHELD",
     "ahead_note",
     "check_json",
     "compare_json",
@@ -53,6 +55,7 @@ __all__ = [
     "fact_json",
     "interval_json",
     "log_json",
+    "refusal_text",
     "run_document",
     "run_json",
     "runs_json",

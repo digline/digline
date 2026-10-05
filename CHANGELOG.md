@@ -8,6 +8,42 @@ notes under them are this file, verbatim.
 
 ## 0.28.1 — unreleased
 
+### Security — a refusal no longer carries a message digline did not write to an agent ([GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3), #445, ADR 0043)
+
+- **What crossed.** When code digline runs raised, the MCP server could hand the
+  agent that exception's own message. That code is the suite while it loads, the
+  application it imports, a target or its `preflight`. The message is written
+  by that code, or by a library it calls, and it can quote a case's `vars`:
+  `int()`, `float()` and Pydantic's validation errors all quote the value they
+  rejected. A digline refusal type the suite raised itself, such as
+  `UsageError` or `RefusedError`, crossed on every release of the server.
+- **Who wrote a message is now read from the frame that raised it, through
+  every wrap, and never from its type.** A refusal that quotes another
+  exception carries it as a field (`digline.core.Quoted`), apart from digline's
+  own words. The command line, `pytest-digline` and a library caller read
+  `str()`, the whole sentence, as before. The MCP server renders the refusal
+  through `digline.wire`: the type, the location and the command that prints
+  the traceback, and in place of the message a sentence saying it was left
+  out and where to read it.
+- **A suite that does not parse is the one site the frame cannot see.**
+  `compile()` is a builtin, so its frame is digline's, and *"keyword argument
+  repeated: <name>"* quotes a name written in a case when the cases are written
+  inline. Its message is withheld on the MCP server whatever the frame, and
+  digline's sentence keeps the line and the column (ADR 0043 §6, amended).
+- **What changes on the command line.** A suite that raises one of digline's
+  refusal types while it loads gets the same sentence as any other exception
+  from its code: its location and the command, and still exit 64 (ADR 0041
+  §4.1 rule 1, amended). Every other sentence reads as it did.
+- **What still crosses whole.** A refusal digline wrote, and the import
+  system's own *"No module named 'x'"*, rebuilt from the exception's
+  attributes, so the diagnosis of a plugin that is not installed is unchanged.
+- **The MCP server needs the release of digline-mcp that requires this one**:
+  its floor is owed at the cut, in `RELEASING.md`'s table.
+- **Held by two gates.** `test_boundary.py` plants the marker in `vars` and
+  provokes every member of the class through a tool, with the command line as
+  each path's control. `tests/test_quoted_wraps.py` refuses an exception's text
+  interpolated into a refusal anywhere outside the carrier.
+
 ### Fixed — what a list of runs left out is said once, and laid out (#440)
 
 Seen in the 0.28.0 browser walkthrough, on the note under `digline view`'s list
