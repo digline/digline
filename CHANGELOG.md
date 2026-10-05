@@ -91,6 +91,12 @@ of the vacuous green, and nothing on those surfaces said so.
   propose `digline migrate`. Since #429 the note also names files left out
   for their name, and that is not a migration (ADR 0040 §5.3). The
   description had to be true before the same note reached four more tools.
+- **`AGENTS.md` rule 8 was wrong in the same way, and is corrected.** It said
+  `--run latest` starts failing when stored runs are at an older schema. It
+  has stepped over them since the scan learned to: it resolves to the newest
+  run it can read, says in its note what it skipped, and fails only when no
+  readable run is left. The two copies of the `operating-digline` skill carry
+  the same correction.
 - **`pytest-digline` prints it** under the suite's headline in the `digline`
   section of the terminal summary, as `note: …`. It is not a warning, because
   under `-W error` a warning fails the session and a note is not a verdict.

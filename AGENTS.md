@@ -210,10 +210,12 @@ run there is proposing to buy the same answers twice.
 ## 8. When upgrading digline itself, migrate before you promote
 
 A stored run written under an older schema is skipped by a scan and refused by
-name until it is migrated, so `--run latest` starts failing for a reason that
-has nothing to do with the run you asked for. When that happens, say so and
-propose `digline migrate`. Do not run it on your own initiative: a person
-runs it, or tells you to.
+name until it is migrated. So `--run latest` steps over it: it resolves to the
+newest run this digline can read, which can be older than the run you meant,
+and its note says how many runs it skipped and at which schema. It fails only
+when no readable run is left, and that refusal names the migration. Either way,
+say so and propose `digline migrate`. Do not run it on your own initiative: a
+person runs it, or tells you to.
 
 **This was a permission until 0.21.0, and it carried its own expiry.** An agent
 could run `migrate` on one condition: that every step wrote nothing semantic.
