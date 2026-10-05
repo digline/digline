@@ -89,7 +89,8 @@ jobs:
         #   reason are on `STANDALONE_PARAMS` in `tests/test_examples.py`.
         # - `tests/test_type_gate.py` writes a file into `src/digline/` and
         #   deletes it, and `tests/test_versions.py` listed it in between and
-        #   then could not read it. That file runs in the next step, alone.
+        #   then could not read it. That file runs in the next step, alone, and
+        #   since #446 it refuses to run beside other tests under xdist.
         #
         # The rule that came with it. `tests/test_await_index.py` (a two-second
         # deadline, polled every 0.4s) and `tests/test_view_limits.py` (a
@@ -102,8 +103,10 @@ jobs:
         run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
 
       - name: Tests that write into the source tree, serially
-        # Its planted files are only safe when nothing else is reading `src/`.
-        # Anything else that writes inside the checkout joins it here.
+        # Its planted files are only safe when nothing else is reading `src/`,
+        # and `_alone` in that file refuses a parallel run that includes others.
+        # Anything else that writes inside the checkout joins it here: that
+        # class is still a rule written down, not one any check enforces.
         run: uv run --python ${{ matrix.python }} pytest -q -m "not live" tests/test_type_gate.py
 
       - name: Format

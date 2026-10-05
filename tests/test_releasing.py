@@ -17,9 +17,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASING = ROOT / "RELEASING.md"
+CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 
 #: What each step is parameterised by in the matrix and is not part of the
 #: command a person types.
@@ -54,14 +57,20 @@ def test_the_workflow_still_looks_like_a_list_of_commands() -> None:
     assert len(commands) >= 4, commands
 
 
-def test_releasing_names_every_gate_ci_runs() -> None:
-    """The checklist may say more than CI does — never less."""
-    page = RELEASING.read_text(encoding="utf-8")
+@pytest.mark.parametrize("page", [RELEASING, CONTRIBUTING], ids=lambda p: p.name)
+def test_every_copy_of_the_gates_names_every_gate_ci_runs(page: Path) -> None:
+    """The checklist may say more than CI does — never less.
+
+    `CONTRIBUTING.md` says it is a copy of the `gates` job, and until #446
+    nothing held it to that: it had fallen two commands and the type-gate split
+    behind, and its bare `pytest -m "not live"` was the command that, with `-n`
+    added, let `test_type_gate.py` race the tests that read `src/`."""
+    text = page.read_text(encoding="utf-8")
     for command in gate_commands():
-        assert command in page, (
-            f"ci.yml runs `{command}` and RELEASING.md does not list it: "
-            "a pre-tag checklist that is missing a gate is a tag that fails "
-            "on the gate"
+        assert command in text, (
+            f"ci.yml runs `{command}` and {page.name} does not list it: "
+            "a copy of the gates that is missing one is a red that arrives "
+            "after the push"
         )
 
 
