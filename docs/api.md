@@ -1645,6 +1645,12 @@ a program that shows it somewhere else (#276). It returns a **`SuiteRuns`**:
 - `unnamed`: on a projected list, how many files were left out **without a
   name**, because their only name is a file name that is not a run key. Always
   0 in clear.
+- `misfiled`: how many files the scan left out because their name is not
+  their run's `key_of` (ADR 0040). A count in both regimes. In clear, `note()`
+  also says each file and what to do about it. On a projected list the names
+  are kept off the page. `Listing.misfiled` is the files themselves, as
+  `Misfiled(stem, key, taken, safe, sharing)`, and `read_run` refuses a run
+  addressed by such a name with `MisfiledRunError`, a `DocumentRefusedError`.
 - `note()`: one line naming everything above that was left out, and a
   baseline whose run is not in the list. Empty when there is nothing to say.
   **An empty note does not mean nothing is missing**: a run removed from the

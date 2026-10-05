@@ -2,13 +2,15 @@
 
 - Status: accepted 2026-10-05, by Alessandro Prandini. It was proposed on
   2026-10-01, the text first and before any code, the way
-  [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) was, and nothing
-  in it is implemented. **The option was ruled on 2026-10-04, in discussion:
-  C, checked in `scan_runs` (§4).** The four questions that ruling left
-  open, and a fifth, were ruled on 2026-10-05, also in discussion (§5). *Not
-  decided here* keeps what is still open: a document with no `key_of` to
-  compute, which no ruling covers; one case §5 found and did not rule; a
-  defect it names and leaves to #433; and the items of §3 no ruling named.
+  [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) was, and
+  implemented after it was accepted. **The option was ruled on 2026-10-04, in
+  discussion: C, checked in `scan_runs` (§4).** The four questions that
+  ruling left open, and a fifth, were ruled on 2026-10-05, also in discussion
+  (§5), and so was what the repair had to decide, on a proposal made before
+  it was written (§6). *Not decided here* keeps what is still open: what C
+  should do with a document with no `key_of` to compute; which of two files
+  holding one run is the original; a defect §5 names and leaves to #433; and
+  a gap §6 declares.
   The local repair ruled before this record (§*Context*) is recorded as ruled
 - Shipped: unreleased
 - Date: 2026-10-01
@@ -384,7 +386,8 @@ and it is the first item of *Not decided here*.
 
 **Not ruled: two left-out files with one `key_of`, and no listed file under
 it**, for example a renamed run and a copy of the renamed file. That is D's
-collision, inside the set C leaves out. It is in *Not decided here*.
+collision, inside the set C leaves out. What the message says was ruled at
+implementation (§6.3); which file is the original is in *Not decided here*.
 
 **What a copy's key does not say.** Equal `key_of` is not equal content. C
 compares a name with two fields, not two documents, so a copy that was edited
@@ -479,6 +482,52 @@ equals its `key_of` passes C and dies on `_check_name` in `read_run`, so
 ruling of §4 already settled the question, which the record had left open
 before that ruling. It is written here so that it does not read as open.
 
+## 6. Ruled at implementation: what the code had to decide
+
+*Ruled 2026-10-05, by Alessandro, settled by discussion, on a proposal made
+before the repair was written.* Four points the text above left open and the
+code could not leave open, and one gap declared.
+
+**6.1 A document with no `key_of` to compute is left as it was.** It passes
+the scan at the current schema, and `read_run` refuses it. Counting it under
+`unreadable` in the scan would call a document at the current schema
+unreadable before it was read, and would sidestep #349's rule in the very case
+that rule was written for. **What C should do with such a document is still
+not decided**: this rules only that the repair does not touch it.
+
+**6.2 Two facts, for two readers.** The scan keeps both, and neither replaces
+the other:
+- **`taken`**, a file named `<key>.json` is in the directory, decides the
+  instruction. It is asked for the person who acts on the message;
+- **whether the key is among the listed runs** decides what `latest` is told.
+
+They differ when the original is outside the listing. **That case was made by
+§5.1**: with the name checked before the schema, a copy of a run at an old
+schema is left out for its name while the original stays in `skipped`. Looked
+up among the listed stems alone, the copy would read as a rename and be told
+to take a name that is taken.
+
+**6.3 Two files that hold one run, neither under its key, are told nothing to
+do.** Each is said with `<n> files hold run <key>, and none is named <key>.json`. Telling both to rename produces the collision at the second,
+and which file is the original is the point this record keeps open.
+
+**6.4 The count is a key of its own, `misfiled`.** Not `unnamed`, whose
+sentence, *"whose name is not a run key"*, is false of a file renamed to the
+form of another valid key. It is an added key on MCP's `list_runs`, with no
+`OUTPUT_VERSION` bump.
+
+*The word is `misfiled`, not `misnamed` as it was ruled.* `misnamed` already
+names something else in digline, a verdict returned under a name it does not
+own (`digline.core.naming`), and it is a key of `compare --json`'s headline.
+One word for two things is how a reader takes one for the other. The ruling's
+substance is unchanged.
+
+**6.5 Declared, not overlooked: `log --json` does not carry the count.** A
+misfiled file is a run the store refuses, and `log --json` already carries
+`refused` for that. So parity has a real argument there, and not only
+symmetry. It is left out of this repair, and this paragraph is where the gap
+is said.
+
 ## What this record does not cover
 
 - **The baseline's key.** The baseline is one file per suite, not addressed by a
@@ -498,30 +547,24 @@ before that ruling. It is written here so that it does not read as open.
 
 ## Not decided here
 
-- **What C does with a document whose `created_at` or `config_hash` cannot be
-  read.** C needs both to compute a `key_of`, and none of §5's rulings covers
-  a document without one. Today such a document passes the scan if its
-  `schema_version` is current, and `read_run` refuses it afterwards, so **C
-  does not touch it at all.** It is the first case whoever builds the repair
-  will meet. **It is not §5.1's deduction about old schemas**, which is about
-  well-formed documents that carry both fields. This is about documents that
-  do not.
-- **Two left-out files with one `key_of`, and no listed file under it** (§5.1).
-  A renamed run and a copy of the renamed file are one example. It is D's
-  collision, inside the set C leaves out: which file the refusal names, and
-  what it tells a person to do, is not ruled.
+- **What C should do with a document whose `created_at` or `config_hash`
+  cannot be read.** C needs both to compute a `key_of`, and none of §5's
+  rulings covers a document without one. Such a document passes the scan if
+  its `schema_version` is current, and `read_run` refuses it afterwards, so
+  **C does not touch it at all**: §6.1 rules that the repair leaves it so, and
+  rules nothing further. **It is not §5.1's deduction about old schemas**,
+  which is about well-formed documents that carry both fields. This is about
+  documents that do not.
+- **Which of two files that hold one run is the original** (§5.1, §6.3). The
+  message is ruled: neither is told to take the name. Which one should, is
+  not.
 - **The note that reaches one front end of three** (§5.2). It is a defect of
   `resolve_key`'s callers, of #396's family, and it predates this record:
   `_newer_on_record`'s sentences are lost the same way. It is named here and
   left to #433.
-- **The items of §3's list under C that no ruling named:**
-  - what each front end says;
-  - the protocol's new wording;
-  - whether B's branch (a), which C makes unreachable, is kept as a guard
-    against a second backend;
-  - where the left-out files go in a response: a new key, which moves no
-    `OUTPUT_VERSION`, or `unreadable`, which calls a readable file unreadable.
-    §5.1 rules that a count alone is not enough.
+- **`log --json` and the count** (§6.5): declared as a gap, not ruled out.
+- **Whether B's branch (a)**, which C makes unreachable on the file store, is
+  kept as a guard against a second backend. The repair keeps it untouched.
 
 ## What this record does not claim
 

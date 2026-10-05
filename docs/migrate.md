@@ -29,9 +29,26 @@ The first version of the listing raised on the first foreign file, which made
 `--run latest` fail the morning after a release for a reason that had nothing to
 do with the run being asked for.
 
+**A file whose name is not its run's key is left out first**, before its
+schema is looked at. A run's key is `key_of(created_at, config_hash)`, the name
+digline files it under, and the store answers to that key alone (ADR 0040). A
+file renamed or copied by hand is named in the note with what to do:
+
+```console
+left out for their name: 'rossi-mario' holds run 2026-10-04T09-36-41-494925-00-00-8a745d27d002e7dd, which is not among the listed runs: rename it to 2026-10-04T09-36-41-494925-00-00-8a745d27d002e7dd.json
+```
+
+A copy says the name is already taken and tells nobody to rename it. Two files
+that hold one run, neither under its key, are both named and neither is told
+to take the name, because which is the original is not known. Where the key
+is not a safe file name, the note says so and proposes none. **It is not a
+migration**: `migrate` rewrites a document in place and never renames one.
+`--run latest` steps over such a file, so one Finder copy no longer stops it
+for the whole suite (#429), and the note never says the file was newer.
+
 **A document at the current schema that is not a run passes the scan.** The
-scan reads only `schema_version`, so it is the read after it that refuses the
-document: a run with a mandatory field missing, or one filed under another
+scan reads only `schema_version`, `created_at` and `config_hash`, so it is the
+read after it that refuses the document: a run with a mandatory field missing, or one filed under another
 suite or tenant. `digline list`, `digline log` and `digline view` leave that run
 out and name it beside what the scan skipped: `refused: 1 run(s): <key>
 (<why>)`. Until #314 they failed whole on it. **`--run latest` still refuses**,
