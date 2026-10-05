@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.4.3"
+version = "0.4.4"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -83,13 +83,12 @@ dependencies = [
     # written at the cut, because a floor may not name a release that does not
     # exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #414.**
-    # `errors.translated` imports `refused_exit`, new in that release, so a
-    # `SystemExit` from a suite answers the call instead of ending the server
-    # (ADR 0041 §4.3). A floor may not name a release that does not exist yet,
-    # so the row is in RELEASING.md's table of floors owed to the release, and
-    # this package takes a release of its own after the core's.
-    "digline>=0.26.0",
+    # Raised to 0.28.0 by name: `errors.translated` imports `refused_exit`,
+    # which first ships in 0.28.0, so a `SystemExit` from a suite answers the
+    # call instead of ending the server (#414, ADR 0041 §4.3). It was owed at
+    # the cut and raised in this package's own release, after the core was on
+    # PyPI, because a floor may not name a release that does not exist yet.
+    "digline>=0.28.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
