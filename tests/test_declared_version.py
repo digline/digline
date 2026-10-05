@@ -29,6 +29,7 @@ from digline.core.run import (
     DocumentRefusedError,
     declared_integer,
     declared_version,
+    key_of,
 )
 from digline.store import FileResultStore, RunRef
 from digline.store.migrate import migrate_file
@@ -104,14 +105,26 @@ def test_a_mandatory_integer_that_is_absent_is_refused_by_name() -> None:
 # --------------------------------------------------------------------------- #
 
 
+COPY_CREATED = "2099-01-01T00:00:00+00:00"
+
+
+def copy_key(config_hash: str) -> str:
+    return key_of(COPY_CREATED, config_hash)
+
+
 def planted(repo: Path, value: object) -> tuple[FileResultStore, str, Path]:
-    """A real run, and beside it a copy declaring `value` as its schema."""
+    """A real run, and beside it a copy declaring `value` as its schema.
+
+    The copy is a run of its own, filed under its own key: a file named
+    otherwise is left out for its name before its schema is read (ADR 0040
+    §5.1), and these tests are about the schema."""
     key = run_key(repo)
     store = FileResultStore(repo)
     stored = store.runs_dir("acme-bank") / "qa" / f"{key}.json"
     document = json.loads(stored.read_text(encoding="utf-8"))
     document["schema_version"] = value
-    copy = stored.parent / "zz.json"
+    document["created_at"] = COPY_CREATED
+    copy = stored.parent / f"{copy_key(document['config_hash'])}.json"
     copy.write_text(json.dumps(document), encoding="utf-8")
     return store, key, copy
 
@@ -125,7 +138,7 @@ def test_the_reader_refuses_a_version_that_is_not_an_integer(
     store, _key, _copy = planted(repo, value)
 
     with pytest.raises(DocumentRefusedError, match="'schema_version' is a JSON "):
-        store.read_run(RunRef(tenant="acme-bank", suite="qa", key="zz"))
+        store.read_run(RunRef(tenant="acme-bank", suite="qa", key=_copy.stem))
 
 
 @pytest.mark.parametrize("value", NOT_AN_INTEGER, ids=repr)
@@ -139,7 +152,7 @@ def test_the_scan_counts_it_unreadable_and_keeps_the_rest(
     listing = store.scan_runs("acme-bank", "qa")
 
     assert [ref.key for ref in listing.runs] == [key]
-    assert listing.unreadable == ("zz.json",)
+    assert listing.unreadable == (_copy.name,)
     assert dict(listing.skipped) == {}
     assert listing.advice() == ()
 

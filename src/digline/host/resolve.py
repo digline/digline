@@ -76,6 +76,12 @@ def resolve_key(store: ResultStore, suite: Suite, key: str) -> Resolved:
     Within what can be read, the newest is chosen on `created_at`, the recorded
     fact, rather than on the filename that encodes it.
 
+    A file whose name is not its run's key is left out by the scan, so one such
+    file no longer stops `latest` for the whole suite (#429). The scan's note
+    names it, says whether its key is among the runs read, and never says it
+    was newer: that would need a `created_at` read from a document nobody
+    validated (ADR 0040 §5.2).
+
     **A newer run that is gone is said only where something recorded it.** A
     scan sees what is there, not what was: with the newest file removed,
     `latest` is the one before it, and the listing looks exactly as if the
@@ -102,6 +108,13 @@ def resolve_key(store: ResultStore, suite: Suite, key: str) -> Resolved:
                 f"no readable runs stored for suite {suite.name!r} in tenant "
                 f"{suite.tenant!r} — {listing.note()}. "
                 "Run `digline migrate` to bring them up to date."
+            )
+        if listing.misfiled:
+            # Not a migration: a file named otherwise is put right by its
+            # name, and the note says which. (ADR 0040 §5.3)
+            raise UsageError(
+                f"no runs stored under their key for suite {suite.name!r} in "
+                f"tenant {suite.tenant!r} — {listing.note()}."
             )
         raise UsageError(
             f"no runs stored for suite {suite.name!r} in tenant {suite.tenant!r}, "

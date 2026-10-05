@@ -103,6 +103,11 @@ class SuiteRuns:
     skipped: Mapping[int, int]
     unreadable_count: int
     listing: Listing | None
+    #: Files the scan left out because their name is not their run's key. A
+    #: count in both regimes; in clear the note also says each file and what to
+    #: do. Not counted in `unnamed`, whose sentence, *whose name is not a run
+    #: key*, is false of a file renamed to another run's key. (ADR 0040 §5)
+    misfiled: int = 0
 
     def __post_init__(self) -> None:
         # The counts and the scan are one fact said twice where both are
@@ -111,12 +116,14 @@ class SuiteRuns:
         if self.listing is not None and (
             dict(self.listing.skipped) != dict(self.skipped)
             or len(self.listing.unreadable) != self.unreadable_count
+            or len(self.listing.misfiled) != self.misfiled
         ):
             raise ValueError(
                 "SuiteRuns' counts disagree with its listing: skipped "
                 f"{dict(self.skipped)} against {dict(self.listing.skipped)}, "
                 f"{self.unreadable_count} unreadable against "
-                f"{len(self.listing.unreadable)}"
+                f"{len(self.listing.unreadable)}, {self.misfiled} misfiled "
+                f"against {len(self.listing.misfiled)}"
             )
 
     def __repr__(self) -> str:
@@ -139,6 +146,7 @@ class SuiteRuns:
             f"unnamed={self.unnamed}, "
             f"skipped={dict(sorted(self.skipped.items()))!r}, "
             f"unreadable_count={self.unreadable_count}, "
+            f"misfiled={self.misfiled}, "
             f"listing={'None' if self.listing is None else '<in clear>'})"
         )
 
@@ -212,6 +220,13 @@ def _parts(listed: SuiteRuns, locale: Locale, *, advise: bool) -> list[str]:
         )
     if listed.unnamed:
         parts.append(phrase(locale, "left_out.unnamed", count=listed.unnamed))
+    if listed.misfiled:
+        part = phrase(locale, "left_out.misfiled", count=listed.misfiled)
+        if listed.listing is not None:
+            # In clear only, where a file's name may be shown. The sentences
+            # are the store's, as a refusal's are, and stay in its words.
+            part += ": " + "; ".join(listed.listing.misfiled_sentences())
+        parts.append(part)
     if listed.baseline_refused:
         parts.append(
             phrase(locale, "left_out.baseline_refused", why=listed.baseline_refused)
@@ -327,6 +342,7 @@ def suite_runs(
         unnamed=unnamed,
         skipped=dict(listing.skipped),
         unreadable_count=len(listing.unreadable),
+        misfiled=len(listing.misfiled),
         # Withheld on a projected list: its `runs` and `unreadable` are file
         # names, which the fields above exist to keep off a page. (#362)
         listing=listing if table is None else None,

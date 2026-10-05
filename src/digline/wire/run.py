@@ -197,6 +197,9 @@ def runs_json(
             "unreadable": len(listing.unreadable),
             "refused": refused,
             "baseline_unreadable": baseline_unreadable,
+            # Files left out because their name is not their run's key: a
+            # count, as `unreadable` is, and an added key (ADR 0040 §5).
+            "misfiled": len(listing.misfiled),
         }
     )
 
