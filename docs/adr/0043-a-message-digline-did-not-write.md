@@ -50,14 +50,14 @@ A suite that raises with the row it rejected quotes the row, `vars` included.
 1. **In process, at `d786d6f`**, with `server.call_tool` and a marker in a
    case's `vars`:
 
-   | what raises | tool | the marker reaches the agent |
-   |---|---|---|
-   | the suite, `ImportError(f"… {row}")`, and `ModuleNotFoundError` likewise | `list_runs` | yes |
-   | the suite, `RefusedError(f"… {row}")` | `list_runs` | yes, bare, with no location |
-   | a target, `sys.exit(f"… {case.vars}")`, during the run | `run` | yes, through `refused_exit` |
-   | a target's own `preflight`, `RefusedError(f"… {cases[-1].vars}")` | `run` | yes |
-   | a target, `ValueError(f"… {case.vars}")`, case by case | `run` | no. It becomes an errored verdict's `reason`, which `wire` never emits |
-   | the suite, `FileNotFoundError(row)`; a `preflight`, `ValueError(vars)` | | no, by accident: each reached the agent as *Error executing tool* |
+   | | what raises | tool | the marker reaches the agent |
+   |---|---|---|---|
+   | M1 | the suite, `ImportError(f"… {row}")`, and `ModuleNotFoundError` likewise | `list_runs` | yes |
+   | M2 | the suite, `RefusedError(f"… {row}")` | `list_runs` | yes, bare, with no location |
+   | M3 | a target, `sys.exit(f"… {case.vars}")`, during the run | `run` | yes, through `refused_exit` |
+   | M4 | a target's own `preflight`, `RefusedError(f"… {cases[-1].vars}")` | `run` | yes |
+   | M5 | a target, `ValueError(f"… {case.vars}")`, case by case | `run` | no. It becomes an errored verdict's `reason`, which `wire` never emits |
+   | M6 | the suite, `FileNotFoundError(row)`; a `preflight`, `ValueError(vars)` | | no, by accident: each reached the agent as *Error executing tool* |
 
 2. **Over stdio, against the packages on PyPI**: a real client, and each
    server installed from the index with the `digline-mcp` the resolver chose:
@@ -126,8 +126,9 @@ and `_raised_inside_digline` returned `False` on both.
 
 The exception lasts until #451, which rules on `OSError` on the MCP server.
 Until then the MCP does not translate an `OSError` at all, so its message does
-not reach an agent. It arrives as *Error executing tool*, which is #451's
-defect and not this one's.
+not reach an agent. It arrives as *Error executing tool* (M6, measured with a
+suite that raises `FileNotFoundError` while it loads), which is #451's defect
+and not this one's.
 
 *Digline's code* is what `_is_digline` reads today: the directory of
 `digline.__file__`. Whether `digline_mcp` and `pytest_digline` belong in it is
@@ -225,7 +226,7 @@ digline's.
 **Not in the class for this recipient.** The `reason` of an errored verdict:
 *"target raised …"*, *"the judge raised …"*, *"the scorer raised …"*
 (`driver.py`, `assertions.py`, `adapters.py`). `wire` never emits a `reason`,
-and the control in §*Context* 1 confirms it. They are written into the
+and the control M5 confirms it. They are written into the
 committed baseline, where decision 9 already rules on them.
 
 **`digline view`, checked before the code and not in the class.** A page it
