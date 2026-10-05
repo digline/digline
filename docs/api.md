@@ -1706,17 +1706,19 @@ held against the baseline's by name.
   shown in clear.**
 - **A key is the name of the file the run is stored in.** Where digline wrote
   the file, the name is a time and a digest, which the projection leaves
-  alone, so it names nothing. A file somebody named otherwise is treated two
-  ways:
-  - **in clear**, it is listed and refused under its file name, which is what
-    `read_run` needs to read it;
-  - **projected**, a file name is shown only where it names nothing. A readable
-    run is listed only if its file name is its `key_of`. A refused file is
-    named only if its name has a run key's form. Everything else is counted in
-    `unnamed` and named nowhere, control characters included.
-- **That repairs the page, not the store.** The store answers *what is a run's
-  key* two ways, the file's name and `key_of`, and `--run latest` fails on a
-  renamed newest run for that reason. That is #332, and an ADR is owed.
+  alone, so it names nothing. **A file somebody named otherwise is left out by
+  the scan before it is read, and counted in `misfiled`**, on both lists
+  (ADR 0040 §4, §5):
+  - **in clear**, the note names the file, and says the name it should have
+    where one can be said;
+  - **projected**, the note gives the count and names no file, because a file
+    name can be a person's. A refused file is named only if its name has a run
+    key's form, and anything else the projection cannot name is counted in
+    `unnamed`, control characters included.
+- **The store answers *what is a run's key* one way, `key_of`, since 0.28.0.**
+  `--run latest` leaves a renamed newest run out, resolves to the newest run
+  filed under its key, and says in its note which file it left out. That was
+  #332, ruled in ADR 0040.
 - **On a projected list, `refused` and `baseline_refused` carry the refusal's
   type, not its sentence**, because a sentence can quote a name.
 - **A minter that answers wrong refuses the whole call**, as

@@ -97,6 +97,12 @@ of the vacuous green, and nothing on those surfaces said so.
   run it can read, says in its note what it skipped, and fails only when no
   readable run is left. The two copies of the `operating-digline` skill carry
   the same correction.
+- **`docs/api.md` said the same thing about a renamed run**, under
+  `suite_runs`: that `--run latest` fails on a renamed newest run, that the
+  page repaired it and not the store, and that an ADR was owed. ADR 0040 is
+  accepted and shipped in 0.28.0. A file named otherwise is left out by the
+  scan on both lists and counted in `misfiled`, and `latest` resolves past it
+  and says so. The paragraph now says that.
 - **`pytest-digline` prints it** under the suite's headline in the `digline`
   section of the terminal summary, as `note: …`. It is not a warning, because
   under `-W error` a warning fails the session and a note is not a verdict.
