@@ -25,7 +25,7 @@ from digline.core import (
     run_to_json,
 )
 from digline.core.run import SCHEMA_VERSION
-from digline.host import REFUSALS, SuiteRuns, left_out, suite_runs
+from digline.host import REFUSALS, SuiteRuns, left_out, left_out_parts, suite_runs
 from digline.store import FileResultStore, Listing, PathRefusedError, RunRef
 
 TENANT, SUITE = "acme", "support"
@@ -457,6 +457,47 @@ def test_in_clear_the_same_run_is_left_out_and_said_with_its_name(
     assert listed.misfiled == 1
     assert f"rename it to {key(moved)}.json" in listed.note()
     assert "newer" not in listed.note()
+
+
+def test_the_parts_are_the_line_before_its_join(tmp_path: Path) -> None:
+    """`left_out_parts` is `left_out` with its structure kept: the same words,
+    in the same order. `left_out` still returns the one line, for a caller
+    that wants one. (#440)"""
+    kept, moved, copied = current(T1), current(T2), current(T3)
+    store = stored(tmp_path, kept, moved, copied)
+    renamed(store, moved, PERSON)
+    renamed(store, copied, "another")
+
+    listed = suite_runs(store, TENANT, SUITE, mint=None)
+    parts = left_out_parts(listed, locale="en")
+
+    [misfiled] = parts
+    assert misfiled.lead.startswith("left out for their name: 2 file(s)")
+    assert len(misfiled.items) == 2
+    assert all(item.startswith("'") for item in misfiled.items)
+    assert left_out(listed, locale="en") == (
+        f"{misfiled.lead}: {'; '.join(misfiled.items)}"
+    )
+
+
+def test_each_part_carries_its_own_lead() -> None:
+    """Shown without a frame on a terminal, in `--json` and in an error, a
+    part's lead is the only thing saying what the part is. So the part keeps
+    it, and a page adds none. (#440)"""
+    listed = left(
+        refused=(("run-0", "Refused"),),
+        skipped={SCHEMA_VERSION - 1: 2},
+        unnamed=1,
+    )
+
+    leads = [part.lead for part in left_out_parts(listed, locale="en")]
+
+    assert leads == [
+        f"ignored: 2 run(s) at schema {SCHEMA_VERSION - 1}",
+        "run `digline migrate` to bring them up to date",
+        "refused: 1 run(s): run-0 (Refused)",
+        "left out without a name: 1 file(s) whose name is not a run key",
+    ]
 
 
 def test_a_run_filed_under_another_runs_key_is_misfiled_not_unnamed(

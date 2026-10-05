@@ -37,7 +37,8 @@ and `read_run` and `read_baseline` —
 Two more, for anything that drives digline rather than declares a suite.
 `digline.host` is the layer that touches the world — `load_suite`, `Loaded`,
 `load_target`, `read_artifacts`, `git_commit`, `utc_now_iso`, `resolve_key`,
-`suite_runs`, `SuiteRuns` and `left_out`, `promote` and `REFUSALS`.
+`suite_runs`, `SuiteRuns`, `left_out` and `left_out_parts`, `promote` and
+`REFUSALS`.
 `digline.wire` is the machine surface: `OUTPUT_VERSION`, the exit codes, and the
 functions that build every `--json` and every MCP response. A script that loads
 a suite imports the first. A front end imports the second, and so does **a
@@ -1665,8 +1666,19 @@ document's language. `locale` is mandatory, with no default, as on
 `render_html`. Only the frame is translated: in clear, a refusal's sentence is
 the store's and stays in English. It adds what to do about runs skipped for
 their schema, which `note()` leaves to `advice()`, because a page has
-no second line to put it on. `digline view` shows it under the list and under a
-case's history (#339).
+no second line to put it on (#339).
+
+**`left_out_parts(listed, *, locale)`** is the same line before it is joined:
+a tuple of `LeftOutPart(lead, items)`, from `digline.report`, in the same order
+and the same words. `lead` is a part with its own label (`ignored:`,
+`refused:`, `left out for their name:` …), which is all that says what the part
+is where nothing frames it. `items` are the files a misfiled part names, one
+sentence each, in clear only. `left_out` is these parts joined with `; ` and
+stays for a caller that wants one line. `digline view` shows the parts under
+the list and under a case's history, as a list with no frame of its own: a
+frame said twice what each lead says, and over a piece of advice it said the
+advice was the thing not shown (#440). `runs_page` and `case_page` take either
+in `ignored`.
 
 Each `run` in `runs` is a `Run`, a frozen dataclass. These are the fields a
 list of runs reads:
@@ -1740,7 +1752,8 @@ history = case_history(listed.runs, case_id)
 print(listed.note())  # what the history does not cover
 ```
 
-On a page, show `left_out(listed, locale=...)` there instead.
+On a page, show `left_out(listed, locale=...)` there instead, or lay out
+`left_out_parts(listed, locale=...)`.
 
 Both are frozen dataclasses. A **`CaseHistory`** carries:
 

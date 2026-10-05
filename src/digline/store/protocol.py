@@ -327,7 +327,11 @@ class Misfiled:
     def sentence(self, *, listed: bool) -> str:
         """What is wrong with this file, and what to do where something can be
         said. `listed` is whether a run filed under `key` is among the runs
-        the scan listed."""
+        the scan listed.
+
+        The key is said once, in the file name that holds it or should: it is
+        49 characters, and a reader asked to compare two of them by eye is
+        asked to find what the sentence could have said. (#440)"""
         if not self.safe:
             return (
                 f"{self.stem!r} is not named by its key, and its key is not a "
@@ -335,18 +339,15 @@ class Misfiled:
             )
         if self.taken:
             where = "" if listed else ", which is not among the listed runs"
-            return (
-                f"{self.stem!r} holds run {self.key}, already filed as "
-                f"{self.key}.json{where}"
-            )
+            return f"{self.stem!r} holds a run already filed as {self.key}.json{where}"
         if self.sharing > 1:
             return (
-                f"{self.stem!r}: {self.sharing} files hold run {self.key}, and "
-                f"none is named {self.key}.json"
+                f"{self.stem!r}: {self.sharing} files hold the same run, and none "
+                f"is named {self.key}.json"
             )
         return (
-            f"{self.stem!r} holds run {self.key}, which is not among the listed "
-            f"runs: rename it to {self.key}.json"
+            f"{self.stem!r} holds a run not among the listed runs: rename it to "
+            f"{self.key}.json"
         )
 
 

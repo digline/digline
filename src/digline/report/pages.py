@@ -25,6 +25,7 @@ deliberate departures, both because a screen is not a document:
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import cast
 
 from digline.core import (
@@ -147,12 +148,60 @@ pre.snippet { background: #f5f6f8; border: 1px solid #d8dce3; border-radius: .37
               padding: .75rem 1rem; overflow-x: auto; font-size: .875rem;
               user-select: all; -webkit-user-select: all; }
 p.note { color: #5b6270; font-size: .85rem; margin: .5rem 0 0; max-width: 46rem; }
+ul.note { color: #5b6270; font-size: .85rem; margin: .5rem 0 0; max-width: 46rem;
+          padding-left: 1.25rem; }
+ul.note ul { padding-left: 1.25rem; }
+ul.note li { overflow-wrap: anywhere; }
 """
 
 
 # --------------------------------------------------------------------------- #
 # Shared formatting
 # --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class LeftOutPart:
+    """One part of what a read of runs left out, as a page lays it out.
+
+    `lead` says what the part is and carries its own label, as it does on a
+    terminal, in `--json` and in an error, where nothing frames it. `items`
+    are the files it names, one sentence each, in clear only. A page shows the
+    parts as a list and adds no frame of its own: a frame said twice what each
+    lead says, and over a piece of advice it said something false. (#440)
+
+    Built by `digline.host.left_out_parts`. It lives here and not in `host/`
+    because the pages render it and may import nothing above them.
+    """
+
+    lead: str
+    items: tuple[str, ...] = ()
+
+
+def _left_out(ignored: str | Sequence[LeftOutPart]) -> str:
+    """What a read left out, under a list of runs or a case's history.
+
+    A string is the one line `digline.host.left_out` writes, shown as it is.
+    Parts are one item each, and a part's files one sub-item each: the
+    structure `left_out` flattens with a join, which the page puts back.
+    """
+    if isinstance(ignored, str):
+        return f'<p class="note">{escape(_capital(ignored))}</p>\n' if ignored else ""
+    if not ignored:
+        return ""
+    items: list[str] = []
+    for part in ignored:
+        inner = "".join(f"<li>{escape(item)}</li>" for item in part.items)
+        nested = f"<ul>{inner}</ul>" if inner else ""
+        items.append(f"<li>{escape(_capital(part.lead))}{nested}</li>")
+    return f'<ul class="note">{"".join(items)}</ul>\n'
+
+
+def _capital(text: str) -> str:
+    """The first letter up, because a line on a page starts a sentence. Only
+    the first: a lead's own words, and the flag in an advice, stay as written.
+    """
+    return text[:1].upper() + text[1:]
 
 
 def human_time(created_at: str, locale: Locale, *, seconds: bool = False) -> str:
@@ -385,7 +434,7 @@ def runs_page(
     locale: Locale,
     suite: str,
     allow_promote: bool,
-    ignored: str = "",
+    ignored: str | Sequence[LeftOutPart] = "",
     message: str = "",
 ) -> str:
     """Every readable run, newest first, with its aggregates beside it.
@@ -469,9 +518,7 @@ def runs_page(
         if len(ordered) > 1:
             body.append(_compare_form(ordered, labels, locale))
 
-    if ignored:
-        told = phrase(locale, "view.ignored", note=ignored)
-        body.append(f'<p class="note">{escape(told)}</p>\n')
+    body.append(_left_out(ignored))
     return _document(title, locale, "".join(body), wide=True)
 
 
@@ -862,12 +909,17 @@ def _diff_order(difference: Difference) -> Sequence[CheckDifference]:
 
 
 def case_page(
-    history: CaseHistory, *, locale: Locale, suite: str, ignored: str = ""
+    history: CaseHistory,
+    *,
+    locale: Locale,
+    suite: str,
+    ignored: str | Sequence[LeftOutPart] = "",
 ) -> str:
     """The calibration table: one row per run, one column per assertion.
 
-    `ignored` is what the read left out, in `locale`: `digline.host.left_out`.
-    A run left out is no row at all, so whoever shows a history shows it.
+    `ignored` is what the read left out, in `locale`: the parts from
+    `digline.host.left_out_parts`, or the one line from `left_out`. A run left
+    out is no row at all, so whoever shows a history shows it.
 
     Sampled checks show their raw votes under the combined score. That is the
     view that was built by hand with a script to decide which run to promote,
@@ -897,9 +949,7 @@ def case_page(
         + f'<p class="note"><a href="/suspend/{escape(history.case_id)}'
         + f'?locale={locale}">{escape(set_aside)}</a></p>\n'
     )
-    if ignored:
-        told = phrase(locale, "view.ignored", note=ignored)
-        body += f'<p class="note">{escape(told)}</p>\n'
+    body += _left_out(ignored)
     return _document(title, locale, body, wide=True)
 
 

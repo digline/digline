@@ -108,9 +108,12 @@ def test_a_rename_is_said_and_latest_never_calls_it_newer(tmp_path: Path) -> Non
 
     assert resolved.key == key(older)
     assert (
-        f"'rossi-mario' holds run {key(newer)}, which is not among the listed "
-        f"runs: rename it to {key(newer)}.json"
+        f"'rossi-mario' holds a run not among the listed runs: rename it to "
+        f"{key(newer)}.json"
     ) in resolved.note
+    # The key once, in the name to give the file: a second copy of it is 49
+    # characters to compare by eye and nothing to learn. (#440)
+    assert resolved.note.count(key(newer)) == 1
     assert "newer" not in resolved.note
 
 
@@ -179,9 +182,12 @@ def test_a_copy_of_an_old_schema_run_is_not_told_to_take_a_taken_name(
     assert dict(listing.skipped) == {SCHEMA_VERSION - 1: 1}
     [sentence] = listing.misfiled_sentences()
     assert sentence == (
-        f"'{key(old)} copy' holds run {key(old)}, already filed as "
-        f"{key(old)}.json, which is not among the listed runs"
+        f"'{key(old)} copy' holds a run already filed as {key(old)}.json, "
+        "which is not among the listed runs"
     )
+    # Twice, and both are facts: the copy's own name, and the name the run is
+    # already filed under. "holds run <key>" was a third, and said neither. (#440)
+    assert sentence.count(key(old)) == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -201,8 +207,9 @@ def test_two_files_holding_one_run_are_told_nothing_to_do(tmp_path: Path) -> Non
     assert len(sentences) == 2
     for sentence in sentences:
         assert (
-            f"2 files hold run {key(newer)}, and none is named {key(newer)}.json"
+            f"2 files hold the same run, and none is named {key(newer)}.json"
         ) in sentence
+        assert sentence.count(key(newer)) == 1
         assert "rename" not in sentence
 
 

@@ -695,7 +695,6 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.votes": "Votes",
         "view.no_runs": "No run has been recorded yet.",
         "view.no_aggregates": "This suite declares no aggregate.",
-        "view.ignored": "Not shown: {note}.",
         # What a list of runs left out (`digline.host.left_out`, #339). True
         # beside a list and beside one case's history alike.
         "left_out.ignored": "ignored: {parts}",
@@ -1865,7 +1864,6 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.column.votes": "Voti",
         "view.no_runs": "Nessuna esecuzione registrata.",
         "view.no_aggregates": "Questa suite non dichiara aggregati.",
-        "view.ignored": "Non mostrate: {note}.",
         "left_out.ignored": "ignorate: {parts}",
         "left_out.schema": "run allo schema {version}: {count}",
         "left_out.unreadable": "file illeggibili: {count}",
