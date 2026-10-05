@@ -153,6 +153,19 @@ localized, and it is written for the customer who reads the report. `--json`
 is the machine surface — `--json full` when you need the individual deltas —
 and `output_version` is there so a consumer can tell when the shape changed.
 
+**A note beside a run named as `latest` qualifies the result.** `latest` is
+the newest run this store can read. Its `note` says when that is not the newest
+run the store remembers, because the baseline or a register line names a newer
+one, or when files were left out on the way. It is on stderr, in the `--json`
+of `compare`, `diff` and `explain`, and in the MCP tools that resolve a run.
+Say it beside the result. Do not pass a run it names back as the run to read:
+by construction that run cannot be read here. **Do not run the suite to make
+the note go away.** A newer run silences it and finds nothing that was
+missing, and it costs a run. When the note names a baseline newer than the run,
+`compare` held an older run against a newer reference: a `1` still stops you,
+and what you report is that the run is older than its reference, not that
+something regressed. An empty note does not mean nothing is missing.
+
 `1` now has two causes and the headline says which: a check got worse, or a
 canary moved. They are separate fields — `worse` and `canary_moved` — because a
 canary that *improved* is a changed model too, and calling that "worse" would be
