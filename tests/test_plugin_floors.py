@@ -76,11 +76,7 @@ PACKAGES = ROOT / "packages"
 INTRODUCED: dict[str, str] = {
     # 0.28.0 — a `SystemExit` from code digline runs is refused with its
     # location, and the MCP server answers it instead of ending (#414, ADR 0041
-    # §4.3). Not released yet, so digline-mcp's floor is owed at the cut, and
-    # `test_the_floor_covers_every_core_name_the_plugin_uses` reads the row in
-    # RELEASING.md until then. The cut removes three things together: the row,
-    # this note, and RELEASING.md's `0.28.0` in `test_versions.py`'s
-    # `RECORDED`. The row names the other two.
+    # §4.3). digline-mcp's floor reached it in digline-mcp 0.4.4.
     "refused_exit": "0.28.0",
     # 0.25.2 — the list a program that shows runs reads (#276, `44e64ee`,
     # `v0.25.2~9^2`). digline-mcp's `list_runs` reads through it since #314.

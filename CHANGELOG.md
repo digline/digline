@@ -6,6 +6,26 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-mcp 0.4.4 — 2026-10-05
+
+Published by its own tag, `digline-mcp-v0.4.4`, after digline 0.28.0 was on
+PyPI.
+
+- **Code digline runs that calls `sys.exit()` no longer ends the server.**
+  That means the suite while it loads, and a target, a check, a judge or a
+  `preflight` once it has. Before this, the `SystemExit` passed through the
+  SDK's worker thread. The call never answered, the server ended at the next
+  request, and the agent read an EOF. Now the tool stops, as asked, and
+  answers with the refusal: the exit code asked for and where it was raised.
+  The session goes on (#414, ADR 0041 §4.3). This is the MCP half of
+  0.28.0's entry.
+- **The floor is `digline>=0.28.0`.** `errors.translated` imports
+  `refused_exit`, which first ships in 0.28.0. A floor may not name a release
+  that does not exist yet, so it was raised here, after the core.
+- **0.4.3 keeps working against digline 0.28.0.** It never imports
+  `refused_exit`. What it does not have is the answer to a suite's
+  `SystemExit`.
+
 ## digline-anthropic 0.6.1 — 2026-10-03
 
 Published by its own tag, `digline-anthropic-v0.6.1`. The core does not move.
