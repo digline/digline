@@ -186,6 +186,29 @@ What does not, and is **absent rather than emptied**:
   never as a value — no `Disclosure` widens that one;
 - the case inputs entirely. `vars` and `metadata` are the data.
 
+*Corrected 2026-10-05.* The list above holds for every answer a tool returns,
+and **not yet for a refusal**. When code digline runs raises, the refusal the
+agent receives can carry that exception's own message. That code is the suite
+while it loads, the application it imports, or a target and its `preflight`.
+The message was written by that code, or by a library it calls, and it can
+quote a case's `vars`: `int()`, `float()` and Pydantic's validation errors all
+quote the value they rejected. Measured on 0.28.0, the message reaches the
+agent:
+
+- for any exception, and any `SystemExit`, raised while a suite loads, an
+  `ImportError` included;
+- for a `SystemExit` raised by a target while `run` is under way;
+- for one of digline's own refusal types, such as `UsageError` or
+  `RefusedError`, raised by the suite's code or by a target's `preflight`.
+
+It is
+[GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3),
+and the repair is tracked in
+[#445](https://github.com/digline/digline/issues/445). Until a release carries
+it, treat a refusal from this server as able to hold case data. The command
+line prints the same message, to the terminal or the CI log that ran it, which
+is the perimeter this page contrasts with a model's context.
+
 The projection is **chosen and not inherited** from the stored run document,
 which is under a different contract with a different lifetime. A field added to
 it without a decision fails a test rather than shipping.
