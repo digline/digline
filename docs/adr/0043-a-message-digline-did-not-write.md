@@ -3,7 +3,8 @@
 - Status: proposed 2026-10-05. Three questions were ruled in conversation
   before any of this text was written: the frame decides authorship for a
   refusal too (§1), decision 9 gains a line (§8), and `docs/mcp.md` is
-  corrected at once rather than with the release (§7)
+  corrected at once rather than with the release (§7). A fourth was ruled on
+  the first draft: the advisory's range is `>= 0.6.0` (*Consequences*)
 - Shipped: unreleased
 - Date: 2026-10-05
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
@@ -94,16 +95,6 @@ ADR 0041 §4.2 has already said it: *"The frame says who raised. Only the type
 can say on purpose."* A type that says *on purpose* says nothing about
 authorship.
 
-**Why nothing turned red.** `packages/digline-mcp/tests/test_boundary.py`
-plants a marker and searches every tool's response for it, *"the refusals
-too"*. Its docstring names this exact danger: *"an error message that quoted
-the thing it was refusing about"*. But the only refusal it provokes is `run`
-on a sound suite, which digline writes. No path in the gate has code digline
-did not write raise with the marker in reach. And
-`test_a_suite_whose_own_code_raises_is_refused_with_its_location`, which
-§4.1 ruled, asserts that the message *does* reach the agent. The defect was
-held in place by a test.
-
 ## Decision
 
 ### 1. Who wrote a message is read from the frame that raised it
@@ -121,6 +112,22 @@ carries it is in digline's code.** It is the test ADR 0041 §4.1 rule 2 and
   refusal, the author of what it quotes is the author of the exception it
   quotes, by that exception's own frame. A wrap does not make a message
   digline's (§2).
+
+**One exception, measured and not declared in advance: `OSError`.** ADR 0041
+§4.1 rule 1 passes an `OSError` through whatever its frame, and it keeps doing
+so. When digline reads a file, the `OSError` has its innermost frame in the
+standard library, not in digline. So the frame rule would charge every failed
+read of digline's own to the suite.
+
+This was measured, not assumed. `toml_suite._cases` was asked for a cases file
+that does not exist. The `FileNotFoundError`'s innermost frame was
+`pathlib/__init__.py:771` on Python 3.14.5 and `pathlib.py:1013` on 3.12.13,
+and `_raised_inside_digline` returned `False` on both.
+
+The exception lasts until #451, which rules on `OSError` on the MCP server.
+Until then the MCP does not translate an `OSError` at all, so its message does
+not reach an agent. It arrives as *Error executing tool*, which is #451's
+defect and not this one's.
 
 *Digline's code* is what `_is_digline` reads today: the directory of
 `digline.__file__`. Whether `digline_mcp` and `pytest_digline` belong in it is
@@ -221,6 +228,25 @@ digline's.
 and the control in §*Context* 1 confirms it. They are written into the
 committed baseline, where decision 9 already rules on them.
 
+**`digline view`, checked before the code and not in the class.** A page it
+serves cannot receive a refusal raised while a suite loads.
+
+- **The suite loads once, in `cmd_view`, before `serve()` binds a socket.** A
+  suite that raises there gets no server. Measured: exit 64, and the full
+  sentence on stderr, the marker included. That is the command line's
+  rendering, for the person who typed the command.
+- **No page reloads the suite.** Measured on the four reading routes (`/`,
+  `/compare`, `/case/…`, `/suspend/…`) with a judge whose `config`,
+  `instrument` and `price` each raise `RefusedError` carrying the marker. All
+  four answered 200, and none carried the marker.
+- **Digline serves no projected page itself.** Every call to `suite_runs` in
+  `src/` and `packages/` passes `mint=None`. So `listing._why`'s projected
+  branch has no caller here that serves a page.
+
+Two things are not covered. The `/promote` route of `--allow-promote` was not
+measured. And `--host` accepts an address that is not loopback, so whoever
+starts the server decides who reads its pages. Neither is a load-time path.
+
 **Digline's own sentences that quote a value.** A grep for `vars`-shaped
 interpolation in the source found none. It is a grep by name, so it is not
 exhaustive. Digline's sentences quote names (a case's `id`, a group, a
@@ -257,8 +283,21 @@ release that carries this record, and then it is replaced by one sentence:
 *What never crosses* holds for refusals too, and a refusal that quotes code
 digline did not write names the command that shows the message.
 
-**It is held by the boundary gate, widened to refusals.** `test_boundary.py`
-plants a marker in `vars` and drives every tool into every path in §4's first
+**The gate already looked in refusals, and in only one.**
+`packages/digline-mcp/tests/test_boundary.py` plants a marker and searches
+every tool's response for it, *"the refusals too"*. Its docstring names the
+danger of #445 exactly: *"an error message that quoted the thing it was
+refusing about"*. But the only refusal it provokes is `run` on a sound suite,
+and digline writes that one. No path in the gate gets code digline did not
+write to raise with the marker in reach.
+
+**And a test held the defect in place.**
+`test_a_suite_whose_own_code_raises_is_refused_with_its_location`, ruled by
+ADR 0041 §4.1, asserts that the message *does* reach the agent. So the page
+went false and the suite stayed green.
+
+**So the gate is widened, from one refusal to the class.** `test_boundary.py`
+plants a marker in `vars`, drives every tool into every path in §4's first
 table, the run-time ones included, and asserts that the marker is absent from
 every `ToolError`'s text. Each path has a control on the command line, where
 the marker **is** present. A gate that drives no path where the marker could
@@ -281,9 +320,8 @@ this record:
   becomes: a refusal **whose innermost frame is digline's**, or an `OSError`,
   passes through. A refusal raised elsewhere falls under rule 3. On the command
   line that adds a location and a command to the sentence, and the exit code
-  stays 64. **`OSError` is left out on purpose.** Digline's own reads raise it
-  with the innermost frame in the standard library (`pathlib`, `io`), so a
-  frame rule would charge them to the suite. It stays where it is until #451.
+  stays 64. `OSError` keeps passing through whatever its frame. That is §1's
+  measured exception, and it lasts until #451.
 - **ADR 0041 §4.1, rule 3:** *"The text is the same on every front end"* is
   struck. The refusal is the same on every front end, and its rendering is not
   (§3).
@@ -306,11 +344,11 @@ record.
   Whether to translate it is #451's question.
 - **What counts as digline's code** for a location (#452). §1 does not wait
   for it.
-- **`digline view`.** It puts `str(exc)` on its pages (`view.py:511`, `:516`,
-  `:707`, `:784`), and a projected page already shows a type where a local one
-  shows the sentence (`listing._why`). Whether a page served to the software
-  house can meet a refusal from a suite loading was **not checked**. It is to
-  be checked before the code, not decided here.
+- **What `digline view` puts on a page during a request.** It writes
+  `str(exc)` into its pages (`view.py:511`, `:516`, `:707`, `:784`). §4 shows
+  that a load-time refusal cannot get there. Whether code digline runs during a
+  request, `/promote` included, can raise a refusal with a foreign message is
+  not ruled here. Who reads that page is whoever the server was bound for.
 - **A CI log** receives the command line's full sentence. That is the caveat
   `_delta_json` already states for `reason`, and nothing changes it here.
 
@@ -324,16 +362,18 @@ record.
   the same sentence as any other exception from its code: the location and the
   command, and still exit 64.
 - No `SCHEMA_VERSION`, no `OUTPUT_VERSION`. A refusal is not a document.
-- **The advisory's range.** GHSA-x6w8-q92m-23h3 reads *">= 0.28.0"*. The
-  measurement in §*Context* 2 shows crossings from 0.24.0, and from the first
-  MCP release for a refusal type the suite raises itself. Correcting it is the
-  maintainer's call, and it is recorded here so the record and the advisory
-  can be read against each other.
+- **The advisory's range is `>= 0.6.0`, not `>= 0.28.0`**, ruled on
+  2026-10-05 from §*Context* 2. A `UsageError` the suite raises has crossed
+  since the server's first release (digline-mcp 0.1.0, which requires
+  `digline>=0.6.0`). An `ImportError` with a row in it has crossed since
+  0.24.0. 0.28.0 **widened** the class: rule 3 extended it to every exception
+  while a suite loads, and it added the `SystemExit` while loading and
+  `refused_exit` while a run is under way. The releases from 0.6.0 to 0.23.0
+  were not measured, and the advisory says so.
 - **`SECURITY.md`, *Defects in a released package, declared*** gains an entry
   in the shape of digline-bedrock 0.6.0's: what crosses and where, who is
   exposed, what it does not reach, which release fixes it, and the advisory.
-  It is written once the advisory's range is settled, so the two do not
-  disagree.
+  It is written after the advisory is corrected, so the two do not disagree.
 - **A gate on the wraps.** An AST test refuses an exception's text (`{exc}`,
   `str(exc)`, `repr(exc)` of a name bound by `except … as`) inside the arguments
   of a constructor of a type in `REFUSALS`, in `src/` and `packages/`, except
