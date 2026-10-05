@@ -10,6 +10,11 @@
   one function, and §7's host extraction goes ahead as drafted
 - Shipped: 0.6.0
 - Date: 2026-09-08
+- Amended: 2026-10-05, by
+  [ADR 0043](0043-a-message-digline-did-not-write.md), in §10. "Carrying the
+  message digline wrote" stays the rule and is no longer assumed from the
+  type. The translation classifies by type and then by the frame that raised,
+  and a message digline did not write does not reach the agent
 - Amended: 2026-09-09 — **§8 gains the check that makes it true.** A security
   review found that `suite` was unconstrained: the section's "the perimeter is
   the repository" was a description of intent, not of behaviour, and every
@@ -914,6 +919,13 @@ What was confirmed by running it:
   carefully written refusal in this repository — the perimeter messages, the
   three promotion conditions, "no runs stored for suite … run it first" —
   reaches the agent as five identical words.
+
+  *Amended 2026-10-05.* Being in `REFUSALS` says that a refusal is on purpose,
+  not who wrote it. A wrap puts another exception's text inside a type digline
+  owns, and a suite can raise `RefusedError` or `UsageError` itself. So the
+  translation also reads the frame. A message digline did not write reaches
+  the agent as its type, its location and the command that prints it, and
+  never as its text. [ADR 0043](0043-a-message-digline-did-not-write.md) §1–§3.
 
 ## §11 — `test_plugin_floors.py`, amended
 

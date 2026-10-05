@@ -71,6 +71,13 @@ correct its structural mistakes and are not negotiable.
    function on the value (`redact`), not a serializer option; in the document
    the payload fields are absent, not emptied, and `"redacted": true` declares
    it. (ADR 0002)
+   *Added 2026-10-05 (ADR 0043).* The message of an exception raised by code
+   digline did not write is payload too: the suite, the application it
+   imports, a target, a library. Who wrote a message is read from the frame
+   that raised it, through every wrap, never from its type. It reaches the
+   person who ran the command and no other recipient. **Ruled before the
+   code:** until the repair of #445 ships, a refusal on the MCP server still
+   carries such a message (GHSA-x6w8-q92m-23h3).
    The **artifacts** a suite declares — the prompt is the thing under test — are
    recorded in every run and cross a boundary only under
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
