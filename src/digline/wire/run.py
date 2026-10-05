@@ -246,7 +246,9 @@ def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, obj
     }
 
 
-def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
+def run_document(
+    run: Run, disclosure: Disclosure, *, note: str | None = None
+) -> dict[str, object]:
     """One stored run, as something outside the perimeter may read it.
 
     **An MCP response is a boundary crossing** and fixed decision 9 governs it.
@@ -289,6 +291,14 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     so a bare count would arrive with nothing to count against. It waits for the
     decision that lets the range itself cross, and `tests/test_wire_boundary.py`
     asserts its absence so this reads as a ruling and not as a gap.
+
+    **`note` is the one key a caller decides**, which is why it is optional.
+    A run named through `latest` brings what resolving it stepped over,
+    `Resolved.note`, and the key is there, empty when nothing was. A baseline
+    is never resolved, so `get_baseline` passes nothing and the key is absent:
+    an empty note there would claim a resolution that did not happen. The
+    sentence is the one `list_runs` already returns in clear, so it opens no
+    new crossing. An added key. (#433)
     """
     return neutralised(
         {
@@ -396,6 +406,7 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
                 "score_metadata": sorted(disclosure.score_metadata),
                 "artifacts": disclosure.artifacts,
             },
+            **({} if note is None else {"note": note}),
         }
     )
 

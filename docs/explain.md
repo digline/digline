@@ -140,6 +140,7 @@ assertion references — and no sentences at all:
   "output_version": 2,
   "scope": "comparison",
   "exit_code": 1,
+  "note": "",
   "facts": [
     {"about": "run", "kind": "cases", "count": 5, "state": null},
     {"about": "setting", "kind": "artifact", "name": "prompts/system.txt",
@@ -157,6 +158,10 @@ assertion references — and no sentences at all:
   ]
 }
 ```
+
+`note` is what resolving `latest` stepped over, the line printed on stderr, and
+empty here because nothing was. It is never a fact about the run: it says which
+run was read, and why that may not be the newest one the store remembers.
 
 Three shapes, and you discriminate on `about` first and then on `kind`: two of
 them have a kind called `within_noise` and they mean different things — one

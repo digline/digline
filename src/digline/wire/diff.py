@@ -64,6 +64,7 @@ def diff_json(
     labels: tuple[str, str],
     sentence: str,
     full: bool,
+    notes: tuple[str, str] = ("", ""),
 ) -> dict[str, object]:
     """What `digline diff --json` prints.
 
@@ -75,6 +76,10 @@ def diff_json(
     The structure is symmetric: `runs.left` and `runs.right`, `favours_left` and
     `favours_right`, `left_exceeds` and `right_exceeds`. Swapping the two
     arguments exchanges every pair and changes nothing else.
+
+    `notes` is what resolving each side stepped over, `Resolved.note`, and it
+    goes beside that side's key: two keys are resolved, so there can be two
+    notes. An added key. (#433)
     """
     payload: dict[str, object] = {
         "output_version": OUTPUT_VERSION,
@@ -86,10 +91,11 @@ def diff_json(
                 "label": label,
                 "created_at": run.created_at,
                 "environment": run.environment,
+                "note": note,
             }
-            for side, key, label, run in (
-                ("left", keys[0], labels[0], left),
-                ("right", keys[1], labels[1], right),
+            for side, key, label, run, note in (
+                ("left", keys[0], labels[0], left, notes[0]),
+                ("right", keys[1], labels[1], right, notes[1]),
             )
         },
         "counts": {
