@@ -333,18 +333,19 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.28.1": (
-            "the core release digline-mcp's floor is owed to, in the table of "
-            "floors owed to the release (#433): the cut that ships it raises "
-            "the floor and deletes the row, and this entry with it"
+        "0.28.0": (
+            "the release whose index-race status is recorded (the first tag "
+            "with the counts in the job summary, the tag message, the installed "
+            "versions, the tags on one digest and the seven locks): history, "
+            "told as such now that 0.29.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
             "for every pin in both builds, the tag message, the installed "
             "versions, the tags pushed onto one digest and the seven locks), and "
             "the core whose `src/` had moved since its tag when "
-            "digline-anthropic-v0.6.1 was cut: history, told as such now that "
-            "0.28.0 is the tree's version"
+            "digline-anthropic-v0.6.1 was cut: history, told as such since "
+            "0.28.0 became the tree's version"
         ),
         "0.6.1": (
             "digline-bedrock's version, in the installed-packages line v0.27.0's "
@@ -710,6 +711,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "page",
     },
     "docs/mcp.md": {
+        "0.28.0": "'Measured on 0.28.0' — the release the dated correction of "
+        "*What never crosses* was measured on (#445). History, and the whole "
+        "paragraph is replaced by ADR 0043 §7's sentence in the release that "
+        "ships the repair",
         "0.16.0": "'Since 0.16.0 the run document marks…' — the release the "
         "instrument's own flags began crossing, told as history on the page "
         "that also records, dated, what it used to promise instead",
@@ -720,6 +725,8 @@ RECORDED: dict[str, dict[str, str]] = {
         "hand-computed median meets the same denominator",
     },
     "docs/api.md": {
+        "0.28.0": "'one way, `key_of`, since 0.28.0' — the release the store "
+        "began answering a run's key one way (ADR 0040), told as history",
         "0.16.0": "'Since 0.16.0 the run does carry it' — the release the "
         "judge's own spending began reaching a document, told as history in "
         "the judging-cost paragraph",
@@ -732,6 +739,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.28.0": (
+            "the release the delta-pass that found GHSA-x6w8-q92m-23h3 ran over, "
+            "and the one that widened its class: history, in *Defects in a "
+            "released package, declared*"
+        ),
         "0.6.0": (
             "digline-bedrock's release that shipped an AWS account into verdict "
             "reasons, and the release the delta-pass that found it was run over: "

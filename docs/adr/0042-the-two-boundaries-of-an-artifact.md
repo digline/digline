@@ -2,7 +2,7 @@
 
 - Status: accepted 2026-10-05. Ruled by discussion on #432, before any code.
   The text comes first and the implementation is written against it
-- Shipped: unreleased
+- Shipped: 0.29.0
 - Date: 2026-10-05
 - Amends: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §4,
   by a pointer only. `Disclosure(artifacts=True)` stays necessary for an

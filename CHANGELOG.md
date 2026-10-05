@@ -6,7 +6,16 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.28.1 — unreleased
+## 0.29.0 — unreleased
+
+digline **0.29.0**. **A minor, because two things stop working for whoever
+upgrades** (ADR 0042, below). A `.py` suite that declares an artifact outside
+the perimeter fails at `run`, with exit 64 and the path. A run that records an
+artifact under `.digline` or `.git` can no longer be promoted, whatever the
+`Disclosure`. Nothing else that worked stops working. No public name is
+removed, no command or option changes, and neither `SCHEMA_VERSION` nor
+`OUTPUT_VERSION` moves. The criterion is whether something stops working, not
+how many people do it.
 
 ### Security — a refusal no longer carries a message digline did not write to an agent ([GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3), #445, ADR 0043)
 
@@ -216,6 +225,21 @@ rises to this release, in its own release after the core's. The row is in
 `RELEASING.md`'s table. `pytest-digline` reads only `Resolved.note`, public
 since 0.6.0, so its floor does not move. It needs a release of its own to
 ship this.
+
+## pytest-digline 0.2.2 — unreleased
+
+Published with digline 0.29.0. Its floor stays `digline>=0.20.0`.
+
+- **`latest`'s note is printed under the suite's headline**, as `note: …`, in
+  the `digline` section of the terminal summary: what resolving `latest`
+  stepped over, such as a renamed run left out. Its sharpest case is a
+  baseline promoted from a run newer than the one compared, where every row is
+  an older run held against a newer reference and a red is not a regression.
+  It is not a warning, because under `-W error` a warning fails the session and
+  a note is not a verdict (#433).
+- **The floor does not move.** The plugin reads `Resolved.note`, which every
+  release from 0.20.0 carries, checked tag by tag at the cut rather than
+  assumed.
 
 ## digline-mcp 0.4.4 — 2026-10-05
 
