@@ -195,3 +195,17 @@ def test_a_refusal_the_suite_raises_is_refused_with_its_location(
     assert f"raised RefusedError: {MARKER} at {tmp_path.resolve()}" in whole, whole
     assert "For the full traceback, run:" in whole
     assert MARKER not in agent(refused)
+
+
+def test_a_toml_suite_that_is_not_utf8_quotes_no_byte(tmp_path: Path) -> None:
+    """§6, amended, the second site: `bytes.decode` is a builtin, so its frame
+    was digline's, and its message quoted a byte of the file. Measured at
+    58dfb60: *"can't decode byte 0xe8 in position 95"* reached the agent. Now
+    nothing is quoted, on either front end, and the offset is digline's."""
+    suite = tmp_path / "suite.toml"
+    suite.write_bytes(b'[suite]\nname = "qa"\n# Mario Rossi \xe8\n')
+    with pytest.raises(UsageError) as caught:
+        load_suite(str(suite))
+    whole = str(caught.value)
+    assert whole == f"{suite} is not UTF-8 at byte 34", whole
+    assert agent(caught.value) == whole
