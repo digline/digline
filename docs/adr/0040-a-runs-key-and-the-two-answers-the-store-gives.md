@@ -5,9 +5,9 @@
   was proposed. **The option was ruled on 2026-10-04, in discussion: C,
   checked in `scan_runs` (§4).** The four questions that ruling left open, and
   a fifth, were ruled on 2026-10-05, also in discussion (§5). *Not decided
-  here* keeps what is still open: one case §5 found and did not rule, a
-  defect it names and leaves to its own issue, and the items of §3 no ruling
-  named. The local repair ruled before this record (§*Context*) is recorded
+  here* keeps what is still open: a document with no `key_of` to compute,
+  which no ruling covers; one case §5 found and did not rule; a defect it
+  names and leaves to #433; and the items of §3 no ruling named. The local repair ruled before this record (§*Context*) is recorded
   as ruled
 - Shipped: unreleased
 - Date: 2026-10-01
@@ -403,15 +403,16 @@ run the register names. Those are committed artifacts, not the left-out file.
 **The channel is a defect of its own, named here and not repaired here.**
 `Resolved.note` reaches one front end of three:
 - the CLI prints it on stderr (`_resolve`, `cli/main.py`);
-- `digline-mcp` drops it in `named()` (`server.py`), behind `get_run`. Its
-  comment says `list_runs` reports it, but `list_runs` reports
-  `SuiteRuns.note()`, which is built without any pick;
+- `digline-mcp` drops it in `named()` (`server.py`), behind `get_run`,
+  `compare` and `diff`. Its comment says `list_runs` reports it, but
+  `list_runs` reports `SuiteRuns.note()`, which is built without any pick;
 - MCP's `explain` and `pytest-digline`'s `latest` take `.key` and nothing
   else.
 
 The same is already true of `_newer_on_record`'s sentences. It is the family
-of #396: a note one surface says and the others do not. It is in *Not decided
-here*.
+of #396, a note one surface says and the others do not, but not #396 itself:
+a different note on different tools, and reading `.note` moves neither
+plugin's `digline` floor, which is the cost #396 turns on. **It is #433.**
 
 ### 5.3 The repair is a refusal that explains
 
@@ -489,6 +490,12 @@ before that ruling. It is written here so that it does not read as open.
 
 ## Not decided here
 
+- **What C does with a document whose `created_at` or `config_hash` cannot be
+  read.** C needs both to compute a `key_of`, and none of §5's rulings covers
+  a document without one. Today such a document passes the scan if its
+  `schema_version` is current, and `read_run` refuses it afterwards, so **C
+  does not touch it at all.** It is the first case whoever builds the repair
+  will meet.
 - **Two left-out files with one `key_of`, and no listed file under it** (§5.1).
   A renamed run and a copy of the renamed file are one example. It is D's
   collision, inside the set C leaves out: which file the refusal names, and
@@ -496,10 +503,7 @@ before that ruling. It is written here so that it does not read as open.
 - **The note that reaches one front end of three** (§5.2). It is a defect of
   `resolve_key`'s callers, of #396's family, and it predates this record:
   `_newer_on_record`'s sentences are lost the same way. It is named here and
-  left to an issue of its own.
-- **What C does with a document whose `created_at` or `config_hash` cannot be
-  read.** C needs both to compute a `key_of`. Today such a document passes the
-  scan if its `schema_version` is current, and `read_run` refuses it.
+  left to #433.
 - **The items of §3's list under C that no ruling named:**
   - what each front end says;
   - the protocol's new wording;
