@@ -273,6 +273,17 @@ green. A refusal is the only answer that does not.
 equality and knows no list of them. ADR 0034 §5 names six kinds today and
 capture may add one (§7). The core does not change when that list does.
 
+*Noted 2026-10-05; the paragraph above is kept as written.* **The kinds are
+ten, not six.** ADR 0034 §5 names six *strings*. The code has ten *kinds*
+(`TokenKind` in `src/digline/core/tokens.py`, measured at `7b130c3`). The
+sixth string, configuration keys and values, is five kinds there: a key kind
+and a value kind on the target's side and on the judge's, and the judge's
+`provider/model` identity. They are separate so that an equality between two
+places does not tell the software house what it must not have. The Context's
+*"six kinds of string"* and §5's *"all six"* count the same way. Capture adds
+no kind: an elected case's token is of the `case_id` kind (§7, ruled
+2026-10-05).
+
 ### 4. Tokens are per (tenant, suite); the run key joins nothing in the table
 
 > **A token is stable for the life of its row, across every document of its
@@ -434,6 +445,22 @@ condition without needing an accident.
   exist; ADR 0023 §6 and §7 carry dated notes pointing there.* **Whether an elected case's token is the
   `case_id` kind or a kind of its own is not decided here.** Under §4 either
   works: the line resolves by token alone, without carrying a kind.
+
+  *Ruled 2026-10-05; the bullet above is kept as written.* **An elected
+  case's token is of the `case_id` kind.** The two sentences contradict each
+  other. §4 already states the outcome as a consequence it wants: *"a later
+  projection of a run containing that case finds the same row and the same
+  token, and the software house's election line and its projection name one
+  case with one token."* Look-up-or-mint is keyed by (kind, text) (§6), so
+  that holds only if the election mints under the kind the projection mints
+  a case's id under, which is `case_id`. Under a kind of its own, the same
+  case has two rows and two tokens. *"Either works"* is true of the
+  mechanism, because the line resolves by token alone. It is false of that
+  outcome. **§4 prevails, because it states a consequence, and this bullet
+  speaks only of the mechanism.**
+  Written as the condition the outcome rests on: one case, one token **for
+  as long as the election mints the same text the case carries as its
+  `case_id` in a run**, whichever rule makes that id (below).
 - **The erasure** removes rows (§9).
 
 *Amended 2026-10-01: the sentence
@@ -648,6 +675,8 @@ it already gone.
 - **Whether an elected case's token is the `case_id` kind or a kind of its
   own** (§7), and **whether capture's inside id follows §5's rule** — ADR 0023
   §6 is unchanged.
+  *Ruled 2026-10-05, in §7: the token is of the `case_id` kind. The inside
+  id's rule is still open. The bullet is kept as written.*
 - **What clears a lease left by a killed process**, if a detector for a second
   writer is ever built (§6).
 - **Whether the party that produces a projection keeps a copy of it** at the
