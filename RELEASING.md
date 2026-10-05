@@ -1734,10 +1734,13 @@ is the one a quiet log cannot supply.
   - `imported 6`, and the quickstart's 3 calls.
 
   The steps that write the job summary (`gate_summary.py`, *What PyPI would
-  take, read before the gate*) succeeded in both jobs. The check-run API
-  carries no summary, so this session could not see what the page showed
-  beside *Review deployments*. Whether it was visible there is the approver's
-  to say, and it is not recorded here yet.
+  take, read before the gate*) succeeded in both jobs. **Whether the summary
+  showed beside *Review deployments* was not observed.** The check-run API
+  carries no summary, so this session could not see the page. The approver
+  approved on the counts in the session's message and did not look at it. So
+  on this tag the summary was not where the counts were read. Whether it can
+  be is still open: the approver will look at it on purpose before clicking at
+  the next release, and only then does this line become a fact.
 
   Uploads landed at 08:28:39.5 and 08:28:41.5. The version endpoint answered
   200 and its control, `/pypi/digline/9.9.9/json`, answered 404.
@@ -1778,7 +1781,8 @@ is the one a quiet log cannot supply.
     at 08:33:57.
 
   **The next tag must show** the pair for every pin again, the counts before
-  the click, and whether the job summary is where the approver reads it.
+  the click, and the job summary looked at beside the button before the click,
+  with what it showed.
 
 - **v0.27.0 — the pair agreed for every pin in both builds, and the smoke
   build waited for the upload instead of racing it.** `publish`
