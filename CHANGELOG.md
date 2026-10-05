@@ -41,9 +41,9 @@ A patch: nothing that ran on 0.6.0 stops running.
 
 ## 0.28.0 — unreleased
 
-**A minor, not a patch.** The exit code contract gains a value. A consumer
-that enumerated `0`, `1`, `2` and `64` now receives `70`, and
-`examples/operator/loop.py` stops where it used to carry on. That is an
+digline **0.28.0**. **A minor, not a patch.** The exit code contract gains a
+value. A consumer that enumerated `0`, `1`, `2` and `64` now receives `70`,
+and `examples/operator/loop.py` stops where it used to carry on. That is an
 improvement, and it is still a change somebody upgrading can see. The
 criterion is whether something a user relies on stops working, not whether
 the old behaviour was right (ADR 0041).

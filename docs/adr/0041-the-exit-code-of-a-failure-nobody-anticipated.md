@@ -7,7 +7,7 @@
   after the first text when the MCP test pinning 27bc37e turned red, the rule
   in §4.1 by which a suite's failure while it loads is refused with its
   location
-- Shipped: unreleased
+- Shipped: 0.28.0
 - Date: 2026-10-03
 - Amended: 2026-10-04, before 0.28.0 was cut, in §4.1's rule 1, in a new §4.2,
   in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
