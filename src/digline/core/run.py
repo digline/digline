@@ -18,7 +18,7 @@ from typing import Any, cast
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
-from digline.core.refused import RefusedError
+from digline.core.refused import Quoted, RefusedError
 from digline.core.text import recordable
 from digline.core.tokens import is_token
 from digline.core.types import (
@@ -2863,8 +2863,7 @@ def run_from_dict(raw: object) -> Run:
         return _run_from_mapping(cast(Mapping[str, Any], raw))
     except (TypeError, AttributeError) as exc:
         raise DocumentRefusedError(
-            f"the run document does not have the shape of a run "
-            f"({type(exc).__name__}: {exc})"
+            Quoted.of(exc, "the run document does not have the shape of a run (", ")")
         ) from exc
     except ValueError as exc:
         # **A bare `ValueError` is a refusal nobody classified** (0.21.0
@@ -2886,7 +2885,7 @@ def run_from_dict(raw: object) -> Run:
         # converted the same way, and still reads as a refused document.
         if type(exc) is not ValueError:
             raise
-        raise DocumentRefusedError(str(exc)) from exc
+        raise DocumentRefusedError(Quoted.of(exc, "", named=False)) from exc
 
 
 def declared_integer(
@@ -3155,5 +3154,7 @@ def run_from_json(payload: str) -> Run:
     try:
         raw = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise DocumentRefusedError(f"the run document is not JSON ({exc})") from exc
+        raise DocumentRefusedError(
+            Quoted.of(exc, "the run document is not JSON (", ")", named=False)
+        ) from exc
     return run_from_dict(raw)

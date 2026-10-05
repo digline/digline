@@ -26,6 +26,14 @@ the names of the rules that moved, each of which arrives in a stored run
 document somebody else may have written. `digline.wire` neutralises the
 documents it renders; an exception message is not one of them and reached the
 client raw. (the release delta-pass over 0.18.0)
+
+**And a refusal is classified twice: by type, then by frame.** Being in
+`REFUSALS` says a refusal is deliberate, not that digline wrote what it says.
+A suite can raise `RefusedError` with a case in its message, and digline wraps
+other code's exceptions in refusals of its own. So the message of an exception
+digline did not write never reaches the agent: it gets the type, the location
+and the command that prints the traceback, rendered by `digline.wire`. Until
+this, it did (#445, GHSA-x6w8-q92m-23h3). (ADR 0043 §1, §3)
 """
 
 from __future__ import annotations
@@ -39,7 +47,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from digline.core import (
     json_visible,
 )
-from digline.host import REFUSALS, refused_exit
+from digline.host import REFUSALS, refused_exit, to_withhold
+from digline.wire import refusal_text
 
 __all__ = ["TRANSLATED", "translated"]
 
@@ -63,11 +72,12 @@ TRANSLATED: tuple[type[Exception], ...] = REFUSALS
 # parameter *list* of the wrapped function, so the decorator keeps each tool's
 # real signature — which is what the SDK reads to build the input schema.
 def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
-    """Re-raise digline's own refusals as `ToolError`, message neutralised.
+    """Re-raise digline's own refusals as `ToolError`, rendered for the agent
+    and neutralised.
 
     *Neutralised*, where this said *intact* — and the two differ only in the
-    two ranges `json_visible` names, DEL and C1. Everything a reader is meant
-    to read is untouched.
+    two ranges `json_visible` names, DEL and C1. *Rendered*: whole, except for
+    the message of an exception digline did not write (ADR 0043 §3).
     """
 
     @wraps(fn)
@@ -75,7 +85,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
         try:
             return fn(*args, **kwargs)
         except TRANSLATED as exc:
-            raise ToolError(json_visible(str(exc))) from exc
+            raise ToolError(json_visible(_for_the_agent(exc))) from exc
         # Code the tool ran asked to end the process. Uncaught, it passed
         # through the SDK's worker thread: the call never answered, the server
         # ended at the next request, and the agent read an EOF. The tool stops,
@@ -84,9 +94,13 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             refused = refused_exit(exc)
             if refused is None:
                 raise
-            raise ToolError(json_visible(str(refused))) from exc
+            raise ToolError(json_visible(_for_the_agent(refused))) from exc
 
     return wrapper
+
+
+def _for_the_agent(refusal: BaseException) -> str:
+    return refusal_text(refusal, to_withhold(refusal))
 
 
 def refuse(message: str) -> NoReturn:

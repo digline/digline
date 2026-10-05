@@ -23,6 +23,7 @@ target stays allowed.
 """
 
 from digline.host.artifacts import read_artifacts, read_pinned
+from digline.host.authorship import to_withhold, written_by_digline
 from digline.host.environment import DIRTY_SUFFIX, git_commit, utc_now_iso
 from digline.host.errors import UsageError
 from digline.host.listing import SuiteRuns, left_out, left_out_parts, suite_runs
@@ -91,6 +92,8 @@ __all__ = [
     "instant",
     "load_suite",
     "refused_exit",
+    "to_withhold",
+    "written_by_digline",
     "load_target",
     "load_toml_suite",
     "measure",

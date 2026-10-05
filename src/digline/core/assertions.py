@@ -19,7 +19,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 from digline.core.pii import ITALIAN_PII, PiiPattern
 from digline.core.protocols import Assertion, ClaimJudge, Judge, JudgeAbstained
-from digline.core.refused import RefusedError
+from digline.core.refused import Quoted, RefusedError
 from digline.core.types import (
     ALL_KINDS,
     STORAGE_STEP,
@@ -759,7 +759,11 @@ class Regex(AssertionBase):
         try:
             re.compile(self.pattern)
         except re.error as exc:
-            raise RefusedError(f"Regex.pattern does not compile: {exc}") from exc
+            raise RefusedError(
+                Quoted.of(
+                    exc, f"Regex.pattern does not compile{_at(exc)}: ", named=False
+                )
+            ) from exc
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         if (err := self._accept(inputs.output)) is not None:
@@ -1649,3 +1653,9 @@ class LatencyBudget(AssertionBase):
                 "ratio": inputs.latency_ms / self.max_ms,
             },
         )
+
+
+def _at(exc: re.error) -> str:
+    """` at position 3`, read off the exception: `re`'s message is a library's,
+    and the position is all digline needs from it (ADR 0043 §4)."""
+    return "" if exc.pos is None else f" at position {exc.pos}"

@@ -95,7 +95,9 @@ dependencies = [
     # `latest` leaves reaches the agent. `test_plugin_floors.py` dates names
     # and cannot see a widened signature, and a floor may not name a release
     # that does not exist yet, so the row is in RELEASING.md's table of floors
-    # owed to the release.
+    # owed to the release. The same release carries `to_withhold` and
+    # `refusal_text`, which `errors.translated` imports by name (#445, ADR 0043
+    # §3), so the one raise settles both.
     "digline>=0.28.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

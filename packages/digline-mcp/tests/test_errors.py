@@ -10,24 +10,60 @@ identical words. (ADR 0011 §10, §13)
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
+import digline
 from digline.host import REFUSALS
+from digline.wire import WITHHELD
 from digline_mcp.errors import TRANSLATED, translated
 
 MESSAGE = "the sentence a reader was supposed to see"
+
+#: A file name inside digline's own directory. Nothing is written there: the
+#: frame rule reads the name a frame was compiled under, and that is all this
+#: has to give it. (ADR 0043 §1)
+INSIDE_DIGLINE = str(Path(digline.__file__).resolve().parent / "_raised_by_a_test.py")
+
+
+def raise_inside_digline(exc: Exception) -> None:
+    """Raise `exc` from a frame the frame rule reads as digline's: a refusal
+    digline wrote, as far as the translation can tell."""
+    exec(compile("raise exc", INSIDE_DIGLINE, "exec"), {"exc": exc})  # noqa: S102
 
 
 @pytest.mark.parametrize("kind", TRANSLATED, ids=lambda k: k.__name__)
 def test_a_deliberate_refusal_keeps_its_message(kind: type[Exception]) -> None:
     @translated
     def raises() -> None:
-        raise kind(MESSAGE)
+        raise_inside_digline(kind(MESSAGE))
 
     with pytest.raises(ToolError) as caught:
         raises()
     assert MESSAGE in str(caught.value)
+
+
+@pytest.mark.parametrize("kind", TRANSLATED, ids=lambda k: k.__name__)
+def test_a_refusal_raised_outside_digline_keeps_its_type_and_not_its_message(
+    kind: type[Exception],
+) -> None:
+    """The other half, and #445's: being in `REFUSALS` says *on purpose*, not
+    *written by digline*. A suite or a `preflight` can raise any of these with
+    a case in its message, so the frame decides, and here it is this file's.
+    (ADR 0043 §1, §3)"""
+
+    @translated
+    def raises() -> None:
+        raise kind(MESSAGE)
+
+    with pytest.raises(ToolError) as caught:
+        raises()
+    said = str(caught.value)
+    assert MESSAGE not in said
+    assert f"raised {kind.__name__} at {Path(__file__).resolve()}:" in said, said
+    assert WITHHELD in said, said
 
 
 def test_the_list_is_the_classification() -> None:
@@ -116,7 +152,7 @@ def test_a_refusal_carries_no_raw_control_byte_to_the_client(
 
     @translated
     def raises() -> None:
-        raise kind(f"refused: {HOSTILE}")
+        raise_inside_digline(kind(f"refused: {HOSTILE}"))
 
     with pytest.raises(ToolError) as caught:
         raises()
