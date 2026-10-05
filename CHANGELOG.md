@@ -39,7 +39,7 @@ A patch: nothing that ran on 0.6.0 stops running.
   because calls to one target or judge are sequential. Neither the call nor
   the parse is overridden: the core's stay the only ones.
 
-## 0.28.0 — unreleased
+## 0.28.0 — 2026-10-05
 
 digline **0.28.0**. **A minor, not a patch.** The exit code contract gains a
 value. A consumer that enumerated `0`, `1`, `2` and `64` now receives `70`,
