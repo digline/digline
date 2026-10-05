@@ -189,6 +189,21 @@ artifacts that today exists in none of the audited competitors.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.
+- **An issue is something to do; a record is something to know.** Before
+  opening an issue, ask whether anybody will do something different for having
+  read it. If yes, it is an issue. If it serves only whoever writes an ADR or
+  picks the topic up again, it is a record in `private/`, or a line in a record
+  that already exists.
+  Two things made this plain on 2026-10-05. #448 was opened wrong and retitled
+  22 seconds later: an issue opened that fast is also how issues that are not
+  needed get opened. And #437 and #446 were opened and closed the same morning:
+  they were not defects found, they were a to-do list passed through GitHub.
+  That is allowed, **but say so when you do it**, in the issue itself, so they
+  do not read as defects found.
+  **Something found while working on something else goes into the report, not
+  into an issue.** Name where you would put it — issue, record, or nothing —
+  and the maintainer rules. Never open it on your own initiative from inside a
+  report that is already doing something else.
 - **A worktree audit reports; it never removes on its own judgement.** For each
   worktree give the path, the branch, whether that branch is merged into `main`,
   whether the tree is clean, and how many commits it is ahead — then let a person
