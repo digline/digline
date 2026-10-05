@@ -188,6 +188,11 @@ RECORDED: dict[str, dict[str, str]] = {
             "is the opposite of what it exists to show"
         ),
         "0.17.0": "the second number of that same transcript line",
+        "0.27.0": (
+            "the last release in which a projected reference ended `digline log` "
+            "in a traceback and a range was printed over a flip nobody excluded "
+            "(#402): history, told as 'through 0.27.0'"
+        ),
     },
     "packages/digline-mcp/src/digline_mcp/errors.py": {
         "0.18.0": (
@@ -328,11 +333,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.28.0": (
-            "the core release digline-mcp's floor is owed to, in the table of "
-            "floors owed to the release (#414): the cut that ships 0.28.0 raises "
-            "the floor and deletes the row, this entry, and `refused_exit`'s "
-            "note in test_plugin_floors.py's INTRODUCED. The row names both"
+        "0.27.0": (
+            "the release whose index-race status is recorded (the pair agreeing "
+            "for every pin in both builds, the tag message, the installed "
+            "versions, the tags pushed onto one digest and the seven locks), and "
+            "the core whose `src/` had moved since its tag when "
+            "digline-anthropic-v0.6.1 was cut: history, told as such now that "
+            "0.28.0 is the tree's version"
         ),
         "0.6.1": (
             "digline-bedrock's version, in the installed-packages line v0.27.0's "
@@ -344,7 +351,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "for every pin, the tag message checked before the tag, the installed "
             "versions and the seven locks), the release the approval order was "
             "ruled at, and the core version digline-bedrock-v0.6.0's run skipped "
-            "as already on the index: history, told as such now that 0.27.0 is "
+            "as already on the index: history, told as such now that 0.28.0 is "
             "the tree's version"
         ),
         "9.9.9": (

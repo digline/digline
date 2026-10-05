@@ -12,7 +12,7 @@
   holding one run is the original; a defect §5 names and leaves to #433; and
   a gap §6 declares.
   The local repair ruled before this record (§*Context*) is recorded as ruled
-- Shipped: unreleased
+- Shipped: 0.28.0
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   migration. At implementation, C opens no `OUTPUT_VERSION` either: a key it
