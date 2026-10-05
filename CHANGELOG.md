@@ -39,7 +39,7 @@ A patch: nothing that ran on 0.6.0 stops running.
   because calls to one target or judge are sequential. Neither the call nor
   the parse is overridden: the core's stay the only ones.
 
-## 0.28.0 — unreleased
+## 0.28.0 — 2026-10-05
 
 digline **0.28.0**. **A minor, not a patch.** The exit code contract gains a
 value. A consumer that enumerated `0`, `1`, `2` and `64` now receives `70`,
@@ -324,6 +324,51 @@ the old behaviour was right (ADR 0041).
   the journal. A frame cannot tell a real one from code that raises
   `KeyboardInterrupt`, so the two are not told apart. `pytest-digline` is not
   touched.
+
+### Seen working in a browser — the walkthrough, owed and run
+
+- **The walkthrough in `RELEASING.md` ran on 2026-10-05, before the tag,**
+  between about 08:05 and 08:15 UTC, in Safari on macOS, on the release
+  branch (#439), in one browser engine. It was owed for 0.27.0's reason. The
+  page that carries the promote form reads through a store that now leaves out
+  and refuses a run file named other than its key (#435, ADR 0040). And
+  `view`'s answer after a promotion changed (ADR 0041 §4.2). The launch key,
+  the hand-over and the form did not change.
+  - **Which digline ran:** `digline.__file__` resolved to the release
+    checkout's `src/digline/`, and the promoted document says
+    `digline_version` 0.28.0.
+  - **The store carried #435's two cases.** One was a run moved by hand to a
+    name that is not its key. The other was a Finder copy, `<key> copy.json`.
+    The page listed three runs, with the baseline on the oldest. Neither file
+    was listed, and the note under the list named both.
+  - **The promotion worked.** *Make baseline*, pressed on the top row, moved
+    the baseline to the 08:03:44 run, with `promoted_at` in microseconds and
+    `projected: false`.
+  - **Four refusals, each a 403 with its own cause:**
+    - no cookie, in a private window (*carries no cookie*);
+    - a cookie from an earlier start, after a restart (*not issued by this
+      start … from an earlier start*);
+    - an address already opened, reopened in a private window (*already been
+      opened*);
+    - the button behind that address, with no cookie (*carries no cookie*).
+
+    `git diff` showed nothing new after any of the four.
+  - **Found: the note is true and complete, and badly written (#440).** It
+    does not block this release.
+    - The page puts *Not shown:* in front of a note that begins *left out for
+      their name:*, so two prefixes say the same thing.
+    - One key appears three times in one sentence, on a single line.
+  - **Not tried: #374's refusal. This is a hole in the walkthrough's store,
+    not a case that was missed.** The store is built from the quickstart, and
+    the quickstart suite declares no aggregate. So it can never hold a run
+    whose run-level verdict is in `error`, and no walkthrough run as written
+    can show `view`'s promote button refused on one. 0.27.0 hit the same hole,
+    so this is the second release running. Closing it means a walkthrough
+    store with an aggregate, and `RELEASING.md` does not have one yet. The
+    refusal is covered by `tests/test_promotion_refusals.py`, and `view`
+    catches `REFUSALS` whole. That was read in the code, not seen in a
+    browser.
+  - **Not tried:** a second browser engine.
 
 ## digline-bedrock 0.6.1 — 2026-10-02
 
