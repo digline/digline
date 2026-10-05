@@ -1,7 +1,7 @@
 # ADR 0042 — The two boundaries of an artifact
 
-- Status: proposed — ruled 2026-10-05 by discussion, on #432, before any
-  code. The text comes first and the implementation is written against it
+- Status: accepted 2026-10-05. Ruled by discussion on #432, before any code.
+  The text comes first and the implementation is written against it
 - Shipped: unreleased
 - Date: 2026-10-05
 - Amends: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §4,
