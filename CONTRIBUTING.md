@@ -2,11 +2,24 @@
 
 Thanks for looking. A few things worth knowing before you open a pull request.
 
-- **Run the gates**: `uv sync --all-packages --locked`, then
-  `pytest -m "not live"`, `ruff format --check .`, `ruff check .`, `pyright`.
+- **Run the gates**, from the repository root:
+
+  ```sh
+  uv sync --all-packages --locked
+  uv run pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
+  uv run pytest -q -m "not live" tests/test_type_gate.py
+  uv run ruff format --check .
+  uv run ruff check .
+  uv run pyright
+  uv run python tools/home_capture.py --check
+  uv run python tools/example_locks.py
+  ```
+
   All of them are green on `main`, and CI runs them on 3.12, 3.13 and 3.14 — the
   `gates` job of `.github/workflows/ci.yml` is the list, and this is a copy of
-  it. `--locked` matches CI: it refuses a `uv.lock` that has fallen behind
+  it, held to it by `tests/test_releasing.py`. The tests run in two commands
+  because `tests/test_type_gate.py` writes into `src/digline/` while other tests
+  read that tree; it refuses to share a parallel run. `--locked` matches CI: it refuses a `uv.lock` that has fallen behind
   `pyproject.toml` rather than rewriting it, so a lock you forgot to commit
   fails here instead of passing locally and reddening the pull request.
 - **Run pyright as `uv run pyright`, which is how CI runs it.** pyright does
