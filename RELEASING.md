@@ -223,7 +223,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | `get_run`, `compare`, `diff` and `explain` pass `note` to `run_document`, `compare_json`, `diff_json` (as `notes`) and `explain_json`, which first take it in this release (#433). Against any core released before it the call raises `TypeError`. | `0.28.1` | replace the *Owed at the cut* paragraph beside the floor with the reason the floor moved, release digline-mcp on its own tag once the core is on PyPI, and drop RELEASING.md's `0.28.1` in `test_versions.py`'s `RECORDED` |
+| `digline-mcp` | `get_run`, `compare`, `diff` and `explain` pass `note` to `run_document`, `compare_json`, `diff_json` (as `notes`) and `explain_json`, which first take it in this release (#433). And `compare` and `explain` pass `run` to `compare_json` and `explain_json`, and `explain` passes `baseline` too, which also first take them in this release (#448). Two reasons, one raise. Against any core released before it either call raises `TypeError`. | `0.28.1` | replace the *Owed at the cut* paragraph beside the floor with the reason the floor moved, release digline-mcp on its own tag once the core is on PyPI, and drop RELEASING.md's `0.28.1` in `test_versions.py`'s `RECORDED` |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

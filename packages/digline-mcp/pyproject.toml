@@ -89,13 +89,15 @@ dependencies = [
     # the cut and raised in this package's own release, after the core was on
     # PyPI, because a floor may not name a release that does not exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #433.**
+    # **Owed at the cut: raise to the core release that carries #433 and #448.**
     # `get_run`, `compare`, `diff` and `explain` pass `note` (`notes` on
     # `diff_json`) to builders that first take it in that release, so the note
-    # `latest` leaves reaches the agent. `test_plugin_floors.py` dates names
-    # and cannot see a widened signature, and a floor may not name a release
-    # that does not exist yet, so the row is in RELEASING.md's table of floors
-    # owed to the release.
+    # `latest` leaves reaches the agent (#433). `compare` and `explain` pass
+    # `run`, and `explain` `baseline`, to builders that first take them in the
+    # same release, so the answer names the run it read (#448). One raise, for
+    # both. `test_plugin_floors.py` dates names and cannot see a widened
+    # signature, and a floor may not name a release that does not exist yet,
+    # so the row is in RELEASING.md's table of floors owed to the release.
     "digline>=0.28.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
