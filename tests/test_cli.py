@@ -382,6 +382,10 @@ COMPARE_KEYS = {
     # again; it moves no exit code, and it is here because MCP's `compare`
     # returns this object and has no stderr.
     "note",
+    # #448: the run held against `baseline_key`, derived from the run that was
+    # read, so `--run latest` says which run it picked. An added key, the same
+    # rule again, and it moves no exit code.
+    "run_key",
 }
 
 

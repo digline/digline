@@ -146,6 +146,7 @@ def compare_json(
     baseline: Run,
     full: bool,
     note: str = "",
+    run: Run | None = None,
 ) -> dict[str, object]:
     """The headline, not the document: a pipeline wants the facts, and the
     sentence it carries is the same one a customer will read.
@@ -171,6 +172,14 @@ def compare_json(
     # pass the key of a different reference. An added key under
     # `OUTPUT_VERSION = 2`'s rule. (ADR 0031 §2)
     payload["baseline_key"] = key_of(baseline.created_at, baseline.config_hash)
+    # And the run held against it, by the same derivation and for the same
+    # reason: from the document that was read, so the key confirms which run
+    # was compared rather than echoing what the caller typed — `latest` is a
+    # word, and a key typed by hand is only checked by a store that chooses to.
+    # Absent only for a caller written before it, which passes no `run`; every
+    # front end in this repository passes one. An added key. (#448)
+    if run is not None:
+        payload["run_key"] = key_of(run.created_at, run.config_hash)
     # What resolving the run stepped over: `Resolved.note`, empty for a key
     # typed by hand. Its sharpest case is a baseline promoted from a run newer
     # than the one `latest` picked, where a `worse` is the past held against

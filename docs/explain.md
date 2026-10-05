@@ -141,6 +141,8 @@ assertion references — and no sentences at all:
   "scope": "comparison",
   "exit_code": 1,
   "note": "",
+  "run_key": "2026-09-04T13-56-48-910510-00-00-331b1cfd9709f0cd",
+  "baseline_key": "2026-09-04T13-55-47-725244-00-00-331b1cfd9709f0cd",
   "facts": [
     {"about": "run", "kind": "cases", "count": 5, "state": null},
     {"about": "setting", "kind": "artifact", "name": "prompts/system.txt",
@@ -162,6 +164,12 @@ assertion references — and no sentences at all:
 `note` is what resolving `latest` stepped over, the line printed on stderr, and
 empty here because nothing was. It is never a fact about the run: it says which
 run was read, and why that may not be the newest one the store remembers.
+
+`run_key` is the run that was read, and `baseline_key` the reference it was held
+against. Both come from the documents read, not from what you typed, so they
+name the run `latest` picked and confirm a key typed by hand. `baseline_key` is
+there only in the `comparison` scope: in the `run` scope no reference was read.
+`compare --json` carries `run_key` beside its `baseline_key` for the same reason.
 
 Three shapes, and you discriminate on `about` first and then on `kind`: two of
 them have a kind called `within_noise` and they mean different things — one

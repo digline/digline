@@ -124,6 +124,37 @@ configuration that moved, which may have been meant.
 crosses, because the question there is content and not path. So do files git
 ignores, such as `.env`. ADR 0042 names both limits.
 
+### Fixed — `compare` and `explain` name the run they read (#448)
+
+`compare --json` named its reference, `baseline_key`, and **not the run it held
+against it**. An agent that called `compare(run="latest")` learned whether the
+run got worse, and against which baseline, but not which run. To quote it, or
+recommend it for promotion, it had to call `get_run` again, and a run landing
+in between made that second `latest` a different run. `explain --json` was
+worse: the CLI named neither document, MCP's `explain` named the run only
+because the server added `key` beside the document, and **neither surface named
+the reference**, even in the `comparison` scope, where `explain` holds the run
+against the same baseline `compare` does.
+
+- **`compare --json` and MCP's `compare` carry `run_key`**, beside
+  `baseline_key`, in both shapes.
+- **`explain --json` and MCP's `explain` carry `run_key`, and `baseline_key` in
+  the `comparison` scope.** In the `run` scope no reference was read, and the
+  key is absent rather than `null`.
+- **Derived from the documents read, never copied from the caller.** A key
+  typed by hand comes back as a confirmation of the run digline used. Today
+  the file store already refuses a file whose name is not its run's key, so
+  the two agree; derived in `digline.wire`, the guarantee no longer depends on
+  which `ResultStore` is behind it.
+- **Added keys under `OUTPUT_VERSION = 2`, in `_ADDED`**, built by
+  `digline.wire` and not added by the server. They are optional in the
+  contract: `compare_json` and `explain_json` take the documents as new
+  keyword arguments with a default, so `digline-mcp` 0.4.4, which passes none,
+  keeps working and emits neither.
+- **MCP's `explain` keeps its `key`**, which now names the same run as
+  `run_key`. Removing a key an agent reads is a change, not an addition, and
+  waits for the next `OUTPUT_VERSION` bump.
+
 ### Fixed — `latest`'s note reaches an agent and a pytest session (#433)
 
 `--run latest` resolves to the newest run this store can read, and says what

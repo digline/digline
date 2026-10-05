@@ -511,6 +511,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
             baseline=baseline,
             full=args.json == "full",
             note=resolved.note,
+            run=run,
         )
         emit(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
@@ -859,6 +860,8 @@ def cmd_explain(args: argparse.Namespace) -> int:
                     scope=read.scope,
                     exit_code=read.exit_code,
                     note=resolved.note,
+                    run=read.run,
+                    baseline=read.baseline,
                 ),
                 sort_keys=True,
                 indent=2,
