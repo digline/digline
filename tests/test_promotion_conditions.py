@@ -1,6 +1,6 @@
 """Condition 8 is an obligation no signature states, so a walk states it.
 
-`promote_baseline`'s eight conditions live in three places (see
+`promote_baseline`'s conditions live in three places (see
 `digline/store/promotion.py`): the reading answers 1 and 7, `refusals_for`
 answers the five that follow from the document, and **8 is left to each
 backend, beside its own write** — because it asks what the store holds now, and

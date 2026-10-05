@@ -1,7 +1,7 @@
 """Promotion for anything that drives digline: the hash is computed, not passed.
 
 `ResultStore.promote_baseline` checks a run against `expected_config_hash`,
-the configuration in force — condition 2 of the eight (ADR 0002 §8). A caller
+the configuration in force — condition 2 in ADR 0002 §8. A caller
 outside digline could not compute that hash from the names `docs/api.md`
 documented: it is `suite.config_hash(pricing=...)` over the digest of the
 target the run was measured with, and a Python suite that declares no target

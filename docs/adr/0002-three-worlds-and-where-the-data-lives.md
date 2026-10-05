@@ -365,12 +365,30 @@ does **not** bring an exception type of its own — it raises `ErroredRunError`,
 Anyone counting exception types finds five and stops. That is the argument for naming
 conditions rather than counting them, made by the correction of a count.*
 
-*Where each is enforced, since it is not all one function: 2 to 6 are raised by
-`promote_baseline` itself, in the order 2, 4, 6, 3, 5. **1 is not** — a run addressed
-through the wrong tenant is refused by `read_run`, which `promote_baseline` calls first,
-so the condition holds on promotion without appearing in it. It is listed here because it
-is a condition on promoting, and a reader who went looking for it in `promote_baseline`
-would not find it.*
+*Where each is enforced, since it is not all one function, and three places because they
+answer three different questions (`store/promotion.py`'s docstring gives the reasons).
+**1 and 7 belong to the reading**: a run addressed through the wrong tenant, or one whose
+document declares another suite, is refused by `read_run`, which `promote_baseline` calls
+first, so the two hold on promotion without appearing in it. **2 to 6 answer from the
+document alone**: they are `refusals_for`, which returns them in the order 2, 4, 6, 3, 5
+and which every store calls rather than restating them. **8 belongs to the write**: each
+backend checks it beside its own write, last. They are all listed here because they are
+conditions on promoting, and a reader who went looking for all of them in
+`promote_baseline` would not find them.*
+
+*Corrected 2026-10-05 (#437), and the error was about **where**, not only how many. The
+paragraph above said 2 to 6 "are raised by `promote_baseline` itself" and named 1 as the
+one exception. That was false from 2026-09-28, when `a5ee760` moved 2 to 6 into
+`refusals_for`. And 1 had not been the only exception since 2026-09-24: 7 is a second
+refusal of `read_run`, and 8 is checked in each backend. 7 and 8 were also missing from
+the list below. Both arrived on 2026-09-24, and neither came back to add itself here. That
+is the cause the first amendment of 2026-09-22 named and left standing: it took the count
+out of the heading, and nothing held the list to the code. Since this correction,
+`tests/test_promotion_list.py` holds the list below equal, number for number and type for
+type, to the one in `ResultStore.promote_baseline`'s docstring. That copy sits beside the
+code, and it is the one 7 and 8 did reach. The test also requires every type in
+`PromotionRefusal`, and the type `refusal_for_a_moved_baseline` returns, to appear in the
+list. What the test cannot see is stated in its own docstring.*
 
 1. **`TenantMismatchError`** — the run's tenant does not match the one it is addressed
    with. A perimeter is not crossed because of a wrong copy (§1).
@@ -412,6 +430,21 @@ would not find it.*
    reason — "a reference nobody can say that of is no reference" — and did not come back
    to add itself here. It shares an exception type with 3, which is why the amendment
    above found five conditions by counting types and missed this one.*
+
+7. **`SuiteMismatchError`** — the stored run declares a suite other than the one it was
+   addressed through. A document that contradicts itself is refused, not filed where it
+   claims to belong. Raised by `read_run`, beside 1.
+   *Added on 2026-09-24 by `b3735a5`, shipped in 0.19.2, with no record of its own. It
+   reached `ResultStore.promote_baseline`'s list and not this one. Brought here on
+   2026-10-05 (#437).*
+8. **`BaselineMovedError`** — the baseline present now is not the one the run was compared
+   against, which the person promoting names. Promoting would replace a reference nobody
+   compared the run against: the lost update. Checked **last**, because every refusal
+   above is about the run and holds whatever the reference, and beside the write, which
+   is as narrow as the window gets without a lock.
+   *Added by [ADR 0031](0031-the-reference-promote-replaces.md), accepted 2026-09-24
+   and shipped in 0.20.0: §1 for the key the person supplies, §4 for the type. Like 6,
+   it did not come back to add itself here. Brought here on 2026-10-05 (#437).*
 
 *Numbering note: this section is the eighth, not the sixth, because inserting §1-bis
 shifted the numbering after the initial draft. §6 remains the `case_id`.*
