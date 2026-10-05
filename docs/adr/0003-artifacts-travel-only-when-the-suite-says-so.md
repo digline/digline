@@ -3,6 +3,10 @@
 - Status: accepted
 - Shipped: 0.1.0
 - Date: 2026-08-26
+- Amended: 2026-10-05, by [ADR 0042](0042-the-two-boundaries-of-an-artifact.md),
+  in §4 only and by a pointer. The flag is necessary and no longer sufficient:
+  a file outside the perimeter is not read, and one under `.digline` or `.git`
+  does not cross. §5's meaning of `withheld` does not change
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md), §2 and §3
 - Touches: fixed decision 9 (`CLAUDE.md`), which lists what crosses a boundary
 
@@ -83,6 +87,12 @@ exception is a principle nobody can apply from memory.
 
 Turning it on is one line in the suite, which is code, which goes through a
 review — the same route by which every other widening of a perimeter is decided.
+
+*Amended 2026-10-05.* The flag decides **whether** the declared files cross,
+not **which** files may be declared. [ADR 0042](0042-the-two-boundaries-of-an-artifact.md)
+adds two boundaries. A file outside the perimeter is never read, in either suite
+format. A file under `.digline` or `.git` is recorded but refused at the exit:
+the command refuses, and the document is not narrowed.
 
 Locally nothing changes: the complete run always carries its artifacts, because
 in world 1 the developer owns both the prompt and the data.
