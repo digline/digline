@@ -20,8 +20,9 @@
   paragraph says the declared artifacts *"cross a boundary only under
   `Disclosure(artifacts=True)`"*. That stays true, because the flag is still
   necessary. It stops being the whole rule, and the paragraph gains a pointer
-  here. **It also adds a ninth promotion condition** to those ADR 0002 §8
-  collects (§3), the way ADR 0031 §1 added the eighth
+  here. **It also adds a promotion condition**, the ninth by
+  `store/promotion.py`'s count (§3). ADR 0002 §8, which collects them, names
+  six (*Consequences*)
 - Number: 0042. Swept on 2026-10-05, before a line was written, across
   `origin/main` (`091fb1d`), every local and remote branch, the `docs/adr/` of
   every sibling worktree, the open pull requests (#435, no record) and
@@ -214,9 +215,11 @@ refused only if the new run carries such a file.
 
 ## Consequences
 
-- A `.py` suite that declares a file outside its perimeter fails at `run` with
-  the field and the resolved path, which is the TOML form's sentence since
-  0.7.1.
+- A `.py` suite that declares a file outside its perimeter fails at `run`. The
+  refusal names the field and the resolved path. This record does not promise
+  that its wording is the TOML form's: the refusal is raised in
+  `read_artifacts`, which is not `within_perimeter`, and how the two are
+  written is left to the code.
 - `report --redacted` and the MCP refuse, with exit 64 and the path, a run
   whose suite discloses artifacts and which records one under `.digline` or
   `.git`, in any case and at any depth. They refuse the same for a key that
@@ -227,10 +230,27 @@ refused only if the new run carries such a file.
 - No `SCHEMA_VERSION`, no `OUTPUT_VERSION`: nothing is added to a document.
 - ADR 0003 §4 gains a pointer here, in the change that carries this record.
 - Owed in a later change, not this one: `CLAUDE.md` decision 9's artifact
-  paragraph gains a pointer here, and these pages say `Disclosure(artifacts=True)` *is what lets* the files travel,
-  and they gain *"inside the perimeter, and outside `.digline` and `.git`"*:
-  `docs/api.md` (twice), `docs/tools.md`, `docs/mcp.md` and
-  `packages/digline-mcp/README.md`.
+  paragraph gains a pointer here.
+- Owed in the same later change: five pages say `Disclosure(artifacts=True)` *is
+  what lets* the files travel, and each gains *"inside the perimeter, and
+  outside `.digline` and `.git`"*: `docs/api.md` (twice), `docs/tools.md`,
+  `docs/mcp.md` and `packages/digline-mcp/README.md`.
+- **The promotion conditions are growing faster than anyone reads them
+  together.** This is an observation, not a ruling.
+  - This record's condition is the ninth by `store/promotion.py`'s count.
+  - Conditions 1 to 3 date from ADR 0001 (2026-08-25). Five more arrived in
+    fourteen days: 4 on 2026-09-11 (ADR 0015 §7), 5 on 09-16 (ADR 0024 §4.5),
+    6 on 09-19 (ADR 0027 §3), and 7 and 8 on 09-24 (b3735a5 and ADR 0031 §1).
+  - ADR 0002 §8, the section that collects them, names six. Its amendment of
+    2026-09-22 says why: each condition is added by the record that decides it,
+    *"and none came back to say so here"*. Conditions 7 and 8 have not come
+    back either.
+  - `PromotionRefusal` is a closed union declared in the protocol, so every
+    addition is public surface.
+
+  A list that grows this way has to be read whole, at some point, to learn
+  whether it has a principle or is a collection. Writing that down now costs
+  a line. Noticing it at the twelfth costs a survey.
 - The comment in `host/loader.py` stays true, because it is about reading. It
   gains a sentence saying that crossing is ruled here.
 
