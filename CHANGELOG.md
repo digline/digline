@@ -347,7 +347,7 @@ the old behaviour was right (ADR 0041).
   - **Four refusals, each a 403 with its own cause:**
     - no cookie, in a private window (*carries no cookie*);
     - a cookie from an earlier start, after a restart (*not issued by this
-      start*);
+      start … from an earlier start*);
     - an address already opened, reopened in a private window (*already been
       opened*);
     - the button behind that address, with no cookie (*carries no cookie*).
@@ -358,12 +358,16 @@ the old behaviour was right (ADR 0041).
     - The page puts *Not shown:* in front of a note that begins *left out for
       their name:*, so two prefixes say the same thing.
     - One key appears three times in one sentence, on a single line.
-  - **Not tried: #374's refusal, for the second release running.** The
-    quickstart suite declares no aggregate, so the store had no run whose
-    run-level verdict is in `error`. No browser has seen `view`'s promote
-    button refused on such a row. The refusal is covered by
-    `tests/test_promotion_refusals.py`, and `view` catches `REFUSALS` whole.
-    That was read in the code, not seen in a browser.
+  - **Not tried: #374's refusal. This is a hole in the walkthrough's store,
+    not a case that was missed.** The store is built from the quickstart, and
+    the quickstart suite declares no aggregate. So it can never hold a run
+    whose run-level verdict is in `error`, and no walkthrough run as written
+    can show `view`'s promote button refused on one. 0.27.0 hit the same hole,
+    so this is the second release running. Closing it means a walkthrough
+    store with an aggregate, and `RELEASING.md` does not have one yet. The
+    refusal is covered by `tests/test_promotion_refusals.py`, and `view`
+    catches `REFUSALS` whole. That was read in the code, not seen in a
+    browser.
   - **Not tried:** a second browser engine.
 
 ## digline-bedrock 0.6.1 — 2026-10-02
