@@ -1716,6 +1716,104 @@ is the one a quiet log cannot supply.
   for is the job summary. It followed this tag, and *After the tag* says what
   it writes.
 
+- **v0.29.0 — a TestPyPI job that never started, cancelled and re-run on
+  attempt 2, and the gate read on that attempt.** `publish` (`37322049792`)
+  passed on attempt 2, `github-release` and the site jobs included.
+  `docker-publish` (`37322049781`) passed on attempt 2, and its attempt 1 was
+  the consequence of `publish`'s, not a race. `tools/tag_names.py "digline
+  0.29.0, pytest-digline 0.2.2"` ran on #464's merge commit, `7ab55c5`, which
+  was `origin/main`, immediately before the tag: two packages, both named,
+  exit 0. The check a person makes until it is built: digline-mcp's `src/`
+  had moved since `digline-mcp-v0.4.4` (three files, #433, #445, #448), on
+  purpose, because its floor may not name 0.29.0 before 0.29.0 is served. It
+  is released on its own tag. anthropic, bedrock and openai: 0 files.
+
+  **Attempt 1 never started TestPyPI.** The build passed at 14:08:04. The
+  TestPyPI job then sat `queued` for 25 minutes with no runner assigned, and
+  the deployment it opened on `testpypi` (`6861176931`) carried no status at
+  all, not even `waiting`, where every earlier release's went through
+  `waiting`, `queued`, `in_progress` and `success` in under a minute. The
+  environment had no reviewer and no wait timer, and its policies admitted the
+  tag. Neither workflow has a `concurrency`. Runners were free: `ci` on `main`
+  ran until 14:10. Nothing had reached either index, so the run was cancelled
+  at 14:52 and re-run with `--failed`. TestPyPI started at 14:52:47 on attempt
+  2, reusing attempt 1's build, and no re-tag was needed.
+
+  **The reviewer gate, on attempt 2.** `/approvals` answers for the run's
+  latest attempt, here 2, and reads `approved` by `alexpran` on `pypi`. The
+  environment reads `can_admins_bypass: false`. Attempt 1 has no approval, and
+  that is correct: it never reached `pypi`. The `pypi` job waited from
+  14:53:57 and started at 14:54:17. The session read the counts from the
+  finished jobs while it waited and sent them in its message:
+  - 16 `twine check` `PASSED`: 12 in `dist/`, 4 in `to-publish/`;
+  - TestPyPI's selection, and PyPI's read before the gate, 4 `publish` and 8
+    `skip`. The four are `digline` 0.29.0 and `pytest-digline` 0.2.2, wheel
+    and sdist;
+  - `imported 6`, and the quickstart's 3 calls.
+
+  **Not observed:** whether that message reached the approver before the
+  click, with the job waiting 20 seconds, and whether the job summary showed
+  beside *Review deployments*.
+
+  Uploads landed at 14:54:44.7 and 14:54:47.9 (`digline`), 14:54:46.5 and
+  14:54:49.2 (`pytest-digline`). The `pypi` job's wait saw every pin served,
+  `digline` 0.29.0 `after 10s`. The version endpoint answered 200 and its
+  control, `/pypi/digline/9.9.9/json`, answered 404.
+
+  **The signatures.** `release_bundles.py` ran with `TIMEOUT=600` and
+  `INTERVAL=10`, started at 14:55:26, and had its four bundles at 14:55:28:
+  the JSON page and the provenance answered on the first read, 14 seconds
+  after the `pypi` job ended, with no 404 and no second request. Eight files
+  were skipped, each by the tag that published it. `sigstore verify github`
+  printed `OK` for all four, and all four `.sigstore.json` are on the release.
+
+  **The index race, both builds.**
+  - **Attempt 1's smoke build waited from 14:06 for an upload that could not
+    come**, because `publish` sat in its queue. It failed at its 1800-second
+    deadline, at 14:36:27, naming `digline==0.29.0` absent from `/simple/`.
+    That red was read, and re-run only after the upload.
+  - **Attempt 2's smoke build saw every pin served `after 0s`**, and the
+    multi-arch build `after 1s`. Its amd64 layers `#10` to `#13` were
+    `CACHED`, and prove nothing new. The arm64 leg ran.
+  - Both builds installed `digline-0.29.0`, `digline-anthropic-0.6.1`,
+    `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
+  - `0.29.0`, `0.29` and `latest` resolve to one digest,
+    `sha256:e4c164bfcf719088e9dd3ba970cb5bd5230763d440169794aec595c73ab2ccee`,
+    read with `docker buildx imagetools inspect` on each tag.
+
+  **Step 6, the capture: it ran, the pair was present for every pin, and it
+  had nothing to explain.** In the smoke build (`#9`) and the arm64 leg
+  (`#15`), `side=wait` and `side=pip` were logged for `digline`,
+  `digline-anthropic`, `digline-openai` and `digline-bedrock`, and each pair
+  carried the same serial. For `digline` that was 41842571, the one after the
+  upload.
+
+  **Elsewhere.**
+  - The seven example locks moved to 0.29.0 with `--upgrade-package digline`.
+    Their diff was read, three lines per lock, and nothing else moved. No lock
+    names `pytest-digline`.
+  - Nine reports were re-rendered in a chain from that commit, each naming the
+    one before it, each from a tree `git status --porcelain` found clean and
+    an environment reporting digline 0.29.0. The reachability check found all
+    of them reachable. `classifier` (`-dirty`) and `prompt-first` (live) were
+    left alone.
+  - **Masked for keys, times and commits, every re-rendered report reads
+    exactly as it did on 0.28.0.** The one line that differs in each is the
+    commit it records. Against a control, two different reports differ by 21
+    lines.
+  - `rag`'s `report` exits 1. It is the example of a regression.
+  - `release-followup` ran at 14:52, on the cancellation of attempt 1, and
+    opened #465. It ticked the reviewer gate and named the three steps still
+    owed, which this paragraph and its pull request are.
+  - `scorecard` on `main` failed at 14:06 on an internal error of GitHub's
+    GraphQL (`ListCommits`). Once this week, so not reported.
+
+  **The next tag must show** the pair for every pin again, the counts before
+  the click, and the job summary looked at beside the button before the click,
+  with what it showed. **And if a job sits queued with no runner and a
+  deployment with no status**, it is a job that did not start: cancel and
+  re-run it once, and stop if the second attempt does the same.
+
 - **v0.28.0 — the first tag with the counts in the job summary, the pair
   agreed for every pin in both builds, and the smoke build waited for the
   upload again.** `publish` (`37283374437`) and `docker-publish`
