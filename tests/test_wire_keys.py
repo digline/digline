@@ -546,6 +546,12 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
     )
 
     yield "run_document", "run_document", run_document(now, Disclosure())
+    # `get_run`'s: the optional key present, as a run resolved by name brings it.
+    yield (
+        "run_document resolved",
+        "run_document",
+        run_document(now, Disclosure(), note="ignored: 1 run(s) at schema 7"),
+    )
     yield (
         "run_document disclosed",
         "run_document",

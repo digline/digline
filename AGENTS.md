@@ -153,6 +153,19 @@ localized, and it is written for the customer who reads the report. `--json`
 is the machine surface — `--json full` when you need the individual deltas —
 and `output_version` is there so a consumer can tell when the shape changed.
 
+**A note beside a run named as `latest` qualifies the result.** `latest` is
+the newest run this store can read. Its `note` says when that is not the newest
+run the store remembers, because the baseline or a register line names a newer
+one, or when files were left out on the way. It is on stderr, in the `--json`
+of `compare`, `diff` and `explain`, and in the MCP tools that resolve a run.
+Say it beside the result. Do not pass a run it names back as the run to read:
+by construction that run cannot be read here. **Do not run the suite to make
+the note go away.** A newer run silences it and finds nothing that was
+missing, and it costs a run. When the note names a baseline newer than the run,
+`compare` held an older run against a newer reference: a `1` still stops you,
+and what you report is that the run is older than its reference, not that
+something regressed. An empty note does not mean nothing is missing.
+
 `1` now has two causes and the headline says which: a check got worse, or a
 canary moved. They are separate fields — `worse` and `canary_moved` — because a
 canary that *improved* is a changed model too, and calling that "worse" would be
@@ -197,10 +210,12 @@ run there is proposing to buy the same answers twice.
 ## 8. When upgrading digline itself, migrate before you promote
 
 A stored run written under an older schema is skipped by a scan and refused by
-name until it is migrated, so `--run latest` starts failing for a reason that
-has nothing to do with the run you asked for. When that happens, say so and
-propose `digline migrate`. Do not run it on your own initiative: a person
-runs it, or tells you to.
+name until it is migrated. So `--run latest` steps over it: it resolves to the
+newest run this digline can read, which can be older than the run you meant,
+and its note says how many runs it skipped and at which schema. It fails only
+when no readable run is left, and that refusal names the migration. Either way,
+say so and propose `digline migrate`. Do not run it on your own initiative: a
+person runs it, or tells you to.
 
 **This was a permission until 0.21.0, and it carried its own expiry.** An agent
 could run `migrate` on one condition: that every step wrote nothing semantic.

@@ -168,6 +168,7 @@ INTRODUCED: dict[str, str] = {
     # control that cannot fire (ADR 0029 §4).
     "read_pinned": "0.19.0",
     "resolve_key": "0.6.0",
+    "Resolved": "0.6.0",
     "need_baseline": "0.6.0",
     "read_run": "0.6.0",
     # Older still — the class dates to 0.5.0 and the TOML loader — but it left

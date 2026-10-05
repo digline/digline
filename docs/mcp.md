@@ -160,6 +160,16 @@ no process to exit.
 `diff` carries **no `worse` and no `exit_code`**. A verdict exists only against
 an approved reference, and neither side of a diff was approved by anybody.
 
+`get_run`, `compare`, `explain` and each side of `diff` carry **`note`**: what
+resolving `latest` stepped over, the line the CLI prints on stderr, and empty for
+a key typed by hand. Non-empty, it says the run read is not the newest this store
+remembers, or that files were left out on the way. The case it exists for is a
+baseline promoted from a run newer than `latest` whose file is gone. `compare`
+then holds an older run against a newer reference, and a `worse` there is the
+past, not a regression. It is a sentence, as `list_runs`'s `note` is, and not a
+key to pass back: the run it names cannot be read here. `get_baseline` has no
+`note`, because a baseline is never resolved. (#433)
+
 ## What never crosses
 
 An MCP response goes into a model's context, and from there into transcripts and

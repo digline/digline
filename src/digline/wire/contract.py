@@ -976,6 +976,17 @@ _ADDED: tuple[_AddedKey, ...] = (
     # `log --json`, which has `refused` for a run the store refuses: that gap
     # is declared in ADR 0040 §6, not overlooked.
     _AddedKey("runs", "misfiled", _INT, "#332, #429; ADR 0040 §5"),
+    # What resolving a run stepped over, `Resolved.note`, which until then only
+    # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
+    # the run it names is by construction one that cannot be read here, and a
+    # key in a field of its own invites the `get_run` that fails. Empty when
+    # nothing was stepped over, and always for a key typed by hand. On
+    # `run_document` it is optional because `get_baseline` resolves nothing.
+    _AddedKey("compare", "note", _STR, "#433"),
+    _AddedKey("compare.full", "note", _STR, "#433"),
+    _AddedKey("diff.run", "note", _STR, "#433"),
+    _AddedKey("explain", "note", _STR, "#433"),
+    _AddedKey("run_document", "note", _k("string", optional=True), "#433"),
 )
 
 

@@ -76,6 +76,7 @@ RUN_SCOPE = "<run>"
 #: Set by `pytest_collection_modifyitems`, read by `pytest_terminal_summary`.
 #: On the config's stash rather than a module global: a module global is shared
 #: by every `Config` in the process, and `pytester` runs several in one.
+#: Each suite's headline, followed by its `latest` note when there is one.
 HEADLINES: pytest.StashKey[list[str]] = pytest.StashKey()
 
 
@@ -204,6 +205,8 @@ def pytest_collection_modifyitems(
         node = _child(session, DiglineSuite, path=opened.path, opened=opened)
         items.extend(node.collect())
         config.stash[HEADLINES].append(opened.headline)
+        if opened.note:
+            config.stash[HEADLINES].append(f"note: {opened.note}")
 
 
 def _child[N: pytest.Item | pytest.File](
@@ -242,6 +245,11 @@ class _Opened:
     #: The calibration cases of the run that left their band, read off the run
     #: by the report's own function. (ADR 0024 §4.7)
     lost: Sequence[ScaleLost] = ()
+    #: What resolving `latest` stepped over, or empty. Its sharpest case is a
+    #: baseline promoted from a run newer than the one compared: every row is
+    #: then an older run held against a newer reference, and a red there is
+    #: not a regression. (#433)
+    note: str = ""
 
 
 def _open(spec: str, config: pytest.Config) -> _Opened:
@@ -286,8 +294,8 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     if run_first:
         _measure(suite, loaded, spec, path, store, root=root)
 
-    key = resolve_key(store, suite, "latest").key
-    run = read_run(store, suite, key)
+    resolved = resolve_key(store, suite, "latest")
+    run = read_run(store, suite, resolved.key)
     baseline = need_baseline(store, suite)
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale=LOCALE)
@@ -299,6 +307,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
         headline=head.sentence,
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
+        note=resolved.note,
     )
 
 
@@ -665,6 +674,10 @@ def pytest_terminal_summary(
     It is `headline().sentence`, byte for byte the sentence `digline compare`
     prints and the report shows, because a gate and a document must never say
     two different things about one run.
+
+    Under it, the note `latest` left, as `note: …`, the line `digline compare`
+    prints on stderr. Here and not as a warning: under `-W error` a warning
+    fails the session, and a note is not a verdict. (#433)
     """
     none: list[str] = []
     sentences = config.stash.get(HEADLINES, none)

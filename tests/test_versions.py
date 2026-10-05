@@ -333,6 +333,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.28.1": (
+            "the core release digline-mcp's floor is owed to, in the table of "
+            "floors owed to the release (#433): the cut that ships it raises "
+            "the floor and deletes the row, and this entry with it"
+        ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
             "for every pin in both builds, the tag message, the installed "
