@@ -564,8 +564,8 @@ class ResultStore(Protocol):
            beside the write, which is as narrow as the window gets without a
            lock (ADR 0031 §2, *Not decided here*).
 
-        **Where each of the eight is met, and what this protocol obliges you to
-        write yourself.** They are three questions, not one list:
+        **Where each is met, and what this protocol obliges you to write
+        yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.

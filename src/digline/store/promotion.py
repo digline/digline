@@ -1,7 +1,8 @@
 """The promotion conditions, callable on their own.
 
-`promote_baseline` is held to eight conditions, and they live in **three
-places** because they answer three different questions:
+`promote_baseline`'s conditions are named in ADR 0002 §8 and not counted
+here, for the reason §8 gives. They live in **three places** because they
+answer three different questions:
 
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
