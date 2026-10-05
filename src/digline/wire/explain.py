@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import assert_never
 
+from digline.core import Run, key_of
 from digline.report.explain import CheckFact, Fact, SettingFact, TallyFact
 from digline.wire.compare import shape_json
 from digline.wire.contract import OUTPUT_VERSION
@@ -108,7 +109,13 @@ def fact_json(fact: Fact) -> dict[str, object]:
 
 
 def explain_json(
-    reading: Sequence[Fact], *, scope: str, exit_code: int, note: str = ""
+    reading: Sequence[Fact],
+    *,
+    scope: str,
+    exit_code: int,
+    note: str = "",
+    run: Run | None = None,
+    baseline: Run | None = None,
 ) -> dict[str, object]:
     """The whole reading, for a program.
 
@@ -120,16 +127,25 @@ def explain_json(
 
     `note` is what resolving the run stepped over, `Resolved.note`, as on
     `compare --json`. An added key. (#433)
+
+    `run_key` and `baseline_key` name the two documents the reading was made
+    from, derived from them as `compare_json` derives its own: the run always,
+    the reference only where there was one to hold the run against, which is
+    the `"comparison"` scope. Each is absent where its document was not passed,
+    which is a caller written before them. Added keys. (#448)
     """
-    return neutralised(
-        {
-            "output_version": OUTPUT_VERSION,
-            "scope": scope,
-            # The same number the process exits with, for the same reason it is on
-            # `compare --json`: over MCP there is no process to exit, and the two
-            # surfaces must not answer differently. (ADR 0011 §4)
-            "exit_code": exit_code,
-            "facts": [fact_json(fact) for fact in reading],
-            "note": note,
-        }
-    )
+    payload: dict[str, object] = {
+        "output_version": OUTPUT_VERSION,
+        "scope": scope,
+        # The same number the process exits with, for the same reason it is on
+        # `compare --json`: over MCP there is no process to exit, and the two
+        # surfaces must not answer differently. (ADR 0011 §4)
+        "exit_code": exit_code,
+        "facts": [fact_json(fact) for fact in reading],
+        "note": note,
+    }
+    if run is not None:
+        payload["run_key"] = key_of(run.created_at, run.config_hash)
+    if baseline is not None:
+        payload["baseline_key"] = key_of(baseline.created_at, baseline.config_hash)
+    return neutralised(payload)

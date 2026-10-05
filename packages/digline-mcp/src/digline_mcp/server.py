@@ -270,7 +270,12 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # customer's sentence renders the report, which takes a mandatory locale.
         head = headline(comparison, found, baseline, locale="en")
         return compare_json(
-            comparison, head, baseline=baseline, full=True, note=resolved.note
+            comparison,
+            head,
+            baseline=baseline,
+            full=True,
+            note=resolved.note,
+            run=found,
         )
 
     @translated
@@ -314,7 +319,12 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
                 scope=read.scope,
                 exit_code=read.exit_code,
                 note=resolved.note,
+                run=read.run,
+                baseline=read.baseline,
             ),
+            # Before `run_key`, which now names the same run from inside the
+            # document. Kept because an agent reads it: removing a key is a
+            # change, not an addition, and waits for a bump. (#448)
             "key": resolved.key,
         }
 
