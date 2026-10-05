@@ -38,12 +38,20 @@ CARRIES: dict[str, tuple[str, ...]] = {
         "never from the first one that goes green",
         "Do not run it on your own initiative",
     ),
-    "get_run": ("Do not retry it", "flipping together"),
+    "get_run": (
+        "Do not retry it",
+        "flipping together",
+        "Do not run the suite to make the note go away",
+    ),
     "compare": (
         "stop and report what got worse",
         "arguing with the instrument",
         "measures your patience rather than the system",
+        "Do not run the suite to make the note go away",
+        "not that something regressed",
     ),
+    "diff": ("Do not run the suite to make the note go away",),
+    "explain": ("Do not run the suite to make the note go away",),
     "run": (
         "say the figure out loud in your recommendation",
         "Decide the number of re-runs before running them",

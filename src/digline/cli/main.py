@@ -48,6 +48,7 @@ from digline.host import (
     NO_BASELINE,
     REFUSALS,
     Loaded,
+    Resolved,
     UsageError,
     explained,
     git_commit,
@@ -195,17 +196,24 @@ def _load(args: argparse.Namespace) -> tuple[Suite, Loaded, FileResultStore]:
 
 
 def _resolve(store: ResultStore, suite: Suite, key: str) -> str:
-    """`resolve_key` for a terminal: the key, and the note on stderr.
+    """`resolve_key` for a terminal: the key, and the note on stderr."""
+    return _resolved(store, suite, key).key
+
+
+def _resolved(store: ResultStore, suite: Suite, key: str) -> Resolved:
+    """`resolve_key` for a terminal, keeping the note for a `--json` too.
 
     The host returns what the scan stepped over rather than printing it
     (ADR 0011 §7). Here that becomes a line on stderr — `latest` is resolved
     inside commands whose stdout may be JSON, and a note that broke a pipeline
-    would teach people to ignore it.
+    would teach people to ignore it. `compare`, `diff` and `explain` also put
+    it in their `--json`, because MCP's tools of those names carry it and the
+    two surfaces are one object. (#433)
     """
     resolved = resolve_key(store, suite, key)
     if resolved.note:
         say(f"note: {resolved.note}", err=True)
-    return resolved.key
+    return resolved
 
 
 def _warn_if_ahead(*runs: Run | None) -> None:
@@ -487,7 +495,8 @@ SUMMARY_LIMIT = 20
 
 def cmd_compare(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
-    run = read_run(store, suite, _resolve(store, suite, args.run))
+    resolved = _resolved(store, suite, args.run)
+    run = read_run(store, suite, resolved.key)
     baseline = need_baseline(store, suite)
     _warn_if_ahead(run, baseline)
 
@@ -496,7 +505,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     if args.json:
         payload = compare_json(
-            comparison, head, baseline=baseline, full=args.json == "full"
+            comparison,
+            head,
+            baseline=baseline,
+            full=args.json == "full",
+            note=resolved.note,
         )
         emit(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
@@ -544,7 +557,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
     contents somebody dislikes, and only the first is a non-zero exit.
     """
     suite, _loaded, store = _load(args)
-    left_key, right_key = (_resolve(store, suite, k) for k in args.runs)
+    sides = tuple(_resolved(store, suite, k) for k in args.runs)
+    left_key, right_key = (side.key for side in sides)
     if left_key == right_key:
         raise UsageError(
             f"both arguments resolve to the run {left_key}: a run diffed with "
@@ -573,6 +587,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
                     labels=labels,
                     sentence=sentence,
                     full=args.json == "full",
+                    notes=(sides[0].note, sides[1].note),
                 ),
                 sort_keys=True,
                 indent=2,
@@ -831,13 +846,19 @@ def cmd_explain(args: argparse.Namespace) -> int:
     suite, _loaded, store = _load(args)
     # Composed in the host, because the MCP `explain` tool reads a run back the
     # same way and two compositions are two answers waiting to happen.
-    read = explained(store, suite, _resolve(store, suite, args.run))
+    resolved = _resolved(store, suite, args.run)
+    read = explained(store, suite, resolved.key)
     _warn_if_ahead(read.run, read.baseline)
 
     if args.json:
         emit(
             json.dumps(
-                explain_json(read.reading, scope=read.scope, exit_code=read.exit_code),
+                explain_json(
+                    read.reading,
+                    scope=read.scope,
+                    exit_code=read.exit_code,
+                    note=resolved.note,
+                ),
                 sort_keys=True,
                 indent=2,
                 ensure_ascii=False,

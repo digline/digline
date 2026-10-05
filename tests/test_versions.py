@@ -333,6 +333,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.28.1": (
+            "the core release digline-mcp's floor is owed to, in the table of "
+            "floors owed to the release (#433): the cut that ships it raises "
+            "the floor and deletes the row, and this entry with it"
+        ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
             "for every pin in both builds, the tag message, the installed "
@@ -730,7 +735,24 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.6.0": (
             "digline-bedrock's release that shipped an AWS account into verdict "
             "reasons, and the release the delta-pass that found it was run over: "
-            "history, declared in *Defects in a released package*"
+            "history, declared in *Defects in a released package*. Also digline "
+            "0.6.0, the floor of digline-mcp 0.1.0 and so the first release "
+            "GHSA-x6w8-q92m-23h3 covers (#445): the start of a range, not a "
+            "claim about the current release"
+        ),
+        "0.1.0": (
+            "digline-mcp's first release, from which a refusal type a suite "
+            "raises reaches the agent (GHSA-x6w8-q92m-23h3, #445): the start of "
+            "the measured range, history"
+        ),
+        "0.23.0": (
+            "the last release measured on which an ImportError with a row in it "
+            "does not cross, and the end of the unmeasured gap in "
+            "GHSA-x6w8-q92m-23h3 (#445): history"
+        ),
+        "0.24.0": (
+            "the first release on which an ImportError with a row in it crosses "
+            "to the MCP agent, the one that carries 27bc37e (#445): history"
         ),
         "0.6.1": (
             "digline-bedrock's release that scrubs it: the fix the declaration "

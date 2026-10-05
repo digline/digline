@@ -160,6 +160,16 @@ no process to exit.
 `diff` carries **no `worse` and no `exit_code`**. A verdict exists only against
 an approved reference, and neither side of a diff was approved by anybody.
 
+`get_run`, `compare`, `explain` and each side of `diff` carry **`note`**: what
+resolving `latest` stepped over, the line the CLI prints on stderr, and empty for
+a key typed by hand. Non-empty, it says the run read is not the newest this store
+remembers, or that files were left out on the way. The case it exists for is a
+baseline promoted from a run newer than `latest` whose file is gone. `compare`
+then holds an older run against a newer reference, and a `worse` there is the
+past, not a regression. It is a sentence, as `list_runs`'s `note` is, and not a
+key to pass back: the run it names cannot be read here. `get_baseline` has no
+`note`, because a baseline is never resolved. (#433)
+
 ## What never crosses
 
 An MCP response goes into a model's context, and from there into transcripts and
@@ -185,6 +195,29 @@ What does not, and is **absent rather than emptied**:
 - `base_url`, the client's topology, which leaves as a name in `withheld` and
   never as a value — no `Disclosure` widens that one;
 - the case inputs entirely. `vars` and `metadata` are the data.
+
+*Corrected 2026-10-05.* The list above holds for every answer a tool returns,
+and **not yet for a refusal**. When code digline runs raises, the refusal the
+agent receives can carry that exception's own message. That code is the suite
+while it loads, the application it imports, or a target and its `preflight`.
+The message was written by that code, or by a library it calls, and it can
+quote a case's `vars`: `int()`, `float()` and Pydantic's validation errors all
+quote the value they rejected. Measured on 0.28.0, the message reaches the
+agent:
+
+- for any exception, and any `SystemExit`, raised while a suite loads, an
+  `ImportError` included;
+- for a `SystemExit` raised by a target while `run` is under way;
+- for one of digline's own refusal types, such as `UsageError` or
+  `RefusedError`, raised by the suite's code or by a target's `preflight`.
+
+It is
+[GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3),
+and the repair is tracked in
+[#445](https://github.com/digline/digline/issues/445). Until a release carries
+it, treat a refusal from this server as able to hold case data. The command
+line prints the same message, to the terminal or the CI log that ran it, which
+is the perimeter this page contrasts with a model's context.
 
 The projection is **chosen and not inherited** from the stored run document,
 which is under a different contract with a different lifetime. A field added to

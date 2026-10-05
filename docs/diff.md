@@ -134,6 +134,10 @@ pipeline to gate on, which is why `diff` is a separate command rather than a
 flag on `compare`. If you want a gate, use `compare`; that is what a gate is
 for.
 
+Each of `runs.left` and `runs.right` carries `note` beside its `key`: what
+resolving that argument stepped over, the line printed on stderr, and empty for
+a key typed by hand. Two arguments, so there can be two notes.
+
 ```json
 {
   "counts": {
