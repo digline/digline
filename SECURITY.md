@@ -260,8 +260,9 @@ who can reach it, and which release takes it out. It is written when the defect
 is found, not when the advisory question is settled, so somebody who installed
 the version can read it today.
 
-- **digline 0.6.0 and later, with digline-mcp 0.1.0 and later: a case's data in
-  a refusal returned to the MCP agent. Not fixed in any release yet.**
+- **digline 0.6.0 to 0.28.0, with digline-mcp 0.1.0 to 0.4.4: a case's data
+  in a refusal returned to the MCP agent. Fixed in digline-mcp 0.4.5, with
+  digline 0.29.0, which it requires.**
   Found by the delta-pass over 0.28.0 (F-1), and measured back to the
   server's first release on 2026-10-05.
   - **What crosses, and where.** When code a suite runs raises, digline
@@ -305,18 +306,30 @@ the version can read it today.
   - **The command line.** It prints the same sentence, to the terminal or the
     CI log of whoever ran the command. That is inside the perimeter, and it
     printed the message before 0.28.0 too, as Python's own traceback does.
-  - **What fixes it.** No release yet. The repair is tracked in
-    [#445](https://github.com/digline/digline/issues/445) and begins
-    with a decision record. The MCP answer will carry the exception's type, its
-    location and the command that prints the traceback, and not its message.
-    Until a release carries it, treat any refusal from digline-mcp as able to
-    hold case data. There is no earlier release to stay on.
+  - **What fixes it: digline-mcp 0.4.5, with digline 0.29.0.** Both are
+    needed. digline 0.29.0 alone does not fix it: with digline-mcp 0.4.4 the
+    message still reaches the agent, because 0.4.4 returns the refusal's whole
+    text. digline-mcp 0.4.5 requires `digline>=0.29.0`, so it cannot be
+    installed against a core without the repair. The repair is
+    [ADR 0043](docs/adr/0043-a-message-digline-did-not-write.md) (#445, #462).
+    - **What the agent receives now.** The exception's type, its location and
+      the command that prints the traceback, and a sentence saying the message
+      was left out. Who wrote a message is read from the frame that raised it,
+      through every wrap, never from its type. A refusal digline wrote crosses
+      whole, and so does the import system's own *"No module named 'x'"*.
+    - **One site is declared rather than read from a frame.** `compile()` is a
+      builtin, so its frame is digline's, and *"keyword argument repeated:
+      <name>"* can quote a name written in a case. Its message never crosses,
+      whatever the frame.
+    - **The command line is unchanged.** It prints the whole sentence, for the
+      person who ran the command.
   - **Published as
     [GHSA-x6w8-q92m-23h3](https://github.com/digline/digline/security/advisories/GHSA-x6w8-q92m-23h3)**,
     low, on 2026-10-05. Its range was corrected the same day from
-    `>= 0.28.0` to `digline >= 0.6.0` and `digline-mcp >= 0.1.0`. No CVE had
-    been assigned when this line was written. Read it from the advisory, not
-    from here.
+    `>= 0.28.0` to `digline >= 0.6.0` and `digline-mcp >= 0.1.0`, and its
+    patched versions are filled in when the releases above are on PyPI. No CVE
+    had been assigned when this line was written. Read it from the advisory,
+    not from here.
 
 - **digline-bedrock 0.6.0, and every earlier release on the second route below:
   an AWS account in verdict reasons, written by the plugin. Fixed in 0.6.1.**

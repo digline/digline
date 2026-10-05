@@ -720,10 +720,6 @@ RECORDED: dict[str, dict[str, str]] = {
         "page",
     },
     "docs/mcp.md": {
-        "0.28.0": "'Measured on 0.28.0' — the release the dated correction of "
-        "*What never crosses* was measured on (#445). History, and the whole "
-        "paragraph is replaced by ADR 0043 §7's sentence in the release that "
-        "ships the repair",
         "0.16.0": "'Since 0.16.0 the run document marks…' — the release the "
         "instrument's own flags began crossing, told as history on the page "
         "that also records, dated, what it used to promise instead",
@@ -748,6 +744,16 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.4.4": (
+            "digline-mcp's last release with GHSA-x6w8-q92m-23h3, the end of the "
+            "range in *Defects in a released package, declared*, and the one "
+            "that still passes the message against digline 0.29.0: history"
+        ),
+        "0.4.5": (
+            "digline-mcp's release that fixes GHSA-x6w8-q92m-23h3, named in its "
+            "declared defect as what takes it out: a record of which release "
+            "fixed it, not a claim about the current one"
+        ),
         "0.28.0": (
             "the release the delta-pass that found GHSA-x6w8-q92m-23h3 ran over, "
             "and the one that widened its class: history, in *Defects in a "
