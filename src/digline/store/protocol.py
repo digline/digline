@@ -563,22 +563,26 @@ class ResultStore(Protocol):
            again first would be sent round twice; and last because it sits
            beside the write, which is as narrow as the window gets without a
            lock (ADR 0031 §2, *Not decided here*).
+        9. `CrossingRefusedError` if the run records an artifact under
+           `.digline` or `.git`, in any case and at any depth, or keyed
+           outside the perimeter — a baseline carries every artifact's text
+           into a versioned file, so this holds **whatever the `Disclosure`**
+           (ADR 0042 §3).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.
-        - **2, 3, 4, 5 and 6 answer from the document alone.** They are
+        - **2 to 6, and 9, answer from the document alone.** They are
           `digline.store.refusals_for(run, expected_config_hash)`, which returns
           them in the order they are owed. **Call it rather than restating
-          them**: a second copy of the five drifts from this one the first time
-          a ninth condition lands, and the miscount above is what that looks
-          like.
+          them**: a second copy drifts from this one the first time a condition
+          lands, and the miscount above is what that looks like.
         - **8 is yours, beside your own write**, because it asks what the store
           holds *now*. Read the baseline and compare it inside whatever makes
           your write atomic — an in-process lock, a transaction. A parameter
-          carrying the current key into the five would look like a complete
+          carrying the current key into `refusals_for` would look like a complete
           check while reporting a fact one instant old, which is why it is not
           one. `digline.store.refusal_for_a_moved_baseline` writes its sentence;
           the read, and the window around it, are yours.

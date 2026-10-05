@@ -38,7 +38,7 @@ from digline.core.resolution import (
     WrongKindError,
     WrongRowError,
 )
-from digline.core.run import DocumentRefusedError
+from digline.core.run import CrossingRefusedError, DocumentRefusedError
 from digline.core.types import UnidentifiedVerdictError
 from digline.host.errors import UsageError
 from digline.run.driver import TargetShapeError
@@ -72,6 +72,7 @@ __all__ = ["NOT_REFUSALS", "REFUSALS"]
 REFUSALS: tuple[type[Exception], ...] = (
     # core
     RefusedError,
+    CrossingRefusedError,
     AssertionShapeError,
     DifferentSuitesError,
     DifferentJudgesError,

@@ -7,7 +7,7 @@ answer three different questions:
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
    and it is answered as the run is read (`read_run`).
-2. **The document.** Conditions 2, 3, 4, 5 and 6 answer from the run alone.
+2. **The document.** Conditions 2 to 6, and 9, answer from the run alone.
    Anybody, anywhere, holding the same document gets the same answer, so they
    are a function: `refusals_for`.
 3. **The write.** Condition 8 asks whether the baseline present *now* is still
@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from digline.core.calibration import scale_lost
 from digline.core.reconcile import unreconciled
-from digline.core.run import Run, key_of
+from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
@@ -55,7 +55,11 @@ __all__ = [
 #: not named here is a change to this union and to the protocol's list, which
 #: is the point of writing it down rather than returning bare `Exception`.
 type PromotionRefusal = (
-    ConfigMismatchError | ReplayedRunError | ErroredRunError | UncalibratedRunError
+    ConfigMismatchError
+    | ReplayedRunError
+    | ErroredRunError
+    | UncalibratedRunError
+    | CrossingRefusedError
 )
 
 
@@ -71,7 +75,8 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
     only the cases, and a run that does not reconcile does not know what it
     measured (ADR 0027 §3). The two share an exception type, so before this was
     a sequence you could look at, the order could only be inferred from which
-    exception escaped.
+    exception escaped. Condition 9 comes after all of them: ADR 0042 does not
+    place it, and appending it leaves every order already relied on as it was.
 
     **A caller raises the first and is meant to choose that**: the tuple exists
     so that the choice — the first, all of them, none — stays with whoever
@@ -177,6 +182,21 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
             )
         )
 
+    # Condition 9, last of the document's: whatever the `Disclosure`, because a
+    # baseline is the complete run, every artifact's text included, written to
+    # `baselines/`, which is versioned and gets pushed. Promotion is an exit,
+    # and the predicate is the one `redact()` and `run_document` apply.
+    # (ADR 0042 §3)
+    crossing = crossing_refusal(
+        run,
+        going=(
+            "a baseline carries every artifact's text into baselines/, which is "
+            "versioned, whatever the suite discloses"
+        ),
+    )
+    if crossing is not None:
+        refusals.append(crossing)
+
     return tuple(refusals)
 
 
@@ -190,8 +210,9 @@ def refusal_for_a_moved_baseline(
     """Condition 8's sentence, and only the sentence. `None` when the baseline
     present is the one the caller compared against. (ADR 0031 §4)
 
-    **One answer, not a sequence, and the asymmetry is the information**: five
-    conditions can fire at once, this is one question with one answer.
+    **One answer, not a sequence, and the asymmetry is the information**: the
+    document's conditions can fire together, this is one question with one
+    answer.
 
     `current` is the baseline **you** read, inside whatever makes your write
     atomic. This function does no reading and makes no claim about when yours

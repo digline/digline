@@ -1861,6 +1861,89 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
     )
 
 
+class CrossingRefusedError(RefusedError):
+    """An artifact's text was about to leave the `Run` object from a place it
+    must not leave: the store, the repository's own directory, or outside the
+    perimeter. Raised by `redact()` and `wire.run_document` when the suite
+    discloses artifacts, and returned by `refusals_for` as a promotion
+    condition whatever the `Disclosure`. (ADR 0042 §3, §4)
+
+    The command is refused and the document is not narrowed: `withheld` means
+    *this suite kept it back* (ADR 0003 §5), and a file this rule stopped is not
+    a choice the suite made.
+    """
+
+
+#: The segments that keep an artifact home, each with what it holds. Compared
+#: after `casefold()`: on a case-insensitive filesystem `.DIGLINE/t/runs/x.json`
+#: opens the store, and that is the key `read_artifacts` records. (ADR 0042 §3)
+_HELD_SEGMENTS: Mapping[str, str] = {
+    ".digline": "it is under .digline, the store",
+    ".git": "it is under .git, the repository's own directory",
+}
+
+#: A drive-letter path, `C:` or `C:\…`, which `relpath` returns across drives
+#: on Windows and which no `/` at the front would show.
+_DRIVE = re.compile(r"^[A-Za-z]:")
+
+
+def held_back(key: str) -> str | None:
+    """Why an artifact recorded under `key` must not cross, or `None` if it may.
+
+    **The one predicate behind all three exits** — `redact()`, `run_document`
+    and promotion — because a check written three times is three rules that can
+    come to disagree. It reads the key and nothing else, so it is pure and lives
+    beside `redact()`. (ADR 0042 §3)
+
+    Held back when **any** segment, without regard to case, is `.digline` or
+    `.git`: not only the first, because a repository can hold stores and
+    checkouts below its root (`examples/*/.digline`, a submodule's `.git`). And
+    held back when the key is absolute or climbs out through `..`: §2 stops new
+    ones being recorded, and this stops the old ones crossing. Any `..` segment
+    and not only a leading one, since `relpath` never writes one elsewhere and a
+    key that does is not one `read_artifacts` wrote.
+
+    Both separators are split on: a run recorded on Windows keys its artifacts
+    with `\\`, and is read here wherever it is read.
+    """
+    if key.startswith(("/", "\\")) or _DRIVE.match(key):
+        return "its key is absolute, outside the perimeter"
+    segments = [part.casefold() for part in re.split(r"[/\\]", key)]
+    if ".." in segments:
+        return "its key leaves the perimeter"
+    for segment in segments:
+        if segment in _HELD_SEGMENTS:
+            return _HELD_SEGMENTS[segment]
+    return None
+
+
+def crossing_refusal(run: Run, *, going: str) -> CrossingRefusedError | None:
+    """The refusal for every artifact `run` would carry across `exit`, or `None`.
+
+    Only an artifact that still carries its text: one already withheld has
+    nothing left to cross but its key, which every redacted document carries.
+
+    `going` completes the sentence with where the text was going, and is the
+    only thing the three exits say differently. The paths are named: after ADR 0042
+    §2 whatever is still refused is inside the user's own tree, so its path
+    names a place there and never a customer. (ADR 0042 §4)
+    """
+    held = [
+        (key, why)
+        for key, artifact in sorted(run.artifacts.items())
+        if not artifact.withheld and (why := held_back(key)) is not None
+    ]
+    if not held:
+        return None
+    named = "; ".join(f"{key} ({why})" for key, why in held)
+    return CrossingRefusedError(
+        f"run {key_of(run.created_at, run.config_hash)} records the artifact "
+        f"{named}, and {going}. A file from the store, from .git or from outside "
+        "the perimeter does not cross, whatever the suite discloses. Remove it "
+        "from the suite's artifacts and run again (ADR 0042)"
+    )
+
+
 def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
     """Return `run` without its payload: the verdict travels, the payload stays.
 
@@ -1877,7 +1960,18 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
     Applying it twice with the same `disclosure` changes nothing; applying it
     again with a narrower one narrows further. It never widens: what has been
     removed cannot come back.
+
+    **It refuses rather than narrows** when the disclosure lets artifacts cross
+    and one of them is held back by `held_back`: this is one of the three exits
+    ADR 0042 §3 names, and the refusal says so instead of filing the file under
+    a `withheld` the suite did not choose.
     """
+    if disclosure.artifacts:
+        refused = crossing_refusal(
+            run, going="a redacted document disclosing artifacts would carry its text"
+        )
+        if refused is not None:
+            raise refused
     return Run(
         tenant=run.tenant,
         environment=run.environment,

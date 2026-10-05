@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from digline.core import Disclosure, Run, RunUsage, SystemConfig, Verdict
+from digline.core import (
+    Disclosure,
+    Run,
+    RunUsage,
+    SystemConfig,
+    Verdict,
+    crossing_refusal,
+)
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.wire.contract import OUTPUT_VERSION
@@ -289,7 +296,19 @@ def run_document(run: Run, disclosure: Disclosure) -> dict[str, object]:
     so a bare count would arrive with nothing to count against. It waits for the
     decision that lets the range itself cross, and `tests/test_wire_boundary.py`
     asserts its absence so this reads as a ruling and not as a gap.
+
+    **An exit of ADR 0042 §3**, and called here rather than inherited, for the
+    reason this does not call `redact()` at all: with artifacts disclosed, a
+    file under `.digline` or `.git`, or keyed outside the perimeter, refuses the
+    whole response. The agent receives the sentence, not a narrower document.
     """
+    if disclosure.artifacts:
+        refused = crossing_refusal(
+            run,
+            going="the MCP response, which discloses artifacts, would carry its text",
+        )
+        if refused is not None:
+            raise refused
     return neutralised(
         {
             "output_version": OUTPUT_VERSION,
