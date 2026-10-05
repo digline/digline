@@ -3,10 +3,12 @@
 - Status: proposed 2026-10-01. The text comes first, checkpointed before any
   code, the way [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md)
   was proposed. **The option was ruled on 2026-10-04, in discussion: C,
-  checked in `scan_runs` (§4).** Four questions the ruling leaves open are
-  set out in *Not decided here*, each with what is known about it, and **none
-  of them is chosen**. The record stays proposed until they are ruled. The
-  local repair ruled before this record (§*Context*) is recorded as ruled
+  checked in `scan_runs` (§4).** The four questions that ruling left open, and
+  a fifth, were ruled on 2026-10-05, also in discussion (§5). *Not decided
+  here* keeps what is still open: one case §5 found and did not rule, a
+  defect it names and leaves to its own issue, and the items of §3 no ruling
+  named. The local repair ruled before this record (§*Context*) is recorded
+  as ruled
 - Shipped: unreleased
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -14,11 +16,14 @@
   adds to a response is an added key (§3, C, the correction of 2026-10-04)
 - Requires, at implementation:
   - `scan_runs` reads `created_at` and `config_hash` from each document it
-    already parses, and leaves out a file whose stem is not their `key_of`
-    (§4);
+    already parses, and leaves out a file whose stem is not their `key_of`,
+    **before** it looks at the schema (§4, §5.1);
+  - the scan keeps the `key_of` of each file it leaves out, so a copy is told
+    from a rename (§5.1);
   - `read_run` refuses the same file when it is addressed by its stem (§4);
-  - the protocol's first sentence on `RunRef.key` reworded (§1);
-  - whatever the four open questions are ruled to need (*Not decided here*)
+  - a refusal that says what is wrong and, where there is one, what the name
+    should be (§5.3, §5.4);
+  - the protocol's first sentence on `RunRef.key` reworded (§1)
 - Assumes: [ADR 0011](0011-the-mcp-server.md) §4 (what was left out of
   a listing is a field, and a count rather than a list of paths);
   [ADR 0017](0017-the-journal-and-the-resumed-run.md) §8 (a resumed run writes
@@ -216,13 +221,13 @@ document. The `Listing` counts it.
   run was the newest, `latest` is now the run before it. The listing's count
   says something was left out. It does not say that what was left out was
   newer. `resolve_key` names a newer run only where the baseline or the
-  register remembers one. **That holds for a rename, not for a copy:** see
-  *Not decided here*, question 1.
+  register remembers one. **That holds for a rename, not for a copy** (§5.1),
+  and §5.2 rules what `latest` says instead.
 - **It cannot be promoted or compared** until it is renamed back.
 
-**What C needs settled before it can be built.** The ruling in §4 settles
-where the check sits. The rest is open, and *Not decided here* sets out the
-four questions the ruling named:
+**What C needs settled before it can be built.** The list as it stood before
+the rulings. §4 settles where the check sits, §5 settles the repair, and
+*Not decided here* keeps what is still open:
 - **How a store that already holds a renamed file is repaired.** Three
   candidates, each with a cost:
   1. **a refusal that says how**: rename the file to `<key_of>.json`. It costs a
@@ -244,7 +249,8 @@ four questions the ruling named:
   becomes false and needs rewording.
 - **Whether B is kept or withdrawn.** Under C a projected list can meet no
   readable run with a mismatched stem, so one of B's two branches would be
-  dead code (§4). Keeping it as a second guard is a choice.
+  dead code (§4). Keeping it as a second guard is a choice. *B is kept: its
+  other branch stays live (§5.4).*
 
 *Corrected 2026-10-04.* The item on the count said a new `Listing` field
 *"reaches MCP's `runs_json` (ADR 0011 §4), which moves `OUTPUT_VERSION`"*.
@@ -340,8 +346,129 @@ read (§*Context*, the correction of 2026-10-04).
   its `key_of`, becomes unreachable on the file store. It would remain a guard
   only against a second backend, and none exists. Branch (b), a refused file
   whose stem has no run key's form, stays reachable: C guarantees that the
-  stem is the `key_of`, not that the `key_of` has `is_run_key`'s form
-  (question 4).
+  stem is the `key_of`, not that the `key_of` has `is_run_key`'s form.
+  **So B is not dead code** (§5.4).
+
+## 5. Ruled: the four questions §4 left open, and a fifth
+
+*Ruled 2026-10-05, by Alessandro, settled by discussion.* What follows each
+ruling was read at `becffc3`. It is deduced from the code, not measured.
+
+### 5.1 A copy is told from a rename
+
+**The scan keeps the `key_of` of each file it leaves out and looks it up among
+the stems it lists.**
+- **A copy** has the same `key_of` as a listed file: the original. It is the
+  same run, so `latest` picks correctly and nothing is lost. #429's measured
+  case, `<key> copy.json`, is a copy.
+- **A rename** leaves no listed file with that `key_of`. Only a rename can
+  hold a run `latest` did not consider.
+
+**Why not a count.** A count cannot tell the two apart, so C would report a
+problem in the common case, where there is none: a copy does not make `latest`
+fall back.
+
+**C checks the name before the schema.** A file at an old schema with the
+wrong name still has the wrong name, and `migrate` would rewrite it under that
+name. No upgrade step in `store/migrate.py` adds or renames `created_at` or
+`config_hash`, so every schema `migrate` reads carries both fields, and the
+check needs nothing a migration would supply.
+
+**Not ruled: two left-out files with one `key_of`, and no listed file under
+it**, for example a renamed run and a copy of the renamed file. That is D's
+collision, inside the set C leaves out. It is in *Not decided here*.
+
+**What a copy's key does not say.** Equal `key_of` is not equal content. C
+compares a name with two fields, not two documents, so a copy that was edited
+afterwards is still called a copy.
+
+### 5.2 What `latest` says about a file it left out
+
+**It says what is known without building a `Run` from the file:** a file was
+left out whose `key_of` is not among the listed stems. **It does not say that
+the file was newer.** That needs the file's `created_at`, and a value read
+from a document `run_from_json` never validated is present, not trusted.
+Outside a projection `created_at` is not checked as a time at all. #349's
+ruling rests on the same difference: *"a document that cannot be read has no
+`created_at` anyone can trust"*.
+
+**No `Run` is built from a left-out file.** `scan_runs` already avoids
+building one from every file, and this ruling does not narrow that.
+
+**A promoted rename is already said with a time.** If the renamed run was
+promoted, the baseline remembers it, and `_newer_on_record` already says the
+baseline's run is newer than the pick and was not read. The same holds for a
+run the register names. Those are committed artifacts, not the left-out file.
+
+**The channel is a defect of its own, named here and not repaired here.**
+`Resolved.note` reaches one front end of three:
+- the CLI prints it on stderr (`_resolve`, `cli/main.py`);
+- `digline-mcp` drops it in `named()` (`server.py`), behind `get_run`. Its
+  comment says `list_runs` reports it, but `list_runs` reports
+  `SuiteRuns.note()`, which is built without any pick;
+- MCP's `explain` and `pytest-digline`'s `latest` take `.key` and nothing
+  else.
+
+The same is already true of `_newer_on_record`'s sentences. It is the family
+of #396: a note one surface says and the others do not. It is in *Not decided
+here*.
+
+### 5.3 The repair is a refusal that explains
+
+**Route 1 is written: a refusal that says what to do.** It can be written
+today without touching the schema. It is reached through the scan, and
+through `read_run` only for a stem that is a safe segment. An unsafe stem is
+refused by `_check_name` before the file is opened (§4).
+
+**Route 2 is not**, a `migrate` step that renames:
+- it changes what `migrate` means: `migrate_file` returns *already current*
+  for every document at the current schema, and a renamed file is one;
+- it needs the `SupportsMigration.migrate(...)` member ruled on 2026-09-28,
+  which is not on `main`.
+
+**Route 3 is not**, a migration at a schema bump. It is wrong by
+construction: its steps rewrite a document's content and write it back to the
+same path, and a rename is not an operation of that kind.
+
+**Two constraints on the message:**
+- **It says whether `<key_of>.json` already exists.** If it does, the file is
+  a copy (§5.1), and *rename it* would produce a collision. The instruction
+  that is true there is a different one.
+- **In clear it can name the file.** On a projected page a stem may not be
+  shown (F-1), so there it is a count.
+
+### 5.4 Where `key_of` is not a safe name, the message stops
+
+`key_of` slugs `created_at` and appends `config_hash` unchanged. On a run that
+is not projected, `config_hash` need only be non-empty (`Run.__post_init__`),
+and `created_at` is not checked as a time. So `key_of` fails `_NAME_RE` when:
+- `config_hash` holds a character outside letters, digits, dot, dash and
+  underscore, for example a space or a slash;
+- `created_at` has no letter or digit, so its slug is empty and the key begins
+  with `-`.
+
+No document digline writes reaches either case. Both need a document made or
+edited by hand.
+
+**There is no name to propose, so the message says what is wrong and stops.**
+
+**This is where B's branch (b) stays live, so B is not dead code.** A file
+whose stem equals an unsafe `key_of` passes C. `read_run` then refuses it with
+`PathRefusedError`, which `suite_runs` catches, and it reaches the branch that
+counts a stem without a run key's form in `unnamed`. The same branch takes a
+safe `key_of` without a run key's form, such as a `config_hash` that is not a
+16-digit hex digest, when `read_run` refuses that document for another
+reason. Branch (a) is the one C makes unreachable on the file store (§4).
+
+**It is also #429's residue under C.** A hand-made document whose unsafe stem
+equals its `key_of` passes C and dies on `_check_name` in `read_run`, so
+`latest` stops as #429 measured.
+
+### 5.5 A renamed file is a defect
+
+**A renamed file is a defect, not a name to tolerate.** C refuses it, so the
+ruling of §4 already settled the question, which the record had left open
+before that ruling. It is written here so that it does not read as open.
 
 ## What this record does not cover
 
@@ -362,129 +489,25 @@ read (§*Context*, the correction of 2026-10-04).
 
 ## Not decided here
 
-**Four questions the ruling of §4 names and leaves open.** Each is set out with
-what is known about it, read at `becffc3` and deduced from the code, not
-measured. None is chosen.
-
-### 1. A copy against a rename
-
-Neither this record nor #429 drew the distinction before the ruling.
-- **A copy** has the same `key_of` as a file the scan lists: the original. It
-  is the same run, so `latest` picks correctly, and nothing newer is lost.
-  #429's measured case, `<key> copy.json`, is a copy.
-- **A rename** leaves no listed file with that `key_of`. **Only there can the
-  file left out be newer than the run `latest` picks.** The defect §3 names
-  under C, *"`latest` is now the run before it"*, exists only for a rename.
-
-**What is known:**
-- Telling the two apart needs the scan to keep, for each file it leaves out,
-  its `key_of`, and to look it up among the listed stems. A count alone cannot
-  tell them apart.
-- **Equal `key_of` is not equal content.** C compares a name with two fields,
-  not two documents. A copy that was edited afterwards has its original's key
-  and different content, and C would call it a copy.
-- **Two left-out files can share one `key_of`** with no listed file under it:
-  a renamed run and a copy of the renamed file. That is D's collision, inside
-  the set C leaves out.
-- **The order of checks in the scan matters.** Today a file at another schema
-  is counted in `skipped` before anything else is read from it. Whether C
-  checks such a file's name too, and so whether a copy of a schema-5 run is a
-  copy or a skipped file, is part of the question.
-
-### 2. What `latest` says about a file it left out, and where
-
-**Three forms are possible:**
-- **a note**, as `_newer_on_record` writes for the baseline and the register
-  (#286): *"… newer than {key}, and that run was not read here"*;
-- **a refusal**, as `latest` already makes past a run `read_run` refuses
-  (#349, `test_latest_still_refuses_past_a_refused_run`);
-- **a count**, which says something was left out and not that it was newer.
-
-**What is known:**
-- **The `created_at` of a left-out file is present, not trusted.** `scan_runs`
-  parses the whole document but reads only `schema_version` from it. A
-  `created_at` read from that object comes from a document `run_from_json`
-  never validated, and outside a projection `created_at` is not checked as a
-  time at all. #349's ruling rests on that difference: *"a document that
-  cannot be read has no `created_at` anyone can trust"*. To trust the value,
-  the scan would build a `Run` from each file it leaves out. `scan_runs`'s
-  docstring avoids building a `Run` from every file. Building one only for
-  the left-out files is a narrower act, and nobody has ruled on it.
-- **`Resolved.note` reaches one front end of three.**
-  - The CLI prints it on stderr (`_resolve`, `cli/main.py`).
-  - `digline-mcp` drops it in `named()` (`server.py`), behind `get_run`. Its
-    comment says `list_runs` reports it, but `list_runs` reports
-    `SuiteRuns.note()`, which is built without any pick, so it cannot say
-    *newer than the pick*.
-  - MCP's `explain` and `pytest-digline`'s `latest` take `.key` and nothing
-    else.
-  
-  So a note written only in `Resolved.note` reaches nobody outside a terminal.
-  The same holds today for `_newer_on_record`'s sentences.
-- **A promoted rename is already noted.** If the renamed run was promoted, the
-  baseline remembers it by `created_at`, and `_newer_on_record` already says
-  the baseline's run is newer than the pick and was not read. The same holds
-  for a run the register names. The open case is a rename nothing recorded.
-
-### 3. Which repair route is written
-
-The three candidates are listed under C in §3. As read at `becffc3`:
-1. **A refusal that says what to do** can be written today, without touching
-   the schema. It is reached through the scan, and through `read_run` only
-   for a stem that is a safe segment. An unsafe stem is refused by
-   `_check_name` before the file is opened (§4).
-2. **A `migrate` step that renames** can technically be written without the
-   schema, but it changes what `migrate` means. `migrate_file` returns
-   *already current* for every document at the current schema, and a renamed
-   file is one. `migrate` lists paths through `FileResultStore.stored_paths`,
-   and the `SupportsMigration.migrate(...)` member ruled on 2026-09-28 is not
-   on `main`. It is a write in a store that may be the end company's.
-3. **A migration at a schema bump** touches the schema by construction. Its
-   steps also rewrite a document's content and write it back to the same
-   path. A rename is not an operation of that kind.
-
-**A constraint on any of them: the message says whether `<key_of>.json`
-already exists.** If it does, the file is a copy (question 1), and *rename it*
-would produce a collision. The instruction that is true there is a different
-one.
-
-**And a constraint from B:** in clear, the message can name the file. On a
-projected page a stem may not be shown (F-1), so there it is a count.
-
-### 4. Where `key_of` is not a safe name
-
-`key_of` slugs `created_at` and appends `config_hash` unchanged. On a run that
-is not projected, `config_hash` need only be non-empty (`Run.__post_init__`),
-and `created_at` is not checked as a time. So `key_of` fails `_NAME_RE` when:
-- `config_hash` holds a character outside letters, digits, dot, dash and
-  underscore, for example a space or a slash;
-- `created_at` has no letter or digit, so its slug is empty and the key begins
-  with `-`.
-
-**No document digline writes reaches either case.** Both need a document made
-or edited by hand.
-
-**What is known:**
-- **There is no name to propose.** A refusal that says *rename it to
-  `<key_of>.json`* has nothing safe to say.
-- **It is #429's residue under C.** A hand-made document whose unsafe stem
-  equals its `key_of` passes C and dies on `_check_name` in `read_run`, so
-  `latest` stops as #429 measured.
-- **It is where B's branch (b) stays live** (§4).
-
-### Also open, beyond the four
-
-The ruling named four questions. These items from §3's list under C are open
-too, and the ruling did not name them:
-- **what each front end says**;
-- **the protocol's new wording**;
-- **whether B's dead branch is kept** as a guard;
-- **where the count goes**, a new key or `unreadable`.
-
-**One item of this list before the ruling is not carried forward as open or
-as closed:** whether a renamed file is a defect to refuse or a name to
-tolerate. C refuses it. Whether that settles the question was not said when C
-was ruled.
+- **Two left-out files with one `key_of`, and no listed file under it** (§5.1).
+  A renamed run and a copy of the renamed file are one example. It is D's
+  collision, inside the set C leaves out: which file the refusal names, and
+  what it tells a person to do, is not ruled.
+- **The note that reaches one front end of three** (§5.2). It is a defect of
+  `resolve_key`'s callers, of #396's family, and it predates this record:
+  `_newer_on_record`'s sentences are lost the same way. It is named here and
+  left to an issue of its own.
+- **What C does with a document whose `created_at` or `config_hash` cannot be
+  read.** C needs both to compute a `key_of`. Today such a document passes the
+  scan if its `schema_version` is current, and `read_run` refuses it.
+- **The items of §3's list under C that no ruling named:**
+  - what each front end says;
+  - the protocol's new wording;
+  - whether B's branch (a), which C makes unreachable, is kept as a guard
+    against a second backend;
+  - where the left-out files go in a response: a new key, which moves no
+    `OUTPUT_VERSION`, or `unreadable`, which calls a readable file unreadable.
+    §5.1 rules that a count alone is not enough.
 
 ## What this record does not claim
 
@@ -496,5 +519,6 @@ was ruled.
   delta-pass named.
 - **That any option is free.** §3 prices each against one case, a file renamed
   by hand in an existing store. Other cases may cost more.
-- **That the four open questions are all that C needs.** They are the ones the
-  ruling named.
+- **That a copy is harmless in every respect.** §5.1 rules that a copy does not
+  make `latest` fall back. It does not say the copy's content is the
+  original's.
