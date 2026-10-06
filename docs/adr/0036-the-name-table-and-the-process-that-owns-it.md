@@ -677,6 +677,10 @@ it already gone.
   §6 is unchanged.
   *Ruled 2026-10-05, in §7: the token is of the `case_id` kind. The inside
   id's rule is still open. The bullet is kept as written.*
+  *Ruled 2026-10-06, in ADR 0037 §8's note: the inside id follows §5's rule —
+  random — at a served page only; where one person elects from their own log,
+  ADR 0023 §6's hash stays. The sentence above saying the rule is still open
+  no longer holds. §7 is unchanged: this record does not decide it.*
 - **What clears a lease left by a killed process**, if a detector for a second
   writer is ever built (§6).
 - **Whether the party that produces a projection keeps a copy of it** at the
