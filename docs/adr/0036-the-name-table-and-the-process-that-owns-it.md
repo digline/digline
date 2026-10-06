@@ -22,6 +22,12 @@
   are made (§5, §6, §9). **What it amends is made in the change that accepts
   it**, as ADR 0034's acceptance found it should have been
 - Shipped: 0.24.0
+- Amended: 2026-10-06, by
+  [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
+  at its acceptance — **the election's line carries no approver**: the
+  Context, §7 and one item of *Not decided here* each carry a dated note
+  beside the text, which is kept as written. The approver was ruled out of the
+  line on 2026-10-05
 - Date: 2026-09-29
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no `LEDGER_VERSION`, no migration.
@@ -80,7 +86,8 @@
   *Noted 2026-09-29: there is no rewrite of ADR 0023. The text this line
   sends a reader to is in
   [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md),
-  proposed, a record of its own that supersedes and amends ADR 0023 in part;
+  accepted 2026-10-06 together with ADR 0023, a record of its own that
+  supersedes and amends ADR 0023 in part;
   ADR 0023 keeps its text, with a dated note at each place that moves. 0037
   says why it took that form, in its Context. The line is kept as written*
 - Closes: ADR 0034 §6's *"what is undesigned"*: the rules that make its
@@ -120,8 +127,12 @@ the projection does.
 it will stay true — the election is not written into ADR 0023 and will not be.
 It is written in
 [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
-§5 and §8, proposed, a record of its own; ADR 0023 carries dated notes
-pointing there. The sentence above is kept as written.*
+§5 and §8, accepted 2026-10-06 together with ADR 0023, a record of its own;
+ADR 0023 carries dated notes pointing there. The sentence above is kept as
+written.*
+*Amended 2026-10-06 by ADR 0037, at its acceptance: the line carries a token
+and a date. Who approved the election was ruled out of it on 2026-10-05, and
+ADR 0037 §5 says why. The sentence above is kept as written.*
 
 **ADR 0034 §6 gives the table a skeleton, and every rule that makes it work is
 missing.** The skeleton: one table per (tenant, suite), at the data owner's
@@ -441,8 +452,11 @@ condition without needing an accident.
   shape as settled in discussion. It is written into ADR 0023 §6 and §7 by
   ADR 0023's own rewrite, not here. *Noted 2026-09-29: it is written in
   [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
-  §5 and §8, proposed, and not in a rewrite of ADR 0023, which does not
-  exist; ADR 0023 §6 and §7 carry dated notes pointing there.* **Whether an elected case's token is the
+  §5 and §8, accepted 2026-10-06 together with ADR 0023, and not in a rewrite
+  of ADR 0023, which does not exist; ADR 0023 §6 and §7 carry dated notes
+  pointing there.* *Amended 2026-10-06 by ADR 0037, at its acceptance: the
+  line carries a token and a date, and who approved the election was ruled
+  out of it on 2026-10-05 (0037 §5).* **Whether an elected case's token is the
   `case_id` kind or a kind of its own is not decided here.** Under §4 either
   works: the line resolves by token alone, without carrying a kind.
 
@@ -717,6 +731,9 @@ it already gone.
 - **What the approver in capture's election line is.** If it names a person on
   the data owner's side, it is a string to classify, and the line's one
   guarantee — it never carries text — has not been checked against it.
+  *Amended 2026-10-06 by ADR 0037, at its acceptance: no longer open. The
+  approver left the line on 2026-10-05, and 0037 §5 says so. The bullet is
+  kept as written.*
 - **A document with no token at all** (§8). *Ruled 2026-09-29, in §8: it is
   read, not refused. The bullet is kept as written, and the question is no
   longer open.*
