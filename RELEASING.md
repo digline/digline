@@ -223,6 +223,8 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `digline-mcp` | `errors.translated` passes `front_end=` to `refused_exit` and `to_withhold`, new in the core release that carries #452 (ADR 0043 §2); against 0.29.0 both raise `TypeError` | `0.29.1` | release digline-mcp on its own tag, once the core is on PyPI; if the core release is not 0.29.1, raise to the one it is |
+| `pytest-digline` | `_open` imports `refused_exit` (0.28.0) and passes it `front_end=`, new in the core release that carries #452 (#475, ADR 0043 §2) | `0.29.1` | release pytest-digline on its own tag, once the core is on PyPI; if the core release is not 0.29.1, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

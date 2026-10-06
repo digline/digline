@@ -29,6 +29,18 @@ notes under them are this file, verbatim.
   …/digline_mcp/errors.py"*. It now names the line in the user's code alone.
   Who wrote the message is read as before.
 
+- **pytest-digline catches what the command line catches** (#475, ADR 0041,
+  *Not decided here*). After a suite had loaded, an `OSError`, a `SystemExit`
+  from a target under `--digline-run` and any exception nobody anticipated
+  reached pytest as `INTERNALERROR` and exit 3, which read as a crash of pytest
+  or of the plugin. The first two now stop the session as pytest's usage error,
+  exit 4, as the CLI refuses them with 64, the `SystemExit` with the line that
+  called it. The third prints its traceback and digline's sentence, and still
+  exits 3, where the CLI exits 70.
+- **A refusal printed by pytest-digline passes through `visible()`**, as every
+  other line it prints does. A refusal raised by a `preflight` reached the
+  terminal with its escape sequences live.
+
 ## digline-mcp 0.4.5 — 2026-10-05
 
 Published by its own tag, `digline-mcp-v0.4.5`, after digline 0.29.0 was on

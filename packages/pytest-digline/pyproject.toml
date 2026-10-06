@@ -42,6 +42,15 @@ dependencies = [
     # 0.20.0, a fourth time, for a name the gate sees: the plugin catches
     # `digline.host.REFUSALS`, which arrived there, and turns every refusal into
     # pytest's usage error rather than an INTERNALERROR.
+    #
+    # **Owed at the cut: raise to the core release that carries #452.** The
+    # plugin catches what the CLI's `main()` catches (#475), and refuses a
+    # `SystemExit` from code digline runs through `refused_exit`, which the
+    # gate dates to 0.28.0, passing `front_end=`, which it cannot see and which
+    # first ships with #452 (ADR 0043 §2, amended). A floor may not name a
+    # release that does not exist yet, so the row is in RELEASING.md's table of
+    # floors owed to the release, and this package takes a release of its own
+    # after the core's.
     "digline>=0.20.0",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry

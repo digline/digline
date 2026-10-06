@@ -61,10 +61,14 @@ for either. The distinction survives in the report — `F` and `E` are counted
 separately, `-rE` lists the errored rows — and in `--junit-xml`. A job that
 needs `1` versus `2` runs `digline compare`, which is one command away.
 
-One exit code it does carry: a **refusal**. When digline declines the request
+What it does carry is a **refusal**. When digline declines the request
 — no baseline, a document it refuses, a comparison across tenants or across
 the projection — the session stops as pytest's usage error, exit `4`, and the
-message names the refusal, as `digline compare` names it and exits `64`.
+message names the refusal, as `digline compare` names it and exits `64`. So
+does a file that cannot be read or written, and a `sys.exit()` from a target
+under `--digline-run`. Anything else nobody anticipated prints its traceback
+and exits `3`, where the command line exits `70`, with digline's sentence in
+place of pytest's `INTERNALERROR`.
 
 ## Naming a suite
 
