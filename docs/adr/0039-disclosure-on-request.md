@@ -91,6 +91,17 @@ decided here.
 
 The unit is **one case**. A disclosure is never a run, and never a suite.
 
+*Noted 2026-10-06: amended in part by [ADR
+0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md),
+proposed, at its acceptance and at a served review page only (0037's
+*Amends* and §7's note).* **§1:** at the review page the unit of a disclosure
+is the opening of the page, not one case; a list of N flagged answers is not N
+disclosures. **§6:** of the two alternatives §6 names and does not choose,
+neither is taken: the review page is not an exception to the projected
+default, and it is where a disclosure happens, a software house's person
+opening it being the recorded act. §6's default reason, which has no subject
+at review, is not touched. The text here is kept as written.
+
 ### 2. The end company does not authorise case by case
 
 > **No person at the end company approves a disclosure before it is made.**
@@ -156,6 +167,14 @@ withdraw. The source says so on every line that person signs, which is the
 reason the source is recorded at all: the client reads what kind of identity
 signed the line, and does not have to assume.
 
+*Noted 2026-10-06: "by construction" no longer holds as written. Ruled
+2026-10-05: whether the client can revoke a local user is not read off the
+identity's source alone, and `source="local"` does not say which case holds.
+A client-directory identity is still revocable by the client; it is no longer
+the only one that may be. Who can revoke a local user is the question the
+next paragraph leaves open, and it stays open here. The paragraph is kept as
+written.*
+
 **What it does not say: who creates that local user and who can revoke it.**
 That is open (*Not decided here*), and under this ruling it decides who can
 disclose.
@@ -185,6 +204,9 @@ to the software house is projected by default. Either an election by the
 software house's person is a disclosure, case by case, with a reason the
 default never fills, or the review page is an exception to the projected
 default. **Neither is written anywhere, and this record does not choose.**
+
+*Noted 2026-10-06: ADR 0037 chooses, at its acceptance — the note under §1
+says how. The paragraph is kept as written.*
 
 **The default needs a comparison in clear, even where a case exists.** *"Worse
 … against the reference"* is a fact only a comparison of the case in clear,
