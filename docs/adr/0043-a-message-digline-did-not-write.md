@@ -28,6 +28,11 @@
   frame read is now the innermost one outside the standard library, and its
   message is digline's only when it is the system's own sentence. The MCP
   server translates it, and the loader refuses the suite's with its location
+- Amended: 2026-10-06, with #452, in §1's reason for leaving `digline_mcp` and
+  `pytest_digline` out, in §2's `locations` and in *Not decided here*. Who
+  wrote a message is read as before. A location no longer names the front end
+  that caught the refusal: on the MCP server's `run`, four paths of §7's gate
+  read *"reached from …/digline_mcp/errors.py"*
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -237,6 +242,22 @@ with a path taken from a case's data gets that path through.*
 #452's question. It does not move this rule, because neither package raises a
 type in `REFUSALS`.
 
+*__Amended 2026-10-06, with #452.__ The reason above was written before #451,
+and after it the reason is incomplete. What the rule classifies is a type in
+`REFUSALS` **or an `OSError` the system raised, read past the standard
+library**. Measured again for #452 at `df95b4d`, on 3.12.13, 3.13.11 and
+3.14.5, neither package raises one of those either. `digline_mcp` raises no
+type in `REFUSALS`. Its only I/O of its own is `Path.resolve()`, non-strict,
+and that raised nothing on a symlink loop on 3.13 and 3.14, and a
+`RuntimeError` on 3.12. `pytest_digline` calls neither `to_withhold` nor
+`refused_exit`, and its frames are never the innermost of a traceback the
+loader classifies. So the conclusion stands for who wrote a message: `_is_digline`
+stays the directory of `digline.__file__`, and neither front end is in it.
+Putting them in would mean that a refusal one of them raised some day would
+cross whole, and nobody asked for that. Provider plugins stay out as well, on
+purpose, as ADR 0041 §4.1 rules. **Where the two front ends did show was in a
+location**, which is §2's field and not this rule: see §2.*
+
 **Declaring it instead was refused.** The alternative was to declare that a
 suite raising a digline refusal writes on digline's behalf. It is false,
 because the user wrote the text. And with `RefusedError` public, it would make
@@ -253,9 +274,33 @@ and the refusal keeps it apart from what digline wrote:
 | the sentence | what digline says: *"{path} raised …, while it was being loaded"* | digline |
 | `kind` | the type's name | code: a class name, not data |
 | `exit_code` | a `SystemExit`'s code, **when it is an `int`** | code |
-| `locations` | the `file:line` frames that are not digline's | the interpreter |
+| `locations` | the `file:line` frames that are not digline's, nor the front end's that caught the refusal (*amended with #452, below*) | the interpreter |
 | `reproduce` | the command that prints the traceback, where there is one | digline |
 | **`message`** | `str()` of the exception, or the `repr` of a `SystemExit` code that is not an `int` | **whoever raised it**, by §1 |
+
+*__Amended 2026-10-06, with #452.__ `locations` leaves out the frames of the
+front end that caught the refusal, as well as digline's. A refusal caught by
+the MCP server after the suite loaded has the server's frames on its
+traceback above the code digline ran: the wrapper in `errors.py` and the tool
+in `server.py`. So the outermost frame that was not digline's was the
+server's, and an agent read *"reached from …/digline_mcp/errors.py:94"* where
+the user's code should have been. Measured at `df95b4d` on 3.12, 3.13 and
+3.14, on four of §7's thirteen paths, all through `run`: `refused_exit`, a
+refusal from a `preflight`, one from a target's `config`, and an `OSError`
+from a `preflight`. The other nine are refused inside the loader, whose frames
+are digline's.*
+
+- *The front end's **directory** is left out, not one file. With only
+  `errors.py` left out, the outermost frame became the server's `run` tool,
+  `server.py:401` (`:364` for `config`), measured before the code.*
+- *The front end names its own directory and hands it to `to_withhold` and
+  `refused_exit`, because nothing shipped with digline names a plugin.*
+- *The command line passes nothing: its frames are under `digline/cli`, which
+  is digline's. `pytest-digline` passes nothing either, because it computes no
+  location from a traceback it caught.*
+- ***Who wrote the message is not read from this.** It stays §1's, through
+  `_is_digline`. A location is where to look, and the author is what may
+  cross.*
 
 `str()` of the refusal is today's sentence, complete. The carrier is defined in
 `digline.core`, beside `RefusedError`, because wraps happen in the core, in
@@ -567,6 +612,10 @@ record.
   sentence.
 - **What counts as digline's code** for a location (#452). §1 does not wait
   for it.
+  *Settled 2026-10-06 by #452, in §1 and §2:* for who wrote a message, the
+  directory of `digline.__file__` as before. For a location, that directory
+  and the front end's that caught the refusal. Provider plugins are in
+  neither.
 - **What `digline view` puts on a page during a request.** It writes
   `str(exc)` into its pages (`view.py:511`, `:516`, `:707`, `:784`). §4 shows
   that a load-time refusal cannot get there. Whether code digline runs during a

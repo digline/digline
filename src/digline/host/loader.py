@@ -369,7 +369,9 @@ def _message(exc: BaseException) -> str:
     return str(exc)
 
 
-def refused_exit(exc: SystemExit) -> UsageError | None:
+def refused_exit(
+    exc: SystemExit, *, front_end: Path | None = None
+) -> UsageError | None:
     """The refusal for a `SystemExit` raised by code digline runs, or `None`
     when digline raised it.
 
@@ -380,6 +382,10 @@ def refused_exit(exc: SystemExit) -> UsageError | None:
     process, and to them the exit code is digline's contract. A run in progress
     keeps its journal. The driver does not call this: a library caller owns its
     own process, and gets the `SystemExit`. (ADR 0041 §4.3)
+
+    `front_end` is the directory of the front end that caught it, so that its
+    own frames are not given as where the code was reached from. (ADR 0043
+    §2, amended with #452)
     """
     if raised_inside_digline(exc):
         return None
@@ -390,7 +396,9 @@ def refused_exit(exc: SystemExit) -> UsageError | None:
             ". digline stopped, as asked, but the code it runs does not choose "
             "its exit code. A run in progress keeps its journal: `digline run "
             "--resume` continues it.",
-            locations=tuple(visible(at) for at in frames_outside(exc)),
+            locations=tuple(
+                visible(at) for at in frames_outside(exc, front_end=front_end)
+            ),
             message=visible(_message(exc)),
         )
     )

@@ -48,6 +48,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
+from pathlib import Path
 from typing import NoReturn
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -74,6 +75,14 @@ __all__ = ["TRANSLATED", "translated"]
 #: translate and get in nobody's way. (friction 59)
 TRANSLATED: tuple[type[Exception], ...] = REFUSALS
 
+#: This server's own code. A refusal caught here has this directory's frames on
+#: its traceback, above the code digline ran: the wrapper below, and the tool
+#: that called into digline. Neither is where the user's code was reached from,
+#: and "reached from …/digline_mcp/errors.py" is what an agent read before
+#: #452. Named here and handed down, because nothing shipped with digline may
+#: name a plugin. (ADR 0043 §2, amended with #452)
+_HERE = Path(__file__).resolve().parent
+
 
 # PEP 695 syntax (Python 3.12+): `[**P, R]` declares the type parameters inline
 # instead of the older module-level `ParamSpec`/`TypeVar` pair. `**P` is the
@@ -99,7 +108,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
         # ended at the next request, and the agent read an EOF. The tool stops,
         # as asked, and the session goes on. (ADR 0041 §4.3)
         except SystemExit as exc:
-            refused = refused_exit(exc)
+            refused = refused_exit(exc, front_end=_HERE)
             if refused is None:
                 raise
             raise ToolError(json_visible(_for_the_agent(refused))) from exc
@@ -108,7 +117,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
 
 
 def _for_the_agent(refusal: BaseException) -> str:
-    return refusal_text(refusal, to_withhold(refusal))
+    return refusal_text(refusal, to_withhold(refusal, front_end=_HERE))
 
 
 def refuse(message: str) -> NoReturn:
