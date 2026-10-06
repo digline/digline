@@ -287,6 +287,31 @@ CLASS: dict[str, tuple[str, str]] = {
         _HEAD.replace("vars=ROW)", f"vars=dict({CASE_VAR}=1, {CASE_VAR}=2))"),
         "list_runs",
     ),
+    # #451: an `OSError` passed through the loader whatever its frame, and the
+    # server did not translate it, so each of these reached an agent as *Error
+    # executing tool*. P1 to P3 of the issue, and a `preflight`'s, which the
+    # issue left unmeasured.
+    "P1, an OSError the suite raises with the row": (
+        _HEAD + "raise FileNotFoundError(ROW['iban'])\n",
+        "list_runs",
+    ),
+    "P2, an OSError from open(), a builtin, on the row": (
+        _HEAD + "open('/nonexistent/' + ROW['iban'])\n",
+        "list_runs",
+    ),
+    "P3, an OSError from pathlib on the row": (
+        _HEAD
+        + "__import__('pathlib').Path('/nonexistent/' + ROW['iban']).read_text()\n",
+        "list_runs",
+    ),
+    "an OSError raised by a preflight": (
+        _HEAD
+        + _TARGET
+        + "def _preflight(cases):\n"
+        + "    open('/nonexistent/' + cases[-1].vars['iban'])\n"
+        + "target.preflight = _preflight\n",
+        "run",
+    ),
 }
 
 

@@ -14,6 +14,9 @@
   and paragraph on tests, and in §4.3's sentence. A refusal is digline's only
   when its innermost frame is, and an exception's message reaches the person
   who ran the command and no agent. The five codes do not move
+- Amended: 2026-10-06, by ADR 0043 §1 as amended with #451, in §4.1's rule 3
+  and in *Not decided here*. An `OSError` passes through only when digline
+  asked for it, and the MCP server translates one. The five codes do not move
 - Amended: 2026-10-04, before 0.28.0 was cut, in §4.1's rule 1, in a new §4.2,
   in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
   passes through as a refusal. A refusal written in words is `RefusedError`, a
@@ -214,6 +217,11 @@ frame and checked in this order:
    without it. Rule 1 passes a refusal through only when its innermost frame
    is digline's, and an `OSError` whatever its frame, until #451.
    [ADR 0043](0043-a-message-digline-did-not-write.md) §1–§3.*
+
+   *__Amended 2026-10-06, with #451.__ An `OSError` passes through when digline
+   asked for it, read from the innermost frame outside the standard library,
+   and the suite's falls under this rule like any other exception from its
+   code. [ADR 0043](0043-a-message-digline-did-not-write.md) §1, amended.*
 
 **The measurement that makes rule 2 safe.** Calling a digline API with the
 wrong arguments raises at the call site, so the innermost frame is the suite's
@@ -553,6 +561,8 @@ claims only what is known.
   is done in the loader both front ends share. (B) is done in the CLI's
   `main()`, so on the MCP an unreadable file is still an unexpected error.
   Whether it should be translated there too is not ruled here.
+  *Decided 2026-10-06, by #451: it is translated, by the rule
+  [ADR 0043](0043-a-message-digline-did-not-write.md) §1, amended, gives it.*
 - **`pytest-digline`** reports through pytest's own exit codes and is not
   touched.
 

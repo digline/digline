@@ -34,6 +34,14 @@ other code's exceptions in refusals of its own. So the message of an exception
 digline did not write never reaches the agent: it gets the type, the location
 and the command that prints the traceback, rendered by `digline.wire`. Until
 this, it did (#445, GHSA-x6w8-q92m-23h3). (ADR 0043 §1, §3)
+
+**And an `OSError` is translated beside them.** It is not in `REFUSALS`, and it
+is not a bug either: a file that cannot be read is the environment, which is
+why the command line refuses it in words (ADR 0041 §4, (B)). Untranslated, it
+reached an agent as "Error executing tool" while the command line said what
+was wrong. It is rendered by the same rule: its message crosses when digline
+asked and the system wrote the words, and otherwise the agent gets the type and
+the location. (#451, ADR 0043 §1, amended)
 """
 
 from __future__ import annotations
@@ -84,7 +92,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
             return fn(*args, **kwargs)
-        except TRANSLATED as exc:
+        except (*TRANSLATED, OSError) as exc:
             raise ToolError(json_visible(_for_the_agent(exc))) from exc
         # Code the tool ran asked to end the process. Uncaught, it passed
         # through the SDK's worker thread: the call never answered, the server
