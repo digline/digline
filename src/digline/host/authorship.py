@@ -23,8 +23,12 @@ on the network wrote, is somebody else's whoever asked. (ADR 0043 §1, amended
 with #451)
 
 Here in `host` because reading a frame's file is the filesystem, and the core
-does no I/O. *Digline's code* is the directory of `digline.__file__`; whether
-`digline_mcp` and `pytest_digline` belong in it is #452's question.
+does no I/O. *Digline's code* is the directory of `digline.__file__`, for who
+wrote a message. **A location leaves out the front end's frames as well**: a
+front end that catches a refusal is on the traceback above the code digline
+ran, and "reached from" it named the server's wrapper instead of the user's
+code. The front end names its own directory, because nothing shipped with
+digline names a plugin. (ADR 0043 §2, amended with #452)
 """
 
 from __future__ import annotations
@@ -142,20 +146,25 @@ def written_by_digline(exc: BaseException) -> bool:
     return quoted is None or (not quoted.builtin and written_by_digline(quoted.cause))
 
 
-def to_withhold(exc: BaseException) -> Quoted | None:
+def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Quoted | None:
     """The refusal in fields, when part of what it says is not digline's to
     ship; `None` when all of it is. (ADR 0043 §3)
 
     A refusal raised outside digline's code with a plain sentence, such as a
     `preflight` raising `RefusedError`, has no wrap to split. It is rendered as
-    a wrapped one is: its type and its location, and the message set apart."""
+    a wrapped one is: its type and its location, and the message set apart.
+    `front_end` is the directory of the front end that caught it, whose frames
+    are not a location (`frames_outside`)."""
     if written_by_digline(exc):
         return None
     quoted = quoted_in(exc)
     if quoted is not None:
         return quoted
     return Quoted.of(
-        exc, "code digline ran raised ", ".", locations=frames_outside(exc)
+        exc,
+        "code digline ran raised ",
+        ".",
+        locations=frames_outside(exc, front_end=front_end),
     )
 
 
@@ -167,18 +176,32 @@ def quoted_in(exc: BaseException) -> Quoted | None:
     return None
 
 
-def frames_outside(exc: BaseException) -> tuple[str, ...]:
+def frames_outside(
+    exc: BaseException, *, front_end: Path | None = None
+) -> tuple[str, ...]:
     """`file:line` of the innermost frame that is not digline's, and of the
     outermost when it is another: where the raise was, and where the suite's
     code was entered. Nothing when every frame is digline's. For an `OSError`
     the system raised, the standard library's frames are not counted, as they
     are not for who raised it: a location in `pathlib` says nothing about who
-    asked."""
+    asked.
+
+    Nor are the frames under `front_end`, the directory of the front end that
+    caught `exc`. Its wrapper and its tool are on the traceback above the code
+    digline ran, so the outermost frame was the MCP server's
+    `errors.py`, and without the wrapper it would have been the server's
+    `run` tool: the whole directory goes, not one file. Who wrote the message
+    is not read from this, and stays `_is_digline`'s: a front end that raised
+    a refusal of its own would not have its message taken for digline's.
+    (ADR 0043 §2, amended with #452)"""
     frames = [
-        (frame.f_code.co_filename, line)
+        (filename, line)
         for frame, line in _counted(exc)
-        if not _is_digline(frame.f_code.co_filename)
-        and not frame.f_code.co_filename.startswith("<")
+        if not _is_digline(filename := frame.f_code.co_filename)
+        and not filename.startswith("<")
+        and not (
+            front_end is not None and Path(filename).resolve().is_relative_to(front_end)
+        )
     ]
     if not frames:
         return ()

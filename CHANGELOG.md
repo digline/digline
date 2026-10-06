@@ -23,6 +23,12 @@ notes under them are this file, verbatim.
   the message of a cases file digline could not read *"was not written by
   digline"*. Now it arrives whole. The command line does not change.
 
+- **A location no longer names the MCP server** (#452, ADR 0043 §2, amended).
+  A refusal caught by the server during `run` (a target's `sys.exit`, a
+  `preflight`'s refusal or `OSError`, a target's `config`) said *"reached from
+  …/digline_mcp/errors.py"*. It now names the line in the user's code alone.
+  Who wrote the message is read as before.
+
 ## digline-mcp 0.4.5 — 2026-10-05
 
 Published by its own tag, `digline-mcp-v0.4.5`, after digline 0.29.0 was on

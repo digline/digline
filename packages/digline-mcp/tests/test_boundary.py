@@ -378,3 +378,44 @@ def test_the_command_line_shows_what_the_agent_does_not(
     done = cli(root, "run", "--suite", "suite_raises.py")
     assert done.returncode == 64, done.stderr
     assert CASE_VAR in done.stderr, done.stderr
+
+
+#: The rows whose refusal is caught by the server after the suite loaded: their
+#: traceback starts in the server's own frames, above the code digline ran.
+#: Every other row is refused inside the loader, whose frames are digline's.
+#: Measured for #452: each of these four read *"reached from
+#: …/digline_mcp/errors.py:94"*, and with only that file left out, *"reached
+#: from …/digline_mcp/server.py:401"* (`:364` for `config`).
+CAUGHT_BY_THE_SERVER = {
+    "refused_exit, during run": 17,
+    "a refusal raised by a preflight": 20,
+    "a refusal raised by a target's config": 19,
+    "an OSError raised by a preflight": 20,
+}
+
+
+@pytest.mark.parametrize("raising", list(CLASS), indirect=True)
+def test_a_location_is_never_the_server_s_own(raising: tuple[Path, str]) -> None:
+    """ADR 0043 §2, amended with #452: `locations` names where the user's code
+    raised and where it was entered, never the front end that caught the
+    refusal. The server's frames are left out by directory, not by file: its
+    wrapper and its tool are both on the traceback."""
+    root, tool = raising
+    said = _refused(root, tool, str(root / "suite_raises.py"))
+    assert "digline_mcp" not in said, said
+
+
+@pytest.mark.parametrize(
+    ("raising", "line"),
+    list(CAUGHT_BY_THE_SERVER.items()),
+    indirect=["raising"],
+    ids=list(CAUGHT_BY_THE_SERVER),
+)
+def test_what_is_left_is_the_user_s_line(raising: tuple[Path, str], line: int) -> None:
+    """The guard on the test above: for the four rows the server catches, the
+    location is still there, and it is the line in the suite that raised.
+    Leaving out every frame would pass the test above and say nowhere."""
+    root, tool = raising
+    said = _refused(root, tool, str(root / "suite_raises.py"))
+    assert f" at {root / 'suite_raises.py'}:{line}" in said, said
+    assert "reached from" not in said, said
