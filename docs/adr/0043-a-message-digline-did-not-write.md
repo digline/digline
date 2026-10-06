@@ -33,6 +33,10 @@
   wrote a message is read as before. A location no longer names the front end
   that caught the refusal: on the MCP server's `run`, four paths of §7's gate
   read *"reached from …/digline_mcp/errors.py"*
+- Amended: 2026-10-06, with #475, in §1's reason for leaving `digline_mcp`
+  and `pytest_digline` out and in §2's `locations`. `pytest-digline` calls
+  `refused_exit` and hands it its directory. Who wrote a message is read as
+  before, and the plugin prints §3's rendering for it, the whole sentence
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -258,6 +262,13 @@ cross whole, and nobody asked for that. Provider plugins stay out as well, on
 purpose, as ADR 0041 §4.1 rules. **Where the two front ends did show was in a
 location**, which is §2's field and not this rule: see §2.*
 
+*__Amended 2026-10-06, with #475.__ "`pytest_digline` calls neither
+`to_withhold` nor `refused_exit`" stopped being true: the plugin now catches
+what the CLI's `main()` catches, and refuses a `SystemExit` from code digline
+runs through `refused_exit`. The conclusion does not move. The plugin raises
+pytest's `UsageError`, not a type in `REFUSALS`, so `_is_digline` stays the
+directory of `digline.__file__`.*
+
 **Declaring it instead was refused.** The alternative was to declare that a
 suite raising a digline refusal writes on digline's behalf. It is false,
 because the user wrote the text. And with `RefusedError` public, it would make
@@ -298,6 +309,10 @@ are digline's.*
 - *The command line passes nothing: its frames are under `digline/cli`, which
   is digline's. `pytest-digline` passes nothing either, because it computes no
   location from a traceback it caught.*
+  *__Amended 2026-10-06, with #475:__ `pytest-digline` now computes one,
+  for a `SystemExit` from code digline runs under `--digline-run`, and passes
+  its own directory to `refused_exit` as the MCP server does. Measured with
+  the argument removed: the refusal then names the plugin's own frames.*
 - ***Who wrote the message is not read from this.** It stays §1's, through
   `_is_digline`. A location is where to look, and the author is what may
   cross.*

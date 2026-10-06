@@ -17,6 +17,9 @@
 - Amended: 2026-10-06, by ADR 0043 §1 as amended with #451, in §4.1's rule 3
   and in *Not decided here*. An `OSError` passes through only when digline
   asked for it, and the MCP server translates one. The five codes do not move
+- Amended: 2026-10-06, with #475, in §4.3's last paragraph and in *Not
+  decided here*. `pytest-digline` catches what the CLI's `main()` catches, on
+  pytest's own codes. The five codes do not move
 - Amended: 2026-10-04, before 0.28.0 was cut, in §4.1's rule 1, in a new §4.2,
   in *Not decided here* and in *Consequences*. A bare `ValueError` no longer
   passes through as a refusal. A refusal written in words is `RefusedError`, a
@@ -512,6 +515,9 @@ tell a real Ctrl-C from code that raises one.
 
 **What it leaves.** `pytest-digline` reports through pytest's own exit codes
 and is not touched, as *Not decided here* already says of it.
+*Decided 2026-10-06, by #475: a `SystemExit` from code digline runs is
+refused there too, with its location, as pytest's usage error. See *Not
+decided here*.*
 
 ## 5. A traceback, and one line beside it
 
@@ -565,6 +571,14 @@ claims only what is known.
   [ADR 0043](0043-a-message-digline-did-not-write.md) §1, amended, gives it.*
 - **`pytest-digline`** reports through pytest's own exit codes and is not
   touched.
+  *Decided 2026-10-06, by #475: it catches what `main()` catches, on pytest's
+  codes. An `OSError` and a `SystemExit` from code digline runs are refused as
+  usage errors, exit 4 where the CLI exits 64, the second with its location.
+  Anything else is pytest's exit 3 with the traceback and the sentence of §5,
+  where the CLI exits 70, instead of `INTERNALERROR`, which read as a crash of
+  pytest or of the plugin. Each sentence is the whole one, by
+  [ADR 0043](0043-a-message-digline-did-not-write.md) §3, and passes through
+  `visible`, as rule 3 of §4.1 has it.*
 
 ## Consequences
 
