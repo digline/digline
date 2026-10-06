@@ -1,26 +1,28 @@
 # ADR 0037 — The review interface, and the election recorded where the text is not
 
-- Status: proposed 2026-09-29 — the text first, checkpointed before any code,
-  the way [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md),
+- Status: accepted 2026-10-06, by Alessandro Prandini — the text first,
+  checkpointed before any code, the way
+  [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md),
   [ADR 0035](0035-the-record-of-a-deletion.md) and
-  [ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md) were. Nothing
-  in it is implemented. **What it states was ruled before it was written**, in
-  discussion, on 2026-09-28, as three questions in an order: where the label is
-  given (§2), who elects and signs (§4), and the shape (§5). It is recorded
-  here as ruled. **Its acceptance waits on a record that is itself
-  proposed**: [ADR 0023](0023-capture.md), whose sections it supersedes and
-  amends and which cannot be superseded in part before it is in force. It
-  also waited on ADR 0036, the name table, without which the shape in §5 has
-  nothing to resolve against; ADR 0036 was accepted on 2026-09-29, and is not
-  built
-  *Noted 2026-10-06: it stays proposed. Its acceptance is ruled to be one
-  change with ADR 0023's, with the amendments both owe made inside it — the
-  shape of ADR 0036's acceptance — so it no longer waits on 0023 to be in
-  force first. ADR 0036 is built: its *Shipped* line reads 0.24.0. The notes
-  dated 2026-10-06 below record the rulings made since this text; the text
-  they sit beside is kept as written, and the rewrite in place belongs to the
-  acceptance. No decision of this record's own is left blocking it: what
-  stays open is declared in *Not decided here**
+  [ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md) were. It
+  landed on `main` as proposed on 2026-09-29; nothing in it is implemented.
+  **What it states was ruled before it was written**, in discussion, on
+  2026-09-28, as three questions in an order: where the label is given (§2),
+  who elects and signs (§4), and the shape (§5). **It was accepted in one
+  change with [ADR 0023](0023-capture.md)**, whose sections it supersedes and
+  amends and which could not be superseded in part before it was in force,
+  with the amendments both owe made inside that change — the shape of ADR
+  0036's acceptance. It also waited on ADR 0036, the name table, without which
+  the shape in §5 had nothing to resolve against; ADR 0036 was accepted on
+  2026-09-29 and shipped in 0.24.0. **What was ruled between its proposal and
+  its acceptance is written into the text**: the line carries no approver
+  (§5); the election's token is of the `case_id` kind (§8); which party
+  elected is a field of its own, recorded with who attested it (§4); a
+  software house's person may write a case by hand inside the owner's
+  perimeter, in ADR 0023 §8 (§4); the review page is where a disclosure
+  happens (§7); and at a served page a captured case's inside id is random
+  (§8). No decision of this record's own was left blocking it. What stays open
+  is declared in *Not decided here*
 - Shipped: unreleased
 - Date: 2026-09-29
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -33,12 +35,10 @@
   `Matrix`'s list of exclusions, carried through every counting site the way
   ADR 0016 §2's canary was (§3). **A line at the software house** per elected
   case, which nothing writes today (§5). **The name table** of ADR 0036, which
-  is accepted and unbuilt (§5). **Deliberately not read off ADR 0023's
-  *Requires* line**, which prices world 1's command and not this — the same
-  refusal ADR 0034's *Requires* makes
-  *Noted 2026-10-06: the name table is built (ADR 0036, 0.24.0). What the
-  line still needs is a reader for its token outside a projected document,
-  which *Not decided here* names*
+  shipped in 0.24.0, and **a reader for a line's token outside a projected
+  document**, which *Not decided here* names (§5). **Deliberately not read off
+  ADR 0023's *Requires* line**, which prices world 1's command and not this —
+  the same refusal ADR 0034's *Requires* makes
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter) and its three worlds;
   [ADR 0016](0016-the-canary-case.md) §2 (a case excluded from metrics and
@@ -55,8 +55,8 @@
   §4 (a token is stable across every document of its suite), §5 (random, not
   derived), §6 (look-up-or-mint is atomic because one process owns the table)
   and §7 (the election is one of the table's three writers)
-- Supersedes, **in part and at acceptance**, [ADR 0023](0023-capture.md) —
-  **wherever the election is made at a served page at the data owner's side**,
+- Supersedes, **in part**, at acceptance on 2026-10-06,
+  [ADR 0023](0023-capture.md) — **wherever the election is made at a served page at the data owner's side**,
   and nowhere else (§1):
   - §1, two clauses of its sentence: *"the apps collect — capture asks no
     question and has no UI"* and *"the commit signs — the diff is the review"*;
@@ -72,44 +72,48 @@
     it, declared;
   - the *Touches* line's *"nothing it writes reaches the wire"*, and the *Turns
     into surface* line, which names a command only
-- Amends, **at acceptance**: ADR 0023 §6 (the id that leaves is a token, and
-  the id minted inside must never leave) and §8 (its *"not ruled here"* about
-  an election reaching the software house's repository is ruled, and its
-  consequence 3's second path has no instance)
-  *Noted 2026-10-06, on §6: at a served page the id minted inside is random,
-  by ADR 0036 §5's rule, and the hash is at most a key in `Case.metadata`
-  (§8's note); so what must never leave is the hash, and it is no longer the
-  id. On §8: its unruled sentence about a case written by hand is ruled the
-  same day, as permitted (§4's note)*
-  *Noted 2026-10-06: **it also amends [ADR 0039](0039-disclosure-on-request.md)**,
-  proposed, at acceptance and at a served review page only. **§1**: at the
-  review page the unit of a disclosure is the opening of the page, not one
-  case. **§6**: of the two alternatives it names and does not choose — every
-  election by the software house's person a disclosure case by case, or the
-  review page an exception to the projected default — neither is taken; the
-  page is where a disclosure happens (§7's note). ADR 0039 §6's default reason,
-  which has no subject at review, is not touched. ADR 0039 carries no note of
-  this yet*
+- Amends, **at acceptance** — made on 2026-10-06, in the change that accepted
+  this record and ADR 0023, each place carrying a dated note:
+  - **ADR 0023 §6**: the id that leaves is a token. At a served page the id
+    minted inside is random, by ADR 0036 §5's rule, and the hash of `vars` is
+    at most a key in `Case.metadata`, so what must never leave is the hash, and
+    it is not the id (§8);
+  - **ADR 0023 §8**: its *"not ruled here"* about an election reaching the
+    software house's repository is ruled, and its consequence 3's second path
+    has no instance (§9). Its sentence about a case written by hand was ruled
+    in ADR 0023 itself, as permitted (§4);
+  - **[ADR 0039](0039-disclosure-on-request.md)**, proposed, at a served review
+    page only (§7). **§1**: at the review page the unit of a disclosure is the
+    opening of the page, not one case. **§6**: of the two alternatives it names
+    and does not choose — every election by the software house's person a
+    disclosure case by case, or the review page an exception to the projected
+    default — neither is taken; the page is where a disclosure happens. ADR
+    0039 §6's default reason, which has no subject at review, is not touched.
+    And its *What it touches* bullet on this record, whose *"ADR 0037 has no
+    place for disclosure"* stops being true when §7 is in force;
+  - **[ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md)**,
+    accepted, in three places that give the election's line an approver: the
+    Context's *"a token, a date, and who approved it"*, §7's *"a token, a date
+    and who approved it"*, and the *Not decided here* item on what the approver
+    is. The line carries a token and a date (§5). The approver was ruled out of
+    it on 2026-10-05, and those sentences become a contradiction between two
+    accepted records when this one is accepted, so the amendment is made here
 - Carries: what ADR 0036 §7 and its *Names* line assign to *"ADR 0023's own
   rewrite"*. The same text is here, in a record of its own instead of a
   rewrite; §*Why a record and not an amendment* says why
 - Touches, in `CLAUDE.md`'s *fixed* section: **decision 9**. An elected case
   now produces a line at the software house, and a line that crosses is what
-  decision 9 governs. Its token is covered by ADR 0034's narrowing; its date is
-  not payload; **its approver is a field no record has classified yet**, and
-  ADR 0034 §4 refuses an unclassified field — so nothing may write the line
-  until it is (§5, *Not decided here*). **Decision 1** is upheld: the kind in
+  decision 9 governs. It carries a token and a date: its token is covered by
+  ADR 0034's narrowing, and its date is not payload. Who approved the election
+  is not on it (§5). Where a software house's person opens the review page,
+  that opening is a disclosure (§7), and what a disclosure does to decision 9
+  is [ADR 0039](0039-disclosure-on-request.md) §8's question, not this
+  record's. **Decision 1** is upheld: the kind in
   §3 is data on a case, and an assertion stays a pure function of its inputs.
   **Decision 2** is upheld: everything an election writes at the data owner's
   side is in the tenant's directory there, under ADR 0034 §1. **Decision 3** is
   upheld: a case whose expected was written at review can fail, and §3 keeps it
   in the gate so that it does
-  *Noted 2026-10-06: the line carries a token and a date. Who approved the
-  election was ruled out of it on 2026-10-05 (§5's note), so no field on it is
-  left to classify, and the condition above has no subject. Where a software
-  house's person opens the review page, that opening is a disclosure (§7's
-  note), and what a disclosure does to decision 9 is [ADR
-  0039](0039-disclosure-on-request.md) §8's question, not this record's.*
 - Number: 0037. Swept on 2026-09-29, before a line was written, across
   `origin/main` (`68af296`), every local and remote branch, and the
   `docs/adr/` of every worktree, the stale capture worktree's included. The
@@ -285,31 +289,24 @@ the text and the one that knows the domain: an operator at an insurer knows
 whether an answer about a claim is wrong, and a developer at a software house
 often does not.
 
-**What tells them apart is the identity's source, recorded on the election.**
-Which party's person approved is a fact of the election, written where the
-election is, and not a convention. **The identity protocol that supplies the
-source is not decided here**, and ADR 0034 lists it among what it does not
-decide: this record rules what the election records, not how an identity is
-established.
-
-*Noted 2026-10-06: the mechanism in the first sentence does not hold, and what
-replaces it is ruled.* The identity's source does not tell the parties apart. A
-software house's person signs as a local user of the process that serves the
-page (ADR 0039 §5), and so may an end company's person where it has no
-directory of its own; where it has one, *local* does not mean *software house*,
-and *directory* does not mean *end company* either, since a software house's
-person may hold an account there. **So the party is a field of its own,
-recorded with who attested it** — not the party alone, as the identity carries
-its source and not only its name. Who attests is not neutral: the data owner
-attesting on its own record is one case, and the side that benefits attesting
-is the shape of ADR 0034 §10's argument, and the record lets a reader see
-which. **The field is never absent**: where the party is not recorded, the
-record says so in words, because a record that is silent lets a reader assume
-the stronger regime. What this keeps is the trace of the third hand below:
-without the party, elections made by a software house's person could not be
-told apart afterwards from the end company's. It stays recorded and not a
-permission (*What this record does not claim*). The field's vocabulary, and
-where it lives, are in *Not decided here*.
+**Which party elected is a field of its own, recorded with who attested it.**
+The identity's source does not tell the parties apart. A software house's
+person signs as a local user of the process that serves the page (ADR 0039
+§5), and so may an end company's person where it has no directory of its own;
+where it has one, *local* does not mean *software house*, and *directory* does
+not mean *end company* either, since a software house's person may hold an
+account there. So the party is recorded beside the identity, **with who
+attested it** — not the party alone, as the identity carries its source and
+not only its name. Who attests is not neutral: the data owner attesting on its
+own record is one case, and the side that benefits attesting is the shape of
+ADR 0034 §10's argument, and the record lets a reader see which. **The field is
+never absent**: where the party is not recorded, the record says so in words,
+because a record that is silent lets a reader assume the stronger regime. It
+is a fact of the election, written where the election is, and it stays
+recorded and not a permission (*What this record does not claim*). The field's
+vocabulary, and where it lives, are in *Not decided here*. **How an identity is
+established is not decided here**: this record rules what the election
+records.
 
 **The kind is recorded where the election is.** §3's kind is a fact about the
 election, so it is written at the same place. *How* it is written on a case, and
@@ -324,28 +321,21 @@ which is still owed.
 **The consequence that must be written: this allows the third hand.** A
 software house's person electing inside the end company's perimeter writes a
 case whose `vars` are the end company's text, where the end company keeps it.
-ADR 0023 §8's amendment says, of a software house's hand writing inside the
-owner's perimeter, that it *"is not ruled here"* — and that sentence was about
-the case written **by hand**. **This record allows the hand for an election,
-and does not settle it for a case written by hand.** The two are now in
-tension, and the tension is left standing on purpose: the record that owes the
-answer is ADR 0023 §8, whose sentence it is. Either the permission extends to
-the hand-written case, or §8 says why a case written by hand differs from an
-election. Neither is ruled here.
-
-*Noted 2026-10-06: ruled, on the side of the permission.* A software house's
-person may write a case by hand inside the owner's perimeter, as ADR 0023 §8's
-note of the same date records: the file does not move, and whose hand writes
-it changes neither where the text sits nor where it stays. The tension above
-is closed. What a case written by hand lacks against an election — a kind,
-limits, a recorded party — is ADR 0023's open question, not this record's.
+**The same hand may write a case by hand there**, and that is ruled in ADR
+0023 §8, whose question it was: the file does not move, and whose hand writes
+it changes neither where the text sits nor where it stays. The party field
+above is what keeps the third hand traceable for an election: without it,
+elections made by a software house's person could not be told apart
+afterwards from the end company's. What a case written by hand lacks against
+an election — a kind, limits, a recorded party — is ADR 0023's open question,
+not this record's.
 
 ### 5. The shape: elected at the data owner's side, recorded at the software house
 
 > **The election happens at the data owner's side, and it is recorded at the
 > software house.** The data owner's store holds the text. **The software
-> house's repository holds one line per elected case — a token, a date, and
-> who approved it. No word of the text.**
+> house's repository holds one line per elected case — a token and a date. No
+> word of the text.**
 
 **This is ADR 0034 §3's pattern for promotion, applied to an election.** One
 approval, made where the value is; the software house's commit records it and
@@ -365,36 +355,27 @@ software house's repository holding the client's text, and its amendment of
 2026-09-28 kept that refusal. A case file is text, whatever its ids are.
 
 **The one thing this shape has to guarantee: the line never carries text.**
-Whatever it comes to carry beyond a token, a date and an approver, it stays
-inside that condition. **The approver is the part that has not been checked
-against it**: if it names a person on the end company's side, it is a string
-to classify under ADR 0034 §4, and until it is classified nothing may write
-the line. ADR 0036's *Not decided here* names the same gap from the table's
-side.
+Whatever it comes to carry beyond a token and a date, it stays inside that
+condition. **Who approved the election is not on it.** The field would be
+useless or harmful, never useful: where it names a person of the end company,
+it carries what the perimeter exists to keep in; where it names one of the
+software house's own people, the software house already knows it without
+digline. The fact has its home inside the perimeter, where the election is
+recorded (§4). So nothing on the line is left to classify under ADR 0034 §4,
+and the committed diff at the software house shows that a case entered, and
+when — not by whom.
 
-*Noted 2026-10-06: the approver left the line on 2026-10-05.* The line carries
-a token and a date. The field was useless or harmful, never useful: where it
-names a person of the end company, it carries what the perimeter exists to
-keep in; where it names one of the software house's own people, the software
-house already knows it without digline. The fact has its home inside the
-perimeter, where the election is recorded (§4). So nothing on the line is left
-to classify, and the committed diff at the software house shows that a case
-entered, and when — not by whom. The blockquote above is kept as written.
-
-**The cost, stated and not softened: this shape needs the name table, and the
-table is not built.** A token at the software house means nothing unless
-something at the data owner's side resolves it, and a token is idempotent
-across the software house's branches only by keeping state: two branches that
-record the same election must record one token, and ADR 0036 §4 and §6 give
-that — stable per suite, minted by look-up-or-mint inside one process. **ADR
-0036 is accepted and not built**, and until it is built, this shape has nothing
-under it. A shape where nothing crosses would have needed no table. That is
-the cost, and it was accepted on purpose.
-
-*Noted 2026-10-06: the table is built (ADR 0036, 0.24.0), and the election's
-token is of the `case_id` kind (§8's note), so the election and a later
-projection name one case with one token. What is not decided is how a line's
-token is read when it no longer resolves (*Not decided here*).
+**The cost, stated and not softened: this shape needs the name table.** A
+token at the software house means nothing unless something at the data
+owner's side resolves it, and a token is idempotent across the software
+house's branches only by keeping state: two branches that record the same
+election must record one token, and ADR 0036 §4 and §6 give that — stable per
+suite, minted by look-up-or-mint inside one process. The election's token is
+of the `case_id` kind (§8), so the election and a later projection name one
+case with one token. A shape where nothing crosses would have needed no table.
+That is the cost, and it was accepted on purpose. The table shipped in 0.24.0.
+**What is not decided is how a line's token is read when it no longer
+resolves** (*Not decided here*).
 
 **How the line reaches the software house is not decided.** The data owner's
 side has no git (ADR 0034 §3, stated there as a condition). What produces the
@@ -459,9 +440,9 @@ so there is no dirty tree. **Nothing yet tells a run made after an election
 and before its record at the software house.** The candidate is comparing a
 run's `cases_digest` against the elections recorded, and it is undesigned.
 
-*Noted 2026-10-06: where the text is read, and by whom, is ruled.* The review
-page is **not an exception** to the projected default that a page served to
-the software house keeps. **It is where a disclosure happens** (ADR 0039, its
+**Where the text is read, and by whom.** The review page is **not an
+exception** to the projected default that a page served to the software house
+keeps. **It is where a disclosure happens** (ADR 0039, its
 §3's trace in place of a permission): a software house's person opening it is
 the recorded act, and the page shows that person what a disclosure shows —
 which ADR 0039 governs, not this record. Anyone may open it. For the end
@@ -470,43 +451,40 @@ text inside their own perimeter, and not because the page treats them
 differently: the party stays recorded and never becomes a permission. **The
 unit is the opening of the page**, not the flagged answer, so a list of N
 answers is not N disclosures with N reasons written by hand; ADR 0039 §1,
-whose unit is one case, changes with it. **The cost, stated:** what a person
-must have read to write an expected is, in every case, the input, and whether
-the input can be disclosed is open in ADR 0039. Until it is decided, a
+whose unit is one case, changes with it (*Amends*). **The cost, stated:** what
+a person must have read to write an expected is, in every case, the input, and
+whether the input can be disclosed is open in ADR 0039. Until it is decided, a
 software house's person cannot elect at the page, so §4's permission names a
 gesture the software house cannot perform today; how much of it becomes
 possible once the input is decided is ADR 0039's to say.
 
 ### 8. ADR 0023 §6, amended: the id that leaves is a token, and the hash never leaves
 
-> **A captured case has two ids.** The one minted inside the perimeter is ADR
-> 0023 §6's hash of `vars`, and it stays there. **The one that leaves is a
-> token from the name table**, and it is random (ADR 0036 §5).
+> **A captured case has two ids.** The one minted inside the perimeter is
+> **random**, by ADR 0036 §5's rule, and not ADR 0023 §6's hash of `vars`; it
+> stays there. **The one that leaves is a token from the name table**, of the
+> `case_id` kind, and it is random too (ADR 0036 §5, §7).
 
-**What §6 keeps.** Inside the perimeter its recipe costs nothing and its
-dedup-by-input argument holds: two elections of one item mint one id, and a
-second label on an input already held is refused by id. Scout's crossposts are
-the same finding under every shape.
-
-**What §6 loses, and why.** §6 accepted its id being a verifier, because
-*"a hash of public text lets whoever holds a candidate text confirm it is a
-case"*, and the text it had in mind was public threads. An end company's
+**Why the hash is not the id here.** §6 accepted its id being a verifier,
+because *"a hash of public text lets whoever holds a candidate text confirm it
+is a case"*, and the text it had in mind was public threads. An end company's
 `vars` are not public, and ADR 0034 §12's *nobody in particular* does not
 reach them: that ruling holds because no reader of a digest lacks its inputs,
 and these inputs are not in the suite's repository. **So the hash must never
-leave**, and the only thing that would stop it is the projection, which is not
-built. Until it is, every surface that carries a `case_id` carries this one in
-clear.
+leave.** As the id it would sit in the name table's row, and a disclosure
+hands over a row ([ADR 0039](0039-disclosure-on-request.md) §7). Out of the
+row, *"never leaves"* holds without forbidding a disclosure. Where one person
+elects from their own log, ADR 0023 §6's recipe stays, for the reasons that
+section gives.
 
-*Noted 2026-10-06: the projection is built (`digline.core.projection`), and the
-hash is no longer the id.* At a served page a captured case's inside id is
-random, by ADR 0036 §5's rule. The hash, if deduplication by input needs it,
-lives in `Case.metadata` as a key: it reaches an assertion, and a string an
-assertion writes into a `Score` crosses only under a `Disclosure` the suite
-declares — one reviewed line, so the guarantee is a ceremony and not a
-construction. The name table's row therefore carries no hash, and *"never
-leaves"* holds without forbidding a disclosure. Where one person elects from
-their own log, ADR 0023 §6's recipe stays (its note of the same date).
+**What §6 loses, and how it is kept.** A random id loses the deduplication by
+input the hash gave as an id: two elections of one item minted one id, and a
+second label on an input already held was refused by id. Scout's crossposts
+are the same finding under every shape. **The hash stays, if deduplication by
+input needs it, as a key in `Case.metadata`**, where it does not cross on its
+own: a case's metadata reaches an assertion, and a string an assertion writes
+into a `Score` crosses only under a `Disclosure` the suite declares. That is
+one reviewed line, so **the guarantee is a ceremony and not a construction.**
 
 **Where §6's first argument goes.** *"Two elections of one item on two
 branches mint one id"* was an argument about git branches. At the data owner's
@@ -515,14 +493,12 @@ may go, and a random token is the same on two branches only because the table
 remembers it (§5). The idempotence §6 got from the hash is now kept by the
 table's state.
 
-**Not decided here, and already named in ADR 0036:** whether an elected case's
-token is the `case_id` kind or a kind of its own, and whether the id minted
-inside follows ADR 0036 §5's rule instead of §6's hash.
-*Ruled 2026-10-05, in ADR 0036 §7: the token is of the `case_id` kind, so the
-election and a later projection name one case with one token. The inside id's
-rule is still open. The sentence above is kept as written.*
-*Ruled 2026-10-06: the inside id's rule follows ADR 0036 §5 — random — at a
-served page only (the note above). The sentence above is kept as written.*
+**Both questions ADR 0036 left to this record are ruled.** An elected case's
+token is of the `case_id` kind, so the election and a later projection name one
+case with one token (ruled on 2026-10-05, and written into ADR 0036 §7). The id
+minted inside follows ADR 0036 §5's rule, random, at a served page only (ruled
+on 2026-10-06; where one person elects from their own log, ADR 0023 §6 keeps
+its hash).
 
 ### 9. ADR 0023 §8, amended: the election reaches the software house as a line
 
@@ -538,7 +514,9 @@ long as the line carries no text** (§5). The day it does, the path is open
 again, and the question it asks — what would authorise the software house to
 hold the text — is back with it, unanswered.
 
-**§8's consequence 2 is not settled here** (§4, the third hand).
+**§8's consequence 2 is ruled in ADR 0023 itself**: a software house's
+person may write a case by hand inside the owner's perimeter (§4, the third
+hand).
 
 ### 10. ADR 0023 §11: the closed list is reopened, declared
 
@@ -564,24 +542,19 @@ and lists, and a person names what is written.
 - **digline asks a question, at a page, at the data owner's side.** That is
   new surface, and it runs in the client's perimeter.
 - **A second kind of case**, in the gate and out of the aggregate (§3).
-- **Either party's person may elect**, and the election says which (§4). The
-  third hand is allowed for an election and is still unruled for a case written
-  by hand, in ADR 0023 §8 (§4).
+- **Either party's person may elect**, and the election records which party,
+  with who attested it (§4). The third hand is allowed for an election here,
+  and for a case written by hand in ADR 0023 §8.
+- **A software house's person opening the review page makes a disclosure**
+  (§7), and ADR 0039 §1's unit changes with it.
 - **The software house's repository gains a second kind of committed line**
-  besides the projection: an election's token, date and approver (§5).
-- **Capture waits on the name table**, as the projection does (§5).
-- **The hash of `vars` becomes an id that must never leave**, and nothing built
-  stops it from leaving today (§8).
+  besides the projection: an election's token and date (§5).
+- **Capture waits on the review page**, not on the name table, which is built
+  (§5). A software house's person cannot elect there until ADR 0039 decides
+  whether the input can be disclosed (§7).
+- **The hash of `vars` is not the id at a served page**, and it is kept out of
+  the name table's row by a ceremony, not by a construction (§8).
 - **ADR 0023 §4's ruling 6 falls as a mechanism and stands as a reason** (§6).
-
-*Noted 2026-10-06, on the list above.* The line is a token and a date, not an
-approver (§5's note). Which party elected is said by a field of its own, with
-who attested it, not by the identity's source (§4's note). The third hand is
-ruled for a case written by hand too, as permitted (§4's note). Capture no
-longer waits on the name table, which is built; it waits on the review page,
-and a software house's person cannot elect there until ADR 0039 decides
-whether the input can be disclosed (§7's note). The hash of `vars` is no longer
-the id at a served page (§8's note).
 
 ## Alternatives considered
 
@@ -619,9 +592,8 @@ the id at a served page (§8's note).
 - **Whether the same split applies to calibration.** Measuring a judge against
   cases written at review says how far it agrees with the reviewer, not how
   accurate it is.
-- **What the line carries beyond a token, a date and an approver**, including
-  whether it carries §3's kind, and **what class the approver is** under ADR
-  0034 §4 (§5).
+- **What the line carries beyond a token and a date**, including whether it
+  carries §3's kind (§5).
 - **Whether the software house's commit needs a second identity** beside the
   data owner's. Something is committed there for an act performed elsewhere, so
   the question has a subject.
@@ -629,19 +601,6 @@ the id at a served page (§8's note).
 - **A replacement for `-dirty`** at the data owner's side (§7).
 - **Where a world-2 promotion is reviewed, and who may make one** (§4, ADR
   0033 §6).
-- **The hand-written case by a software house's person** inside the owner's
-  perimeter (§4, ADR 0023 §8).
-- **The token's kind, and the inside id's rule** (§8, ADR 0036 §7).
-  *The kind was ruled on 2026-10-05, in ADR 0036 §7: `case_id`. The inside
-  id's rule is still open. The bullet is kept as written.*
-  *The inside id's rule was ruled on 2026-10-06: random, at a served page
-  only (§8's note).*
-
-*Noted 2026-10-06, on the list above.* Two items have no subject left: the
-approver's class, because the line carries no approver (§5's note), and the
-hand-written case, ruled as permitted (§4's note). Three items, and two found
-since, are declared not decided here:
-
 - **How a line's token is read when it no longer resolves.** Three questions
   in one: whether a file of election lines is a *document* in ADR 0036 §8's
   sense, so that a file whose elected cases were all erased reads as the wrong
@@ -659,28 +618,23 @@ since, are declared not decided here:
   domain judgment was the software house's. A record that does not say lets a
   reader assume.
 - **Whether the input can be disclosed.** It is ADR 0039's question (*"What a
-  case in clear contains"*), and this record depends on it (§7's note). With
-  it goes whether a case in clear shows its metadata, and so whether the hash
-  kept there as a key crosses through a disclosure (§8's note).
-- **The party field's vocabulary, and where it lives** (§4's note).
+  case in clear contains"*), and this record depends on it (§7). With it goes
+  whether a case in clear shows its metadata, and so whether the hash kept
+  there as a key crosses through a disclosure (§8).
+- **The party field's vocabulary, and where it lives** (§4).
 - **A software house's person holding an account in the end company's
-  directory**, for whom *directory* does not mean *end company* (§4's note).
+  directory**, for whom *directory* does not mean *end company* (§4).
 
 ## What this record does not claim
 
-- **That the page exists.** Nothing here is built, and the table it rests on is
-  accepted and unbuilt.
-  *Noted 2026-10-06: the table is built (ADR 0036, 0.24.0); the page is not.*
+- **That the page exists.** Nothing here is built. The name table it rests on
+  shipped in 0.24.0, and the page has not.
 - **That a case written at review is as good as one observed.** §3 is the
   opposite claim: it is kept out of the sum because it is not.
-- **That the line identifies nobody.** It carries identifiers and no text. What
-  it carries about the approver is unclassified (§5), and a pseudonymised record
-  is still personal data.
-  *Noted 2026-10-06: the line carries no approver since 2026-10-05 (§5's
-  note). It still carries identifiers, and the rest of the bullet stands.*
-- **That the hash of `vars` is safe to leave.** §8 says it is not, and that
-  nothing stops it today.
-  *Noted 2026-10-06: at a served page the hash is no longer the id, so the
-  name table's row does not carry it (§8's note).*
+- **That the line identifies nobody.** It carries identifiers and no text, and
+  a pseudonymised record is still personal data.
+- **That the hash of `vars` is safe to leave.** §8 says it is not. At a served
+  page it is not the id, so the name table's row does not carry it, and what
+  keeps it in `Case.metadata` is one reviewed line, not a construction.
 - **That any of this is access control.** Which party's person elected is
   recorded, not enforced by anything this record builds.

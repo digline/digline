@@ -93,8 +93,7 @@ The unit is **one case**. A disclosure is never a run, and never a suite.
 
 *Noted 2026-10-06: amended in part by [ADR
 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md),
-proposed, at its acceptance and at a served review page only (0037's
-*Amends* and §7's note).* **§1:** at the review page the unit of a disclosure
+accepted that day, at a served review page only (0037's *Amends* and §7).* **§1:** at the review page the unit of a disclosure
 is the opening of the page, not one case; a list of N flagged answers is not N
 disclosures. **§6:** of the two alternatives §6 names and does not choose,
 neither is taken: the review page is not an exception to the projected
@@ -205,8 +204,8 @@ software house's person is a disclosure, case by case, with a reason the
 default never fills, or the review page is an exception to the projected
 default. **Neither is written anywhere, and this record does not choose.**
 
-*Noted 2026-10-06: ADR 0037 chooses, at its acceptance — the note under §1
-says how. The paragraph is kept as written.*
+*Noted 2026-10-06: ADR 0037 chose, at its acceptance that day — the note
+under §1 says how. The paragraph is kept as written.*
 
 *Noted 2026-10-06, on the paragraph's first sentence: it claims more than the
 design supports.* What a person must have read to write an expected is, in
@@ -265,6 +264,10 @@ disclosure.
   §4 and §7.** An election by the software house's person reads text that a
   projected page withholds (§6). ADR 0037 has no place for disclosure, and
   this record does not amend it.
+  *Amended 2026-10-06 by ADR 0037, at its acceptance: 0037 now has one. Its §7
+  makes the review page the place where a disclosure happens, and it amends
+  §1 and §6 here too (the notes there). This record still does not amend
+  0037.*
 - **[ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
   §6.** The table is the re-identification key, and a disclosure hands it out
   one row at a time (§7). §6's acceptance, *"tokens that point at nothing"*,

@@ -10,6 +10,18 @@
 - Date: 2026-08-25
 - Introduces: fixed decisions 8 (tenant) and 9 (payload/verdict) of `CLAUDE.md`
 - Assumes: [ADR 0001](0001-verdict-not-score.md)
+- Amended: 2026-10-06, by [ADR 0023](0023-capture.md) at its acceptance —
+  **§5's recipe for the generated `case_id`**, with a dated paragraph at the end
+  of §5; the text above it is kept as written. The id stays generated, with no
+  parameter to pass one in. Where one person elects from their own log it is a
+  hash of the input; at a page served at the data owner's side the id minted
+  inside is random ([ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
+  §8). **And two notes in *Consequences*** that its acceptance makes false as
+  written: the bridge bullet's *"A disagreement this leaves open"*, which the
+  rewritten *Amends* line closes, and the planned packages' promise that *"a
+  generated `case_id`"* is rewritten at acceptance, whose words stand. The
+  bridge bullet itself needed no amendment from it: it was corrected on
+  2026-09-27 on grounds of its own
 
 ## Context
 
@@ -237,6 +249,9 @@ side. Whoever writes a transport for `Comparison` is going down the wrong road.
 > wait, and world 1 is untouched. *Consequences*, the bridge bullet, says where
 > the drafted text is parked: it is **written**, dated 2026-09-16, on the
 > unmerged `capture` branch.
+>
+> *Made 2026-10-06, at ADR 0023's acceptance: the amendment is the last
+> paragraph of this section.*
 
 The `case_id` has to cross the boundary: it is the key `compare()` pairs on, and without
 it there is no comparison. So it cannot be payload.
@@ -284,6 +299,20 @@ stopped counting its conditions and started naming them — *"that is the argume
 conditions rather than counting them, made by the correction of a count"* — and §8 carries a
 numbering note saying it is the eighth and not the sixth, because inserting §1-bis moved it.
 An ordinal is a claim about the neighbours, and the neighbours are not yours.*
+
+*__Amended 2026-10-06 ([ADR 0023](0023-capture.md) §6, accepted that day together with
+[ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
+§8):__ the generated id stays generated, with no parameter to pass one in, and the recipe
+changes. Date, sequence number and a hash of the response failed on both real histories: a
+record may have no response, and a sequence number mints two ids for one item captured on two
+branches. **Where one person elects from their own log**, the id is
+`"cap-" + sha256(canonical(vars))[:16]`, from the input; the application's own identifier is
+kept in the case's metadata, inside the perimeter, and never enters the id. **At a page served
+at the data owner's side**, the id minted inside is random, by
+[ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md) §5's rule, and the id that
+leaves is a token from the name table. World 1 is untouched: a developer still chooses their
+own ids, and cases already committed keep theirs. The draft of 2026-09-16 on `capture` is not
+what landed: it predates the served page, and gave the hash for every case.*
 
 ### 6. Production store: Postgres, and retention is mandatory
 
@@ -635,6 +664,11 @@ a change to the configuration — visible in `config_hash` and in a pull request
   acceptance, which is where its own status line says its amendments are decided. Until then,
   where they disagree about this bullet, this record is in force: ADR 0023 is proposed, and by
   its own rule what it amends waits for its acceptance.*
+
+  *__Amended 2026-10-06 by ADR 0023, at its acceptance: the disagreement is closed.__ ADR
+  0023's* Amends *line now says this bullet was amended here on 2026-09-27, on the ground its
+  §8 gives and not on its authority, so it amends nothing about the regime; and its* Touches
+  *line says `CLAUDE.md`'s `bridge/` line was corrected and does not wait on it.*
 - Three planned packages, in the order they will be built after the offline driver:
   `digline.report` (the document for world 3), `digline.production` (the Postgres store
   with mandatory retention), `digline.bridge` (production → repo, with anonymization and a
@@ -650,6 +684,9 @@ a change to the configuration — visible in `config_hash` and in a pull request
   [ADR 0023](0023-capture.md) §6, which amends this record's §5 with the identifier's
   recipe. ADR 0023 is proposed, and by its own rule what it amends waits for its
   acceptance, so these words stand until then and are rewritten when it is accepted.*
+  *Amended 2026-10-06 by ADR 0023, at its acceptance: the words stand. The id is still generated,
+  with no parameter to pass one in. What changed is the recipe, which §5's dated paragraph
+  gives.*
 - The build order is deliberate: **nothing online before the report.** The report is what
   world 3 sees, and it is the only one of the three artifacts that today exists in none of
   the audited competitors.

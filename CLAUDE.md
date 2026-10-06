@@ -127,8 +127,9 @@ correct its structural mistakes and are not negotiable.
                               judges.
                             - Pseudonymised data is still personal data.
                             ADR 0002's Consequences has the correction and its reasons. ADR
-                            0023 (proposed) still names the old requirement in its Touches
-                            line; that rewrite waits for its acceptance.
+                            0023, accepted 2026-10-06, no longer names the old requirement:
+                            its Touches line says this line was corrected and does not wait
+                            on it.
     src/digline/online/     production driver
     src/digline/host/       the layer that touches the world: the **only** one allowed to read
                             the clock and git, and the one that imports the user's suite and
