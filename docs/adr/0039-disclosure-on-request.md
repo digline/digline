@@ -208,6 +208,13 @@ default. **Neither is written anywhere, and this record does not choose.**
 *Noted 2026-10-06: ADR 0037 chooses, at its acceptance — the note under §1
 says how. The paragraph is kept as written.*
 
+*Noted 2026-10-06, on the paragraph's first sentence: it claims more than the
+design supports.* What a person must have read to write an expected is, in
+every case, the **input**. The answer is needed only when the expected judges
+a generated answer; otherwise the application's verdict stands in for it. So
+the conflict this section names is over the input, which is what a projected
+page removes, and not over the answer. The sentence is kept as written.
+
 **The default needs a comparison in clear, even where a case exists.** *"Worse
 … against the reference"* is a fact only a comparison of the case in clear,
 made at the data owner's side, can establish. ADR 0038 §3 left exactly that
