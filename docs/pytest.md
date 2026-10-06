@@ -76,7 +76,15 @@ command away.
 **A refusal is carried.** When digline declines the request — no baseline, a
 document it refuses, a comparison across tenants or across the projection —
 the session stops as pytest's usage error, exit `4`, and the message names the
-refusal, as `digline compare` names it and exits `64`.
+refusal, as `digline compare` names it and exits `64`. So does a file that
+cannot be read or written, and a `sys.exit()` from a target under
+`--digline-run`, which is refused with the line that called it.
+
+**A failure nobody anticipated is said as one.** Anything else that goes wrong
+while a suite is compared or run prints its traceback and *"the failure above
+was not anticipated. It is not a verdict on the suite"*, and pytest exits `3`,
+where the command line exits `70`. It is not pytest's `INTERNALERROR`: neither
+pytest nor the plugin crashed.
 
 One counting note: the headline sentence counts unjudged **cases**, while the
 rows are **checks**. A case with two errored checks reads as "1 case could not

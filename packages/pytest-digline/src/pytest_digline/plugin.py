@@ -29,6 +29,7 @@ these sources to keep it that way.
 from __future__ import annotations
 
 import sys
+import traceback
 from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -269,16 +270,47 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
     one reached pytest as `INTERNALERROR` and exit 3, which reads as a crash of
     pytest or of this plugin. The class is named in the message, as the CLI
     names it. (Delta-pass over 0.25.1)
+
+    **The four branches are `digline.cli.main()`'s**, mapped onto pytest's
+    codes: what the CLI refuses with `64` is pytest's `4` here, and what it
+    reports as not anticipated with `70` is pytest's `3` with digline's own
+    sentence instead of `INTERNALERROR`, which reads as a crash of pytest or of
+    this plugin. An `OSError` is the environment, as on the CLI. A `SystemExit`
+    from code digline runs is refused with its location. Each sentence is the
+    whole one, because the reader ran the command (ADR 0043 §3), and each passes
+    through `visible()`, because a refusal can quote a document or what the
+    suite's code wrote. Before #475 only the first two branches were here.
     """
-    from digline.host import REFUSALS, UsageError
+    from digline.host import REFUSALS, UsageError, refused_exit
+    from digline.report import visible
 
     root = Path(config.getoption("digline_root") or config.rootpath)
     try:
         return _opened(spec, root, run_first=bool(config.getoption("digline_run")))
     except UsageError as exc:
-        raise pytest.UsageError(f"digline: {exc}") from exc
-    except REFUSALS as exc:
-        raise pytest.UsageError(f"digline: {type(exc).__name__}: {exc}") from exc
+        raise pytest.UsageError(visible(f"digline: {exc}")) from exc
+    except (*REFUSALS, OSError) as exc:
+        raise pytest.UsageError(
+            visible(f"digline: {type(exc).__name__}: {exc}")
+        ) from exc
+    except SystemExit as exc:
+        # This plugin's directory is handed over so that its own frames are not
+        # given as where the code was reached from. (ADR 0043 §2, amended)
+        refused = refused_exit(exc, front_end=Path(__file__).parent)
+        if refused is None:
+            raise
+        raise pytest.UsageError(visible(f"digline: {refused}")) from exc
+    except Exception:
+        # The traceback is the report, as on the CLI, a line at a time through
+        # `visible()`. `pytest.exit` rather than a raise: a raise is pytest's
+        # INTERNALERROR, the crash this replaces. (ADR 0041 §2, §5)
+        for line in traceback.format_exc().splitlines():
+            print(visible(line), file=sys.stderr)
+        pytest.exit(
+            "digline: the failure above was not anticipated. It is not a verdict "
+            "on the suite, and digline's command line exits 70 for it.",
+            returncode=pytest.ExitCode.INTERNAL_ERROR,
+        )
 
 
 def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
