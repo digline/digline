@@ -8,6 +8,11 @@
   [ADR 0016](0016-the-canary-case.md) were
 - Shipped: 0.11.0
 - Date: 2026-09-11
+- Amended: 2026-10-06, by
+  [ADR 0044](0044-the-run-delete.md) §4, in §5 and §12. `drop_pending` has
+  two cases, not one: the journal whose run already exists, and a journal a
+  person deleted through `delete_run`. Nothing else removes a journal that
+  might still be finished
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) (the
   perimeter is a directory, and the payload stays where it is born);
   [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
