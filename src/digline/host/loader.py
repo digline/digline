@@ -222,13 +222,16 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # **And any other exception the suite raises while it loads**, which
         # until ADR 0041 stayed "the unexpected exception it is" (27bc37e) and
         # so exited 1, "worse", from a suite that never got as far as running.
-        # By who raised it, in order: an `OSError` passes through whatever its
-        # frame, until #451 (ADR 0043 §1); anything raised inside digline passes
-        # through too, a refusal as the refusal it is and anything else to exit
-        # 70, because the sentence digline did not write is its own defect; and
-        # anything else is the suite's, **a refusal type included**, refused
-        # with the location 27bc37e was protecting and the command that prints
-        # the traceback. (ADR 0041 §4.1, ADR 0043 §1)
+        # By who raised it: anything raised inside digline passes through, a
+        # refusal as the refusal it is, an `OSError` as the environment, and
+        # anything else to exit 70, because the sentence digline did not write
+        # is its own defect; and anything else is the suite's, **a refusal type
+        # or an `OSError` included**, refused with the location 27bc37e was
+        # protecting and the command that prints the traceback. An `OSError`
+        # passed through whatever its frame until #451; its frame is now read
+        # past the standard library, so a read the suite asked for is the
+        # suite's and one digline asked for is digline's. (ADR 0041 §4.1,
+        # ADR 0043 §1)
         try:
             exec(code, module.__dict__)  # noqa: S102 — the user's own suite, by request
         except ImportError as exc:
@@ -237,8 +240,6 @@ def _import(module_part: str, spec: str) -> ModuleType:
                 lambda what: f"{path} could not import {what}",
                 f". {_INSTALLED_THERE}",
             ) from exc
-        except OSError:
-            raise
         # A `SystemExit` beside the rest: not an `Exception`, but the suite's
         # code asking to end digline's process, which is not the suite's to
         # end. Refused by the same rule, with the code it asked for.
@@ -259,8 +260,6 @@ def _import(module_part: str, spec: str) -> ModuleType:
         raise _could_not_import(
             exc, lambda _what: f"cannot import module {module_part!r}"
         ) from exc
-    except OSError:
-        raise
     except (Exception, SystemExit) as exc:
         if raised_inside_digline(exc):
             raise

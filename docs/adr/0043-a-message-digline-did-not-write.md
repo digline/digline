@@ -19,6 +19,15 @@
   whose `UnicodeDecodeError` quotes a byte of the suite file. The first is
   declared by name and its message withheld whatever the frame; the second
   quotes nothing any more
+- Amended: 2026-10-06, with #451, in §1, the first of *Amendments* and *Not
+  decided here*. §1 set `OSError` apart until #451, on a measurement that held
+  for half of it: a read through `pathlib` has its innermost frame in the
+  standard library, but `os.replace` and `os.open` are C functions whose
+  innermost frame is digline's, and no innermost frame tells digline's read
+  through `pathlib` from the suite's. For an `OSError` the system raised, the
+  frame read is now the innermost one outside the standard library, and its
+  message is digline's only when it is the system's own sentence. The MCP
+  server translates it, and the loader refuses the suite's with its location
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -141,6 +150,87 @@ Until then the MCP does not translate an `OSError` at all, so its message does
 not reach an agent. It arrives as *Error executing tool* (M6, measured with a
 suite that raises `FileNotFoundError` while it loads), which is #451's defect
 and not this one's.
+
+*__Amended 2026-10-06, with #451.__ The three paragraphs above are kept,
+because what they measured is true: a read digline makes through `pathlib` has
+its innermost frame there, and on 3.13.11 too, at `pathlib/_local.py:537`.
+**It was half of it.** Measured for #451 at `be72ac2`, on 3.12.13, 3.13.11 and
+3.14.5:*
+
+- *`file_store.py` also calls `os.replace`, `os.open` and `os.fsync`, which
+  are C functions. An `OSError` from one has no frame of its own, so its
+  innermost frame was already digline's (`file_store.py:193` for
+  `os.replace`), by §6's mechanism. So "every failed read of digline's own"
+  was not charged to the suite: one act, digline doing I/O, was read two ways,
+  by which function it called.*
+- ***The innermost frame cannot tell the two parties apart.** A suite that
+  reads `Path(row).read_text()` and digline reading a baseline at mode `000`
+  raise from the same line of `pathlib`. Only the frame that called the
+  standard library differs.*
+- ***The rule already reached an `OSError` inside a wrap.** `toml_suite.py`
+  wraps the `OSError` of its own reads in a `Quoted`, and the cause's frame is
+  `pathlib`'s. So an agent was told of digline's own read of a cases file that
+  its message "was not written by digline and may quote a case's data".*
+
+***So for an `OSError` the system raised, the frame that says who raised it is
+the innermost one outside the standard library: whoever asked.** The standard
+library between the caller and the system writes none of the message, which
+is built below Python from an `errno` and the file names the caller passed. A
+frame is the standard library's by where its file is, or by being frozen into
+the interpreter (`<frozen os>`), and not by its module's name, which a suite's
+helper can take. Installed packages are not the standard library, even where
+their directory sits inside it: measured on the Python uv installs, used with
+no virtual environment, where `site-packages` is `lib/python3.14/site-packages`
+under the standard library's `lib/python3.14`.*
+
+***And the message is digline's only when it is the system's own sentence**,
+as §5 rules for an `ImportError`: `[Errno N]`, the system's description of
+that `errno` and the file names, rebuilt from the exception's attributes and
+equal to `str()`. `FileNotFoundError(row)`, an `errno` with words of its own,
+urllib's `<urlopen error …>` and a TLS error's text are somebody else's
+whoever asked: a library or a peer on the network chose their words.*
+
+***The type chooses which frame is read, and the frame still says who wrote
+the message.** That is how this record reads decision 9's "Who wrote a message
+is read from the frame that raised it, through every wrap, never from its
+type": the type of an `OSError` decides only that the standard library's
+frames are not counted, and the author is still a frame. Whether decision 9's
+text should carry this reading is owed, and needs its own ruling and an ADR
+that declares it. It is not amended here in passing. A refusal of digline's
+that subclasses `OSError`, `RunNotFoundError`, is written in words and is read
+as every refusal is, by its own frame.*
+
+*What moves, by the six shapes measured for #451:*
+
+| | *what raises* | *on the MCP, before* | *after* |
+|---|---|---|---|
+| P1 | *the suite, `FileNotFoundError(row)`* | *Error executing tool* | *type, location, command; no message* |
+| P2 | *the suite, `open(row)`* | *Error executing tool* | *the same* |
+| P3 | *the suite, `Path(row).read_text()`* | *Error executing tool* | *the same, at the suite's line and not `pathlib`'s* |
+| P4 | *digline, a cases file that is not there (wrapped)* | *message withheld, as not digline's* | *whole* |
+| P5 | *digline, a suite file at mode `000` (wrapped)* | *the same* | *whole* |
+| P6 | *digline, a baseline at mode `000` (bare)* | *Error executing tool* | *whole* |
+
+- *The loader no longer passes an `OSError` through whatever its frame. The
+  suite's is refused by rule 3, with its location and the command, and still
+  exits 64. Digline's passes through as the environment.*
+- *The MCP server translates an `OSError` beside `REFUSALS`, rendered by §3. A
+  `preflight`'s, which #451 left unmeasured, now arrives with its type and
+  location and without its message.*
+- *P4 to P6 send an agent more than before: the system's description and a
+  path digline's own sentence already names.*
+- *The command line does not change. `main()` refuses an `OSError` by its type
+  and exits 64 (ADR 0041 §4, (B)). That is the exit code, not who wrote the
+  message.*
+
+***What it does not close, stated where the rule is.** §6's limit, in a new
+place: a path digline builds from what a user wrote and hands to the standard
+library is quoted back, and crosses. The paths digline builds are names
+decision 9 lets cross (a tenant, a suite, a run key) or files the suite
+declares or the agent names (a suite, a cases file, an artifact). Whether an
+artifact's path already crosses on the MCP server was not checked. And a
+deliberate route of §5's kind: a suite that calls one of digline's readers
+with a path taken from a case's data gets that path through.*
 
 *Digline's code* is what `_is_digline` reads today: the directory of
 `digline.__file__`. Whether `digline_mcp` and `pytest_digline` belong in it is
@@ -448,6 +538,9 @@ that is not yet true says so where it is stated.
   line that adds a location and a command to the sentence, and the exit code
   stays 64. `OSError` keeps passing through whatever its frame. That is §1's
   measured exception, and it lasts until #451.
+  *Amended 2026-10-06, with #451:* an `OSError` passes through when digline
+  asked for it, read as §1 amended reads it, and the suite's falls under rule
+  3 like any other exception from its code.
 - **ADR 0041 §4.1, rule 3:** *"The text is the same on every front end"* is
   struck. The refusal is the same on every front end, and its rendering is not
   (§3).
@@ -468,6 +561,10 @@ record.
 - **An `OSError` on the MCP server** (#451, and ADR 0041's own *Not decided
   here*). Once it is translated, it falls under §1 and §2 like everything else.
   Whether to translate it is #451's question.
+  *Settled 2026-10-06 by #451, in §1:* it is translated. It does not fall
+  under §1 "like everything else", as this item expected: §1 reads its frame
+  past the standard library, and holds its message to the system's own
+  sentence.
 - **What counts as digline's code** for a location (#452). §1 does not wait
   for it.
 - **What `digline view` puts on a page during a request.** It writes

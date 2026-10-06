@@ -6,6 +6,23 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **An `OSError` reaches an agent in words** (#451, ADR 0043 §1, amended).
+  digline-mcp translates it beside digline's refusals, where it reached an
+  agent as *Error executing tool* while the command line said what was wrong.
+  Its message crosses when digline asked and the system wrote the words, as
+  for a baseline digline cannot read. Otherwise the agent gets the type and
+  the location, as for any other message digline did not write.
+- **An `OSError` a suite raises while it loads is refused with its location**
+  and the command that prints the traceback, like any other exception from the
+  suite's code. It passed through bare, with no location. The exit code stays
+  64.
+- **Who raised an `OSError` is read past the standard library.** Digline's own
+  read through `pathlib` was taken for the suite's, so an agent was told that
+  the message of a cases file digline could not read *"was not written by
+  digline"*. Now it arrives whole. The command line does not change.
+
 ## digline-mcp 0.4.5 — 2026-10-05
 
 Published by its own tag, `digline-mcp-v0.4.5`, after digline 0.29.0 was on
