@@ -9,6 +9,15 @@
   amendment to a record the fixed section rests on, reading as in force while
   the record that makes it is undecided, would be a ruling and not a landing.
   Until then *Amends* below says what acceptance would change
+  *Noted 2026-10-06: it stays proposed. Its acceptance is ruled to be one
+  change with [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)'s,
+  with the amendments both owe made inside it — the shape of ADR 0036's
+  acceptance. Accepting this record first would leave 0037 assuming a record
+  accepted and not yet rewritten, and the rewrite here also touches parts
+  0037 amends (§6, §8, *Touches*). No decision of this record's own is left
+  blocking its acceptance; what stays open is declared in *Not decided here*. The notes dated
+  2026-10-06 below are that rewrite, and the text they sit beside is kept as
+  written*
 - Shipped: unreleased
 - Date: 2026-09-16
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);
@@ -42,6 +51,17 @@
   at moved, which is the whole reason an ordinal is the wrong handle — the same
   correction ADR 0002 §8 made about its own conditions, and about its own
   number.*
+  *Noted 2026-10-06, voice by voice.* **ADR 0002 §5's recipe** stands as
+  written: the generated id below is the bridge's recipe wherever one person
+  elects from their own log, and the ruling that a captured case's inside id
+  is random holds at a served page only (§6's note). **The bridge bullet** has
+  no subject left here: it was amended on 2026-09-27, to *pseudonymisation,
+  with the mapping held by the data owner*, on the ground of the material
+  rather than on this record's authority. At acceptance this record amends
+  nothing about the regime. **The *Designed with pilots* sentence** has no
+  subject either: it was corrected in 0.15.2, on 2026-09-18, with a wording of
+  its own, before this record reached `main`. §8's notes say the same beside
+  the paragraphs that proposed both edits*
 - Superseded in part, **if accepted**: by
   [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md),
   proposed 2026-09-29, **wherever an election is made at a served page at the
@@ -52,6 +72,8 @@
   dated note saying which words. **The text is kept as written**: it is true of
   one person electing from their own log, and 0037 says so. 0037 cannot be
   accepted before this record is
+  *Noted 2026-10-06: the two are ruled to be accepted in one change (Status
+  above)*
 - Closes: ADR 0015's deferred *traffic-to-case ADR*; ADR 0019 §10's and
   ADR 0021's deferred *label loop's distillation*, by ruling what it is (§10)
   and deferring only its reader
@@ -71,9 +93,17 @@
   it writes reaches the wire". An election there produces a line at the
   software house — a token, a date and an approver — and 0037 says which part
   of decision 9 that touches, and that the approver is not yet classified*
+  *Noted 2026-10-06, on both notes above.* `CLAUDE.md`'s *Structure* line
+  for `bridge/` was corrected on 2026-09-27 to *pseudonymisation, not
+  anonymization*, so it no longer waits on §8. And the line at the software
+  house carries a token and a date: who approved the election was ruled out
+  of it on 2026-10-05, so no field on it is left to classify*
 - Requires: no `SCHEMA_VERSION`, no migration, no baseline re-promoted. One new
   command, one optional suite field outside `config_hash`, one additive
   `--json` shape under `OUTPUT_VERSION` 1
+  *Noted 2026-10-06: this prices the command, where one person elects from
+  their own log. Capture at a served page is priced in ADR 0037's *Requires*,
+  which says it is deliberately not read off this line*
 - Number: 0023. 0001–0022 are claimed on `main`; no local branch, no worktree
   and no remote ref carries a 0023 at the time of writing
 
@@ -246,6 +276,19 @@ left every other boundary-widening thing, for the same reason: capture moves
 third-party text into a committed file, and that must be a change somebody
 wrote in code and a reviewer saw.
 
+*Noted 2026-10-06: the paragraph gives two reasons, and they reach different
+places.* **The ceremony reason**, borrowed from ADR 0007 §7, protects what
+leaves. At a served page at the data owner's side there is no commit and
+nothing crosses the boundary (§8's note of 2026-09-28, ADR 0037 §5), so there
+it has no subject. **"A reader is a function"** is a technical limit, not a
+ceremony. It holds at a served page if the page reads flagged answers through
+a reader, and ADR 0037 does not say how the page reads them. **Where one person
+elects from their own log the rule stays**, and what blocks a declarative
+source in practice is `read`: the other fields of `CaptureSource` could be
+written as data. Whether `repository` must stay in Python even then is not
+decided (*Not decided here*): it is the declaration ADR 0007 §7's hazard is
+about, a value taken from a template and copied to a client it is false for.
+
 **Outside `config_hash`**, like `Disclosure` and `record_responses`: declaring a
 source changes no score and no threshold. What moves a baseline is the cases
 capture writes, and they move `cases_digest`, which is already how a grown case
@@ -390,6 +433,28 @@ the name table of [ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md
 accepted 2026-09-29, and the idempotence across branches argued above is kept at
 the software house by the table's state rather than by the hash (0037 §8).
 
+*Noted 2026-10-06 — at a served page only.* The note above is overtaken in its
+first sentence. At a served page the id minted inside the perimeter is
+**random**, by [ADR 0036](0036-the-name-table-and-the-process-that-owns-it.md)
+§5's rule, and not this section's hash. The hash, if deduplication by input
+needs it, lives in `Case.metadata` as a key, where it does not cross on its
+own: a case's metadata reaches an assertion, and a string an assertion writes
+into a `Score` crosses only if the suite declares its key in `Disclosure` —
+one reviewed line, so the guarantee is a ceremony and not a construction. That
+takes the hash out of the name table's row, so ADR 0037 §8's *"never leaves"*
+holds without forbidding a disclosure. **Where one person elects from their
+own log, the recipe above stays, unchanged.** There the reason does not apply:
+under `"private"` the input is committed whole, so whoever reads the hash holds
+its inputs; public text in a `"private"` repository is the case this section
+was written for; under `"public"` capture writes no third-party text, so no
+hash is born. And the cost there would have no substitute: with a random id,
+one item elected on two branches gets two ids, two opposite labels on one
+input pass in silence, and the loader's refusal of a case id declared twice no
+longer fires. **Open:** a text that is not public, in a document that leaves
+the repository — a report a customer opens — reaches a reader who lacks the
+inputs. The text is the suite owner's, so it is a risk the owner runs on their
+own material.
+
 ### 7. Capture's own case file is the draft, and the commit is the signature
 
 **No staging area, no review screen, no file nobody loads.** Capture appends the
@@ -489,6 +554,12 @@ regime is that choice made visible. The *Consequences* bullet is amended to say
 so; the Postgres bridge ADR 0002 §6 planned, holding world 3's production data
 for a software house, keeps the refusal side of the regime by construction.
 
+*Noted 2026-10-06: the amendment this paragraph proposed has no subject left.*
+The bullet was amended on 2026-09-27, to *pseudonymisation, with the mapping
+held by the data owner*, on the ground this paragraph gives — anonymising the
+input destroys the case — and not on this record's authority. At acceptance
+this record amends nothing about the regime. The paragraph's argument stands.
+
 **The character ceiling: the rule stays flat.** Brief is public today with
 400-character extracts, and the question was whether a declared ceiling should
 be a fair-use exception. It should not, for three reasons:
@@ -510,6 +581,13 @@ files and of the regime above. The corrected sentence says what is true: *the
 payload never leaves the perimeter; whether a repository is inside it is
 declared, and where it is not, capture refuses.* It lands in
 `examples/operator/DESIGN.md` and on the page digline.dev builds from it.
+
+*Noted 2026-10-06: this edit has no subject left.* The sentence was corrected
+in 0.15.2, on 2026-09-18, before this record reached `main`, and with a wording
+of its own: the fourth item of *Designed with pilots* is a question again, and
+names the limit that makes it hard — *a judge that reads text needs the text*.
+The corrected sentence proposed above is not what landed, and nothing here
+lands at acceptance.
 
 **Amended 2026-09-28: where the store lives in the owner's perimeter, a
 software house needs no regime of its own.** This section was written expecting
@@ -549,6 +627,26 @@ it did not.
    software house's hand writing inside the owner's perimeter is not ruled
    here. Capture cannot see whose hand wrote a case, and does not claim to; the
    sentence is what makes the difference a lie rather than a misunderstanding.
+
+   *Noted 2026-10-06: the hand this item leaves unruled is ruled, and
+   permitted.* **A software house's person may write a case by hand inside the
+   owner's perimeter.** The file does not move: it stays where it would be
+   anyway, and whose hand writes it changes neither where the text sits nor
+   where it stays (ADR 0034 §3: *"reading to work is not residency; writing a
+   copy is"*). What this section refuses is the software house writing the
+   case in its own repository, because there the text crosses. **The cost:**
+   to write the case, that person reads the owner's text, which is payload in
+   front of the software house. Where no page serves the case, that reading
+   leaves no trace; a disclosure's trace ([ADR
+   0039](0039-disclosure-on-request.md), proposed) covers readings made at a
+   served page, so a case written by hand through some other access stays
+   untraced. **An asymmetry, stated and not repaired:** at a served page a
+   software house's person sees less than by hand, and today cannot elect
+   there; what that person may see there is governed by ADR 0039, not by this
+   record. By hand, they read whatever the owner's text holds. Where the
+   gesture is governed it cannot be done today, and where it is not, it can.
+   What a case written by hand lacks against an election — a kind, limits, a
+   recorded party — is in *Not decided here*.
 3. **What would authorise a software house's repository to hold the text is
    asked on two paths and no others.** Residency answers *what makes it
    private*. It does not answer *what authorises* the software house to hold
@@ -573,6 +671,11 @@ as long as that line carries no text** (0037 §5, §9). Consequence 2 is not
 settled: 0037 §4 allows a software house's person to **elect** inside the
 owner's perimeter, which leaves this section's unruled sentence about a case
 written **by hand** in open tension with it, and this section owes the answer.
+
+*Noted 2026-10-06, on the note above.* The line carries a token and a date:
+who approved the election was ruled out of it on 2026-10-05. And the answer
+this section owed is given in consequence 2's note: the hand is permitted, so
+the tension with ADR 0037 §4 is closed on the side of the permission.
 
 ### 9. Cadence: the operator says when, and a person launches
 
@@ -940,3 +1043,19 @@ question, and §6 chose the less readable id without settling it.
 
 **A declarative capture source.** §3 keeps the reader in Python. A fixed set of
 named readers for common log shapes could be data; none exists yet to name.
+
+*Added 2026-10-06, with the rulings noted above:*
+
+**What form a named reader takes, and which log shapes it covers.** It is what
+a declarative suite lacks to declare a source (§3's note), and it gets built
+rather than ruled.
+
+**Whether `repository` stays in Python even once the reader is data** (§3's
+note).
+
+**Whether a case written by hand inside the owner's perimeter carries what an
+election carries** — a kind, the limits of §4, a recorded party (§8,
+consequence 2's note).
+
+**A text that is not public, in a document that leaves the repository**, where
+one person elects from their own log (§6's note).
