@@ -1061,6 +1061,7 @@ anywhere in the product, so the retention of the heaviest artifact in the
 system is *forever, by omission*. A removed run must be absent from every
 reader — `scan_runs` and `read_run` included — and that is the contract, stated
 as a requirement here and written in the record that designs it.
+*That record is [ADR 0044](0044-the-run-delete.md), accepted 2026-10-06.*
 
 **Two files on the data owner's side are named as conditions, because what they
 are decides what `delete` has to reach and neither is settled in this record:**
