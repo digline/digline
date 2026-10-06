@@ -334,10 +334,10 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "RELEASING.md": {
         "0.29.1": (
-            "the core release pytest-digline's floor is owed to, in the table of "
-            "floors owed to the release (#475): the cut that ships the core "
-            "carrying #452 raises the floor and deletes the row, and this entry "
-            "with it"
+            "the core release digline-mcp's and pytest-digline's floors are "
+            "owed to, in the table of floors owed to the release (#452, #475): "
+            "the cut that ships the core carrying #452 raises both floors and "
+            "deletes the rows, and this entry with them"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
