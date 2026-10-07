@@ -370,7 +370,7 @@ def _measure(
         utc_now_iso,
     )
     from digline.report import visible
-    from digline.run import execute, planned_calls
+    from digline.run import execute, planned_calls, suite_notes
 
     target = load_target(None, loaded, spec)
     plan = planned_calls(suite)
@@ -380,6 +380,12 @@ def _measure(
     # write left in any front end when the rule was widened past `digline.cli`.
     # (from the release delta-pass over 0.15.0)
     print(f"digline: {visible(plan.sentence())}", file=sys.stderr)
+    # Beside the count, as `digline run` says them: whoever writes a suite in
+    # pytest may never run the CLI, and is the one these lines are for. Until
+    # #396 the plugin said neither, under a rule against raising its floor for
+    # a line on stderr; that rule was withdrawn on 2026-10-07. (ADR 0024 §6.4)
+    for note in suite_notes(suite):
+        print(f"digline: {visible(note)}", file=sys.stderr)
     commit = git_commit(root)
     created_at = utc_now_iso()
     artifacts = read_artifacts(suite, target, path.parent, root=root)

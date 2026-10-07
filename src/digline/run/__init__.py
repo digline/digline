@@ -29,6 +29,7 @@ from digline.run.suite import (
     Suite,
     blind_tolerances,
     planned_calls,
+    suite_notes,
     undeclared_kinds,
 )
 
@@ -54,6 +55,7 @@ __all__ = [
     "judges",
     "blind_tolerances",
     "planned_calls",
+    "suite_notes",
     "undeclared_kinds",
     "price_digest_of",
     "rejudge",

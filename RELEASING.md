@@ -223,6 +223,8 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `digline-mcp` | `run` imports `suite_notes` and passes `notes=` to `run_json`, both new in the core release that carries #396 (ADR 0024 §6.4); against 0.30.0 the import raises `ImportError` | `0.31.0` | release digline-mcp on its own tag, once the core is on PyPI; if the core release is not 0.31.0, raise to the one it is, and drop RELEASING.md's `0.31.0` in `test_versions.py`'s `RECORDED` |
+| `pytest-digline` | `--digline-run` imports `suite_notes`, new in the core release that carries #396 (ADR 0024 §6.4); against 0.30.0 the import raises `ImportError` | `0.31.0` | release pytest-digline on its own tag, once the core is on PyPI; if the core release is not 0.31.0, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

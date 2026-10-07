@@ -112,16 +112,16 @@ before the first call (`20 cases × 5 samples = 100 calls to the target`); and i
 **refuses under `--collect-only`**, because a command whose job is to list test
 names must never be able to spend a hundred model calls.
 
-It does **not** name the checks whose class declares no `KIND`, nor a check
-whose tolerance holds every movement its score can make. `digline run` prints
-both lines, because the first kind of check is left out of `explain`'s shape
-reading and the second is reported only when it flips; the plugin's
-`--digline-run` prints neither. The asymmetry is deliberate: a stderr
-announcement is not worth raising the plugin's `digline` floor for, because
-the cost falls on whoever uses the plugin. Whoever writes a suite in pytest is
-the one these lines are for, and that gap is open as #396. Run `digline run`
-once to see them, or read [the API reference](api.md#custom-assertions) and
-[the tolerance that switches a check off](api.md#a-tolerance-that-switches-the-check-off).
+Beside that count it names, as `digline run` does, the checks whose class
+declares no `KIND`, which `explain`'s shape reading leaves out, and each check
+whose tolerance holds every movement its score can make, which is reported only
+when it flips. Whoever writes a suite in pytest may never run `digline run`,
+and is the one these lines are for. Both are said and never refused, and
+neither moves an exit code. Until #396 the plugin printed neither, under a rule
+against raising its `digline` floor for a line on stderr; that rule was
+withdrawn on 2026-10-07. Read [the API reference](api.md#custom-assertions) and
+[the tolerance that switches a check off](api.md#a-tolerance-that-switches-the-check-off)
+for what each one means.
 
 ## Naming a suite
 

@@ -107,6 +107,13 @@ dependencies = [
     # amended). Against 0.29.0 those calls raise `TypeError`. It was owed at
     # the cut and raised in this package's own release, after the core was on
     # PyPI, because a floor may not name a release that does not exist yet.
+    #
+    # **Owed at the cut: raise to the core release that carries #396.**
+    # `run` imports `suite_notes`, which first ships with #396, so the lines
+    # `digline run` prints about the suite before the first call reach the agent
+    # too (ADR 0024 §6.4). Against 0.30.0 the import raises `ImportError`. A
+    # floor may not name a release that does not exist yet, so the row is in
+    # RELEASING.md's table of floors owed to the release.
     "digline>=0.30.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

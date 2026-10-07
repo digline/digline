@@ -71,6 +71,7 @@ def run_json(
     judge_reading: str | None = None,
     usage: RunUsage | None = None,
     replayed: bool = False,
+    notes: Sequence[str] = (),
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -86,6 +87,13 @@ def run_json(
     did not take it, so `rejudge --json` said on stdout the opposite of what
     `rejudge` said on stderr. (ADR 0015 §6)
 
+    `notes` is `suite_notes(suite)`, the lines the CLI prints on stderr before
+    the first call: a check whose class declares no `KIND`, a tolerance that
+    switches its check off. Always present and empty when there is nothing to
+    say, so that an empty list is a suite that was read and not a digline that
+    did not look. Sentences and not their facts, as `runs.note` is. (#396;
+    ADR 0011 §4, ADR 0024 §6.4)
+
     `resumed` and `reused` are facts about *this launch*, not about the run:
     the stored document carries no marker for having been resumed, because a
     resumed run asserts nothing untrue of either of its legs (ADR 0017 §10).
@@ -100,6 +108,7 @@ def run_json(
         "sentence": plan.sentence(replayed=replayed),
         "resumed": resumed,
         "reused": plan.reused,
+        "notes": list(notes),
     }
     # Present only where a replay measured the judge's range: the sentence that
     # never states the range without the calibration beside it, for a pipeline

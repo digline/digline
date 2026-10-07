@@ -1232,9 +1232,11 @@ digline: tolerance 0.5 on 'loose' (threshold 0.5) covers every movement its scor
 
 `digline.core.tolerance_is_blind(threshold, tolerance)` is the rule, and
 `digline.run.blind_tolerances(suite)` returns the checks it names, per case and
-over the run. Two surfaces do not carry the line yet: the MCP `run` tool, which
-has no stderr, and `pytest --digline-run`, for the reason
-[the pytest page](pytest.md) gives about the `KIND` note (#396).
+over the run. Every front end that runs a suite says the line: `digline run`
+and `digline rejudge` on stderr and in `--json`'s `notes`, the MCP `run` tool in
+its `notes`, and `pytest --digline-run` on stderr beside the planned-call count.
+`digline.run.suite_notes(suite)` composes them, with the `KIND` note below, so
+each front end says the same lines in the same order (#396).
 
 **Silence is not a clean bill.** Four ways to a blind check cannot be seen from a
 threshold and a tolerance, and the line says nothing about them:
@@ -1328,7 +1330,8 @@ unread**:
 - a verdict of a `judged` check is written with `"judged": true`, which is what
   `explain`'s shape reading reads;
 - **a check whose class declares no `KIND`** — read through `Repeated` — is left
-  out of that reading, and `digline run` names it on stderr on every run:
+  out of that reading, and every front end that runs the suite names it before
+  the first call, in the places the blind tolerance above is said (#396):
 
   ```text
   digline: max_words declares no KIND, so the shape reading leaves it out; declare KIND = "judged" or "deterministic" on its class to have it read

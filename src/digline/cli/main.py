@@ -87,10 +87,9 @@ from digline.report import diff as diff_report
 from digline.run import (
     ReplayError,
     Suite,
-    blind_tolerances,
     planned_calls,
     rejudge,
-    undeclared_kinds,
+    suite_notes,
 )
 from digline.store import (
     FileResultStore,
@@ -303,15 +302,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     # and never guessed: a check whose class declares no KIND is left out of the
     # shape reading, and saying so here is what keeps that exclusion from being
     # silent. KIND stays optional; nothing fails without it. (ADR 0024 §6.4)
-    undeclared = undeclared_kinds(suite)
-    if undeclared:
-        say(f"digline: {_undeclared_note(undeclared)}", err=True)
     # The same place for the same reason: a tolerance that switches a check off
     # is read by whoever declared it here, and nowhere later — `compare` is
     # read by CI and reviewers, every time, and a line repeated there forever is
     # one people learn to skip. Said, never refused, and no exit code. (#386)
-    for blind in blind_tolerances(suite):
-        say(f"digline: {blind.sentence()}", err=True)
+    notes = suite_notes(suite)
+    for note in notes:
+        say(f"digline: {note}", err=True)
     if prepared.retrying:
         say(f"digline: retrying {_retry_note(prepared.retrying)}", err=True)
 
@@ -333,6 +330,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     measured.plan,
                     resumed=resume is not None,
                     usage=measured.run.usage,
+                    notes=notes,
                 )
             )
         )
@@ -422,19 +420,6 @@ def _resume(
     return chosen
 
 
-def _undeclared_note(names: Sequence[str]) -> str:
-    listed = ", ".join(names)
-    if len(names) == 1:
-        return (
-            f"{listed} declares no KIND, so the shape reading leaves it out; "
-            'declare KIND = "judged" or "deterministic" on its class to have it read'
-        )
-    return (
-        f"{listed} declare no KIND, so the shape reading leaves them out; declare "
-        'KIND = "judged" or "deterministic" on their classes to have them read'
-    )
-
-
 def cmd_rejudge(args: argparse.Namespace) -> int:
     """Judge a stored run's recorded answers again, and write a run that says so.
 
@@ -463,6 +448,12 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
         )
     plan = planned_calls(suite, judge_samples=judge_samples)
     say(f"digline: {plan.sentence(replayed=True)}", err=True)
+    # What `run` says before the first call, said here too: a re-judge loads the
+    # suite and judges with it, and under `--judge-samples` a judge whose class
+    # declares no KIND is not repeated. (#396; ADR 0024 §6.4)
+    notes = suite_notes(suite)
+    for note in notes:
+        say(f"digline: {note}", err=True)
 
     try:
         run = rejudge(
@@ -486,7 +477,11 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     if reading is not None:
         say(f"digline: {reading}", err=True)
     if args.json:
-        emit(json.dumps(run_json(ref, plan, judge_reading=reading, replayed=True)))
+        emit(
+            json.dumps(
+                run_json(ref, plan, judge_reading=reading, replayed=True, notes=notes)
+            )
+        )
     else:
         say(ref.key)
     return EXIT_OK
