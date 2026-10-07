@@ -14,6 +14,7 @@ from typing import Any
 import anyio
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import CallToolResult
 from tests._one_path import (
     RELATIVE,
     fake_anthropic,
@@ -32,8 +33,9 @@ def _run(root: Path, suite: str) -> dict[str, Any]:
         result = await build_server(str(root), None, None).call_tool(
             "run", {"suite": suite, "acknowledge_calls": 1}
         )
-        assert result.structured_content is not None  # type: ignore[union-attr]
-        return dict(result.structured_content)  # type: ignore[union-attr]
+        assert isinstance(result, CallToolResult)
+        assert result.structured_content is not None
+        return dict(result.structured_content)
 
     return anyio.run(go)
 

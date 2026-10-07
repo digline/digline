@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -153,7 +153,7 @@ def toml_layout(tmp_path: Path) -> Path:
 
 
 @contextmanager
-def fake_anthropic() -> Iterator[tuple[list[str], str]]:
+def fake_anthropic() -> Generator[tuple[list[str], str]]:
     """A Messages endpoint on loopback that keeps every prompt it is sent, and
     its base URL. Whoever runs a command points the SDK at it through
     `ANTHROPIC_BASE_URL`."""
