@@ -17,9 +17,12 @@ changes. **OpenAI** — the key is read by the SDK from `OPENAI_API_KEY`, and th
 package never touches your environment:
 
 ```python
+from pathlib import Path
 from digline_openai import OpenAITarget
 
-target = OpenAITarget("prompts/answer.md", model="gpt-5", max_tokens=1024)
+target = OpenAITarget(
+    Path(__file__).parent / "prompts/answer.md", model="gpt-5", max_tokens=1024
+)
 ```
 
 **Azure OpenAI** — your resource's v1 endpoint, with the key passed explicitly
@@ -27,10 +30,11 @@ because Azure names its variable something else:
 
 ```python
 import os
+from pathlib import Path
 from digline_openai import OpenAITarget
 
 target = OpenAITarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="gpt-4.1",
     max_tokens=1024,
     base_url="https://my-resource.openai.azure.com/openai/v1",
@@ -42,10 +46,11 @@ target = OpenAITarget(
 one hosting it:
 
 ```python
+from pathlib import Path
 from digline_openai import OpenAITarget, free
 
 target = OpenAITarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="llama3.2",
     max_tokens=1024,
     base_url="http://localhost:11434/v1",

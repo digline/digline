@@ -50,7 +50,10 @@ def test_the_readme_has_the_examples_it_promises() -> None:
 
 @pytest.mark.parametrize("index", range(7))
 def test_every_python_block_runs(workspace: Path, index: int) -> None:
-    namespace: dict[str, Any] = {"__name__": "readme"}
+    namespace: dict[str, Any] = {
+        "__name__": "readme",
+        "__file__": str(workspace / "suite.py"),
+    }
     exec(compile(blocks()[index], f"README.md[{index}]", "exec"), namespace)  # noqa: S102
 
 
@@ -59,7 +62,10 @@ def test_the_quickstarts_build_what_they_say_they_build(workspace: Path) -> None
     would still run. These are the three sentences the README makes."""
     built: list[dict[str, Any]] = []
     for source in blocks():
-        namespace: dict[str, Any] = {"__name__": "readme"}
+        namespace: dict[str, Any] = {
+            "__name__": "readme",
+            "__file__": str(workspace / "suite.py"),
+        }
         exec(compile(source, "README.md", "exec"), namespace)  # noqa: S102
         built.append(namespace)
 
@@ -78,7 +84,10 @@ def test_the_judge_examples_produce_the_two_protocols(workspace: Path) -> None:
 
     namespaces: list[dict[str, Any]] = []
     for source in blocks():
-        namespace: dict[str, Any] = {"__name__": "readme"}
+        namespace: dict[str, Any] = {
+            "__name__": "readme",
+            "__file__": str(workspace / "suite.py"),
+        }
         exec(compile(source, "README.md", "exec"), namespace)  # noqa: S102
         namespaces.append(namespace)
 
@@ -98,7 +107,11 @@ def test_no_block_needs_a_network_or_a_key(workspace: Path) -> None:
 
     before = "openai" in sys.modules
     for source in blocks():
-        exec(compile(source, "README.md", "exec"), {"__name__": "readme"})  # noqa: S102
+        namespace: dict[str, Any] = {
+            "__name__": "readme",
+            "__file__": str(workspace / "suite.py"),
+        }
+        exec(compile(source, "README.md", "exec"), namespace)  # noqa: S102
     assert ("openai" in sys.modules) == before
 
 
