@@ -6,6 +6,23 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-mcp 0.4.6 — 2026-10-07
+
+Published by its own tag, `digline-mcp-v0.4.6`, after digline 0.30.0 was on
+PyPI.
+
+- **An `OSError` reaches the agent in words** (#451, ADR 0043 §1, amended).
+  The server translates it beside digline's refusals, where it answered
+  *Error executing tool*. Its message crosses when digline asked and the
+  system wrote the words. Otherwise the agent gets the type and the location.
+- **A location no longer names the server** (#452, ADR 0043 §2, amended). A
+  refusal caught during `run` named *…/digline_mcp/errors.py*; it now names
+  the line in the user's code alone.
+- **The floor is `digline>=0.30.0`.** `errors.translated` passes
+  `front_end=` to `refused_exit` and `to_withhold`, which first take it in
+  0.30.0. A floor may not name a release that does not exist yet, so it was
+  raised here, after the core.
+
 ## 0.30.0 — 2026-10-07
 
 digline **0.30.0**. **A minor, because a store of your own stops satisfying
