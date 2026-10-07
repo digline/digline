@@ -6,6 +6,47 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **A target's prompt is resolved once, where it is read** (#481, ADR 0045).
+  A `ProviderTarget` reads its prompt file when it is built, and now answers
+  that path, absolute, through `HasArtifacts`. `read_artifacts` no longer
+  joins it to the suite's directory a second time. Two opposite failures go:
+  - **A `.py` suite** whose target names a bare relative prompt, run from a
+    directory other than the suite's, sent the working directory's file and
+    recorded the suite's. It now records the file it sent, under its name
+    relative to the repository. A file outside the repository is refused
+    before any call to the model, with ADR 0042 §2's sentence.
+  - **A TOML suite** run with a relative `--suite` that has a directory in it,
+    such as `--suite eval/suite.toml` from the root, or the same through
+    pytest-digline's `--digline-suite`, exited 64 on `…/eval/eval/prompt.md`
+    for a suite whose prompt was where it said. It now runs.
+
+  Where the two resolutions agreed, nothing moves: a prompt anchored with
+  `Path(__file__).parent`, a suite run from its own directory, and every TOML
+  suite that ran before. The recorded name and digest are the same, and a
+  reference promoted on 0.30.0 compares clean.
+- **A target that answers a relative path through `HasArtifacts` is refused
+  at `run`**, with a sentence that names its class. The protocol is public,
+  so a target of your own that answered a relative path stops running: answer
+  the path you read, absolute. `ProviderTarget`, the only implementation in
+  digline, already does.
+- **A pin on a target's prompt named by a bare relative path** is refused from
+  a working directory other than the suite's, and nothing is sent: by
+  `read_pinned` inside the repository, by ADR 0042 §2's boundary outside it.
+  Anchored, the pin works from anywhere (ADR 0029 §4, a dated note).
+- **A symlink a target answers is recorded under the file it points at**, the
+  file the boundary checked. The bytes are the same; the name is that file's.
+- **A prompt missing at a suite's import names its absolute path.** Through
+  the MCP server that path reaches the agent, where 0.30.0 sent `prompt.md`.
+  It is a deliberate widening of what crosses to an agent, allowed by ADR 0043
+  §1 as amended (ADR 0045, *Consequences*).
+- **Docs: ADR 0045, *One declared path, resolved once*, accepted**, with what
+  #481 measured in place of its deductions. `docs/api.md` says why a
+  `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
+
+No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
+
 ## pytest-digline 0.2.3 — 2026-10-07
 
 Published by its own tag, `pytest-digline-v0.2.3`, after digline 0.30.0 was
