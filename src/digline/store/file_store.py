@@ -72,6 +72,7 @@ from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
     DirectoryUnreadableError,
+    Filing,
     JournalBusyError,
     JournalHeader,
     KeylessRunError,
@@ -309,9 +310,10 @@ def _keyless(document: Mapping[str, object]) -> str:
 
 
 def _declared(document: Mapping[str, object], name: str, filed: str) -> str:
-    """The tenant or suite a document declares, or where it was filed when it
-    declares none that is a string: there is then no other address to report,
-    and `found_in` says only what differs."""
+    """The tenant or suite a document declares, or the directory it was filed
+    in when it declares none that is a string: there is then no other address
+    to name it by. `filed_as` still records the filing, because a declaration
+    that is missing is a malformed document. (ADR 0044 §3.4)"""
     value = document.get(name)
     return value if isinstance(value, str) and value else filed
 
@@ -838,7 +840,7 @@ class FileResultStore:
         declares.** What identifies a document is its key and its
         `rejudged_from`, so a replay filed under another name, or declaring
         another tenant or suite than the directory it sits in, is on the chain
-        like any other and is removed, with `found_in` saying where it was. A
+        like any other and is removed, with `filed_as` saying where it was. A
         document that puts itself on the chain and has no key cannot be named,
         and refuses the delete. (ADR 0044 §3.4, ruled 2026-10-07)
         """
@@ -865,36 +867,60 @@ class FileResultStore:
         # Breadth first, one level of the chain per pass: a document joins at
         # the first pass whose chain holds the key its `rejudged_from` names.
         chain = {ref.key}
-        levels: list[list[_Doomed]] = []
-        claimed: set[Path] = set()
+        levels: list[list[tuple[Path, RemovedRun]]] = []
+        on_plan: set[Path] = set()
         while True:
             level = [
                 (path, raw)
                 for path, raw in read
-                if path not in claimed and _rejudged_from(raw) in chain
+                if path not in on_plan and _rejudged_from(raw) in chain
             ]
             if not level:
                 break
-            found: list[_Doomed] = []
-            for path, raw in level:
-                claimed.add(path)
-                found.append(self._plan_replay(ref, path, raw, claimed))
-            chain |= {item.removed.ref.key for item in found}
+            found = [self._plan_replay(ref, path, raw) for path, raw in level]
+            on_plan.update(path for path, _ in found)
+            chain |= {removed.ref.key for _, removed in found}
             levels.append(found)
-        return [item for level in reversed(levels) for item in level], unread
+
+        # Legs last, once the whole plan is known, because whose they are
+        # depends on it. Legs are named by a key, so they belong to the
+        # document filed under that key. Where such a document stays — a
+        # misfiled replay of `K` holds the key of a run that is not on the
+        # chain — its legs stay with it: the legs of the document removed would
+        # be under the same name, and nothing tells the two apart. Two
+        # documents under one key that both go take the legs once. (ADR 0044
+        # §5, ruled 2026-10-07)
+        doomed: list[_Doomed] = []
+        taken: set[Path] = set()
+        for path, removed in (pair for level in reversed(levels) for pair in level):
+            directory = path.parent
+            owner = directory / f"{removed.ref.key}.json"
+            legs: tuple[Path, ...] = ()
+            if owner in on_plan or not _exists(owner):
+                legs = tuple(
+                    leg
+                    for leg in self._legs_to_remove(
+                        directory / PENDING_DIRNAME, removed.ref.key
+                    )
+                    if leg not in taken
+                )
+                taken.update(legs)
+            doomed.append(
+                _Doomed(
+                    removed=replace(removed, legs=len(legs)),
+                    legs=legs,
+                    document=path,
+                )
+            )
+        return doomed, unread
 
     def _plan_replay(
-        self,
-        ref: RunRef,
-        path: Path,
-        raw: Mapping[str, object],
-        claimed: set[Path],
-    ) -> _Doomed:
+        self, ref: RunRef, path: Path, raw: Mapping[str, object]
+    ) -> tuple[Path, RemovedRun]:
         """One document on the chain: its own key, the address it declares,
-        where it was filed when that differs, and its legs under its own key.
-
-        `claimed` holds what is already on the plan, so two documents that
-        share a key do not count the same legs twice. (ADR 0044 §5)"""
+        and how it was filed whenever the file's name, that address and its
+        key do not all agree. Its legs are counted once the plan is whole.
+        (ADR 0044 §1, §3.4)"""
         key = _declared_key(raw)
         if key is None:
             raise KeylessRunError(
@@ -902,29 +928,23 @@ class FileResultStore:
                 f"rejudged_from, and has no key of its own: {_keyless(raw)}. "
                 "What cannot be named is not removed, so nothing was removed"
             )
-        directory = path.parent
-        filed = RunRef(tenant=ref.tenant, suite=directory.name, key=path.stem)
+        filing = Filing(tenant=ref.tenant, suite=path.parent.name, name=path.stem)
         declared = RunRef(
-            tenant=_declared(raw, "tenant", filed.tenant),
-            suite=_declared(raw, "suite", filed.suite),
+            tenant=_declared(raw, "tenant", filing.tenant),
+            suite=_declared(raw, "suite", filing.suite),
             key=key,
         )
-        legs = tuple(
-            leg
-            for leg in self._legs_to_remove(directory / PENDING_DIRNAME, key)
-            if leg not in claimed
+        agree = (
+            raw.get("tenant") == filing.tenant
+            and raw.get("suite") == filing.suite
+            and key == filing.name
         )
-        claimed.update(legs)
-        return _Doomed(
-            removed=RemovedRun(
-                ref=declared,
-                created_at=cast(str, raw["created_at"]),
-                legs=len(legs),
-                document=True,
-                found_in=None if filed == declared else filed,
-            ),
-            legs=legs,
-            document=path,
+        return path, RemovedRun(
+            ref=declared,
+            created_at=cast(str, raw["created_at"]),
+            legs=0,
+            document=True,
+            filed_as=None if agree else filing,
         )
 
     # -- the register --------------------------------------------------------- #

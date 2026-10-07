@@ -34,6 +34,7 @@ __all__ = [
     "Listing",
     "Misfiled",
     "MisfiledRunError",
+    "Filing",
     "Pending",
     "PromotedRunError",
     "Removal",
@@ -325,16 +326,35 @@ class RunRef:
 
 
 @dataclass(frozen=True, slots=True)
+class Filing:
+    """Where a document was filed: a tenant's directory, a suite's directory,
+    and a file's name without `.json`.
+
+    **Not a `RunRef`**, though it has three strings too. A `RunRef` names a run
+    by its key, and a store answers to that key alone (ADR 0040); a `RunRef`
+    that carried a file's name would be a reference that does not refer. The
+    delete keeps the two apart because telling them apart is its whole job
+    with a misfiled document. (ADR 0044 §1)
+    """
+
+    tenant: str
+    suite: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class RemovedRun:
     """One run a delete removed, as a document, as journal legs, or as both.
 
     `ref` is the run's own identity: its key is `key_of(created_at,
     config_hash)` read from the document, never a file's name, and its tenant
-    and suite are the ones the document declares. Where the run was filed
-    otherwise — under a name that is not its key, or in a tenant or suite it
-    does not declare — `found_in` is the address it was filed at, so a reader
-    learns both the run and the defect in the store. `None` where it was filed
-    where it says it is. (ADR 0044 §1, §3.4)
+    and suite are the ones the document declares, or the directories it sat
+    in where it declares none that is a string. `filed_as` is how it was filed
+    whenever the file's name, the address it declares and its key do not all
+    agree — a name that is not its key, a tenant or suite other than its
+    directory's, or a declaration that is missing or not a string — so a
+    reader learns both the run and the defect in the store. `None` only where
+    all three agree. (ADR 0044 §1, §3.4)
 
     `created_at` is read before removing, from the document or from a leg's
     header, and is `None` only for a run with no document whose every leg was
@@ -348,7 +368,7 @@ class RemovedRun:
     legs: int
     #: Whether a run document was removed.
     document: bool
-    found_in: RunRef | None = None
+    filed_as: Filing | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -735,7 +755,7 @@ class ResultStore(Protocol):
            outside the store, and `KeylessRunError` for a document on the chain
            with no key of its own. A document on the chain filed under another
            name, or declaring another tenant or suite than its directory, is
-           removed and named with `RemovedRun.found_in`.
+           removed and named with `RemovedRun.filed_as`.
 
         **The removal**: each replay from the leaves towards `ref`, each one's
         legs before its document, then `ref`'s legs, then its document. An

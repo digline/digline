@@ -1,8 +1,8 @@
 """The run delete, against a store that really writes (ADR 0044).
 
 Numbered by ADR 0044's test plan, which is the contract: a test here names the
-item it holds. Items 11 to 14 belong to the command and to the walk, and live
-beside them.
+item it holds. Items 11 to 14, and the command's half of 8, 10 and 15, belong to
+the command and to the walk, and live beside them.
 
 Every test reads the store back through its own readers — `read_run`,
 `scan_runs`, `list_runs`, `pending` — because that is what §1's contract is
@@ -28,6 +28,7 @@ from digline.store import (
     DirectoryUnreadableError,
     FileJournal,
     FileResultStore,
+    Filing,
     JournalHeader,
     KeylessRunError,
     MisfiledRunError,
@@ -304,7 +305,7 @@ def test_5_the_chain_is_followed_across_suites_leaves_first(
 
     assert seen == [f"{key(r2)}.json", f"{key(r1)}.json", f"{key(k)}.json"]
     assert [r.ref for r in removal.replays] == [ref(r2), ref(r1)]
-    assert all(r.found_in is None for r in removal.replays)
+    assert all(r.filed_as is None for r in removal.replays)
     assert [r.created_at for r in removal.replays] == [T3, T2]
     assert removal.unread == 0
     assert_absent(store, key(k), key(r1), key(r2))
@@ -464,10 +465,10 @@ def test_8_a_misfiled_replay_is_removed_and_named_by_its_own_key(
 
     assert not path.exists()
     assert [r.ref for r in removal.replays] == [ref(r2), ref(r1)]
-    assert removal.replays[1].found_in == RunRef(
-        tenant=TENANT, suite="s", key="renamed-by-hand"
+    assert removal.replays[1].filed_as == Filing(
+        tenant=TENANT, suite="s", name="renamed-by-hand"
     )
-    assert removal.replays[0].found_in is None
+    assert removal.replays[0].filed_as is None
     assert_absent(store, key(k), key(r1), key(r2))
 
 
@@ -494,8 +495,8 @@ def test_8_two_documents_under_one_key_on_the_chain_both_go(tmp_path: Path) -> N
 
     assert not proper.exists() and not misfiled.exists()
     assert [r.ref.key for r in removal.replays] == [y, y]
-    assert sorted(str(r.found_in) for r in removal.replays) == sorted(
-        [str(None), str(RunRef(tenant=TENANT, suite="s", key="copied-by-hand"))]
+    assert sorted(str(r.filed_as) for r in removal.replays) == sorted(
+        [str(None), str(Filing(tenant=TENANT, suite="s", name="copied-by-hand"))]
     )
 
 
@@ -503,11 +504,14 @@ def test_8_only_the_misfiled_one_on_the_chain_leaves_the_other(
     tmp_path: Path,
 ) -> None:
     """`Removal.replays` names a key `read_run` still answers to, and
-    `found_in` is what lets the command say so beside it. (ADR 0044 §5)"""
+    `filed_as` is what lets the command say so beside it. Its legs are the
+    legs of the key Y, so they belong to the document that stays, and are not
+    touched. (ADR 0044 §5, ruled 2026-10-07)"""
     store = FileResultStore(tmp_path)
     k, proper, misfiled = _two_under_one_key(store, both=False)
     y = proper.stem
     survivor = proper.read_bytes()
+    [leg] = legs(store, store.read_run(RunRef(tenant=TENANT, suite="s", key=y)), 1)
 
     removal = store.delete_run(ref(k))
 
@@ -515,7 +519,9 @@ def test_8_only_the_misfiled_one_on_the_chain_leaves_the_other(
     assert proper.read_bytes() == survivor
     [only] = removal.replays
     assert only.ref.key == y
-    assert only.found_in == RunRef(tenant=TENANT, suite="s", key="copied-by-hand")
+    assert only.filed_as == Filing(tenant=TENANT, suite="s", name="copied-by-hand")
+    assert only.legs == 0
+    assert leg.exists()
     assert store.read_run(RunRef(tenant=TENANT, suite="s", key=y)).rejudged_from is None
 
 
@@ -661,16 +667,43 @@ def test_15_a_replay_declaring_another_address_is_removed_and_says_where(
     assert by_key[key(elsewhere)].ref == RunRef(
         tenant="other", suite="s", key=key(elsewhere)
     )
-    assert by_key[key(elsewhere)].found_in == RunRef(
-        tenant=TENANT, suite="s", key=key(elsewhere)
+    assert by_key[key(elsewhere)].filed_as == Filing(
+        tenant=TENANT, suite="s", name=key(elsewhere)
     )
     assert by_key[key(misplaced)].ref == RunRef(
         tenant=TENANT, suite="other-suite", key=key(misplaced)
     )
-    assert by_key[key(misplaced)].found_in == RunRef(
-        tenant=TENANT, suite="t", key=key(misplaced)
+    assert by_key[key(misplaced)].filed_as == Filing(
+        tenant=TENANT, suite="t", name=key(misplaced)
     )
     assert_absent(store, key(k), key(elsewhere), key(misplaced))
+
+
+@pytest.mark.parametrize("field", ["tenant", "suite"])
+@pytest.mark.parametrize("held", [None, 7], ids=["missing", "not-a-string"])
+def test_15_a_declaration_that_is_missing_is_a_filing_to_report(
+    tmp_path: Path, field: str, held: object
+) -> None:
+    """`ref` takes the directory, which is all there is to name it by, and
+    `filed_as` still records the filing: that bit is what tells a reader the
+    store holds a malformed document. (ADR 0044 §3.4, ruled 2026-10-07)"""
+    store = FileResultStore(tmp_path)
+    k = a_run(T1)
+    store.write_run(k)
+    r1 = a_run(T2, rejudged_from=key(k))
+    document = json.loads(run_to_json(r1))
+    if held is None:
+        del document[field]
+    else:
+        document[field] = held
+    path = store.runs_dir(TENANT) / "s" / f"{key(r1)}.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    [only] = store.delete_run(ref(k)).replays
+
+    assert not path.exists()
+    assert only.ref == ref(r1)
+    assert only.filed_as == Filing(tenant=TENANT, suite="s", name=key(r1))
 
 
 # --------------------------------------------------------------------------- #
@@ -724,17 +757,17 @@ def test_16_a_keyless_file_under_k_is_refused_with_the_same_type(
 
 
 # --------------------------------------------------------------------------- #
-# Beyond the plan: two suites that share a key (ADR 0044 §5)
+# 17. Two suites that share a key (ADR 0044 §5)
 # --------------------------------------------------------------------------- #
 
 
-def test_a_shared_key_reaches_the_other_suites_replays_and_not_its_run(
+def test_17_a_shared_key_reaches_the_other_suites_replays_and_not_its_run(
     tmp_path: Path,
 ) -> None:
     """Same configuration and same `created_at` in two suites give one key.
     The cascade matches `rejudged_from` by key, so it reaches the other
     suite's replays too; the other suite's run itself is not asked for, and
-    stays. A limit §5 states, measured here rather than left read."""
+    stays. A limit §5 states in words, held here as a behaviour."""
     store = FileResultStore(tmp_path)
     k = a_run(T1)
     twin = a_run(T1, "t")

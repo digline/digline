@@ -8,9 +8,11 @@
   file under a key that cannot be verified, and the absence from the MCP
   server; a ninth, the misfiled replay (§3.4), was ruled on the draft. The
   rest are *decided here*, marked where they are made, and were accepted with
-  the record. *Two more ruled 2026-10-07, during implementation:* the replay
-  that declares another tenant or suite, which left *Not decided here*, and the
-  document on the chain with no key of its own (§3.4)
+  the record. *More were ruled 2026-10-07, during implementation, each
+  marked where it is made:* the replay that declares another tenant or suite,
+  which left *Not decided here*, the document on the chain with no key of its
+  own and the rule they share (§3.4), `Filing` and `filed_as` (§1), and the
+  legs under a key a misfiled replay shares (§5)
 - Shipped: unreleased
 - Date: 2026-10-06
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -136,6 +138,12 @@ The measurements quoted above are those of the 2026-10-06 rulings.
         def delete_run(self, ref: RunRef) -> Removal: ...
 
     @dataclass(frozen=True, slots=True)
+    class Filing:                # added 2026-10-07
+        tenant: str              # the tenant's directory
+        suite: str               # the suite's directory
+        name: str                # the file's name, without .json
+
+    @dataclass(frozen=True, slots=True)
     class RemovedRun:
         ref: RunRef              # the run's own key, key_of(created_at,
                                  # config_hash), never a file's name
@@ -143,11 +151,10 @@ The measurements quoted above are those of the 2026-10-06 rulings.
                                  # readable carried it
         legs: int                # journal legs removed
         document: bool           # whether a run document was removed
-        found_in: RunRef | None  # where it was filed, when that differs
-                                 # from ref: a name that is not its key, or
-                                 # a tenant or suite it does not declare
-                                 # (§3.4). None where filed as it says.
-                                 # Added 2026-10-07
+        filed_as: Filing | None  # how it was filed, whenever the file's
+                                 # name, the address it declares and its
+                                 # key do not all agree (§3.4). None only
+                                 # where all three agree. Added 2026-10-07
 
     @dataclass(frozen=True, slots=True)
     class Removal:
@@ -157,6 +164,16 @@ The measurements quoted above are those of the 2026-10-06 rulings.
                                          # could not read
         @property
         def nothing(self) -> bool: ...   # no document, no legs, no replay
+
+**`Filing` is not a `RunRef`. Ruled 2026-10-07.** A `RunRef` names a run by its
+key, and a store answers to that key alone (ADR 0040). A `RunRef` that carried
+a file's name would be a reference that does not refer, and this record exists
+to keep the two apart. `filed_as` is set whenever the file's name, the tenant
+and suite the document declares, and its key do not all agree, including a
+declaration that is missing or not a string. There `ref` takes the directory,
+which is all there is to name the run by, and `filed_as` still records the
+filing, because that bit is the only thing that tells a reader the store holds
+a malformed document.
 
 **The contract.** After `delete_run(ref)` returns, neither `ref` nor any
 replay chained from it **through documents the scan could read** is returned by
@@ -310,7 +327,7 @@ this order.
      **The declaration is a defect, not an address**, so removing it does
      not leave §1's reach, which is the tenant whose directory holds it.
      `RemovedRun.ref` carries what the document declares and its own key,
-     and `found_in` the address it was filed at, so the command names the
+     and `filed_as` the address it was filed at, so the command names the
      file and what it declared: it is a fact about the store's health, not
      only about the delete.
    - **A document on the chain with no key of its own refuses the delete.
@@ -411,6 +428,10 @@ nothing else removes a journal that might still be finished.
   misfiled one is, only it goes, and `Removal.replays` names a key that
   `read_run` still answers to, with the other document. The command says so
   beside that key rather than reporting it as gone.
+  **The legs under that key are not touched. Ruled 2026-10-07.** Legs are
+  named by a key, so they belong to the document filed under it, which is the
+  one that stays; the legs of the removed document would carry the same name,
+  and nothing tells the two apart. The command says that too.
 - **Two suites can share a key** (*Context*). The cascade matches
   `rejudged_from` by key across the tenant, so with such a collision it reaches
   the replays of the other suite's run too. It takes the same configuration and
@@ -500,6 +521,10 @@ nothing else removes a journal that might still be finished.
 
 ## Not decided here
 
+- **Whether the cascade should match `rejudged_from` on more than the key**,
+  so that two suites sharing a key (§5) no longer reach each other's replays.
+  It is the real fix of that limit. *Added 2026-10-07.*
+
 - **`digline view`.** Whether its server, which has one route that writes,
   carries a delete.
 - **A delete of a run whose suite no longer loads.** The command addresses
@@ -562,7 +587,11 @@ nothing else removes a journal that might still be finished.
 15. **A replay that declares another address** *(added 2026-10-07)*: a
     document on `K`'s chain that declares another tenant, and one that
     declares another suite; both removed, named in `Removal.replays` by
-    their own key, with `found_in` set, and the command's sentence.
+    their own key, with `filed_as` set, and the command's sentence.
 16. **A keyless document on the chain** *(added 2026-10-07)*: one without
     `created_at` and one without `config_hash`, both refused with
     `KeylessRunError` naming the file and the field, and nothing removed.
+17. **Two suites that share a key** *(added 2026-10-07)*: `K` in suite `s`,
+    a run with the same key in suite `t` and a replay of it; the delete of `K`
+    removes that replay and leaves the run in `t`, which `read_run` still
+    returns. §5 states the limit, and this holds it as a behaviour.
