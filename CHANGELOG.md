@@ -75,6 +75,12 @@ notes under them are this file, verbatim.
   headline's *"moved within noise"* and `explain` are unchanged. A tool that
   matched the old words in a report or in `AssertionDelta.reason` needs the
   new ones. ADR 0006 §10 and ADR 0016 §7 gain dated notes.
+- **Docs: pytest-digline's README shows the failure line `check_line`
+  prints.** Its example is a drop through the threshold, a flip, which carries
+  no interval. The README showed one, in wording that was never in digline's
+  source. ADR 0013 §6 gains a dated note beside the same stale output. The
+  README reaches PyPI with pytest-digline's next release.
+
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
 
 ## pytest-digline 0.2.3 — 2026-10-07
