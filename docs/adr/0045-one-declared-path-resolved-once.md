@@ -272,7 +272,8 @@ since 0.7.1, and it is computed from the file actually read. Ruled
 (ruling 6).
 
 - **Where the two resolutions agreed, nothing moves.** The name is
-  byte-identical to today's, and so is everything that reads it: `compare`'s
+  byte-identical to the one `ff90d56` records, and so is everything that reads
+  it: `compare`'s
   artifact deltas, ADR 0042 §3's check at the exits, ADR 0034's projection
   token, the runs page's label and the register's `artifacts_changed`.
 - **Where they disagreed, the name and the content change together.** The
@@ -324,11 +325,16 @@ it lands on the right file. Not by luck: by construction. That is why the
 loader does not change.
 
 *Ruled 2026-10-07, by Alessandro, correcting the sentence that stood here.*
-Today, with a relative spec, the TOML target answers a relative path, so
-§5's requirement is **not** met in that form today. It is met through §2,
+Before the repair of this record, a TOML target given a relative spec answers
+a relative path, so §5's requirement is **not** met in that form there:
+printed at `ddb57fe` (the record of #476, *The TOML forms tried*), and at
+`ff90d56` the second join of that answer is what refuses the run with exit 64.
+It is met through §2,
 without touching the loader. That the file read is already the right one is
 what makes a change to the loader unnecessary, and it is not to be confused
-with §5's requirement.
+with §5's requirement. *Anchored to the commit instead of the day on
+2026-10-07, by Alessandro: a record says the date or the commit, never
+"today".*
 
 **Measured, beside it.** *Measured 2026-10-07, at `ddb57fe` and at the code of
 `e97c780`, which are identical in `host/`, `targets/` and the packages'
