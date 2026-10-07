@@ -333,11 +333,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.29.1": (
-            "the core release digline-mcp's and pytest-digline's floors are "
-            "owed to, in the table of floors owed to the release (#452, #475): "
-            "the cut that ships the core carrying #452 raises both floors and "
-            "deletes the rows, and this entry with them"
+        "0.29.0": (
+            "the release whose index-race status is recorded (a TestPyPI job "
+            "cancelled and re-run, the tag message, the counts, the installed "
+            "versions, the tags on one digest and the seven locks), and the "
+            "release against which digline-mcp's and pytest-digline's new "
+            "calls raise `TypeError` in the table of floors owed: history, "
+            "told as such now that 0.30.0 is the tree's version"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -352,7 +354,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
             "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.29.0 is the tree's version"
+            "told as such now that 0.30.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
@@ -750,6 +752,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "trailing-period hole in VERSION was closed",
     },
     "SECURITY.md": {
+        "0.29.0": (
+            "the core release digline-mcp 0.4.5 requires, named in "
+            "GHSA-x6w8-q92m-23h3's declared defect as half of what fixes it: "
+            "a record of which release fixed it, not a claim about the current "
+            "one"
+        ),
         "0.4.4": (
             "digline-mcp's last release with GHSA-x6w8-q92m-23h3, the end of the "
             "range in *Defects in a released package, declared*, and the one "

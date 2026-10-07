@@ -13,7 +13,7 @@
   which left *Not decided here*, the document on the chain with no key of its
   own and the rule they share (§3.4), `Filing` and `filed_as` (§1), and the
   legs under a key a misfiled replay shares (§5)
-- Shipped: unreleased
+- Shipped: 0.30.0
 - Date: 2026-10-06
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `JOURNAL_VERSION`, no `REGISTER_VERSION`, no migration. A delete changes no
