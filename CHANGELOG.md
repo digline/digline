@@ -6,7 +6,14 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 0.30.0 — unreleased
+
+digline **0.30.0**. **A minor, because a store of your own stops satisfying
+`ResultStore`**: the protocol gains a sixth method, `delete_run`, and an
+implementation written against 0.29.0 lacks it (ADR 0044). The file store that
+ships with digline has it. Beside it, one new command, `digline delete`. No
+public name is removed, no existing command or option changes, and neither
+`SCHEMA_VERSION` nor `OUTPUT_VERSION` moves.
 
 - **`digline delete` removes a run** (#237, #289, ADR 0044). Its document,
   its journal legs, and every replay chained from it across the tenant, by a
@@ -52,6 +59,16 @@ notes under them are this file, verbatim.
 - **A refusal printed by pytest-digline passes through `visible()`**, as every
   other line it prints does. A refusal raised by a `preflight` reached the
   terminal with its escape sequences live.
+
+- **Docs: ADR 0045, *One declared path, resolved once*, proposed** (#476,
+  #486). A declared path is resolved once, by whoever opens the file, and a
+  path is anchored to the suite only where a suite is necessarily present.
+  Nothing in it is implemented in this release: the code is #481. ADR 0042 §2
+  is amended and ADR 0007 §6 gains a dated note.
+- **The `digline-openai` and `digline-bedrock` READMEs anchor the prompt path**
+  with `Path(__file__).parent` (#485), as `digline-anthropic`'s already did. A
+  bare relative path is read against the working directory. The READMEs reach
+  PyPI with each package's next release.
 
 ## digline-mcp 0.4.5 — 2026-10-05
 
