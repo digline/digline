@@ -8,6 +8,18 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **`digline delete` removes a run** (#237, #289, ADR 0044). Its document,
+  its journal legs, and every replay chained from it across the tenant, by a
+  key written out: `latest` is refused. The run under the current baseline is
+  refused until another is promoted, and every refusal comes before anything
+  is removed. It exits 0 whether something was removed or nothing was, and
+  says which. It is not an erasure, and its limits are on
+  [its page](docs/delete.md). Not on the MCP server, by construction.
+- **`ResultStore` has a sixth method, `delete_run`**, returning `Removal`,
+  `RemovedRun` and `Filing`, with two new refusals, `PromotedRunError` and
+  `KeylessRunError`. Its reach is a whole tenant: a backend of your own has to
+  list a tenant's suites and read every run document in each.
+
 - **An `OSError` reaches an agent in words** (#451, ADR 0043 §1, amended).
   digline-mcp translates it beside digline's refusals, where it reached an
   agent as *Error executing tool* while the command line said what was wrong.

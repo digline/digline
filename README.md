@@ -276,7 +276,7 @@ reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
-| `digline delete` | remove a run, its journal legs and its replays across the tenant, by a key written out (`latest` is refused). Refused for the run under the current baseline: promote another first. It removes from `.digline/<tenant>/runs/` and nowhere else — not the baseline, not the register, not git history, backups or reports — so it is not an erasure |
+| `digline delete` | remove a run, its journal legs and its replays across the tenant, by a key written out (`latest` is refused). Refused for the run under the current baseline: promote another first. It removes from `.digline/<tenant>/runs/` and nowhere else — not the baseline, not the register, not git history, backups or reports — so it is not an erasure — [`docs/delete.md`](docs/delete.md) |
 
 The same comparison reaches an agent through [`digline-mcp`](docs/mcp.md) —
 eight tools that read and measure, and no `promote` to call — and Claude Code
