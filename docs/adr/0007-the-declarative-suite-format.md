@@ -397,9 +397,13 @@ already follows, applied to every path a data suite can write.
 *Noted 2026-10-07, by [ADR 0045](0045-one-declared-path-resolved-once.md).*
 The rule in the paragraph above stays true for the TOML form: a `[target]`
 path is anchored to the suite file's directory. The loader applied it without
-making the path absolute, so with a relative `--suite` the target holds a
-relative path and `read_artifacts` joins the suite's directory to it a second
-time. Measured: exit 64 on `eval/eval/prompt.md`. ADR 0045 §2 repairs it
+making the path absolute, so when the suite's path is relative the target
+holds a relative path and `read_artifacts` joins the suite's directory to it a
+second time. Only a spec as typed is relative: the MCP server and
+`pytest-digline`'s ini pass it absolute. Measured: exit 64 on
+`eval/eval/prompt.md`, and only when the relative spec has a directory in it.
+From `R/eval` with `suite.toml` the second join lands on the right file. ADR
+0045 §2 repairs it
 without changing the loader: the target answers the path it read, absolute.
 What was carried past the TOML form was
 [ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §2's reference to this

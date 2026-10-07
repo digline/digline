@@ -237,8 +237,9 @@ tables):
   the perimeter.
 - **In a TOML suite it fails.** From the command line with a relative
   `--suite`, the second resolution names a path that does not exist, and the
-  run stops with exit 64 on `eval/eval/prompt.md`. Nothing is sent and nothing
-  wrong is recorded, but a suite that is right cannot run from the root.
+  run stops with exit 64 on `eval/eval/prompt.md`. The target has read and
+  found the right file, and nothing wrong is recorded, but a suite that is
+  right cannot run from the root.
 
 ### 2. Whoever reads the file reports the path it read
 
@@ -266,7 +267,7 @@ since 0.7.1, and it is computed from the file actually read. Ruled
   artifact deltas, ADR 0042 §3's check at the exits, ADR 0034's projection
   token, the runs page's label and the register's `artifacts_changed`.
 - **Where they disagreed, the name and the content change together.** The
-  run records the file the target sent, under that file's name. A baseline
+  run records the file the target read, under that file's name. A baseline
   promoted from such a run recorded a file that was not sent, and `compare`
   reports the difference as an artifact change. For a file that is not
   pinned, that does not change the exit code. For a pinned one, see §7.
@@ -283,7 +284,7 @@ Ruled (ruling 4).
 |---|---|---|
 | `Suite.artifacts`, `Suite.pinned` | the suite file's directory | a `Suite` field is read by a front end that loaded a suite file |
 | a target's field, in a `.py` suite | nothing, by digline: the reader opens it as given, so the working directory decides | a target can be built without a suite |
-| a `[target]` path in a `.toml` suite | the suite file's directory, by ADR 0007 §6 | a declaration, not code. Measured: the loader joins the suite's directory without making the path absolute, so `read_artifacts` joins it a second time (§1) |
+| a `[target]` path in a `.toml` suite | the suite file's directory, by ADR 0007 §6 | a declaration, not code. Measured: the loader joins the suite's directory without making the path absolute, so when the spec is relative `read_artifacts` joins it a second time (§1). The MCP server and `pytest-digline`'s ini pass the spec absolute |
 
 **Why a target's path is not anchored to the suite.** A `PromptTemplate` can be
 built without a suite: in a test, in a notebook, in an application that uses
@@ -293,8 +294,10 @@ defect this record closes (ruling 3).
 
 **The TOML row holds as a rule, and not yet in code.** The anchor is right,
 the suite file's directory. What is wrong is that the loader hands the target
-the joined path still relative, so the target and `read_artifacts` each
-resolve it. §2 repairs that without touching the loader: the target's template
+the joined path still relative when the spec is relative, so the target and
+`read_artifacts` each resolve it. Only the command line and `pytest-digline`'s
+`--digline-suite` pass a spec as typed; the MCP server and the ini pass it
+absolute. §2 repairs that without touching the loader: the target's template
 reads the joined path against the working directory, `ProviderTarget` answers
 the path it read, absolute, and `read_artifacts` takes it as it comes, so
 §5's refusal of a relative path is never reached. *Deduced, not measured:*
@@ -303,28 +306,49 @@ the repair does not exist yet.
 **Why the target already reads the right file.** *Ruled 2026-10-07, by
 Alessandro.* A relative `--suite` is relative to the working directory, so the
 path the loader joins is relative to that same directory, and read from there
-it lands on the right file. Not by luck: by construction. That is why §5's
-requirement already holds for the TOML form, without touching the loader and
-without an exception inside the rule.
+it lands on the right file. Not by luck: by construction. That is why the
+loader does not change.
 
-**Measured, beside it.** *Measured 2026-10-07 by the session that re-read this
-record, at `ddb57fe`, whose `host/`, `targets/` and package sources are
-identical to `e97c780`'s.* In each of these TOML forms the target sends the
-right file, `R/eval/prompt.md`, and the defect is only `read_artifacts`'s
-second join:
-- the command line with a relative spec that has a directory in it
-  (`eval/suite.toml` from `R`, `../R/eval/suite.toml` from `OUT`), and
-  `pytest-digline`'s `--digline-suite` flag, which passes the spec the same
-  way. These are the forms the second join breaks;
-- the command line from the suite's own directory (`suite.toml` from
-  `R/eval`);
-- the command line with an absolute spec;
-- the MCP server, from `R/eval`, `R` and `OUT`;
-- `pytest-digline`'s `digline_suites` ini, a `type="paths"` option, which
-  pytest makes absolute.
+*Ruled 2026-10-07, by Alessandro, correcting the sentence that stood here.*
+Today, with a relative spec, the TOML target answers a relative path, so
+§5's requirement is **not** met in that form today. It is met through §2,
+without touching the loader. That the file read is already the right one is
+what makes a change to the loader unnecessary, and it is not to be confused
+with §5's requirement.
 
-These are the forms tried, and no others. The table is in the record of #476,
-*Which front end can hand `read_artifacts` a relative path, measured*.
+**Measured, beside it.** *Measured 2026-10-07, at `ddb57fe` and at the code of
+`e97c780`, which are identical in `host/`, `targets/` and the packages'
+sources.* In each of these TOML forms the target reads and finds the right
+file, `R/eval/prompt.md`, and the defect is only `read_artifacts`'s second
+join. Each says by which route it was tried:
+- **The command line, `--suite eval/suite.toml` from `R`.** Refused, exit 64
+  on `R/eval/eval/prompt.md`. Through `digline run`, with and without a
+  wrapper around `read_artifacts` that printed the target's answer, the text
+  it held, and what was recorded.
+- **`pytest-digline`'s `--digline-suite eval/suite.toml` from `R`, and
+  `--digline-suite ../R/eval/suite.toml` from `OUT`.** Refused, the path
+  joined twice. Through the plugin, with the wrapper.
+- **`suite.toml` from `R/eval`, on the command line and through
+  `--digline-suite`.** The target answers `prompt.md`, relative, the two joins
+  land on the same file, and the run records `eval/prompt.md`. Through the
+  wrapper, and on the command line also through `digline run`.
+- **An absolute spec on the command line.** Through `load_suite` only, which
+  showed the target holding an absolute path, and never reached
+  `read_artifacts`. Separately, `digline run` with an absolute spec from `R`
+  and from `OUT` recorded `eval/prompt.md`.
+- **An absolute spec through `--digline-suite`, from `OUT`.** Recorded
+  correctly. Through the plugin, with the wrapper.
+- **The MCP server's `run`, from `R/eval`, `R` and `OUT`.** The target answers
+  an absolute path, because `within_root` hands the loader one, and the run
+  records `eval/prompt.md`. Through the wrapper, and through the `run` tool
+  unwrapped.
+- **`pytest-digline`'s `digline_suites` ini, from `R/eval`, `R` and `OUT`.**
+  The target answers an absolute path, because the option is `type="paths"`
+  and pytest makes it absolute, and the run records `eval/prompt.md`. Through
+  the plugin, with the wrapper.
+
+These are the forms tried, and no others. Which session took which route is
+in the record of #476 and in #481's thread.
 
 ### 5. `HasArtifacts` requires a path already resolved
 
@@ -421,7 +445,7 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
   break for any such target outside the tree. Inside it there is none:
   `ProviderTarget` is the only implementation, and §2 has it answer absolute.
 - **A `.py` suite whose target names a bare relative prompt, run from a
-  directory other than the suite's, records the file it sent.**
+  directory other than the suite's, records the file it read.**
   - If that file is outside the perimeter, the run is refused before any
     provider call, by ADR 0042 §2's sentence. *Deduced from the code,* as §6
     says.
