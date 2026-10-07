@@ -41,8 +41,11 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def run(source: str) -> dict[str, Any]:
-    namespace: dict[str, Any] = {"__name__": "readme"}
+def run(source: str, workspace: Path) -> dict[str, Any]:
+    namespace: dict[str, Any] = {
+        "__name__": "readme",
+        "__file__": str(workspace / "suite.py"),
+    }
     exec(compile(source, "README.md", "exec"), namespace)  # noqa: S102
     return namespace
 
@@ -55,15 +58,15 @@ def test_the_readme_has_the_examples_it_promises() -> None:
 
 @pytest.mark.parametrize("index", range(7))
 def test_every_python_block_runs(workspace: Path, index: int) -> None:
-    run(blocks()[index])
+    run(blocks()[index], workspace)
 
 
 def test_the_region_comes_from_the_chain_and_from_the_argument(
     workspace: Path,
 ) -> None:
     """The two quickstarts make two different claims, and both are checkable."""
-    from_chain = run(blocks()[0])["target"]
-    explicit = run(blocks()[1])["target"]
+    from_chain = run(blocks()[0], workspace)["target"]
+    explicit = run(blocks()[1], workspace)["target"]
     assert from_chain.region == "eu-west-1"
     assert explicit.region == "us-east-1"
     # And each one is priced by its own region.
@@ -74,21 +77,21 @@ def test_the_region_comes_from_the_chain_and_from_the_argument(
 def test_the_judge_examples_produce_the_two_protocols(workspace: Path) -> None:
     from digline.core import ClaimJudge, Judge
 
-    rubric = run(blocks()[2])["rubric"]
-    faithful = run(blocks()[3])["faithful"]
+    rubric = run(blocks()[2], workspace)["rubric"]
+    faithful = run(blocks()[3], workspace)["faithful"]
     assert isinstance(rubric.judge, Judge)
     assert isinstance(faithful.judge, ClaimJudge)
-    assert run(blocks()[4])["judge"].calls == 0
+    assert run(blocks()[4], workspace)["judge"].calls == 0
 
 
 def test_the_pricing_examples_price_what_they_claim(workspace: Path) -> None:
     from digline.targets import Usage
 
-    overridden = run(blocks()[5])["target"]
+    overridden = run(blocks()[5], workspace)["target"]
     assert overridden.pricing.knows("amazon.nova-pro-v1:0")
     overridden.preflight([])
 
-    imported = run(blocks()[6])["target"]
+    imported = run(blocks()[6], workspace)["target"]
     assert (
         imported.pricing.cost("my-imported-model", Usage(1_000_000, 1_000_000)) == 0.0
     )
@@ -115,7 +118,7 @@ def test_no_block_needs_a_network_or_a_credential(
         monkeypatch.delenv(name, raising=False)
 
     for source in blocks():
-        namespace = run(source)
+        namespace = run(source, workspace)
         bound = [k for k in namespace if not k.startswith("__")]
         assert bound, "a block that binds nothing is a block that shows nothing"
 
