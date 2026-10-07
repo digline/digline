@@ -8,6 +8,9 @@
   [ADR 0013](0013-the-pytest-plugin.md) were
 - Shipped: 0.10.0
 - Date: 2026-09-11
+- Amended: 2026-10-07 — §7's clause gains a dated note and is kept as written:
+  the interval is now named as the range of the reference's individual samples,
+  not *"the noise of this check"*, with ADR 0006 §10 (#496)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0005](0005-the-configuration-of-the-system-under-test.md) §4 (a judge
@@ -217,6 +220,20 @@ shares with the rest of the suite is a suite that has told the truth about a
 change with the wrong cause. The report states the observation and the
 consequence and stops short of the diagnosis — which is the line ADR 0012 drew
 for `explain` and is the same line here.
+
+*Amended 2026-10-07 (#496), the clause above kept as written.* With
+[ADR 0006](0006-repeated-samples-and-the-noise-floor.md) §10's note of the same
+day, the interval is named for what it is, the range of the reference's
+individual samples, and no longer *"the noise of this check"*. The clause now
+reads:
+
+> **the model under this alias likely changed** — the canary `alias-probe` moved
+> from 0.910000 to 0.640000, outside the range of the reference's individual
+> samples (0.880000–0.930000 across 3 samples)
+
+and in Italian *"…, fuori dall'intervallo dei singoli campioni del riferimento
+(0.880000–0.930000 su 3 campioni)"*. Its place, and the word *likely*, do not
+change.
 
 The placement follows the meaning. The target-configuration clause says what the
 system *declared*; the canary says what the system *did*, which is the stronger

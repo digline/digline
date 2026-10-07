@@ -40,7 +40,8 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
     sixth member, so a pipeline that already knows the five keeps working, and
     one that wants to tell "nothing moved" from "what moved was noise" reads a
     field. The interval is emitted on a regression too — that is the sentence
-    "beyond the noise of this check" in machine form. (ADR 0006 §9)
+    "outside the range of the reference's individual samples" in machine form.
+    (ADR 0006 §9)
     """
     before = None if delta.baseline is None else delta.baseline.score.score
     after = None if delta.current is None else delta.current.score.score

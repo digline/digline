@@ -12,6 +12,10 @@
   replaces was never decided by this ADR or any other; it was found while
   documenting what each `min_agreement` floor can catch, which §13 now
   tabulates against the amended definition. Ships with the next release
+- Amended: 2026-10-07 — §10 gains a dated note and is kept as written. The
+  per-check sentences no longer call the interval they print "the noise of this
+  check": it is the range of the reference's individual samples (#496). The
+  word *noise* stays for the category, in the headline and in `explain`
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -302,6 +306,30 @@ The row already carries the case in its own column.
 ISO dates and the decimal point stay unlocalized, and the interval is rendered
 at `FLOAT_PRECISION` like every other score, so two renderings of one run still
 diff line by line.
+
+*Amended 2026-10-07 (#496), the section above kept as written.* A narrowing of
+the copy, not a reversal of the word. **The word is still *noise* / *rumore* for
+the category:** the headline (`1 check moved within noise.`) and `explain` do not
+change. What changes is the per-check sentence, which no longer calls the
+interval it prints *"the noise of this check"*. That interval is the `min`–`max`
+of the reference's individual samples, and §7's for an aggregate is the range of
+the aggregate computed at each sample index. It is not an uncertainty on the
+score the movement is measured between, and the old sentence let a reader take
+it for one. The sentences now read:
+
+- beyond: `Score fell from 0.900000 to 0.600000 — outside the range of the
+  reference's individual samples (0.850000–0.950000 across 5 samples).` /
+  `Il punteggio è sceso da 0.900000 a 0.600000 — fuori dall'intervallo dei
+  singoli campioni del riferimento (0.850000–0.950000 su 5 campioni).`
+- within: `Score moved from 0.900000 to 0.750000 — inside the range of the
+  reference's individual samples (0.600000–1.000000 across 5 samples); not
+  counted as a regression.` / `Il punteggio si è spostato da 0.900000 a 0.750000
+  — dentro l'intervallo dei singoli campioni del riferimento (0.600000–1.000000
+  su 5 campioni); non conta come peggioramento.`
+
+`compare()`'s own `reason` says the same in the core's vocabulary, *"the range of
+the baseline's individual samples"*. No verdict, outcome or exit code moves: §5's
+rule is untouched, and this changes only what the sentence claims about it.
 
 ### 11. Compatibility
 

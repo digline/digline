@@ -8,6 +8,8 @@
   [ADR 0011](0011-the-mcp-server.md) were
 - Shipped: 0.9.0
 - Date: 2026-09-10
+- Amended: 2026-10-07 — the failure message quoted in §6 gains a dated note and
+  is kept as written: `check_line` does not produce that output
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states, and an error
   is neither green nor a regression);
   [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §8 (a baseline is an
@@ -259,6 +261,25 @@ digline: how-do-i-return · llm_rubric
          0.880–0.950 across 5 samples
          reason: signed=True, concise=False
 ```
+
+*Corrected 2026-10-07, the block above kept as written.* `check_line` does not
+produce that output, and a record of a stale output is as false as wrong copy.
+Two things differ. The line is the report's sentence at `FLOAT_PRECISION` and
+indented two spaces. And 0.910 → 0.640 against a threshold of 0.700 is a
+**flip**, which carries no interval
+([ADR 0006](0006-repeated-samples-and-the-noise-floor.md) §6). Measured at
+`f90946c` with this change applied, `check_line` on that movement prints:
+
+```
+digline: how-do-i-return · llm_rubric
+  Went from passing to failing (0.910000 → 0.640000).
+  reason: signed=True, concise=False
+```
+
+A drop that stays above the threshold and leaves the interval is the one that
+prints it, as *"Score fell from 0.910000 to 0.800000 — outside the range of the
+reference's individual samples (0.880000–0.950000 across 5 samples)."* (ADR 0006
+§10, as amended 2026-10-07).
 
 and **no traceback**. There is no Python frame worth showing: the exception was
 raised by this plugin, one line from where the message was composed, and a
