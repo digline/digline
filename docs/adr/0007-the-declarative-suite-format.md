@@ -395,10 +395,13 @@ colleague's checkout are all somewhere else. It is the rule `Suite.artifacts`
 already follows, applied to every path a data suite can write.
 
 *Noted 2026-10-07, by [ADR 0045](0045-one-declared-path-resolved-once.md).*
-The paragraph above stays true for the TOML form: the loader resolves a
-`[target]` path against the suite file's directory before it builds the
-target, so the target holds an absolute path. That was read in the code, not
-executed. What was carried past the TOML form was
+The rule in the paragraph above stays true for the TOML form: a `[target]`
+path is anchored to the suite file's directory. The loader applied it without
+making the path absolute, so with a relative `--suite` the target holds a
+relative path and `read_artifacts` joins the suite's directory to it a second
+time. Measured: exit 64 on `eval/eval/prompt.md`. ADR 0045 §2 repairs it
+without changing the loader: the target answers the path it read, absolute.
+What was carried past the TOML form was
 [ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §2's reference to this
 rule, which applied it to the path a `.py` suite's target answers through
 `HasArtifacts`. That reference is what ADR 0045 amends. A path written

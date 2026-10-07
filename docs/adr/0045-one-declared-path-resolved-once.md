@@ -6,8 +6,10 @@
   anchoring rule and the reason a target's path is not anchored, the accepted
   consequence, the name a run records, and that ADR 0042 §2 is amended rather
   than annotated. Two further rulings the same day decide what
-  `HasArtifacts` requires and where the recorded name comes from (§5). What
-  this record decides on its own is marked *decided here* where it is made
+  `HasArtifacts` requires and where the recorded name comes from (§5). Both
+  were given in conversation and written into the record of #476 before this
+  text cited them. What this record decides on its own is marked *decided
+  here* where it is made
 - Shipped: unreleased
 - Date: 2026-10-07
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
@@ -71,6 +73,42 @@ The command line and the MCP server gave the same results, and so did
 provider, and ADR 0042 §2's read boundary passed, because it checked a file
 inside it. In the second row the run records a prompt that was not sent.
 
+**The TOML form has the same double resolution, and there it fails loudly.**
+*Measured 2026-10-07, on the code of `e97c780`, offline:* a suite at
+`R/eval/suite.toml` whose `[target]` declares `prompt_file = "prompt.md"`, and
+a provider pointed at a closed port on `127.0.0.1`.
+
+| front end | working directory | suite named as | result |
+|---|---|---|---|
+| command line | `R` | `eval/suite.toml` | exit 64: *"not a file at `R/eval/eval/prompt.md`"* |
+| command line | `R/eval` | `suite.toml` | runs, records `eval/prompt.md` |
+| command line | `R` | absolute | runs, records `eval/prompt.md` |
+| command line | `OUT` | absolute | runs, records `eval/prompt.md` |
+| MCP server | `R`, `OUT`, `R/eval` | `eval/suite.toml` | runs, records `eval/prompt.md` |
+
+The loader joins the suite file's directory to the declared path and hands the
+target the joined path, still relative when `--suite` was relative. The target
+reads `eval/prompt.md` against the working directory and finds the right
+file. `read_artifacts` then joins the suite's directory a second time. The MCP
+server is not affected, because it makes the suite's path absolute before
+loading it (`within_root`).
+
+### Two words, kept apart
+
+This record turns on one distinction, and Python names both sides of it
+`resolve`.
+
+- **To resolve** a relative path, here, is to anchor it: to decide which
+  directory it is joined to, and so which file it names. The defect is two
+  resolutions of one path, against two directories.
+- **To normalize** a path is what `Path.resolve()` does to an absolute one: it
+  follows symlinks and removes `.` and `..`. It anchors nothing.
+
+`Path.resolve()` on a relative path does both: it anchors the path to the
+working directory, then normalizes it. So a call named `resolve()` can be a
+resolution, a normalization or both, and this record says which. Text quoted
+from other records keeps its own wording.
+
 ### What was ruled before this text, on 2026-10-07
 
 1. **The defect is the double resolution of one declared path, not its
@@ -116,15 +154,17 @@ measured. Code was read; nothing was run for this section.
   `template.path`, a `Path` as it was given, still relative.
 - **`read_artifacts`** (`host/artifacts.py:23`) does `base / entry` for a
   relative entry, checks the perimeter on that and reads that. `base` is the
-  suite's directory in all three front ends: `cli/main.py:261`,
+  suite's directory in all three front ends: `cli/main.py:264`,
   `digline-mcp`'s `server.py:365` and `pytest-digline`'s `plugin.py:385`.
 - **`read_pinned`** (`host/artifacts.py:98`) resolves a pin *"exactly as
   `read_artifacts` resolves an artifact"*.
-- **The TOML form resolves a `[target]` path before the target exists.**
-  `_resolve_paths` (`host/toml_suite.py:776`) joins a `Path`-typed parameter
-  to the suite file's directory, and `within_perimeter` hands the target the
-  resolved, absolute path. So a data suite's target already reports a path
-  that needs no second resolution. *Read, not executed.*
+- **The TOML form resolves a `[target]` path before the target exists, and
+  leaves it relative.** `_resolve_paths` (`host/toml_suite.py:776`) joins a
+  `Path`-typed parameter to the suite file's directory. `within_perimeter`
+  calls `Path.resolve()` on the joined path to check it, which anchors it to
+  the working directory and normalizes it, and then returns the joined path,
+  not that result. With a relative `--suite` the target holds a relative
+  path. The measurement above is what that does.
 - **`ProviderTarget` is the only implementation of `HasArtifacts` in the
   tree.** The protocol (`run/driver.py:171`) is public, returns
   `Sequence[Path]`, and says nothing about what a path is relative to.
@@ -184,11 +224,21 @@ comparison (ADR 0029), and what a rename does to a pin is #483.
 
 ### 1. The defect is the second resolution, not the anchor
 
-One declared path has one reader. The reader is whoever opens the file, and
-for a target's prompt that is the target, because the text it read is the text
-it sends. `read_artifacts` records and checks what was declared. It does not
-decide, a second time and by another rule, which file that was. Ruled
-(ruling 1).
+One declared path is resolved once, by whoever opens the file. For a
+target's prompt that is the target, because the text it read is the text it
+sends. `read_artifacts` records and checks what was declared. It does not
+decide, a second time and against another directory, which file that was.
+Ruled (ruling 1).
+
+**It covers both formats, and they show it differently** (*Context*, both
+tables):
+- **In a `.py` suite it is silent.** The run exits 0, sends one file and
+  records another, and in #481's third row the boundary passes a file outside
+  the perimeter.
+- **In a TOML suite it fails.** From the command line with a relative
+  `--suite`, the second resolution names a path that does not exist, and the
+  run stops with exit 64 on `eval/eval/prompt.md`. Nothing is sent and nothing
+  wrong is recorded, but a suite that is right cannot run from the root.
 
 ### 2. Whoever reads the file reports the path it read
 
@@ -221,7 +271,9 @@ since 0.7.1, and it is computed from the file actually read. Ruled
   reports the difference as an artifact change. For a file that is not
   pinned, that does not change the exit code. For a pinned one, see §7.
 - **The name is never absolute.** A file outside the perimeter is refused
-  before it is read (ADR 0042 §2), so there is no name to give it.
+  before it is recorded (ADR 0042 §2), so there is no name to give it. The
+  target has already read it, at the suite's import. The refusal comes after
+  that read and before any provider call (§6).
 
 ### 4. Anchored to the suite only where a suite is necessarily present
 
@@ -231,7 +283,7 @@ Ruled (ruling 4).
 |---|---|---|
 | `Suite.artifacts`, `Suite.pinned` | the suite file's directory | a `Suite` field is read by a front end that loaded a suite file |
 | a target's field, in a `.py` suite | nothing, by digline: the reader opens it as given, so the working directory decides | a target can be built without a suite |
-| a `[target]` path in a `.toml` suite | the suite file's directory, by ADR 0007 §6 | the path is a declaration, not code, and the loader resolves it before the target exists |
+| a `[target]` path in a `.toml` suite | the suite file's directory, by ADR 0007 §6 | a declaration, not code. Measured: the loader joins the suite's directory without making the path absolute, so `read_artifacts` joins it a second time (§1) |
 
 **Why a target's path is not anchored to the suite.** A `PromptTemplate` can be
 built without a suite: in a test, in a notebook, in an application that uses
@@ -239,10 +291,25 @@ the target directly. There is then no directory to anchor to. A Python object
 whose path changes meaning according to who builds it is worse than the
 defect this record closes (ruling 3).
 
-**The TOML row needs no change in code.** The loader hands the target an
-absolute path already (*What reading the code found*), so the target reports
-a path that resolves to one file wherever the process runs. *Read, not
-executed.*
+**The TOML row holds as a rule, and not yet in code.** The anchor is right,
+the suite file's directory. What is wrong is that the loader hands the target
+the joined path still relative, so the target and `read_artifacts` each
+resolve it. §2 repairs that without touching the loader: the target's template
+reads the joined path against the working directory, `ProviderTarget` answers
+the path it read, absolute, and `read_artifacts` takes it as it comes, so
+§5's refusal of a relative path is never reached. *Deduced, not measured:*
+the repair does not exist yet.
+
+**Why the target already reads the right file.** *Ruled 2026-10-07, by
+Alessandro.* A relative `--suite` is relative to the working directory, so the
+path the loader joins is relative to that same directory, and read from there
+it lands on the right file. Not by luck: by construction. That is why §5's
+requirement already holds for the TOML form, without touching the loader and
+without an exception inside the rule.
+
+**Measured, beside it.** *Measured 2026-10-07 by the session that re-read this
+record:* in every TOML form tried, the target sends the right file. The defect
+is only `read_artifacts`'s second join.
 
 ### 5. `HasArtifacts` requires a path already resolved
 
@@ -264,8 +331,8 @@ before the run starts.
 
 **"Already resolved" means absolute.** *Decided here,* as how the ruling is
 read in code: an absolute path names one file whatever the working directory.
-`read_artifacts` still calls `resolve()` on it for ADR 0042 §2's check, so a
-symlink pointing outward is still outside. That follows a link. It anchors
+`read_artifacts` still normalizes it for ADR 0042 §2's check, so a symlink
+pointing outward is still outside. That is a normalization, and it anchors
 nothing.
 
 **It reaches a target's answer and nothing else.** `Suite.artifacts` and
@@ -277,7 +344,7 @@ nothing.
 one place, and that one result feeds both ADR 0042 §2's check and the name
 §3 records. **Why:** if the boundary normalizes and the name comes from the
 path before normalization, the two diverge again. That is the defect of §1 in
-other clothes: one declaration, two resolutions of it, and a check that
+other clothes: one declaration, two paths made from it, and a check that
 answers for a file the record does not name.
 
 ### 6. The accepted cost: a bare relative path follows the working directory
@@ -315,11 +382,12 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
   its own. That entry, *"a `.py` suite whose target answers an outside path
   through `HasArtifacts`"*, still holds. "Outside" is now said of the file the
   target read, not of the suite's directory joined to the path it gave.
-- **ADR 0007 §6 gains a dated note, not an amendment.** Its text stays true
-  for the TOML form: the loader resolves a `[target]` path before it builds
-  the target (read, not executed). What was carried past the TOML form was
-  ADR 0042 §2's reference to it, and that reference is what this record
-  amends.
+- **ADR 0007 §6 gains a dated note, not an amendment.** Its rule stays true
+  for the TOML form: a `[target]` path is anchored to the suite file's
+  directory. The loader applied it without making the path absolute, which is
+  the TOML half of §1, and §2 repairs it. What was carried past the TOML
+  form was ADR 0042 §2's reference to the rule, and that reference is what
+  this record amends.
 - **ADR 0029 §4 is touched, and its note waits for the code.** §4 says
   pinning a prompt a target contributes *"is legitimate and must work"*, and
   a pin is resolved against the suite (§4 here). After §2, a target's prompt
@@ -349,8 +417,17 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
     does not move.
 - **Where the two resolutions agreed, nothing moves.** The name, the digest
   and every reader of them are as they were (§3). That covers every suite that
-  anchors its target's path, and every TOML suite (read, not executed: test
-  plan entry 6 executes it).
+  anchors its target's path, and every TOML suite that runs today.
+- **§2's repair mends two opposite failures.** *Deduced, not measured:* the
+  repair does not exist yet.
+  - **In a `.py` suite** it records the right file instead of the wrong one.
+    Today the run passes and records a file that was not sent.
+  - **In a TOML suite** it stops a refusal that throws away a valid run.
+    Today `--suite eval/suite.toml` from the root exits 64 on
+    `…/eval/eval/prompt.md`, for a suite whose prompt is where it says. After
+    the repair the target answers `R/eval/prompt.md`, absolute, and the run
+    records `eval/prompt.md`, as every other way of running it does
+    (*Context*, the TOML table). The loader does not change.
 - **A pinned prompt that a target names by a bare relative path, run from
   another directory, is refused by `read_pinned`.** *Deduced, not measured*
   (§7). ADR 0029 §4's note is owed with #481's code, and it is written from
@@ -374,10 +451,11 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
   ADR 0042 §2 stated by reference. Refused by ruling 3: a target can be built
   without a suite, and an object whose path changes meaning according to who
   builds it is worse than the defect.
-- **Record the path as read, absolute, as the name.** Refused by ruling 6.
-  ADR 0042 §3 refuses an absolute key at every exit, so no such run could be
-  promoted or disclosed, and every existing reference would read as a full
-  set of renames. It was ruled out unmeasured.
+- **Record the path as read, absolute, as the name.** Refused by ruling 6,
+  unmeasured. ADR 0042 §3's predicate refuses an absolute key: measured on the
+  strings, not on a promotion. *Deduced, not measured:* every existing
+  reference would then read as a full set of renames, since every name it
+  holds is relative.
 - **For `HasArtifacts`, resolve a relative answer against the working
   directory.** Refused by §5's ruling. The target has already read its file.
   Resolving its answer again, against anything, is the second resolution, and
@@ -441,7 +519,7 @@ measure the first. Nothing here schedules the second.
 ## What this record does not claim
 
 - **That the class of this defect is closed.** It is closed only where digline
-  is the reader. Where a suite's own code reads a file, and the same suite
+  does the resolving. Where a suite's own code reads a file, and the same suite
   declares that file as an artifact, the two resolutions are the user's and
   digline's, and nothing here joins them. `tools/home_capture.py` generates
   such a suite: its target calls
@@ -473,10 +551,11 @@ measure the first. Nothing here schedules the second.
   in its code. That is a hint, not a proof.
 - **That nobody read the old behaviour as a decision before ADR 0042.** It was
   not looked for.
-- **That the TOML form is unchanged, and what a pin does after the repair.**
-  The first is read from the code (*What reading the code found*), the second
-  deduced from it (§7). Neither was executed. Test plan entries 6 and 7
-  execute them.
+- **What a pin does after the repair.** Deduced from the code (§7), not
+  executed. Test plan entry 7 executes it.
+- **That a TOML suite under `pytest-digline` behaves as under the MCP
+  server.** The path pytest collects is absolute, so it should. That was read,
+  not measured.
 
 ## Test plan
 
@@ -502,20 +581,21 @@ directory is set per test, never inherited.
    relative path and then changes the working directory before the run. The run
    records the file the template read. Red if the resolution is moved to
    `artifacts()`.
-6. **The TOML form.** A `[target]` with `prompt_file = "prompt.txt"`, run from
-   the suite's directory, from `R` and from `OUT`. The same file is sent and
-   recorded in all three, under the same name as on `main`. Green on `main`
-   too: it guards §4's third row. This is the first execution of what *What
-   reading the code found* only read.
+6. **The TOML form.** A `[target]` with `prompt_file = "prompt.md"`, run from
+   the command line from `R` with `--suite eval/suite.toml`, from `R/eval`
+   with `--suite suite.toml`, and from `OUT` with an absolute `--suite`, and
+   through the MCP server. The same file is sent and recorded in every case,
+   as `eval/prompt.md`. **Red on `main`:** the first case exits 64 on
+   `eval/eval/prompt.md` (*Context*, measured).
 7. **A pin on a target's prompt.** Anchored, run from `R`: accepted and
    pinned. Bare relative, run from `R`: `read_pinned` refuses it. This
    measures §7's deduction. If it does not hold, ADR 0029 §4's note is not
    written from this record, and the point goes back for a ruling.
 8. **One normalization.** A target answers a symlink inside the perimeter that
    points at another file inside it. The recorded name is the one the
-   boundary checked, the link's resolution. A symlink pointing outward is
-   refused. Green on `main`, which resolves the same path twice and gets the
-   same answer. The mutation is what bites: compute the name from the path
+   boundary checked, the file the link points at. A symlink pointing outward
+   is refused. Green on `main`, which normalizes the same path twice and gets
+   the same answer. The mutation is what bites: compute the name from the path
    before normalization, and the first half goes red.
 9. **Three front ends.** Entries 1, 2 and 4 through the command line, the MCP
    server and `pytest-digline`. For `pytest-digline` this is the first
