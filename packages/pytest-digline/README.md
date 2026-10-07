@@ -17,8 +17,7 @@ eval/suite.py::gamma                    s
 
 =================================== FAILURES ===================================
 digline: alpha · llm_rubric
-  dropped from 0.910000 to 0.640000, below its threshold of 0.700000,
-  and beyond the 0.880000–0.950000 this check measured across 5 samples
+  Went from passing to failing (0.910000 → 0.640000).
   reason: signed=True, concise=False
 
 ==================================== digline ===================================

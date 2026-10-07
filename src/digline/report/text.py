@@ -206,7 +206,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The model under this alias likely changed: {count} canary checks "
             "moved, including {case} from {before} to {after}{beyond}."
         ),
-        "fact.canary.beyond": ", beyond the noise of this check ({interval})",
+        "fact.canary.beyond": (
+            ", outside the range of the reference's individual samples ({interval})"
+        ),
         # No *likely*, and the absence is chosen: that word is the canary's,
         # which infers a model from behaviour. Here nothing is inferred — the
         # band was declared and the score was observed. (ADR 0024 §4.6)
@@ -542,16 +544,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "noise.interval": "{low}–{high} across {count} samples",
         "detail.within_noise": (
-            "Score moved from {before} to {now} — within the noise of this "
-            "check ({noise}); not counted as a regression."
+            "Score moved from {before} to {now} — inside the range of the "
+            "reference's individual samples ({noise}); not counted as a "
+            "regression."
         ),
         "detail.dropped.beyond_noise": (
-            "Score fell from {before} to {now} — beyond the noise of this "
-            "check ({noise})."
+            "Score fell from {before} to {now} — outside the range of the "
+            "reference's individual samples ({noise})."
         ),
         "detail.rose.beyond_noise": (
-            "Score rose from {before} to {now} — beyond the noise of this "
-            "check ({noise})."
+            "Score rose from {before} to {now} — outside the range of the "
+            "reference's individual samples ({noise})."
         ),
         "detail.flipped.worse": "Went from passing to failing ({before} → {now}).",
         "detail.flipped.better": "Went from failing to passing ({before} → {now}).",
@@ -1403,7 +1406,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "controlli sentinella si sono mossi, fra cui {case} da {before} a "
             "{after}{beyond}."
         ),
-        "fact.canary.beyond": ", oltre il rumore di questo controllo ({interval})",
+        "fact.canary.beyond": (
+            ", fuori dall'intervallo dei singoli campioni del riferimento ({interval})"
+        ),
         "fact.calibration.one": (
             "Il caso di calibrazione {case} ha ottenuto {score}{across}, fuori "
             "dalla banda dichiarata {low}–{high}: i punteggi giudicati in questa "
@@ -1697,16 +1702,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "noise.interval": "{low}–{high} su {count} campioni",
         "detail.within_noise": (
-            "Il punteggio si è spostato da {before} a {now} — entro il rumore "
-            "di questo controllo ({noise}); non conta come peggioramento."
+            "Il punteggio si è spostato da {before} a {now} — dentro "
+            "l'intervallo dei singoli campioni del riferimento ({noise}); non "
+            "conta come peggioramento."
         ),
         "detail.dropped.beyond_noise": (
-            "Il punteggio è sceso da {before} a {now} — oltre il rumore di "
-            "questo controllo ({noise})."
+            "Il punteggio è sceso da {before} a {now} — fuori dall'intervallo "
+            "dei singoli campioni del riferimento ({noise})."
         ),
         "detail.rose.beyond_noise": (
-            "Il punteggio è salito da {before} a {now} — oltre il rumore di "
-            "questo controllo ({noise})."
+            "Il punteggio è salito da {before} a {now} — fuori "
+            "dall'intervallo dei singoli campioni del riferimento ({noise})."
         ),
         "detail.flipped.worse": "Da superato a non superato ({before} → {now}).",
         "detail.flipped.better": "Da non superato a superato ({before} → {now}).",
