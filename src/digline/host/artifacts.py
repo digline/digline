@@ -25,16 +25,23 @@ def read_artifacts(
 ) -> dict[str, Artifact]:
     """The declared files, as they are right now.
 
-    Relative paths resolve against the suite's own directory, which is where a
-    prompt sits next to the suite that names it. They are **keyed** against
-    `root`, the perimeter — the repository the run belongs to — so that a file
-    from outside it is recorded as the `../` it is rather than as a bare name.
-    `root` defaults to `base`, which is the old behaviour and the tightest
-    reading of it.
+    A relative path in `Suite.artifacts` resolves against the suite's own
+    directory, `base`, which is where a prompt sits next to the suite that names
+    it. Every path is **keyed** against `root`, the perimeter — the repository
+    the run belongs to — so that a file from outside it is recorded as the `../`
+    it is rather than as a bare name. `root` defaults to `base`, which is the
+    old behaviour and the tightest reading of it.
 
     The **target** is asked too, when it can answer. A `ProviderTarget` builds
     its prompt from a file and already knows which one, so `artifacts=[…]` does
     not have to repeat a path that would then have two places to be wrong.
+    **What a target answers is taken as it comes, and never resolved here.** The
+    target opened that file, and the path it answers is the one it read;
+    joining it to `base` would be a second resolution of one declaration,
+    against a directory the target did not read from, and the run would record
+    one file while the target sent another. So a relative answer is refused,
+    with a sentence that names the target, before anything is read.
+    (ADR 0045 §1, §2, §5)
 
     A declared file that is missing raises. It is the thing under examination —
     a run that quietly recorded no prompt would be a run whose evidence is
@@ -42,33 +49,61 @@ def read_artifacts(
 
     **A declared file outside the perimeter is refused before it is read**, for
     every suite format and for what a target answers through `HasArtifacts`:
-    ADR 0007 §6's read boundary, which reached the TOML form only. Resolved
-    first, so a symlink pointing outward is outside. A `.py` suite can open any
-    file itself; recording it in a run, which crosses on digline's channel, is
-    digline's act, and it does not perform it. (ADR 0042 §2)
+    ADR 0007 §6's read boundary, which reached the TOML form only. Each path is
+    normalized once — links followed, `.` and `..` removed — and that one
+    result is what the boundary checks, what is read and what the key is
+    computed from: a symlink pointing outward is outside, and one pointing at
+    another file inside is recorded under that file's name. A `.py` suite can
+    open any file itself; recording it in a run, which crosses on digline's
+    channel, is digline's act, and it does not perform it. (ADR 0042 §2,
+    amended by ADR 0045 §5)
     """
-    declared: list[Path] = list(suite.artifacts)
-    if isinstance(target, HasArtifacts):
-        declared.extend(target.artifacts())
-
     perimeter = (root or base).resolve()
+    # Each declared path is normalized once, here, and that one result is what
+    # the boundary checks, what is read and what the key is computed from. A
+    # name made from the path before normalization would answer for a file the
+    # check did not see. (ADR 0045 §5) Each entry: who declared it, the field
+    # that names it, the path as declared, and that one normalized path.
+    declared: list[tuple[str, str, Path, Path]] = [
+        (
+            f"suite {suite.name!r} declares the artifact {entry}",
+            "`artifacts`",
+            entry,
+            _normalized(entry, base),
+        )
+        for entry in suite.artifacts
+    ]
+    if isinstance(target, HasArtifacts):
+        for entry in target.artifacts():
+            who = (
+                f"the target {_target_name(target)} of suite {suite.name!r} "
+                f"answers the artifact {entry}"
+            )
+            if not entry.is_absolute():
+                raise UsageError(
+                    f"{who}, a relative path. A target reports the file it "
+                    "read, already resolved: a relative answer would be "
+                    "resolved a second time, against a directory the target "
+                    "did not read from. Answer it absolute (ADR 0045 §5)"
+                )
+            declared.append((who, "`HasArtifacts`", entry, entry.resolve()))
+
     found: dict[str, Artifact] = {}
-    for entry in declared:
-        path = entry if entry.is_absolute() else base / entry
-        resolved = path.resolve()
-        if not resolved.is_relative_to(perimeter):
+    for who, field, entry, path in declared:
+        if not path.is_relative_to(perimeter):
+            # The resolved path only where it says something the declared one
+            # does not: an absolute answer is usually its own resolution.
+            where = "" if path == entry else f", which resolves to {path}"
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"resolves to {resolved}, outside {perimeter}: `artifacts` "
-                "names a file outside the perimeter, and a file from outside "
-                "is never read into a run, whatever the suite format. Move it "
-                "into the project (ADR 0042 §2)"
+                f"{who}{where}, outside {perimeter}: "
+                f"{field} names a file outside the perimeter, and a file from "
+                "outside is never read into a run, whatever the suite format. "
+                "Move it into the project (ADR 0042 §2)"
             )
         if not path.is_file():
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"is not a file at {path}: the thing under test cannot be "
-                "recorded, so the run would not say what produced it"
+                f"{who}, which is not a file at {path}: the thing under test "
+                "cannot be recorded, so the run would not say what produced it"
             )
         data = path.read_bytes()
         # Keyed by where it sits relative to the **perimeter**, so a run file
@@ -80,16 +115,15 @@ def read_artifacts(
         # one document that is supposed to say what was under test. `relpath`
         # has no such fallback: outside the perimeter it yields `../secret.env`,
         # which is the truth and reads as one.
-        key = _key(path, root or base)
+        key = _key(path, perimeter)
         # The file under test is the user's, so a file that is not UTF-8 is
         # refused at the read, where it happens. (ADR 0041 §4.2)
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which is "
-                f"not UTF-8 at byte {exc.start}: an artifact is recorded as its "
-                "text, so these bytes cannot be"
+                f"{who}, which is not UTF-8 at byte {exc.start}: an artifact is "
+                "recorded as its text, so these bytes cannot be"
             ) from None
         found[key] = Artifact(sha=hashlib.sha256(data).hexdigest(), text=text)
     return found
@@ -104,9 +138,17 @@ def read_pinned(
 ) -> tuple[str, ...]:
     """The paths that must not drift, as the keys the run files them under.
 
-    Resolved exactly as `read_artifacts` resolves an artifact — same helper, so
-    a pin and the file it pins cannot come to be keyed differently — and then
+    Resolved exactly as `read_artifacts` resolves a path in `Suite.artifacts` —
+    against the suite's directory, normalized by the same helper — and then
     checked against what was actually recorded.
+
+    **A pin is anchored to the suite; a target's prompt is not.** A target
+    answers the file it read, so a prompt it names by a bare relative path is
+    keyed from wherever the process was started, and a pin on it matches only
+    when that is the suite's own directory. From another directory inside the
+    perimeter the pin names nothing recorded and is refused below; anchoring
+    the target's path with `Path(__file__).parent` makes the two agree from
+    anywhere. (ADR 0045 §7, ADR 0029 §4)
 
     **A pin naming nothing recorded is refused here**, which is the whole reason
     this is a separate step rather than a field `Suite` could validate. A path in
@@ -119,10 +161,10 @@ def read_pinned(
     spellings that `Suite` cannot tell apart and one key here. Order follows the
     resolved key, so the run document does not record the order somebody typed.
     """
+    perimeter = (root or base).resolve()
     keys: dict[str, Path] = {}
     for entry in suite.pinned:
-        path = entry if entry.is_absolute() else base / entry
-        keys.setdefault(_key(path, root or base), entry)
+        keys.setdefault(_key(_normalized(entry, base), perimeter), entry)
     unknown = sorted(key for key in keys if key not in artifacts)
     if unknown:
         named = ", ".join(f"{keys[key]} (as {key})" for key in unknown)
@@ -136,11 +178,30 @@ def read_pinned(
     return tuple(sorted(keys))
 
 
-def _key(path: Path, root: Path) -> str:
+def _normalized(entry: Path, base: Path) -> Path:
+    """A path the suite declares, anchored to the suite's directory and
+    normalized. Only for `Suite.artifacts` and `Suite.pinned`, which a front end
+    reads from a suite file it loaded; a target's answer is never anchored
+    here. (ADR 0045 §4)"""
+    return (entry if entry.is_absolute() else base / entry).resolve()
+
+
+def _target_name(target: object) -> str:
+    """The target as a sentence can name it."""
+    # The class's name and never `repr(target)`: a `repr` is the suite's code,
+    # and calling it inside a refusal would run that code, which can raise or
+    # print anything, at the moment digline is explaining why it stopped.
+    return type(target).__qualname__
+
+
+def _key(path: Path, perimeter: Path) -> str:
     """`os.path.relpath` and not `Path.relative_to`: the latter raises when the
     path is outside the root, and raising is what produced the fallback this
-    replaces. `relpath` walks up instead, which is the honest answer."""
+    replaces. `relpath` walks up instead, which is the honest answer.
+
+    Both arguments arrive normalized, and nothing here normalizes again: the
+    name is computed from the path the boundary checked. (ADR 0045 §5)"""
     try:
-        return os.path.relpath(path.resolve(), root.resolve())
+        return os.path.relpath(path, perimeter)
     except ValueError:  # pragma: no cover - Windows, across drives
-        return str(path.resolve())
+        return str(path)

@@ -175,6 +175,13 @@ class HasArtifacts(Protocol):
     from a file knows which file. The CLI asks, and merges the answer into what
     the suite declared, so `artifacts=[…]` does not have to repeat a path the
     target already carries.
+
+    **Every path answered is absolute: the path the target read, resolved when
+    it read it.** A target has no suite necessarily present, so a relative
+    answer has no directory to resolve against, and resolving it anywhere would
+    be a second resolution of a file the target already opened. A relative
+    answer is refused when the run starts, with a sentence that names the
+    target. (ADR 0045 §5)
     """
 
     def artifacts(self) -> Sequence[Path]: ...

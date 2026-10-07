@@ -201,6 +201,22 @@ builds from, so `artifacts=[…]` need not repeat it — and a suite has no targ
 at construction. Pinning a target-contributed prompt is legitimate and must
 work. `read_artifacts` is the one place that holds both halves.
 
+*Noted 2026-10-07, by [ADR 0045](0045-one-declared-path-resolved-once.md).*
+In #481's layout, a suite at `R/eval/suite.py` in the perimeter `R` and a
+directory `OUT` outside it, pinning a target's prompt still works where the
+path is anchored: accepted run from `R/eval`, from `R` and from `OUT`, through
+the MCP server and the plugin, and in the TOML form too. What changes concerns the bare relative
+path alone. A pinned target prompt declared with a bare relative path never
+reaches the provider from a working directory other than the suite's: the run
+is refused and nothing is sent. Which refusal fires depends on where that
+directory is. Inside the perimeter, with a file of that name, `read_pinned`
+refuses it: *"pins prompt.md (as eval/prompt.md), which this run records no
+artifact for"*. Outside the perimeter, [ADR
+0042](0042-the-two-boundaries-of-an-artifact.md) §2's boundary refuses first,
+in `read_artifacts`, and `read_pinned` is never reached. Where no such file
+exists, the suite's own import fails, exit 64, as on `main`. Measured with
+#481.
+
 It is also the only place that can resolve the key. The author writes
 `tools.json`, relative to the suite's own directory; the run records it keyed
 against the **perimeter**, which is `examples/mcp-tools/tools.json` or, for a

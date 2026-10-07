@@ -380,6 +380,20 @@ target = AnthropicTarget(
 )
 ```
 
+**Why `Path(__file__).parent`.** A prompt file is read where the target is
+built, and a relative path is read against the working directory, as `open()`
+reads it: a target can be built with no suite present, in a test or a
+notebook, and then there is no other directory to read it against. A bare
+`"prompts/answer.md"` therefore reads whichever `prompts/answer.md` sits under
+the directory the command was started from. Anchored to the suite file, the
+prompt is the one beside it from anywhere.
+
+The run records the file the target read, under its name relative to the
+repository, because the target answers that path, absolute, through
+`artifacts()`. A file the target read outside the repository is refused before
+any call to the model. A `prompt_file` in a TOML suite is anchored to the suite
+file's directory for you. (ADR 0045)
+
 Real providers live in separate packages — `pip install digline` must not pull
 somebody's HTTP client along with it — and the layering gate enforces it in both
 directions: nothing under `src/` may import a plugin, and `digline.targets` may
@@ -641,7 +655,7 @@ is left alone.
 
 | Protocol | Asked by | For |
 |---|---|---|
-| `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003) |
+| `artifacts() -> Sequence[Path]` | the CLI, on `run` | merged into `Run.artifacts`, so `Suite(artifacts=…)` need not repeat a path the target already knows (ADR 0003). Each path absolute, the one the target read: a relative one is refused, naming the target (ADR 0045 §5) |
 | `preflight(cases) -> None` | `execute()`, once, before the first call | raises naming **every** gap at once |
 | `config -> Mapping[str, ConfigValue]` | `execute()`, before the first call **and after the last** | recorded as `Run.target_config` (ADR 0005). Asked twice so a malformed one fails before the suite is paid for, and a target that can only learn it by answering — `HttpTarget`, or any plugin recording what the provider said answered — still records one |
 

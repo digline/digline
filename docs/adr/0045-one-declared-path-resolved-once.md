@@ -1,6 +1,13 @@
 # ADR 0045 — One declared path, resolved once
 
-- Status: proposed 2026-10-07, the text first and before any code. What it
+- Status: accepted 2026-10-07, by Alessandro, after #481's code was written
+  against it and measured. It was proposed the same day, the text first and
+  before any code. Three of its claims were deductions then, and #481's code
+  measured them (§4, §6, §7). The pin's measured differently from its
+  deduction, and §7 carries the wording ruled on the measurement. Three points
+  entered at acceptance: the name a symlink is recorded under (§5), the target
+  named by its class (§5), and the absolute path that now reaches an MCP
+  agent, by a ruling of the same day (*Consequences*). What it
   rests on was ruled in discussion on 2026-10-07, after the measurements in
   #476 and #481, and is recorded here as ruled: the defect, the repair, the
   anchoring rule and the reason a target's path is not anchored, the accepted
@@ -14,7 +21,7 @@
 - Date: 2026-10-07
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
   The name a run records keeps its form and its unit (§3)
-- Requires, at implementation (#481):
+- Requires, at implementation (#481), and done there:
   - `ProviderTarget.artifacts()` answers the path its template read, resolved
     when it was read (§2);
   - `read_artifacts` stops resolving what a target answers, and refuses a
@@ -39,12 +46,12 @@
   - [ADR 0007](0007-the-declarative-suite-format.md) §6, by a dated note and
     not by an amendment. Its text stays true for the TOML form, and what was
     carried past that form was ADR 0042 §2's reference to it (§7);
-  - [ADR 0029](0029-the-artifact-that-must-not-drift.md) §4, which says that
-    pinning a prompt a target contributes *"is legitimate and must work"*.
-    Under §2 and §4 here, a pin and a target's prompt can come to be keyed
-    differently. That is **deduced from the code, not measured**, and it
-    cannot be measured until the repair exists. The note is owed with #481's
-    code and is not written here (§7);
+  - [ADR 0029](0029-the-artifact-that-must-not-drift.md) §4, by a dated note,
+    which says that pinning a prompt a target contributes *"is legitimate and
+    must work"*. It still works where the path is anchored. Under §2 and §4
+    here, a pin and a bare relative target prompt can come to be keyed
+    differently, and the run is then refused. *Measured with #481*, and the
+    note was written from the measurement (§7);
   - in `CLAUDE.md`'s *fixed* section: nothing. Decision 9 says what crosses a
     boundary, not where a path resolves from
 - Closes: on landing, the half of #476 that asks for the rule to be declared.
@@ -265,7 +272,8 @@ since 0.7.1, and it is computed from the file actually read. Ruled
 (ruling 6).
 
 - **Where the two resolutions agreed, nothing moves.** The name is
-  byte-identical to today's, and so is everything that reads it: `compare`'s
+  byte-identical to the one `ff90d56` records, and so is everything that reads
+  it: `compare`'s
   artifact deltas, ADR 0042 §3's check at the exits, ADR 0034's projection
   token, the runs page's label and the register's `artifacts_changed`.
 - **Where they disagreed, the name and the content change together.** The
@@ -294,16 +302,21 @@ the target directly. There is then no directory to anchor to. A Python object
 whose path changes meaning according to who builds it is worse than the
 defect this record closes (ruling 3).
 
-**The TOML row holds as a rule, and not yet in code.** The anchor is right,
-the suite file's directory. What is wrong is that the loader hands the target
+**The TOML row holds as a rule, and since #481 in code.** The anchor is right,
+the suite file's directory. What was wrong is that the loader hands the target
 the joined path still relative when the spec is relative, so the target and
-`read_artifacts` each resolve it. Only the command line and `pytest-digline`'s
+`read_artifacts` each resolved it. Only the command line and `pytest-digline`'s
 `--digline-suite` pass a spec as typed; the MCP server and the ini pass it
 absolute. §2 repairs that without touching the loader: the target's template
 reads the joined path against the working directory, `ProviderTarget` answers
 the path it read, absolute, and `read_artifacts` takes it as it comes, so
-§5's refusal of a relative path is never reached. *Deduced, not measured:*
-the repair does not exist yet.
+§5's refusal of a relative path is never reached. *Measured with #481,* on
+every form in the record of #476's table: `--suite eval/suite.toml` from `R`,
+`../R/eval/suite.toml` from `OUT`, `suite.toml` from `R/eval` and an absolute
+spec, through the command line, `--digline-suite`, the ini and the MCP server.
+The target answers `R/eval/prompt.md`, absolute, the provider is sent
+`R/eval`'s text, and the run records `eval/prompt.md`. The loader did not
+change.
 
 **Why the target already reads the right file.** *Ruled 2026-10-07, by
 Alessandro.* A relative `--suite` is relative to the working directory, so the
@@ -312,11 +325,16 @@ it lands on the right file. Not by luck: by construction. That is why the
 loader does not change.
 
 *Ruled 2026-10-07, by Alessandro, correcting the sentence that stood here.*
-Today, with a relative spec, the TOML target answers a relative path, so
-§5's requirement is **not** met in that form today. It is met through §2,
+Before the repair of this record, a TOML target given a relative spec answers
+a relative path, so §5's requirement is **not** met in that form there:
+printed at `ddb57fe` (the record of #476, *The TOML forms tried*), and at
+`ff90d56` the second join of that answer is what refuses the run with exit 64.
+It is met through §2,
 without touching the loader. That the file read is already the right one is
 what makes a change to the loader unnecessary, and it is not to be confused
-with §5's requirement.
+with §5's requirement. *Anchored to the commit instead of the day on
+2026-10-07, by Alessandro: a record says the date or the commit, never
+"today".*
 
 **Measured, beside it.** *Measured 2026-10-07, at `ddb57fe` and at the code of
 `e97c780`, which are identical in `host/`, `targets/` and the packages'
@@ -350,6 +368,20 @@ read in code: an absolute path names one file whatever the working directory.
 pointing outward is still outside. That is a normalization, and it anchors
 nothing.
 
+**The refusal, as the code words it.** *Decided at implementation, and
+accepted with this record.* A `UsageError`, so exit 64 on the command line:
+*"the target Naming of suite 'qa' answers the artifact prompt.txt, a relative
+path. A target reports the file it read, already resolved: a relative answer
+would be resolved a second time, against a directory the target did not read
+from. Answer it absolute (ADR 0045 §5)"*. **The target is named by its class's
+qualified name, never by its `repr`.** A `repr` is the suite's code, and
+calling it inside a refusal would run that code, which can raise or print
+anything, at the moment digline is explaining why it stopped. A comment in
+`_target_name` says so, so that nobody "improves" it into a `repr`. The same
+naming reaches ADR 0042 §2's sentence for a target's file, which now reads
+*"the target Stub of suite 'qa' answers the artifact …"*, and names the
+resolved path only where it differs from the one answered.
+
 **It reaches a target's answer and nothing else.** `Suite.artifacts` and
 `Suite.pinned` stay relative to the suite file, as §4 says, and
 `read_artifacts` keeps resolving them against `base`.
@@ -361,6 +393,12 @@ one place, and that one result feeds both ADR 0042 §2's check and the name
 path before normalization, the two diverge again. That is the defect of §1 in
 other clothes: one declaration, two paths made from it, and a check that
 answers for a file the record does not name.
+
+**So a symlink is recorded under the file it points at.** *Accepted with this
+record.* A target answering a link inside the perimeter that points at another
+file inside it has that other file's name recorded, and ADR 0042 §2's boundary
+is measured on the same resolved file. The bytes recorded are the same either
+way; the name is the file's, not the link's. Test plan entry 8 holds it.
 
 ### 6. The accepted cost: a bare relative path follows the working directory
 
@@ -377,10 +415,11 @@ target = OpenAITarget(
 **It is not refused.** `ProviderTarget` resolves the path when its template
 reads it and answers it absolute, so §5 is met. ADR 0042 §2's check then
 applies to the file that was read. In #481's third row that file is outside
-the perimeter, so the run is refused instead of sending it. *Deduced from the
-code:* in all three front ends `read_artifacts` is called before the driver
-runs, so the refusal comes before any provider call. Not measured, because the
-repair does not exist yet.
+the perimeter, so the run is refused instead of sending it. *Measured with
+#481:* run from `OUT`, the command line exits 64, the MCP server raises a
+`ToolError` and `pytest-digline` reports an error, by its flag and by its ini,
+each with ADR 0042 §2's sentence. A provider that writes down every prompt it
+is sent was called zero times, and no run file was written.
 
 **Where the docs already anchor, and where they did not.** `docs/api.md`,
 `docs/metrics.md`, `digline-anthropic`'s README, the three plugins' docstrings
@@ -403,16 +442,19 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
   the TOML half of §1, and §2 repairs it. What was carried past the TOML
   form was ADR 0042 §2's reference to the rule, and that reference is what
   this record amends.
-- **ADR 0029 §4 is touched, and its note waits for the code.** §4 says
+- **ADR 0029 §4 is touched, and its note travels with #481's code.** §4 says
   pinning a prompt a target contributes *"is legitimate and must work"*, and
   a pin is resolved against the suite (§4 here). After §2, a target's prompt
-  is keyed from the file it read. With a bare relative `prompt_file` and a
-  working directory other than the suite's, the two keys differ, and
-  `read_pinned` refuses the pin as naming nothing recorded. With an anchored
-  path they agree as they do today. **That is deduced from the code, and it
-  cannot be measured until the repair exists.** The note travels with #481's
-  code. If the measurement contradicts the deduction, the point comes back
-  for a ruling.
+  is keyed from the file it read. With an anchored path the two keys agree as
+  they did before. A pinned target prompt declared with a bare relative path never
+  reaches the provider from a working directory other than the suite's: the
+  run is refused and nothing is sent. Which refusal fires depends on where
+  that directory is. Inside the perimeter, with a file of that name,
+  `read_pinned` refuses it: *"pins prompt.md (as eval/prompt.md), which this
+  run records no artifact for"*. Outside the perimeter, ADR 0042 §2's boundary
+  refuses first, in `read_artifacts`, and `read_pinned` is never reached.
+  Where no such file exists, the suite's own import fails, exit 64, as on
+  `main`. Measured with #481.
 
 ## Consequences
 
@@ -423,7 +465,7 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
 - **A `.py` suite whose target names a bare relative prompt, run from a
   directory other than the suite's, records the file it read.**
   - If that file is outside the perimeter, the run is refused before any
-    provider call, by ADR 0042 §2's sentence. *Deduced from the code,* as §6
+    provider call, by ADR 0042 §2's sentence. *Measured with #481,* as §6
     says.
   - If it is inside, its name is the one §3 computes from it. Against a
     reference promoted before the repair, `compare` reports the old name as no
@@ -432,33 +474,60 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
     does not move.
 - **Where the two resolutions agreed, nothing moves.** The name, the digest
   and every reader of them are as they were (§3). That covers every suite that
-  anchors its target's path, and every TOML suite that runs today.
-- **§2's repair mends two opposite failures.** *Deduced, not measured:* the
-  repair does not exist yet.
+  anchors its target's path, and every TOML suite that ran before #481.
+  *Measured with #481:* a reference promoted from the agreed case on
+  `ff90d56`, compared with a run on the repair, exits 0 with
+  `artifacts_changed: false` and `config_changed: false`.
+- **§2's repair mends two opposite failures.** *Measured with #481,* on the
+  command line, the MCP server and `pytest-digline`'s flag and ini.
   - **In a `.py` suite** it records the right file instead of the wrong one.
-    Today the run passes and records a file that was not sent.
-  - **In a TOML suite** it stops a refusal that throws away a valid run.
-    Today `--suite eval/suite.toml` from the root exits 64 on
-    `…/eval/eval/prompt.md`, for a suite whose prompt is where it says. After
-    the repair the target answers `R/eval/prompt.md`, absolute, and the run
-    records `eval/prompt.md`, as every other way of running it does
-    (*Context*, the TOML table). The loader does not change.
-- **A pinned prompt that a target names by a bare relative path, run from
-  another directory, is refused by `read_pinned`.** *Deduced, not measured*
-  (§7). ADR 0029 §4's note is owed with #481's code, and it is written from
-  the measurement, not from this deduction.
+    Before it, the run passed and recorded a file that was not sent. After it,
+    run from `R`, the provider is sent `R`'s text and the run records
+    `prompt.txt` with that text.
+  - **In a TOML suite** it stops a refusal that threw away a valid run.
+    Before it, `--suite eval/suite.toml` from the root exited 64 on
+    `…/eval/eval/prompt.md`, for a suite whose prompt is where it says, and so
+    did `../R/eval/suite.toml` from `OUT`. After it the target answers
+    `R/eval/prompt.md`, absolute, and the run records `eval/prompt.md`, as
+    every other way of running it does (*Context*, the TOML table). The loader
+    did not change.
+- **A pinned target prompt declared with a bare relative path never reaches
+  the provider from a working directory other than the suite's: the run is
+  refused and nothing is sent.** Which refusal fires depends on where that
+  directory is. Inside the perimeter, with a file of that name, `read_pinned`
+  refuses it: *"pins prompt.md (as eval/prompt.md), which this run records no
+  artifact for"*. Outside the perimeter, ADR 0042 §2's boundary refuses
+  first, in `read_artifacts`, and `read_pinned` is never reached. Where no
+  such file exists, the suite's own import fails, exit 64, as on `main`.
+  Measured with #481 (§7). ADR 0029 §4's note says the same.
+- **A prompt missing at a suite's import now names its absolute path, and
+  that path reaches an MCP agent.** `PromptTemplate` makes its path absolute
+  when it reads it (§2), so the `FileNotFoundError` of a bare relative prompt
+  that is not there carries the machine's absolute path where `main` carried
+  `prompt.md`. Through the MCP server the agent receives it whole: it crosses
+  by [ADR 0043](0043-a-message-digline-did-not-write.md) §1 as amended, because digline
+  asked for the read and the system wrote the words. *Measured with #481,*
+  in-process through the MCP server, against `ff90d56` as the control.
+  *Ruled 2026-10-07, by Alessandro:* it is a deliberate widening of what
+  crosses to an MCP agent, allowed by ADR 0043 §1 as amended. Whether that is
+  a boundary stays open, in the queue of rulings, where it is the third case
+  and the first produced by us rather than found. The ruling is written in the
+  record of #476 before this text cited it.
 - **No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.** No document
   gains a field, and the recorded name keeps its form.
 - **In the change that carries this record:** ADR 0042 gains an `Amended:`
   line and a note in §2, which also annotates its test plan's second entry.
   ADR 0007 §6 gains a dated note. digline.dev gains this record's three
   entries.
-- **Owed with #481's code:** the four docstrings named under *Requires*, a
-  changelog entry, and ADR 0029 §4's note.
+- **Done with #481's code:** the four docstrings named under *Requires*, and
+  `PromptTemplate`'s, `docs/api.md`'s `ProviderTarget` section, a changelog
+  entry, and ADR 0029 §4's note.
 - **#476's other half is #485.** It corrects the `digline-openai` and
-  `digline-bedrock` READMEs. Their tests, and `digline-anthropic`'s, run each
+  `digline-bedrock` READMEs. Their tests, and `digline-anthropic`'s, ran each
   example from the directory its `__file__` names, so a bare relative path
-  passes them. Test plan entry 11 is what holds the rule there.
+  passed them. Since #481 they run each example from another directory, and a
+  bare `"prompts/answer.md"` put back in one block of each README turns its
+  test red: test plan entry 11, measured.
 
 ## Alternatives considered
 
@@ -515,22 +584,24 @@ of path, not the divergence of time. **A candidate, named and not proposed:**
 compared. Whether to compare them, refuse on a difference, or record the text
 the target read instead of reading again, is not ruled here.
 
-**The wording and the class of §5's refusal.** They are left to the code, as
-ADR 0042 left the wording of its own.
+**The wording and the class of §5's refusal.** *Settled with #481, and
+accepted with this record:* §5, *The refusal, as the code words it*.
 
 **Any signal for a bare relative path in a target.** Ruling 5 accepts the
 consequence. No warning, refusal or note was ruled, and none is added here.
 
-**Whether `docs/api.md` states the rule in prose.** Its `ProviderTarget`
-section shows `Path(__file__).parent` and does not say why.
+**Whether `docs/api.md` states the rule in prose.** *Settled with #481:* its
+`ProviderTarget` section now says why `Path(__file__).parent`, in prose, and
+its table of the protocols a target may answer says that `artifacts()`
+answers absolute paths and that a relative one is refused.
 
 **`compare`'s report of a rename.** Four files reported as changed when two
 were renamed with identical content stays as it is. A pin blinded by a rename
 is #483, and `pytest-digline`'s gate on a pin is #484. Neither is decided here.
 
-**When the repair is measured on `pytest-digline`, and when anything is
-measured on Windows.** Test plan entry 9 measures the first. Nothing here
-schedules the second.
+**When anything is measured on Windows.** Nothing here schedules it. The
+repair was measured on `pytest-digline` with #481, by its flag and its ini
+(test plan entry 9).
 
 ## What this record does not claim
 
@@ -546,11 +617,13 @@ schedules the second.
   anywhere else, the run records one file and the application reads another,
   and no rule about paths can see it. The cure there is the one of §6,
   `Path(__file__).parent`, written by the user.
-- **What any front end does after the repair.** Today's code was measured on
-  all three, `pytest-digline` included, in both formats. The TOML forms are
-  in the record of #476, in its section *The TOML forms tried: these, and no
-  others*. The repair does not exist, so
-  nothing after it was measured, on any front end.
+- **What any front end does on a route not measured.** Before the repair, the
+  code was measured on all three front ends, `pytest-digline` included, in
+  both formats. The TOML forms are in the record of #476, in its section *The
+  TOML forms tried: these, and no others*. After it, #481 measured the command
+  line, the MCP server and `pytest-digline`'s flag and ini, in both formats,
+  on every form of that table. Nothing after the repair was measured with
+  `system_file`, or on a route outside those.
 - **Anything about Windows.** Nothing in this record ran there. `_key` has a
   fallback for a path on another drive that returns an absolute string
   (`pragma: no cover`). A file on another drive is outside the perimeter and
@@ -568,8 +641,12 @@ schedules the second.
   in its code. That is a hint, not a proof.
 - **That nobody read the old behaviour as a decision before ADR 0042.** It was
   not looked for.
-- **What a pin does after the repair.** Deduced from the code (§7), not
-  executed. Test plan entry 7 executes it.
+- **What a pin does on a route not measured.** *Measured with #481* (§7): on
+  the command line from `R/eval`, `R`, `OUT` and from two directories with no
+  such file, and through the MCP server and `pytest-digline`'s flag from `R`;
+  in the TOML form with `--suite eval/suite.toml` from `R` and
+  `../R/eval/suite.toml` from `OUT`. Test plan entry 7 holds the case from
+  `R`.
 
 ## Test plan
 
