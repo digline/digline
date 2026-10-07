@@ -403,16 +403,19 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
   the TOML half of §1, and §2 repairs it. What was carried past the TOML
   form was ADR 0042 §2's reference to the rule, and that reference is what
   this record amends.
-- **ADR 0029 §4 is touched, and its note waits for the code.** §4 says
+- **ADR 0029 §4 is touched, and its note travels with #481's code.** §4 says
   pinning a prompt a target contributes *"is legitimate and must work"*, and
   a pin is resolved against the suite (§4 here). After §2, a target's prompt
-  is keyed from the file it read. With a bare relative `prompt_file` and a
-  working directory other than the suite's, the two keys differ, and
-  `read_pinned` refuses the pin as naming nothing recorded. With an anchored
-  path they agree as they do today. **That is deduced from the code, and it
-  cannot be measured until the repair exists.** The note travels with #481's
-  code. If the measurement contradicts the deduction, the point comes back
-  for a ruling.
+  is keyed from the file it read. With an anchored path the two keys agree as
+  they did before. A pinned target prompt declared with a bare relative path never
+  reaches the provider from a working directory other than the suite's: the
+  run is refused and nothing is sent. Which refusal fires depends on where
+  that directory is. Inside the perimeter, with a file of that name,
+  `read_pinned` refuses it: *"pins prompt.md (as eval/prompt.md), which this
+  run records no artifact for"*. Outside the perimeter, ADR 0042 §2's boundary
+  refuses first, in `read_artifacts`, and `read_pinned` is never reached.
+  Where no such file exists, the suite's own import fails, exit 64, as on
+  `main`. Measured with #481.
 
 ## Consequences
 
@@ -443,10 +446,15 @@ and `examples/prompt-first` anchor with `Path(__file__).parent`. The READMEs of
     the repair the target answers `R/eval/prompt.md`, absolute, and the run
     records `eval/prompt.md`, as every other way of running it does
     (*Context*, the TOML table). The loader does not change.
-- **A pinned prompt that a target names by a bare relative path, run from
-  another directory, is refused by `read_pinned`.** *Deduced, not measured*
-  (§7). ADR 0029 §4's note is owed with #481's code, and it is written from
-  the measurement, not from this deduction.
+- **A pinned target prompt declared with a bare relative path never reaches
+  the provider from a working directory other than the suite's: the run is
+  refused and nothing is sent.** Which refusal fires depends on where that
+  directory is. Inside the perimeter, with a file of that name, `read_pinned`
+  refuses it: *"pins prompt.md (as eval/prompt.md), which this run records no
+  artifact for"*. Outside the perimeter, ADR 0042 §2's boundary refuses
+  first, in `read_artifacts`, and `read_pinned` is never reached. Where no
+  such file exists, the suite's own import fails, exit 64, as on `main`.
+  Measured with #481 (§7). ADR 0029 §4's note says the same.
 - **No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.** No document
   gains a field, and the recorded name keeps its form.
 - **In the change that carries this record:** ADR 0042 gains an `Amended:`

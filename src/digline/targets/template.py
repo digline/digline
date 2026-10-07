@@ -66,6 +66,14 @@ class PromptTemplate:
 
     Read at construction, so a path that does not exist fails when the suite is
     imported rather than on the first case.
+
+    **A relative path is read against the working directory**, as `open()`
+    reads it, because a template can be built with no suite present — in a
+    test, in a notebook, in an application — and then there is no other
+    directory to read it against. A suite that wants its prompt beside it
+    anchors it with `Path(__file__).parent`. `path` is the path read, made
+    absolute at the read, so whoever asks later is told the file that was
+    opened and not a spelling to resolve again. (ADR 0045 §2, §4)
     """
 
     __slots__ = ("name", "path", "sha", "text", "variables")
@@ -76,6 +84,7 @@ class PromptTemplate:
         # is the path it reports. `absolute()` and not `resolve()`: it anchors
         # without following links, and the one normalization belongs to
         # whoever checks the path. (ADR 0045 §2, §5)
+        #: The file read, absolute; `None` for a template given as text.
         self.path: Path | None = Path(path).absolute()
         data = self.path.read_bytes()
         self.text: str = data.decode("utf-8")

@@ -25,16 +25,23 @@ def read_artifacts(
 ) -> dict[str, Artifact]:
     """The declared files, as they are right now.
 
-    Relative paths resolve against the suite's own directory, which is where a
-    prompt sits next to the suite that names it. They are **keyed** against
-    `root`, the perimeter — the repository the run belongs to — so that a file
-    from outside it is recorded as the `../` it is rather than as a bare name.
-    `root` defaults to `base`, which is the old behaviour and the tightest
-    reading of it.
+    A relative path in `Suite.artifacts` resolves against the suite's own
+    directory, `base`, which is where a prompt sits next to the suite that names
+    it. Every path is **keyed** against `root`, the perimeter — the repository
+    the run belongs to — so that a file from outside it is recorded as the `../`
+    it is rather than as a bare name. `root` defaults to `base`, which is the
+    old behaviour and the tightest reading of it.
 
     The **target** is asked too, when it can answer. A `ProviderTarget` builds
     its prompt from a file and already knows which one, so `artifacts=[…]` does
     not have to repeat a path that would then have two places to be wrong.
+    **What a target answers is taken as it comes, and never resolved here.** The
+    target opened that file, and the path it answers is the one it read;
+    joining it to `base` would be a second resolution of one declaration,
+    against a directory the target did not read from, and the run would record
+    one file while the target sent another. So a relative answer is refused,
+    with a sentence that names the target, before anything is read.
+    (ADR 0045 §1, §2, §5)
 
     A declared file that is missing raises. It is the thing under examination —
     a run that quietly recorded no prompt would be a run whose evidence is
@@ -42,10 +49,14 @@ def read_artifacts(
 
     **A declared file outside the perimeter is refused before it is read**, for
     every suite format and for what a target answers through `HasArtifacts`:
-    ADR 0007 §6's read boundary, which reached the TOML form only. Resolved
-    first, so a symlink pointing outward is outside. A `.py` suite can open any
-    file itself; recording it in a run, which crosses on digline's channel, is
-    digline's act, and it does not perform it. (ADR 0042 §2)
+    ADR 0007 §6's read boundary, which reached the TOML form only. Each path is
+    normalized once — links followed, `.` and `..` removed — and that one
+    result is what the boundary checks, what is read and what the key is
+    computed from: a symlink pointing outward is outside, and one pointing at
+    another file inside is recorded under that file's name. A `.py` suite can
+    open any file itself; recording it in a run, which crosses on digline's
+    channel, is digline's act, and it does not perform it. (ADR 0042 §2,
+    amended by ADR 0045 §5)
     """
     perimeter = (root or base).resolve()
     # Each declared path is normalized once, here, and that one result is what
@@ -127,9 +138,17 @@ def read_pinned(
 ) -> tuple[str, ...]:
     """The paths that must not drift, as the keys the run files them under.
 
-    Resolved exactly as `read_artifacts` resolves an artifact — same helper, so
-    a pin and the file it pins cannot come to be keyed differently — and then
+    Resolved exactly as `read_artifacts` resolves a path in `Suite.artifacts` —
+    against the suite's directory, normalized by the same helper — and then
     checked against what was actually recorded.
+
+    **A pin is anchored to the suite; a target's prompt is not.** A target
+    answers the file it read, so a prompt it names by a bare relative path is
+    keyed from wherever the process was started, and a pin on it matches only
+    when that is the suite's own directory. From another directory inside the
+    perimeter the pin names nothing recorded and is refused below; anchoring
+    the target's path with `Path(__file__).parent` makes the two agree from
+    anywhere. (ADR 0045 §7, ADR 0029 §4)
 
     **A pin naming nothing recorded is refused here**, which is the whole reason
     this is a separate step rather than a field `Suite` could validate. A path in
