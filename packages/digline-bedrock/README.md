@@ -16,10 +16,11 @@ No credential argument exists: the AWS chain — environment, profile, IAM role,
 instance metadata — is boto3's job, and this package never reads it.
 
 ```python
+from pathlib import Path
 from digline_bedrock import BedrockTarget
 
 target = BedrockTarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="eu.anthropic.claude-sonnet-4-20250514-v1:0",
     max_tokens=1024,
 )
@@ -30,10 +31,11 @@ when the target is built — from `region=` if you pass one, otherwise from the
 client the chain produced — and the price list follows from it:
 
 ```python
+from pathlib import Path
 from digline_bedrock import BedrockTarget
 
 target = BedrockTarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
     max_tokens=1024,
     region="us-east-1",
@@ -101,11 +103,12 @@ for a region nobody checked would be wrong in the direction nobody notices — s
 everything else raises at `preflight` and is served with one argument:
 
 ```python
+from pathlib import Path
 from digline.targets import ModelPrice
 from digline_bedrock import BedrockTarget, bedrock_pricing
 
 target = BedrockTarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="amazon.nova-pro-v1:0",
     max_tokens=1024,
     region="us-east-1",
@@ -125,10 +128,11 @@ model-copy-hour and model-unit-hour. Say so out loud rather than leaving it
 unpriced:
 
 ```python
+from pathlib import Path
 from digline_bedrock import BedrockTarget, free
 
 target = BedrockTarget(
-    "prompts/answer.md",
+    Path(__file__).parent / "prompts/answer.md",
     model="my-imported-model",
     max_tokens=1024,
     region="eu-west-1",
