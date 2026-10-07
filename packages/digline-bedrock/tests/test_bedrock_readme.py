@@ -32,13 +32,20 @@ def blocks() -> list[str]:
 
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    prompts = tmp_path / "prompts"
-    prompts.mkdir()
+    suite = tmp_path / "suite"
+    prompts = suite / "prompts"
+    prompts.mkdir(parents=True)
     (prompts / "answer.md").write_text("Answer this: {question}\n", encoding="utf-8")
     monkeypatch.setenv("AWS_REGION", "eu-west-1")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
-    monkeypatch.chdir(tmp_path)
-    return tmp_path
+    # Run from a directory that is not the suite's, the one `__file__` names,
+    # so a block that passes a bare relative path reads against a directory
+    # with no prompts in it and fails: the blocks must anchor, not only run.
+    # (ADR 0045, test plan entry 11)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    return suite
 
 
 def run(source: str, workspace: Path) -> dict[str, Any]:
