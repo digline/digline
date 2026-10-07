@@ -47,28 +47,48 @@ def read_artifacts(
     file itself; recording it in a run, which crosses on digline's channel, is
     digline's act, and it does not perform it. (ADR 0042 §2)
     """
-    declared: list[Path] = list(suite.artifacts)
-    if isinstance(target, HasArtifacts):
-        declared.extend(target.artifacts())
-
     perimeter = (root or base).resolve()
+    # Each declared path is normalized once, here, and that one result is what
+    # the boundary checks, what is read and what the key is computed from. A
+    # name made from the path before normalization would answer for a file the
+    # check did not see. (ADR 0045 §5) Each entry: who declared it, the field
+    # that names it, and that one normalized path.
+    declared: list[tuple[str, str, Path]] = [
+        (
+            f"suite {suite.name!r} declares the artifact {entry}",
+            "`artifacts`",
+            _normalized(entry, base),
+        )
+        for entry in suite.artifacts
+    ]
+    if isinstance(target, HasArtifacts):
+        for entry in target.artifacts():
+            who = (
+                f"the target {_target_name(target)} of suite {suite.name!r} "
+                f"answers the artifact {entry}"
+            )
+            if not entry.is_absolute():
+                raise UsageError(
+                    f"{who}, a relative path. A target reports the file it "
+                    "read, already resolved: a relative answer would be "
+                    "resolved a second time, against a directory the target "
+                    "did not read from. Answer it absolute (ADR 0045 §5)"
+                )
+            declared.append((who, "`HasArtifacts`", entry.resolve()))
+
     found: dict[str, Artifact] = {}
-    for entry in declared:
-        path = entry if entry.is_absolute() else base / entry
-        resolved = path.resolve()
-        if not resolved.is_relative_to(perimeter):
+    for who, field, path in declared:
+        if not path.is_relative_to(perimeter):
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"resolves to {resolved}, outside {perimeter}: `artifacts` "
-                "names a file outside the perimeter, and a file from outside "
-                "is never read into a run, whatever the suite format. Move it "
-                "into the project (ADR 0042 §2)"
+                f"{who}, which resolves to {path}, outside {perimeter}: "
+                f"{field} names a file outside the perimeter, and a file from "
+                "outside is never read into a run, whatever the suite format. "
+                "Move it into the project (ADR 0042 §2)"
             )
         if not path.is_file():
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which "
-                f"is not a file at {path}: the thing under test cannot be "
-                "recorded, so the run would not say what produced it"
+                f"{who}, which is not a file at {path}: the thing under test "
+                "cannot be recorded, so the run would not say what produced it"
             )
         data = path.read_bytes()
         # Keyed by where it sits relative to the **perimeter**, so a run file
@@ -80,16 +100,15 @@ def read_artifacts(
         # one document that is supposed to say what was under test. `relpath`
         # has no such fallback: outside the perimeter it yields `../secret.env`,
         # which is the truth and reads as one.
-        key = _key(path, root or base)
+        key = _key(path, perimeter)
         # The file under test is the user's, so a file that is not UTF-8 is
         # refused at the read, where it happens. (ADR 0041 §4.2)
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise UsageError(
-                f"suite {suite.name!r} declares the artifact {entry}, which is "
-                f"not UTF-8 at byte {exc.start}: an artifact is recorded as its "
-                "text, so these bytes cannot be"
+                f"{who}, which is not UTF-8 at byte {exc.start}: an artifact is "
+                "recorded as its text, so these bytes cannot be"
             ) from None
         found[key] = Artifact(sha=hashlib.sha256(data).hexdigest(), text=text)
     return found
@@ -119,10 +138,10 @@ def read_pinned(
     spellings that `Suite` cannot tell apart and one key here. Order follows the
     resolved key, so the run document does not record the order somebody typed.
     """
+    perimeter = (root or base).resolve()
     keys: dict[str, Path] = {}
     for entry in suite.pinned:
-        path = entry if entry.is_absolute() else base / entry
-        keys.setdefault(_key(path, root or base), entry)
+        keys.setdefault(_key(_normalized(entry, base), perimeter), entry)
     unknown = sorted(key for key in keys if key not in artifacts)
     if unknown:
         named = ", ".join(f"{keys[key]} (as {key})" for key in unknown)
@@ -136,11 +155,28 @@ def read_pinned(
     return tuple(sorted(keys))
 
 
-def _key(path: Path, root: Path) -> str:
+def _normalized(entry: Path, base: Path) -> Path:
+    """A path the suite declares, anchored to the suite's directory and
+    normalized. Only for `Suite.artifacts` and `Suite.pinned`, which a front end
+    reads from a suite file it loaded; a target's answer is never anchored
+    here. (ADR 0045 §4)"""
+    return (entry if entry.is_absolute() else base / entry).resolve()
+
+
+def _target_name(target: object) -> str:
+    """The target as a sentence can name it: its class, which names it without
+    running the suite's code, as a `repr` would."""
+    return type(target).__qualname__
+
+
+def _key(path: Path, perimeter: Path) -> str:
     """`os.path.relpath` and not `Path.relative_to`: the latter raises when the
     path is outside the root, and raising is what produced the fallback this
-    replaces. `relpath` walks up instead, which is the honest answer."""
+    replaces. `relpath` walks up instead, which is the honest answer.
+
+    Both arguments arrive normalized, and nothing here normalizes again: the
+    name is computed from the path the boundary checked. (ADR 0045 §5)"""
     try:
-        return os.path.relpath(path.resolve(), root.resolve())
+        return os.path.relpath(path, perimeter)
     except ValueError:  # pragma: no cover - Windows, across drives
-        return str(path.resolve())
+        return str(path)

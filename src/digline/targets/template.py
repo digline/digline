@@ -71,7 +71,12 @@ class PromptTemplate:
     __slots__ = ("name", "path", "sha", "text", "variables")
 
     def __init__(self, path: str | Path) -> None:
-        self.path: Path | None = Path(path)
+        # Anchored here, once, against the working directory of the moment it
+        # is read: the file this opens is the file the target sends, so this
+        # is the path it reports. `absolute()` and not `resolve()`: it anchors
+        # without following links, and the one normalization belongs to
+        # whoever checks the path. (ADR 0045 §2, §5)
+        self.path: Path | None = Path(path).absolute()
         data = self.path.read_bytes()
         self.text: str = data.decode("utf-8")
         self.sha: str = hashlib.sha256(data).hexdigest()

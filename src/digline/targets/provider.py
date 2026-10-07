@@ -94,6 +94,13 @@ class ProviderTarget(ABC):
 
         Only files. An inline system prompt is already in the suite's source,
         and recording it again would record it twice.
+
+        Each path is the one its template read, made absolute when it was read
+        and not when it is asked: the file this names is the file this target
+        sends, and `read_artifacts` takes it as it comes. A relative
+        `prompt_file` is read against the working directory of the moment the
+        target is built; anchor it with `Path(__file__).parent` to make it the
+        suite's. (ADR 0045 §2, §6)
         """
         return tuple(
             template.path
