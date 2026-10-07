@@ -394,6 +394,16 @@ would make a suite runnable from one place only, and CI, the container and a
 colleague's checkout are all somewhere else. It is the rule `Suite.artifacts`
 already follows, applied to every path a data suite can write.
 
+*Noted 2026-10-07, by [ADR 0045](0045-one-declared-path-resolved-once.md).*
+The paragraph above stays true for the TOML form: the loader resolves a
+`[target]` path against the suite file's directory before it builds the
+target, so the target holds an absolute path. That was read in the code, not
+executed. What was carried past the TOML form was
+[ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §2's reference to this
+rule, which applied it to the path a `.py` suite's target answers through
+`HasArtifacts`. That reference is what ADR 0045 amends. A path written
+in a target's own fields is not anchored to the suite (ADR 0045 §4).
+
 **And it resolves inside the perimeter, or it is refused.** The code boundary
 was closed in §5; the read boundary is now drawn, and it is the perimeter — the
 repository, not this file's own directory. Saying where a path resolves *from*

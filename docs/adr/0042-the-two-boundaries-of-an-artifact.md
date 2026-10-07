@@ -4,6 +4,10 @@
   The text comes first and the implementation is written against it
 - Shipped: 0.29.0
 - Date: 2026-10-05
+- Amended: 2026-10-07, by [ADR 0045](0045-one-declared-path-resolved-once.md),
+  in §2, with a note that also annotates the test plan's second entry. The
+  read boundary still reaches what a target answers through `HasArtifacts`.
+  The suite's directory is no longer that path's anchor
 - Amended: 2026-10-05, after 0.29.0 shipped, in §5. The delta-pass over 0.29.0
   measured a third instance of the limit this record declares: a hard link.
   It is named beside the other two. Nothing in the code changes
@@ -97,6 +101,22 @@ holding `.digline/`: `--root` in the CLI, `perimeter` in the MCP, and
 answers through `HasArtifacts` (a `ProviderTarget`'s prompt file). The TOML
 load-time check stays, because it refuses with the field's name before
 anything is imported. This is the same rule reaching the form that had none.
+
+*Amended 2026-10-07 by [ADR 0045](0045-one-declared-path-resolved-once.md).*
+The paragraph above took *"the rule and its unit"* from ADR 0007 §6, and that
+rule anchors a relative path to the suite file's directory. Applied to what a
+target answers, it made `read_artifacts` resolve a second time a path the
+target had already opened, against another directory. #481 measured the
+boundary checking a file inside the perimeter while the target sent one from
+outside it. The boundary stays, for every declared path, a target's included:
+a file outside the perimeter is not read into a run. What changes is which
+file it checks for a target. It is the file the target read, answered as an
+absolute path (ADR 0045 §2 and §5), and no longer the suite's directory joined
+to the path the target was given. `Suite.artifacts` and `Suite.pinned` keep
+the suite file's directory as their anchor (ADR 0045 §4).
+**The test plan's second entry**, *"a `.py` suite whose target answers an
+outside path through `HasArtifacts`"*, still holds as written. "Outside" is
+now said of the file the target read.
 
 **The cost is accepted.** An artifact from outside the perimeter can no longer
 be recorded. No example, page or test in the tree declares one (an empty search
