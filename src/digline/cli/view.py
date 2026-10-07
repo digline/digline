@@ -539,6 +539,8 @@ class ViewHandler(BaseHTTPRequestHandler):
         Against the **baseline** — including when `against` is omitted, which is
         the default — this is a run held against an approved reference, which is
         `compare()`'s question, and the verdict document is the right answer.
+        The baseline's own run held against it is the run compared with
+        itself, and is refused like any other. (#489, #498)
 
         With **no baseline yet** there is no reference to hold it against, so
         the page is the run on its own — `digline report`'s answer to the same
@@ -571,7 +573,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         # itself, and it was served as a verdict with 200 where every other run
         # was refused. The runs page reaches it by default — both menus open on
         # the newest run, which is the baseline right after a promotion. (#489)
-        if other == key:
+        # An omitted `against` means the baseline, so the baseline's own run
+        # with no `against` is the same pair, named by leaving it out. (#498)
+        if other == key or (not other and key == baseline_key):
             self._error(400, pages.phrase(locale, "view.compare.same"))
             return
         if other and other != baseline_key:
@@ -613,6 +617,7 @@ class ViewHandler(BaseHTTPRequestHandler):
             200,
             pages.case_page(
                 history,
+                baseline_key=listed.baseline_key,
                 locale=locale,
                 suite=self.suite.name,
                 ignored=left_out_parts(listed, locale=locale),

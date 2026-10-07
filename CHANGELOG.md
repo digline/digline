@@ -51,6 +51,18 @@ notes under them are this file, verbatim.
   runs page asks for by default right after the newest run is promoted:
   both menus open on the newest run. It is now refused with the same sentence.
   The menus' default does not move.
+- **…and with no `against` either** (#498). An omitted `against` means the
+  baseline, so `/compare?run=<the baseline's run>` was the same pair, and it
+  too was served as a verdict with 200. A case's page linked to it from the
+  baseline's row. It is now refused with the same sentence, and that row's
+  moment is no longer a link: the page does not offer a comparison the server
+  refuses. Any other run with no `against` is still held against the
+  baseline, as before.
+- **`case_page` takes a mandatory `baseline_key`**, the key of the baseline or
+  `None`, which `runs_page` already takes. It is what leaves the baseline's
+  row without its link, and it has no default, so a caller that forgot it
+  would not quietly keep the link. A caller of `digline.report.case_page`
+  passes `SuiteRuns.baseline_key`.
 
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
 
