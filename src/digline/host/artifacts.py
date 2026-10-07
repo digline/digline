@@ -52,11 +52,12 @@ def read_artifacts(
     # the boundary checks, what is read and what the key is computed from. A
     # name made from the path before normalization would answer for a file the
     # check did not see. (ADR 0045 §5) Each entry: who declared it, the field
-    # that names it, and that one normalized path.
-    declared: list[tuple[str, str, Path]] = [
+    # that names it, the path as declared, and that one normalized path.
+    declared: list[tuple[str, str, Path, Path]] = [
         (
             f"suite {suite.name!r} declares the artifact {entry}",
             "`artifacts`",
+            entry,
             _normalized(entry, base),
         )
         for entry in suite.artifacts
@@ -74,13 +75,16 @@ def read_artifacts(
                     "resolved a second time, against a directory the target "
                     "did not read from. Answer it absolute (ADR 0045 §5)"
                 )
-            declared.append((who, "`HasArtifacts`", entry.resolve()))
+            declared.append((who, "`HasArtifacts`", entry, entry.resolve()))
 
     found: dict[str, Artifact] = {}
-    for who, field, path in declared:
+    for who, field, entry, path in declared:
         if not path.is_relative_to(perimeter):
+            # The resolved path only where it says something the declared one
+            # does not: an absolute answer is usually its own resolution.
+            where = "" if path == entry else f", which resolves to {path}"
             raise UsageError(
-                f"{who}, which resolves to {path}, outside {perimeter}: "
+                f"{who}{where}, outside {perimeter}: "
                 f"{field} names a file outside the perimeter, and a file from "
                 "outside is never read into a run, whatever the suite format. "
                 "Move it into the project (ADR 0042 §2)"
@@ -164,8 +168,10 @@ def _normalized(entry: Path, base: Path) -> Path:
 
 
 def _target_name(target: object) -> str:
-    """The target as a sentence can name it: its class, which names it without
-    running the suite's code, as a `repr` would."""
+    """The target as a sentence can name it."""
+    # The class's name and never `repr(target)`: a `repr` is the suite's code,
+    # and calling it inside a refusal would run that code, which can raise or
+    # print anything, at the moment digline is explaining why it stopped.
     return type(target).__qualname__
 
 
