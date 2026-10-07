@@ -323,7 +323,8 @@ with §5's requirement.
 sources.* In every TOML form measured, the target reads and finds the right
 file, `R/eval/prompt.md`, and the defect is only `read_artifacts`'s second
 join. The forms, the route each was tried by, and who measured what are in
-the record of #476.
+the record of #476, in its section *The TOML forms tried: these, and no
+others*.
 
 ### 5. `HasArtifacts` requires a path already resolved
 
@@ -546,8 +547,9 @@ schedules the second.
   and no rule about paths can see it. The cure there is the one of §6,
   `Path(__file__).parent`, written by the user.
 - **What any front end does after the repair.** Today's code was measured on
-  all three, `pytest-digline` included, in both formats. The forms are in the
-  record of #476. The repair does not exist, so
+  all three, `pytest-digline` included, in both formats. The TOML forms are
+  in the record of #476, in its section *The TOML forms tried: these, and no
+  others*. The repair does not exist, so
   nothing after it was measured, on any front end.
 - **Anything about Windows.** Nothing in this record ran there. `_key` has a
   fallback for a path on another drive that returns an absolute string
