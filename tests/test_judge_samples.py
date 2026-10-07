@@ -641,3 +641,31 @@ def test_rejudge_reports_the_range_beside_the_scale(repo: Path) -> None:
     )
     assert "judge_reading" not in json.loads(plain.stdout)
     assert "own range" not in plain.stderr
+
+
+def test_rejudge_json_announces_the_bill_stderr_announces(repo: Path) -> None:
+    """The `sentence` on stdout is the line on stderr, replay and all.
+
+    A program reports the spend from this field (ADR 0011 §2), and a re-judge
+    calls no target. Until #500 `run_json` rendered the ordinary sentence here,
+    so `--json` announced target calls that were never made, while stderr, a
+    line above, said there were none. (ADR 0015 §6)
+    """
+    (repo / "suite_judged.py").write_text(SUITE_PY, encoding="utf-8")
+    source = cli(repo, "run", "--suite", "suite_judged.py").stdout.strip()
+
+    for extra in ((), ("--judge-samples", "3")):
+        done = cli(
+            repo,
+            "rejudge",
+            "--suite",
+            "suite_judged.py",
+            "--run",
+            source,
+            *extra,
+            "--json",
+        )
+        assert done.returncode == 0, done.stderr
+        sentence = json.loads(done.stdout)["sentence"]
+        assert "no call to the target" in sentence
+        assert f"digline: {sentence}\n" in done.stderr

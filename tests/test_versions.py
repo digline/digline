@@ -333,6 +333,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.31.0": (
+            "the core release digline-mcp's and pytest-digline's floors are "
+            "owed to, in the table of floors owed to the release (#396): the "
+            "cut that ships the core carrying #396 raises both floors and "
+            "deletes the rows, and this entry with them"
+        ),
         "0.4.6": (
             "digline-mcp's version and the tag it was published by, in the "
             "index-race status of the two named tags after 0.30.0: history"

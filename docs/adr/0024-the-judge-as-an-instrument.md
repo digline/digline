@@ -1123,6 +1123,13 @@ to say it where the author is: `digline run` names the undeclared assertions on
 stderr before the first call, beside the planned-call line, because that is the
 one moment the suite is loaded and its author is reading.
 
+*Annotated 2026-10-07 (#396).* `digline run` was the one front end this
+paragraph named, and the reason it gives holds wherever a suite is loaded to be
+run. `digline rejudge`, MCP's `run` and `pytest --digline-run` now say the same
+line, from `suite_notes`, and `run --json` and MCP carry it as `notes`. On
+2026-10-07 the maintainer withdrew the rule that had kept it out of the pytest
+plugin, which was a cost to its floor. The decision above is unchanged.
+
 `compare()` reads run files without the suite, so what the reading needs has to
 be **in the document** — and the reading needs one value only. `scale: "judged"`
 is written on a verdict whose assertion declares it, and nothing is written

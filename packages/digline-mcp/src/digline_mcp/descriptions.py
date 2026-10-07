@@ -126,6 +126,12 @@ number counts calls to the target only — where an assertion judges each answer
 several times, the returned `sentence` names the multiplier, and the honest
 figure you report is the whole sentence.
 
+`notes` holds what `digline run` says about the suite before the first call: a
+check whose class declares no `KIND`, which the shape reading leaves out, and a
+tolerance so wide its check is reported only when it flips. Each is a sentence
+for whoever wrote the suite: say it beside the run. A note stops nothing and is
+not a verdict, and an empty list means the suite was read and had none.
+
 Before proposing a hunt that means several runs, multiply that line by the
 number of runs and say the figure out loud in your recommendation. Five runs
 over a hundred-call suite is five hundred model calls, and that is a decision

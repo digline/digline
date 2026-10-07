@@ -58,6 +58,33 @@ notes under them are this file, verbatim.
   moment is no longer a link: the page does not offer a comparison the server
   refuses. Any other run with no `against` is still held against the
   baseline, as before.
+- **The notes `digline run` prints about a suite reach every front end that
+  runs one** (#396, ADR 0024 §6.4). Before the first call, `digline run` names
+  a check whose class declares no `KIND`, which `explain`'s shape reading
+  leaves out, and each tolerance so wide its check is reported only when it
+  flips. Until now only that command's stderr said them. Now:
+  - **`digline run --json`** and the **MCP `run` tool** carry them as
+    `notes`, a list of the same sentences. It is always present, and empty
+    when there is nothing to say. It is an added key, so `output_version`
+    does not move.
+  - **`digline rejudge`** says them on stderr and in `--json`. A re-judge
+    loads the suite and judges with it, and under `--judge-samples` a judge
+    whose class declares no `KIND` is not repeated.
+  - **`pytest --digline-run`** prints them on stderr beside the
+    planned-call count.
+
+  `digline.run.suite_notes(suite)` composes them, so every front end says
+  the same lines in the same order. The `KIND` sentence was the CLI's own
+  until now. Both are said and never refused, and no exit code moves.
+  **digline-mcp's and pytest-digline's floors are owed to this release**,
+  because both import `suite_notes`.
+- **`rejudge --json` no longer announces a call to the target** (#500). Its
+  `sentence` was the ordinary one, *"1 case × 1 sample = 1 call to the
+  target"*, while stderr said *"1 answer replayed; no call to the target"*.
+  A re-judge calls no target, and `sentence` is the field a program reports
+  the spend from. It now carries the replay's sentence, the one stderr
+  prints. Nothing in digline acts on the figure: the run, its plan and every
+  count were already right.
 - **`case_page` takes a mandatory `baseline_key`**, the key of the baseline or
   `None`, which `runs_page` already takes. It is what leaves the baseline's
   row without its link, and it has no default, so a caller that forgot it

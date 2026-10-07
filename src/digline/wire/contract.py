@@ -998,6 +998,12 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("compare.full", "run_key", _k("string", optional=True), "#448"),
     _AddedKey("explain", "run_key", _k("string", optional=True), "#448"),
     _AddedKey("explain", "baseline_key", _k("string", optional=True), "#448"),
+    # What `digline run` and `digline rejudge` print on stderr before the first
+    # call, `suite_notes(suite)`: a check whose class declares no `KIND`, a
+    # tolerance that switches its check off. Sentences, as `runs.note` is. Always
+    # present, so an empty list is a suite that was read, not a digline that
+    # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
+    _AddedKey("run", "notes", _STRINGS, "#396; ADR 0024 §6.4"),
 )
 
 

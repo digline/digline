@@ -45,6 +45,7 @@ __all__ = [
     "Suite",
     "blind_tolerances",
     "planned_calls",
+    "suite_notes",
     "undeclared_kinds",
 ]
 
@@ -722,6 +723,41 @@ def blind_tolerances(suite: Suite) -> tuple[BlindTolerance, ...]:
         BlindTolerance(check.name, float(check.threshold), float(check.tolerance))
         for check in checks
         if tolerance_is_blind(float(check.threshold), float(check.tolerance))
+    )
+
+
+def suite_notes(suite: Suite) -> tuple[str, ...]:
+    """What every front end that runs `suite` says before the first call: the
+    checks `undeclared_kinds` names, in one sentence, then each blind
+    tolerance in one sentence of its own. Empty when there is nothing to say.
+
+    Here, beside the two readings, so that `digline run`, `digline rejudge`,
+    MCP's `run` and `pytest --digline-run` say the same lines in the same
+    order. The `KIND` sentence was the CLI's own until #396, which is why the
+    other two front ends could not say it: nothing may import `digline.cli`,
+    and a plugin composing it again is a second copy that drifts. (ADR 0024
+    §6.1, §6.4; #386)
+
+    Said, never refused: nothing here moves an exit code.
+    """
+    notes: list[str] = []
+    undeclared = undeclared_kinds(suite)
+    if undeclared:
+        notes.append(_undeclared_sentence(undeclared))
+    notes.extend(blind.sentence() for blind in blind_tolerances(suite))
+    return tuple(notes)
+
+
+def _undeclared_sentence(names: Sequence[str]) -> str:
+    listed = ", ".join(names)
+    if len(names) == 1:
+        return (
+            f"{listed} declares no KIND, so the shape reading leaves it out; "
+            'declare KIND = "judged" or "deterministic" on its class to have it read'
+        )
+    return (
+        f"{listed} declare no KIND, so the shape reading leaves them out; declare "
+        'KIND = "judged" or "deterministic" on their classes to have them read'
     )
 
 

@@ -56,7 +56,7 @@ from digline.host import (
 )
 from digline.report import diff as diff_report
 from digline.report import headline
-from digline.run import CallPlan, Suite
+from digline.run import CallPlan, Suite, suite_notes
 from digline.store import FileResultStore
 from digline.wire import (
     compare_json,
@@ -409,7 +409,16 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # `usage=` as the CLI passes it: what the run consumed is one fact, and
         # a caller must not have to know which front end it asked. The parity
         # test in this package is what noticed it was missing. (ADR 0011 §6)
-        return run_json(measured.ref, measured.plan, usage=measured.run.usage)
+        # `notes=` as the CLI passes it, and for the same reason as `usage=`:
+        # over MCP there is no stderr, so the lines `digline run` prints there
+        # before the first call reach an agent only as a field. (#396; ADR 0011
+        # §4, ADR 0024 §6.4)
+        return run_json(
+            measured.ref,
+            measured.plan,
+            usage=measured.run.usage,
+            notes=suite_notes(loaded_suite),
+        )
 
     # Registered here rather than through `@server.tool(...)` on each
     # definition. The decorator form leaves every tool a function that is

@@ -151,6 +151,13 @@ because nothing in the core claims to know which assertions call a model.
 
 A suspended case is not counted, because it is never called.
 
+`run` also returns **`notes`**: the lines `digline run` prints on stderr before
+the first call. One names the checks whose class declares no `KIND`, which
+`explain`'s shape reading leaves out; one per check names a tolerance so wide
+the check is reported only when it flips. Each is a sentence for whoever wrote
+the suite, said and never refused. An empty list is a suite that was read and
+had nothing to say. `digline run --json` carries the same list. (#396)
+
 ## What the responses are
 
 The same objects `--json` prints, field for field, under the same
