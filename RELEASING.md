@@ -1654,6 +1654,88 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-mcp-v0.4.6 and pytest-digline-v0.2.3 — two named tags after the
+  core, each one package, each the floor owed to 0.30.0.** `publish`
+  (`37604898265` and `37607951844`) passed on attempt 1 each, with
+  `github-release` and the site jobs skipped, as on any plugin tag, and no
+  `docker-publish`. `tools/tag_names.py` ran on each merge commit (#491,
+  `e20f43e`; #492, `6aff9cc`) immediately before its tag: one package, named,
+  exit 0. `/approvals` reads `approved` by `alexpran` on `pypi` for both.
+  - Counts, each run: 16 `twine check` `PASSED`; TestPyPI's selection and
+    PyPI's read before the gate, 2 `publish` and 10 `skip` each; `imported 6`
+    and the quickstart's 3 calls, after TestPyPI and after PyPI.
+  - The `pypi` jobs ran 10:17:50Z to 10:18:33Z and 11:34:38Z to 11:35:17Z.
+    Uploads at 10:18:09 and 10:18:10 (`digline-mcp`), 11:34:55 and 11:34:57
+    (`pytest-digline`). Each wait saw its package served `after 0s` and
+    `after 1s`.
+  - **The version endpoint and its control** were read by hand at 11:45:13Z:
+    `/pypi/digline-mcp/0.4.6/json` and `/pypi/pytest-digline/0.2.3/json`
+    answered 200, and `/pypi/<name>/9.9.9/json` answered 404 for both. The
+    project endpoint, read right after the first upload, still named 0.4.5
+    as latest: the lag this check exists for.
+
+- **v0.30.0 — the gate was approved before the site was green, and the image's
+  smoke build waited 210 seconds for an upload that came after the click.**
+  `publish` (`37600295655`) passed on attempt 1, `github-release` and the site
+  jobs included. `docker-publish` (`37600295609`) passed on attempt 1.
+  `tools/tag_names.py "digline 0.30.0"` ran on #488's merge commit, `9daba1a`,
+  which was `origin/main`, immediately before the tag: one package, named,
+  exit 0. The check a person makes until it is built: digline-mcp's and
+  pytest-digline's `src/` had moved since the tags that published their
+  versions (#451, #452, #475), on purpose, because their floors may not name
+  0.30.0 before it is served; both were released on their own tags, above.
+  anthropic, bedrock and openai: 0 files.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on
+  `pypi`, and the environment reads `can_admins_bypass: false`. The `pypi` job
+  ran 09:26:19Z to 09:27:09Z. The order set for this release, digline.dev
+  green before the click, was not kept: digline.dev #166's `Build` was red at
+  09:25:31Z and went green at 09:33:22Z. Recorded with its consequence in
+  `private/record-release-0-30-0.md`.
+  - 16 `twine check` `PASSED`; TestPyPI's selection, and PyPI's read before
+    the gate, 2 `publish` and 10 `skip`, the two being `digline` 0.30.0's
+    wheel and sdist; `imported 6`, and the quickstart's 3 calls.
+  - Uploads at 09:26:36 and 09:26:38. The `pypi` job's wait saw `digline`
+    0.30.0 served `after 10s`, serial 41917008.
+  - **The version endpoint and its control were not read at the time.** They
+    were read by hand at 11:45:13Z, after the omission was named:
+    `/pypi/digline/0.30.0/json` answered 200 and `/pypi/digline/9.9.9/json`
+    answered 404.
+
+  **The signatures.** `release_bundles.py` ran with `TIMEOUT=600` and
+  `INTERVAL=10`, and had its two bundles at 09:27:24, about 15 seconds after
+  the `pypi` job ended. Ten files were skipped, each by the tag that published
+  it. `sigstore verify` printed `OK` for both, and both `.sigstore.json` are on
+  the release.
+
+  **The index race, both builds.**
+  - **The smoke build waited 210 seconds**, from 09:23:55 to 09:27:25, because
+    `docker-publish` started with the tag and the upload came after the
+    click. It saw `digline==0.30.0` served on its eighth read, serial
+    41917008. Inside the build, the wait saw it `after 0s`, and the multi-arch
+    build's `after 0s`.
+  - Both builds installed `digline-0.30.0`, `digline-anthropic-0.6.1`,
+    `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
+  - `0.30.0`, `0.30` and `latest` resolve to one digest,
+    `sha256:8c82e8e11f99746a3c9f137d14151e07f4fb4837ee6cde8fc2e4c66f61344120`,
+    read with `docker buildx imagetools inspect` on each tag.
+
+  **Step 6, the capture.** In the smoke build (`#9`) and the arm64 leg
+  (`#15`), `side=wait` and `side=pip` were logged for `digline` with the same
+  serial, 41917008, the one after the upload. Only `digline`'s pair was read
+  for this entry.
+
+  **Elsewhere.**
+  - The seven example locks moved to 0.30.0 with `--upgrade-package digline`.
+    Their diff was read, three lines per lock, and nothing else moved. No lock
+    names `digline-mcp` or `pytest-digline`.
+  - #455's langchain4j bumps rode the same pull request, with the Jackson
+    comment's numbers measured again.
+  - **The example reports were not re-rendered here.** That is a pull request
+    of its own, owed.
+  - digline.dev #166 entered ADR 0045 and `digline delete`, and needed a fifth
+    place #482 did not name: the home selftest's fixture.
+
 - **digline-anthropic-v0.6.1 — one package, and the warning at the gate came
   after the click.** It shipped #392's repair: a US-only reply priced at 1.1x.
   `publish` (`37124536845`) passed on attempt 1. `github-release` and the site

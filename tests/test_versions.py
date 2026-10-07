@@ -333,6 +333,19 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.4.6": (
+            "digline-mcp's version and the tag it was published by, in the "
+            "index-race status of the two named tags after 0.30.0: history"
+        ),
+        "0.2.3": (
+            "pytest-digline's version and the tag it was published by, in the "
+            "index-race status of the two named tags after 0.30.0: history"
+        ),
+        "0.4.5": (
+            "digline-mcp's previous version, which PyPI's project endpoint "
+            "still named as latest right after 0.4.6 was uploaded, in the "
+            "index-race status: history"
+        ),
         "0.29.0": (
             "the release whose index-race status is recorded (a TestPyPI job "
             "cancelled and re-run, the tag message, the counts, the installed "
