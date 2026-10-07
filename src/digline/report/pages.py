@@ -911,11 +911,18 @@ def _diff_order(difference: Difference) -> Sequence[CheckDifference]:
 def case_page(
     history: CaseHistory,
     *,
+    baseline_key: str | None,
     locale: Locale,
     suite: str,
     ignored: str | Sequence[LeftOutPart] = "",
 ) -> str:
     """The calibration table: one row per run, one column per assertion.
+
+    Every run's moment links to its comparison with the baseline, except the
+    baseline's own: that is a run compared with itself, which the view refuses,
+    and the page does not offer a comparison the server then refuses. The runs
+    page leaves the same row without its button. `baseline_key` has no default
+    for that reason: a caller that forgot it would keep the link. (#498)
 
     `ignored` is what the read left out, in `locale`: the parts from
     `digline.host.left_out_parts`, or the one line from `left_out`. A run left
@@ -934,7 +941,8 @@ def case_page(
 
     labels = _when_labels([(e.run_key, e.created_at) for e in history.entries], locale)
     rows = "".join(
-        _case_row(entry, history, names, labels, locale) for entry in history.entries
+        _case_row(entry, history, names, labels, locale, baseline_key=baseline_key)
+        for entry in history.entries
     )
     title = phrase(locale, "view.title.case", case_id=history.case_id, suite=suite)
     heading = phrase(locale, "view.case.title", case_id=history.case_id)
@@ -959,13 +967,17 @@ def _case_row(
     names: Sequence[str],
     labels: Mapping[str, str],
     locale: Locale,
+    *,
+    baseline_key: str | None,
 ) -> str:
     prefix = (
         "<tr>"
         + _run_cell(
             entry.run_key,
             labels.get(entry.run_key, entry.created_at),
-            href=f"/compare?run={entry.run_key}&locale={locale}",
+            href=""
+            if entry.run_key == baseline_key
+            else f"/compare?run={entry.run_key}&locale={locale}",
         )
         + f"<td>{escape(entry.environment)}</td>"
     )

@@ -350,7 +350,7 @@ def test_the_case_table_shows_the_raw_votes() -> None:
     """The view that had to be built by hand with a script: a combined 0.67 says
     the samples disagreed, and only the votes say how."""
     history = case_history([("key-a", RUN_A), ("key-b", RUN_B)], "a")
-    html = case_page(history, locale="en", suite="brief")
+    html = case_page(history, baseline_key=None, locale="en", suite="brief")
     assert "0.670" in html
     assert "1.000 · 0.000 · 1.000" in html
 
@@ -361,7 +361,9 @@ def test_a_case_absent_from_a_run_says_so_rather_than_showing_a_blank() -> None:
     only_b = make_run("2026-08-22T10:00:00+00:00", scores={"b": 1.0}, precision=0.7)
     history = case_history([("key-a", RUN_A), ("key-c", only_b)], "a")
     assert [e.present for e in history.entries] == [True, False]
-    assert "not in this run" in case_page(history, locale="en", suite="brief")
+    assert "not in this run" in case_page(
+        history, baseline_key=None, locale="en", suite="brief"
+    )
 
 
 def test_a_column_survives_the_assertion_that_was_removed() -> None:
@@ -564,13 +566,17 @@ def get(url: str) -> tuple[int, str]:
         return exc.code, exc.read().decode("utf-8")
 
 
-def test_the_four_routes_answer(served: tuple[str, str]) -> None:
-    base, key = served
+def test_the_four_routes_answer(served: tuple[str, str], repo: Path) -> None:
+    base, _key = served
 
     status, body = get(base)
     assert status == 200 and "<table>" in body
 
-    status, body = get(f"{base}compare?run={key}")
+    # A run that is not the baseline. This asked for the baseline's own run and
+    # asserted the verdict it got, which was the baseline compared with itself:
+    # the defect, held in place as if it were the route's answer. (#498)
+    newer = run_key(repo)
+    status, body = get(f"{base}compare?run={newer}")
     assert status == 200 and "Did it get worse?" in body
 
     status, body = get(f"{base}case/capital-it")
@@ -644,6 +650,50 @@ def test_any_other_run_compared_with_itself_is_still_refused(repo: Path) -> None
     assert run == against == newest
     assert answer.startswith("400\n"), answer
     assert "A run compared with itself has nothing to report." in answer
+
+
+def compare_links(page: str) -> set[str]:
+    """The run keys a case's page offers a comparison for."""
+    return set(re.findall(r'href="/compare\?run=([^&"]+)&amp;', page))
+
+
+def test_the_baseline_alone_is_refused_like_the_baseline_against_itself(
+    repo: Path,
+) -> None:
+    """An omitted `against` means the baseline, so the baseline's own run with
+    no `against` is the run compared with itself, named by leaving it out. It
+    was served as a verdict with 200, and a case's page linked to it from the
+    baseline's row. The page now offers no such link, and the request answers
+    as #489's pair does. (#498)"""
+    older = run_key(repo)
+    baseline = promoted(repo)
+    with server(repo) as (base, _line):
+        status, page = get(f"{base}case/capital-it?locale=en")
+        query = urllib.parse.urlencode({"run": baseline, "locale": "en"})
+        refused, body = get(f"{base}compare?{query}")
+
+    assert status == 200, page
+    assert compare_links(page) == {older}
+    assert refused == 400, body
+    assert "A run compared with itself has nothing to report." in body
+
+
+def test_any_other_run_alone_is_still_held_against_the_baseline(repo: Path) -> None:
+    """The control: with no `against`, a run that is not the baseline is still
+    the verdict against it, which is the comparison worth having, and a case's
+    page still links it."""
+    baseline = promoted(repo)
+    newest = run_key(repo)
+    with server(repo) as (base, _line):
+        status, page = get(f"{base}case/capital-it?locale=en")
+        query = urllib.parse.urlencode({"run": newest, "locale": "en"})
+        served, body = get(f"{base}compare?{query}")
+
+    assert newest != baseline
+    assert status == 200, page
+    assert newest in compare_links(page)
+    assert served == 200, body
+    assert "Did it get worse?" in body
 
 
 def test_escaping_is_the_only_barrier_on_the_page_that_shares_the_promote_origin(
@@ -818,6 +868,9 @@ def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
     planted under a legal name still reached out of the store, and this route
     rendered what it found with a 200. (0.7.2, from the adversarial pass.)"""
     base, key = served
+    # Made before the link is planted, and not the baseline: the baseline's own
+    # run with no `against` is the run compared with itself, refused. (#498)
+    newer = run_key(repo)
     stored = next((repo / ".digline").rglob(f"runs/qa/{key}.json"))
     outside = repo.parent / "linked.json"
     document = json.loads(stored.read_text(encoding="utf-8"))
@@ -830,7 +883,7 @@ def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
     assert "outside" in body
     assert "exfiltrated" not in body
     # The control, in the same server: a real key still renders.
-    assert get(f"{base}compare?run={key}")[0] == 200
+    assert get(f"{base}compare?run={newer}")[0] == 200
 
 
 def post(url: str, data: str, *, origin: str | None, cookie: str = "") -> int:
@@ -1386,7 +1439,9 @@ def test_no_page_the_flagged_server_renders_contains_the_key(
     for url in (
         base,
         f"{base}?locale=it",
-        f"{base}compare?run={key}",
+        # `other` and not `key`: the baseline's own run with no `against` is
+        # the run compared with itself, refused with a 400. (#498)
+        f"{base}compare?run={other}",
         f"{base}compare?run={other}&against={key}",
         f"{base}case/capital-it",
         f"{base}suspend/capital-it?reason=x",
@@ -1798,7 +1853,7 @@ def test_the_pickers_read_as_moments_not_as_keys() -> None:
 
 def test_the_case_table_reads_the_same_way() -> None:
     history = case_history([("key-a", RUN_A), ("key-b", RUN_B)], "a")
-    html = case_page(history, locale="en", suite="brief")
+    html = case_page(history, baseline_key=None, locale="en", suite="brief")
     assert '<span class="when">20 Aug 10:00</span>' in html
     assert "2026-08-20T10:00:00+00:00" not in html
 
@@ -1955,10 +2010,20 @@ def test_only_the_moment_is_a_link_not_the_key() -> None:
     """A blue underlined key put a click that navigates on top of a click that
     selects, and the key is there to be selected."""
     history = case_history([("key-a", RUN_A)], "a")
-    html = case_page(history, locale="en", suite="brief")
+    html = case_page(history, baseline_key=None, locale="en", suite="brief")
     # `&amp;` because the href is escaped, which is what an attribute needs.
     assert '<a href="/compare?run=key-a&amp;locale=en"><span class="when">' in html
     assert '</a><code class="key">key-a</code>' in html
+
+
+def test_the_baseline_row_of_a_case_offers_no_comparison() -> None:
+    """The row stays and its moment is shown, without the link: the page does
+    not offer a comparison the server refuses. (#498)"""
+    history = case_history([("key-a", RUN_A), ("key-b", RUN_B)], "a")
+    html = case_page(history, baseline_key="key-a", locale="en", suite="brief")
+    assert compare_links(html) == {"key-b"}
+    assert '<td><span class="when">' in html
+    assert '</span><code class="key">key-a</code>' in html
 
 
 def test_the_two_hints_are_about_two_different_things() -> None:
