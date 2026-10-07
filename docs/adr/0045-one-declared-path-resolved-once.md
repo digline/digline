@@ -236,10 +236,12 @@ tables):
   records another, and in #481's third row the boundary passes a file outside
   the perimeter.
 - **In a TOML suite it fails.** From the command line with a relative
-  `--suite`, the second resolution names a path that does not exist, and the
-  run stops with exit 64 on `eval/eval/prompt.md`. The target has read and
-  found the right file, and nothing wrong is recorded, but a suite that is
-  right cannot run from the root.
+  `--suite` that has a directory in it, the second resolution names a path
+  that does not exist, and the run stops with exit 64 on
+  `eval/eval/prompt.md`. The target has read and found the right file, and
+  nothing wrong is recorded, but a suite that is right cannot run from the
+  root. A relative spec with no directory in it, `suite.toml` from `R/eval`,
+  does not fail: the second join lands on the right file.
 
 ### 2. Whoever reads the file reports the path it read
 
