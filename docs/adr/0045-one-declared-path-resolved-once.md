@@ -308,8 +308,23 @@ requirement already holds for the TOML form, without touching the loader and
 without an exception inside the rule.
 
 **Measured, beside it.** *Measured 2026-10-07 by the session that re-read this
-record:* in every TOML form tried, the target sends the right file. The defect
-is only `read_artifacts`'s second join.
+record, at `ddb57fe`, whose `host/`, `targets/` and package sources are
+identical to `e97c780`'s.* In each of these TOML forms the target sends the
+right file, `R/eval/prompt.md`, and the defect is only `read_artifacts`'s
+second join:
+- the command line with a relative spec that has a directory in it
+  (`eval/suite.toml` from `R`, `../R/eval/suite.toml` from `OUT`), and
+  `pytest-digline`'s `--digline-suite` flag, which passes the spec the same
+  way. These are the forms the second join breaks;
+- the command line from the suite's own directory (`suite.toml` from
+  `R/eval`);
+- the command line with an absolute spec;
+- the MCP server, from `R/eval`, `R` and `OUT`;
+- `pytest-digline`'s `digline_suites` ini, a `type="paths"` option, which
+  pytest makes absolute.
+
+These are the forms tried, and no others. The table is in the record of #476,
+*Which front end can hand `read_artifacts` a relative path, measured*.
 
 ### 5. `HasArtifacts` requires a path already resolved
 
@@ -513,8 +528,9 @@ section shows `Path(__file__).parent` and does not say why.
 were renamed with identical content stays as it is. A pin blinded by a rename
 is #483, and `pytest-digline`'s gate on a pin is #484. Neither is decided here.
 
-**When `pytest-digline` and Windows are measured.** Test plan entries 9 and 12
-measure the first. Nothing here schedules the second.
+**When the repair is measured on `pytest-digline`, and when anything is
+measured on Windows.** Test plan entry 9 measures the first. Nothing here
+schedules the second.
 
 ## What this record does not claim
 
@@ -530,10 +546,10 @@ measure the first. Nothing here schedules the second.
   anywhere else, the run records one file and the application reads another,
   and no rule about paths can see it. The cure there is the one of §6,
   `Path(__file__).parent`, written by the user.
-- **That `pytest-digline` behaves as the command line does.** It calls the
-  same `read_artifacts` with the suite's directory (`plugin.py:385`), and its
-  working directory is wherever pytest was started. Same behaviour is an
-  expectation. #481 did not measure it either.
+- **What any front end does after the repair.** Today's code was measured on
+  all three, `pytest-digline` included: the TOML forms are listed in §4, and
+  the `.py` form is in the record of #476. The repair does not exist, so
+  nothing after it was measured, on any front end.
 - **Anything about Windows.** Nothing in this record ran there. `_key` has a
   fallback for a path on another drive that returns an absolute string
   (`pragma: no cover`). A file on another drive is outside the perimeter and
@@ -553,9 +569,6 @@ measure the first. Nothing here schedules the second.
   not looked for.
 - **What a pin does after the repair.** Deduced from the code (§7), not
   executed. Test plan entry 7 executes it.
-- **That a TOML suite under `pytest-digline` behaves as under the MCP
-  server.** The path pytest collects is absolute, so it should. That was read,
-  not measured.
 
 ## Test plan
 
@@ -598,8 +611,7 @@ directory is set per test, never inherited.
    the same answer. The mutation is what bites: compute the name from the path
    before normalization, and the first half goes red.
 9. **Three front ends.** Entries 1, 2 and 4 through the command line, the MCP
-   server and `pytest-digline`. For `pytest-digline` this is the first
-   measurement.
+   server and `pytest-digline`, through both its flag and its ini.
 10. **A reference promoted before the repair.** Promoted on `main` from the
     agreed case, compared after it: exit 0 and no artifact change. A guard,
     green on `main` by construction.
