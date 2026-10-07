@@ -96,7 +96,10 @@ from digline.store import (
     FileResultStore,
     JournalRefusedError,
     Pending,
+    RemovedRun,
     ResultStore,
+    RunNotFoundError,
+    RunRef,
     SupportsJournal,
     migrate_paths,
 )
@@ -745,6 +748,115 @@ def cmd_promote(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_delete(args: argparse.Namespace) -> int:
+    """Remove a run, its journal legs and its replays across the tenant.
+
+    The key is written out: `latest` moves under a repeated command, and a
+    delete has to be repeatable on the key it started from. It exits 0 when
+    something was removed and when nothing was, and says which; a refusal
+    exits 64 like every refusal. No confirmation and no force flag: the way
+    past the baseline's refusal is to promote another run. (ADR 0044 §2)
+    """
+    if args.run == LATEST:
+        raise UsageError(
+            f"delete takes a run key, not {LATEST!r}: {LATEST!r} names the newest "
+            "readable run, so the same command would remove a different run "
+            "each time it was repeated. Find the key with `digline list` and "
+            "write it out"
+        )
+    suite, _loaded, store = _load(args)
+    removal = store.delete_run(
+        RunRef(tenant=suite.tenant, suite=suite.name, key=args.run)
+    )
+    for line in _removed(suite, removal.run, removal.nothing):
+        say(line)
+    for replay in removal.replays:
+        for line in _removed_replay(store, replay):
+            say(line)
+    if removal.unread:
+        # §5's sentence, whole: a count of unknowns, never of missed replays.
+        say(
+            f"{removal.unread} documents in tenant {suite.tenant} could not be "
+            f"read. Whether any of them was a replay of {args.run} is not known, "
+            "and none of them was removed."
+        )
+    return EXIT_OK
+
+
+def _legs(count: int) -> str:
+    return f"{count} journal leg{'' if count == 1 else 's'}"
+
+
+def _removed(suite: Suite, run: RemovedRun, nothing: bool) -> list[str]:
+    """The line about the run asked for. It never says *removed* of something
+    that was not there. (ADR 0044 §2)"""
+    where = f"in suite {suite.name}, tenant {suite.tenant}"
+    if nothing:
+        return [
+            f"nothing is filed under {run.ref.key} {where}: no document, no legs, "
+            "no replay. Nothing was removed."
+        ]
+    if not run.document and not run.legs:
+        return [
+            f"nothing was filed under {run.ref.key} itself {where}: no document "
+            "and no legs. Its replays were removed:"
+        ]
+    what = [
+        *(["its document"] if run.document else []),
+        *([_legs(run.legs)] if run.legs else []),
+    ]
+    if not run.document:
+        what.append("no document")
+    return [f"removed run {run.ref.key} {where}: {' and '.join(what)}."]
+
+
+def _removed_replay(store: ResultStore, replay: RemovedRun) -> list[str]:
+    """A replay removed, and what was wrong with how it was filed, if anything.
+
+    Never silent about a filing: a document filed otherwise than it holds is a
+    fact about the store's health, not only about the delete. (ADR 0044 §3.4)
+    """
+    ref = replay.ref
+    legs = f" and {_legs(replay.legs)}" if replay.legs else ""
+    lines = [
+        f"removed replay {ref.key} of suite {ref.suite}, tenant {ref.tenant}: "
+        f"its document{legs}."
+    ]
+    filing = replay.filed_as
+    if filing is None:
+        return lines
+    wrong: list[str] = []
+    if filing.name != ref.key:
+        wrong.append(f"its name is not its key {ref.key}")
+    if ref.tenant != filing.tenant:
+        wrong.append(f"it declares tenant {ref.tenant}")
+    if ref.suite != filing.suite:
+        wrong.append(f"it declares suite {ref.suite}")
+    if not wrong:
+        wrong.append("it declares no tenant or no suite that is a string")
+    lines.append(
+        f"  it was filed as {filing.name}.json in suite {filing.suite}, tenant "
+        f"{filing.tenant}, and {', and '.join(wrong)}: the store held a "
+        "document filed otherwise than it says."
+    )
+    if filing.name != ref.key:
+        # §5's two documents under one key: the one that stays answers to it.
+        try:
+            store.read_run(
+                RunRef(tenant=filing.tenant, suite=filing.suite, key=ref.key)
+            )
+        except RunNotFoundError:
+            return lines
+        except REFUSALS:
+            pass
+        lines.append(
+            f"  {ref.key} still names a document in suite {filing.suite}: only "
+            f"the copy filed as {filing.name}.json was removed, and that document "
+            f"and any journal legs under {ref.key}, which are its, were left."
+        )
+    return lines
+
+
 def cmd_register(args: argparse.Namespace) -> int:
     """A person's disposition about a comparison, appended to the register.
 
@@ -1085,6 +1197,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prom_p.add_argument("--target", help=TARGET_HELP)
     prom_p.set_defaults(func=cmd_promote)
+
+    del_p = subparsers.add_parser(
+        "delete",
+        help="remove a run, its journal legs and its replays across the tenant",
+    )
+    common(del_p)
+    del_p.add_argument(
+        "--run",
+        required=True,
+        metavar="KEY",
+        help=(
+            "the run's key, written out; 'latest' is refused, because a delete "
+            "must be repeatable on the key it started from"
+        ),
+    )
+    del_p.set_defaults(func=cmd_delete)
 
     reg_p = subparsers.add_parser(
         "register",
