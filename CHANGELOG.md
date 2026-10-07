@@ -44,6 +44,13 @@ notes under them are this file, verbatim.
 - **Docs: ADR 0045, *One declared path, resolved once*, accepted**, with what
   #481 measured in place of its deductions. `docs/api.md` says why a
   `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
+- **`digline view` refuses the baseline compared with itself** (#489). Every
+  other run compared with itself was answered 400 with *"A run compared with
+  itself has nothing to report."* The run the baseline was promoted from was
+  served as a verdict, *nothing got worse*, with 200. That pair is what the
+  runs page asks for by default right after the newest run is promoted:
+  both menus open on the newest run. It is now refused with the same sentence.
+  The menus' default does not move.
 
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
 
