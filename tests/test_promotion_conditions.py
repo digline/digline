@@ -20,6 +20,11 @@ of its reach, and so is one written by somebody else entirely — no device in
 this repository can hold those, which is the same footing ADR 0034 §12 ruled
 for the digests. What it does hold is every store this repository grows,
 starting with the production store ADR 0002 §6 plans.
+
+**The delete has the same gap, and is walked here too.** `delete_run` reads the
+baseline in its plan and refuses the run it rests on, with
+`refusal_for_a_promoted_run`, which returns the refusal rather than raising it
+for condition 8's reason. The walk below holds it the same way. (ADR 0044 §7)
 """
 
 from __future__ import annotations
@@ -32,7 +37,8 @@ import textwrap
 
 import digline
 from digline.core import Run
-from digline.store import FileResultStore
+from digline.store import FileResultStore, RunRef
+from digline.store.deletion import refusal_for_a_promoted_run
 from digline.store.promotion import refusal_for_a_moved_baseline, refusals_for
 
 #: A run for the two fixtures below to pass. They are read as source and never
@@ -54,9 +60,16 @@ CONDITION_8 = refusal_for_a_moved_baseline.__name__
 #: the same reason.
 DOCUMENT_CONDITIONS = refusals_for.__name__
 
+#: The delete's refusal about the baseline, which has condition 8's shape and
+#: its gap: it asks what the store holds now, so each backend reads the
+#: baseline itself, and a backend can omit it with nothing noticing.
+#: (ADR 0044 §7)
+DELETE_REFUSAL = refusal_for_a_promoted_run.__name__
 
-def _promoting_classes() -> dict[str, type[object]]:
-    """Every class defined under `digline` that implements `promote_baseline`.
+
+def _promoting_classes(method: str = "promote_baseline") -> dict[str, type[object]]:
+    """Every class defined under `digline` that implements `method`,
+    `promote_baseline` unless another is named.
 
     A `Protocol` is skipped: it *declares* the method, which is how the
     obligation is written down, not a place the obligation is met.
@@ -71,16 +84,16 @@ def _promoting_classes() -> dict[str, type[object]]:
             if (
                 inspect.isclass(value)
                 and value.__module__ == info.name
-                and "promote_baseline" in vars(value)
+                and method in vars(value)
                 and not getattr(value, "_is_protocol", False)
             ):
                 found[f"{info.name}.{value.__qualname__}"] = value
     return found
 
 
-def _reaches(cls: type[object], target: str) -> bool:
-    """Whether `promote_baseline` can reach `target`, following `self.…` calls
-    within the class.
+def _reaches(cls: type[object], target: str, method: str = "promote_baseline") -> bool:
+    """Whether `method` can reach `target`, following `self.…` calls within the
+    class.
 
     **Not a text search over the class**, and the difference is the whole
     guard: `FileResultStore` calls the helper from a private method, so a class
@@ -104,7 +117,7 @@ def _reaches(cls: type[object], target: str) -> bool:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
     }
     seen: set[str] = set()
-    stack = ["promote_baseline"]
+    stack = [method]
     while stack:
         name = stack.pop()
         if name in seen:
@@ -337,3 +350,81 @@ def test_a_refusal_that_is_computed_and_dropped_is_not_raised() -> None:
     )
     assert not _raises(_CallsTheHelperAndDropsIt, CONDITION_8)
     assert _raises(_CallsTheHelperAndRaisesIt, CONDITION_8)
+
+
+# --------------------------------------------------------------------------- #
+# The delete: the same obligation, on `delete_run` (ADR 0044 §7)
+# --------------------------------------------------------------------------- #
+
+
+def test_every_store_that_deletes_raises_the_refusal_about_the_baseline() -> None:
+    """A class that defines `delete_run` and never raises what
+    `refusal_for_a_promoted_run` returns removes the run under the current
+    baseline, and a reference vanishes from under a gate (ADR 0034 §1). Like
+    condition 8's walk, this reaches the classes in this repository and no
+    others."""
+    missing = sorted(
+        name
+        for name, cls in _promoting_classes("delete_run").items()
+        if not (
+            _reaches(cls, DELETE_REFUSAL, "delete_run") and _raises(cls, DELETE_REFUSAL)
+        )
+    )
+    assert not missing, (
+        f"{', '.join(missing)} implements delete_run without raising what "
+        f"{DELETE_REFUSAL} returns. The run the suite's current baseline was "
+        "promoted from must be refused, before the first removal: read the "
+        f"baseline in your plan, pass it to {DELETE_REFUSAL}, and raise what it "
+        "gives you; see ResultStore.delete_run."
+    )
+
+
+def test_the_delete_walk_sees_the_one_store_there_is() -> None:
+    walked = _promoting_classes("delete_run")
+    assert walked, "the walk found no class implementing delete_run"
+    assert walked.get("digline.store.file_store.FileResultStore") is FileResultStore
+
+
+_ANY_REF = RunRef(tenant="t", suite="s", key="k")
+
+
+class _DeletesWithoutTheBaseline:
+    """Test plan item 14's control: a class whose `delete_run` skips the
+    baseline check, and removes."""
+
+    def delete_run(self) -> None:
+        self._remove()
+
+    def _refuse_a_promoted_run(self) -> None:
+        promoted = refusal_for_a_promoted_run(_ANY_REF, None)
+        if promoted is not None:
+            raise promoted
+
+    def _remove(self) -> None:
+        pass
+
+
+class _DeletesAfterTheBaseline:
+    """The same class with the check in place, so the mutant's failure is the
+    walk's answer and not one it gives everything."""
+
+    def delete_run(self) -> None:
+        self._refuse_a_promoted_run()
+        self._remove()
+
+    def _refuse_a_promoted_run(self) -> None:
+        promoted = refusal_for_a_promoted_run(_ANY_REF, None)
+        if promoted is not None:
+            raise promoted
+
+    def _remove(self) -> None:
+        pass
+
+
+def test_14_a_delete_that_skips_the_baseline_check_fails_the_walk() -> None:
+    """The class keeps the helper and its raise, so a text search and
+    `_raises` both pass it; only the walk from `delete_run` says it is never
+    reached."""
+    assert _raises(_DeletesWithoutTheBaseline, DELETE_REFUSAL)
+    assert not _reaches(_DeletesWithoutTheBaseline, DELETE_REFUSAL, "delete_run")
+    assert _reaches(_DeletesAfterTheBaseline, DELETE_REFUSAL, "delete_run")

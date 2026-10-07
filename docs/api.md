@@ -29,10 +29,11 @@ The report lives in `digline.report` (`headline`, `render_html`, `Locale`,
 [`render_run_html`](#the-first-round-render_run_html),
 [`case_history`](#one-case-across-runs-case_history) and
 [`suspension_snippet`](#setting-a-case-aside-suspension_snippet)), the
-store in `digline.store` (`FileResultStore`, `RunRef`, and three methods by
+store in `digline.store` (`FileResultStore`, `RunRef`, and four methods by
 name: `FileResultStore.name_table_dir` — [below](#the-name-tables-directory) —
-and `read_run` and `read_baseline` —
-[further below](#reading-and-promoting-from-a-program)).
+`read_run` and `read_baseline` —
+[further below](#reading-and-promoting-from-a-program) — and `delete_run`,
+[with its limits](#deleting-delete_run)).
 
 Two more, for anything that drives digline rather than declares a suite.
 `digline.host` is the layer that touches the world — `load_suite`, `Loaded`,
@@ -1616,6 +1617,74 @@ except REFUSALS as refused:
   one with no `promoted_at` or with answers. That is a served projection
   standing where a reference belongs
   ([ADR 0038](adr/0038-the-projection-of-a-run-nobody-promoted.md) §1).
+
+### Deleting: `delete_run`
+
+**`FileResultStore.delete_run(ref)`** removes the run `ref` names, its journal
+legs, and every replay chained from it, in any suite of `ref.tenant`. It is the
+sixth method of the `ResultStore` protocol, and the one whose reach is a whole
+tenant rather than one suite: a replay can be filed under any suite of the
+tenant, so a backend has to list them all. The command over it is
+[`digline delete`](delete.md). ([ADR 0044](adr/0044-the-run-delete.md))
+
+**The contract.** After it returns, neither `ref` nor any replay chained from
+it through documents the delete could read is returned by `read_run`,
+`scan_runs`, `list_runs` or `pending`, in any suite of the tenant.
+
+It returns a **`Removal`**:
+
+- `run`: a **`RemovedRun`** for the run asked for.
+- `replays`: one `RemovedRun` per replay, in the order removed, leaves first.
+- `unread`: how many documents of the tenant could not be read. **A count of
+  unknowns, not of missed replays**: it says nothing about whether any of them
+  was a replay.
+- `nothing`: true when there was no document, no legs and no replay. **Not an
+  error**: a repeated delete returns it, and so does a mistyped key, because
+  nothing remembers a removal.
+
+A `RemovedRun` carries:
+
+- `ref`: the run's own `RunRef`. Its key is `key_of(created_at, config_hash)`
+  read from the document, never a file's name, and its tenant and suite are the
+  ones the document declares.
+- `created_at`: read before removing, from the document or a leg's header.
+  `None` only for a run with no document and no readable leg.
+- `legs`: how many journal legs were removed. `document`: whether a document
+  was.
+- `filed_as`: a **`Filing`** — `tenant`, `suite` and the file's `name` — set
+  whenever the file's name, the address the document declares and its key do
+  not all agree. `None` where all three agree. A `Filing` is not a `RunRef`: a
+  reference that carried a file's name would not refer.
+
+**Everything it refuses, it refuses before removing anything**, in this order:
+
+1. `PathRefusedError` for a tenant, suite or key that is not one safe segment.
+2. The baseline: the error reading it raised, when it cannot be read, and
+   **`PromotedRunError`** when its key is `ref.key`, whether or not the run is
+   still there. Promote another run first.
+3. The document under the key: `TenantMismatchError` and `SuiteMismatchError`
+   as `read_run` raises them, `DocumentRefusedError` for one that is not a JSON
+   object, **`KeylessRunError`** for one without `created_at` or `config_hash`,
+   and `MisfiledRunError` for one whose key is not its name. A document at an
+   older schema is removed, not refused.
+4. The tenant: `DirectoryUnreadableError` for a directory that cannot be
+   listed, `PathRefusedError` for a path to remove that leads out of the store,
+   and `KeylessRunError` for a replay on the chain with no key of its own.
+
+`PromotedRunError` and `KeylessRunError` are in `digline.host.REFUSALS`.
+
+**Its limits, beside it.** There is no lock, so a delete racing a write loses:
+a live run writes its document after, `promote` can write a baseline from a run
+this removed, and `rejudge` can file a replay after the delete looked. Two
+suites that share a key reach each other's replays. Nothing committed is
+touched, nothing outside the store is reached, and it is not an erasure. Each
+is said at length on [the command's page](delete.md#the-limits).
+
+**A backend of your own** has to raise `PromotedRunError` itself, from a
+baseline it reads in its own plan: `digline.store.refusal_for_a_promoted_run`
+writes the sentence. `tests/test_promotion_conditions.py` holds the classes in
+this repository to it, and yours, if it lives elsewhere, only by the protocol's
+docstring.
 
 ### Listing: `suite_runs`
 

@@ -30,7 +30,7 @@ import re
 import tempfile
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -63,6 +63,7 @@ from digline.core.run import (
     without_responses,
 )
 from digline.core.types import Cause
+from digline.store.deletion import refusal_for_a_promoted_run
 from digline.store.promotion import (
     refusal_for_a_moved_baseline,
     refusals_for,
@@ -71,8 +72,10 @@ from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
     DirectoryUnreadableError,
+    Filing,
     JournalBusyError,
     JournalHeader,
+    KeylessRunError,
     Listing,
     Misfiled,
     MisfiledRunError,
@@ -81,6 +84,8 @@ from digline.store.protocol import (
     Pending,
     Register,
     RegisterRefusedError,
+    Removal,
+    RemovedRun,
     RunNotFoundError,
     RunRef,
     SuiteMismatchError,
@@ -264,6 +269,96 @@ def _listed(directory: Path, pattern: str) -> list[Path]:
             "Nothing in it was read, so this is not an empty directory"
         ) from exc
     return sorted(directory / name for name in fnmatch.filter(names, pattern))
+
+
+def _suite_dirs(runs: Path) -> list[Path]:
+    """Every suite directory under a tenant's `runs/`, sorted, or a refusal.
+
+    `_listed`'s rule for a directory that cannot be opened: a tenant whose
+    `runs/` could not be listed was not looked at, which is not a tenant with
+    no runs. An entry whose name is not one safe segment is no suite any
+    reader can address, so it is not one here either. (ADR 0044 §3.4)
+    """
+    try:
+        with os.scandir(runs) as entries:
+            names = [entry.name for entry in entries if entry.is_dir()]
+    except OSError as exc:
+        if exc.errno in _ABSENT:
+            return []
+        raise DirectoryUnreadableError(
+            f"cannot list {runs}: {exc.strerror or f'errno {exc.errno}'}. "
+            "Nothing in it was read, so this is not a tenant with no runs"
+        ) from exc
+    return sorted(runs / name for name in names if _NAME_RE.match(name))
+
+
+def _keyless(document: Mapping[str, object]) -> str:
+    """Why `_declared_key` found no key, field by field, or empty when it did.
+
+    Named rather than summed up, because a person repairs a field: *"it lacks
+    created_at"* says what to put back, *"it has no key"* does not."""
+    why: list[str] = []
+    for name in ("created_at", "config_hash"):
+        value = document.get(name, _MISSING)
+        if value is _MISSING:
+            why.append(f"it lacks {name}")
+        elif not isinstance(value, str):
+            why.append(f"its {name} is {_kind(value)}, not a string")
+        elif not value:
+            why.append(f"its {name} is empty")
+    return " and ".join(why)
+
+
+def _declared(document: Mapping[str, object], name: str, filed: str) -> str:
+    """The tenant or suite a document declares, or the directory it was filed
+    in when it declares none that is a string: there is then no other address
+    to name it by. `filed_as` still records the filing, because a declaration
+    that is missing is a malformed document. (ADR 0044 §3.4)"""
+    value = document.get(name)
+    return value if isinstance(value, str) and value else filed
+
+
+def _shown(value: object) -> str:
+    """A declared value in a refusal: quoted when it is a string, named by its
+    JSON kind when not, and never longer than a reader needs."""
+    return repr(value[:60]) if isinstance(value, str) else _kind(value)
+
+
+def _rejudged_from(document: Mapping[str, object]) -> str | None:
+    """The key a document says it replays, or `None`. A value that is not a
+    string names no key, so it puts the document on no chain."""
+    value = document.get("rejudged_from")
+    return value if isinstance(value, str) else None
+
+
+def _header_created_at(leg: Path) -> str | None:
+    """The `created_at` a leg's header carries, or `None` where it cannot be
+    read: a run a delete removes as legs alone has nowhere else to say when it
+    was born. Read, never trusted further than that. (ADR 0044 §6)"""
+    try:
+        with leg.open(encoding="utf-8") as handle:
+            raw = json.loads(handle.readline())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    header = cast(Mapping[str, object], raw)
+    created_at = header.get("created_at")
+    if header.get("kind") != "header" or not isinstance(created_at, str):
+        return None
+    return created_at or None
+
+
+@dataclass(frozen=True, slots=True)
+class _Doomed:
+    """One run on a delete's plan: what the caller is told, and the paths that
+    go. The paths are the names found in the directories, never the files
+    they resolve to, so a link inside the store is removed and its target is
+    not."""
+
+    removed: RemovedRun
+    legs: tuple[Path, ...]
+    document: Path | None
 
 
 class FileResultStore:
@@ -605,6 +700,252 @@ class FileResultStore:
         )
         if moved is not None:
             raise moved
+
+    # -- the delete ----------------------------------------------------------- #
+
+    def delete_run(self, ref: RunRef) -> Removal:
+        """See the protocol. A plan that only reads, then a removal that raises
+        no refusal. (ADR 0044)"""
+        # 1. The address, first: without valid names the baseline cannot be read.
+        _check_name(ref.tenant, "tenant")
+        _check_name(ref.suite, "suite")
+        _check_name(ref.key, "run")
+
+        # 2. The baseline. One that cannot be read raises here, with the error
+        # its reading raised: could not look is not "not under the baseline".
+        self._refuse_a_promoted_run(ref)
+
+        # 3. The run asked for, then 4. the tenant.
+        target = self._plan_target(ref)
+        replays, unread = self._plan_replays(ref, target)
+
+        # The removal. Leaves first, so an interruption leaves every replay not
+        # yet removed chained to `ref` through the ones that survive, and the
+        # same call finds it again. Legs before the document, so a run cut off
+        # between the two is a finished run with no legs. (ADR 0044 §4)
+        doomed = (*replays, target)
+        for item in doomed:
+            for leg in item.legs:
+                leg.unlink(missing_ok=True)
+            if item.document is not None:
+                item.document.unlink(missing_ok=True)
+        for journal in {leg.parent for item in doomed for leg in item.legs}:
+            # Only when nothing else is pending, as `complete` does it.
+            with suppress(OSError):
+                journal.rmdir()
+        return Removal(
+            run=target.removed,
+            replays=tuple(item.removed for item in replays),
+            unread=unread,
+        )
+
+    def _refuse_a_promoted_run(self, ref: RunRef) -> None:
+        """Read the baseline and raise the delete's refusal if it rests on
+        `ref.key`. The read is this store's, the sentence is
+        `refusal_for_a_promoted_run`'s. (ADR 0044 §3.2)"""
+        promoted = refusal_for_a_promoted_run(
+            ref, self.read_baseline(ref.tenant, ref.suite)
+        )
+        if promoted is not None:
+            raise promoted
+
+    def _raw_document(self, path: Path) -> Mapping[str, object]:
+        """The document under the key asked for, as the scan reads it: parsed,
+        and nothing built from it.
+
+        Raises `DocumentRefusedError` for what is not a JSON object, and
+        `PathRefusedError` for a link out of the store."""
+        text = _document_text(self._inside(path, "run"))
+        try:
+            raw = json.loads(text)
+        except ValueError:
+            raise DocumentRefusedError(
+                f"{path} is not JSON, so it cannot be shown to be the run its name "
+                "says. Removing it by name could remove the wrong document, so "
+                "nothing was removed"
+            ) from None
+        if not isinstance(raw, dict):
+            raise DocumentRefusedError(
+                f"{path} is JSON but not a document, so it cannot be shown to be "
+                "the run its name says. Removing it by name could remove the "
+                "wrong document, so nothing was removed"
+            )
+        return cast(Mapping[str, object], raw)
+
+    def _plan_target(self, ref: RunRef) -> _Doomed:
+        """The document under `ref.key`, verified to be that run with the
+        scan's light reading so an older schema can be removed, and its legs,
+        removed by name. (ADR 0044 §3.3)"""
+        path = self.run_path(ref)
+        document: Path | None = None
+        created_at: str | None = None
+        if _exists(path):
+            raw = self._raw_document(path)
+            tenant, suite = raw.get("tenant"), raw.get("suite")
+            if tenant != ref.tenant:
+                raise TenantMismatchError(
+                    f"the run stored at {path} declares tenant {_shown(tenant)} "
+                    f"but was addressed as {ref.tenant!r}, so nothing was removed"
+                )
+            if suite != ref.suite:
+                raise SuiteMismatchError(
+                    f"the run stored at {path} declares suite {_shown(suite)} but "
+                    f"is filed under {ref.suite!r}, so nothing was removed"
+                )
+            key = _declared_key(raw)
+            if key is None:
+                raise KeylessRunError(
+                    f"the file filed as run {ref.key} at {path} has no key of its "
+                    f"own: {_keyless(raw)}. It cannot be shown to be run "
+                    f"{ref.key}, and removing it by name could remove the wrong "
+                    "document, so nothing was removed"
+                )
+            if key != ref.key:
+                self._refuse_misfiled(ref)
+            created_at = cast(str, raw["created_at"])
+            document = path
+        legs = self._legs_to_remove(self.journal_dir(ref.tenant, ref.suite), ref.key)
+        if created_at is None:
+            created_at = next(
+                (found for leg in legs if (found := _header_created_at(leg))), None
+            )
+        return _Doomed(
+            removed=RemovedRun(
+                ref=ref,
+                created_at=created_at,
+                legs=len(legs),
+                document=document is not None,
+            ),
+            legs=legs,
+            document=document,
+        )
+
+    def _legs_to_remove(self, journal: Path, key: str) -> tuple[Path, ...]:
+        """Every leg of `key`, by name, each proved to lead inside the store.
+
+        Not verified beyond its name: a leg's name is its key, and a leg nobody
+        can read is still that run's. (ADR 0044 §3.3)"""
+        legs = tuple(path for _, path in self._legs(journal, key))
+        for leg in legs:
+            self._inside(leg, "journal")
+        return legs
+
+    def _plan_replays(self, ref: RunRef, target: _Doomed) -> tuple[list[_Doomed], int]:
+        """Every document of the tenant read for its `rejudged_from`, the chain
+        followed down from `ref.key`, and the replays on it in the order they
+        go, leaves first. Returned with the count of documents that could not
+        be read.
+
+        **The plan trusts neither a file's name nor the address a document
+        declares.** What identifies a document is its key and its
+        `rejudged_from`, so a replay filed under another name, or declaring
+        another tenant or suite than the directory it sits in, is on the chain
+        like any other and is removed, with `filed_as` saying where it was. A
+        document that puts itself on the chain and has no key cannot be named,
+        and refuses the delete. (ADR 0044 §3.4, ruled 2026-10-07)
+        """
+        read: list[tuple[Path, Mapping[str, object]]] = []
+        unread = 0
+        for directory in _suite_dirs(self.runs_dir(ref.tenant)):
+            for path in _listed(directory, "*.json"):
+                if path == target.document:
+                    continue
+                try:
+                    # `scan_runs`' rule: a linked-out file is counted, never
+                    # opened.
+                    raw = json.loads(
+                        self._inside(path, "run").read_text(encoding="utf-8")
+                    )
+                except (OSError, ValueError):
+                    unread += 1
+                    continue
+                if not isinstance(raw, dict):
+                    unread += 1
+                    continue
+                read.append((path, cast(Mapping[str, object], raw)))
+
+        # Breadth first, one level of the chain per pass: a document joins at
+        # the first pass whose chain holds the key its `rejudged_from` names.
+        chain = {ref.key}
+        levels: list[list[tuple[Path, RemovedRun]]] = []
+        on_plan: set[Path] = set()
+        while True:
+            level = [
+                (path, raw)
+                for path, raw in read
+                if path not in on_plan and _rejudged_from(raw) in chain
+            ]
+            if not level:
+                break
+            found = [self._plan_replay(ref, path, raw) for path, raw in level]
+            on_plan.update(path for path, _ in found)
+            chain |= {removed.ref.key for _, removed in found}
+            levels.append(found)
+
+        # Legs last, once the whole plan is known, because whose they are
+        # depends on it. Legs are named by a key, so they belong to the
+        # document filed under that key. Where such a document stays — a
+        # misfiled replay of `K` holds the key of a run that is not on the
+        # chain — its legs stay with it: the legs of the document removed would
+        # be under the same name, and nothing tells the two apart. Two
+        # documents under one key that both go take the legs once. (ADR 0044
+        # §5, ruled 2026-10-07)
+        doomed: list[_Doomed] = []
+        taken: set[Path] = set()
+        for path, removed in (pair for level in reversed(levels) for pair in level):
+            directory = path.parent
+            owner = directory / f"{removed.ref.key}.json"
+            legs: tuple[Path, ...] = ()
+            if owner in on_plan or not _exists(owner):
+                legs = tuple(
+                    leg
+                    for leg in self._legs_to_remove(
+                        directory / PENDING_DIRNAME, removed.ref.key
+                    )
+                    if leg not in taken
+                )
+                taken.update(legs)
+            doomed.append(
+                _Doomed(
+                    removed=replace(removed, legs=len(legs)),
+                    legs=legs,
+                    document=path,
+                )
+            )
+        return doomed, unread
+
+    def _plan_replay(
+        self, ref: RunRef, path: Path, raw: Mapping[str, object]
+    ) -> tuple[Path, RemovedRun]:
+        """One document on the chain: its own key, the address it declares,
+        and how it was filed whenever the file's name, that address and its
+        key do not all agree. Its legs are counted once the plan is whole.
+        (ADR 0044 §1, §3.4)"""
+        key = _declared_key(raw)
+        if key is None:
+            raise KeylessRunError(
+                f"{path} is on the chain of run {ref.key}, through its "
+                f"rejudged_from, and has no key of its own: {_keyless(raw)}. "
+                "What cannot be named is not removed, so nothing was removed"
+            )
+        filing = Filing(tenant=ref.tenant, suite=path.parent.name, name=path.stem)
+        declared = RunRef(
+            tenant=_declared(raw, "tenant", filing.tenant),
+            suite=_declared(raw, "suite", filing.suite),
+            key=key,
+        )
+        agree = (
+            raw.get("tenant") == filing.tenant
+            and raw.get("suite") == filing.suite
+            and key == filing.name
+        )
+        return path, RemovedRun(
+            ref=declared,
+            created_at=cast(str, raw["created_at"]),
+            legs=0,
+            document=True,
+            filed_as=None if agree else filing,
+        )
 
     # -- the register --------------------------------------------------------- #
 

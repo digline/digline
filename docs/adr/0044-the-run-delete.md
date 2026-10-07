@@ -8,7 +8,11 @@
   file under a key that cannot be verified, and the absence from the MCP
   server; a ninth, the misfiled replay (§3.4), was ruled on the draft. The
   rest are *decided here*, marked where they are made, and were accepted with
-  the record
+  the record. *More were ruled 2026-10-07, during implementation, each
+  marked where it is made:* the replay that declares another tenant or suite,
+  which left *Not decided here*, the document on the chain with no key of its
+  own and the rule they share (§3.4), `Filing` and `filed_as` (§1), and the
+  legs under a key a misfiled replay shares (§5)
 - Shipped: unreleased
 - Date: 2026-10-06
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -16,7 +20,8 @@
   document; it removes some
 - Requires, at implementation: **a sixth method on `ResultStore`** and two
   values it returns (§1); **a refusal**, `PromotedRunError`, in
-  `host.REFUSALS` (§3); **a command**, `digline delete` (§2); the two
+  `host.REFUSALS` (§3), and *since 2026-10-07* a second, `KeylessRunError`
+  (§3.4); **a command**, `digline delete` (§2); the two
   docstrings §7 names, rewritten
 - Implements: [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
   §14, *"A delete. Five methods become six"*, which says its contract is
@@ -133,6 +138,12 @@ The measurements quoted above are those of the 2026-10-06 rulings.
         def delete_run(self, ref: RunRef) -> Removal: ...
 
     @dataclass(frozen=True, slots=True)
+    class Filing:                # added 2026-10-07
+        tenant: str              # the tenant's directory
+        suite: str               # the suite's directory
+        name: str                # the file's name, without .json
+
+    @dataclass(frozen=True, slots=True)
     class RemovedRun:
         ref: RunRef              # the run's own key, key_of(created_at,
                                  # config_hash), never a file's name
@@ -140,6 +151,10 @@ The measurements quoted above are those of the 2026-10-06 rulings.
                                  # readable carried it
         legs: int                # journal legs removed
         document: bool           # whether a run document was removed
+        filed_as: Filing | None  # how it was filed, whenever the file's
+                                 # name, the address it declares and its
+                                 # key do not all agree (§3.4). None only
+                                 # where all three agree. Added 2026-10-07
 
     @dataclass(frozen=True, slots=True)
     class Removal:
@@ -149,6 +164,16 @@ The measurements quoted above are those of the 2026-10-06 rulings.
                                          # could not read
         @property
         def nothing(self) -> bool: ...   # no document, no legs, no replay
+
+**`Filing` is not a `RunRef`. Ruled 2026-10-07.** A `RunRef` names a run by its
+key, and a store answers to that key alone (ADR 0040). A `RunRef` that carried
+a file's name would be a reference that does not refer, and this record exists
+to keep the two apart. `filed_as` is set whenever the file's name, the tenant
+and suite the document declares, and its key do not all agree, including a
+declaration that is missing or not a string. There `ref` takes the directory,
+which is all there is to name the run by, and `filed_as` still records the
+filing, because that bit is the only thing that tells a reader the store holds
+a malformed document.
 
 **The contract.** After `delete_run(ref)` returns, neither `ref` nor any
 replay chained from it **through documents the scan could read** is returned by
@@ -294,6 +319,39 @@ this order.
      answers, or verdicts on them, which is why ruling 5 exists. Left in place,
      a file filed wrongly would shield those answers from the delete, and
      filing one wrongly would become a way round it.
+   - **A replay of `K` that declares another tenant or another suite than
+     the directory it was found in is removed. Ruled 2026-10-07.** It was in
+     *Not decided here*, and the implementation's scan met it. `read_run`
+     refuses such a document, but `scan_runs` reads three fields and lists
+     it, so left in place it would still be returned with `K`'s answers.
+     **The declaration is a defect, not an address**, so removing it does
+     not leave §1's reach, which is the tenant whose directory holds it.
+     `RemovedRun.ref` carries what the document declares and its own key,
+     and `filed_as` the address it was filed at, so the command names the
+     file and what it declared: it is a fact about the store's health, not
+     only about the delete.
+   - **A document on the chain with no key of its own refuses the delete.
+     Ruled 2026-10-07.** One that lacks `created_at` or `config_hash`, or
+     holds either as something other than a non-empty string, cannot be
+     named, and what cannot be named is not removed. The refusal is its own,
+     `KeylessRunError`, naming the file and the field, and not
+     `MisfiledRunError`: there the key contradicts the name, here there is
+     no key, and the reader needs to know which. It falls in the fourth
+     step, so it comes before the first removal like every refusal of §3,
+     and nothing depends on whether `scan_runs` would list the document.
+   - **The rule the four cases share. Ruled 2026-10-07.** The plan is built
+     from a raw reading that trusts neither a file's name nor the address a
+     document declares. **What identifies a document is its key and its
+     `rejudged_from`.**
+     - The run `K` asked for: whatever cannot be verified refuses (§3.3).
+       That is not an exception to the rule. It refuses because the key
+       cannot be verified, not because the name counts.
+     - A document elsewhere in the tenant, identified: removed, however it
+       is filed, under the wrong name (§3.4) or in a tenant or suite other
+       than the one it declares.
+     - A document that puts itself on the chain and has no identity of its
+       own: refuses the delete. What cannot be named is not removed.
+     - A document that cannot be read at all: counted, never opened (§5).
 
 **What the plan cannot reach, by structure.** The name table
 (`.digline/<tenant>/name-table/`, ADR 0036 §2) is outside `runs/`, so the
@@ -358,6 +416,8 @@ nothing else removes a journal that might still be finished.
   count of unknowns, not of missed replays (§1). The command says: *"N
   documents in tenant T could not be read. Whether any of them was a replay of
   K is not known, and none of them was removed."* Never silent.
+  *Added 2026-10-07:* a JSON document with no key is not an unknown: on the
+  chain it is a refusal (§3.4).
 - **A misfiled document is not an unknown. Found writing this record.** The
   first draft of this section counted it among the documents the scan cannot
   read. It never belonged there: §3.4's raw reading reads its
@@ -368,6 +428,10 @@ nothing else removes a journal that might still be finished.
   misfiled one is, only it goes, and `Removal.replays` names a key that
   `read_run` still answers to, with the other document. The command says so
   beside that key rather than reporting it as gone.
+  **The legs under that key are not touched. Ruled 2026-10-07.** Legs are
+  named by a key, so they belong to the document filed under it, which is the
+  one that stays; the legs of the removed document would carry the same name,
+  and nothing tells the two apart. The command says that too.
 - **Two suites can share a key** (*Context*). The cascade matches
   `rejudged_from` by key across the tenant, so with such a collision it reaches
   the replays of the other suite's run too. It takes the same configuration and
@@ -448,14 +512,19 @@ nothing else removes a journal that might still be finished.
   ruling (§3.4): the document was read, and a wrong name would shield it.
 - **A `delete` tool on the MCP server, marked destructive.** Refused by ruling
   (§2).
+- **Remove a keyless document on the chain by its file's name.** Refused by
+  ruling, 2026-10-07 (§3.4): it contradicts §1's `RemovedRun.ref`, which is
+  the run's own key and never a file's name.
+- **Count a keyless document on the chain in `unread`.** Refused by ruling,
+  2026-10-07 (§3.4): the document was read, so §5's sentence, which says the
+  counted documents could not be read, would be false.
 
 ## Not decided here
 
-- **A replay of `K` that declares another tenant or another suite** than
-  the directory it was found in. `read_run` refuses such a document
-  (`TenantMismatchError`, `SuiteMismatchError`), and only a hand produces
-  one. Whether the cascade removes it, refuses the delete or counts it is not
-  ruled.
+- **Whether the cascade should match `rejudged_from` on more than the key**,
+  so that two suites sharing a key (§5) no longer reach each other's replays.
+  It is the real fix of that limit. *Added 2026-10-07.*
+
 - **`digline view`.** Whether its server, which has one route that writes,
   carries a delete.
 - **A delete of a run whose suite no longer loads.** The command addresses
@@ -515,3 +584,14 @@ nothing else removes a journal that might still be finished.
     a delete of every run in the tenant.
 14. **The walk** of §7, with a control: a class defining `delete_run` that
     skips the baseline check fails it.
+15. **A replay that declares another address** *(added 2026-10-07)*: a
+    document on `K`'s chain that declares another tenant, and one that
+    declares another suite; both removed, named in `Removal.replays` by
+    their own key, with `filed_as` set, and the command's sentence.
+16. **A keyless document on the chain** *(added 2026-10-07)*: one without
+    `created_at` and one without `config_hash`, both refused with
+    `KeylessRunError` naming the file and the field, and nothing removed.
+17. **Two suites that share a key** *(added 2026-10-07)*: `K` in suite `s`,
+    a run with the same key in suite `t` and a replay of it; the delete of `K`
+    removes that replay and leaves the run in `t`, which `read_run` still
+    returns. §5 states the limit, and this holds it as a behaviour.

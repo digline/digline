@@ -76,6 +76,12 @@ the second is upgrade maintenance somebody chose the moment for; the last two
 are documents written for a person, and an agent that wants the facts behind the
 report calls `compare`, which carries them.
 
+`delete` is absent for the first one's reason, and further from review than it:
+`promote` writes a committed file, which arrives in somebody's diff, while a
+delete removes artifacts that are gitignored, with no diff, no review and no way
+back. A destructive hint would not stand in for the absence: a hint is not
+enforcement. ([ADR 0044](adr/0044-the-run-delete.md) §2)
+
 ## Configuring it
 
 One server serves **one repository**. The perimeter is the repo, and
