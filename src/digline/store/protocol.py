@@ -30,10 +30,14 @@ __all__ = [
     "JournalBusyError",
     "JournalHeader",
     "JournalRefusedError",
+    "KeylessRunError",
     "Listing",
     "Misfiled",
     "MisfiledRunError",
     "Pending",
+    "PromotedRunError",
+    "Removal",
+    "RemovedRun",
     "ReplayedRunError",
     "UncalibratedRunError",
     "ResultStore",
@@ -271,6 +275,39 @@ class BaselineMovedError(Exception):
     """
 
 
+class PromotedRunError(Exception):
+    """Raised when a delete names the run its suite's current baseline was
+    promoted from.
+
+    A baseline is the complete run without its responses, so a baseline that
+    survived the run under it would keep that run's verdicts, reasons,
+    artifacts and configuration, and a delete that reached the baseline would
+    be a reference vanishing from under a gate (ADR 0034 §1). So the delete
+    reaches neither: it refuses, and the sentence names the one way past, which
+    is to promote another run first. No flag overrides it (ADR 0031 §3).
+
+    **A refusal about the key, not about the run**: a baseline promoted from a
+    run that is no longer there still names its key, and the delete of that
+    key is refused the same way. (ADR 0044 §3.2)
+    """
+
+
+class KeylessRunError(DocumentRefusedError):
+    """Raised when a delete meets a run document with no key of its own.
+
+    The key is `key_of(created_at, config_hash)`, and a document that lacks
+    either field, or holds one that is not a string or is empty, has none.
+    Not `MisfiledRunError`: there the key contradicts the name, here there is
+    no key to contradict it, and the reader needs to know which.
+
+    Raised in the plan, before anything is removed, for the file under the key
+    asked for and for a document elsewhere in the tenant whose `rejudged_from`
+    puts it on that key's chain: what cannot be named is not removed, and
+    naming it by its file would contradict `RemovedRun.ref`. (ADR 0044 §3.3,
+    §3.4)
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class RunRef:
     """An opaque reference to a persisted run.
@@ -285,6 +322,58 @@ class RunRef:
     tenant: str
     suite: str
     key: str
+
+
+@dataclass(frozen=True, slots=True)
+class RemovedRun:
+    """One run a delete removed, as a document, as journal legs, or as both.
+
+    `ref` is the run's own identity: its key is `key_of(created_at,
+    config_hash)` read from the document, never a file's name, and its tenant
+    and suite are the ones the document declares. Where the run was filed
+    otherwise — under a name that is not its key, or in a tenant or suite it
+    does not declare — `found_in` is the address it was filed at, so a reader
+    learns both the run and the defect in the store. `None` where it was filed
+    where it says it is. (ADR 0044 §1, §3.4)
+
+    `created_at` is read before removing, from the document or from a leg's
+    header, and is `None` only for a run with no document whose every leg was
+    unreadable: the key's slug does not reverse. It is what a ledger entry
+    names (ADR 0035 §4, proposed).
+    """
+
+    ref: RunRef
+    created_at: str | None
+    #: Journal legs removed.
+    legs: int
+    #: Whether a run document was removed.
+    document: bool
+    found_in: RunRef | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Removal:
+    """What `delete_run` removed, and how much of the tenant it could not read.
+
+    `unread` counts documents of the tenant the scan could not read, **not
+    missed replays**: it is a count of unknowns. `unread: 3` says three
+    documents were not read, and nothing about whether any of them was a
+    replay of the run removed. (ADR 0044 §1, §5)
+    """
+
+    #: The run that was asked for.
+    run: RemovedRun
+    #: In the order removed: leaves first.
+    replays: tuple[RemovedRun, ...] = ()
+    unread: int = 0
+
+    @property
+    def nothing(self) -> bool:
+        """No document, no legs and no replay: nothing was filed under the key.
+
+        A key that was removed before and a key that never existed read the
+        same here, because nothing remembers a removal (ADR 0044 §1)."""
+        return not self.run.document and not self.run.legs and not self.replays
 
 
 class MisfiledRunError(DocumentRefusedError):
@@ -609,6 +698,60 @@ class ResultStore(Protocol):
         """
         ...
 
+    def delete_run(self, ref: RunRef) -> Removal:
+        """Remove a run, its journal legs, and every replay chained from it.
+
+        **The contract.** After this returns, neither `ref` nor any replay
+        chained from it through documents the scan could read is returned by
+        `read_run`, `scan_runs`, `list_runs` or `pending`, in any suite of
+        `ref.tenant`. A document the scan could not read is not reached, and is
+        counted in `Removal.unread`. (ADR 0044 §1)
+
+        **Its reach is the tenant, and no other method's is.** The replays it
+        must reach can be filed under any suite of `ref.tenant`, so a backend
+        has to list the suites of a tenant and read every run document in each
+        — including one that keeps suites apart. Replays are found by their
+        `rejudged_from`, read from the raw document so an older schema is
+        reached, and followed down the chain.
+
+        **Two phases.** A plan that only reads and is the one place a refusal
+        is raised, then a removal that raises none. In the plan, in this order:
+
+        1. `PathRefusedError` for a tenant, suite or key that is not one safe
+           segment.
+        2. The baseline. One that cannot be read refuses with the error reading
+           it raised. One whose key is `ref.key` refuses with
+           `PromotedRunError`, whether or not the run is still there — **this
+           is yours to write**, and `digline.store.refusal_for_a_promoted_run`
+           writes its sentence. `tests/test_promotion_conditions.py` fails if a
+           class in this repository defines `delete_run` without raising it.
+        3. The run asked for, verified to be the run `ref.key` names:
+           `MisfiledRunError`, `TenantMismatchError`, `SuiteMismatchError` as
+           `read_run` raises them, `KeylessRunError` for a file that lacks
+           either key field, and `DocumentRefusedError` for one that is not a
+           JSON object. Legs are not verified: a leg's name is its key.
+        4. The tenant: `DirectoryUnreadableError` for a directory that cannot
+           be listed, `PathRefusedError` for a path to remove that leads
+           outside the store, and `KeylessRunError` for a document on the chain
+           with no key of its own. A document on the chain filed under another
+           name, or declaring another tenant or suite than its directory, is
+           removed and named with `RemovedRun.found_in`.
+
+        **The removal**: each replay from the leaves towards `ref`, each one's
+        legs before its document, then `ref`'s legs, then its document. An
+        interruption at any point leaves a state the same call repeats (ADR
+        0044 §4).
+
+        **Nothing to remove is not an error**: a `Removal` whose `nothing` is
+        true. A delete that already finished, repeated, succeeds; the cost is
+        that a mistyped key and a removed one return the same value.
+
+        **No lock**, so a delete racing a write loses: a live run writes its
+        document after, `promote` can write a baseline from a run this removed,
+        and `rejudge` can file a replay after the plan (ADR 0044 §5).
+        """
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class JournalHeader:
@@ -759,8 +902,10 @@ class Journal(Protocol):
     def complete(self) -> None:
         """The run is written; delete every leg.
 
-        Named for what it means rather than for what it does. A journal that is
-        deleted for any other reason is paid work thrown away.
+        Named for what it means rather than for what it does. A journal is
+        deleted for one other reason only: a person deleted the run it belongs
+        to, through `ResultStore.delete_run`. Deleted for any reason besides
+        those two, it is paid work thrown away. (ADR 0044 §4)
         """
         ...
 
@@ -830,10 +975,13 @@ class SupportsJournal(Protocol):
     def drop_pending(self, tenant: str, suite: str, key: str) -> None:
         """Delete a journal without finishing it.
 
-        For the one case that has an answer: a journal whose run file already
-        exists, left by a kill between `write_run` and the delete. It is not
-        resumable and not evidence of anything, so the next `run` removes it and
-        says so. Never called on a journal that might still be finished — that
-        is paid work. (ADR 0017 §12)
+        A journal is removed unfinished in two cases. This method is the first:
+        a journal whose run file already exists, left by a kill between
+        `write_run` and the delete. It is not resumable and not evidence of
+        anything, so the next `run` removes it and says so (ADR 0017 §12). The
+        second is `ResultStore.delete_run`, which removes the legs of a run a
+        person deleted, whether or not its document exists, because nothing the
+        store holds tells a live journal from a killed one (ADR 0044 §4). Never
+        called on a journal that might still be finished — that is paid work.
         """
         ...

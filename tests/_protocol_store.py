@@ -16,13 +16,15 @@ says site by site which is which.
   `unreadable`. The foreign-schema paths — `Listing.advice()`, and the
   *"run `digline migrate`"* `UsageError` in `resolve_key` — cannot be reached
   through it. They are tested against the file store.
-- **It does not promote.** `promote_baseline` raises. Condition 8 asks what a
-  store holds now, beside its own write, and the protocol forbids asserting it
-  through a fake (`ResultStore.promote_baseline`); a fake that promoted would be
-  a second copy of the conditions, which is the drift `refusals_for` exists to
-  prevent.
+- **It neither promotes nor deletes.** `promote_baseline` raises. Condition 8
+  asks what a store holds now, beside its own write, and the protocol forbids
+  asserting it through a fake (`ResultStore.promote_baseline`); a fake that
+  promoted would be a second copy of the conditions, which is the drift
+  `refusals_for` exists to prevent. `delete_run` raises for the same reason:
+  its refusal about the baseline asks what the store holds now, and is tested
+  against a store that really writes (ADR 0044 §7).
 
-It is not a second backend, and it is not evidence that the five methods are
+It is not a second backend, and it is not evidence that the six methods are
 enough: nothing here has to survive a process ending.
 """
 
@@ -31,12 +33,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from digline.core import Run, key_of
-from digline.store import Listing, RunNotFoundError, RunRef
+from digline.store import Listing, Removal, RunNotFoundError, RunRef
 
 
 @dataclass
 class MemoryStore:
-    """The five methods of `ResultStore`, over two dictionaries."""
+    """The six methods of `ResultStore`, over two dictionaries."""
 
     runs: dict[RunRef, Run] = field(default_factory=dict[RunRef, Run])
     baselines: dict[tuple[str, str], Run] = field(
@@ -80,4 +82,11 @@ class MemoryStore:
         raise NotImplementedError(
             "MemoryStore does not promote: condition 8 is not asserted through a "
             "fake. Test promotion against a store that really writes."
+        )
+
+    def delete_run(self, ref: RunRef) -> Removal:
+        raise NotImplementedError(
+            "MemoryStore does not delete: the refusal about the baseline is not "
+            "asserted through a fake. Test the delete against a store that "
+            "really writes."
         )
