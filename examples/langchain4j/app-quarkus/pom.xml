@@ -15,26 +15,27 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
-    <quarkus.platform.version>3.39.5</quarkus.platform.version>
-    <quarkus-langchain4j.version>1.14.0</quarkus-langchain4j.version>
+    <quarkus.platform.version>3.40.1</quarkus.platform.version>
+    <quarkus-langchain4j.version>1.14.1</quarkus-langchain4j.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <!-- Jackson's own BOM, ahead of what this Quarkus manages, and
            declared before quarkus-bom so it wins: of two imported BOMs, the
-           first one declared wins. quarkus-bom 3.39.5 manages Jackson at
-           2.22.2.
+           first one declared wins. quarkus-bom 3.40.1 manages Jackson at
+           2.21.7; with this pin, dependency:tree resolves jackson-databind
+           and jackson-core to 2.22.3 (measured 2026-10-07).
            Two advisories published 2026-09-30 (GHSA-cxp5-3px4-pw24,
-           GHSA-wv8q-qhhj-9h54) were fixed in jackson-databind 2.22.3. The
-           3.40.1 BOM would fix them too, but by moving back from the 2.22
-           line to 2.21.7, a minor line backwards for a patch.
+           GHSA-wv8q-qhhj-9h54) were fixed in jackson-databind 2.22.3. Without
+           this pin the 3.40.1 BOM would fix them too, but by moving back from
+           the 2.22 line to 2.21.7, a minor line backwards for a patch.
            **Why the whole BOM and not one artifact.** On 2026-09-30 this
            pinned jackson-databind alone. On 2026-10-01 two advisories arrived
            against its sibling, jackson-core (GHSA-7hhh-6rmp-j9qf,
            GHSA-p6pp-m3f8-5c89, fixed in 2.22.3), which the single pin left at
-           the BOM's 2.22.2. app-spring pins the whole BOM and did not have
-           them. A pin on one artifact covers one advisory; the BOM covers
+           the 3.39.5 BOM's 2.22.2. app-spring pins the whole BOM and did not
+           have them. A pin on one artifact covers one advisory; the BOM covers
            the class, every Jackson artifact moving together.
            They reached this repository through Scorecard alone. GitHub's
            dependency graph reads only this pom's direct dependencies, which
