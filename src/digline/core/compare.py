@@ -683,7 +683,8 @@ class Noise:
         where there is no interval: silence is what "not known" sounds like, and
         a sentence about an absent measurement would read as a measurement."""
         return (
-            f", beyond the noise of this check ({self.rendered()})"
+            f", outside the range of the baseline's individual samples "
+            f"({self.rendered()})"
             if self.known
             else ""
         )
@@ -1195,8 +1196,8 @@ def compare(run: Run, baseline: Run) -> Comparison:
             moved_to = "unchanged"
             within_noise = True
             why = (
-                f"score moved from {was} to {is_now}, within the noise of this "
-                f"check ({floor.rendered()})"
+                f"score moved from {was} to {is_now}, inside the range of the "
+                f"baseline's individual samples ({floor.rendered()})"
             )
         elif delta < 0:
             moved_to = "regressed"
@@ -1206,9 +1207,10 @@ def compare(run: Run, baseline: Run) -> Comparison:
             why = f"score rose from {was} to {is_now}{floor.beyond()}"
 
         # The interval rides along whichever outcome won — a regression
-        # included, because "beyond the noise of this case (0.85-0.95 across 5
-        # samples)" is the sentence ADR 0006 §10 asks the report to print, and
-        # it needs the interval the movement left.
+        # included, because "outside the range of the reference's individual
+        # samples (0.85-0.95 across 5 samples)" is the sentence ADR 0006 §10
+        # asks the report to print (narrowed by its note of 2026-10-07, #496),
+        # and it needs the interval the movement left.
         deltas.append(
             AssertionDelta(
                 case_id,

@@ -63,7 +63,18 @@ notes under them are this file, verbatim.
   row without its link, and it has no default, so a caller that forgot it
   would not quietly keep the link. A caller of `digline.report.case_page`
   passes `SuiteRuns.baseline_key`.
-
+- **The per-check sentence names the interval it prints for what it is**
+  (#496). It said *"within / beyond the noise of this check (0.600000–1.000000
+  across 5 samples)"*, which reads as an uncertainty on the score. The interval
+  is the range of the reference's individual samples, and the sentence now
+  says so: *"inside / outside the range of the reference's individual samples
+  (…)"*, and in Italian *"dentro / fuori dall'intervallo dei singoli campioni
+  del riferimento (…)"*. The canary clause and `compare()`'s `reason` follow,
+  the latter as *"the range of the baseline's individual samples"*. **No
+  verdict, outcome or exit code moves**, and neither does `--json`. The
+  headline's *"moved within noise"* and `explain` are unchanged. A tool that
+  matched the old words in a report or in `AssertionDelta.reason` needs the
+  new ones. ADR 0006 §10 and ADR 0016 §7 gain dated notes.
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
 
 ## pytest-digline 0.2.3 — 2026-10-07

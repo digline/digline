@@ -385,7 +385,10 @@ def test_a_drop_outside_the_interval_is_still_a_regression() -> None:
     assert not delta.within_noise
     # The interval rides along anyway: the report says what the movement left.
     assert (delta.noise_min, delta.noise_max) == (0.9, 1.0)
-    assert "beyond the noise" in delta.reason
+    assert (
+        "outside the range of the baseline's individual samples (0.900000-"
+        "1.000000 across 5 samples)" in delta.reason
+    )
 
 
 def test_the_floor_is_the_baselines_and_never_this_runs() -> None:
@@ -442,7 +445,7 @@ def test_a_baseline_with_no_samples_keeps_the_absolute_rule() -> None:
     delta = compare_one(now, before)
     assert delta.outcome == "regressed"
     assert delta.noise_min is None and delta.noise_samples == 0
-    assert "beyond the noise" not in delta.reason
+    assert "individual samples" not in delta.reason
 
 
 def test_a_flip_is_never_within_noise() -> None:
@@ -860,7 +863,7 @@ def test_the_measured_floor_still_answers_past_the_declared_tolerance() -> None:
     )
     assert accuracy.outcome == "unchanged"
     assert accuracy.within_noise
-    assert "within the noise" in accuracy.reason
+    assert "inside the range of the baseline's individual samples" in accuracy.reason
 
 
 def test_no_aggregate_of_that_run_is_reported_as_a_regression() -> None:
@@ -945,13 +948,15 @@ def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
     run = make_run([])
     document = render_html(comparison, run, run, locale="en")
     assert (
-        "Score moved from 0.920000 to 0.750000 — within the noise of this "
-        "check (0.600000–1.000000 across 5 samples); not counted as a "
-        "regression." in document
+        "Score moved from 0.920000 to 0.750000 — inside the range of the "
+        "reference&#x27;s individual samples (0.600000–1.000000 across 5 "
+        "samples); "
+        "not counted as a regression." in document
     )
     assert (
-        "Score fell from 0.900000 to 0.600000 — beyond the noise of this "
-        "check (0.900000–0.900000 across 5 samples)." in document
+        "Score fell from 0.900000 to 0.600000 — outside the range of the "
+        "reference&#x27;s individual samples (0.900000–0.900000 across 5 "
+        "samples)." in document
     )
 
 
@@ -959,8 +964,14 @@ def test_the_italian_sentences_say_the_same_thing() -> None:
     comparison = noise_comparison()
     run = make_run([])
     document = render_html(comparison, run, run, locale="it")
-    assert "entro il rumore di questo controllo" in document
-    assert "oltre il rumore di questo controllo" in document
+    assert (
+        "dentro l&#x27;intervallo dei singoli campioni del riferimento "
+        "(0.600000–1.000000 su 5 campioni)" in document
+    )
+    assert (
+        "fuori dall&#x27;intervallo dei singoli campioni del riferimento "
+        "(0.900000–0.900000 su 5 campioni)" in document
+    )
     assert "non conta come peggioramento" in document
 
 
@@ -990,10 +1001,14 @@ def test_a_run_that_never_sampled_gets_no_noise_sentence() -> None:
     )
     assert head.within_noise == 0
     assert "noise" not in head.sentence
+    # A drop, so a sentence about the movement is rendered and is the one that
+    # could carry the interval: comparing the run with itself would print none.
+    dropped = replace(before, score=Score(name="check", score=0.7))
     document = render_html(
-        compare(make_run([before]), make_run([before])), run, run, locale="en"
+        compare(make_run([dropped]), make_run([before])), run, run, locale="en"
     )
-    assert "noise of this check" not in document
+    assert "Score fell from 0.900000 to 0.700000" in document
+    assert "individual samples" not in document
 
 
 # -- §8: the multiplied bill, declared before it is spent ------------------ #

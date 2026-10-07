@@ -1434,8 +1434,8 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
         return text
 
     # The measured floor, where there is one. Three sentences rather than a
-    # clause appended to the existing three: "beyond the noise" changes what the
-    # sentence claims, and a reader has to see it inside the statement rather
+    # clause appended to the existing three: "outside the range" changes what
+    # the sentence claims, and a reader has to see it inside the statement rather
     # than trailing it. (ADR 0006 §10)
     noise = _noise_interval(delta, locale)
 
