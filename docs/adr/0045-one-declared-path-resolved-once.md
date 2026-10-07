@@ -320,37 +320,10 @@ with §5's requirement.
 
 **Measured, beside it.** *Measured 2026-10-07, at `ddb57fe` and at the code of
 `e97c780`, which are identical in `host/`, `targets/` and the packages'
-sources.* In each of these TOML forms the target reads and finds the right
+sources.* In every TOML form measured, the target reads and finds the right
 file, `R/eval/prompt.md`, and the defect is only `read_artifacts`'s second
-join. Each says by which route it was tried:
-- **The command line, `--suite eval/suite.toml` from `R`.** Refused, exit 64
-  on `R/eval/eval/prompt.md`. Through `digline run`, with and without a
-  wrapper around `read_artifacts` that printed the target's answer, the text
-  it held, and what was recorded.
-- **`pytest-digline`'s `--digline-suite eval/suite.toml` from `R`, and
-  `--digline-suite ../R/eval/suite.toml` from `OUT`.** Refused, the path
-  joined twice. Through the plugin, with the wrapper.
-- **`suite.toml` from `R/eval`, on the command line and through
-  `--digline-suite`.** The target answers `prompt.md`, relative, the two joins
-  land on the same file, and the run records `eval/prompt.md`. Through the
-  wrapper, and on the command line also through `digline run`.
-- **An absolute spec on the command line.** Through `load_suite` only, which
-  showed the target holding an absolute path, and never reached
-  `read_artifacts`. Separately, `digline run` with an absolute spec from `R`
-  and from `OUT` recorded `eval/prompt.md`.
-- **An absolute spec through `--digline-suite`, from `OUT`.** Recorded
-  correctly. Through the plugin, with the wrapper.
-- **The MCP server's `run`, from `R/eval`, `R` and `OUT`.** The target answers
-  an absolute path, because `within_root` hands the loader one, and the run
-  records `eval/prompt.md`. Through the wrapper, and through the `run` tool
-  unwrapped.
-- **`pytest-digline`'s `digline_suites` ini, from `R/eval`, `R` and `OUT`.**
-  The target answers an absolute path, because the option is `type="paths"`
-  and pytest makes it absolute, and the run records `eval/prompt.md`. Through
-  the plugin, with the wrapper.
-
-These are the forms tried, and no others. Which session took which route is
-in the record of #476 and in #481's thread.
+join. The forms, the route each was tried by, and who measured what are in
+the record of #476.
 
 ### 5. `HasArtifacts` requires a path already resolved
 
@@ -573,8 +546,8 @@ schedules the second.
   and no rule about paths can see it. The cure there is the one of §6,
   `Path(__file__).parent`, written by the user.
 - **What any front end does after the repair.** Today's code was measured on
-  all three, `pytest-digline` included: the TOML forms are listed in §4, and
-  the `.py` form is in the record of #476. The repair does not exist, so
+  all three, `pytest-digline` included, in both formats. The forms are in the
+  record of #476. The repair does not exist, so
   nothing after it was measured, on any front end.
 - **Anything about Windows.** Nothing in this record ran there. `_key` has a
   fallback for a path on another drive that returns an absolute string
