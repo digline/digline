@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.4.5"
+version = "0.4.6"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -101,14 +101,13 @@ dependencies = [
     # release, after the core was on PyPI, because a floor may not name a
     # release that does not exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #452.**
-    # `errors.translated` passes `front_end=` to `refused_exit` and to
-    # `to_withhold`, which first take it with #452, so a location names the
-    # user's code and not this server's (ADR 0043 §2, amended). Against 0.29.0
-    # those calls raise `TypeError`. The gate dates names and cannot see the
-    # argument, and a floor may not name a release that does not exist yet, so
-    # the row is in RELEASING.md's table of floors owed to the release.
-    "digline>=0.29.0",
+    # Raised to 0.30.0 by signature: `errors.translated` passes `front_end=` to
+    # `refused_exit` and to `to_withhold`, which first take it in 0.30.0, so a
+    # location names the user's code and not this server's (#452, ADR 0043 §2,
+    # amended). Against 0.29.0 those calls raise `TypeError`. It was owed at
+    # the cut and raised in this package's own release, after the core was on
+    # PyPI, because a floor may not name a release that does not exist yet.
+    "digline>=0.30.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
