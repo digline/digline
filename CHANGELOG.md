@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.30.0 — unreleased
+## 0.30.0 — 2026-10-07
 
 digline **0.30.0**. **A minor, because a store of your own stops satisfying
 `ResultStore`**: the protocol gains a sixth method, `delete_run`, and an
@@ -69,6 +69,36 @@ public name is removed, no existing command or option changes, and neither
   with `Path(__file__).parent` (#485), as `digline-anthropic`'s already did. A
   bare relative path is read against the working directory. The READMEs reach
   PyPI with each package's next release.
+
+### Seen working in a browser — the walkthrough, owed and run
+
+- **The walkthrough ran on 2026-10-07, before the tag, by Alessandro**, on the
+  release tree, narrowed to what `digline delete` can leave behind. **By the
+  rule in `RELEASING.md` it was not owed:** the launch key, the hand-over and
+  the promote form did not change, and neither did `view`'s pages. **It was
+  owed all the same, because the states those pages can show did change.** A
+  delete can leave a run named by the register and read nowhere, and a key that
+  opened a page now answers *run not found*.
+  - **The store.** The quickstart, with the baseline on the oldest run and
+    committed, two runs after it, and the newest registered `accepted` with the
+    register committed.
+  - **The refusal.** `delete` on the baseline's run refused with
+    `PromotedRunError`, the remedy and the key inside the command, exit 64.
+    Nothing moved.
+  - **The delete.** `delete` on the newest run removed its document, exit 0.
+    Repeated, it said *no document, no legs, no replay. Nothing was removed.*,
+    exit 0.
+  - **The list.** `digline list` and `view`'s runs page showed the remaining
+    run and the baseline's, and no line of what was left out. `git status`
+    was clean.
+  - **`log`.** Two runs read, and the line *1 run(s) named by the baseline or
+    the register were not read here*. *Dispositions recorded* still showed
+    the removed run as accepted.
+  - **`compare` and `explain`.** On the removed key both refused with
+    `RunNotFoundError`, exit 64, and `view`'s `/compare?run=` answered 404,
+    *run not found*. On `latest` both read the remaining run: `compare`
+    exited 0, and both carried the note that the register names a run not
+    read.
 
 ## digline-mcp 0.4.5 — 2026-10-05
 
