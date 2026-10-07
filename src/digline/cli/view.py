@@ -566,10 +566,15 @@ class ViewHandler(BaseHTTPRequestHandler):
         )
 
         other = (query.get("against") or [""])[0]
+        # Before the baseline is told apart, not inside the branch that leaves
+        # it out: the baseline's own run against itself is still one run against
+        # itself, and it was served as a verdict with 200 where every other run
+        # was refused. The runs page reaches it by default — both menus open on
+        # the newest run, which is the baseline right after a promotion. (#489)
+        if other == key:
+            self._error(400, pages.phrase(locale, "view.compare.same"))
+            return
         if other and other != baseline_key:
-            if other == key:
-                self._error(400, pages.phrase(locale, "view.compare.same"))
-                return
             against = self.store.read_run(
                 RunRef(tenant=self.suite.tenant, suite=self.suite.name, key=other)
             )

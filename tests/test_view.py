@@ -596,6 +596,56 @@ def test_before_the_first_promotion_compare_shows_the_run(repo: Path) -> None:
     assert "Did it get worse?" not in body
 
 
+def compare_untouched(base: str) -> tuple[str, str, str]:
+    """Press *Compare* on the runs page without touching either menu.
+
+    A browser submits the first `<option>` of a `<select>` that marks none as
+    `selected`, so that is what is read off the page here, rather than a pair
+    the test picks: the defect is in what the page chooses on its own.
+    """
+    status, page = get(base)
+    assert status == 200, page
+    form = page.split('class="picker"')[1].split("</form>")[0]
+    run, against = (
+        form.split(f'<select name="{name}">')[1].split('value="')[1].split('"')[0]
+        for name in ("run", "against")
+    )
+    query = urllib.parse.urlencode({"locale": "en", "run": run, "against": against})
+    status, body = get(f"{base}compare?{query}")
+    return run, against, f"{status}\n{body}"
+
+
+def test_the_baseline_compared_with_itself_is_refused_like_any_other_run(
+    repo: Path,
+) -> None:
+    """Right after the newest run is promoted, both menus open on it, and
+    *Compare* asked for the baseline against itself. The refusal sat inside the
+    branch that leaves the baseline out, so this one pair was served as a
+    verdict with 200 — *nothing got worse*, about a run and itself. (#489)"""
+    run_key(repo)
+    newest = promoted(repo)
+    with server(repo) as (base, _line):
+        run, against, answer = compare_untouched(base)
+
+    assert run == against == newest
+    assert answer.startswith("400\n"), answer
+    assert "A run compared with itself has nothing to report." in answer
+
+
+def test_any_other_run_compared_with_itself_is_still_refused(repo: Path) -> None:
+    """The control: the newest run is not the baseline, which is the case the
+    refusal already covered, and it answers as it did."""
+    baseline = promoted(repo)
+    newest = run_key(repo)
+    with server(repo) as (base, _line):
+        run, against, answer = compare_untouched(base)
+
+    assert newest != baseline
+    assert run == against == newest
+    assert answer.startswith("400\n"), answer
+    assert "A run compared with itself has nothing to report." in answer
+
+
 def test_escaping_is_the_only_barrier_on_the_page_that_shares_the_promote_origin(
     repo: Path,
 ) -> None:
