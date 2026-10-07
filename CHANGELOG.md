@@ -6388,6 +6388,13 @@ A GitHub Action, in its own repository because the Marketplace requires one.
   and `summary_lines` only ever emitted the whole list. Now a third front end
   can print the report's own line instead of composing a fourth rendering of one
   comparison. `summary_lines` is expressed over it, so they cannot drift.
+
+  *Corrected 2026-10-07, the entry above kept as written.* `check_line` never
+  produced the sentence quoted there: `git log -S` does not find it in the
+  source, only in this entry and in pytest-digline's README. What it printed,
+  in 0.9.0 as now, is the report's `detail.*` sentence. For that example, a
+  drop through the threshold, that is *"Went from passing to failing (0.910000
+  → 0.640000)."*: a flip, which carries no interval (ADR 0006 §6).
 - **digline's PyPI page gains its links.** The `[project.urls]` block — homepage,
   documentation, changelog, repository, issues — was added after 0.8.1 was
   already uploaded, and a package's metadata only reaches the index with an
