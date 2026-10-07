@@ -6,6 +6,24 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## pytest-digline 0.2.3 — 2026-10-07
+
+Published by its own tag, `pytest-digline-v0.2.3`, after digline 0.30.0 was
+on PyPI.
+
+- **pytest-digline catches what the command line catches** (#475). After a
+  suite had loaded, an `OSError`, a `SystemExit` from a target under
+  `--digline-run`, and any exception nobody anticipated reached pytest as
+  `INTERNALERROR`. The first two now stop the session as pytest's usage
+  error, exit 4, the `SystemExit` with the line that called it. The third
+  prints its traceback and digline's sentence, and exits 3.
+- **A refusal it prints passes through `visible()`**, as every other line it
+  prints does. A refusal raised by a `preflight` reached the terminal with its
+  escape sequences live.
+- **The floor is `digline>=0.30.0`.** The plugin passes `front_end=` to
+  `refused_exit`, which first takes it in 0.30.0 (#452). A floor may not name
+  a release that does not exist yet, so it was raised here, after the core.
+
 ## digline-mcp 0.4.6 — 2026-10-07
 
 Published by its own tag, `digline-mcp-v0.4.6`, after digline 0.30.0 was on

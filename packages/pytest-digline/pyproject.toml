@@ -1,6 +1,6 @@
 [project]
 name = "pytest-digline"
-version = "0.2.2"
+version = "0.2.3"
 description = "Gate a pytest run on a digline comparison: one row per check, against the baseline committed in your repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -43,15 +43,15 @@ dependencies = [
     # `digline.host.REFUSALS`, which arrived there, and turns every refusal into
     # pytest's usage error rather than an INTERNALERROR.
     #
-    # **Owed at the cut: raise to the core release that carries #452.** The
-    # plugin catches what the CLI's `main()` catches (#475), and refuses a
-    # `SystemExit` from code digline runs through `refused_exit`, which the
-    # gate dates to 0.28.0, passing `front_end=`, which it cannot see and which
-    # first ships with #452 (ADR 0043 §2, amended). A floor may not name a
-    # release that does not exist yet, so the row is in RELEASING.md's table of
-    # floors owed to the release, and this package takes a release of its own
-    # after the core's.
-    "digline>=0.20.0",
+    # 0.30.0, a fifth time, by signature: the plugin catches what the CLI's
+    # `main()` catches (#475), and refuses a `SystemExit` from code digline
+    # runs through `refused_exit`, which the gate dates to 0.28.0, passing
+    # `front_end=`, which it cannot see and which first ships in 0.30.0 (#452,
+    # ADR 0043 §2, amended). Against 0.29.0 that call raises `TypeError`. It
+    # was owed at the cut and raised in this package's own release, after the
+    # core was on PyPI, because a floor may not name a release that does not
+    # exist yet.
+    "digline>=0.30.0",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user
