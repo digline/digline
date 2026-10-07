@@ -70,6 +70,7 @@ def run_json(
     resumed: bool = False,
     judge_reading: str | None = None,
     usage: RunUsage | None = None,
+    replayed: bool = False,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -78,6 +79,12 @@ def run_json(
     an agent to say what a hunt cost; the acknowledged integer covers the calls
     to the target only, so the sentence is what carries the judge repeats a
     caller has to include when it reports the spend. (ADR 0011 §2, §4)
+
+    `replayed` is `rejudge`'s, and it is passed through to `sentence()` for
+    the reason that method gives: a re-judge calls no target, and the ordinary
+    sentence would announce a bill that never arrives. Until #500 this builder
+    did not take it, so `rejudge --json` said on stdout the opposite of what
+    `rejudge` said on stderr. (ADR 0015 §6)
 
     `resumed` and `reused` are facts about *this launch*, not about the run:
     the stored document carries no marker for having been resumed, because a
@@ -90,7 +97,7 @@ def run_json(
         "key": ref.key,
         "tenant": ref.tenant,
         "suite": ref.suite,
-        "sentence": plan.sentence(),
+        "sentence": plan.sentence(replayed=replayed),
         "resumed": resumed,
         "reused": plan.reused,
     }

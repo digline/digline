@@ -486,7 +486,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     if reading is not None:
         say(f"digline: {reading}", err=True)
     if args.json:
-        emit(json.dumps(run_json(ref, plan, judge_reading=reading)))
+        emit(json.dumps(run_json(ref, plan, judge_reading=reading, replayed=True)))
     else:
         say(ref.key)
     return EXIT_OK

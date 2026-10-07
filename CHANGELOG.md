@@ -58,6 +58,13 @@ notes under them are this file, verbatim.
   moment is no longer a link: the page does not offer a comparison the server
   refuses. Any other run with no `against` is still held against the
   baseline, as before.
+- **`rejudge --json` no longer announces a call to the target** (#500). Its
+  `sentence` was the ordinary one, *"1 case × 1 sample = 1 call to the
+  target"*, while stderr said *"1 answer replayed; no call to the target"*.
+  A re-judge calls no target, and `sentence` is the field a program reports
+  the spend from. It now carries the replay's sentence, the one stderr
+  prints. Nothing in digline acts on the figure: the run, its plan and every
+  count were already right.
 - **`case_page` takes a mandatory `baseline_key`**, the key of the baseline or
   `None`, which `runs_page` already takes. It is what leaves the baseline's
   row without its link, and it has no default, so a caller that forgot it
