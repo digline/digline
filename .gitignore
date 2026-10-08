@@ -22,6 +22,9 @@ dist/
 .idea/
 *.iml
 
+# VS Code. Not used today; ignored as prevention.
+.vscode/
+
 # Local Claude Code settings. `.claude/settings.json`, if it appears, is shared
 # and stays versioned. `CLAUDE.local.md` is the personal working agreement —
 # how I want to be worked with — as against `CLAUDE.md`, which is the project.
@@ -38,6 +41,12 @@ private/
 # artifacts are not — and the split is enforced one level down, by the
 # `.gitignore` the store itself writes into `.digline/` (`*/runs/`).
 # Ignoring `.digline/` here would take the baselines out of git with it.
+
+# Output of the release step, like dist/. .github/select_unpublished.py writes
+# into to-publish/ the distributions PyPI and TestPyPI do not already have, and
+# publish.yml uses it as packages-dir. It lands in the working copy of whoever
+# runs that step by hand. The line arrived in b5870a6 without a reason beside
+# it; the reason was read from the code and written here on 2026-10-08.
 to-publish/
 
 # The site checkout that ci.yml's `docs` job makes, and that RELEASING
