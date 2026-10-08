@@ -227,10 +227,12 @@ one dated line in the change that carries this record:
 > in reviewed code; a recorded act — a person, a reason, at a page — selects an
 > instance within a declared class and is never a widening.
 
-**An added line, not an amendment, and the precedent is exact.** ADR 0043 §8:
-*"One line is added after the list of what crosses, in the change that carries
-this record"*, and decision 9 carries it as *"*Added 2026-10-05 (ADR
-0043).*"*. That is a different act from decision 9's *"*Narrowed 2026-09-27
+**An added line, not an amendment, and the form has two precedents in
+decision 9.** ADR 0043 §8: *"One line is added after the list of what crosses,
+in the change that carries this record"*, and decision 9 carries it as
+*"*Added 2026-10-05 (ADR 0043).*"*. ADR 0038's line is carried as *"*Added
+2026-10-01 (ADR 0038).*"*, at the end of the decision, which is where this one
+goes. That is a different act from decision 9's *"*Narrowed 2026-09-27
 (ADR 0034 §4, §5, §8).*"*, which changed what a projected reference carries
 against the list above it. This line changes nothing the list says crosses: it
 says where a widening sits and what an act may do.
