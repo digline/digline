@@ -333,6 +333,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.9.0": (
+            "the digline image `digline/digline-action@v1` still defaulted to "
+            "on 2026-10-08, two bumps of its `main` later, in post-tag step 7: "
+            "history"
+        ),
         "0.31.0": (
             "the core release digline-mcp's and pytest-digline's floors are "
             "owed to, in the table of floors owed to the release (#396): the "
