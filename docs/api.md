@@ -141,6 +141,7 @@ Each one lands in `Run.artifacts` as an `Artifact`:
 at a glance.
 
 **They do not travel by default.** `Disclosure(artifacts=True)` is the opt-in,
+for files inside the perimeter, and outside `.digline` and `.git`,
 and it is one line in the suite, which goes through a review. A prompt is your
 file and it is also where an end company's rules end up, and no default can tell
 those apart by looking — so the rule from ADR 0002 §3 holds without an
@@ -158,7 +159,8 @@ cannot say whether the prompt moved, and does not pretend to.
 `withhold_artifacts(comparison)` is applied by the side holding both runs, so the
 outcome is a fact that side established. The document then says *"1 file under
 test changed"* and stops — no diff, no digest, no path.
-`Disclosure(artifacts=True)` is what puts the diff back. Reasoning in
+`Disclosure(artifacts=True)` is what puts the diff back, for files inside the perimeter, and outside `.digline` and `.git`.
+Reasoning in
 [ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
 ### `Suite.record_responses`: the answers, for judging them again
@@ -2264,7 +2266,8 @@ passes**, numbers included. `0.01` written by `CostBudget` is a measurement;
 suspension reasons disappear, the verdicts remain. It is a function on the value
 and not a serializer option, so no future transport can forget about it.
 
-`Disclosure(artifacts=True)` lets the declared files travel; the default keeps
+`Disclosure(artifacts=True)` lets the declared files travel, when they are
+inside the perimeter, and outside `.digline` and `.git`; the default keeps
 them, digest and all. There is deliberately **no** member for `base_url`: a
 model id and a temperature are measurements and always travel, while an endpoint
 host is topology and is always withheld, appearing in the document as

@@ -295,8 +295,9 @@ def run_document(
 
     What crosses is the verdict. What does not: `Verdict.reason`, the stated
     reason a case was suspended, `Score.metadata` the suite did not disclose,
-    artifact text without `Disclosure(artifacts=True)`, and the case inputs
-    entirely — `Case.vars` and `Case.metadata` are the data.
+    artifact text unless `Disclosure(artifacts=True)` is declared and the file
+    is inside the perimeter, and outside `.digline` and `.git`, and the case
+    inputs entirely — `Case.vars` and `Case.metadata` are the data.
 
     `suspended` is a **boolean**. That a case was set aside is a fact about
     coverage and belongs here; the sentence explaining it is payload and does

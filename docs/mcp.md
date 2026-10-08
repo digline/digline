@@ -211,7 +211,8 @@ What does not, and is **absent rather than emptied**:
   data (*that* a case was suspended does travel: it is coverage);
 - any `Score.metadata` key the suite's `Disclosure` does not cover;
 - a prompt **and its digest** unless the suite declares
-  `Disclosure(artifacts=True)` — a digest is a verifier, and prompts live in a
+  `Disclosure(artifacts=True)` and the file is inside the perimeter, and
+  outside `.digline` and `.git` — a digest is a verifier, and prompts live in a
   small enough space that one recovers the text (ADR 0003 §4);
 - `base_url`, the client's topology, which leaves as a name in `withheld` and
   never as a value — no `Disclosure` widens that one;

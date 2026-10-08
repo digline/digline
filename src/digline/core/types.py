@@ -100,7 +100,8 @@ class Disclosure:
 
     score_metadata: frozenset[str] = frozenset()
     run_metadata: frozenset[str] = frozenset()
-    #: Whether the declared artifacts — content and digest — cross a boundary.
+    #: Whether the declared artifacts — content and digest — cross a boundary,
+    #: for files inside the perimeter, and outside `.digline` and `.git`.
     artifacts: bool = False
 
 

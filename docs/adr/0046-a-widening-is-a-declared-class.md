@@ -29,7 +29,8 @@
     this record answers: the trace satisfies the property fixed decision 9 protects,
     and fixed decision 9 is not amended (§2, §6). ADR 0039's text is not edited here;
   - in `CLAUDE.md`'s *fixed* section: **fixed decision 9**. It is not amended. It
-    gains one dated line that states the distinction (§6)
+    gains one dated line that states the distinction (§6), and carries ADR
+    0042's owed line beside its artifact paragraph (*Consequences*)
 - Number: 0046. Swept on 2026-10-08, before a line was written, across
   `origin/main` (`9b046f4`), every local and remote branch and tag, the
   `docs/adr/` of every sibling worktree (none has one) and the open pull
@@ -252,6 +253,19 @@ says where a widening sits and what an act may do.
 - **The record that rules what a case in clear contains depends on this one,
   and names it in an `Assumes` line.** The dependency runs one way: this record
   declares a rule of method and stands alone; that one uses it.
+- **ADR 0042's owed change travels in the same change as this record.** ADR
+  0042's *Consequences* owe a pointer in fixed decision 9's artifact paragraph
+  and a clause on the pages that say `Disclosure(artifacts=True)` is what lets
+  the declared files travel. Both are made here, because changes owed to the
+  same fixed text go together: made apart, fixed decision 9 would be edited
+  twice. The pointer is a dated line, *"*Narrowed 2026-10-05 (ADR 0042).*"*,
+  beside the artifact paragraph, which is not rewritten. The pages were
+  re-derived on 2026-10-08 from what ADR 0042 describes, every passage that
+  says the flag is what makes the declared files travel, including the forms
+  with *"unless"*, and not from its list of five, which was a snapshot: ten
+  places, in `docs/api.md` (three), `docs/tools.md`, `docs/mcp.md`,
+  `docs/guide.md`, `docs/metrics.md`, `packages/digline-mcp/README.md`,
+  `src/digline/core/types.py` and `src/digline/wire/run.py`.
 - **ADR 0039 §3's exchange is read correctly.** *"The client gives up
   preventive authorisation, and it receives the trace in exchange."* §3 never
   granted the client a preventive authorisation, so the exchange surrenders

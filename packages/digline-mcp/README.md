@@ -81,4 +81,5 @@ measured interval, and the metadata a suite disclosed.
 Never the judge's `reason` — the judge quotes the output, so the reason *is* the
 output. Never the sentence explaining a suspension, never undisclosed metadata,
 never a case's inputs, and never a prompt or its digest unless the suite
-declares `Disclosure(artifacts=True)`.
+declares `Disclosure(artifacts=True)` and the file is inside the perimeter,
+and outside `.digline` and `.git`.

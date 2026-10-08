@@ -638,7 +638,8 @@ composed prompt in `input`, the cost in `cost_usd`, the measured duration in
 `latency_ms`, and the model and token counts in `metadata`.
 **Watch out** both files are recorded in every run, so the baseline carries the
 prompt that produced it — which is the point, and which means a redacted run
-withholds them unless the suite says `Disclosure(artifacts=True)`.
+withholds them unless the suite says `Disclosure(artifacts=True)`, which lets through
+only files inside the perimeter, and outside `.digline` and `.git`.
 
 ### `HttpTarget`
 

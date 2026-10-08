@@ -1618,7 +1618,8 @@ One thing it is **not**, by default: something that leaves. A prompt is your
 file, and it is also where an end company's rules end up — eligibility
 conditions, thresholds, the phrasing legal insisted on. So a redacted run keeps
 the path and drops both the text and the digest, and a suite that wants
-otherwise says `Disclosure(artifacts=True)` in one line that goes through a
+otherwise says `Disclosure(artifacts=True)`, for files inside the perimeter,
+and outside `.digline` and `.git`, in one line that goes through a
 review, like every other widening of a perimeter.
 
 The digest goes because a digest is a *verifier*. A prompt is not drawn from a
