@@ -329,9 +329,10 @@ that lives in the data owner's store, `Case.vars` and `Calibration.input`, not
 
 §5 rests on *"no commit at the data owner's side"*. ADR 0037 takes that from
 ADR 0034 §3 and states it as a condition: its *Assumes* names ADR 0034 §3 with
-*"no git there, as a condition"*. **If git appears at the data owner's side, the premise of §5
-is to be looked at again.** This is a condition, written so that whatever
-removes the premise fires the consequence, not a doubt about the ruling.
+*"no git there, as a condition"*. **If git appears at the data owner's side,
+the premise of §5 is to be looked at again.** This is a condition, written so
+that whatever removes the premise fires the consequence, not a doubt about the
+ruling.
 
 **One trigger, two consequences, and they are not the same condition.**
 - For what is protected: **fixed decision 9**, the payload staying where it is
