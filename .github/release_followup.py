@@ -1,4 +1,4 @@
-"""The four things a machine can ask about a release once the tag is out.
+"""The five things a machine can ask about a release once the tag is out.
 
 `RELEASING.md` has a checklist headed *After the tag: what to watch, and what to
 ignore*, and until this file existed **nothing in the repository knew whether
@@ -13,13 +13,15 @@ The shape of the gap is worth naming, because it explains why the answer is a
 separate workflow rather than another test: **before the tag the subject is the
 tree, and a test can read it; after the tag the subject is the world** — an
 index, a registry, a run's approval record — and the gates of this repository do
-not look there. So these four run where the world can be asked, and they are the
-four that have an answer a machine can check:
+not look there. So these five run where the world can be asked, and they are the
+five that have an answer a machine can check:
 
 1. **the example locks** name the version that was released;
 2. the `publish` run's **reviewer gate** recorded an `approved`;
 3. the three **image tags** resolve to one digest;
-4. the **Status block** names the release it is supposed to describe.
+4. the **Status block** names the release it is supposed to describe;
+5. **`digline/digline-action`** defaults to the released image on `main`, and
+   `@v1` resolves to a commit that does too.
 
 **What is deliberately not here.** The delta-pass, its report in `private/` and
 the GHSA draft have no check and must not get one: a gate on a file's existence
@@ -68,6 +70,8 @@ __all__ = [
     "locks_finding",
     "main",
     "report",
+    "action_finding",
+    "action_default",
     "status_block",
     "status_finding",
 ]
@@ -510,6 +514,108 @@ def status_finding(releasing: str, version: str) -> Finding:
     )
 
 
+#: Where post-tag step 7 lands, and the floating tag its users write.
+ACTION_REPO = "digline/digline-action"
+ACTION_TAG = "v1"
+
+
+def action_default(text: str) -> str | None:
+    """The digline version `action.yml`'s `image` default names, or `None`.
+
+    Read off the one line shaped `default: "ghcr.io/digline/digline:<version>"`
+    rather than through a YAML parser this environment does not carry. The
+    description above it names the image too, as `:<version>`, which does not
+    start with a digit and so is not matched."""
+    found = re.findall(
+        r'^\s*default:\s*"?ghcr\.io/digline/digline:(\d[^"\s]*)"?\s*$', text, re.M
+    )
+    return found[0] if len(found) == 1 else None
+
+
+def action_finding(
+    action: Mapping[str, object], version: str, *, current: bool = True
+) -> Finding:
+    """Post-tag step 7: `digline-action` defaults to the release, and `@v1` too.
+
+    Two refs, because each was the failure once. `main` sat at 0.9.0 for ten
+    minors while a weekly job in that repository went red unread; and when
+    `main` was bumped, twice, `v1` was not moved, so `@v1` — the line its README
+    tells everyone to write — went on resolving to 0.9.0 until 2026-10-08. A
+    default on `main` is a promise; `v1` is what a user gets.
+
+    `action` maps a ref to the text of `action.yml` there, `None` for *not
+    found* and `"error"` for *did not answer*, the same three words as the
+    image tags. The control is a ref that cannot exist, which must come back
+    not found: if it resolves, the query answers for anything.
+
+    Only about the newest release: `v1` follows the newest digline, so what it
+    names is not a fact about a superseded one.
+    """
+    if not current:
+        return Finding(
+            step="the action's default image",
+            ok=True,
+            held=True,
+            applicable=False,
+            said=(
+                f"not applicable: `{ACTION_TAG}` follows the newest release, so "
+                f"what it names is not a fact about {version}"
+            ),
+            control_said="not asked",
+            title="",
+        )
+    refs = ("main", ACTION_TAG)
+    impossible = f"{ACTION_TAG}-does-not-exist"
+    control_absent = action.get(impossible) is None
+    control_said = (
+        f"and {impossible} is not found"
+        if control_absent
+        else f"but {impossible} resolved to something, so this query answers for "
+        "refs that do not exist"
+    )
+    title = f"{ACTION_REPO}@{ACTION_TAG} does not default to digline {version}"
+    unreachable = [ref for ref in refs if action.get(ref) == "error"]
+    if unreachable:
+        return Finding(
+            step="the action's default image",
+            ok=False,
+            held=control_absent,
+            answered=False,
+            said=(
+                f"GitHub did not answer for {ACTION_REPO}'s action.yml at "
+                f"{', '.join(unreachable)} — not judged"
+            ),
+            control_said=control_said,
+            title=title,
+        )
+    named: dict[str, str | None] = {}
+    for ref in refs:
+        text = action.get(ref)
+        named[ref] = action_default(text) if isinstance(text, str) else None
+    absent = [ref for ref in refs if not isinstance(action.get(ref), str)]
+    wrong = {ref: got for ref, got in named.items() if got != version}
+    if absent:
+        said = f"{ACTION_REPO} has no action.yml at {', '.join(absent)}"
+    elif not wrong:
+        said = (
+            f"main and {ACTION_TAG} both default to ghcr.io/digline/digline:{version}"
+        )
+    else:
+        said = f"{ACTION_REPO} should default to {version}, but " + ", ".join(
+            f"{ref} names {got or 'no digline image'}" for ref, got in wrong.items()
+        )
+        if ACTION_TAG in wrong and "main" not in wrong:
+            said += f": main is bumped and {ACTION_TAG} was not moved to it"
+    return Finding(
+        step="the action's default image",
+        ok=not absent and not wrong,
+        held=control_absent,
+        said=said,
+        control_said=control_said,
+        title=title,
+    )
+
+
 def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
     """The issue an unsound run earns: a title naming the step, and a body that
     is the whole reading rather than a link to it."""
@@ -520,7 +626,7 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
         if finding.applicable and finding.ok and not finding.held
     ]
     lines = [
-        f"The four checks `RELEASING.md` calls *After the tag* ran against "
+        f"The five checks `RELEASING.md` calls *After the tag* ran against "
         f"**v{version}**. Each is asked twice: once for the answer, and once for "
         f"something that must be false — a check that cannot fail has verified "
         f"nothing.",
@@ -616,11 +722,21 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument("--read-by", default=None, help="this run's id")
     parser.add_argument("--digests", required=True)
+    parser.add_argument(
+        "--action",
+        required=True,
+        help=(
+            f"action.yml of {ACTION_REPO} by ref: main, {ACTION_TAG} and "
+            f"{ACTION_TAG}-does-not-exist. Required, so that a workflow which "
+            "stops fetching it fails here instead of passing over step 7"
+        ),
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
 
     root = Path(args.root)
     digests = _load(args.digests)
+    action = _load(args.action)
     approvals = _load(args.approvals)
     if args.keep_out and args.publish_run and args.read_by:
         record = keep_record(
@@ -647,6 +763,11 @@ def main(argv: list[str]) -> int:
             current=current,
         ),
         status_finding(Path(args.releasing).read_text(encoding="utf-8"), args.version),
+        action_finding(
+            action if isinstance(action, dict) else {},
+            args.version,
+            current=current,
+        ),
     ]
     written = report(findings, args.version)
     Path(args.out).write_text(json.dumps(written, indent=2), encoding="utf-8")

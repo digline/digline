@@ -1,4 +1,4 @@
-"""The four checks that run after a tag, and the four controls beside them.
+"""The five checks that run after a tag, and the five controls beside them.
 
 `.github/release_followup.py` is the answer to a gap that was measured rather
 than imagined: post-tag step 3 was last performed for 0.15.0 and was found
@@ -308,6 +308,8 @@ def _main_args(tmp_path: Path, *extra: str) -> list[str]:
         str(tmp_path / "control.json"),
         "--digests",
         str(tmp_path / "digests.json"),
+        "--action",
+        str(action_file(tmp_path, "0.15.3")),
         "--out",
         str(tmp_path / "report.json"),
         *extra,
@@ -525,6 +527,151 @@ def test_the_body_carries_the_whole_reading_rather_than_a_link() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# 7. The action's default image
+# --------------------------------------------------------------------------- #
+
+#: The two lines of `digline-action`'s `action.yml` that name the image: the
+#: description's placeholder, which must not be read, and the default.
+ACTION_YML = """inputs:
+  image:
+    description: >-
+      Point it at your own derivation — FROM ghcr.io/digline/digline:<version>
+    required: false
+    default: "ghcr.io/digline/digline:{version}"
+"""
+
+
+def action(**overrides: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "main": ACTION_YML.format(version="0.30.0"),
+        "v1": ACTION_YML.format(version="0.30.0"),
+        "v1-does-not-exist": None,
+    }
+    base.update(overrides)
+    return base
+
+
+def action_file(tmp_path: Path, version: str) -> Path:
+    path = tmp_path / "action.json"
+    text = ACTION_YML.format(version=version)
+    path.write_text(
+        json.dumps({"main": text, "v1": text, "v1-does-not-exist": None}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_the_default_is_read_and_the_placeholder_is_not() -> None:
+    assert followup.action_default(ACTION_YML.format(version="0.30.0")) == "0.30.0"
+    assert followup.action_default("default: ghcr.io/acme/other:0.30.0\n") is None
+
+
+def test_main_and_v1_on_the_release_pass() -> None:
+    finding = followup.action_finding(action(), "0.30.0")
+    assert finding.sound
+    assert "main and v1 both default to" in finding.said
+
+
+def test_a_v1_that_was_not_moved_is_caught() -> None:
+    """2026-10-08 exactly: `main` had been bumped twice, and `@v1` — the line
+    the README tells everyone to write — still resolved to 0.9.0."""
+    finding = followup.action_finding(
+        action(v1=ACTION_YML.format(version="0.9.0")), "0.30.0"
+    )
+    assert not finding.ok
+    assert "v1 names 0.9.0" in finding.said
+    assert "v1 was not moved" in finding.said
+    assert finding.title == (
+        "digline/digline-action@v1 does not default to digline 0.30.0"
+    )
+
+
+def test_a_main_left_at_the_previous_release_is_caught() -> None:
+    finding = followup.action_finding(
+        action(
+            main=ACTION_YML.format(version="0.29.0"),
+            v1=ACTION_YML.format(version="0.29.0"),
+        ),
+        "0.30.0",
+    )
+    assert not finding.ok
+    assert "main names 0.29.0" in finding.said
+    assert "was not moved" not in finding.said
+
+
+def test_an_action_yml_with_no_default_is_not_a_match() -> None:
+    finding = followup.action_finding(action(v1="inputs: {}\n"), "0.30.0")
+    assert not finding.ok
+    assert "v1 names no digline image" in finding.said
+
+
+def test_a_missing_ref_is_told_apart_from_an_unreachable_one() -> None:
+    missing = followup.action_finding(action(v1=None), "0.30.0")
+    assert not missing.ok and missing.answered
+    assert "has no action.yml at v1" in missing.said
+
+    unreachable = followup.action_finding(action(v1="error"), "0.30.0")
+    assert not unreachable.ok and not unreachable.answered
+    assert "not judged" in unreachable.said
+
+
+def test_the_action_control_fails_when_an_impossible_ref_resolves() -> None:
+    finding = followup.action_finding(
+        action(**{"v1-does-not-exist": ACTION_YML.format(version="0.30.0")}),
+        "0.30.0",
+    )
+    assert finding.ok
+    assert not finding.held
+    assert not finding.sound
+
+
+def test_the_action_is_not_asked_about_a_superseded_release() -> None:
+    finding = followup.action_finding(action(), "0.29.0", current=False)
+    assert not finding.applicable
+    assert finding.sound
+
+
+def test_main_refuses_to_run_without_the_action(tmp_path: Path) -> None:
+    """Required, so that a workflow which stops fetching it fails rather than
+    passing over step 7 — the silence this check exists to end."""
+    (tmp_path / "approvals.json").write_text(json.dumps(APPROVED), encoding="utf-8")
+    argv = _main_args(tmp_path)
+    at = argv.index("--action")
+    del argv[at : at + 2]
+    with pytest.raises(SystemExit):
+        followup.main(argv)
+
+
+def test_main_fails_on_a_v1_that_was_not_moved(tmp_path: Path) -> None:
+    (tmp_path / "approvals.json").write_text(json.dumps(APPROVED), encoding="utf-8")
+    argv = _main_args(tmp_path)
+    old = ACTION_YML.format(version="0.9.0")
+    (tmp_path / "action.json").write_text(
+        json.dumps(
+            {
+                "main": ACTION_YML.format(version="0.15.3"),
+                "v1": old,
+                "v1-does-not-exist": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert followup.main(argv) == 1
+    written = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert "digline-action@v1 does not default to digline 0.15.3" in written["title"]
+
+
+def test_the_workflow_fetches_the_three_refs_and_passes_them() -> None:
+    """The shell is not run here; this holds the shape: the three refs are
+    asked, and the file they land in is what `--action` reads."""
+    workflow = (ROOT / ".github" / "workflows" / "release-followup.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "for ref in main v1 v1-does-not-exist; do" in workflow
+    assert "--action action.json" in workflow
+
+
+# --------------------------------------------------------------------------- #
 # End to end, through `main`
 # --------------------------------------------------------------------------- #
 
@@ -555,6 +702,8 @@ def test_main_writes_the_report_and_exits_nonzero_on_a_skipped_step(
             str(tmp_path / "control.json"),
             "--digests",
             str(tmp_path / "digests.json"),
+            "--action",
+            str(action_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -589,6 +738,8 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
             str(tmp_path / "control.json"),
             "--digests",
             str(tmp_path / "digests.json"),
+            "--action",
+            str(action_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -781,6 +932,8 @@ def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
         str(tmp_path / "control.json"),
         "--digests",
         str(tmp_path / "digests.json"),
+        "--action",
+        str(action_file(tmp_path, "0.15.3")),
         "--out",
         str(out),
     ]
@@ -878,6 +1031,7 @@ def test_main_reads_the_unread_word_from_the_file_the_workflow_writes(
             "--approvals", str(tmp_path / "approvals.json"),
             "--approvals-control", str(tmp_path / "control.json"),
             "--digests", str(digests),
+            "--action", str(action_file(tmp_path, "0.22.0")),
             "--out", str(out),
         ]
     )  # fmt: skip
