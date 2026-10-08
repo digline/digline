@@ -1620,6 +1620,9 @@ conditions, thresholds, the phrasing legal insisted on. So a redacted run keeps
 the path and drops both the text and the digest, and a suite that wants
 otherwise says `Disclosure(artifacts=True)` in one line that goes through a
 review, like every other widening of a perimeter.
+A declared file outside the perimeter is refused when the run is made; one under
+`.digline` or `.git` is refused by the command that would let it cross. Neither is
+dropped in silence.
 
 The digest goes because a digest is a *verifier*. A prompt is not drawn from a
 large space — you wrote the template, the customer tuned the numbers in it — so

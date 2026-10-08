@@ -286,6 +286,15 @@ refused only if the new run carries such a file.
   what lets* the files travel, and each gains *"inside the perimeter, and
   outside `.digline` and `.git`"*: `docs/api.md` (twice), `docs/tools.md`,
   `docs/mcp.md` and `packages/digline-mcp/README.md`.
+  *Noted 2026-10-08: applied by [ADR 0046](0046-a-widening-is-a-declared-class.md),
+  in a corrected form. The code applies two different mechanisms: a declared
+  file outside the perimeter is refused when the run is made, and one under
+  `.digline` or `.git` is refused at the exit that would let it cross. The
+  clause as written above would have read as a silent narrowing, which is
+  what `CrossingRefusedError` excludes (*"the document is not narrowed"*).
+  The mechanism is stated once, in `docs/api.md`'s section on artifacts. The
+  places were re-derived from what the clause describes: ten, not five. The
+  bullet is kept as written.*
 - **The promotion conditions are growing faster than anyone reads them
   together.** This is an observation, not a ruling.
   - This record's condition is the ninth by `store/promotion.py`'s count.

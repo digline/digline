@@ -174,6 +174,10 @@ Artifacts do not travel by default. `Disclosure(artifacts=True)` is what lets
 them cross a boundary, and a redacted run withholds the **digest as well as the
 text** — a digest is a verifier, and a tool list is not drawn from a large
 space, so an attacker who can enumerate plausible variants can hash each
-against a leaked digest and recover it. If your tool descriptions carry a
+against a leaked digest and recover it.
+A declared file outside the perimeter is refused when the run is made; one under
+`.digline` or `.git` is refused by the command that would let it cross. Neither is
+dropped in silence.
+If your tool descriptions carry a
 customer's vocabulary, leave the default alone: the count of files that moved
 still travels, and what moved does not.

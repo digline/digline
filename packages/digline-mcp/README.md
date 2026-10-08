@@ -82,3 +82,6 @@ Never the judge's `reason` — the judge quotes the output, so the reason *is* t
 output. Never the sentence explaining a suspension, never undisclosed metadata,
 never a case's inputs, and never a prompt or its digest unless the suite
 declares `Disclosure(artifacts=True)`.
+A declared file outside the perimeter is refused when the run is made; one under
+`.digline` or `.git` is refused by the command that would let it cross. Neither is
+dropped in silence.
