@@ -1,16 +1,17 @@
 # ADR 0047 — What a case in clear contains
 
-- Status: accepted 2026-10-08, by Alessandro, before any code, as
-  [ADR 0046](0046-a-widening-is-a-declared-class.md) was. **What it decides was
-  ruled before this text was written**, on 2026-10-07, and the reading of
-  its condition with two consequences (§6) on 2026-10-08 (*Context*). It owes no code at landing (*Test plan*). No
-  part of it waits for acceptance to rule on it one by one. **The field-by-field
-  enumeration is not missing from it: it sits where ADR 0046's rule puts it.** A
-  case in clear is a class, and ADR 0046 §2 rules that a class is declared in
-  reviewed code: a change someone writes and a reviewer sees. So the
-  enumeration is written as that code, when the code of a disclosure is
-  written, and reviewed there. This record decides what the class holds and
-  what it never holds; the code states it field by field
+- Status: accepted 2026-10-08, by Alessandro, before any code, as [ADR
+  0046](0046-a-widening-is-a-declared-class.md) was. **What it decides was
+  ruled before this text was written**, on 2026-10-07, and the reading of its
+  condition with two consequences (§6) on 2026-10-08 (*Context*). It owes no
+  code at landing (*Test plan*). No part of it waits for acceptance to rule on
+  it one by one. **The field-by-field enumeration is not missing from it: it
+  sits where ADR 0046's rule puts it.** A case in clear is a class, and ADR
+  0046 §2 rules that a class is declared in reviewed code: a change someone
+  writes and a reviewer sees. So the enumeration is written as that code, when
+  the code of a disclosure is written, and reviewed there. This record decides
+  what the class holds and what it never holds; the code states it field by
+  field
 - Shipped: unreleased
 - Date: 2026-10-08
 - Assumes: [ADR 0046](0046-a-widening-is-a-declared-class.md) §2 (a widening
@@ -39,7 +40,8 @@
     edited. The ruling of §5 reads what it protects (*Context*), and no ruling
     asks for a change to its text. The precedent for a reading written in a
     record while the fixed text stays as it is: ADR 0043 §1, amended on
-    2026-10-06 with #451
+    2026-10-06 with #451. There the change to the text is declared owed; here
+    no ruling owes one
 - Number: 0047. Swept on 2026-10-08, before a line was written, across
   `origin/main` (`a8df980`), every local and remote branch and tag, the
   `docs/adr/` of every sibling worktree (none has one) and the open pull
@@ -255,12 +257,12 @@ rule.
 
 ### On the `reason`, ruled again on 2026-10-08
 
-Rulings of 2026-10-02 and 2026-10-04 had held that fixed decision 9 is
-amended, and that a disclosure shows the judge's `reason`. On 2026-10-08 the
-amendment was declined: *"The reason stays out of a case in clear."* Its ground is ADR 0015
-§4, which forbids the output with no exception, and *"reaches a quotation of
-the output as it reaches the output"*. This record states ruling 3 and does not
-argue it again.
+Rulings of 2026-10-02 and 2026-10-04 had held that fixed decision 9 is amended,
+and that a disclosure shows the judge's `reason`. On 2026-10-08 the amendment
+was declined: *"The reason stays out of a case in clear."* Its ground is ADR
+0015 §4, which forbids the output with no exception, and *"reaches a quotation
+of the output as it reaches the output"*. This record states ruling 3 and does
+not argue it again.
 
 ## Decision
 
