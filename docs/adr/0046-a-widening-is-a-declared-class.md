@@ -272,8 +272,7 @@ says where a widening sits and what an act may do.
   2026-10-07 placed it inside this decision (translated from the Italian it
   was given in): *"it is not a fourth point of its own: it is the same question
   as A, seen from git, and it enters its ruling."* The ruling on A does not
-  name it.
-  This text does not establish whether the rule of §2 settles it.
+  name it. This text does not establish whether the rule of §2 settles it.
 - **A claim outside the artefact that could be checked without a forbidden or
   destructive act.** §5's two cases do not cover it: *"No text covers it, and
   it is not assumed either way."*
@@ -302,6 +301,6 @@ rule about a class that is not written would pass by construction, and a check
 that cannot fail is not one.
 
 **Owed with the code of a disclosure on request**, when it arrives, and
-written with that code: a test for each half of §2's rule. An act that selects
-outside every declared class is refused, because the default is closed (§3).
+written with that code: a test for each half of §2's rule. An act outside
+every declared class lets nothing cross, because the default is closed (§3).
 An act within a declared class is recorded with its person and its reason.
