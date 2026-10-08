@@ -3821,6 +3821,18 @@ names.
    `tests/test_release_followup.py`, and renumbering them to tidy an order would
    break the citations silently. Read it at step 2; write it at step 4's block.
 
+7. **The action's default image:** in `digline/digline-action`, move the
+   default to the released version in the four places its CI names
+   (`action.yml` `inputs.image.default`, `ci.yml` `env.TEST_IMAGE`, every
+   `ghcr.io/digline/digline:<version>` in `README.md`, and the derived-image
+   example), merge, **then move the `v1` tag** to that merge and cut the
+   matching `v1.x.y`. A bump on `main` that `v1` does not point at reaches
+   nobody: until 2026-10-08 `@v1` still resolved to 0.9.0, through two bumps
+   on `main`. If `SCHEMA_VERSION` moved, regenerate its fixtures in the same
+   pull request, as 0.29.0 had to. Its weekly `image-tag` job goes red when
+   this is skipped, and went red twice before anybody read it; it detects, it
+   does not do.
+
 **Four of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
 asks the four questions of this list that have an answer a machine can check:
