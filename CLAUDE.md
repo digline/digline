@@ -102,6 +102,9 @@ correct its structural mistakes and are not negotiable.
    **served projection**: a run, promoted or not, projected the same way. It
    carries what a projected reference carries, plus what a current run adds,
    which is a response count and digline's own vocabulary, never a name.
+   *Added 2026-10-08 (ADR 0046).* A widening of what crosses is a class
+   declared in reviewed code; a recorded act — a person, a reason, at a page —
+   selects an instance within a declared class and is never a widening.
 
 ## Structure
 
