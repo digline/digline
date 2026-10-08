@@ -81,8 +81,9 @@ correct its structural mistakes and are not negotiable.
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
    the prudent default holds here too. (ADR 0003)
    *Narrowed 2026-10-05 (ADR 0042).* The flag is necessary and no longer
-   sufficient: the declared files cross only when they are inside the
-   perimeter, and outside `.digline` and `.git`.
+   sufficient. A declared file outside the perimeter is refused at run and never
+   recorded; one under `.digline` or `.git` is recorded, and the command that
+   would let it cross is refused. Neither is dropped in silence.
    *Narrowed 2026-09-27 (ADR 0034 §4, §5, §8).* A **projected** reference, the
    file committed when the store lives with the end company, carries less than
    the list above. The `case_id`, a verdict's name, a group label, a

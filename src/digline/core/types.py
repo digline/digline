@@ -100,8 +100,10 @@ class Disclosure:
 
     score_metadata: frozenset[str] = frozenset()
     run_metadata: frozenset[str] = frozenset()
-    #: Whether the declared artifacts — content and digest — cross a boundary,
-    #: for files inside the perimeter, and outside `.digline` and `.git`.
+    #: Whether the declared artifacts — content and digest — cross a boundary.
+    #: `Disclosure` is a value and enforces nothing about where a file sits:
+    #: the perimeter is checked in `host.artifacts.read_artifacts`, and
+    #: `.digline` and `.git` in `core.run.barred_from_crossing`. (ADR 0042)
     artifacts: bool = False
 
 

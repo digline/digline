@@ -259,13 +259,20 @@ says where a widening sits and what an act may do.
   the declared files travel. Both are made here, because changes owed to the
   same fixed text go together: made apart, fixed decision 9 would be edited
   twice. The pointer is a dated line, *"*Narrowed 2026-10-05 (ADR 0042).*"*,
-  beside the artifact paragraph, which is not rewritten. The pages were
+  beside the artifact paragraph, which is not rewritten. The clause is applied
+  in a corrected form, because the code refuses the two cases at different
+  moments (ADR 0042's *Consequences* carry the note). The places were
   re-derived on 2026-10-08 from what ADR 0042 describes, every passage that
   says the flag is what makes the declared files travel, including the forms
-  with *"unless"*, and not from its list of five, which was a snapshot: ten
-  places, in `docs/api.md` (three), `docs/tools.md`, `docs/mcp.md`,
-  `docs/guide.md`, `docs/metrics.md`, `packages/digline-mcp/README.md`,
-  `src/digline/core/types.py` and `src/digline/wire/run.py`.
+  with *"unless"*, and not from its list of five, which was a snapshot. **Ten
+  places were found, and eight are touched:** six gain one sentence after the
+  existing one (`docs/api.md`'s section on `Disclosure`, `docs/tools.md`,
+  `docs/mcp.md`, `docs/guide.md`, `docs/metrics.md` and
+  `packages/digline-mcp/README.md`), and two in `src/` gain a pointer to
+  where the rule is enforced (`core/types.py` and `wire/run.py`). **The other
+  two**, both in `docs/api.md`'s section on artifacts, are covered by the
+  paragraph that states the mechanism in that same section, so they are not
+  left untouched by oversight.
 - **ADR 0039 §3's exchange is read correctly.** *"The client gives up
   preventive authorisation, and it receives the trace in exchange."* §3 never
   granted the client a preventive authorisation, so the exchange surrenders
@@ -318,7 +325,8 @@ says where a widening sits and what an act may do.
 
 ## Test plan
 
-**Nothing at merge.** This record carries no code, and the class it governs
+**Nothing at merge.** This record carries no code (in `src/`, the change
+that carries it touches two comments and no behaviour), and the class it governs
 does not exist (§3), so there is nothing a test could exercise: a test of a
 rule about a class that is not written would pass by construction, and a check
 that cannot fail is not one.
