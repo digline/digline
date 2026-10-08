@@ -1,11 +1,18 @@
 # ADR 0046 — A widening is a class declared in reviewed code; a recorded act selects within it
 
-- Status: proposed 2026-10-08. The text comes first, before any code, and no
-  code is owed by it at landing: the class it speaks of does not exist yet
-  (§3). **What it decides was ruled before it was written**, in discussion, on
-  2026-10-07, and is recorded here as ruled (*Context*). The reach of ADR 0002
-  §3 (§1) and the line on flags and sources (§5) were read and ruled on
-  2026-10-08
+- Status: accepted 2026-10-08, by Alessandro, before any code, as
+  [ADR 0043](0043-a-message-digline-did-not-write.md) was on the same decision
+  9 (*"accepted 2026-10-05, before any code"*). **What it decides was ruled
+  before this text was written**, on 2026-10-07 and 2026-10-08 (*Context*,
+  §1, §5). It owes no code at landing (*Test plan*). And no part of it waits
+  for acceptance to rule on it one by one, which is the reason
+  [ADR 0035](0035-the-record-of-a-deletion.md)'s Status gives for `proposed`
+  (*"so that acceptance can rule on them one by one"*). It cannot stay
+  `proposed` because it adds a line to `CLAUDE.md`, and
+  [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §5 says why such
+  a line waits for acceptance: *"an amendment reading as in force while the
+  record that makes it is undecided would be a ruling and not a landing"*. So
+  the line in `CLAUDE.md` travels in the same pull request as this record
 - Shipped: unreleased
 - Date: 2026-10-08
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §2 (the
