@@ -309,7 +309,9 @@ the label.
 ### 5. The captured case: shown at the page, carried by nothing
 
 A case in clear shows the input, and the answers written beside it, **at a
-served page at the data owner's side, and nowhere else.**
+served page at the data owner's side, and nowhere else.** The input is the one
+that lives in the data owner's store, `Case.vars` and `Calibration.input`, not
+`RecordedResponse.input`, which §3 excludes.
 - **It is not a crossing.** ADR 0023 §3: *"At a served page at the data
   owner's side there is no commit and nothing crosses the boundary."* The input
   is read where it was born, and no copy is made.
@@ -326,8 +328,8 @@ served page at the data owner's side, and nowhere else.**
 ### 6. The condition: no git at the data owner's side
 
 §5 rests on *"no commit at the data owner's side"*. ADR 0037 takes that from
-ADR 0034 §3 and states it as a condition (its *Assumes*: *"§3 (no git there, as
-a condition;"*). **If git appears at the data owner's side, the premise of §5
+ADR 0034 §3 and states it as a condition: its *Assumes* names ADR 0034 §3 with
+*"no git there, as a condition"*. **If git appears at the data owner's side, the premise of §5
 is to be looked at again.** This is a condition, written so that whatever
 removes the premise fires the consequence, not a doubt about the ruling.
 
