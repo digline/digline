@@ -26,9 +26,9 @@
   never looked up)
 - Touches:
   - [ADR 0039](0039-disclosure-on-request.md) §8, proposed, whose question
-    this record answers: the trace satisfies the property decision 9 protects,
-    and decision 9 is not amended (§2, §6). ADR 0039's text is not edited here;
-  - in `CLAUDE.md`'s *fixed* section: **decision 9**. It is not amended. It
+    this record answers: the trace satisfies the property fixed decision 9 protects,
+    and fixed decision 9 is not amended (§2, §6). ADR 0039's text is not edited here;
+  - in `CLAUDE.md`'s *fixed* section: **fixed decision 9**. It is not amended. It
     gains one dated line that states the distinction (§6)
 - Number: 0046. Swept on 2026-10-08, before a line was written, across
   `origin/main` (`9b046f4`), every local and remote branch and tag, the
@@ -40,7 +40,7 @@
 
 [ADR 0039](0039-disclosure-on-request.md) lets a person at the software house
 ask to see one case in clear, at a page served at the data owner's side, with a
-reason and a trace. Its §8 names what that does to decision 9, and does not
+reason and a trace. Its §8 names what that does to fixed decision 9, and does not
 decide it:
 
 > **Decision 9 and ADR 0002 §2:** the payload does not cross a boundary. ADR
@@ -201,7 +201,7 @@ regime.**
   would be worse than no flag."* It enumerates what it does not decide:
   *"Numbers: … a number is let through wherever it sits. And the **keys** of a
   verdict's metadata"*.
-- Decision 9, as narrowed on 2026-09-27 by ADR 0034: *"A green means *no
+- Fixed decision 9, as narrowed on 2026-09-27 by ADR 0034: *"A green means *no
   string*, not *no content*"*.
 
 **A source says where a declared fact came from, and nobody verifies it.**
@@ -224,9 +224,9 @@ particular act selected within it is recorded with its person and its reason.
 Neither is a regime that digline verifies. Where a flag is checked, it checks a
 property of a document's form, and says which.
 
-### 6. Decision 9: not amended, and one dated line added
+### 6. Fixed decision 9: not amended, and one dated line added
 
-**Decision 9 is not amended.** Its list of what crosses and what does not
+**Fixed decision 9 is not amended.** Its list of what crosses and what does not
 stands as written. It gains a distinction it does not carry today, stated in
 one dated line in the change that carries this record:
 
@@ -235,11 +235,11 @@ one dated line in the change that carries this record:
 > instance within a declared class and is never a widening.
 
 **An added line, not an amendment, and the form has two precedents in
-decision 9.** ADR 0043 §8: *"One line is added after the list of what crosses,
-in the change that carries this record"*, and decision 9 carries it as
+fixed decision 9.** ADR 0043 §8: *"One line is added after the list of what crosses,
+in the change that carries this record"*, and fixed decision 9 carries it as
 *"*Added 2026-10-05 (ADR 0043).*"*. ADR 0038's line is carried as *"*Added
 2026-10-01 (ADR 0038).*"*, at the end of the decision, which is where this one
-goes. That is a different act from decision 9's *"*Narrowed 2026-09-27
+goes. That is a different act from fixed decision 9's *"*Narrowed 2026-09-27
 (ADR 0034 §4, §5, §8).*"*, which changed what a projected reference carries
 against the list above it. This line changes nothing the list says crosses: it
 says where a widening sits and what an act may do.
@@ -259,7 +259,7 @@ says where a widening sits and what an act may do.
 
 ## Alternatives considered
 
-- **Amending decision 9.** A ruling of 2026-10-02 did; it was declined on
+- **Amending fixed decision 9.** A ruling of 2026-10-02 did; it was declined on
   2026-10-08, with the judge's `reason` kept out of a case in clear. ADR 0002
   §2 is then not touched, and on §3 there is nothing to amend: the widening is
   still declared in code, and the act only selects.
