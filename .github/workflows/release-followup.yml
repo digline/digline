@@ -1,4 +1,4 @@
-# The four things a machine can ask once the tag is out — and one issue.
+# The five things a machine can ask once the tag is out — and one issue.
 #
 # `RELEASING.md`'s *After the tag* checklist had no gate of any kind, and it was
 # skipped twice without anything noticing: the example locks were regenerated
@@ -22,7 +22,7 @@
 name: release-followup
 
 on:
-  # After a release, which is when the four become due.
+  # After a release, which is when the five become due.
   workflow_run:
     workflows: [publish]
     types: [completed]
@@ -32,7 +32,7 @@ on:
     branches: [main]
   # By hand, optionally about a *previous* release. The version is normally read
   # from `pyproject.toml`, which is the release just cut; naming an older tag
-  # asks the same four questions about it, which is how you re-check a release
+  # asks the same five questions about it, which is how you re-check a release
   # whose follow-up you are not sure of — and how this workflow's own channel
   # was exercised in both directions without committing anything untrue to
   # `main`.
@@ -235,7 +235,38 @@ jobs:
           PY
           cat digests.json
 
-      - name: Ask the four, each with its control
+      # Step 7, in another repository: digline-action's `action.yml` on `main`,
+      # on `v1` — what `uses: digline/digline-action@v1` actually downloads —
+      # and on a ref that cannot exist. A 404 is *not found*; anything else
+      # that is not a 200 is *did not answer*, and is not judged.
+      - name: The action's default image, and a ref that cannot exist
+        if: steps.version.outputs.released == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > action.jsonl
+          for ref in main v1 v1-does-not-exist; do
+            code="$(curl -sS -o "action-$ref.yml" -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github.raw" \
+              "https://api.github.com/repos/digline/digline-action/contents/action.yml?ref=$ref" \
+              2>/dev/null || true)"
+            printf '%s\t%s\n' "$ref" "$code" >> action.jsonl
+            echo "action.yml at $ref: HTTP $code"
+          done
+          uv run --quiet python - <<'PY' > action.json
+          import json, pathlib
+          out: dict[str, object] = {}
+          for line in pathlib.Path("action.jsonl").read_text().splitlines():
+              ref, _, code = line.partition("\t")
+              if code == "200":
+                  out[ref] = pathlib.Path(f"action-{ref}.yml").read_text(encoding="utf-8")
+              else:
+                  out[ref] = None if code == "404" else "error"
+          print(json.dumps(out))
+          PY
+
+      - name: Ask the five, each with its control
         id: ask
         if: steps.version.outputs.released == 'yes'
         continue-on-error: true
@@ -256,7 +287,7 @@ jobs:
             --publish-run "${{ steps.approvals.outputs.run }}" \
             --attempt "${{ steps.approvals.outputs.attempt }}" \
             --kept kept.json --read-by "${{ github.run_id }}" --keep-out keep.json \
-            --digests digests.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
+            --digests digests.json --action action.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
 
       # What this run read, kept where a re-run cannot erase it. Written by the
       # script only when it read an approval, so its absence is not a failure.

@@ -3821,15 +3821,33 @@ names.
    `tests/test_release_followup.py`, and renumbering them to tidy an order would
    break the citations silently. Read it at step 2; write it at step 4's block.
 
-**Four of these now have a machine asking, and one place the answer lands.**
+7. **The action's default image:** in `digline/digline-action`, move the
+   default to the released version in the four places its CI names
+   (`action.yml` `inputs.image.default`, `ci.yml` `env.TEST_IMAGE`, every
+   `ghcr.io/digline/digline:<version>` in `README.md`, and the derived-image
+   example), merge, **then move the `v1` tag** to that merge and cut the
+   matching `v1.x.y`. A bump on `main` that `v1` does not point at reaches
+   nobody: until 2026-10-08 `@v1` still resolved to 0.9.0, through two bumps
+   on `main`. If `SCHEMA_VERSION` moved, regenerate its fixtures in the same
+   pull request, as 0.29.0 had to. Its weekly `image-tag` job goes red when
+   this is skipped, and went red twice before anybody read it; it detects, it
+   does not do.
+
+**Five of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
-asks the four questions of this list that have an answer a machine can check:
+asks the five questions of this list that have an answer a machine can check:
 the example locks name the released version (step 3), the `publish` run's
 approvals record an `approved` (step 1), the three image tags resolve to one
-digest (step 2's other half), and the Status block names the release (step 4).
-Each is asked twice — once for the answer and once for something that must be
-false — because three of the four fail open by construction, and a check that
-cannot fail has verified nothing.
+digest (step 2's other half), the Status block names the release (step 4),
+and `digline-action`'s `action.yml` defaults to the released image both on
+`main` and on `v1` (step 7). Each is asked twice — once for the answer and
+once for something that must be false — because most of them fail open by
+construction, and a check that cannot fail has verified nothing.
+
+Step 7 is asked here, and not only by `digline-action`'s weekly `image-tag`
+job, because that job went red twice and nobody read it, and because it
+reads `main` alone: a `main` bumped while `v1` stays put is green there and
+reaches no user.
 
 **The finding is an issue, not a colour.** One open issue **per release**,
 labelled `release-followup`, whose body is the current reading and whose title
