@@ -212,19 +212,50 @@ independent of every other version in the tree, never migrated. A line this
 digline cannot read is refused by name and left where it is, as ADR 0021 §5
 does for the register.
 
+**An entry is written by the process that performs the removal:** for a
+name-table row, the process that owns the table (ADR 0036 §9); for a run,
+digline.
+
 **An entry carries:**
 - **what was removed, named without its content:**
   - for a **name-table row**, the row's **token**. A token carries no text
-    (ADR 0034 §5), and the committed projections already hold it for as long
-    as git keeps them;
+    (ADR 0034 §5). Where the token was handed out in a document meant for a
+    commit, the software house's git may also hold it, for as long as it keeps
+    that document; where it was not, nothing outside the table and this entry
+    ever named it. The entry says which of the two holds (below);
   - for a **run**, the run's **`created_at`** and nothing else of its key
-    (§5);
+    (§5). Where nothing readable carried it, a run with no document whose
+    every journal leg was refused, the entry is still written, and names the
+    run with an explicit value, `created_at-not-readable`: the name was not
+    readable, and that is stated, not left out;
 - **when** the removal was made;
-- **who decided it**: the identity digline records for the person who
-  decided, together with **where that identity came from**. Two identities of
-  the same shape are not of the same worth when one comes from a source the
-  end company can revoke and the other does not. A record that does not say
-  which lets its reader assume the stronger.
+- **for a row, who decided it**: the identity the owning process records for
+  the person who decided, with its **kind**, a person or a machine, and
+  **where that identity came from**. **The identity is recorded so that it
+  cannot mean two people:** a name freed by one person and given to another
+  must not make an older entry name the newcomer. The form that guarantees it
+  is not decided here. It is the requirement every record of a person's act
+  carries, and an entry takes the form that requirement is given;
+- **for a run, no identity.** digline records no person. A required field
+  nobody can fill is not a requirement. It is a block written by mistake;
+- **for a row, whether its token was handed out:** `handed_out`, with two
+  values, always written and never left out:
+  `in-a-document-meant-for-a-commit` or `not-handed-out-for-a-commit`.
+
+**Two documents hand a token out for a commit:** a projection committed at the
+software house, and an election line (ADR 0037 §5). **The first path that
+hands a token out in either marks the row when it hands it out.** Whoever
+removes a row reads the mark before removing it, and a row without a mark has
+not been handed out, by construction. The mark, and where it is kept, arrive
+with that first path: at the time of this record no path hands a token out
+for a commit, so every row is unmarked, and that is known from the code, not
+from anything a row carries. **If a path ever hands a token out without
+marking the row, a third value is owed.**
+
+**What the mark cannot tell, and so what `handed_out` never claims:** that the
+document was committed; that the commit was not rewritten; that a person did
+not copy a token by hand from a served page into a commit. Its name says what
+is known, and never asserts a commit.
 
 **An entry never carries:**
 - **what the row said**, or anything the run contained;
@@ -258,8 +289,16 @@ at all. **So the ledger never treats `created_at` as a key.** An entry is the
 record of one gesture. Two removals that name the same `created_at` are
 **two entries**, not a conflict. Each entry carries its **position in the
 segment it was appended to** (§7), which is a sequence number, not a digest.
-A reader matching a run key to the ledger (§5) is told how many entries
-matched, and one match is never assumed.
+A position is a place in one segment of one ledger, and is compared with
+nothing outside it.
+
+**A matching yields a count, and a unique correspondence is never assumed.**
+The rule binds whoever matches a run key to the ledger (§5), which is the data
+owner at administrative time. **No tool of digline does the matching** (§10).
+An entry whose run was named `created_at-not-readable` is matched by no key, by
+construction, and no count includes it: what it keeps is that a removal
+happened, which is what an authority is shown, not a correspondence anyone can
+recover.
 
 ### 5. No digest in an entry — measured, not assumed
 
@@ -316,7 +355,12 @@ it is shown to holds no keys, and the holders of keys never read it (§10).
 **Every field of an entry, checked against the same question:**
 - a **token** is not derived from its text, by ADR 0034 §5;
 - **`created_at`** and **when** are clocks;
-- **who decided** is an identity and its source.
+- **who decided**, in a row's entry only, is an identity, its kind and its
+  source;
+- **`handed_out`** takes one of two fixed values, and
+  **`created_at-not-readable`** is a stated absence: neither is derived from
+  anything;
+- a **position** is a sequence number in its segment (§4).
 
 **None of them is a digest, so ADR 0034 §12's condition has nothing to fire
 on here.** That is the property this rests on, and it is written as a
@@ -547,13 +591,15 @@ The ledger adds no data. **What it adds is an index**: these are the rows, and
 these are the runs, whose removal somebody asked for. Those are the people with
 the strongest claim not to be re-identified.
 
-**And the index comes grouped by person, at no cost.** An entry carries when
-and who decided (§4). A removal is one person naming what goes, at one
+**And the index comes grouped by person, at no cost.** A row's entry carries
+when and who decided (§4). A removal is one person naming what goes, at one
 sitting. So the entries that share a decider and a time band are the rows of
-one request, which means one subject's rows grouped together. **Refusing the
-request's identifier stops the ledger from naming the subject. It does not
-stop it from grouping the subject's rows**, and the grouping needs no field of
-its own: it falls out of two fields this record requires.
+one request, which means one subject's rows grouped together. **This holds for
+the entries of rows:** a run's entry carries no decider (§4), so runs are not
+grouped by it. **Refusing the request's identifier stops the ledger from naming
+the subject. It does not stop it from grouping the subject's rows**, and the
+grouping needs no field of its own: it falls out of two fields this record
+requires.
 
 **What this record does about it: the ledger sits apart** (§2). It is outside
 the store's backup regime, at a path with a regime of its own. The
