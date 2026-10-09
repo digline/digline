@@ -13,14 +13,18 @@
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no migration. The ledger is a new
   format with a version of its own (§4), and it is born at implementation, not
   here
-- Requires, at implementation: **a new artifact** outside the tenant's
-  directory, at a path the data owner configures (§2). **Two configuration
-  keys** that are set together or not at all: the path and the retention
-  (§2, §8). **A writer**, which is the process that performs a removal (§6).
-  **Two notices**, whose words are fixed here (§9). **A refusal** for two
-  tenants configured onto one path, classified in `host.REFUSALS` or
-  `tests/test_refusals.py` will not see it (§2). **No new reader anywhere in
-  digline** (§10)
+- Requires, at implementation: **two new artifacts** per tenant outside the
+  tenant's directory, a ledger of row removals and a ledger of run removals,
+  each at a path the data owner configures (§2). **For each ledger, three
+  configuration keys, all required:** the path, or the declared value *no
+  ledger* (§2, §9); the retention, required whenever the value is a path
+  (§8); and the storage's declaration, its period included (§7). **A writer
+  per ledger**, the process that performs that kind of removal, running
+  digline's code (§6). **Two notices**, whose words are fixed here (§9).
+  **Three refusals**, a ledger that declares another tenant, a ledger of the
+  other kind, and a ledger whose segments disagree, each classified in
+  `host.REFUSALS` or `tests/test_refusals.py` will not see it (§2, §7). **No
+  new reader anywhere in digline** (§10)
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §2 (the payload stays where it is born, and a flag
   is verified rather than believed) and §6 (retention is mandatory, not a
@@ -59,12 +63,12 @@
   the procedure that decides one (§*Not decided here*)
 - Touches, in `CLAUDE.md`'s *fixed* section: **decision 2** gets an exception
   (§2), and keeps its stated reason whole: nothing in a home directory, no
-  global state, and the ledger's location is configured per tenant by the
-  owner of the data. **Decision 5** is upheld: the ledger is a path, never a
-  service that digline calls (§2). **Decision 8** is upheld by making the path
-  per tenant and refusing a shared one (§2). **Decision 9** is upheld: no
-  field of an entry is a digest, and §5 is where that is measured rather than
-  assumed
+  global state, and each ledger's location is configured per tenant by the
+  owner of the data. **Decision 5** is upheld: a ledger is a path, never a
+  service that digline calls (§2). **Decision 8** is upheld by keeping each
+  ledger to one tenant, which it declares, and refusing to append to a ledger
+  that declares another (§2). **Decision 9** is upheld: no field of an entry is
+  a digest, and §5 is where that is measured rather than assumed
 - Number: 0035. Swept on 2026-09-29, before a line was written, across
   `origin/main` (`4a4fe17`), every remote ref, every local branch and tag, every
   sibling worktree's `docs/adr/`, the one stash, the open pull requests (none),
@@ -132,10 +136,21 @@ of accounts kept by the company it describes is falsifiable and is still the
 basis of those accounts. A dishonest keeper can alter it. A dishonest keeper
 can also simply not erase.
 
-### 2. Where it lives: a path the data owner configures, one per tenant
+### 2. Where it lives: a path the data owner configures, two per tenant
 
 **The ledger lives at a path the data owner configures. The process that
 writes it does not choose the path.**
+
+**Two ledgers per tenant, one for each kind of removal:** a ledger of row
+removals, written by the process that owns the table, and a ledger of run
+removals, written by digline (§4, §6). **Each has its own path.** One ledger
+for both would put two writers on one path, the case §6's condition
+excludes, and an exclusion that needs no lock file is a design and a
+measurement this record does not have. Whoever wants a single ledger reopens
+this with that measurement. Where the key of the path of the ledger of run
+removals lives is owed by the first writer of runs, and is not decided here.
+**Everything this record says of the ledger holds of each of the two, unless
+it names one.**
 
 **Why a configurable path, and not a place digline picks.** It is the only
 shape that lets the data owner point the ledger at a volume with a backup
@@ -171,16 +186,23 @@ must not be merged into one amendment**, and this record makes only its own.
 makes the tenant the perimeter, and it enforces **addressing** by putting the
 tenant in the directory layout: filing one client's history as another's is a
 refused mistake. A path outside `.digline/<tenant>/` loses that addressing, so
-the configuration carries it instead. **The ledger's path is configured per
-tenant**, and the writer **refuses to start** when two tenants are configured
-onto the same path. A ledger shared by tenants would hold several perimeters'
-removals in one place, with nothing in its location to tell them apart.
+**the ledger carries it instead: each ledger declares its tenant and its kind
+of removal** (§7), **and a writer refuses to append to a ledger that declares
+another tenant, or the other kind.** A ledger shared by tenants would hold
+several perimeters' removals in one place, with nothing in its location to
+tell them apart; what tells them apart is what the ledger declares. **The
+refusal goes through the file, not through the configuration:** a process
+sees its own configuration and no other, so a refusal read from it could not
+see a second process configured onto the same path, and for a process that
+serves one tenant it would never fire. **The limit, stated:** two processes of
+the same tenant and the same kind, writing the same file, are not detected.
 
 **Set at the data owner's side, and nowhere else.** The path is configuration
-the data owner writes where the store is. Nothing the software house sends can
-set it or change it. If it could, the software house would decide where the
-controller's record of its own erasures lives, which is the opposite of this
-section's first sentence.
+the data owner writes where the store is. **The key is required:** its value is
+a path, or the declared value *no ledger* (§9), and a missing key is refused at
+start. Nothing the software house sends can set it or change it. If it could,
+the software house would decide where the controller's record of its own
+erasures lives, which is the opposite of this section's first sentence.
 
 ### 3. It is not the register
 
@@ -212,19 +234,50 @@ independent of every other version in the tree, never migrated. A line this
 digline cannot read is refused by name and left where it is, as ADR 0021 §5
 does for the register.
 
+**An entry is written by the process that performs the removal:** for a
+name-table row, the process that owns the table (ADR 0036 §9); for a run,
+digline.
+
 **An entry carries:**
 - **what was removed, named without its content:**
   - for a **name-table row**, the row's **token**. A token carries no text
-    (ADR 0034 §5), and the committed projections already hold it for as long
-    as git keeps them;
+    (ADR 0034 §5). Where the token was handed out in a document meant for a
+    commit, the software house's git may also hold it, for as long as it keeps
+    that document; where it was not, nothing outside the table and this entry
+    ever named it. The entry says which of the two holds (below);
   - for a **run**, the run's **`created_at`** and nothing else of its key
-    (§5);
+    (§5). Where nothing readable carried it, a run with no document whose
+    every journal leg was refused, the entry is still written, and names the
+    run with an explicit value, `created_at-not-readable`: the name was not
+    readable, and that is stated, not left out;
 - **when** the removal was made;
-- **who decided it**: the identity digline records for the person who
-  decided, together with **where that identity came from**. Two identities of
-  the same shape are not of the same worth when one comes from a source the
-  end company can revoke and the other does not. A record that does not say
-  which lets its reader assume the stronger.
+- **for a row, who decided it**: the identity the owning process records for
+  the person who decided, with its **kind**, a person or a machine, and
+  **where that identity came from**. **The identity is recorded so that it
+  cannot mean two people:** a name freed by one person and given to another
+  must not make an older entry name the newcomer. The form that guarantees it
+  is not decided here. It is the requirement every record of a person's act
+  carries, and an entry takes the form that requirement is given;
+- **for a run, no identity.** digline records no person. A required field
+  nobody can fill is not a requirement. It is a block written by mistake;
+- **for a row, whether its token was handed out:** `handed_out`, with two
+  values, always written and never left out:
+  `in-a-document-meant-for-a-commit` or `not-handed-out-for-a-commit`.
+
+**Two documents hand a token out for a commit:** a projection committed at the
+software house, and an election line (ADR 0037 §5). **The first path that
+hands a token out in either marks the row when it hands it out.** Whoever
+removes a row reads the mark before removing it, and a row without a mark has
+not been handed out, by construction. The mark, and where it is kept, arrive
+with that first path: at the time of this record no path hands a token out
+for a commit, so every row is unmarked, and that is known from the code, not
+from anything a row carries. **If a path ever hands a token out without
+marking the row, a third value is owed.**
+
+**What the mark cannot tell, and so what `handed_out` never claims:** that the
+document was committed; that the commit was not rewritten; that a person did
+not copy a token by hand from a served page into a commit. Its name says what
+is known, and never asserts a commit.
 
 **An entry never carries:**
 - **what the row said**, or anything the run contained;
@@ -248,18 +301,26 @@ run, and a leg has no key of its own. The run's `created_at` is in the
 journal's header, so an entry for a run names it **whether the run was removed
 as a document, as legs, or as both.** One run, one entry.
 
-**`created_at` is not unique by construction, and this record does not
-assume the practice. Decided here.** `utc_now_iso` keeps microseconds because
-two runs in the same second once collided. But that collision needed the same
-suite as well, and `created_at` alone needs only the same microsecond, for any
-two runs within the tenant's ledger. And `created_at` is a wall clock: a clock
-stepped backwards, by NTP or by hand, repeats a microsecond with no coincidence
-at all. **So the ledger never treats `created_at` as a key.** An entry is the
-record of one gesture. Two removals that name the same `created_at` are
-**two entries**, not a conflict. Each entry carries its **position in the
-segment it was appended to** (§7), which is a sequence number, not a digest.
-A reader matching a run key to the ledger (§5) is told how many entries
-matched, and one match is never assumed.
+**`created_at` is not unique by construction, and this record does not assume
+the practice. Decided here.** `utc_now_iso` keeps microseconds because two runs
+in the same second once collided. But that collision needed the same suite as
+well, and `created_at` alone needs only the same microsecond, for any two runs
+within the tenant's ledger of run removals. And `created_at` is a wall clock: a
+clock stepped backwards, by NTP or by hand, repeats a microsecond with no
+coincidence at all. **So the ledger never treats `created_at` as a key.** An
+entry is the record of one gesture. Two removals that name the same
+`created_at` are **two entries**, not a conflict. Each entry carries its
+**position in the segment it was appended to** (§7), which is a sequence
+number, not a digest. A position is a place in one segment of one ledger, and
+is compared with nothing outside it.
+
+**A matching yields a count, and a unique correspondence is never assumed.**
+The rule binds whoever matches a run key to the ledger (§5), which is the data
+owner at administrative time. **No tool of digline does the matching** (§10).
+An entry whose run was named `created_at-not-readable` is matched by no key, by
+construction, and no count includes it: what it keeps is that a removal
+happened, which is what an authority is shown, not a correspondence anyone can
+recover.
 
 ### 5. No digest in an entry — measured, not assumed
 
@@ -316,7 +377,12 @@ it is shown to holds no keys, and the holders of keys never read it (§10).
 **Every field of an entry, checked against the same question:**
 - a **token** is not derived from its text, by ADR 0034 §5;
 - **`created_at`** and **when** are clocks;
-- **who decided** is an identity and its source.
+- **who decided**, in a row's entry only, is an identity, its kind and its
+  source;
+- **`handed_out`** takes one of two fixed values, and
+  **`created_at-not-readable`** is a stated absence: neither is derived from
+  anything;
+- a **position** is a sequence number in its segment (§4).
 
 **None of them is a digest, so ADR 0034 §12's condition has nothing to fire
 on here.** That is the property this rests on, and it is written as a
@@ -341,21 +407,25 @@ round.** The two torn states are not equally bad:
 **With the removal first, the only torn state possible is the first.** A crash
 can leave the ledger short. It cannot leave it lying.
 
-**The writer is the process that performs the removal, at the data owner's
-side, and it is the ledger's only writer.** Written as the condition it rests
-on: **the ledger needs no exclusion for as long as nothing else appends to its
+**Each ledger's writer is the process that performs its kind of removal, at
+the data owner's side, and it is that ledger's only writer** (§2, §4). **The
+code that writes is digline's**, published and called by the process that
+owns the table the way the resolver is, so one format, one pair of notices
+and one set of refusals reach both writers. Written as the condition it rests
+on: **a ledger needs no exclusion for as long as nothing else appends to its
 path.** A second writer would need one. A lock file is not one, and ADR 0031
 records why: a stale lock blocks everything behind it. This record provides no
-exclusion, and it does not claim the condition is enforced.
+exclusion. §2's refusals make a writer of another tenant or of the other kind
+loud; a second writer of the same tenant and kind is not detected, and the
+condition is not claimed to be enforced.
 
 ### 7. Where "nobody can rewrite" comes from, and what the ledger says about it
 
 **The property comes from the storage, not from a second holder.** Storage
 that lets the writing process add and neither modify nor remove gives *nobody
 can rewrite* without anyone else holding anything. **The data owner configures
-that storage. digline does not.** Where the data owner configures nothing, the
-process appends to an ordinary file, and the property is a promise rather than
-a fact.
+that storage. digline does not.** Where the storage is an ordinary file, the
+process appends to it, and the property is a promise rather than a fact.
 
 **So the ledger declares what it knows about its storage, instead of asserting
 immutability**, and what it knows is what it was told:
@@ -363,14 +433,19 @@ immutability**, and what it knows is what it was told:
   construction (ADR 0002 §2). A claim about storage that came from
   configuration can be verified by nobody. So the ledger records **where its
   knowledge came from**, and does not state a property.
-- **The default declaration is *"I was not told"*, not *"ordinary"*.**
-  *Ordinary* would be a claim about the storage that the process has not
-  verified. *I was not told* is exactly what it knows.
+- **The declaration is required, and has no default.** *Ordinary* would be a
+  claim about the storage that the process has not verified, and a default of
+  any kind would make *not chosen* the ordinary outcome: the argument §8 makes
+  for the retention, made by the same person at the same moment. *I do not
+  know* is among the values, declared and not undergone.
 
 **How the process learns: from configuration, and only from configuration.
-Decided here.** The data owner may declare, beside the path, that the storage
+Decided here.** The data owner declares, beside the path, whether the storage
 refuses modification and removal, and the period for which it holds what it
-is given. The process records that it was **told** so, and by configuration.
+is given, *no period* and *I do not know* among the values. **The period is
+required as well:** §8's notice compares it with the retention, and an
+optional period would switch that comparison off in silence. The process
+records that it was **told** so, and by configuration.
 **It does not probe.** The only probe that could tell append-only storage from
 an ordinary file is an attempt to modify or remove an entry. That is the one
 act the ledger exists to refuse, and on storage that allows it the probe would
@@ -385,14 +460,25 @@ storage is a strengthening that a data owner with tighter obligations
 chooses. It is not a requirement.**
 
 **The ledger is written in segments, and the declaration belongs to the
-segment. Decided here.** A segment is one file, covering one calendar day of
-removals in UTC. Its first line records what the process was told about the
-storage **when the segment was opened**. The storage under a ledger can change
-while the ledger lives: a data owner can move it to append-only storage, or
-back. A declaration made once for the whole ledger would say nothing true
-about entries written before the change. A declaration per entry would repeat
-itself on every line. A segment is also the unit that storage holding objects
-for a period can hold, and the unit §8 expires.
+segment. Decided here.** A segment is one file, covering one calendar day in
+UTC on which the ledger wrote something: a removal, or an expiry (§8). Its
+first line records what the process was told about the storage **when the
+segment was opened**, and the ledger's tenant and kind of removal (§2). The
+storage under a ledger can change while the ledger lives: a data owner can move
+it to append-only storage, or back. A declaration made once for the whole
+ledger would say nothing true about entries written before the change. A
+declaration per entry would repeat itself on every line. A segment is also the
+unit that storage holding objects for a period can hold, and the unit §8
+expires.
+
+**Tenant and kind stand in every segment, not once for the ledger,** because
+§8 removes whole segments and would remove a declaration that stood in one.
+**Before it opens a new segment, the writer compares its own declaration with
+the one the ledger already carries**: a new file holds nothing yet to refuse
+against, and without the comparison a writer of another tenant would pass on
+the first day it writes. **All the segments of a ledger declare the same
+tenant and the same kind, and a ledger whose segments disagree is refused:**
+the writer cannot know what such a ledger says.
 
 ### 8. Retention: mandatory, configured by the data owner, and without a default
 
@@ -409,8 +495,11 @@ have decided it, and §3's third reason is that refusal.
 *"A production store without a declared deletion policy is not compliant and
 digline must not allow creating one: the window is a mandatory constructor
 parameter, not a setting with a generous default."* **The ledger takes the same
-shape.** Its retention is **mandatory whenever a path is configured**, and a
-path without a retention is refused at start. **There is no default.**
+shape.** Its retention is **mandatory whenever the key's value is a path**,
+and a path without a retention is refused at start. **There is no default.**
+**Each ledger has its own retention:** each has its own storage and its own
+period, and the notice below compares the retention with the period of the
+same storage. Whoever owns the data may write the same value twice.
 - **Why §6 applies here, when ADR 0034 §1 declined it for the reference.**
   §1's reason was that *"a reference that can expire is a reference that can
   vanish from under a gate."* Nothing gates on this ledger (§10), so that
@@ -438,8 +527,10 @@ rule already covers this: *absence is stated, never read as zero.* So:
   before it are not recorded here. A ledger configured late would otherwise
   look like the whole history.
 - **Each expiry appends a line** to the current segment, saying that segments
-  before a date have expired and when. A ledger that has expired entries says
-  so rather than looking young.
+  before a date have expired and when, **and opens a segment for it when none
+  is current.** A ledger that has expired entries says so rather than looking
+  young, and a ledger whose every segment has expired still holds a file that
+  tells its history.
 
 **When the storage holds objects for a period of its own.** Storage that
 refuses modification commonly does it by holding each object for a set
@@ -448,25 +539,26 @@ owner has configured such storage, the storage's period decides when a
 segment can actually go**, and the ledger's configured retention cannot shorten
 it. That is the same shape as git deciding retention by placement, one layer
 down, and it is a **condition, not a caveat**. What the process does about it
-is decided here: **if the data owner has declared a storage period and it
-differs from the configured retention, the process says so at start, beside
-§9's start notice**, naming both periods. It does not refuse, because
-both periods are the data owner's.
+is decided here: **if the declared period is a period, and it differs from the
+configured retention, the process says so at start, among what it declares of
+its configuration**, naming both periods, one notice for each ledger whose two
+periods differ. It does not refuse, because both periods are the data
+owner's.
 
-**A token that has expired from the ledger is not reused, and no rule is
-needed for it.** A token is not derived from anything, and minting a new one
-never consults the ledger. Once an entry has expired, nothing at the data
-owner's side records that its token existed, while the software house's git
-still carries it in old projections. A resolver meeting it reads what it reads
-for any token it cannot resolve. **This holds for as long as tokens are not
-derived** (§5's condition), and it is the name table's design that keeps it
+**A token that has expired from the ledger is not reused, and no rule is needed
+for it.** A token is not derived from anything, and minting a new one never
+consults the ledger. Once an entry has expired, nothing in the ledger records
+that its token existed, while, for a token handed out for a commit (§4), the
+software house's git may still carry it. A resolver meeting it reads what it
+reads for any token it cannot resolve. **This holds for as long as tokens are
+not derived** (§5's condition), and it is the name table's design that keeps it
 so.
 
-### 9. No path configured: nothing is written, and it is said out loud
+### 9. No ledger declared: nothing is written, and it is said out loud
 
-**With no path configured, the process does not write the ledger, and it says
-so, at start and at every removal.** The other two options are refused, and
-the reason is the same for both: **they lie.**
+**Where the key declares *no ledger*, the process does not write that ledger,
+and it says so, at start and at every removal of that kind.** The other two
+options are refused, and the reason is the same for both: **they lie.**
 - **Writing beside the store** is §2's refused sibling directory. It would
   claim a ledger apart from the data while having none.
 - **Refusing to remove** would mean not erasing, and not erasing is worse
@@ -483,18 +575,21 @@ Otherwise the process's own log becomes a record of removals, beside the
 store, under whatever backups the logs share, chosen by nobody. That is the
 *apart in name only* ledger this section refuses, arriving through logging.
 
-**Their words, decided here:**
+**Their words, decided here**, with *row* or *run* for the kind of ledger the
+tenant declares none of:
 
-    no deletion ledger is configured for this tenant: removals will be made and not recorded
+    this tenant declares no ledger of row removals: they will be made and not recorded
 
 at start, and
 
-    removed, and not recorded: no deletion ledger is configured for this tenant
+    removed, and not recorded: this tenant declares no ledger of row removals
 
-at each removal, printed where the removal is performed. **The second is an
-ordinary line, not refusal-shaped.** The removal succeeded, and a refusal's
-shape would say that it had not. The two reach different readers. The first
-reaches whoever starts the process and can configure the path. The second
+at each removal, printed where the removal is performed. **They name the kind,
+because a tenant may declare one ledger and not the other,** and a notice that
+named no kind would say something false exactly where a ledger exists. **The
+second is an ordinary line, not refusal-shaped.** The removal succeeded, and a
+refusal's shape would say that it had not. The two reach different readers. The
+first reaches whoever starts the process and can configure the path. The second
 reaches whoever is removing, at the moment of the gesture.
 
 **Nothing harder to ignore than the notice. Decided here.** A confirmation,
@@ -502,8 +597,8 @@ or a flag the operator must pass, is the next thing somebody will propose. It
 is refused for two reasons. A gesture repeated at every removal is learned
 and passed without reading. And a flag moves the decision to whoever writes
 the script that passes it, away from the person the second notice reaches.
-The start notice repeats at every start, for as long as the path stays
-unconfigured.
+The start notice repeats at every start, for as long as the key declares no
+ledger.
 
 ### 10. Off every read path, and nothing reads it to decide anything
 
@@ -535,9 +630,9 @@ That is exactly why it has no business crossing.
 
 ### 11. What the ledger concentrates, and does not remove
 
-**A ledger of removals is, beside a restored backup, a list of the people who
-asked to be erased.** This section says so in its own place, because it is the
-cost the design carries rather than a risk it removes.
+**A ledger of row removals is, beside a restored backup, a list of the people
+who asked to be erased.** This section says so in its own place, because it is
+the cost the design carries rather than a risk it removes.
 
 **The ledger does not create the risk. It concentrates it.** Without a ledger,
 whoever restores a backup of the name table has everything anyway. The table
@@ -547,13 +642,15 @@ The ledger adds no data. **What it adds is an index**: these are the rows, and
 these are the runs, whose removal somebody asked for. Those are the people with
 the strongest claim not to be re-identified.
 
-**And the index comes grouped by person, at no cost.** An entry carries when
-and who decided (§4). A removal is one person naming what goes, at one
+**And the index comes grouped by person, at no cost.** A row's entry carries
+when and who decided (§4). A removal is one person naming what goes, at one
 sitting. So the entries that share a decider and a time band are the rows of
-one request, which means one subject's rows grouped together. **Refusing the
-request's identifier stops the ledger from naming the subject. It does not
-stop it from grouping the subject's rows**, and the grouping needs no field of
-its own: it falls out of two fields this record requires.
+one request, which means one subject's rows grouped together. **This holds for
+the entries of rows:** a run's entry carries no decider (§4), so runs are not
+grouped by it. **Refusing the request's identifier stops the ledger from naming
+the subject. It does not stop it from grouping the subject's rows**, and the
+grouping needs no field of its own: it falls out of two fields this record
+requires.
 
 **What this record does about it: the ledger sits apart** (§2). It is outside
 the store's backup regime, at a path with a regime of its own. The
@@ -562,24 +659,27 @@ rare, deliberate and aimed at an authority, and it has no need to sit where the
 data is restored.
 
 **What that does not do, stated plainly: it reduces the concentrate. It does
-not remove it.** A ledger anywhere is still a grouped list of who asked to be
-erased. **Somebody who holds both the ledger and a restored backup has what
-this section describes.** Sitting apart makes the two harder to hold together.
-It does not make it impossible. And a ledger whose retention outlives the
-table's backups points into nothing, while one that does not points into
-them. The backups' retention is the data owner's, and digline cannot read it.
+not remove it.** A ledger of row removals anywhere is still a grouped list of
+who asked to be erased. **Somebody who holds both the ledger and a restored
+backup has what this section describes.** Sitting apart makes the two harder to
+hold together. It does not make it impossible. And a ledger whose retention
+outlives the table's backups points into nothing, while one that does not
+points into them. The backups' retention is the data owner's, and digline
+cannot read it.
 
 ## Consequences
 
 - **A removal can be shown.** An end company that removed a row or a run can
   show an authority when, by whom, and in what words, without showing what was
   removed.
-- **A new artifact outside `.digline/<tenant>/`**, the first one. It is an
+- **Two new artifacts per tenant outside `.digline/<tenant>/`**, the first
+  ones: a ledger of row removals and a ledger of run removals. They are an
   exception to fixed decision 2's sentence, made at acceptance, with the
   decision's reason kept whole (§2).
-- **Two configuration keys that exist together or not at all**: the path and
-  the retention. Two notices whose words are fixed (§9). One refusal: a shared
-  path (§2).
+- **Three required configuration keys per ledger**: the path or *no ledger*,
+  the retention, and the storage's declaration with its period. Two notices
+  whose words are fixed (§9). Three refusals from what a ledger declares:
+  another tenant, the other kind, and segments that disagree (§2, §7).
 - **A weaker name for a removed run**, taken against a measured leak (§5). A
   reader matching a key to the ledger gets a count, not an assumption.
 - **A permanent condition on digline's readers:** none of them may read the
@@ -615,14 +715,18 @@ them. The backups' retention is the data owner's, and digline cannot read it.
   there is no default.
 - **Probing the storage.** Refused in §7: the only probe that could tell the
   storages apart is the act the ledger refuses.
-- **Refusing to write on ordinary storage, or refusing to remove when no path
-  is configured.** Refused in §7 and §9: each makes not erasing the price of an
+- **Refusing to write on ordinary storage, or refusing to remove when no ledger
+  is declared.** Refused in §7 and §9: each makes not erasing the price of an
   imperfect record.
 - **One declaration for the whole ledger, or one per entry.** Refused in §7 for
   one per segment.
 - **Rolling expired entries up into a count, or moving them.** Refused in §8.
 - **One path for several tenants.** Refused in §2 by fixed decision 8.
-- **A confirmation or a flag when no path is configured.** Refused in §9.
+- **One ledger for runs and rows.** Refused in §2: two writers on one path,
+  which §6's condition excludes.
+- **A refusal read from the configuration.** Refused in §2: a process sees no
+  other process's configuration.
+- **A confirmation or a flag when no ledger is declared.** Refused in §9.
 
 ## Not decided here
 
@@ -633,10 +737,11 @@ them. The backups' retention is the data owner's, and digline cannot read it.
 - **Whether a record of the gesture is what a controller owes.** That is
   counsel's question. This record's position is that it records the gesture
   honestly and claims nothing more (§4).
-- **The name table's own amendment to fixed decision 2**, which is an addition
-  to its list (§2).
 - **ADR 0021 §6's correction** (*Names*), including whether it reopens the
-  expired-journal case.
+  expired-journal case. Its other condition, the ledger's retention, is
+  answered in §8; it waits only for its word on the journal.
+- **Where the key of the path of the ledger of run removals lives**, owed by
+  the first writer of runs (§2).
 - **The repair of `latest`'s and `view`'s messages after a removal**, beyond
   the one repair §10 forbids.
 - **Who may read the ledger at the data owner's side, and how it is handed to
@@ -657,3 +762,29 @@ them. The backups' retention is the data owner's, and digline cannot read it.
 - **That `created_at` is unique.** §4 says what the ledger does because it is
   not.
 - **That it is lawful, or sufficient.** Nothing here is legal advice.
+
+## Test plan
+
+**Owed with the code, and written with it.** Nothing in this record is
+implemented, so nothing can be exercised at merge, and a test written before
+its code passes by construction. Each test below must also fail against the
+code without the rule it tests, or it proves nothing.
+
+1. **The refusal by tenant (§2):** a ledger whose segments declare another
+   tenant. The writer refuses to append, and the ledger is unchanged.
+2. **The refusal by kind (§2):** a ledger of run removals offered a row's
+   entry, and the reverse. Both refused, both ledgers unchanged.
+3. **The refusal of disagreeing segments (§7):** a ledger with two segments
+   that declare different tenants, and one with two that declare different
+   kinds. Both refused before a new segment opens.
+4. **The words of the two notices (§9):** with *no ledger* declared for rows,
+   the notice at start and the notice at a removal are exactly §9's words,
+   with *row*; the same for runs, with *run*. Neither names a token or a
+   `created_at`.
+5. **No reader of digline reads the ledger (§10):** a walk over digline's
+   readers, with a control: a reader planted to open a ledger's path fails it.
+6. **The removal first, the entry after (§6):** a removal interrupted between
+   the two leaves the ledger short and never lying: the item is gone, and
+   there is no entry.
+7. **No digest in an entry (§5):** every field of an entry checked against
+   §5's list, with a control: an entry that carries a `config_hash` fails it.
