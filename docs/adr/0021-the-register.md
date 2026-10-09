@@ -289,6 +289,12 @@ a first cycle. That limit is written into both workflows as a comment rather
 than solved, because solving it would take a record of the journal's existence
 held somewhere that does not expire — which is a committed file, which is the
 thing §1 says the journal is not.
+*Noted 2026-10-09, at the acceptance of [ADR
+0035](0035-the-record-of-a-deletion.md): that record makes this premise false
+for deletions. In its words, what it makes false is "that only a committed
+file can hold a record nobody rewrites". The correction belongs to this
+record, and waits for its word on the journal (ADR 0035, Names). The
+paragraph is kept as written.*
 
 **Neither ledger has a compliance retention, and this is why.** `CLAUDE.md` makes
 retention mandatory for the planned production store, which holds payload. The

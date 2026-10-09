@@ -458,6 +458,10 @@ nothing else removes a journal that might still be finished.
   whose `created_at` cannot be read is refused before anything is removed
   (§3). An entry has nothing to name then, which is already 0035 §4's open
   point.
+  *Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+  acceptance: the entry is still written, and names the run with the explicit
+  value `created_at-not-readable`; no key matches it (§4 there). The bullet is
+  kept as written.*
 - **An interruption inside `delete_run` leaves the ledger short**: what was
   removed before it never reaches the return. That is the torn state 0035 §6
   accepts. A callback per removed run would narrow the window, and is not

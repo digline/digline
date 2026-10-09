@@ -21,6 +21,10 @@
   none was added: the conditions the design rests on are written where they
   are made (§5, §6, §9). **What it amends is made in the change that accepts
   it**, as ADR 0034's acceptance found it should have been
+  *Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+  acceptance: whose code writes a row's ledger entry is digline's, published
+  and called by the owning process (ADR 0035 §6). The status is kept as
+  written.*
 - Shipped: 0.24.0
 - Amended: 2026-10-06, by
   [ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
@@ -536,6 +540,13 @@ removal by the row's token.
   It says *"the software house's git still carries it in old projections"*, and
   it is owed the same reading.
 
+*Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+acceptance: both readings are given. An entry still names such a row by its
+token, and says whether the token was handed out in a document meant for a
+commit (ADR 0035 §4, `handed_out`); §8's sentence now says that, for a token
+handed out for a commit, the software house's git may still carry it. The
+section is kept as written.*
+
 **Whether the three are one component or several is not decided.** Where they
 run is.
 
@@ -621,6 +632,9 @@ that performs that removal, and so appends that entry, is the owning process,
 which is not digline's** (§7). ADR 0035 describes its writer as digline's: its
 configuration, its format, its notices and its refusal in `host.REFUSALS`.
 **Whose code appends the entry for a row's removal is not decided here.**
+*Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+acceptance: the code is digline's, published and called by the owning process
+the way the resolver is (ADR 0035 §6). The paragraph is kept as written.*
 
 *Ruled 2026-09-29.* **Removing a token that has no row is refused, not read as
 done.** Otherwise two removals of one row at once would both read as a
@@ -728,6 +742,10 @@ it already gone.
   and refusal do not reach it. Also open: **whether a run's removal and a
   row's removal append to one ledger**. If they do, that is two writers on one
   path, the case ADR 0035 §6's condition excludes.
+  *Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+  acceptance: no longer open. The code is digline's, called by the owning
+  process (§6 there), and runs and rows append to two ledgers, one per kind of
+  removal, each with its own path (§2 there). The bullet is kept as written.*
 - **What the approver in capture's election line is.** If it names a person on
   the data owner's side, it is a string to classify, and the line's one
   guarantee — it never carries text — has not been checked against it.

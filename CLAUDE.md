@@ -31,6 +31,12 @@ correct its structural mistakes and are not negotiable.
    only through two callables it is handed. The table is never committed. The
    reason above is unchanged: the table is addressed by the tenant, not kept in
    a home directory or as global state.
+   *Excepted 2026-10-09 (ADR 0035 §2).* The record of a removal does not live
+   in `.digline/<tenant>/`: each tenant's two deletion ledgers, one of row
+   removals and one of run removals, sit at paths the data owner configures,
+   apart from the store and its backups, or are declared absent. The reason
+   above is unchanged: no home directory, no global state, and each location is
+   set per tenant by the owner of the data.
 3. **No vacuously green assertion.** Every assertion has a mandatory threshold
    or a default that can fail. A default of 0 that always passes is a bug.
 4. **Cost and latency are budgets, not metrics.** A declared ceiling fails the
