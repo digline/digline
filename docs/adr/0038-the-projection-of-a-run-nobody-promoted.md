@@ -277,6 +277,10 @@ names in the runs somebody looked at, not with the number of views. And ADR
 0035's ledger names a row by a token that, for a row minted by viewing, no
 committed document may carry, which it leaves owed to ADR 0035. The section
 above is kept as written.*
+*Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+acceptance: such an entry still names the row by its token, and says whether
+the token was handed out in a document meant for a commit (§4 there,
+`handed_out`). The note above is kept as written.*
 
 ## Consequences
 

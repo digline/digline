@@ -1,12 +1,17 @@
 # ADR 0035 — The record of a deletion
 
-- Status: proposed 2026-09-29 — the text first, checkpointed before any code,
-  the way [ADR 0021](0021-the-register.md), [ADR 0023](0023-capture.md) and
-  [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
-  were. Nothing in it is implemented. **Most of what it states was settled
-  before it was written**, in discussion, and is recorded here as settled. The
-  rest are **decisions this record takes itself**. They are marked *decided
-  here* where they are made, so that acceptance can rule on them one by one
+- Status: accepted 2026-10-09, by Alessandro Prandini, after reading every
+  section, the text first and before any code, the way [ADR
+  0021](0021-the-register.md), [ADR 0023](0023-capture.md) and [ADR
+  0034](0034-the-store-outside-and-the-reference-that-names-nothing.md) were.
+  Nothing in it is implemented. **Most of what it states was settled before it
+  was written**, in discussion, and is recorded here as settled. The rest are
+  **decisions this record takes itself**, marked *decided here* where they are
+  made so that acceptance could rule on them one by one, and it did, on
+  2026-10-09. The text was rewritten from those rulings before acceptance: two
+  ledgers per tenant (§2), a tenant and a kind declared in every segment (§2,
+  §7), a row's decider recorded so that it cannot mean two people (§4),
+  `handed_out` (§4), the storage's declaration required (§7), and a *Test plan*
 - Shipped: unreleased
 - Date: 2026-09-29
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no

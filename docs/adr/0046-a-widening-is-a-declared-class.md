@@ -309,6 +309,9 @@ says where a widening sits and what an act may do.
 - **Where the flag/source distinction gets an accepted public statement.** It
   is stated today in ADR 0035 §7, which is proposed. This record uses the
   distinction and does not establish it.
+  *Answered 2026-10-09 by [ADR 0035](0035-the-record-of-a-deletion.md), at its
+  acceptance: no longer open. ADR 0035 §7, accepted, is that public statement:
+  "It is a source, not a flag." The bullet is kept as written.*
 - **What a case in clear contains**, the judge's `reason` included. It is
   another record's, and this one does not touch it.
 
