@@ -905,6 +905,12 @@ way round. The direction is not intuitive — the repository whose required
 checks are *blind* to the site is the one that has to move first — so it is
 written down here rather than carried in anybody's head.
 
+**Queued since 2026-10-10:**
+
+- `docs/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md` →
+  `product/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md`, under
+  `- Decisions:`, with its `PRODUCT` and `DESCRIPTIONS` entries.
+
 **Nothing is queued as of 0.15.3.** Read off `digline.dev`'s `origin/main`
 rather than remembered — every `docs/` page and every ADR on this repository's
 `main` carries all three entries there: the `nav` line, `PRODUCT` in
