@@ -905,12 +905,18 @@ way round. The direction is not intuitive — the repository whose required
 checks are *blind* to the site is the one that has to move first — so it is
 written down here rather than carried in anybody's head.
 
-**Nothing is queued as of 0.15.3.** Read off `digline.dev`'s `origin/main`
-rather than remembered — every `docs/` page and every ADR on this repository's
-`main` carries all three entries there: the `nav` line, `PRODUCT` in
-`tools/hooks/seo.py`, `DESCRIPTIONS` in `tools/hooks/llms.py`. Checked on
-2026-09-18 against the site's live `sitemap.xml` (99 URLs) and the `docs` job of
-the dispatch run on `main` after v0.15.3, which builds `--strict` and is green.
+**Queued since 2026-10-10:**
+
+- `docs/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md` →
+  `product/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md`, under
+  `- Decisions:`, with its `PRODUCT` and `DESCRIPTIONS` entries.
+
+**Nothing else is queued, read on 2026-10-10.** Read off `digline.dev`'s
+`origin/main` at `06c63e6` rather than remembered — every other `docs/` page and
+every other ADR on this repository's `main` at `3cc30b8` carries all three
+entries there: the `nav` line, `PRODUCT` in `tools/hooks/seo.py`,
+`DESCRIPTIONS` in `tools/hooks/llms.py`. Checked by finding each page's
+`product/` path in each of the three files.
 
 0.15.1, 0.15.2 and 0.15.3 added no page between them: 0.15.2 and 0.15.3 amended
 ADR 0012, and an amendment needs no entry because the page already has its
@@ -920,8 +926,8 @@ does; it becomes this list's next line on the day that branch merges.
 
 This paragraph was dated *0.15.0* while the tree was at 0.15.3, which is the
 rot it warns about two lines below: three releases passed and the sentence
-still read as current. It says 0.15.3 because step 4 of *After the tag* moved
-it, not because anybody remembered.
+still read as current. It was replaced on 2026-10-10, when ADR 0048 queued the
+first line since, and it now names the commits it was read at, not a release.
 
 The next page added goes in this list with its destination, and comes out of it
 when the site has it: **three lines each**, per the table above, in three files.
