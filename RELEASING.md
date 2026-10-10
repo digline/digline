@@ -905,15 +905,9 @@ way round. The direction is not intuitive — the repository whose required
 checks are *blind* to the site is the one that has to move first — so it is
 written down here rather than carried in anybody's head.
 
-**Queued since 2026-10-10:**
-
-- `docs/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md` →
-  `product/adr/0048-the-versions-a-suite-holds-and-the-one-in-force.md`, under
-  `- Decisions:`, with its `PRODUCT` and `DESCRIPTIONS` entries.
-
-**Nothing else is queued, read on 2026-10-10.** Read off `digline.dev`'s
-`origin/main` at `06c63e6` rather than remembered — every other `docs/` page and
-every other ADR on this repository's `main` at `3cc30b8` carries all three
+**Nothing is queued, read on 2026-10-10.** Read off `digline.dev`'s
+`origin/main` at `9faca7b` rather than remembered — every `docs/` page and
+every ADR on this repository's `main` at `263966c` carries all three
 entries there: the `nav` line, `PRODUCT` in `tools/hooks/seo.py`,
 `DESCRIPTIONS` in `tools/hooks/llms.py`. Checked by finding each page's
 `product/` path in each of the three files.
