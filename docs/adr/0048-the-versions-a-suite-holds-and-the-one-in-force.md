@@ -1,12 +1,14 @@
 # ADR 0048 — The versions a suite holds, and the one in force
 
-- Status: proposed 2026-10-10 — the text first, checkpointed before any code,
-  the way [ADR 0035](0035-the-record-of-a-deletion.md) was. Nothing in it is
-  implemented. **What §1 states was settled before it was written**, in
-  discussion: the pointer, and the form of a version, a string compared for
-  equality with no order. It is recorded here as settled. **§2 to §6 are
-  decisions this record takes itself**, marked *decided here* where they are
-  made, so that acceptance can rule on them one by one. **The rulings are not
+- Status: accepted 2026-10-10, by Alessandro Prandini, the text first and
+  before any code, the way [ADR 0035](0035-the-record-of-a-deletion.md) was.
+  Nothing in it is implemented. **What §1 states was settled before it was
+  written**, in discussion: the pointer, and the form of a version, a string
+  compared for equality with no order. It is recorded here as settled. **§2 to
+  §6 are decisions this record takes itself**, marked *decided here* where they
+  are made so that acceptance could rule on them one by one, and it did, on
+  2026-10-10. §6's *Behind the `ResultStore` protocol* was ruled before the
+  record landed, and landed with it. **The rulings are not
   transcribed verbatim in *Context*, as [ADR
   0046](0046-a-widening-is-a-declared-class.md) and [ADR
   0047](0047-what-a-case-in-clear-contains.md) transcribe theirs.** That is not

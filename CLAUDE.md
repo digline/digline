@@ -37,6 +37,12 @@ correct its structural mistakes and are not negotiable.
    apart from the store and its backups, or are declared absent. The reason
    above is unchanged: no home directory, no global state, and each location is
    set per tenant by the owner of the data.
+   *Added to the list 2026-10-10 (ADR 0048 §6).* The same directory also holds,
+   per suite, the **held versions** of the suite and the **pointer** that
+   declares which one is in force, behind the `ResultStore` protocol. How a
+   version arrives is not fixed by this decision. The reason above is
+   unchanged: no home directory, no global state, everything addressed by the
+   tenant.
 3. **No vacuously green assertion.** Every assertion has a mandatory threshold
    or a default that can fail. A default of 0 that always passes is a bug.
 4. **Cost and latency are budgets, not metrics.** A declared ceiling fails the
