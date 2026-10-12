@@ -214,9 +214,21 @@ the only one that may be. Who can revoke a local user is the question the
 next paragraph leaves open, and it stays open here. The paragraph is kept as
 written.*
 
+*Noted 2026-10-12: the paragraph the note above is about was rewritten, and
+no longer says "by construction". What the note says is now in the text,
+under "What the source does not state". Its "next paragraph" is still the
+one after these notes, which leaves open who can revoke a local user. The
+note is kept as written.*
+
 **What it does not say: who creates that local user and who can revoke it.**
 That is open (*Not decided here*), and under this ruling it decides who can
 disclose.
+
+*Noted 2026-10-12: half of this is ruled. Ruled 2026-10-05: whoever owns the
+machine that serves the page administers its users, creating them and
+revoking them. Who can revoke a local user in a given installation still
+depends on the contract between the parties, and that half stays open. The
+paragraph is kept as written.*
 
 ## Problems this record names and does not resolve
 
@@ -281,6 +293,10 @@ software house is shown, **it no longer holds the whole table by default.**
   says one row. A case shown in clear also shows its group labels and its
   verdict names, and their tokens are shared with other cases (ADR 0036 §4).
   Whether those are rows a disclosure hands over is not ruled.
+  *Noted 2026-10-12: answered by [ADR 0047](0047-what-a-case-in-clear-contains.md)
+  §4, accepted 2026-10-08. A row whose token is shared with other cases stays
+  a token; a disclosure hands over the case's own row. The bullet is kept as
+  written.*
 
 ### 8. Fixed decision 9 and ADR 0002 §2–§3: payload crosses, and no code declares it
 
@@ -297,6 +313,11 @@ property decision 9 protects, or amends decision 9, is not decided here.**
 Accepting this record cannot happen without deciding it. Decision 9's amendment
 of 2026-10-01 for ADR 0038 names the served projection. It does not name a
 disclosure.
+
+*Noted 2026-10-12: decided by [ADR 0046](0046-a-widening-is-a-declared-class.md),
+accepted 2026-10-08. The trace satisfies the property fixed decision 9
+protects, and fixed decision 9 is not amended. This section's condition for
+acceptance is met. The section is kept as written.*
 
 ## What it touches
 
@@ -348,10 +369,16 @@ the weighing; it does not reopen it.
 
 ## Not decided here
 
+*Ruled 2026-10-12: none of the points below blocks this record's acceptance.
+Each stays open, with the condition written beside it.*
+
 **The three left open by the ruling itself:**
 - **Where the disclosure's record lives.** The ruling says it is not the
   deletion ledger of ADR 0035. Whether it is a third artifact is open, and so
   are where it sits, its retention, and who may read it.
+  *Noted 2026-10-12: [ADR 0035](0035-the-record-of-a-deletion.md), accepted
+  2026-10-09, keeps two deletion ledgers per tenant (§2); the ruling meant
+  neither. The bullet is kept as written.*
 - **Whether a disclosed case stays disclosed**, or whether the clear text is
   shown once.
 - **Whether the client is told, and when.**
@@ -359,18 +386,31 @@ the weighing; it does not reopen it.
 **Opened by what came after:**
 - **The default reason at review** (§6), and whether an election by the
   software house's person is a disclosure.
+  *Noted 2026-10-12: the second half is answered by ADR 0037, at its
+  acceptance on 2026-10-06; the notes under §1 and §6 say how. The default
+  reason at review stays open. The bullet is kept as written.*
 - **Shape C** of ADR 0038 §3, on which §4's default rests (§6).
 - **Consumption** (§7): how much of the table the software house may
   accumulate, and how many rows one disclosure hands over.
+  *Noted 2026-10-12: the second half is answered by ADR 0047 §4 (the note
+  under §7). How much of the table the software house may accumulate stays
+  open. The bullet is kept as written.*
 - **Decision 9** (§8): whether the trace satisfies it, or whether it is amended.
+  *Noted 2026-10-12: decided by ADR 0046 (the note under §8). The bullet is
+  kept as written.*
 
 **Not addressed by any ruling:**
 - **What a case in clear contains.** Its input, the recorded answers, the
   judge's reasons, and its names, or a subset of these.
+  *Noted 2026-10-12: answered by [ADR 0047](0047-what-a-case-in-clear-contains.md),
+  accepted 2026-10-08. The bullet is kept as written.*
 - **How the record names the disclosed case**: by its token, or otherwise.
   And what that name means once the case's row is erased.
 - **Who creates and revokes the local user** that a software-house person signs
   with (§5), which decides who can disclose.
+  *Noted 2026-10-12: half of it is ruled (the note under §5's last
+  paragraph). Who can revoke a local user in a given installation stays open.
+  The bullet is kept as written.*
 - **How the gesture is protected against a request forged by another page.** A
   disclosure is a gesture, and no gesture at a served page has that protection
   written down yet.
@@ -388,5 +428,7 @@ the weighing; it does not reopen it.
 - **That the default reason is correct for every case.** §6 says where it has
   no subject, and that it rests on a comparison not yet ruled.
 - **That decision 9 is satisfied.** §8 says the question is open.
+  *Noted 2026-10-12: ADR 0046 decided it (the note under §8). This record
+  still does not claim it on its own. The bullet is kept as written.*
 - **That any of this is lawful, or sufficient towards an authority.** Nothing
   here is legal advice.
