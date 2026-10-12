@@ -47,7 +47,7 @@ is on PyPI.
 - **The floor is `digline>=0.31.0`.** `--digline-run` imports `suite_notes`,
   which first ships in 0.31.0. Against 0.30.0 the import raises `ImportError`.
 
-## 0.31.0 — unreleased
+## 0.31.0 — 2026-10-12
 
 digline **0.31.0**. **A minor, because two things a user relies on stop
 working as they did:** a target of your own that answers a relative path
@@ -148,6 +148,12 @@ and neither `SCHEMA_VERSION` nor `OUTPUT_VERSION` moves.
 
 - ADR 0045, *One declared path, resolved once*, accepted. `docs/api.md` says
   why a `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
+
+**The browser walkthrough was not owed.** Nothing in the launch key, the
+hand-over or the promote form changed since 0.30.0. `view` changed in two
+answers only: `/compare` refuses the baseline compared with itself with 400,
+and a case's page no longer links to it from the baseline's row (#489, #498).
+Ruled not owed by Alessandro on 2026-10-12.
 
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration. digline-mcp 0.5.0 and
 pytest-digline 0.2.4 follow on their own tags, with floors at
