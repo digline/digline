@@ -3,8 +3,9 @@
 ADR 0011 §8 says "one server, one repository", and until 0.1.1 nothing enforced
 it: `suite` arrived from a tool call and went to `load_suite`, which **executes**
 a `.py`. Every tool was therefore a way to run a file from anywhere on the disk —
-including the five that declare `read_only_hint=True`, which is the annotation a
-client reads to decide it may call something without asking a person first.
+including the reading tools, which declare `read_only_hint=True` (five then,
+seven since `explain` and `log` in 0.1.3), the annotation a client reads to
+decide it may call something without asking a person first.
 
 So the test that matters is not "was it refused" but **"did it run"**: the suite
 outside the root writes a file, and every case here asserts that file was never

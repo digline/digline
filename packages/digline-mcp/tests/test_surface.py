@@ -76,20 +76,38 @@ def test_the_absence_holds_at_the_import_graph_too() -> None:
                 )
 
 
+#: Every hint on every tool, as (read_only, destructive, idempotent, open_world).
+#: All four, because a client acts on each: Codex asks for approval on
+#: `destructive_hint` even where `read_only_hint` is true, and VS Code asks to
+#: review the results of an open-world tool. `None` is "not declared": the
+#: spec gives `idempotent_hint` meaning only when `read_only_hint` is false.
+#: The reading tools stay closed world although each loads the suite it is
+#: named, and a `suite.py` is the project's code. Open world was tried and
+#: withdrawn on 2026-10-12: VS Code then held every read's result for a
+#: person to review, where reads had asked nothing, and Codex does not read
+#: the hint once `read_only_hint` is true.
+READING = (True, False, None, False)
+MEASURING = (False, False, False, True)
+HINTS = {name: READING for name in TOOLS - {"run"}} | {"run": MEASURING}
+
+
 def test_every_reading_tool_says_it_is_read_only() -> None:
     """A hint and not the enforcement — the enforcement is the absence — but a
     client that surfaces annotations should show the same shape."""
 
     async def go() -> None:
         tools = {t.name: t for t in await build_server(".", None, None).list_tools()}
-        for name in TOOLS - {"run"}:
+        assert set(tools) == set(HINTS)
+        for name, expected in HINTS.items():
             hints = tools[name].annotations
             assert hints is not None, name
-            assert hints.read_only_hint is True, name
-        measures = tools["run"].annotations
-        assert measures is not None
-        assert measures.read_only_hint is False
-        assert measures.idempotent_hint is False
+            declared = (
+                hints.read_only_hint,
+                hints.destructive_hint,
+                hints.idempotent_hint,
+                hints.open_world_hint,
+            )
+            assert declared == expected, name
 
     anyio.run(go)
 
