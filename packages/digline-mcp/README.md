@@ -26,6 +26,9 @@ Not because promotion is refused. Because there is no such tool.
 arrives in somebody's diff and must arrive because they put it there. A refusal
 would be a conversation an agent could argue with; an absence is not.
 
+Every tool, the reading ones included, loads the suite it is named. For a
+`suite.py` that executes the project's code, in the server's environment.
+
 The reasoning is [ADR 0011](../../docs/adr/0011-the-mcp-server.md), and the
 judgement layer it turns into surface is [`AGENTS.md`](../../AGENTS.md).
 
