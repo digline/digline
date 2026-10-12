@@ -324,11 +324,19 @@ jobs:
   mcp-registry:
     name: digline-mcp on the MCP registry
     needs: pypi
-    # Every tag, not only digline-mcp's: the first step asks the registry
-    # whether it holds the version `server.json` names, and a tag that did not
-    # move it ends green there. A re-run converges the same way. Until this job
-    # the entry was a person's step after the release, and a skipped one left
-    # the registry a version behind with nothing to notice it.
+    # Only on the tags that can carry digline-mcp: a workspace tag (`v*`),
+    # which uploads every package the index lacks, and digline-mcp's own
+    # (`digline-mcp-v*`). They are the two tag rules of the `mcp-registry`
+    # environment, which are the key's perimeter and are not widened to fit
+    # the trigger. Any other named tag would meet that rule and turn this job
+    # red as routine, and a routine red is one people learn to ignore. The two
+    # prefixes are held to each other by tests/test_mcp_registry.py.
+    if: startsWith(github.ref_name, 'v') || startsWith(github.ref_name, 'digline-mcp-v')
+    # On those tags the first step asks the registry whether it holds the
+    # version `server.json` names, and a tag that did not move it ends green
+    # there. A re-run converges the same way. Until this job the entry was a
+    # person's step after the release, and a skipped one left the registry a
+    # version behind with nothing to notice it.
     #
     # The key signs for every name under `dev.digline/`, so it lives in this
     # environment and nowhere else: a secret of the environment, which admits

@@ -345,3 +345,48 @@ def test_the_key_is_read_on_the_login_step_only() -> None:
     assert text.count("secrets.MCP_PRIVATE_KEY") == 1
     step = job().split("name: Log in on digline.dev", 1)[1].split("      - ", 1)[0]
     assert "secrets.MCP_PRIVATE_KEY" in step
+
+
+#: The `mcp-registry` environment's tag rules, as RELEASING.md's *The secrets*
+#: records them. The environment lives in the repository's settings, which no
+#: test can read, so the record is what the job is held to.
+ENVIRONMENT_RULES = ("v*", "digline-mcp-v*")
+
+
+def gated_prefixes() -> set[str]:
+    condition = re.search(r"^    if:\s*(.+)$", job(), re.M)
+    assert condition is not None, "the mcp-registry job has no `if:`"
+    called = r"startsWith\(github\.ref_name, '([^']+)'\)"
+    return set(re.findall(called, condition.group(1)))
+
+
+def test_the_job_runs_only_where_the_environment_admits_the_key() -> None:
+    """The trigger is wider than the environment: every named tag starts
+    `publish`, and the environment admits only the tags that can carry
+    digline-mcp. Without the `if:`, a pytest-digline tag would meet the tag
+    rule and turn this job red as routine. The rules are the key's perimeter
+    and are not widened to fit the trigger, so the job is narrowed to them."""
+    assert gated_prefixes() == {rule.removesuffix("*") for rule in ENVIRONMENT_RULES}
+    where = next(
+        line
+        for line in (ROOT / "RELEASING.md").read_text().splitlines()
+        if line.startswith("| Where | Settings → Environments → `mcp-registry`")
+    )
+    for rule in ENVIRONMENT_RULES:
+        assert f"`{rule}`" in where
+
+
+@pytest.mark.parametrize(
+    ("tag", "runs"),
+    [
+        ("v0.31.0", True),
+        ("digline-mcp-v0.5.0", True),
+        ("pytest-digline-v0.2.4", False),
+        ("digline-anthropic-v0.6.2", False),
+    ],
+)
+def test_which_tags_reach_the_job(tag: str, runs: bool) -> None:
+    """The condition read as GitHub evaluates `startsWith`, on the tags that
+    start `publish` today. The two `False` rows are the control: a condition
+    that admitted every tag would pass the first two and fail these."""
+    assert any(tag.startswith(prefix) for prefix in gated_prefixes()) is runs
