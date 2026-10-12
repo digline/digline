@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.4.6"
+version = "0.5.0"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -108,13 +108,13 @@ dependencies = [
     # the cut and raised in this package's own release, after the core was on
     # PyPI, because a floor may not name a release that does not exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #396.**
-    # `run` imports `suite_notes`, which first ships with #396, so the lines
-    # `digline run` prints about the suite before the first call reach the agent
-    # too (ADR 0024 §6.4). Against 0.30.0 the import raises `ImportError`. A
-    # floor may not name a release that does not exist yet, so the row is in
-    # RELEASING.md's table of floors owed to the release.
-    "digline>=0.30.0",
+    # Raised to 0.31.0 by name: `run` imports `suite_notes`, which first ships
+    # in 0.31.0, so the lines `digline run` prints about the suite before the
+    # first call reach the agent too (#396, ADR 0024 §6.4). Against 0.30.0 the
+    # import raises `ImportError`. It was owed at the cut and raised in this
+    # package's own release, after the core was on PyPI, because a floor may
+    # not name a release that does not exist yet.
+    "digline>=0.31.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

@@ -6,10 +6,10 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline-mcp 0.5.0 — unreleased
+## digline-mcp 0.5.0 — 2026-10-12
 
-To be published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 is
-on PyPI.
+Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on
+PyPI.
 
 - **Breaking: `--root` is required.** Pass the repository that holds
   `.digline/` in your MCP client's configuration, for example
