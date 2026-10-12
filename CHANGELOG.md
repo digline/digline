@@ -149,6 +149,12 @@ and neither `SCHEMA_VERSION` nor `OUTPUT_VERSION` moves.
 - ADR 0045, *One declared path, resolved once*, accepted. `docs/api.md` says
   why a `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
 
+**The browser walkthrough was not owed.** Nothing in the launch key, the
+hand-over or the promote form changed since 0.30.0. `view` changed in two
+answers only: `/compare` refuses the baseline compared with itself with 400,
+and a case's page no longer links to it from the baseline's row (#489, #498).
+Ruled not owed by Alessandro on 2026-10-12.
+
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration. digline-mcp 0.5.0 and
 pytest-digline 0.2.4 follow on their own tags, with floors at
 `digline>=0.31.0`.
