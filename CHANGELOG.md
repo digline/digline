@@ -32,10 +32,10 @@ PyPI.
 - **The floor is `digline>=0.31.0`.** `run` imports `suite_notes`, which first
   ships in 0.31.0. Against 0.30.0 the import raises `ImportError`.
 
-## pytest-digline 0.2.4 — unreleased
+## pytest-digline 0.2.4 — 2026-10-12
 
-To be published by its own tag, `pytest-digline-v0.2.4`, after digline 0.31.0
-is on PyPI.
+Published by its own tag, `pytest-digline-v0.2.4`, after digline 0.31.0 was on
+PyPI.
 
 - **`pytest --digline-run` prints a suite's notes** on stderr beside the
   planned-call count (#396): the lines `digline run` prints about the suite
