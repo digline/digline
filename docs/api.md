@@ -2125,6 +2125,12 @@ shape moved. A reworded sentence must not bump the storage schema, and a new
 field inside a `Run` must not bump the output contract for consumers who saw no
 change.
 
+**Since 2026-10-12, a change in what a number means is a bump too**, even when
+its key and its type stay the same: a consumer that reads the number would
+otherwise go on parsing it and be wrong in silence, with the version unchanged.
+The version does not cover a word in a vocabulary changing, such as an outcome
+or a kind a consumer matches on: the value is still a string.
+
 **Version 2 is the first bump, and the first change that is not an added key.**
 Every earlier addition was something a consumer could ignore while parsing the
 same bytes it parsed before. This one rewrites bytes inside values you already
@@ -2155,9 +2161,10 @@ returned by the MCP server's `compare` tool, which has no process to exit, and
 a caller made to re-derive it from `worse` and `unjudged` would have to know a
 precedence rule it should never have to think about. `digline diff --json` has
 no such field and must not: neither side of a diff was approved by anybody, so
-there is nothing to gate on. A golden key set in the tests fails the build if a key is
-added without the bump — *added* keys leave a consumer working, which is why
-these arrived without one. Each delta carries `within_noise`, `noise_min`,
+there is nothing to gate on. A golden key set in the tests fails the build when
+the command prints a key the set does not list, so an addition is deliberate and
+visible, not forbidden. It needs no bump: *added* keys leave a consumer working,
+which is why these arrived without one. Each delta carries `within_noise`, `noise_min`,
 `noise_max` and `noise_samples` beside its outcome.
 
 ## Verdicts and comparison
