@@ -114,6 +114,10 @@
   side is in the tenant's directory there, under ADR 0034 §1. **Decision 3** is
   upheld: a case whose expected was written at review can fail, and §3 keeps it
   in the gate so that it does
+  *Answered 2026-10-08 by [ADR 0046](0046-a-widening-is-a-declared-class.md), at its
+  acceptance, and noted here on 2026-10-12: ADR 0039 §8's question is decided.
+  The trace satisfies the property fixed decision 9 protects, and fixed
+  decision 9 is not amended (§2, §6 there). The line is kept as written.*
 - Number: 0037. Swept on 2026-09-29, before a line was written, across
   `origin/main` (`68af296`), every local and remote branch, and the
   `docs/adr/` of every worktree, the stale capture worktree's included. The
@@ -458,6 +462,14 @@ software house's person cannot elect at the page, so §4's permission names a
 gesture the software house cannot perform today; how much of it becomes
 possible once the input is decided is ADR 0039's to say.
 
+*Answered in part 2026-10-08 by [ADR 0047](0047-what-a-case-in-clear-contains.md), at
+its acceptance, and noted here on 2026-10-12. The first half is answered: the
+input can be disclosed, at the page, and nothing carries it (§5 there). The
+second half is not: what a software house's person may elect once the input is
+disclosable is left open there too, "What it unlocks is a separate ruling,
+and this is not it" (its "Not decided here"). The paragraph is kept as
+written.*
+
 ### 8. ADR 0023 §6, amended: the id that leaves is a token, and the hash never leaves
 
 > **A captured case has two ids.** The one minted inside the perimeter is
@@ -552,6 +564,10 @@ and lists, and a person names what is written.
 - **Capture waits on the review page**, not on the name table, which is built
   (§5). A software house's person cannot elect there until ADR 0039 decides
   whether the input can be disclosed (§7).
+  *Answered 2026-10-08 by [ADR 0047](0047-what-a-case-in-clear-contains.md), at its
+  acceptance, and noted here on 2026-10-12: the input can be disclosed, at the
+  page (§5 there). What may then be elected stays open (the note under §7).
+  The bullet is kept as written.*
 - **The hash of `vars` is not the id at a served page**, and it is kept out of
   the name table's row by a ceremony, not by a construction (§8).
 - **ADR 0023 §4's ruling 6 falls as a mechanism and stands as a reason** (§6).
@@ -621,6 +637,11 @@ and lists, and a person names what is written.
   case in clear contains"*), and this record depends on it (§7). With it goes
   whether a case in clear shows its metadata, and so whether the hash kept
   there as a key crosses through a disclosure (§8).
+  *Answered 2026-10-08 by [ADR 0047](0047-what-a-case-in-clear-contains.md), at its
+  acceptance, and noted here on 2026-10-12: the input can be disclosed, at the
+  page, and nothing carries it (§5 there); a case in clear never shows its
+  metadata, so the hash kept there does not cross (§3 there). The bullet is
+  kept as written.*
 - **The party field's vocabulary, and where it lives** (§4).
 - **A software house's person holding an account in the end company's
   directory**, for whom *directory* does not mean *end company* (§4).
