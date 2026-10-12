@@ -1,16 +1,18 @@
 # ADR 0039 — Disclosure on request: the software house sees a case, and the trace replaces the permission
 
-- Status: proposed 2026-10-01. The text comes first, checkpointed before any
-  code, the way [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
-  and [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) were.
-  Nothing in it is implemented. **What it decides was ruled before it was
-  written**, in discussion, on 2026-09-30, and is recorded here as ruled (§1
-  to §5), **except two decisions this record takes itself**, both in §5 and
-  both of 2026-10-12, marked *decided here* where they are made: the kind
-  recorded beside the identity, and the reason the source is recorded.
-  **Everything else in it was found afterwards.** The three problems it
-  names (§6 to §8) are **not resolved here**, and *Not decided here* lists what
-  is open without choosing
+- Status: accepted 2026-10-12, by Alessandro Prandini, the text first and before
+  any code, the way [ADR 0035](0035-the-record-of-a-deletion.md) and [ADR
+  0048](0048-the-versions-a-suite-holds-and-the-one-in-force.md) were. Nothing
+  in it is implemented. **What it decides was ruled before it was written**,
+  in discussion, on 2026-09-30, and is recorded here as ruled (§1 to §5),
+  **except two decisions this record takes itself**, both in §5 and both of
+  2026-10-12, marked *decided here* where they are made: the kind recorded
+  beside the identity, and the reason the source is recorded. The text was
+  rewritten from what was decided since, before acceptance: §5, and dated
+  notes where another record has answered a point it left open. The three
+  problems it names (§6 to §8) are not resolved here, except where those notes
+  say so, and *Not decided here* lists what stays open; none of it blocks
+  acceptance
 - Shipped: unreleased
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
