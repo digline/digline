@@ -1221,6 +1221,23 @@ no test here asks the index that question. This paragraph is the control.
 It is why a floor may not name a release that does not exist yet, which
 `packages/digline-mcp/pyproject.toml` says beside its own floor.
 
+### digline-mcp's registry entry moves with its version
+
+`packages/digline-mcp/server.json` describes the package to the official MCP
+registry under `dev.digline/digline-mcp`, and it names digline-mcp's version
+twice: `version` and `packages[0].version`. **A release of digline-mcp moves
+both, in the same commit that moves its `pyproject.toml`.**
+`packages/digline-mcp/tests/test_server_json.py` fails until they agree, and it
+holds the README's `mcp-name` line to the manifest's `name` beside them.
+
+The registry verifies the entry against that exact release on PyPI, by reading
+`mcp-name` in its description. So the entry is published only **after** PyPI
+serves the version, and a release that does not publish digline-mcp leaves the
+registry alone. Publishing it is a person's step, from `packages/digline-mcp`
+with `mcp-publisher`, logged in on the `digline.dev` domain. A registry entry
+cannot be changed once published, so a wrong one is corrected by the next
+release, not in place.
+
 ### Four releases that no ref names
 
 Recorded here because the repository cannot answer it in refs, and **not**

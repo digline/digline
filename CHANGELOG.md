@@ -107,6 +107,21 @@ notes under them are this file, verbatim.
   no interval. The README showed one, in wording that was never in digline's
   source. ADR 0013 §6 gains a dated note beside the same stale output. The
   README reaches PyPI with pytest-digline's next release.
+- **`digline-mcp` refuses to start without `--root`.** It defaulted to `.`,
+  the directory the client happened to launch it from. Every tool, the
+  reading ones included, loads the suite it is named under that root, and a
+  `suite.py` is the project's code, so an implied root is how the suite of
+  the wrong directory gets run. Without the flag the server now exits 2 with
+  argparse's usage line, and starts nothing. Every configuration this
+  repository documents already passes `--root`, the Claude Code plugin
+  included. A client config that leaves it out has to add it.
+- **digline-mcp carries a manifest for the official MCP registry**,
+  `packages/digline-mcp/server.json`, under `dev.digline/digline-mcp`, and its
+  README carries the `mcp-name` line the registry verifies on PyPI. Nothing is
+  published yet: the registry checks that line in the exact release the
+  manifest names, so the entry follows the first digline-mcp release that
+  carries it. A test holds the manifest's version to the package's, and
+  RELEASING.md says who moves it and when.
 
 No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
 

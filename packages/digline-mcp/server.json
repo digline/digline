@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.digline/digline-mcp",
+  "title": "digline",
+  "description": "Read, measure and explain LLM eval runs of a digline suite. Cannot promote a baseline.",
+  "websiteUrl": "https://digline.dev/product/mcp/",
+  "repository": {
+    "url": "https://github.com/digline/digline",
+    "source": "github",
+    "subfolder": "packages/digline-mcp"
+  },
+  "version": "0.4.6",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "digline-mcp",
+      "version": "0.4.6",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--root",
+          "description": "The repository holding .digline/. One server serves one repository.",
+          "format": "filepath",
+          "isRequired": true
+        },
+        {
+          "type": "named",
+          "name": "--tenant",
+          "description": "Verify the suite's tenant. It never overrides what the suite declares.",
+          "isRequired": false
+        },
+        {
+          "type": "named",
+          "name": "--env",
+          "description": "Verify the suite's environment. It never overrides what the suite declares.",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

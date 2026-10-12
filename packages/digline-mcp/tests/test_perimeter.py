@@ -22,6 +22,7 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
 
+from digline_mcp import server
 from digline_mcp.server import build_server
 
 #: A suite that is valid — it loads, it has a target, it would run — so that
@@ -143,3 +144,22 @@ def test_a_suite_inside_the_root_still_loads(repo: Path) -> None:
     pass every test above and ship a server that does nothing."""
     assert call(repo, "list_runs", {"suite": "suite_qa.py"}) == ""
     assert call(repo, "list_runs", {"suite": str(repo / "suite_qa.py")}) == ""
+
+
+def test_the_root_is_never_implied(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Without `--root` the server does not start. Every tool loads the suite
+    it is named under the root, and a `suite.py` is the project's code, so a
+    root taken from the working directory the client launched in is how the
+    suite of the wrong directory gets run. `server.json` declares it required,
+    and this is what makes that declaration true."""
+
+    def started(*_args: object) -> None:
+        raise AssertionError("a server was built without a root")
+
+    monkeypatch.setattr(server, "build_server", started)
+    with pytest.raises(SystemExit) as stopped:
+        server.main([])
+    assert stopped.value.code == 2
+    assert "--root" in capsys.readouterr().err
