@@ -496,7 +496,14 @@ def main(argv: list[str] | None = None) -> int:
             "new ones; cannot promote a baseline."
         ),
     )
-    parser.add_argument("--root", default=".", help="directory holding .digline/")
+    # Required, with no `.` to fall back on: every tool, the reading ones
+    # included, loads the suite it is named under this root, and a `suite.py`
+    # is the project's code. An implicit `.` is the working directory the
+    # client happened to launch from, which is how the suite of the wrong
+    # directory gets run. `server.json` declares it required as well.
+    parser.add_argument(
+        "--root", required=True, help="directory holding .digline/ (required)"
+    )
     parser.add_argument("--tenant", help="verify the suite's tenant; never overrides")
     parser.add_argument("--env", help="verify the suite's environment; never overrides")
     args = parser.parse_args(argv)
