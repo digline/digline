@@ -47,7 +47,7 @@ is on PyPI.
 - **The floor is `digline>=0.31.0`.** `--digline-run` imports `suite_notes`,
   which first ships in 0.31.0. Against 0.30.0 the import raises `ImportError`.
 
-## 0.31.0 — unreleased
+## 0.31.0 — 2026-10-12
 
 digline **0.31.0**. **A minor, because two things a user relies on stop
 working as they did:** a target of your own that answers a relative path
