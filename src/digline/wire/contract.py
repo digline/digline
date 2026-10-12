@@ -38,10 +38,10 @@ __all__ = [
 #:
 #: 1: `worse`, `unjudged`, `suspended`, `config_changed`, `artifacts_changed`,
 #:    `counts`, `reasons_available`, `sentence`; `deltas` under `--json full`.
-#:    Since then, and without a bump because the rule above is that added keys
-#:    do not break a consumer: `target_config_changed` and
-#:    `judge_config_changed` on the headline, and `target_config_deltas` /
-#:    `judge_config_deltas` under `full` (ADR 0005 §7).
+#:    Since then, and without a bump because added keys do not break a consumer
+#:    (the rule, as a table now holds it, is the comment above `_BASE`):
+#:    `target_config_changed` and `judge_config_changed` on the headline, and
+#:    `target_config_deltas` / `judge_config_deltas` under `full` (ADR 0005 §7).
 #:
 #:    Also without a bump, by the same rule: `pinned_drifted` and
 #:    `pinned_unchecked` on the headline (ADR 0029). The first is a new cause of
@@ -86,16 +86,16 @@ __all__ = [
 #:    an exit code, by that section's own ruling. A consumer that ignores it
 #:    parses the same numbers it parsed before.
 #:
-#:    `scale_lost` on the headline and `calibration` on each delta (ADR 0024
-#:    §4.7): the same rule a seventh time. Like `canary_moved` it can change the
-#:    exit code, and only of a suite that declares a calibration case, which no
-#:    suite could before this release.
-#:
 #:    `target_echoed` on the headline (ADR 0020 §3, row 7): the same rule a sixth
 #:    time. The endpoint returned the requested id as the model that answered,
 #:    so what answered is not identified. A fact and not a verdict — it moves no
 #:    exit code — and never true behind a named endpoint, where the answering
 #:    model is withheld.
+#:
+#:    `scale_lost` on the headline and `calibration` on each delta (ADR 0024
+#:    §4.7): the same rule a seventh time. Like `canary_moved` it can change the
+#:    exit code, and only of a suite that declares a calibration case, which no
+#:    suite could before this release.
 #:
 #:    `denominator_moved` on the headline and on each `explain` check fact: the
 #:    same rule an eighth time, and **it arrives with one change that is not an
@@ -121,6 +121,11 @@ __all__ = [
 #:    read false. No key moves, and a flip the other way is untouched: it still
 #:    counts, still makes `worse` true and still exits 1. The precedent is the
 #:    one directly above, which is ADR 0024 §4.4's. (the delta-pass over 0.15.2)
+#:
+#:    *Annotated 2026-10-12, the two entries above kept as written.* They are
+#:    the two times a number changed meaning without a bump, and they stay
+#:    declared here rather than rewritten. From 2026-10-12 a change of meaning
+#:    is a bump: the rule is the comment above `_BASE`.
 #:
 #:    `unreconciled` on the headline, and `unreconciled` as a tally kind on
 #:    `explain --json`: added keys, under the same rule. It moves no exit code
@@ -170,6 +175,19 @@ __all__ = [
 #:    `promote_baseline` refusing across a changed `config_hash` is where they
 #:    sign it. (ADR 0028)
 #:
+#:    *Recorded 2026-10-12, late.* Two additions under this version had no
+#:    entry here, and are on the wire and in `_BASE`:
+#:
+#:    `within_noise` on the headline, and `within_noise`, `noise_min`,
+#:    `noise_max` and `noise_samples` on each delta: added keys, under the same
+#:    rule (2026-09-02; ADR 0006 §9, §10). The headline key counts the deltas
+#:    whose movement lies inside the measured noise. `exit_code()` does not
+#:    read it.
+#:
+#:    `shape` under `compare --json full`: an added key, under the same rule
+#:    (2026-09-17; ADR 0024 §6.3). The shape reading's numbers beside the deltas
+#:    they are read from, a list with no verdict in it. It moves no exit code.
+#:
 #: 2: **the first bump, and the first change that is not an added key.** Every
 #:    entry above is something a consumer could ignore and go on parsing the
 #:    bytes it parsed before. This one rewrites bytes inside values it already
@@ -215,6 +233,12 @@ __all__ = [
 #:    ever parsed a response where these were anything but `0` and `false`.
 #:    What does change is that a response now arrives where an error used to.
 #:    (#314)
+#:
+#:    *Recorded 2026-10-12, late.* `baseline_key` on `compare --json`, in every
+#:    shape, and over MCP: an added key, under the same rule, with no entry
+#:    here until this one (2026-09-24; ADR 0031 §2). The key of the reference
+#:    the comparison was made against, derived from that document, and the one
+#:    `promote --replacing` has to name. It moves no exit code.
 #:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
@@ -390,7 +414,14 @@ def run_exit_code(run: Run) -> int:
 # - **renaming or removing a key, or changing what type a value may take**, is
 #   an edit to `_BASE` or to an existing `_ADDED` entry. A consumer parsing the
 #   old shape breaks, so it is a bump of `OUTPUT_VERSION`: fold `_ADDED` into
-#   `_BASE`, empty `_ADDED`, and pin the new digest beside the new version.
+#   `_BASE`, empty `_ADDED`, and pin the new digest beside the new version;
+# - **changing what a number means**, with its key and its type unchanged, is a
+#   bump of `OUTPUT_VERSION` too, from 2026-10-12 on. Ruled that day. A
+#   consumer that reads the number would otherwise go on parsing it and be
+#   wrong in silence, with the version unchanged. The two times it happened
+#   before, the `denominator_moved` entries in the record above, stay as
+#   written. **No test enforces this one**: the table cannot see a number
+#   change meaning, which is on the list just below, so review applies it.
 #
 # **What this does not catch, stated where the claim is made.** A value from a
 # vocabulary a consumer matches on, such as an outcome or a kind, moving to

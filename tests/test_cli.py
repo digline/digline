@@ -278,12 +278,19 @@ def test_compare_json_emits_the_headline_not_the_document(repo: Path) -> None:
     assert "<html" not in done.stdout
 
 
-#: The whole of what `digline compare --json` prints, at `OUTPUT_VERSION` 1.
+#: The whole of what `digline compare --json` prints, under `OUTPUT_VERSION` 2.
 #:
-#: A golden set, and the point is that it is tedious to change: adding a key
-#: here without bumping `OUTPUT_VERSION` is the mistake this guards, because a
-#: pipeline that parses stdout has no other way to learn that the shape moved.
+#: A golden set, compared by equality, and the point is that it is tedious to
+#: change: a key the command starts to print fails here until it is added, so an
+#: addition is deliberate and seen in review, not forbidden. An added key needs
+#: no bump, because a consumer that ignores it parses what it parsed before. A
+#: renamed or removed key, a value of another type, or a number whose meaning
+#: changes is a bump: the rule is in `digline.wire.contract`, above `_BASE`.
 #: `SCHEMA_VERSION` does not cover it — that one is about documents on disk.
+#:
+#: *Corrected 2026-10-12.* Until then this comment said that adding a key here
+#: without a bump was the mistake it guarded, while the set already held keys
+#: added without one, each recorded in `contract.py` as needing none.
 COMPARE_KEYS = {
     "output_version",
     "worse",
