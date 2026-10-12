@@ -250,6 +250,9 @@ says where a widening sits and what an act may do.
 - **ADR 0039 §8's condition is met.** Its question is decided here. Whether the
   other open points of ADR 0039 block its acceptance is a separate question,
   and it is not decided here.
+  *Answered 2026-10-12, in [ADR 0039](0039-disclosure-on-request.md)'s "Not
+  decided here": none of its open points blocks its acceptance, and each stays
+  open with its condition. The bullet is kept as written.*
 - **The record that rules what a case in clear contains depends on this one,
   and names it in an `Assumes` line.** The dependency runs one way: this record
   declares a rule of method and stands alone; that one uses it.

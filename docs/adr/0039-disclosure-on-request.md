@@ -5,9 +5,12 @@
   and [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) were.
   Nothing in it is implemented. **What it decides was ruled before it was
   written**, in discussion, on 2026-09-30, and is recorded here as ruled (§1
-  to §5). **Everything else in it was found afterwards.** The three problems it
+  to §5), **except two decisions this record takes itself**, both in §5 and
+  both of 2026-10-12, marked *decided here* where they are made: the kind
+  recorded beside the identity, and the reason the source is recorded.
+  **Everything else in it was found afterwards.** The three problems it
   names (§6 to §8) are **not resolved here**, and *Not decided here* lists what
-  is open without choosing. This record adds no ruling of its own
+  is open without choosing
 - Shipped: unreleased
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -82,7 +85,8 @@ writes *disclosure* or *a disclosure*.
 ## Decision
 
 §1 to §5 were ruled on 2026-09-30, in discussion. They are recorded here, not
-decided here.
+decided here, except two blocks of §5, decided here on 2026-10-12 and marked
+where they are.
 
 ### 1. The software house can ask to see one case in clear, and it sees it
 
@@ -144,7 +148,9 @@ makes it say so.
 
 ### 5. A disclosure names a person, with the source of their identity
 
-*Ruled later the same day, 2026-09-30, repairing a gap in §3.*
+*The ruling in the box, and the paragraphs not marked otherwise, were ruled
+later the same day, 2026-09-30, repairing a gap in §3. The two blocks marked
+"decided here" were decided on 2026-10-12.*
 
 > **A disclosure is attributed to a person, not to a caller's key. The record
 > says where that person's identity came from.**
@@ -159,12 +165,46 @@ client in return.
 identity, which cannot be turned off. The record carries **the source**: *a
 local user*, and not *the client's directory*.
 
-**The cost, stated beside the ruling.** **A local user cannot be revoked by the
-client**, because only an identity from the client's own directory can. So a
-software-house person's identity is, by construction, one the client cannot
-withdraw. The source says so on every line that person signs, which is the
-reason the source is recorded at all: the client reads what kind of identity
-signed the line, and does not have to assume.
+**Decided here, on 2026-10-12.** **The record carries the kind beside the
+identity: a person or a machine.** Today a disclosure is attributed to a
+person only, and the record still says so, in a field of its own. A reader
+must not infer the kind from the absence of something else, here from the
+absence of a key. And refusing the key is a rule, which can change, while the
+record is permanent: a line has to say what signed it without its reader
+knowing which rule held when it was written.
+[ADR 0035](0035-the-record-of-a-deletion.md) §4 records a decider's kind the
+same way.
+
+**Two words, kept apart.** *Kind* and *source* answer two different
+questions, and this section gives each its own word, as ADR 0035 §4 does for a
+decider:
+- **the kind** is what signed the line: a person or a machine;
+- **the source** is where the identity comes from: which register issued the
+  name, *a local user* of the process that serves the page or *the client's
+  directory*.
+
+This section never writes *kind* for a source. *Kind* has other meanings
+elsewhere in this corpus, a token's kind ([ADR
+0036](0036-the-name-table-and-the-process-that-owns-it.md)) and a case's
+([ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md));
+here it means only the first of the two above.
+
+**Decided here, on 2026-10-12.** **Why the source is recorded.** The source
+says which register the name comes from, so that a reader does not have to
+infer it. It says no more than that: [ADR
+0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
+§4, *"The identity's source does not tell the parties apart."* It is written
+on every line a person signs: the client reads which source the identity that
+signed the line comes from, and does not have to assume.
+
+**What the source does not state, and the cost of that.** Whether the client
+can revoke or verify that identity is not a property the source states.
+`source="local"` names a register, not who administers it. So two
+installations whose lines carry the same source can differ in whether the
+client can withdraw that identity, and the record does not say which holds.
+That is a matter of the contract between the parties, and no field of the
+record carries it. A client reading a line learns where the name came from,
+and not whether it can withdraw it.
 
 *Noted 2026-10-06: "by construction" no longer holds as written. Ruled
 2026-10-05: whether the client can revoke a local user is not read off the
@@ -174,9 +214,21 @@ the only one that may be. Who can revoke a local user is the question the
 next paragraph leaves open, and it stays open here. The paragraph is kept as
 written.*
 
+*Noted 2026-10-12: the paragraph the note above is about was rewritten, and
+no longer says "by construction". What the note says is now in the text,
+under "What the source does not state". Its "next paragraph" is still the
+one after these notes, which leaves open who can revoke a local user. The
+note is kept as written.*
+
 **What it does not say: who creates that local user and who can revoke it.**
 That is open (*Not decided here*), and under this ruling it decides who can
 disclose.
+
+*Noted 2026-10-12: half of this is ruled. Ruled 2026-10-05: whoever owns the
+machine that serves the page administers its users, creating them and
+revoking them. Who can revoke a local user in a given installation still
+depends on the contract between the parties, and that half stays open. The
+paragraph is kept as written.*
 
 ## Problems this record names and does not resolve
 
@@ -241,6 +293,10 @@ software house is shown, **it no longer holds the whole table by default.**
   says one row. A case shown in clear also shows its group labels and its
   verdict names, and their tokens are shared with other cases (ADR 0036 §4).
   Whether those are rows a disclosure hands over is not ruled.
+  *Noted 2026-10-12: answered by [ADR 0047](0047-what-a-case-in-clear-contains.md)
+  §4, accepted 2026-10-08. A row whose token is shared with other cases stays
+  a token; a disclosure hands over the case's own row. The bullet is kept as
+  written.*
 
 ### 8. Fixed decision 9 and ADR 0002 §2–§3: payload crosses, and no code declares it
 
@@ -257,6 +313,11 @@ property decision 9 protects, or amends decision 9, is not decided here.**
 Accepting this record cannot happen without deciding it. Decision 9's amendment
 of 2026-10-01 for ADR 0038 names the served projection. It does not name a
 disclosure.
+
+*Noted 2026-10-12: decided by [ADR 0046](0046-a-widening-is-a-declared-class.md),
+accepted 2026-10-08. The trace satisfies the property fixed decision 9
+protects, and fixed decision 9 is not amended. This section's condition for
+acceptance is met. The section is kept as written.*
 
 ## What it touches
 
@@ -308,10 +369,16 @@ the weighing; it does not reopen it.
 
 ## Not decided here
 
+*Ruled 2026-10-12: none of the points below blocks this record's acceptance.
+Each stays open, with the condition written beside it.*
+
 **The three left open by the ruling itself:**
 - **Where the disclosure's record lives.** The ruling says it is not the
   deletion ledger of ADR 0035. Whether it is a third artifact is open, and so
   are where it sits, its retention, and who may read it.
+  *Noted 2026-10-12: [ADR 0035](0035-the-record-of-a-deletion.md), accepted
+  2026-10-09, keeps two deletion ledgers per tenant (§2); the ruling meant
+  neither. The bullet is kept as written.*
 - **Whether a disclosed case stays disclosed**, or whether the clear text is
   shown once.
 - **Whether the client is told, and when.**
@@ -319,18 +386,31 @@ the weighing; it does not reopen it.
 **Opened by what came after:**
 - **The default reason at review** (§6), and whether an election by the
   software house's person is a disclosure.
+  *Noted 2026-10-12: the second half is answered by ADR 0037, at its
+  acceptance on 2026-10-06; the notes under §1 and §6 say how. The default
+  reason at review stays open. The bullet is kept as written.*
 - **Shape C** of ADR 0038 §3, on which §4's default rests (§6).
 - **Consumption** (§7): how much of the table the software house may
   accumulate, and how many rows one disclosure hands over.
+  *Noted 2026-10-12: the second half is answered by ADR 0047 §4 (the note
+  under §7). How much of the table the software house may accumulate stays
+  open. The bullet is kept as written.*
 - **Decision 9** (§8): whether the trace satisfies it, or whether it is amended.
+  *Noted 2026-10-12: decided by ADR 0046 (the note under §8). The bullet is
+  kept as written.*
 
 **Not addressed by any ruling:**
 - **What a case in clear contains.** Its input, the recorded answers, the
   judge's reasons, and its names, or a subset of these.
+  *Noted 2026-10-12: answered by [ADR 0047](0047-what-a-case-in-clear-contains.md),
+  accepted 2026-10-08. The bullet is kept as written.*
 - **How the record names the disclosed case**: by its token, or otherwise.
   And what that name means once the case's row is erased.
 - **Who creates and revokes the local user** that a software-house person signs
   with (§5), which decides who can disclose.
+  *Noted 2026-10-12: half of it is ruled (the note under §5's last
+  paragraph). Who can revoke a local user in a given installation stays open.
+  The bullet is kept as written.*
 - **How the gesture is protected against a request forged by another page.** A
   disclosure is a gesture, and no gesture at a served page has that protection
   written down yet.
@@ -348,5 +428,7 @@ the weighing; it does not reopen it.
 - **That the default reason is correct for every case.** §6 says where it has
   no subject, and that it rests on a comparison not yet ruled.
 - **That decision 9 is satisfied.** §8 says the question is open.
+  *Noted 2026-10-12: ADR 0046 decided it (the note under §8). This record
+  still does not claim it on its own. The bullet is kept as written.*
 - **That any of this is lawful, or sufficient towards an authority.** Nothing
   here is legal advice.
