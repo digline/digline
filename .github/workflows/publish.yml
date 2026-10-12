@@ -321,6 +321,85 @@ jobs:
           /tmp/from-index/bin/digline promote --suite suite.py --run latest --replacing none
           /tmp/from-index/bin/digline compare --suite suite.py --run latest
 
+  mcp-registry:
+    name: digline-mcp on the MCP registry
+    needs: pypi
+    # Every tag, not only digline-mcp's: the first step asks the registry
+    # whether it holds the version `server.json` names, and a tag that did not
+    # move it ends green there. A re-run converges the same way. Until this job
+    # the entry was a person's step after the release, and a skipped one left
+    # the registry a version behind with nothing to notice it.
+    #
+    # The key signs for every name under `dev.digline/`, so it lives in this
+    # environment and nowhere else: a secret of the environment, which admits
+    # release tags only. There is no reviewer on it, by ruling: the entry is
+    # `server.json` at the tag, already through a pull request and the test
+    # that holds it to `pyproject.toml`, so a click here would inspect nothing.
+    # The checks are the two below — the version against `dist/`, and the
+    # `mcp-name` line in the description PyPI serves. RELEASING.md, *The
+    # secrets*, has the environment's settings.
+    runs-on: ubuntu-latest
+    environment: mcp-registry
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - id: plan
+        name: Does the registry already hold this version?
+        run: python .github/mcp_registry.py plan
+
+      - if: steps.plan.outputs.publish == 'true'
+        name: Install mcp-publisher, pinned by version and digest
+        # By name and digest, like every action in this file. The version is
+        # also `PUBLISHER_VERSION` in `.github/mcp_registry.py`, which quotes
+        # the registry's error texts at that tag; tests/test_mcp_registry.py
+        # fails if the two differ, so moving this pin means re-reading them.
+        env:
+          VERSION: "1.8.1"
+          SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+        run: |
+          curl -fsSL -o /tmp/mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v$VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$SHA256  /tmp/mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/mcp-publisher.tar.gz -C /tmp mcp-publisher
+
+      - if: steps.plan.outputs.publish == 'true'
+        name: Wait for the page the registry reads
+        # `/pypi/digline-mcp/<version>/json`, which is not the `/simple/` page
+        # the `pypi` job waited on, and which lagged it on v0.22.0 and v0.23.0.
+        # Ten minutes: a CDN catching up.
+        env:
+          TIMEOUT: "600"
+          INTERVAL: "10"
+        run: python .github/mcp_registry.py await-pypi
+
+      - if: steps.plan.outputs.publish == 'true'
+        name: Log in on digline.dev
+        # On the step, not the job, so nothing else here reaches the key. It
+        # goes on the command line because `login http` takes it nowhere else,
+        # which puts it in the process arguments on this runner: a known limit,
+        # accepted on a runner that lives for one job (RELEASING.md, *The
+        # secrets*). Asked upstream: modelcontextprotocol/registry#1704.
+        env:
+          MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$MCP_PRIVATE_KEY" ]; then
+            echo "::error title=MCP_PRIVATE_KEY is not set::digline-mcp was not published to the MCP registry. The packages are on PyPI and this does NOT need a re-tag. Add MCP_PRIVATE_KEY as a secret of the mcp-registry environment — the ed25519 private key, 64 hex characters, whose public half is digline.dev/.well-known/mcp-registry-auth — then re-run this job. See RELEASING.md, 'The secrets'."
+            exit 1
+          fi
+          /tmp/mcp-publisher login http --domain=digline.dev --private-key="$MCP_PRIVATE_KEY"
+
+      - if: steps.plan.outputs.publish == 'true'
+        name: Publish the entry
+        run: python .github/mcp_registry.py publish /tmp/mcp-publisher
+
   github-release:
     name: GitHub Release, from the changelog
     needs: pypi
@@ -498,7 +577,7 @@ jobs:
           # is the last step of the last job, so the diagnosis has to be in the
           # failure itself: nobody reads a workflow file at that point.
           if [ -z "$GH_TOKEN" ]; then
-            echo "::error title=DIGLINE_DEV_DISPATCH_TOKEN is not set::The site was not rebuilt. The packages are on PyPI and this does NOT need a re-tag. Add the repository secret DIGLINE_DEV_DISPATCH_TOKEN — a fine-grained PAT on digline/digline.dev only, Contents: read and write — at Settings > Secrets and variables > Actions, then re-run this job. See RELEASING.md, 'The one secret'."
+            echo "::error title=DIGLINE_DEV_DISPATCH_TOKEN is not set::The site was not rebuilt. The packages are on PyPI and this does NOT need a re-tag. Add the repository secret DIGLINE_DEV_DISPATCH_TOKEN — a fine-grained PAT on digline/digline.dev only, Contents: read and write — at Settings > Secrets and variables > Actions, then re-run this job. See RELEASING.md, 'The secrets'."
             exit 1
           fi
           gh api repos/digline/digline.dev/dispatches --method POST \

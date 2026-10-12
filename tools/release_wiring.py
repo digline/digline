@@ -55,6 +55,7 @@ SHIPS = tuple(
         r"\bgh release (?:create|upload|edit)\b",
         r"/dispatches\b",
         r"\bgh workflow run\b",
+        r"\bmcp-publisher\b",
         r"^\s+[\w-]+:\s*write\b",
         r"^    environment:",
     )
