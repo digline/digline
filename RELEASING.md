@@ -1232,10 +1232,21 @@ holds the README's `mcp-name` line to the manifest's `name` beside them.
 The registry verifies the entry against that exact release on PyPI, by reading
 `mcp-name` in its description. So the entry is published only **after** PyPI
 serves the version, and a release that does not publish digline-mcp leaves the
-registry alone. Publishing it is a person's step, from `packages/digline-mcp`
-with `mcp-publisher`, logged in on the `digline.dev` domain. A registry entry
-cannot be changed once published, so a wrong one is corrected by the next
+registry alone. The `mcp-registry` job in `publish.yml` publishes it after the
+`pypi` job, on any tag whose `server.json` version the registry does not yet
+hold. It first waits for PyPI's `/pypi/digline-mcp/<version>/json`, which is the
+page the registry reads, and refuses if the `mcp-name` line is not in it. A red
+there needs no re-tag: the packages are on PyPI, so re-run the job. A registry
+entry cannot be changed once published, so a wrong one is corrected by the next
 release, not in place.
+
+**Moving the `mcp-publisher` pin means re-reading one function.** The job retries
+the publish only when the registry says PyPI answered 404, recognised by its
+exact text, which `.github/mcp_registry.py` quotes from `pypiVersion404Error` in
+the registry's `internal/validators/registries/pypi.go` at the pinned tag. A new
+pin moves `PUBLISHER_VERSION` there too, and `tests/test_mcp_registry.py` fails
+until it does; then re-read the function at the new tag. A text that drifted is
+not retried, so the failure is a red to read, never a silent loop.
 
 ### Four releases that no ref names
 
@@ -1325,9 +1336,29 @@ publishers, then the tag**. Those are still settings in an account and still
 not reversible by a re-run, and they remain the part of this section that no
 amount of scripting can check for you.
 
-## The one secret
+## The secrets
 
-`DIGLINE_DEV_DISPATCH_TOKEN`, a repository secret on `digline/digline`.
+Two, and each is read on the one step that needs it. This heading said *The one
+secret* until `MCP_PRIVATE_KEY` came with the `mcp-registry` job; error messages
+in `publish.yml` cite it by name.
+
+### `MCP_PRIVATE_KEY`
+
+A secret of the **`mcp-registry` environment**, not of the repository.
+
+| | |
+|---|---|
+| What | the ed25519 private key, as 64 hex characters, whose public half is served at `https://digline.dev/.well-known/mcp-registry-auth` |
+| Why | the `mcp-registry` job logs in with `mcp-publisher login http --domain=digline.dev`, and the key signs for **every** name under `dev.digline/`, not only digline-mcp |
+| Where | Settings → Environments → `mcp-registry`. Deployment rule: **tags** `v*` and `digline-mcp-v*`, typed as tags, not branches. No required reviewer, by ruling: the entry is `server.json` at the tag, already through a pull request and `test_server_json.py`, so the click would inspect nothing |
+| Expires | never. **A rotation is two changes together**: the new key here and the new public half in digline.dev's `.well-known/mcp-registry-auth`. One without the other fails the next login |
+| Known limit | `login http` takes the key only as `--private-key`, so it is in the process arguments on the runner while the login runs. Accepted on a runner that lives for one job; GitHub masks it in the log. Asked upstream for an environment variable or a file: [modelcontextprotocol/registry#1704](https://github.com/modelcontextprotocol/registry/issues/1704) |
+
+A red at the login needs no re-tag either: set or fix the secret, re-run the job.
+
+### `DIGLINE_DEV_DISPATCH_TOKEN`
+
+A repository secret on `digline/digline`.
 
 | | |
 |---|---|
