@@ -1233,7 +1233,9 @@ The registry verifies the entry against that exact release on PyPI, by reading
 serves the version, and a release that does not publish digline-mcp leaves the
 registry alone. The `mcp-registry` job in `publish.yml` publishes it after the
 `pypi` job, on any tag whose `server.json` version the registry does not yet
-hold. It first waits for PyPI's `/pypi/digline-mcp/<version>/json`, which is the
+hold. It runs only on the tags that can carry digline-mcp, `v*` and
+`digline-mcp-v*`, which are the environment's two tag rules; on any other
+named tag it is skipped, never red. It first waits for PyPI's `/pypi/digline-mcp/<version>/json`, which is the
 page the registry reads, and refuses if the `mcp-name` line is not in it. A red
 there needs no re-tag: the packages are on PyPI, so re-run the job. A registry
 entry cannot be changed once published, so a wrong one is corrected by the next
@@ -1349,7 +1351,7 @@ A secret of the **`mcp-registry` environment**, not of the repository.
 |---|---|
 | What | the ed25519 private key, as 64 hex characters, whose public half is served at `https://digline.dev/.well-known/mcp-registry-auth` |
 | Why | the `mcp-registry` job logs in with `mcp-publisher login http --domain=digline.dev`, and the key signs for **every** name under `dev.digline/`, not only digline-mcp |
-| Where | Settings → Environments → `mcp-registry`. Deployment rule: **tags** `v*` and `digline-mcp-v*`, typed as tags, not branches. No required reviewer, by ruling: the entry is `server.json` at the tag, already through a pull request and `test_server_json.py`, so the click would inspect nothing |
+| Where | Settings → Environments → `mcp-registry`. Deployment rule: **tags** `v*` and `digline-mcp-v*`, typed as tags, not branches. **Administrators cannot bypass it** (`can_admins_bypass: false`, as on `pypi`): the tag rule is the only thing that limits where the key can be used, and with the bypass on it is advice. No required reviewer, by ruling: the entry is `server.json` at the tag, already through a pull request and `test_server_json.py`, so the click would inspect nothing |
 | Expires | never. **A rotation is two changes together**: the new key here and the new public half in digline.dev's `.well-known/mcp-registry-auth`. One without the other fails the next login |
 | Known limit | `login http` takes the key only as `--private-key`, so it is in the process arguments on the runner while the login runs. Accepted on a runner that lives for one job; GitHub masks it in the log. Asked upstream for an environment variable or a file: [modelcontextprotocol/registry#1704](https://github.com/modelcontextprotocol/registry/issues/1704) |
 
