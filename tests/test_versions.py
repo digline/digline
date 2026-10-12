@@ -338,11 +338,14 @@ RECORDED: dict[str, dict[str, str]] = {
             "on 2026-10-08, two bumps of its `main` later, in post-tag step 7: "
             "history"
         ),
-        "0.31.0": (
-            "the core release digline-mcp's and pytest-digline's floors are "
-            "owed to, in the table of floors owed to the release (#396): the "
-            "cut that ships the core carrying #396 raises both floors and "
-            "deletes the rows, and this entry with them"
+        "0.30.0": (
+            "the release whose index-race status is recorded (the gate approved "
+            "before the site was green, the tag message, the counts, the index "
+            "waits, the installed versions, the tags on one digest and the "
+            "seven locks), and the release against which digline-mcp's and "
+            "pytest-digline's import of `suite_notes` raises `ImportError` in "
+            "the table of floors owed: history, told as such now that 0.31.0 "
+            "is the tree's version"
         ),
         "0.4.6": (
             "digline-mcp's version and the tag it was published by, in the "
@@ -363,7 +366,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "versions, the tags on one digest and the seven locks), and the "
             "release against which digline-mcp's and pytest-digline's new "
             "calls raise `TypeError` in the table of floors owed: history, "
-            "told as such now that 0.30.0 is the tree's version"
+            "told as such now that 0.31.0 is the tree's version"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -378,7 +381,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
             "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.30.0 is the tree's version"
+            "told as such now that 0.31.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "

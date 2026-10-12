@@ -17,7 +17,7 @@
   were given in conversation and written into the record of #476 before this
   text cited them. What this record decides on its own is marked *decided
   here* where it is made
-- Shipped: unreleased
+- Shipped: 0.31.0
 - Date: 2026-10-07
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
   The name a run records keeps its form and its unit (§3)

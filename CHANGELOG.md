@@ -6,124 +6,152 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## digline-mcp 0.5.0 — unreleased
 
-- **A target's prompt is resolved once, where it is read** (#481, ADR 0045).
-  A `ProviderTarget` reads its prompt file when it is built, and now answers
-  that path, absolute, through `HasArtifacts`. `read_artifacts` no longer
-  joins it to the suite's directory a second time. Two opposite failures go:
-  - **A `.py` suite** whose target names a bare relative prompt, run from a
-    directory other than the suite's, sent the working directory's file and
-    recorded the suite's. It now records the file it sent, under its name
-    relative to the repository. A file outside the repository is refused
-    before any call to the model, with ADR 0042 §2's sentence.
-  - **A TOML suite** run with a relative `--suite` that has a directory in it,
-    such as `--suite eval/suite.toml` from the root, or the same through
-    pytest-digline's `--digline-suite`, exited 64 on `…/eval/eval/prompt.md`
-    for a suite whose prompt was where it said. It now runs.
+To be published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 is
+on PyPI.
 
-  Where the two resolutions agreed, nothing moves: a prompt anchored with
-  `Path(__file__).parent`, a suite run from its own directory, and every TOML
-  suite that ran before. The recorded name and digest are the same, and a
-  reference promoted on 0.30.0 compares clean.
-- **A target that answers a relative path through `HasArtifacts` is refused
-  at `run`**, with a sentence that names its class. The protocol is public,
-  so a target of your own that answered a relative path stops running: answer
-  the path you read, absolute. `ProviderTarget`, the only implementation in
-  digline, already does.
-- **A pin on a target's prompt named by a bare relative path** is refused from
-  a working directory other than the suite's, and nothing is sent: by
-  `read_pinned` inside the repository, by ADR 0042 §2's boundary outside it.
-  Anchored, the pin works from anywhere (ADR 0029 §4, a dated note).
-- **A symlink a target answers is recorded under the file it points at**, the
-  file the boundary checked. The bytes are the same; the name is that file's.
+- **Breaking: `--root` is required.** Pass the repository that holds
+  `.digline/` in your MCP client's configuration, for example
+  `"args": ["--root", "/path/to/your/repo"]`. A configuration that leaves it
+  out has to be updated: without the flag the server exits 2 with the usage
+  line and starts nothing, and your client reports it as failed. It used to
+  default to `.`, the directory the client happened to launch it from. Every
+  tool, the reading ones included, loads the suite it is named under that
+  root, and a `suite.py` is your project's code, so an implied root is how the
+  suite of the wrong directory gets run. The Claude Code plugin and every
+  configuration in digline's docs already pass `--root`.
+- **`run` carries `notes`** (#396). The lines `digline run` prints about the
+  suite before the first call reach the agent as a `notes` list, always
+  present and empty when there is nothing to say. It is an added key, so
+  `output_version` does not move.
+- **The README carries `mcp-name: dev.digline/digline-mcp`**, the line the
+  official MCP registry reads on PyPI to verify the package, and the package
+  ships `server.json`, the registry manifest. Nothing is published to the
+  registry yet.
+- **The floor is `digline>=0.31.0`.** `run` imports `suite_notes`, which first
+  ships in 0.31.0. Against 0.30.0 the import raises `ImportError`.
+
+## pytest-digline 0.2.4 — unreleased
+
+To be published by its own tag, `pytest-digline-v0.2.4`, after digline 0.31.0
+is on PyPI.
+
+- **`pytest --digline-run` prints a suite's notes** on stderr beside the
+  planned-call count (#396): the lines `digline run` prints about the suite
+  before the first call.
+- **Docs: the README shows the failure line `check_line` prints.** Its example
+  is a drop through the threshold, a flip, which carries no interval. The
+  README showed one, in wording that was never in digline's source. ADR 0013
+  §6 gains a dated note beside the same stale output.
+- **The floor is `digline>=0.31.0`.** `--digline-run` imports `suite_notes`,
+  which first ships in 0.31.0. Against 0.30.0 the import raises `ImportError`.
+
+## 0.31.0 — unreleased
+
+digline **0.31.0**. **A minor, because two things a user relies on stop
+working as they did:** a target of your own that answers a relative path
+through `HasArtifacts` is refused at `run`, and `digline.report.case_page`
+takes a mandatory `baseline_key`. Beside them, a `.py` suite run from another
+directory records the prompt it sent, and `digline view` stops serving a
+verdict for the baseline compared with itself. One public name is added,
+`digline.run.suite_notes`, and none is removed. No command or option changes,
+and neither `SCHEMA_VERSION` nor `OUTPUT_VERSION` moves.
+
+**Breaking**
+
+- **If you have a target of your own that declares artifacts through
+  `HasArtifacts`, answer absolute paths.** A relative path is now refused at
+  `run`, with a sentence that names the target's class, and nothing is sent.
+  `ProviderTarget`, the only implementation in digline, already answers
+  absolute. The path is resolved once, where it is read (#481, ADR 0045), and
+  a relative answer would be joined to a second directory.
+- **Anchor a target's prompt with `Path(__file__).parent` if you run a `.py`
+  suite from a directory other than its own.** A bare relative path such as
+  `"prompt.md"` names the file in the working directory, which is the file the
+  provider was always sent. Now the run records that file too:
+  - **outside the repository**, the run is refused before any call to the
+    model;
+  - **inside**, it is recorded under its own name, and against a baseline
+    promoted on 0.30.0 `compare` reports the old name as no longer declared
+    and the new one as added. The exit code moves only if the file is pinned;
+  - **pinned**, the run is refused and nothing is sent.
+
+  **How it looks after the upgrade:** one file under test reads *no longer
+  declared*, another reads *added since the reference*, and the exit code does
+  not change. That is this case.
+
+  Until now the run sent the working directory's file and recorded the
+  suite's, so the record named a prompt that was not the one sent. Suites that
+  anchor the path, suites run from their own directory, and every TOML suite
+  are unaffected: a baseline promoted on 0.30.0 compares clean.
+- **Expect a renamed artifact for a symlink a target answers.** It is now
+  recorded under the file it points at, the file the boundary checked. The
+  bytes are the same. Against a baseline promoted on 0.30.0, the old name
+  reads as no longer declared and the new one as added.
+- **Pass `baseline_key` to `digline.report.case_page`:** the baseline's key or
+  `None`, as `runs_page` already takes, held by `SuiteRuns.baseline_key`. It
+  is mandatory, with no default. It is what leaves the baseline's row without
+  a link to a comparison the server refuses, and a default would let a caller
+  that forgot it keep the link without noticing.
+- **If you match digline's wording, update two sentences.** Neither change
+  moves a verdict, an outcome or an exit code.
+  - **The per-check sentence** reads *"inside / outside the range of the
+    reference's individual samples (…)"*, where it read *"within / beyond the
+    noise of this check (…)"*. In Italian it reads *"dentro / fuori
+    dall'intervallo dei singoli campioni del riferimento (…)"*. The canary
+    clause follows, and `compare()`'s `reason` says *"the range of the
+    baseline's individual samples"*. The interval is the range of the
+    reference's samples, and "noise" read as an uncertainty on the score
+    (#496). `--json` does not move.
+  - **`rejudge --json`'s `sentence`** carries the replay's sentence, *"1
+    answer replayed; no call to the target"*, where it announced *"1 case × 1
+    sample = 1 call to the target"*. A re-judge calls no target, and
+    `sentence` is the field a program reports the spend from (#500).
+
+**Fixed**
+
+- **A TOML suite run with a relative `--suite` that has a directory in it
+  runs** (#481). For example, `--suite eval/suite.toml` from the root, or the
+  same through pytest-digline's `--digline-suite`. It exited 64 on
+  `…/eval/eval/prompt.md` for a suite whose prompt was where it said.
+- **`digline view` no longer serves a verdict for the baseline compared with
+  itself** (#489, #498). That pair, which the runs page offered by default
+  right after a promotion, was answered *nothing got worse* with 200. It is
+  now refused with 400, like every other run compared with itself, with or
+  without `against`. A case's page no longer links to it from the baseline's
+  row.
+
+**Added**
+
+- **The notes `digline run` prints about a suite reach every front end that
+  runs one** (#396, ADR 0024 §6.4). They are the check whose class declares no
+  `KIND`, and each tolerance so wide that its check is reported only when it
+  flips.
+  - `digline run --json` carries them as `notes`: always present, empty when
+    there is nothing to say. It is an added key, so `output_version` does not
+    move.
+  - `digline rejudge` says them on stderr and in `--json`.
+  - The MCP `run` tool and `pytest --digline-run` follow in digline-mcp 0.5.0
+    and pytest-digline 0.2.4.
+  - `digline.run.suite_notes(suite)` composes them, so every front end says
+    the same lines.
+
+**Changed, worth knowing**
+
 - **A prompt missing at a suite's import names its absolute path.** Through
   the MCP server that path reaches the agent, where 0.30.0 sent `prompt.md`.
   It is a deliberate widening of what crosses to an agent, allowed by ADR 0043
   §1 as amended (ADR 0045, *Consequences*).
-- **Docs: ADR 0045, *One declared path, resolved once*, accepted**, with what
-  #481 measured in place of its deductions. `docs/api.md` says why a
-  `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
-- **`digline view` refuses the baseline compared with itself** (#489). Every
-  other run compared with itself was answered 400 with *"A run compared with
-  itself has nothing to report."* The run the baseline was promoted from was
-  served as a verdict, *nothing got worse*, with 200. That pair is what the
-  runs page asks for by default right after the newest run is promoted:
-  both menus open on the newest run. It is now refused with the same sentence.
-  The menus' default does not move.
-- **…and with no `against` either** (#498). An omitted `against` means the
-  baseline, so `/compare?run=<the baseline's run>` was the same pair, and it
-  too was served as a verdict with 200. A case's page linked to it from the
-  baseline's row. It is now refused with the same sentence, and that row's
-  moment is no longer a link: the page does not offer a comparison the server
-  refuses. Any other run with no `against` is still held against the
-  baseline, as before.
-- **The notes `digline run` prints about a suite reach every front end that
-  runs one** (#396, ADR 0024 §6.4). Before the first call, `digline run` names
-  a check whose class declares no `KIND`, which `explain`'s shape reading
-  leaves out, and each tolerance so wide its check is reported only when it
-  flips. Until now only that command's stderr said them. Now:
-  - **`digline run --json`** and the **MCP `run` tool** carry them as
-    `notes`, a list of the same sentences. It is always present, and empty
-    when there is nothing to say. It is an added key, so `output_version`
-    does not move.
-  - **`digline rejudge`** says them on stderr and in `--json`. A re-judge
-    loads the suite and judges with it, and under `--judge-samples` a judge
-    whose class declares no `KIND` is not repeated.
-  - **`pytest --digline-run`** prints them on stderr beside the
-    planned-call count.
 
-  `digline.run.suite_notes(suite)` composes them, so every front end says
-  the same lines in the same order. The `KIND` sentence was the CLI's own
-  until now. Both are said and never refused, and no exit code moves.
-  **digline-mcp's and pytest-digline's floors are owed to this release**,
-  because both import `suite_notes`.
-- **`rejudge --json` no longer announces a call to the target** (#500). Its
-  `sentence` was the ordinary one, *"1 case × 1 sample = 1 call to the
-  target"*, while stderr said *"1 answer replayed; no call to the target"*.
-  A re-judge calls no target, and `sentence` is the field a program reports
-  the spend from. It now carries the replay's sentence, the one stderr
-  prints. Nothing in digline acts on the figure: the run, its plan and every
-  count were already right.
-- **`case_page` takes a mandatory `baseline_key`**, the key of the baseline or
-  `None`, which `runs_page` already takes. It is what leaves the baseline's
-  row without its link, and it has no default, so a caller that forgot it
-  would not quietly keep the link. A caller of `digline.report.case_page`
-  passes `SuiteRuns.baseline_key`.
-- **The per-check sentence names the interval it prints for what it is**
-  (#496). It said *"within / beyond the noise of this check (0.600000–1.000000
-  across 5 samples)"*, which reads as an uncertainty on the score. The interval
-  is the range of the reference's individual samples, and the sentence now
-  says so: *"inside / outside the range of the reference's individual samples
-  (…)"*, and in Italian *"dentro / fuori dall'intervallo dei singoli campioni
-  del riferimento (…)"*. The canary clause and `compare()`'s `reason` follow,
-  the latter as *"the range of the baseline's individual samples"*. **No
-  verdict, outcome or exit code moves**, and neither does `--json`. The
-  headline's *"moved within noise"* and `explain` are unchanged. A tool that
-  matched the old words in a report or in `AssertionDelta.reason` needs the
-  new ones. ADR 0006 §10 and ADR 0016 §7 gain dated notes.
-- **Docs: pytest-digline's README shows the failure line `check_line`
-  prints.** Its example is a drop through the threshold, a flip, which carries
-  no interval. The README showed one, in wording that was never in digline's
-  source. ADR 0013 §6 gains a dated note beside the same stale output. The
-  README reaches PyPI with pytest-digline's next release.
-- **`digline-mcp` refuses to start without `--root`.** It defaulted to `.`,
-  the directory the client happened to launch it from. Every tool, the
-  reading ones included, loads the suite it is named under that root, and a
-  `suite.py` is the project's code, so an implied root is how the suite of
-  the wrong directory gets run. Without the flag the server now exits 2 with
-  argparse's usage line, and starts nothing. Every configuration this
-  repository documents already passes `--root`, the Claude Code plugin
-  included. A client config that leaves it out has to add it.
-- **digline-mcp carries a manifest for the official MCP registry**,
-  `packages/digline-mcp/server.json`, under `dev.digline/digline-mcp`, and its
-  README carries the `mcp-name` line the registry verifies on PyPI. Nothing is
-  published yet: the registry checks that line in the exact release the
-  manifest names, so the entry follows the first digline-mcp release that
-  carries it. A test holds the manifest's version to the package's, and
-  RELEASING.md says who moves it and when.
+**Docs**
 
-No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration.
+- ADR 0045, *One declared path, resolved once*, accepted. `docs/api.md` says
+  why a `ProviderTarget` prompt is anchored with `Path(__file__).parent`.
+
+No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no migration. digline-mcp 0.5.0 and
+pytest-digline 0.2.4 follow on their own tags, with floors at
+`digline>=0.31.0`.
 
 ## pytest-digline 0.2.3 — 2026-10-07
 
