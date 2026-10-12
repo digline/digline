@@ -1,5 +1,7 @@
 # digline-mcp
 
+<!-- mcp-name: dev.digline/digline-mcp -->
+
 The [MCP](https://modelcontextprotocol.io) server for
 [digline](https://github.com/digline/digline): it lets a coding agent **read** a
 digline result and **measure** a new one, and it does not let the agent promote
