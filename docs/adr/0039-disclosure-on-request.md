@@ -5,9 +5,12 @@
   and [ADR 0038](0038-the-projection-of-a-run-nobody-promoted.md) were.
   Nothing in it is implemented. **What it decides was ruled before it was
   written**, in discussion, on 2026-09-30, and is recorded here as ruled (§1
-  to §5). **Everything else in it was found afterwards.** The three problems it
+  to §5), **except two decisions this record takes itself**, both in §5 and
+  both of 2026-10-12, marked *decided here* where they are made: the kind
+  recorded beside the identity, and the reason the source is recorded.
+  **Everything else in it was found afterwards.** The three problems it
   names (§6 to §8) are **not resolved here**, and *Not decided here* lists what
-  is open without choosing. This record adds no ruling of its own
+  is open without choosing
 - Shipped: unreleased
 - Date: 2026-10-01
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -82,7 +85,8 @@ writes *disclosure* or *a disclosure*.
 ## Decision
 
 §1 to §5 were ruled on 2026-09-30, in discussion. They are recorded here, not
-decided here.
+decided here, except two blocks of §5, decided here on 2026-10-12 and marked
+where they are.
 
 ### 1. The software house can ask to see one case in clear, and it sees it
 
@@ -144,7 +148,9 @@ makes it say so.
 
 ### 5. A disclosure names a person, with the source of their identity
 
-*Ruled later the same day, 2026-09-30, repairing a gap in §3.*
+*The ruling in the box, and the paragraphs not marked otherwise, were ruled
+later the same day, 2026-09-30, repairing a gap in §3. The two blocks marked
+"decided here" were decided on 2026-10-12.*
 
 > **A disclosure is attributed to a person, not to a caller's key. The record
 > says where that person's identity came from.**
@@ -159,12 +165,46 @@ client in return.
 identity, which cannot be turned off. The record carries **the source**: *a
 local user*, and not *the client's directory*.
 
-**The cost, stated beside the ruling.** **A local user cannot be revoked by the
-client**, because only an identity from the client's own directory can. So a
-software-house person's identity is, by construction, one the client cannot
-withdraw. The source says so on every line that person signs, which is the
-reason the source is recorded at all: the client reads what kind of identity
-signed the line, and does not have to assume.
+**Decided here, on 2026-10-12.** **The record carries the kind beside the
+identity: a person or a machine.** Today a disclosure is attributed to a
+person only, and the record still says so, in a field of its own. A reader
+must not infer the kind from the absence of something else, here from the
+absence of a key. And refusing the key is a rule, which can change, while the
+record is permanent: a line has to say what signed it without its reader
+knowing which rule held when it was written.
+[ADR 0035](0035-the-record-of-a-deletion.md) §4 records a decider's kind the
+same way.
+
+**Two words, kept apart.** *Kind* and *source* answer two different
+questions, and this section gives each its own word, as ADR 0035 §4 does for a
+decider:
+- **the kind** is what signed the line: a person or a machine;
+- **the source** is where the identity comes from: which register issued the
+  name, *a local user* of the process that serves the page or *the client's
+  directory*.
+
+This section never writes *kind* for a source. *Kind* has other meanings
+elsewhere in this corpus, a token's kind ([ADR
+0036](0036-the-name-table-and-the-process-that-owns-it.md)) and a case's
+([ADR 0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md));
+here it means only the first of the two above.
+
+**Decided here, on 2026-10-12.** **Why the source is recorded.** The source
+says which register the name comes from, so that a reader does not have to
+infer it. It says no more than that: [ADR
+0037](0037-the-review-interface-and-the-election-recorded-where-the-text-is-not.md)
+§4, *"The identity's source does not tell the parties apart."* It is written
+on every line a person signs: the client reads which source the identity that
+signed the line comes from, and does not have to assume.
+
+**What the source does not state, and the cost of that.** Whether the client
+can revoke or verify that identity is not a property the source states.
+`source="local"` names a register, not who administers it. So two
+installations whose lines carry the same source can differ in whether the
+client can withdraw that identity, and the record does not say which holds.
+That is a matter of the contract between the parties, and no field of the
+record carries it. A client reading a line learns where the name came from,
+and not whether it can withdraw it.
 
 *Noted 2026-10-06: "by construction" no longer holds as written. Ruled
 2026-10-05: whether the client can revoke a local user is not read off the
