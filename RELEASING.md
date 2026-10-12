@@ -905,6 +905,18 @@ way round. The direction is not intuitive — the repository whose required
 checks are *blind* to the site is the one that has to move first — so it is
 written down here rather than carried in anybody's head.
 
+**A change to a page that already exists is not queued here.** This list is
+for new pages, which need their three entries before the site's strict build
+accepts them. A page the site already has needs no entry, so a change to it —
+a Status line changed by an acceptance, say — never appears on this list. It
+still reaches the public only with the site's next deploy, and a merge here
+does not start one: follow it with a push to the site's `main`. When the site
+has nothing to change, that push is an empty commit (`git commit
+--allow-empty`), and it reaches `main` the way every change there does, through
+a pull request, since the site's `main` takes no direct push. A manual run of
+the site's workflow builds and does not publish, so it does not serve. See
+#521.
+
 **Nothing is queued, read on 2026-10-10.** Read off `digline.dev`'s
 `origin/main` at `9faca7b` rather than remembered — every `docs/` page and
 every ADR on this repository's `main` at `263966c` carries all three
