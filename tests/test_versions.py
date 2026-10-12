@@ -355,6 +355,10 @@ RECORDED: dict[str, dict[str, str]] = {
             "pytest-digline's version and the tag it was published by, in the "
             "index-race status of the two named tags after 0.30.0: history"
         ),
+        "0.2.4": (
+            "pytest-digline's version and the tag it was published by, in the "
+            "index-race status of the named tag after 0.31.0: history"
+        ),
         "0.4.5": (
             "digline-mcp's previous version, which PyPI's project endpoint "
             "still named as latest right after 0.4.6 was uploaded, in the "

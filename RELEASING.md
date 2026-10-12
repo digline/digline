@@ -1714,6 +1714,24 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **pytest-digline-v0.2.4 — a named tag after the core, one package, its
+  floor owed to 0.31.0.** `publish` (`38272207404`) passed on attempt 1, with
+  `github-release` and the site jobs skipped, as on any plugin tag, and no
+  `docker-publish`. `tools/tag_names.py "pytest-digline 0.2.4"` ran on #536's
+  merge commit, `c14580d`, immediately before the tag: one package, named.
+  `/approvals` reads `approved` by `alexpran` on `pypi`; this time the run was
+  seen waiting before the click. The table of floors owed is empty again.
+  - Counts: 12 `twine check` `PASSED`, one per file built; TestPyPI's
+    selection and PyPI's read before the gate, 2 `publish` and 10 `skip`, the
+    two being `pytest-digline` 0.2.4's wheel and sdist; `imported 6` and the
+    quickstart's 3 calls, after TestPyPI and after PyPI.
+  - The `pypi` job ran 15:45:19Z to 15:46:04Z. Uploads at 15:45:46 and
+    15:45:47. The job's wait saw `pytest-digline` 0.2.4 served `after 0s`.
+  - **The version endpoint and its control** were read by hand at 15:46:26Z:
+    `/pypi/pytest-digline/0.2.4/json` answered 200, with
+    `requires_dist` naming `digline>=0.31.0`, and
+    `/pypi/pytest-digline/9.9.9/json` answered 404.
+
 - **digline-mcp-v0.5.0 — a named tag after the core, one package, its floor
   owed to 0.31.0 and its minor owed to a required `--root`.** `publish`
   (`38264614662`) passed on attempt 1, with `github-release` and the site jobs
