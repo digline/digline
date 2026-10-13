@@ -915,15 +915,9 @@ a pull request, since the site's `main` takes no direct push. A manual run of
 the site's workflow builds and does not publish, so it does not serve. See
 #521.
 
-**Queued since 2026-10-13:**
-
-- `docs/adr/0049-a-run-that-judged-nothing-does-not-pass.md` →
-  `product/adr/0049-a-run-that-judged-nothing-does-not-pass.md`, under
-  `- Decisions:`, with its `PRODUCT` and `DESCRIPTIONS` entries.
-
-**Nothing else is queued, read on 2026-10-13.** Read off `digline.dev`'s
-`origin/main` at `ba0feb2` rather than remembered — every other `docs/` page and
-every other ADR on this repository's `main` at `208e1c1` carries all three
+**Nothing is queued, read on 2026-10-13.** Read off `digline.dev`'s
+`origin/main` at `9b7bfc2` rather than remembered — every `docs/` page and
+every ADR on this repository's `main` at `ecf941e` carries all three
 entries there: the `nav` line, `PRODUCT` in `tools/hooks/seo.py`,
 `DESCRIPTIONS` in `tools/hooks/llms.py`. Checked by finding each page's
 `product/` path in each of the three files.
