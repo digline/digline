@@ -8,8 +8,9 @@
   corrected one of his reasons from a reading of the code (§4), and, reading
   the draft before it was pushed, ruled the code of a pytest session (§7) and
   approved the two names (§4, §5) and the tenth condition's place (§5).
-  After it landed, and before acceptance, he refined §3's definition, so that
-  a suite of canaries and calibration cases only is judged by them (§3).
+  After it landed, and before acceptance, he refined §3's definition twice: a
+  suite of canaries and calibration cases only is judged by them, and what
+  counts is read from the suite's declaration, not from the run (§3).
   **Nothing in it is decided by this record alone.** Acceptance is a ruling
   on the text
 - Shipped: unreleased
@@ -23,8 +24,12 @@
 - Requires, at implementation: **a tenth promotion condition** in
   `ResultStore.promote_baseline`'s list and in ADR 0002 §8's, with a new
   refusal type in `REFUSALS` (§5). **A sentence in every locale** of
-  `report/text.py`'s `TEXT`, for the new headline fact (§4). **A rule in
-  pytest-digline** at the end of a session (§7)
+  `report/text.py`'s `TEXT`, for the new headline fact (§4). **The suite's
+  declaration reaching the exit code** (§3): a run document records no list
+  of the cases its suite declares, so the functions that turn a run into a
+  code are given the declaration by the front end that loaded the suite, and
+  with none they apply §3's third clause. **A rule in pytest-digline** at the
+  end of a session (§7)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (an error is a third
   state, neither green nor a regression); [ADR
   0002](0002-three-worlds-and-where-the-data-lives.md) §8 (the promotion
@@ -168,10 +173,19 @@ what counts is what the suite measures.
   case. A canary says the model behind the alias is still that model; a
   calibration case says the judge still reads its scale.
 - **A case is judged** when at least one of its verdicts is `pass` or `fail`.
-- **The cases that count:** the subject cases, when the run has any. When it
-  has none, its canaries and calibration cases. A suite of those only is a
-  legitimate use, such as watching whether the model behind an alias is still
-  that model, and they are what it measures.
+- **The cases that count**, in three clauses, the first that applies:
+  1. **the subject cases the suite declares.** What decides is the
+     declaration, not what a run happens to carry: a run that carries none of
+     the declared subject cases (a partial selection, an incomplete document, a
+     document written by another program) still counts them, and judged none of
+     them;
+  2. **if the suite declares no subject case, its canaries and calibration
+     cases.** A suite of those only is a legitimate use, such as watching
+     whether the model behind an alias is still that model, and they are what
+     it measures;
+  3. **if there is no declaration to read**, a document that arrives with no
+     suite behind it, **the cases the document carries**, by the first two
+     clauses applied to them.
 - **A run judged nothing** when none of the cases that count was judged.
 
 **Aggregates do not count.** An aggregate is a figure over the cases, so it
@@ -184,13 +198,23 @@ nothing about the behaviour that `0` claims did not get worse.
 **This is not #375's asymmetry returning.** There, a declaration that has
 nothing to do with the question decided it: whether the suite declared an
 aggregate. Here what decides is what the suite declares it measures, which is
-the question itself.
+the question itself. **And it is the suite's declaration, not the run's
+contents.** Read from the run, a suite that measures a subject would fall to
+the canaries' clause whenever a run carried none of its subject cases, and a
+judged canary would turn it green. That is the one road by which a canary could
+make a subject suite pass, and the first clause closes it.
 
-*Refined 2026-10-13, by the maintainer, before acceptance.* The definition as
-landed in #555 read: *"A run judged nothing when no case that measures the
-subject was judged"*, with canaries and calibration cases never counting.
-Under it, a suite of canaries and calibration cases only would have exited `2`
-on every run, with no flag to change it.
+*Refined 2026-10-13, by the maintainer, before acceptance, twice.* The
+definition as landed in #555 read: *"A run judged nothing when no case that
+measures the subject was judged"*, with canaries and calibration cases never
+counting. Under it, a suite of canaries and calibration cases only would have
+exited `2` on every run, with no flag to change it. The first refinement, in
+#557, read: *"the subject cases, when the run has any. When it has none, its
+canaries and calibration cases"*. It read the run where the paragraph above
+it, defending it, said the suite's declaration decides. A suite that declares
+subject cases, in a run that carries none, fell to the canaries' clause, and a
+judged canary made it exit `0`. The second refinement reads the declaration,
+and writes out the case with no declaration to read.
 
 **The ruling names two causes**, every case suspended and a document with no
 cases. **A third follows from the definition and not from the ruling:** a run
@@ -212,10 +236,11 @@ same run. `tests/test_run_exit_code.py` holds `run_exit_code(run)` equal to
 unchanged.
 
 **Precedence, kept and not decided here.** It is today's behaviour, and this
-record does not change it. A run that judged nothing has no check that could have got
-worse, so `1` cannot arise from its cases. A canary that moved can still
-return `1`, and it outranks this, as it outranks every cause of `2` today: it
-is a fact about which model answered, and the louder fact is the one reported.
+record does not change it. A run that judged nothing has no check that could
+have got worse, so `1` cannot arise from its cases. A canary that moved can
+still return `1`, and it outranks this, as it outranks every cause of `2`
+today: it is a fact about which model answered, and the louder fact is the one
+reported.
 
 ### 4. Saying which cause
 
@@ -342,12 +367,13 @@ judge something, or stop running the suite. The first question the first user
 will ask is how to make it green again, and it is answered better by saying so
 than by avoiding it.
 
-**A suite of canaries and calibration cases only does not turn red** when
-they are judged: with no subject case, they are what it measures (§3). That is
-the second question the first user will ask. In this repository no example
-declares such a suite. Only test fixtures build one: `tests/test_canary.py`
-(a `Suite` whose one case is a canary, and runs whose one result is a canary)
-and `tests/test_calibration.py` (suites whose one case is a calibration case).
+**A suite of canaries and calibration cases only does not turn red** when they
+are judged: when the suite declares no subject case, they are what it measures
+(§3). That is the second question the first user will ask. In this repository
+no example declares such a suite. Only test fixtures build one:
+`tests/test_canary.py` (a `Suite` whose one case is a canary, and runs whose
+one result is a canary) and `tests/test_calibration.py` (suites whose one case
+is a calibration case).
 
 **The CHANGELOG says it plainly**, in the entry, not in a note beside it:
 which runs now exit `2`, which sessions now fail, and that there is no flag.
@@ -452,22 +478,26 @@ rule it tests, or it proves nothing.
 4. **A suite of canaries only (§3):** a run whose only cases are canaries, and
    the canary judged, exits `0`. Control: the same run with the canary
    suspended exits `2`.
-5. **An aggregate does not count (§3):** every case suspended with an
+5. **The declaration decides, not the run (§3):** a suite that declares
+   subject cases, and a run that carries none of them and carries a judged
+   canary, exits `2`. Control: under the first refinement, which read the run,
+   the same pair exits `0`; the test fails against code that reads the run.
+6. **An aggregate does not count (§3):** every case suspended with an
    aggregate declared exits `2`, and without one exits `2`. The asymmetry of
    #375 is gone from the exit code.
-6. **Something judged and an aggregate in error exits `0` (§2):** this pins
+7. **Something judged and an aggregate in error exits `0` (§2):** this pins
    ADR 0010 §8 where it holds. Control: an errored **case** still exits `2`.
-7. **The tenth condition (§5):** `NothingJudgedError` with an aggregate and
+8. **The tenth condition (§5):** `NothingJudgedError` with an aggregate and
    without one, and no refusal for a run with one judged subject case. It is
    in `REFUSALS`.
-8. **The headline and the wire (§4):** `nothing_judged` is in `_ADDED`, and
+9. **The headline and the wire (§4):** `nothing_judged` is in `_ADDED`, and
    `tests/test_wire_keys.py` reaches it as true and as false.
-9. **The register (§4):** a written line's `outcome` keys include
-   `nothing_judged`. A line without it reads as *not declared*, never as
-   `false`. Control: a reader that defaults the absence to `false` fails it.
-10. **The invariant:** `run_exit_code(run) == exit_code` of the run compared
-   with itself, for every fixture, the new ones included.
-11. **The plugin (§7):** a session over a drifted pin fails, and a session
+10. **The register (§4):** a written line's `outcome` keys include
+    `nothing_judged`. A line without it reads as *not declared*, never as
+    `false`. Control: a reader that defaults the absence to `false` fails it.
+11. **The invariant:** `run_exit_code(run) == exit_code` of the run compared
+    with itself, for every fixture, the new ones included.
+12. **The plugin (§7):** a session over a drifted pin fails, and a session
     whose every row is `SKIPPED` fails while each row stays `SKIPPED`. Control:
     a session over a suite with one judged subject case and nothing else
     exits `0`.
