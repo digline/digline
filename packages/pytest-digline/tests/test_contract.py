@@ -1,9 +1,11 @@
 """What survives the translation into pytest, and what does not. (ADR 0013 §7)
 
 The exit codes are digline's contract: `0` proceed, `1` stop and report what got
-worse, `2` stop — the run could not be judged. pytest cannot carry that
-distinction, and this file records the loss as a property rather than leaving it
-to be discovered by somebody building a gate on it.
+worse, `2` stop — the run could not be judged. The plugin does not carry that
+distinction into pytest's exit code. pytest would let it, so the loss is not a
+limit of pytest, and whether the plugin should carry it is open (ADR 0013 §7,
+note of 2026-10-13). This file records the loss as a property rather than
+leaving it to be discovered by somebody building a gate on it.
 """
 
 from __future__ import annotations
