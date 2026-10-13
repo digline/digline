@@ -332,7 +332,8 @@ rests on the same sentence.*
 [ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §7.* Whatever
 pytest-digline decides about `2` and `1`, a session for which digline does not
 exit `0` does not end green. A drifted pinned file and a run that judged
-nothing, which end a session at `0` today, end it at `1`.
+nothing end a session at `0` today. ADR 0049, proposed, gives the value as `1`,
+because pytest's `2` is `ExitCode.INTERRUPTED`.
 
 So the trichotomy survives where it can and the loss is documented where it
 cannot:

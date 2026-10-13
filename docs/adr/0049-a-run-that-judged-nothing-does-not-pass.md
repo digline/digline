@@ -4,10 +4,12 @@
   written.** The maintainer ruled the exit code, the promotion and the two
   levels of a suspension on 2026-10-13, on #360 and #374, and the plugin's rule
   the same day, on #484. The three comments carry the rulings verbatim, in
-  Italian. The same day he ruled five points of this record's design, and
-  corrected one of his reasons from a reading of the code (§4). The parts
-  marked *decided here* were not ruled; acceptance rules on them one by one,
-  and on the text as a whole
+  Italian. The same day he ruled five points of this record's design,
+  corrected one of his reasons from a reading of the code (§4), and, reading
+  the draft before it was pushed, ruled the code of a pytest session (§7) and
+  approved the two names (§4, §5) and the tenth condition's place (§5).
+  **Nothing in it is decided by this record alone.** Acceptance rules on the
+  text
 - Shipped: unreleased
 - Date: 2026-10-13
 - Opens: **an added key on the wire**, recorded in `_ADDED`
@@ -147,15 +149,15 @@ a question its groups cannot answer.
 ADR 0027's general case, *every errored figure moves the exit code*, is
 declined. Its sentence stays true where nothing was judged (§3).
 
-**What this section does not change.** A **case** whose verdict is in `error`
-still makes the run exit `2`, as it does today through `Headline.unjudged`.
-This section is about run-level figures, the aggregates, which #374 was about.
-It does not make an errored case pass.
+**What this section does not change.** *Ruled 2026-10-13.* The ruling's second
+point is about run-level figures, the aggregates #374 was about. A **case**
+whose verdict is in `error` still makes the run exit `2`, as it does today
+through `Headline.unjudged`, and that is right: this section does not make an
+errored case pass.
 
 ### 3. Nothing judged: `2`
 
-**The definition.** *Decided here, on the maintainer's ruling of the
-principle:*
+**The definition.** *Ruled 2026-10-13.*
 
 - **A case measures the subject** when it is neither a canary nor a
   calibration case. A canary says the model behind the alias is still that
@@ -190,7 +192,8 @@ same run. The invariant `tests/test_run_exit_code.py` holds, that
 `run_exit_code(run)` equals `exit_code` of the run compared with itself, holds
 after this as before.
 
-**Precedence.** A run that judged nothing has no check that could have got
+**Precedence, kept and not decided here.** It is today's behaviour, and this
+record does not change it. A run that judged nothing has no check that could have got
 worse, so `1` cannot arise from its cases. A canary that moved can still
 return `1`, and it outranks this, as it outranks every cause of `2` today: it
 is a fact about which model answered, and the louder fact is the one reported.
@@ -200,7 +203,8 @@ is a fact about which model answered, and the louder fact is the one reported.
 `AGENTS.md` §6: *"the headline says which"*. So the fact is the headline's.
 
 - **`Headline.nothing_judged: bool`**, beside `unjudged`, `scale_lost` and
-  `pinned_drifted`. *The name is decided here.* `exit_code()` reads it.
+  `pinned_drifted`. *The name was approved by the maintainer on 2026-10-13.*
+  `exit_code()` reads it.
 - **On the wire:** the key `nothing_judged` in every headline document, with
   its entry in `_ADDED`. No `OUTPUT_VERSION` move, by that module's rule for an
   added key.
@@ -248,8 +252,8 @@ next reader would read the absence as a `false`.
 **The tenth condition of ADR 0002 §8: `NothingJudgedError`**, raised for a
 run that judged nothing under §3's definition, **whether or not the suite
 declares an aggregate.** It closes #375's asymmetry: a reference is a
-measurement, and a run that measured nothing cannot be one. *The name is
-decided here.*
+measurement, and a run that measured nothing cannot be one. *The name was
+approved by the maintainer on 2026-10-13.*
 
 **A new type, not `ErroredRunError`.** *Ruled 2026-10-13.* This record exists
 because a `0` said something false. Reusing `ErroredRunError` would have the
@@ -300,10 +304,11 @@ pinned file that drifted produces no failing row, and #484 measured the session
 at `0`. A session whose every row is `SKIPPED` exits `0`, which is read from
 pytest's rule and not run here. These two are what the rule changes.
 
-**With which code.** *Decided here.* `1`, pytest's own *tests failed*, which is
-what a session with an `ERROR` row already exits. Whether pytest-digline
-should exit something other than `1` where digline exits `2` stays ADR 0013
-§7's open question. This rule decides *not green*, not *`2`*.
+**With which code: `1`.** *Ruled 2026-10-13.* `1` because `2` is taken. In
+pytest's contract `2` is `ExitCode.INTERRUPTED`, so a session that exited `2`
+would tell whoever reads that code that it was interrupted, which is false.
+`1` is pytest's *tests failed*. That a session with an `ERROR` row already
+exits `1` is a fact beside this, not the reason for it.
 
 ## Consequences
 
@@ -335,8 +340,8 @@ this record stays the reference it is. digline-action's mapping already reads
 - ADR 0010 §8, a second note under the one of 2026-10-13: narrowed here, and
   the paragraph holds where something was judged (§2).
 - ADR 0027, *Not decided here*, under its note on #374: the exit-code half is
-  decided here, and only where nothing was judged (§2, §3).
-- ADR 0002 §8: a tenth condition is decided here, and joins the list with the
+  recorded here, and only where nothing was judged (§2, §3).
+- ADR 0002 §8: a tenth condition is recorded here, and joins the list with the
   change that implements it (§5).
 - ADR 0013 §1, under the paragraph that says a suspension *"never fails, so it
   disappears into `0`"*: true of a case and not of a run (§6).
@@ -376,8 +381,10 @@ this record stays the reference it is. digline-action's mapping already reads
 
 ## Not decided here
 
-- **Whether pytest-digline should tell `2` from `1`.** ADR 0013 §7's open
-  question. §7 decides only that the session is not green.
+- **Whether pytest-digline should tell *could not be judged* from *got
+  worse*.** ADR 0013 §7's open question, **narrowed here**: the distinction
+  cannot travel on pytest's exit status, because the value it would need is
+  taken (§7). If it is carried, it is carried somewhere else.
 - **`digline view`'s row chip.** `_errored_cases` in `report/pages.py`
   predicts the promotion conditions from case verdicts only, as #374 left
   open. It does not predict the tenth either.
