@@ -448,9 +448,10 @@ falls where nothing was.
 
 *Narrowed 2026-10-13 by
 [ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §2 and §3,
-proposed the same day on the maintainer's ruling.* Where a case that measures the subject was judged, an
-errored aggregate still moves no exit code, and this paragraph holds. Where no
-such case was judged, the run exits `2`, whatever its aggregates say.
+proposed the same day on the maintainer's ruling.* Where the run judged
+something, as ADR 0049 §3 defines it, an errored aggregate still moves no exit
+code, and this paragraph holds. Where it judged nothing, the run exits `2`,
+whatever its aggregates say.
 
 The remedy, when a reader wants one, is a declaration and not a flag: the group
 is too small, or the aggregate is the wrong question for it. Both are answered
