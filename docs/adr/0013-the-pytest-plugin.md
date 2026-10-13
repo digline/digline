@@ -104,8 +104,8 @@ passed.
 
 *Narrowed 2026-10-13 by
 [ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §6.* A suspension
-never fails at the level of the case, and this mapping stands. A run in which
-no case that measures the subject was judged does not pass: digline exits `2`
+never fails at the level of the case, and this mapping stands. A run that
+judged nothing, as ADR 0049 §3 defines it, does not pass: digline exits `2`
 for it, and the session over it does not end green (ADR 0049 §7).
 
 **Which delta is which is not re-derived here.** "Unjudged" is *not*
