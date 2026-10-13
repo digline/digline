@@ -54,9 +54,10 @@ The suspension is the one digline state an exit code cannot express: it never
 fails, so it disappears into `0`. pytest has had a state for *a decision rather
 than an outcome* since it was written, and this is it.
 
-**What pytest cannot carry**: the process exit code. `digline compare` exits `1`
-for a regression and `2` for a run it could not judge; a pytest run exits `1`
-for either. The distinction survives in the report — `F` and `E` are counted
+**What a pytest run does not carry**: the process exit code. `digline compare`
+exits `1` for a regression and `2` for a run it could not judge; a pytest run
+exits `1` for either, because this plugin does not change pytest's exit status.
+A plugin can; whether this one should is an open question. The distinction survives in the report — `F` and `E` are counted
 separately, `-rE` lists the errored rows — and in `--junit-xml`. A job that
 needs `1` versus `2` runs `digline compare`, which is one command away.
 

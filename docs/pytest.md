@@ -62,11 +62,14 @@ fails, so on the exit-code route it disappears into `0`: the run is smaller than
 the suite and nothing in the number says so. pytest has had a state for *a
 decision rather than an outcome* since it was written.
 
-### What pytest cannot carry
+### What a pytest run does not carry
 
 **The process exit code.** `digline compare` exits `1` for a regression and `2`
-for a run it could not judge; a pytest run exits `1` for either — that is
-pytest's own behaviour and not something a plugin can change.
+for a run it could not judge; a pytest run exits `1` for either. That is because
+pytest-digline does not change pytest's exit status, not because it could not: a
+plugin can set it at the end of a session. Whether pytest-digline should tell
+`2` from `1` is an open question, and answering yes would change the exit code
+of existing jobs.
 
 The distinction survives where you can act on it: `F` and `E` are counted
 separately, `-rE` lists the errored rows on their own, and `--junit-xml` keeps

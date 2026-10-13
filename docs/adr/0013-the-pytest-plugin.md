@@ -308,6 +308,20 @@ carry that distinction**, and pretending otherwise would be worse than losing
 it. A pytest run with only errors exits `1`, exactly as a run with only failures
 does; the process code says "something was not green" and nothing finer.
 
+*Corrected 2026-10-13 (#506), on the maintainer's ruling of 2026-10-08. The
+sentence in bold above is false: a plugin can set pytest's exit status at the
+end of a session, and pytest's own `ExitCode` docstring says that plugins may
+supply other codes (measured on pytest 9.1.1). pytest-digline does not set it,
+which is why a regressed-only run and an errored-only run both exit `1`. This
+section decided not to carry the distinction on the premise that it could not
+be carried, so merging `1` and `2` is what an obstacle that does not exist left
+behind, not a deliberate choice. Whether pytest-digline should tell `2` from
+`1` is open, and a yes would change the exit code of existing jobs. One fact
+any answer has to meet: pytest's own `2` is `ExitCode.INTERRUPTED`. No record
+says that was a reason here, and this note does not make it one. The section is
+kept as written, and so is the test section's "the one that is lost", which
+rests on the same sentence.*
+
 So the trichotomy survives where it can and the loss is documented where it
 cannot:
 
