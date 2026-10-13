@@ -16,7 +16,7 @@
 # question an advisory asks. The digest is the multi-arch index, so the amd64
 # and arm64 builds both resolve from it. Dependabot opens the bump — the tag in
 # the comment is what a human reads, the digest is what the build obeys.
-FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 
 # The versions are written here and nowhere else. `tests/test_docker.py` holds
 # them to the versions this workspace declares, and the publishing workflow
