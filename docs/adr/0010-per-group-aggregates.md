@@ -446,6 +446,12 @@ this paragraph was not amended. The conflict is #374. The maintainer ruled on
 it there on 2026-10-13: this paragraph holds where something was judged, and
 falls where nothing was.
 
+*Narrowed 2026-10-13 by
+[ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §2 and §3,
+proposed the same day on the maintainer's ruling.* Where a case that measures the subject was judged, an
+errored aggregate still moves no exit code, and this paragraph holds. Where no
+such case was judged, the run exits `2`, whatever its aggregates say.
+
 The remedy, when a reader wants one, is a declaration and not a flag: the group
 is too small, or the aggregate is the wrong question for it. Both are answered
 by editing the suite, in a diff somebody reviews.

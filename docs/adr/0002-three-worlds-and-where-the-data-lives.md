@@ -481,6 +481,11 @@ list. What the test cannot see is stated in its own docstring.*
    *Added by [ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §3, and brought here
    by the change that implements it.*
 
+*Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run in which no
+case that measures the subject was judged, whether or not the suite declares an
+aggregate ([ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §5).
+It joins this list with the change that implements it, as 9 did.*
+
 *Numbering note: this section is the eighth, not the sixth, because inserting §1-bis
 shifted the numbering after the initial draft. §6 remains the `case_id`.*
 
