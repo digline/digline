@@ -1,12 +1,21 @@
 """File-based store: `.digline/` inside the user's repository.
 
     .digline/
-      config.yaml                          versioned
       <tenant>/baselines/<suite>.json      versioned  <- the local comparison
       <tenant>/register/<suite>.jsonl      versioned  <- what a person decided
       <tenant>/runs/<suite>/*.json         ignored       no competitor has
-      .gitignore                           generated, contains "*/runs/"
+      <tenant>/runs/<suite>/.pending/      ignored    <- the journal of a run in
+                                                         progress, one file per leg
+      <tenant>/name-table/                 ignored    <- reserved for the process
+                                                         that owns the table;
+                                                         digline writes nothing there
+      .gitignore                           generated, contains "*/runs/" and
+                                           "*/name-table/"
       .gitattributes                       generated, the register merges by union
+
+This is the layout the code builds or reserves at this commit. ADR 0048 adds,
+per suite, the held versions of the suite and the pointer to the one in force;
+they are accepted and not implemented, so they are not drawn here.
 
 The verdict and its history are an artifact of the project: read in a code
 review, anchored to a commit, moving with the repository.
