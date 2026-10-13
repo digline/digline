@@ -374,6 +374,12 @@ this record stays the reference it is. digline-action's mapping already reads
 - ADR 0013 §7, under its note of 2026-10-13: a session in which digline did not
   say green is not green, whatever the plugin decides about `2` (§7).
 
+*Changed 2026-10-13, when §3's definition was refined.* Three of these notes,
+on ADR 0002 §8, ADR 0010 §8 and ADR 0013 §1, restated §3's definition in their
+own words, and now point to §3 instead. A copy that restates its source drifts
+from it and goes false when the source changes, as these three would have when
+§3 was refined. So a note names the definition and does not duplicate it.
+
 ## Alternatives considered
 
 - **A new exit code for a run that judged nothing.** It would keep `2` for a
