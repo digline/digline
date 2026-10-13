@@ -348,17 +348,36 @@ artifacts that today exists in none of the audited competitors.
     not allowed*. Use the web button, or the GraphQL mutation
     `enqueuePullRequest` with the pull request's id and `expectedHeadOid` set
     to the head you watched go green.
-  - **Whoever merges closes the issues by hand.** Do it once the pull
-    request's state reads `MERGED`, not when the enqueue returns: the enqueue
-    returns at once and the merge comes one gate run later. Close each issue
-    with a comment that names the pull request and its merge commit, then
-    check that each one reads `CLOSED`.
+  - **`Closes #N` only when whole; whoever merges answers for the end
+    state.** `Closes #N` goes in a pull request's body only when the pull
+    request closes the issue whole, and that judgement is re-read before the
+    merge. When a pull request closes an issue only in part, no keyword: the
+    issue stays open and takes a comment naming the pull request and saying
+    what remains. Whoever merges answers for the end state: either the issue
+    reads `CLOSED` with a pointer to the pull request and its merge commit - by
+    hand when the mechanism did not do it, by reading when it did - or it reads
+    `OPEN` with a comment saying what the merge left.
+    *Changed 2026-10-13, by the maintainer's ruling.* The text it replaces has
+    a case it does not cover: an issue that already reads `CLOSED` when
+    whoever merges looks. And the 2026-10-01 observation below, *"closing by
+    hand costs nothing"*, is true only while there is something to close. What
+    the rule by hand protected, and this text keeps: `Closes #N` closes the
+    whole issue, and it is decided when the pull request is written, before
+    the gates run, which is how an issue closed in part disappears.
+    *Before*, verbatim: *"**Whoever merges closes the issues by hand.** Do it
+    once the pull request's state reads `MERGED`, not when the enqueue returns:
+    the enqueue returns at once and the merge comes one gate run later. Close
+    each issue with a comment that names the pull request and its merge
+    commit, then check that each one reads `CLOSED`."*
     *Observed 2026-09-30, twice.* Through the queue, `Closes #N` in a pull
     request's description no longer links the issue and no longer closes it:
     the pull request's `closingIssuesReferences` came back empty. #253 left
     #234 open, and #259 left #256 and #232 open. Keep writing `Closes #N`
     anyway, because it still tells a reader which issues the pull request
     answers.
+    *Narrowed 2026-10-13, by the rule above:* keep writing `Closes #N` only
+    for an issue the pull request closes whole. One it closes in part takes no
+    keyword and a comment saying what remains.
     *Observed 2026-10-01, three times, the other way.* #315 closed #276, #316
     closed #278 and #319 closed #277 through the queue, one or two seconds
     after each merge, and each pull request's `closingIssuesReferences`
@@ -379,6 +398,12 @@ artifacts that today exists in none of the audited competitors.
     before `#N`.** Once the merge lands, check that every issue the pull
     request only refers to still reads `OPEN`. #332 was reopened by hand on
     2026-10-02.
+    *Observed 2026-10-13, twice, and both closed.* #549 closed #514 (merged
+    08:41:26 UTC, closed 08:41:28) and #550 closed #506 (merged 09:03:19,
+    closed 09:03:20), through the queue. Each issue's closed event names the
+    pull request as what closed it, and the issue was not touched by hand. A
+    third issue closed that day, #529, was closed by `release-followup.yml`
+    and not by a merge, so it is not counted here.
   - **It depends on `merge_group` in `ci.yml`**, which is the same failure as
     PR #82 in a new place. Without that trigger nothing starts on the queue's
     ref, and the queue waits on checks that never report. The trigger landed
