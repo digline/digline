@@ -25,11 +25,13 @@
   `ResultStore.promote_baseline`'s list and in ADR 0002 §8's, with a new
   refusal type in `REFUSALS` (§5). **A sentence in every locale** of
   `report/text.py`'s `TEXT`, for the new headline fact (§4). **The suite's
-  declaration reaching the exit code** (§3): a run document records no list
-  of the cases its suite declares, so the functions that turn a run into a
-  code are given the declaration by the front end that loaded the suite, and
-  with none they apply §3's third clause. **A rule in pytest-digline** at the
-  end of a session (§7)
+  declaration reaching both exit codes** (§3): a run document records no list
+  of the cases its suite declares, so the front end that loaded the suite
+  hands the same declaration to **both** paths that turn a run into a code:
+  to `headline()`, whose `nothing_judged` `exit_code` reads, and to
+  `run_exit_code`. With no suite, both apply §3's third clause. One path
+  without it would read the run, and reopen the road §3 closes. **A rule in
+  pytest-digline** at the end of a session (§7)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (an error is a third
   state, neither green nor a regression); [ADR
   0002](0002-three-worlds-and-where-the-data-lives.md) §8 (the promotion
@@ -230,10 +232,13 @@ to learn.
 
 **It holds for both functions and every round.** `exit_code(head)` returns
 `2` when the run being judged judged nothing, at any round and against any
-reference. `run_exit_code(run)`, the first round's code, returns `2` for the
-same run. `tests/test_run_exit_code.py` holds `run_exit_code(run)` equal to
-`exit_code` of the run compared with itself, and that invariant survives this
-unchanged.
+reference. `run_exit_code`, the first round's code, returns `2` for the same
+run. **Both are given the same declaration** (*Requires*), and neither reads
+the run alone. `tests/test_run_exit_code.py` holds `run_exit_code` equal to
+`exit_code` of the run compared with itself. After this the invariant holds
+**when both are given the same declaration**, and the test gives it to both.
+Given different declarations, the two could differ, and that would be a
+defect in the front end, not a case of the invariant.
 
 **Precedence, kept and not decided here.** It is today's behaviour, and this
 record does not change it. A run that judged nothing has no check that could
@@ -482,22 +487,28 @@ rule it tests, or it proves nothing.
    subject cases, and a run that carries none of them and carries a judged
    canary, exits `2`. Control: under the first refinement, which read the run,
    the same pair exits `0`; the test fails against code that reads the run.
-6. **An aggregate does not count (§3):** every case suspended with an
+6. **The declaration reaches `run_exit_code` too (§3, *Requires*):**
+   `run_exit_code` on a run that carries only a judged canary, given a suite
+   that declares subject cases, returns `2`. Control: a `run_exit_code` that
+   is not given the declaration falls to the third clause and returns `0`; the
+   test fails against it.
+7. **An aggregate does not count (§3):** every case suspended with an
    aggregate declared exits `2`, and without one exits `2`. The asymmetry of
    #375 is gone from the exit code.
-7. **Something judged and an aggregate in error exits `0` (§2):** this pins
+8. **Something judged and an aggregate in error exits `0` (§2):** this pins
    ADR 0010 §8 where it holds. Control: an errored **case** still exits `2`.
-8. **The tenth condition (§5):** `NothingJudgedError` with an aggregate and
+9. **The tenth condition (§5):** `NothingJudgedError` with an aggregate and
    without one, and no refusal for a run with one judged subject case. It is
    in `REFUSALS`.
-9. **The headline and the wire (§4):** `nothing_judged` is in `_ADDED`, and
-   `tests/test_wire_keys.py` reaches it as true and as false.
-10. **The register (§4):** a written line's `outcome` keys include
+10. **The headline and the wire (§4):** `nothing_judged` is in `_ADDED`, and
+    `tests/test_wire_keys.py` reaches it as true and as false.
+11. **The register (§4):** a written line's `outcome` keys include
     `nothing_judged`. A line without it reads as *not declared*, never as
     `false`. Control: a reader that defaults the absence to `false` fails it.
-11. **The invariant:** `run_exit_code(run) == exit_code` of the run compared
-    with itself, for every fixture, the new ones included.
-12. **The plugin (§7):** a session over a drifted pin fails, and a session
+12. **The invariant:** `run_exit_code` equals `exit_code` of the run compared
+    with itself, both given the same declaration, for every fixture, the new
+    ones included.
+13. **The plugin (§7):** a session over a drifted pin fails, and a session
     whose every row is `SKIPPED` fails while each row stays `SKIPPED`. Control:
     a session over a suite with one judged subject case and nothing else
     exits `0`.
