@@ -370,3 +370,10 @@ the declared count, and recording the count would board a schema train.
   ADR 0010 §8, accepted, says an errored aggregate moves no exit code "and
   nothing here should", and this bullet did not amend it. Two accepted records
   disagree, and the disagreement needs a record, not a patch.*
+
+  *Decided 2026-10-13 in
+  [ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §2 and §3,
+  proposed the same day on the maintainer's ruling, and narrower than this
+  bullet.* A run that judged nothing exits `2`. A run that judged something
+  exits as its cases say, whatever its run-level figures: the errored figure is
+  visible and moves no exit code, as ADR 0010 §8 says.

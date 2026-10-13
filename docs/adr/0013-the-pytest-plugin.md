@@ -102,6 +102,12 @@ is down, ticket 412` shows the set-aside case, in its own state, with the
 mandatory reason attached, where no reader can mistake it for a check that
 passed.
 
+*Narrowed 2026-10-13 by
+[ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §6.* A suspension
+never fails at the level of the case, and this mapping stands. A run in which
+no case that measures the subject was judged does not pass: digline exits `2`
+for it, and the session over it does not end green (ADR 0049 §7).
+
 **Which delta is which is not re-derived here.** "Unjudged" is *not*
 `outcome == "errored"`: rule 1 of `compare()` classifies an absent counterpart
 as `new` before rule 2 can call it `errored`, so a case added today that fails
@@ -321,6 +327,12 @@ any answer has to meet: pytest's own `2` is `ExitCode.INTERRUPTED`. No record
 says that was a reason here, and this note does not make it one. The section is
 kept as written, and so is the test section's "the one that is lost", which
 rests on the same sentence.*
+
+*Added 2026-10-13 by
+[ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §7.* Whatever
+pytest-digline decides about `2` and `1`, a session for which digline does not
+exit `0` does not end green. A drifted pinned file and a run that judged
+nothing, which end a session at `0` today, end it at `1`.
 
 So the trichotomy survives where it can and the loss is documented where it
 cannot:
