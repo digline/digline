@@ -31,7 +31,7 @@ def test_a_clean_comparison_exits_zero(
 def test_a_regression_and_an_unjudged_run_both_exit_one(
     pytester: pytest.Pytester, baseline: Baseline
 ) -> None:
-    """The distinction digline draws and pytest erases.
+    """The distinction digline draws and the plugin does not carry.
 
     `digline compare` exits `1` for a regression and `2` for a run it could not
     judge. Here both are `1`, because pytest's process code says only that
