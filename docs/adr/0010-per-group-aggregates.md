@@ -438,6 +438,14 @@ exits 0. Nothing here alters that, and nothing here should — an aggregate that
 could not be computed is not a regression, which is ADR 0001 §1's third state
 doing its job.
 
+*Noted 2026-10-13.* ADR 0027, *Not decided here*, says the opposite of this
+paragraph's last sentence for the exit code: *"An errored figure is a number we
+do not have, and exiting 0 asserts that nothing got worse on the strength of a
+measurement that is missing."* It assigned the change to "the next minor", and
+this paragraph was not amended. The conflict is #374. The maintainer ruled on
+it there on 2026-10-13: this paragraph holds where something was judged, and
+falls where nothing was.
+
 The remedy, when a reader wants one, is a declaration and not a flag: the group
 is too small, or the aggregate is the wrong question for it. Both are answered
 by editing the suite, in a diff somebody reviews.
