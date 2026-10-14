@@ -19,6 +19,15 @@ new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
+**Then read both tables the pull requests left for this cut, before writing the
+number.** *Owed to the next version*, below, holds what each package's number
+must reflect, row by row; *Owed at the cut*, below, holds the plugin floors this
+release must raise. They are two tables because they are read by different
+things: the floors table is parsed by `tests/test_plugin_floors.py`, and a row
+of another kind would be read as a floor. They carry obligations to the same
+cut, so this step names both: a cut that reads one and not the other ships with
+the other's rows still in it.
+
 **Open, not ruled: whether the criterion measures only what breaks.** Raised
 on 2026-10-01, cutting 0.25.2. Its heading had been opened as the next
 minor, `— unreleased`, with no reason recorded. The diff against `v0.25.1`
@@ -223,12 +232,33 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `digline-mcp` | the `compare` tool passes `declared=loaded_suite.declared()` to `headline`, both new in the core release that carries #562 (ADR 0049); against 0.31.0 `Suite.declared` does not exist and the call raises `AttributeError` | `0.32.0` | release digline-mcp on its own tag, once the core is on PyPI; if the core release is not 0.32.0, raise to the one it is, and drop RELEASING.md's `0.32.0` in `test_versions.py`'s `RECORDED` |
+| `pytest-digline` | opening each `--digline-suite` passes `declared=suite.declared()` to `headline`, both new in the core release that carries #562 (ADR 0049); against 0.31.0 `Suite.declared` does not exist and the call raises `AttributeError` | `0.32.0` | release pytest-digline on its own tag, once the core is on PyPI; if the core release is not 0.32.0, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
 row naming it, so the two cannot drift apart in that direction. The other
 direction is this step's job: a row left here after its floor moved is a row
 nobody finished.
+
+**And the number each package owes: read *Owed to the next version*.** A pull
+request that changes what a package's number must be, a break that moves the
+minor or an output a user reads that changed, records it in that package's
+changelog entry, under `## <package> — unreleased`, because the number is the
+cut's to choose. A heading with no number is invisible to the tools. The four
+that read changelog headings each find one by a version: `test_versions.py`,
+`tools/image_pins.py`, `tools/home_capture.py`, and `.github/changelog_entry.py`,
+which writes a tag's release notes. None of them matches it. At the
+cut somebody has to turn it into a number, and until this table nothing made
+them. So the pull request writes a row here
+too, and the cut that chooses the number (*Choosing the version*, above) reads
+it and deletes it.
+
+| Package | What it carries | What the number must reflect |
+|---|---|---|
+
+Empty is the normal state here too. A row left after its package's release is a
+row nobody finished.
 
 ### The six that stay red until you have done all four
 
