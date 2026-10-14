@@ -1,15 +1,18 @@
 # ADR 0049 — A run that judged nothing does not pass, and a front end does not say green where digline did not
 
 - Status: accepted 2026-10-14, by Alessandro Prandini, the text first and
-  before any code. Nothing in it is implemented. **It was accepted after four
+  before any code. Nothing in it is implemented. **It was accepted after five
   corrections, all made before acceptance:** three to §3, two in #557 (the
   run whose every case that counts errored, and a suite of canaries and
   calibration cases only) and one in #558 (the suite's declaration, not the
-  run), and one to *Requires*, in #559 (both paths that turn a run into a
-  code). **What the acceptance rests on, said in full.** The record was read
-  whole once, when it first landed, in #555. After that, at each correction,
-  the passages it changed were read: §3, the line in *Consequences*, *The
-  cases that count*, *Requires* and the invariant paragraph. It was not read
+  run); one to *Requires*, in #559 (both paths that turn a run into a code);
+  and one to *Requires* and §5 in the pull request that accepts it (the
+  promotion takes the declaration too, as a mandatory argument). **What the
+  acceptance rests on, said in full.** The record was read whole once, when it
+  first landed, in #555. After that, at each correction, the passages it
+  changed were read: §3, the line in *Consequences*, *The cases that count*,
+  *Requires*, the invariant paragraph, and at the last correction §5's two
+  paragraphs on the declaration and the *Test plan*'s item 9. It was not read
   whole again after any correction. That is written here because four
   accepted records point to this one, ADR 0002, 0010, 0013 and 0027, and
   whoever rereads it should know what its acceptance stands on.
@@ -38,11 +41,13 @@
   `ResultStore.promote_baseline`'s list and in ADR 0002 §8's, with a new
   refusal type in `REFUSALS` (§5). **A sentence in every locale** of
   `report/text.py`'s `TEXT`, for the new headline fact (§4). **The suite's
-  declaration reaching both exit codes** (§3): a run document records no list
-  of the cases its suite declares, so the front end that loaded the suite
-  hands the same declaration to **both** paths that turn a run into a code:
-  to `headline()`, whose `nothing_judged` `exit_code` reads, and to
-  `run_exit_code`. With no suite, both apply §3's third clause. One path
+  declaration reaching both exit codes and the promotion** (§3, §5): a run
+  document records no list of the cases its suite declares, so the front end
+  that loaded the suite hands the same declaration to **every** path that
+  turns a run into a code or a reference: to `headline()`, whose
+  `nothing_judged` `exit_code` reads, to `run_exit_code`, and to
+  `ResultStore.promote_baseline` and `refusals_for`, where it is a mandatory
+  argument (§5). With no suite, each applies §3's third clause. One path
   without it would read the run, and reopen the road §3 closes. **A rule in
   pytest-digline** at the end of a session (§7)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (an error is a third
@@ -334,6 +339,24 @@ reference, before 8 (`BaselineMovedError`), which ADR 0002 §8 checks last
 added to ADR 0002 §8's list and to `promote_baseline`'s by the change that
 implements it, as condition 9 was.
 
+**The declaration is an argument of the promotion, not of a front end.**
+*Ruled 2026-10-14, before acceptance.* `ResultStore.promote_baseline` and
+`refusals_for` take the suite's declaration as a mandatory argument, as they
+already take `expected_config_hash`, which comes from the suite too. The tenth
+condition stands in ADR 0002 §8 beside the other nine, and those are
+conditions of the promotion, not of a front end. Checked in a front end
+alone, `promote_baseline` would stay a road that promotes a run that judged
+nothing. Checked in the store from the run and in the front end from the
+declaration, one rule would live in two places.
+
+**What the argument costs.** A mandatory argument is a break in the protocol,
+not an addition: every implementer of `ResultStore` and every caller of
+`refusals_for` has to pass it. digline-ward, read in its source on
+2026-10-14, implements neither and calls neither: it promotes through
+`digline.host.promote`, whose signature does not change. It does call
+`render_html`, which builds a headline and so takes the declaration too (§3).
+Ward takes that argument in a pull request of its own.
+
 ### 6. A suspension, at two levels
 
 - **At the level of the case, a suspension never fails.** That stays as it
@@ -512,7 +535,10 @@ rule it tests, or it proves nothing.
    ADR 0010 §8 where it holds. Control: an errored **case** still exits `2`.
 9. **The tenth condition (§5):** `NothingJudgedError` with an aggregate and
    without one, and no refusal for a run with one judged subject case. It is
-   in `REFUSALS`.
+   in `REFUSALS`. **The declaration reaches the promotion:** `refusals_for`,
+   given a suite that declares subject cases, refuses a run that carries only
+   a judged canary. Control: a `refusals_for` not given the declaration falls
+   to the third clause and refuses nothing; the test fails against it.
 10. **The headline and the wire (§4):** `nothing_judged` is in `_ADDED`, and
     `tests/test_wire_keys.py` reaches it as true and as false.
 11. **The register (§4):** a written line's `outcome` keys include
