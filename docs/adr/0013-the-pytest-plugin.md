@@ -335,6 +335,9 @@ exit `0` does not end green. A drifted pinned file and a run that judged
 nothing end a session at `0` today. ADR 0049, proposed, gives the value as `1`,
 because pytest's `2` is `ExitCode.INTERRUPTED`.
 
+*Accepted 2026-10-14:* ADR 0049 is accepted, so the value `1` is decided. Its
+code has not landed, and such a session still ends at `0`.
+
 So the trichotomy survives where it can and the loss is documented where it
 cannot:
 
