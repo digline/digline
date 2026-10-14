@@ -207,12 +207,65 @@ def pytest_collection_modifyitems(
     #: The nodeid a file had before its suites carried their attribute,
     #: mapped to the nodeids that replaced it: what a stale `--deselect` named.
     renamed: dict[str, list[str]] = {}
-    for spec in _specs(config):
+    specs = _specs(config)
+    _refuse_the_same_suite_twice(specs)
+    for spec in specs:
         opened = _open(spec, config)
         node = _suite_node(session, spec, opened, renamed)
         items.extend(node.collect())
         config.stash[SUITES].append((node.nodeid, opened))
     _warn_on_stale_deselects(config, renamed)
+
+
+def _refuse_the_same_suite_twice(specs: Sequence[str]) -> None:
+    """Two specs that resolve to one suite are refused, before any suite loads.
+
+    Naming a suite twice asks for nothing: the same rows collected twice, two
+    identical `FAILED` lines, two identical summary lines (#566). Two suites
+    from one file are not one suite, and stay allowed (#571). Refused before
+    the first load, so that `--digline-run` has called no target by the time
+    the session stops. The specs are the user's own text, so the message passes
+    through `visible()`.
+    """
+    if len(specs) < 2:
+        # Inert with no suite named: digline is not imported (ADR 0013 §8).
+        return
+    from digline.report import visible
+
+    seen: dict[tuple[str, str | None], str] = {}
+    for spec in specs:
+        identity = _suite_identity(spec)
+        if identity in seen:
+            raise pytest.UsageError(
+                visible(
+                    f"{seen[identity]!r} and {spec!r} name the same suite. A "
+                    "suite is gated once in a session: name it once."
+                )
+            )
+        seen[identity] = spec
+
+
+def _suite_identity(spec: str) -> tuple[str, str | None]:
+    """The suite a spec resolves to, by the loader's rule and without loading.
+
+    `host.loader.load_suite`: a `.toml` spec is a file and has no attribute. A
+    `file.py[:attribute]` spec, or one with a path separator, is a file
+    resolved from the working directory, with `SUITE_ATTR` when no attribute
+    is given. Anything else is a dotted module name, compared as written: which
+    file it imports is known only by importing it, and this runs before any
+    import, so `pkg.mod:suite` and `pkg/mod.py:suite` are not seen as one.
+    """
+    from digline.host import SUITE_ATTR, SUITE_SUFFIX
+
+    if spec.endswith(SUITE_SUFFIX):
+        return str(Path(spec).resolve()), None
+    head, sep, tail = spec.rpartition(":")
+    module_part, attribute = (
+        (head, tail) if sep and tail.isidentifier() else (spec, None)
+    )
+    if module_part.endswith(".py") or "/" in module_part or "\\" in module_part:
+        module_part = str(Path(module_part).resolve())
+    return module_part, attribute or SUITE_ATTR
 
 
 def _suite_node(

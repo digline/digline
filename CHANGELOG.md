@@ -58,6 +58,17 @@ The version is chosen by the release that carries this, from what it carries.
   line, *"run-last-failure: … known failures not in selected tests"*. A CI
   configuration or a script that names old nodeids has to be updated.
 
+- **Two specs that name the same suite are refused**, as a usage error (exit
+  4) that names both, before any suite loads. A suite named twice collected
+  its rows twice and printed two identical `FAILED` lines and two identical
+  summary lines (#566). The comparison is on the suite a spec resolves to:
+  `./both.py:support` and `both.py:support` are one suite, and so are
+  `both.py` and `both.py:suite`. Two suites from one file are not, and keep
+  working. A dotted spec, `pkg.mod:suite`, is compared as written, because
+  which file it imports is known only by importing it. A session that named a
+  suite twice, on the command line or in `digline_suites`, now stops: name it
+  once.
+
 - **Each line of the `digline` summary starts with the path of its suite.**
   With more than one `--digline-suite`, the summary printed one sentence per
   suite with nothing to say which was which, so a reader could match them to
