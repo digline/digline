@@ -166,7 +166,8 @@ def test_one_warning_per_stale_value_not_one_per_suite(
         "--deselect",
         "both.py::beta::contains",
     )
-    result.assert_outcomes(passed=2, failed=2, warnings=2)
+    # Neither value deselects anything now, so all four rows run.
+    result.assert_outcomes(passed=3, failed=1, warnings=2)
 
 
 def test_under_w_error_a_stale_deselect_stops_the_session(
@@ -182,7 +183,9 @@ def test_under_w_error_a_stale_deselect_stops_the_session(
         "-W",
         "error",
     )
-    assert result.ret != pytest.ExitCode.OK, result.stdout.str()
-    assert (
-        "both.py:support::alpha::contains" in result.stdout.str() + result.stderr.str()
-    )
+    printed = result.stdout.str() + result.stderr.str()
+    # A usage error, as every refusal of the request is in this plugin: not
+    # INTERNALERROR, which reads as a crash of pytest or of this plugin.
+    assert result.ret == pytest.ExitCode.USAGE_ERROR, printed
+    assert "INTERNALERROR" not in printed, printed
+    assert "both.py:support::alpha::contains" in printed, printed
