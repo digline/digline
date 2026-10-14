@@ -89,6 +89,7 @@ def entry_for(
             target_config_changed=head.target_config_changed,
             judge_config_changed=head.judge_config_changed,
             rejudged=head.rejudged,
+            nothing_judged=head.nothing_judged,
         ),
         exit_code=exit_code(head),
     )

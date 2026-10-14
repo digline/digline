@@ -37,7 +37,35 @@ class Declared:
 def nothing_judged(run: Run, declared: Declared | None) -> bool:
     """Whether none of the cases that count was judged. (ADR 0049 §3)
 
-    Surface only: it answers `False`, today's behaviour, until the rule lands.
+    The cases that count are, in three clauses, the first that applies: the
+    subject cases the suite declares; if it declares none, its canaries and
+    calibration cases; and with no declaration to read, the same two clauses
+    applied to the cases the document carries.
+
+    **The declaration decides, not the run.** A run that carries none of the
+    declared subject cases still counts them, and judged none of them, so a
+    judged canary cannot turn a subject suite green. A result the suite no
+    longer declares counts under neither set.
+
+    A case is judged when at least one of its verdicts is `pass` or `fail`:
+    a suspended case has none, and an errored one has only `error`.
+    Aggregates never count: a figure over the cases is not evidence that the
+    cases were judged.
     """
-    del run, declared
-    return False
+    if declared is not None:
+        counting = declared.subject or declared.watching
+    else:
+        subject = frozenset(
+            case.case_id
+            for case in run.results
+            if not case.canary and case.calibration is None
+        )
+        # With no subject case in the document, every case it carries is a
+        # canary or a calibration case: the second clause, read off the run.
+        counting = subject or frozenset(case.case_id for case in run.results)
+    return not any(
+        verdict.status in ("pass", "fail")
+        for case in run.results
+        if case.case_id in counting
+        for verdict in case.verdicts
+    )

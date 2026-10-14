@@ -30,6 +30,7 @@ from digline.store import (
     BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
+    NothingJudgedError,
     ReplayedRunError,
     UncalibratedRunError,
     refusal_for_a_moved_baseline,
@@ -74,6 +75,11 @@ def run(
         results=results or (CaseResult("case-1", (verdict(),)),),
         rejudged_from=rejudged_from,
     )
+
+
+#: A case with a passing verdict, beside an errored one: the run judged
+#: something, so condition 10 stays out of a test about another condition.
+JUDGED = CaseResult("case-0", (verdict(),))
 
 
 def a_gap() -> CaseResult:
@@ -129,7 +135,9 @@ def test_a_replayed_run_is_refused() -> None:
 
 def test_an_errored_verdict_is_refused() -> None:
     broken = CaseResult("case-1", (verdict(score=None, status="error"),))
-    (refusal,) = refusals_for(run(broken), CFG, declared=None)
+    # Beside a judged case, so condition 3 is alone: a run whose only case
+    # errored judged nothing, and condition 10 joins it. (ADR 0049 §3)
+    (refusal,) = refusals_for(run(JUDGED, broken), CFG, declared=None)
     assert isinstance(refusal, ErroredRunError)
     assert "could not judge" in str(refusal)
 
@@ -161,18 +169,19 @@ def test_errored_cases_and_figures_are_one_refusal() -> None:
     broken = CaseResult("case-1", (verdict(score=None, status="error"),))
     figure = verdict(name="accuracy", score=None, status="error")
     (refusal,) = refusals_for(
-        replace(run(broken), aggregate=(figure,)), CFG, declared=None
+        replace(run(JUDGED, broken), aggregate=(figure,)), CFG, declared=None
     )
     text = str(refusal)
     assert "1 case(s) (case-1) and 1 run-level check(s) (accuracy)" in text
     assert "Fix the case or remove it from the suite, and change the suite" in text
 
 
-def test_every_case_suspended_under_an_aggregate_is_refused() -> None:
-    """#360's route where the suite declares an aggregate: nothing judged, the
-    empty denominator is `error` (ADR 0002 §10), and that error now reaches
-    condition 3. Without an aggregate the same run still refuses nothing, which
-    is what #360 keeps open."""
+def test_every_case_suspended_is_refused_with_or_without_an_aggregate() -> None:
+    """#360's route. With an aggregate, the empty denominator is `error` (ADR
+    0002 §10) and condition 3 refuses it, then condition 10. Without one, the
+    same run used to refuse nothing, and that was #375's asymmetry: whether
+    nothing judged was promotable hung on a declaration that has nothing to do
+    with it. Condition 10 refuses both. (ADR 0049 §5)"""
 
     def suite(*, aggregate: bool) -> Suite:
         return Suite(
@@ -196,12 +205,15 @@ def test_every_case_suspended_under_an_aggregate_is_refused() -> None:
 
     at = "2026-01-01T10:00:00+00:00"
     measured = execute(suite(aggregate=True), target, created_at=at)
-    (refusal,) = refusals_for(measured, measured.config_hash, declared=None)
-    assert isinstance(refusal, ErroredRunError)
-    assert "1 run-level check(s) (accuracy)" in str(refusal)
+    declared = suite(aggregate=True).declared()
+    figure, nothing = refusals_for(measured, measured.config_hash, declared=declared)
+    assert isinstance(figure, ErroredRunError)
+    assert "1 run-level check(s) (accuracy)" in str(figure)
+    assert isinstance(nothing, NothingJudgedError)
 
     bare = execute(suite(aggregate=False), target, created_at=at)
-    assert refusals_for(bare, bare.config_hash, declared=None) == ()
+    (refusal,) = refusals_for(bare, bare.config_hash, declared=declared)
+    assert isinstance(refusal, NothingJudgedError)
 
 
 def test_a_calibration_case_outside_its_band_is_refused() -> None:
@@ -225,15 +237,16 @@ def test_the_unreconciled_refusal_comes_before_the_errored_one() -> None:
     A tuple makes it visible: one gap produces **both** refusals, the stronger
     one first, and a reader can see the pair.
     """
-    first, second = refusals_for(run(a_gap()), CFG, declared=None)
+    first, second = refusals_for(run(JUDGED, a_gap()), CFG, declared=None)
     assert isinstance(first, ErroredRunError) and isinstance(second, ErroredRunError)
     assert "does not reconcile" in str(first)
     assert "could not judge" in str(second)
 
 
 def test_every_refusal_a_document_carries_comes_back_in_order() -> None:
-    """2, 4, 6, 3, 5 — a run that breaks all of them answers once for each,
-    which is what a single body raising the first could never show."""
+    """2, 4, 6, 3, 10, 5 — a run that breaks all of them answers once for each,
+    which is what a single body raising the first could never show. Its one
+    subject case is a gap, so it judged nothing, and 10 comes after 3."""
     document = run(
         a_gap(),
         out_of_band(),
@@ -247,6 +260,7 @@ def test_every_refusal_a_document_carries_comes_back_in_order() -> None:
         ReplayedRunError,
         ErroredRunError,
         ErroredRunError,
+        NothingJudgedError,
         UncalibratedRunError,
     ]
 

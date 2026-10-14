@@ -480,6 +480,13 @@ list. What the test cannot see is stated in its own docstring.*
    exit and this holds **whatever the `Disclosure`**. Answered by `refusals_for`, first.
    *Added by [ADR 0042](0042-the-two-boundaries-of-an-artifact.md) §3, and brought here
    by the change that implements it.*
+10. **`NothingJudgedError`** — the run judged none of the cases that count, as
+   [ADR 0049](0049-a-run-that-judged-nothing-does-not-pass.md) §3 defines them, read
+   against the suite's declaration: every case suspended, errored or absent, **whether or
+   not the suite declares an aggregate**. A reference is a measurement, and a run that
+   measured nothing cannot be one. Answered by `refusals_for`, after 3, from the
+   declaration the caller hands in beside the configuration hash.
+   *Added by ADR 0049 §5, and brought here by the change that implements it.*
 
 *Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run that judged
 nothing as ADR 0049 §3 defines it, whether or not the suite declares an

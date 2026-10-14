@@ -1352,6 +1352,14 @@ def _entry_to_dict(entry: RegisterEntry) -> dict[str, object]:
         "outcome": {
             **{name: int(getattr(outcome, name)) for name in _OUTCOME_FIELDS},
             **{name: bool(getattr(outcome, name)) for name in _OUTCOME_FLAGS},
+            # Absent where it is not declared, never written as `false`: the
+            # absence is what a line from before ADR 0049 already says, and
+            # the reader below reads it back as `None`. (ADR 0049 §4)
+            **(
+                {}
+                if outcome.nothing_judged is None
+                else {"nothing_judged": outcome.nothing_judged}
+            ),
         },
         "exit_code": entry.exit_code,
     }
@@ -1480,6 +1488,20 @@ def _flag(fields: Mapping[str, object], key: str, section: str) -> bool:
     return value
 
 
+def _declared_flag(fields: Mapping[str, object], key: str, section: str) -> bool | None:
+    """A flag a line may not carry: `None` where it is absent, *not declared*.
+
+    **Never `False` for an absent key.** A line written before the flag existed
+    does not say the fact was false; it says the digline that wrote it did not
+    record it, and nothing is inferred from that. Present, it is held to the
+    type like every other flag. (ADR 0049 §4, ADR 0014's rule within one
+    version)
+    """
+    if key not in fields:
+        return None
+    return _flag(fields, key, section)
+
+
 def _whole(fields: Mapping[str, object], key: str, section: str = "") -> int:
     value = fields.get(key, _MISSING)
     # `bool` is an `int` in Python, and `true` is not a count.
@@ -1525,6 +1547,7 @@ def _entry_from_dict(raw: Mapping[str, object]) -> RegisterEntry:
         outcome=RecordedOutcome(
             **{name: _whole(outcome, name, "outcome") for name in _OUTCOME_FIELDS},
             **{name: _flag(outcome, name, "outcome") for name in _OUTCOME_FLAGS},
+            nothing_judged=_declared_flag(outcome, "nothing_judged", "outcome"),
         ),
         exit_code=_whole(raw, "exit_code"),
     )

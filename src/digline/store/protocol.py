@@ -689,15 +689,25 @@ class ResultStore(Protocol):
            outside the perimeter — a baseline carries every artifact's text
            into a versioned file, so this holds **whatever the `Disclosure`**
            (ADR 0042 §3).
+        10. `NothingJudgedError`, after 3, if the run judged none of the cases
+            that count, read against `declared` — every case suspended, or a
+            document that carries none of them — **whether or not the suite
+            declares an aggregate**. A reference is a measurement, and a run
+            that measured nothing cannot be one. `declared` is the suite's
+            declaration, mandatory for the reason `expected_config_hash` is: a
+            run document does not carry it, and read off the run a judged
+            canary would make a subject suite promotable. `None` is a document
+            with no suite behind it (ADR 0049 §3, §5).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.
-        - **2 to 6, and 9, answer from the document alone.** They are
-          `digline.store.refusals_for(run, expected_config_hash)`, which returns
-          them in the order they are owed. **Call it rather than restating
+        - **2 to 6, 9 and 10 answer from the document**, and 10 from the
+          declaration beside it. They are
+          `digline.store.refusals_for(run, expected_config_hash, declared=...)`,
+          which returns them in the order they are owed. **Call it rather than restating
           them**: a second copy drifts from this one the first time a condition
           lands, and the miscount above is what that looks like.
         - **8 is yours, beside your own write**, because it asks what the store

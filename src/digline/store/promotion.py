@@ -7,9 +7,11 @@ answer three different questions:
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
    and it is answered as the run is read (`read_run`).
-2. **The document.** Conditions 2 to 6, and 9, answer from the run alone.
-   Anybody, anywhere, holding the same document gets the same answer, so they
-   are a function: `refusals_for`.
+2. **The document.** Conditions 2 to 6, 9 and 10 answer from the run, and 10
+   from the suite's declaration beside it, which a run document does not carry
+   and the caller hands in as it hands in the configuration hash. Anybody,
+   anywhere, holding the same two gets the same answer, so they are a
+   function: `refusals_for`.
 3. **The write.** Condition 8 asks whether the baseline present *now* is still
    the one the run was compared against. That is a question about the store at
    this instant, and it belongs to each backend, beside its own write.
@@ -35,7 +37,7 @@ core, and are imported from there.
 from __future__ import annotations
 
 from digline.core.calibration import scale_lost
-from digline.core.declared import Declared
+from digline.core.declared import Declared, nothing_judged
 from digline.core.reconcile import unreconciled
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
@@ -100,7 +102,6 @@ def refusals_for(
     function holding nothing but the run can compute, and the only one a
     baseline has at all.
     """
-    del declared  # surface only: condition 10 lands with ADR 0049 §5
     key = key_of(run.created_at, run.config_hash)
     refusals: list[PromotionRefusal] = []
 
@@ -191,6 +192,21 @@ def refusals_for(
                 "an approved reference and an error is not one. "
                 f"{remedy[0].upper()}{remedy[1:]}; promoting it would freeze a "
                 "red line no reader could tell apart from a new failure"
+            )
+        )
+
+    # Condition 10, after 3. Where cases errored, 3 names them and says what
+    # to repair, which has to be done anyway; this one says what the run as a
+    # whole failed to be. Read against the suite's declaration, as the exit
+    # code reads it, whether or not the suite declares an aggregate.
+    # (ADR 0049 §3, §5)
+    if nothing_judged(run, declared):
+        refusals.append(
+            NothingJudgedError(
+                f"run {key} judged none of the cases its suite measures: each "
+                "was suspended, could not be judged, or is absent from the "
+                "document. A reference is a measurement, and this run measured "
+                "nothing. Run the suite with at least one of its cases judged"
             )
         )
 

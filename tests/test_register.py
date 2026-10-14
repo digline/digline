@@ -155,6 +155,9 @@ def test_the_entry_is_a_set_of_counts_and_keys(repo: Path) -> None:
         "target_config_changed",
         "judge_config_changed",
         "rejudged",
+        # Written where the headline declared it, and absent on a line from
+        # before ADR 0049, where it reads as not declared. (ADR 0049 §4)
+        "nothing_judged",
     }
     text = register_file(repo).read_text(encoding="utf-8")
     # A case id, and the judge's words, are in the run and never in the entry.

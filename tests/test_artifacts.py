@@ -25,9 +25,12 @@ from tests._helpers import baseline_in, cli, git
 from digline.core import (
     NOTHING_EXTRA,
     Artifact,
+    CaseResult,
     Contains,
     Disclosure,
     Run,
+    Score,
+    Verdict,
     artifacts_sha,
     compare,
     redact,
@@ -654,6 +657,23 @@ def test_the_opt_in_shows_the_diff_in_a_redacted_report(project: Path) -> None:
 # reason, and it is not an aesthetic choice.
 
 
+#: One judged case. A run with no case judged nothing, and since ADR 0049 that
+#: exits 2 and is never promoted, so a fixture about something else carries
+#: one rather than test that by accident. (ADR 0049 §3)
+JUDGED = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=1.0),
+            threshold=1.0,
+            status="pass",
+            reason="found",
+            assertion_id="contains-1",
+        ),
+    ),
+)
+
+
 def a_pinned_run(pinned: tuple[str, ...], **artifacts: Artifact) -> Run:
     """`a_run`, plus the declaration that some of those paths must not drift."""
     return Run(
@@ -662,6 +682,7 @@ def a_pinned_run(pinned: tuple[str, ...], **artifacts: Artifact) -> Run:
         suite="qa",
         config_hash="h",
         created_at="2026-08-26T10:00:00+00:00",
+        results=(JUDGED,),
         artifacts=dict(artifacts),
         pinned=pinned,
     )

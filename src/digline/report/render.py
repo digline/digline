@@ -43,6 +43,7 @@ from digline.core import (
     is_token,
     key_of,
     misnamed,
+    nothing_judged,
     on_the_line,
     scale_lost,
     unreconciled,
@@ -741,7 +742,6 @@ def headline(
     declared: Declared | None,
 ) -> Headline:
     strings(locale)  # fail here, not halfway through a document
-    del declared  # surface only: read once ADR 0049 §3 lands
     counts: dict[Outcome, int] = {o: comparison.counts.get(o, 0) for o in OUTCOME_ORDER}
     regressed = counts["regressed"]
 
@@ -764,6 +764,11 @@ def headline(
         worse_text = phrase(locale, "fact.worse.many", count=regressed)
 
     suspended = suspended_cases(run)
+
+    # Read against the suite's declaration, never the run alone: a run that
+    # carries none of its subject cases still judged none of them. (ADR 0049 §3)
+    judged_nothing = nothing_judged(run, declared)
+    nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
 
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
@@ -944,6 +949,7 @@ def headline(
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
         pinned_drifted=comparison.pinned_drifted,
+        nothing_judged=judged_nothing,
         pinned_unchecked=unchecked_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
@@ -976,6 +982,10 @@ def headline(
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
                 calibration_text,
+                # Before the counts it would otherwise sit under: "Nothing got
+                # worse." about a run that judged nothing is the false sentence
+                # ADR 0049 exists to stop. (§1, §3)
+                nothing_text,
                 worse_text,
                 # Before the noise clause and for a stronger version of its
                 # reason: noise says a movement was too small to count, this

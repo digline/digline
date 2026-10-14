@@ -52,7 +52,8 @@ def remove(store: FileResultStore, document: Run) -> None:
 
 def entry_naming(document: Run) -> RegisterEntry:
     counts = {
-        f.name: (False if f.type == "bool" else 0) for f in fields(RecordedOutcome)
+        f.name: (False if f.type.startswith("bool") else 0)
+        for f in fields(RecordedOutcome)
     }
     return RegisterEntry(
         recorded_at="2026-01-03T09:00:00+00:00",
