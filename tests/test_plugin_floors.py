@@ -96,6 +96,11 @@ INTRODUCED: dict[str, str] = {
     # number: `--replacing` makes the release a minor (ADR 0031); whoever cuts
     # it owns the number, and this moves with digline-mcp's floor.
     "REFUSALS": "0.20.0",
+    # 0.6.0 — the loader's default attribute and the TOML suffix, exported
+    # with the TOML suite form (`c63fd66`, `v0.6.0~2^2~14`). pytest-digline
+    # reads them to tell when two specs name one suite, before loading either.
+    "SUITE_ATTR": "0.6.0",
+    "SUITE_SUFFIX": "0.6.0",
     # 0.20.0 — `key_of` shipped with `--replacing` (ADR 0031, `0faa931`,
     # `v0.20.0~6^2~3`). A plugin reaches for it now because the key rule moved
     # off the store: `FileResultStore.key_for` was a passthrough to this, and

@@ -147,6 +147,12 @@ The command line **replaces** the ini list rather than adding to it, so
 narrowing a run to one suite is expressible. `--digline-root` names the
 perimeter holding `.digline/` and defaults to pytest's rootdir.
 
+Each suite is named once. Two specs that resolve to the same suite —
+`./eval/suite.py` and `eval/suite.py`, or `eval/suite.py` and
+`eval/suite.py:suite` — stop the session as a usage error before anything
+loads. Two suites from one file, `eval/both.py:support` and
+`eval/both.py:billing`, are two suites and run side by side.
+
 Select rows with `-k`. A node id passed as a positional argument is not
 supported: these rows are added to the session rather than collected from a path,
 which is what keeps pytest from importing your suite a second time.
