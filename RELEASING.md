@@ -12,6 +12,16 @@ working as it did: a public name removed or renamed in `digline.core`,
 removed or changed in meaning, an exit code changed, or a schema change that
 needs `migrate` or a re-promote. 0.12.0 was a minor for this reason.
 
+**The rule holds for each package, not only for digline.** A package's version
+moves by what its own users rely on. For `pytest-digline` that includes the
+nodeids of its rows, which `-k`, `--deselect`, `--lf` and a CI configuration
+name, and the exit status a session ends with. A change that makes one of
+these stop working as it did moves the package's minor before 1.0, whatever
+digline's own number does. *Added 2026-10-14.* The examples above are all
+digline's, and a package's version had been chosen from them by analogy twice:
+`pytest-digline` 0.2.0, and the nodeid change for a suite named as
+`file.py:attribute`. Without this sentence the second could not be decided.
+
 The **patch** number is for everything that leaves existing suites, scripts and
 stored documents working unchanged: fixes, documentation, CI, and additions — a
 new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
@@ -257,6 +267,7 @@ it and deletes it.
 | Package | What it carries | What the number must reflect |
 |---|---|---|
 | `pytest-digline` | each line of the `digline` summary, and the `note:` beside it, now starts with the path pytest prints for its suite's rows (#570); before, a line carried only the sentence | that the summary's output changed: the cut decides by *Choosing the version* whether a changed output a user reads moves the minor, and the number says what it decided |
+| `pytest-digline` | a suite named as `file.py:attribute` gets nodeids that carry the attribute (#571), so a `--deselect` written against the old nodeid deselects nothing, and only warns | a break: the release moves the minor, by *Choosing the version*'s rule that holds for each package |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.

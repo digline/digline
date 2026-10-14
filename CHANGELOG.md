@@ -39,6 +39,25 @@ notes under them are this file, verbatim.
 
 The version is chosen by the release that carries this, from what it carries.
 
+**Breaking**
+
+- **A suite named as `file.py:attribute` has its own nodeids**, which name the
+  attribute: `both.py:support::alpha::contains`, where they were
+  `both.py::alpha::contains`. Before, two suites from one file collected rows
+  with identical nodeids (#566), so `--deselect` with an exact nodeid removed a
+  row from both suites, `-k support` selected nothing, and `--lf` reran the
+  failed row of both. Now each acts on one suite. A suite named by its file
+  alone keeps its nodeids.
+
+  **What breaks, said plainly.** A `--deselect` that names a row by its old
+  nodeid matches nothing now, and pytest ignores a value that matches nothing
+  in silence: the row it was meant to exclude runs again. pytest-digline warns
+  for each such value, naming the nodeid that replaced it, and under
+  `-W error` the warning stops the session as a usage error. A `--lf` cache
+  that names old nodeids reruns every row once, with only pytest's own header
+  line, *"run-last-failure: … known failures not in selected tests"*. A CI
+  configuration or a script that names old nodeids has to be updated.
+
 - **Each line of the `digline` summary starts with the path of its suite.**
   With more than one `--digline-suite`, the summary printed one sentence per
   suite with nothing to say which was which, so a reader could match them to
@@ -54,7 +73,8 @@ The version is chosen by the release that carries this, from what it carries.
 
   One suite is named too, so the form does not change when a second is added.
   A script that reads the summary lines sees the prefix. Two suites taken from
-  one file, `file.py:attribute`, share a path and so a prefix: that is #566.
+  one file are told apart by the attribute their rows' path carries:
+  `both.py:support: …` and `both.py:billing: …`.
 - **Docs: the README's example summary shows the sentence digline prints.** It
   showed a wording digline does not produce.
 
