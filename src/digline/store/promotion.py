@@ -37,7 +37,7 @@ core, and are imported from there.
 from __future__ import annotations
 
 from digline.core.calibration import scale_lost
-from digline.core.declared import Declared, nothing_judged
+from digline.core.declared import Declared, cases_that_count, nothing_judged
 from digline.core.reconcile import unreconciled
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
@@ -159,6 +159,26 @@ def refusals_for(
             )
         )
 
+    # Condition 10, before 3: the cause before the symptom. A run whose every
+    # case is suspended errors its aggregates too, and a person told first that
+    # a figure could not be computed investigates the figure, while the cause
+    # is that nothing was judged. Named by case, as 3 names its cases, so the
+    # order costs no names. Read against the suite's declaration, as the exit
+    # code reads it, whether or not the suite declares an aggregate.
+    # (ADR 0049 §3, §5)
+    counted = cases_that_count(run, declared)
+    if nothing_judged(run, declared):
+        names = ", ".join(sorted(counted))
+        refusals.append(
+            NothingJudgedError(
+                f"run {key} judged none of the {len(counted)} case(s) its suite "
+                f"measures ({names}): each was suspended, could not be judged, "
+                "or is absent from the document. A reference is a measurement, "
+                "and this run measured nothing. Run the suite with at least one "
+                "of its cases judged"
+            )
+        )
+
     errored = sorted(
         {
             case.case_id
@@ -192,21 +212,6 @@ def refusals_for(
                 "an approved reference and an error is not one. "
                 f"{remedy[0].upper()}{remedy[1:]}; promoting it would freeze a "
                 "red line no reader could tell apart from a new failure"
-            )
-        )
-
-    # Condition 10, after 3. Where cases errored, 3 names them and says what
-    # to repair, which has to be done anyway; this one says what the run as a
-    # whole failed to be. Read against the suite's declaration, as the exit
-    # code reads it, whether or not the suite declares an aggregate.
-    # (ADR 0049 §3, §5)
-    if nothing_judged(run, declared):
-        refusals.append(
-            NothingJudgedError(
-                f"run {key} judged none of the cases its suite measures: each "
-                "was suspended, could not be judged, or is absent from the "
-                "document. A reference is a measurement, and this run measured "
-                "nothing. Run the suite with at least one of its cases judged"
             )
         )
 

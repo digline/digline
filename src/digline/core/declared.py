@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from digline.core.run import Run
 
-__all__ = ["Declared", "nothing_judged"]
+__all__ = ["Declared", "cases_that_count", "nothing_judged"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,20 +52,29 @@ def nothing_judged(run: Run, declared: Declared | None) -> bool:
     Aggregates never count: a figure over the cases is not evidence that the
     cases were judged.
     """
-    if declared is not None:
-        counting = declared.subject or declared.watching
-    else:
-        subject = frozenset(
-            case.case_id
-            for case in run.results
-            if not case.canary and case.calibration is None
-        )
-        # With no subject case in the document, every case it carries is a
-        # canary or a calibration case: the second clause, read off the run.
-        counting = subject or frozenset(case.case_id for case in run.results)
+    counting = cases_that_count(run, declared)
     return not any(
         verdict.status in ("pass", "fail")
         for case in run.results
         if case.case_id in counting
         for verdict in case.verdicts
     )
+
+
+def cases_that_count(run: Run, declared: Declared | None) -> frozenset[str]:
+    """The ids of the cases that count, by §3's three clauses: what
+    `nothing_judged` reads, and what a refusal names. (ADR 0049 §3)
+
+    A declared case the run does not carry is among them: absent is one of the
+    ways a case goes unjudged.
+    """
+    if declared is not None:
+        return declared.subject or declared.watching
+    subject = frozenset(
+        case.case_id
+        for case in run.results
+        if not case.canary and case.calibration is None
+    )
+    # With no subject case in the document, every case it carries is a canary
+    # or a calibration case: the second clause, read off the run.
+    return subject or frozenset(case.case_id for case in run.results)

@@ -689,7 +689,7 @@ class ResultStore(Protocol):
            outside the perimeter — a baseline carries every artifact's text
            into a versioned file, so this holds **whatever the `Disclosure`**
            (ADR 0042 §3).
-        10. `NothingJudgedError`, after 3, if the run judged none of the cases
+        10. `NothingJudgedError`, before 3, if the run judged none of the cases
             that count, read against `declared` — every case suspended, or a
             document that carries none of them — **whether or not the suite
             declares an aggregate**. A reference is a measurement, and a run
