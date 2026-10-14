@@ -159,6 +159,25 @@ def test_a_status_another_plugin_set_is_left_as_it_is(
     assert result.ret == pytest.ExitCode.INTERNAL_ERROR, result.stdout.str()
 
 
+def test_a_plugin_that_turns_the_status_green_does_not_have_the_last_word(
+    pytester: pytest.Pytester, promoted: Path
+) -> None:
+    """`trylast`, held. A plugin that writes `0` at the end of a session runs
+    before this hook only because of `trylast`: pluggy calls a hook's
+    implementations from the last registered to the first, and a plugin loaded
+    with `-p` registers before this one's entry point. Without `trylast` this
+    hook would write `1` first and the other plugin would turn it back to `0`.
+    A plugin that writes a constant other than `0`, as the test above does,
+    ends the same in either order, so it cannot hold this."""
+    pin(promoted, '{"tools": ["refund", "delete_account"]}')
+    cycle(promoted, pytester.path, promote=False)
+    pytester.makepyfile(
+        forgives="def pytest_sessionfinish(session):\n    session.exitstatus = 0\n"
+    )
+    result = run(pytester, promoted, "-p", "forgives")
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
+
+
 def test_with_no_suite_named_the_session_is_untouched(
     pytester: pytest.Pytester,
 ) -> None:
