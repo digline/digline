@@ -256,6 +256,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
+| `pytest-digline` | each line of the `digline` summary, and the `note:` beside it, now starts with the path pytest prints for its suite's rows (#570); before, a line carried only the sentence | that the summary's output changed: the cut decides by *Choosing the version* whether a changed output a user reads moves the minor, and the number says what it decided |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
