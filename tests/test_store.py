@@ -219,6 +219,10 @@ def test_it_names_every_case_it_could_not_judge(tmp_path: Path) -> None:
         config_hash=cfg,
         created_at=CREATED,
         results=(
+            # Judged, so condition 3 is the refusal under test and not condition
+            # 10, which a run whose every case errored meets first.
+            # (ADR 0049 §3, §5)
+            CaseResult("judged", (budget(EvaluatorInputs(output="x", cost_usd=0.01)),)),
             CaseResult("alpha", (broken,)),
             CaseResult("beta", (broken,)),
         ),

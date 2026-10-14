@@ -24,9 +24,9 @@ from digline.core import (
     Verdict,
     key_of,
 )
+from digline.host import REFUSALS
 from digline.store import (
     BaselineMovedError,
-    ErroredRunError,
     FileResultStore,
     RunRef,
 )
@@ -201,8 +201,10 @@ def test_the_check_runs_after_the_refusals_about_the_run(tmp_path: Path) -> None
     promote(store, theirs, None)
     broken = stored(store, "2026-01-01T11:00:00+00:00", status="error")
 
-    with pytest.raises(ErroredRunError):
+    # A refusal about the run, whichever: what this pins is that it is not 8.
+    with pytest.raises(REFUSALS) as raised:
         promote(store, broken, NO_BASELINE)
+    assert not isinstance(raised.value, BaselineMovedError)
 
 
 # --------------------------------------------------------------------------- #

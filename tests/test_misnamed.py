@@ -45,9 +45,10 @@ from digline.core import (
     unmarked,
     unreconciled,
 )
+from digline.host import REFUSALS
 from digline.report import explain_text, facts, headline, render_run_html
 from digline.run import Case, Response, Suite, execute, rejudge
-from digline.store import ErroredRunError, FileResultStore
+from digline.store import FileResultStore
 from digline.wire import EXIT_UNJUDGED, compare_json, exit_code, explain_json
 
 CREATED = "2026-09-28T10:00:00+00:00"
@@ -393,7 +394,10 @@ def test_it_can_never_be_promoted(tmp_path: Path) -> None:
     run = execute(suite, answering, created_at=CREATED)
     store = FileResultStore(tmp_path)
     ref = store.write_run(run)
-    with pytest.raises(ErroredRunError, match="c1"):
+    # Refused, and by name. Which refusal is not this test's argument: its one
+    # case errored, so the run also judged nothing, and that comes first.
+    # (ADR 0049 §5)
+    with pytest.raises(REFUSALS, match="c1"):
         store.promote_baseline(
             ref,
             suite.config_hash(),

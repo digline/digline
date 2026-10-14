@@ -342,6 +342,22 @@ def test_the_refusal_names_a_declared_case_the_run_does_not_carry() -> None:
     assert "s1" in str(refusal) and "s2" in str(refusal)
 
 
+def test_the_refusal_says_which_state_each_case_is_in() -> None:
+    """Suspended, could not be judged, absent: each case named with its state,
+    and the errored one with condition 3's remedy. A run whose every case
+    errored is refused here first, so this message has to send its reader to
+    the case, not to a general fact about the run. (Maintainer, 2026-10-14)"""
+    declared = Declared(subject=frozenset({"s1", "s2", "s3"}), watching=frozenset())
+    document = run(suspended("s1"), subject("s2", "error"))
+    first, *_ = refusals_for(document, CFG, declared=declared)
+    assert isinstance(first, NothingJudgedError)
+    text = str(first)
+    assert "s1 (suspended)" in text
+    assert "s2 (could not be judged)" in text
+    assert "s3 (absent)" in text
+    assert "fix the case or remove it from the suite" in text.lower()
+
+
 def test_a_run_with_one_judged_subject_case_is_not_refused() -> None:
     assert (
         refusals_for(run(subject("s1"), suspended("s2")), CFG, declared=SUBJECT) == ()

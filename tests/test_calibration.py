@@ -76,7 +76,7 @@ from digline.run import (
     planned_calls,
     rejudge,
 )
-from digline.store import ErroredRunError, FileResultStore, UncalibratedRunError
+from digline.store import FileResultStore, UncalibratedRunError
 from digline.store.migrate import NonAdditiveError, upgrade_document
 from digline.targets import CompletionResult, ModelPrice, Pricing, ScoreJudge, Usage
 from digline.wire import (
@@ -849,7 +849,9 @@ def test_a_third_party_check_that_names_its_score_otherwise_is_refused_by_the_dr
     was the declared one, the verdict's was not, and the identity binding read
     the score at the extreme. The driver now refuses the verdict first, so the
     calibration case is not judged at all. It is marked, it exits 2 and it is
-    not promotable, by the errored-run refusal rather than the calibration one.
+    not promotable, by a refusal for cases that were not judged rather than
+    the calibration one. Every case errored, so the run judged nothing, and
+    since ADR 0049 that refusal comes first.
 
     What the old test proved, that the band binds a differently named verdict
     by identity, is still true and still needed, for documents written before
@@ -862,7 +864,7 @@ def test_a_third_party_check_that_names_its_score_otherwise_is_refused_by_the_dr
     assert exit_code(head) == EXIT_UNJUDGED
     store = FileResultStore(str(tmp_path))
     ref = store.write_run(run)
-    with pytest.raises(ErroredRunError):
+    with pytest.raises(REFUSALS) as raised:
         store.promote_baseline(
             ref,
             declared.config_hash(),
@@ -870,6 +872,7 @@ def test_a_third_party_check_that_names_its_score_otherwise_is_refused_by_the_dr
             promoted_at=LATER,
             declared=None,
         )
+    assert not isinstance(raised.value, UncalibratedRunError)
 
     before = recorded_before_the_name_check(run)
     [lost] = scale_lost(before)
