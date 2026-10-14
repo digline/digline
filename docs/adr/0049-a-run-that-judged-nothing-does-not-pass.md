@@ -8,7 +8,7 @@
   run); one to *Requires*, in #559 (both paths that turn a run into a code);
   and one to *Requires* and §5 in the pull request that accepts it (the
   promotion takes the declaration too, as a mandatory argument, and
-  `promote` derives it from the suite it loaded). **What the acceptance rests
+  `promote` is to derive it from the suite it loaded). **What the acceptance rests
   on, said in full.** The record was read whole once, when it
   first landed, in #555. After that, at each correction, the passages it
   changed were read: §3, the line in *Consequences*, *The cases that count*,
@@ -51,9 +51,9 @@
   `ResultStore.promote_baseline` and `refusals_for`, where it is a mandatory
   argument (§5). With no suite, each applies §3's third clause. One path
   without it would read the run, and reopen the road §3 closes. **`promote`
-  derives the declaration from the suite it loaded, and does not take it as a
-  parameter.** A store does not hold the suite, so it is handed the
-  declaration. `promote` holds it: it already takes the suite and the pricing
+  gains no parameter for the declaration, and is to derive it from the suite
+  it loaded.** A store does not hold the suite, so it is handed the
+  declaration. `promote` holds it: today it takes the suite and the pricing
   from `loaded`, and the configuration hash from that suite. A function that
   holds the suite does not ask its callers for a value derived from it, and
   the reason above, that a run document does not carry the declaration, does
@@ -361,10 +361,9 @@ declaration, one rule would live in two places.
 **What the argument costs.** A mandatory argument is a break, not an
 addition: it breaks every implementer of the `ResultStore` protocol and every
 caller of `refusals_for`. In this repository the only implementer is
-`FileResultStore`. The break is visible from `docs/api.md`, which sends a
-program that implements a store of its own to the protocol, and shows
-`store.promote_baseline(...)` as one way to reach the reference a projection
-starts from. `promote` keeps its signature (*Requires*). Whoever calls
+`FileResultStore`. `docs/api.md` sends a program that implements a store of
+its own to the protocol, so the break reaches that program. `promote` keeps
+its signature (*Requires*). Whoever calls
 `render_html` has to pass the declaration too, because it builds a headline
 (§3).
 
