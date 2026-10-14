@@ -35,6 +35,29 @@ notes under them are this file, verbatim.
   `digline.host.promote` keeps its signature. A store of your own has to
   accept the argument and hand it to `refusals_for`.
 
+## pytest-digline — unreleased
+
+The version is chosen by the release that carries this, from what it carries.
+
+**Breaking**
+
+- **A suite named as `file.py:attribute` has its own nodeids**, which name the
+  attribute: `both.py:support::alpha::contains`, where they were
+  `both.py::alpha::contains`. Before, two suites from one file collected rows
+  with identical nodeids (#566), so `--deselect` with an exact nodeid removed a
+  row from both suites, `-k support` selected nothing, and `--lf` reran the
+  failed row of both. Now each acts on one suite. A suite named by its file
+  alone keeps its nodeids.
+
+  **What breaks, said plainly.** A `--deselect` that names a row by its old
+  nodeid matches nothing now, and pytest ignores a value that matches nothing
+  in silence: the row it was meant to exclude runs again. pytest-digline warns
+  for each such value, naming the nodeid that replaced it, and under
+  `-W error` the warning stops the session as a usage error. A `--lf` cache
+  that names old nodeids reruns every row once, with only pytest's own header
+  line, *"run-last-failure: … known failures not in selected tests"*. A CI
+  configuration or a script that names old nodeids has to be updated.
+
 ## digline-mcp 0.5.0 — 2026-10-12
 
 Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on
