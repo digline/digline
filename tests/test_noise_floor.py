@@ -142,7 +142,7 @@ def test_being_on_the_line_moves_no_exit_code() -> None:
         created_at="2026-01-01T00:00:00+00:00",
         results=(CaseResult("one", (straddling,)),),
     )
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.on_the_line == 1
     assert head.worse is False
     assert exit_code(head) == EXIT_OK
@@ -936,7 +936,7 @@ def replace_name(verdict: Verdict, name: str) -> Verdict:
 def test_the_within_noise_sentence_names_the_interval(locale: Locale) -> None:
     comparison = noise_comparison()
     run = make_run([])
-    document = render_html(comparison, run, run, locale=locale)
+    document = render_html(comparison, run, run, locale=locale, declared=None)
     # Rendered at FLOAT_PRECISION like every other score, and with the dot, so
     # two renderings of one run still diff line by line.
     assert "0.600000–1.000000" in document
@@ -946,7 +946,7 @@ def test_the_within_noise_sentence_names_the_interval(locale: Locale) -> None:
 def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
     comparison = noise_comparison()
     run = make_run([])
-    document = render_html(comparison, run, run, locale="en")
+    document = render_html(comparison, run, run, locale="en", declared=None)
     assert (
         "Score moved from 0.920000 to 0.750000 — inside the range of the "
         "reference&#x27;s individual samples (0.600000–1.000000 across 5 "
@@ -963,7 +963,7 @@ def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
 def test_the_italian_sentences_say_the_same_thing() -> None:
     comparison = noise_comparison()
     run = make_run([])
-    document = render_html(comparison, run, run, locale="it")
+    document = render_html(comparison, run, run, locale="it", declared=None)
     assert (
         "dentro l&#x27;intervallo dei singoli campioni del riferimento "
         "(0.600000–1.000000 su 5 campioni)" in document
@@ -978,7 +978,7 @@ def test_the_italian_sentences_say_the_same_thing() -> None:
 @pytest.mark.parametrize("locale", LOCALES)
 def test_the_headline_counts_what_moved_within_noise(locale: Locale) -> None:
     run = make_run([])
-    head = headline(noise_comparison(), run, run, locale=locale)
+    head = headline(noise_comparison(), run, run, locale=locale, declared=None)
     assert head.within_noise == 1
     assert head.worse
     assert phrase(locale, "fact.noise.one") in head.sentence
@@ -997,7 +997,11 @@ def test_a_run_that_never_sampled_gets_no_noise_sentence() -> None:
     )
     run = make_run([])
     head = headline(
-        compare(make_run([before]), make_run([before])), run, run, locale="en"
+        compare(make_run([before]), make_run([before])),
+        run,
+        run,
+        locale="en",
+        declared=None,
     )
     assert head.within_noise == 0
     assert "noise" not in head.sentence
@@ -1005,7 +1009,11 @@ def test_a_run_that_never_sampled_gets_no_noise_sentence() -> None:
     # could carry the interval: comparing the run with itself would print none.
     dropped = replace(before, score=Score(name="check", score=0.7))
     document = render_html(
-        compare(make_run([dropped]), make_run([before])), run, run, locale="en"
+        compare(make_run([dropped]), make_run([before])),
+        run,
+        run,
+        locale="en",
+        declared=None,
     )
     assert "Score fell from 0.900000 to 0.700000" in document
     assert "individual samples" not in document

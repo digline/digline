@@ -412,7 +412,7 @@ def test_a_loosened_rule_moves_no_exit_code_and_no_outcome() -> None:
     comparison = compare(now, before)
     assert comparison.loosened_rules
     assert not comparison.has_regressions
-    head = headline(comparison, now, before, locale="en")
+    head = headline(comparison, now, before, locale="en", declared=None)
     assert not head.worse
 
 
@@ -461,7 +461,7 @@ def test_the_wire_carries_the_rules_under_full_only() -> None:
     now = run(verdicts=(verdict("contains", threshold=0.4),), config_hash="hash-b")
     before = run(verdicts=(verdict("contains", threshold=0.6),))
     comparison = compare(now, before)
-    head = headline(comparison, now, before, locale="en")
+    head = headline(comparison, now, before, locale="en", declared=None)
     assert "suite_deltas" not in compare_json(
         comparison, head, baseline=before, full=False
     )
@@ -487,7 +487,7 @@ def test_the_wire_never_carries_a_withheld_key_for_a_rule() -> None:
     look for the case where it is not."""
     now = run(verdicts=(verdict("contains", threshold=0.4),), config_hash="hash-b")
     before = run(verdicts=(verdict("contains", threshold=0.6),))
-    head = headline(compare(now, before), now, before, locale="en")
+    head = headline(compare(now, before), now, before, locale="en", declared=None)
     payload = compare_json(compare(now, before), head, baseline=before, full=True)
     rule = payload["suite_deltas"][0]  # type: ignore[index]
     assert "withheld" not in rule
@@ -556,6 +556,6 @@ def test_the_report_carries_the_rules_section() -> None:
 
     now = run(verdicts=(verdict("contains", threshold=0.4),), config_hash="hash-b")
     before = run(verdicts=(verdict("contains", threshold=0.6),))
-    html = render_html(compare(now, before), now, before, locale="en")
+    html = render_html(compare(now, before), now, before, locale="en", declared=None)
     assert "What the rules were" in html
     assert "looser" in html

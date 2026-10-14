@@ -272,7 +272,7 @@ def test_a_canary_that_moved_exits_one_in_either_direction(
 ) -> None:
     run, baseline = moved_run(before, after)
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     assert comparison.canary_moved
     assert head.canary_moved
     assert exit_code(head) == EXIT_WORSE
@@ -282,7 +282,7 @@ def test_a_canary_that_improved_is_not_called_worse() -> None:
     """The reason it is not folded into `worse`: the headline would say one
     check got worse about a check that got better."""
     run, baseline = moved_run(0.3, 0.9)
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert not head.worse
     assert "likely changed" in head.sentence
     assert exit_code(head) == EXIT_WORSE
@@ -290,7 +290,7 @@ def test_a_canary_that_improved_is_not_called_worse() -> None:
 
 def test_a_canary_that_stayed_put_says_nothing() -> None:
     run, baseline = moved_run(0.9, 0.9)
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert not head.canary_moved
     assert "likely changed" not in head.sentence
     assert exit_code(head) == 0
@@ -327,7 +327,9 @@ def test_a_canary_that_errored_is_unjudged_and_not_moved() -> None:
         created_at=CREATED,
         results=(CaseResult("probe", (verdict(0.9),), canary=True),),
     )
-    head = headline(compare(broken, baseline), broken, baseline, locale="en")
+    head = headline(
+        compare(broken, baseline), broken, baseline, locale="en", declared=None
+    )
     assert not head.canary_moved
     assert exit_code(head) == EXIT_UNJUDGED
 
@@ -421,7 +423,7 @@ def test_a_suite_with_a_canary_has_to_sample() -> None:
 @pytest.mark.parametrize("locale", ["en", "it"])
 def test_the_clause_exists_in_both_locales(locale: str) -> None:
     run, baseline = moved_run(0.9, 0.3)
-    head = headline(compare(run, baseline), run, baseline, locale=locale)  # type: ignore[arg-type]
+    head = headline(compare(run, baseline), run, baseline, locale=locale, declared=None)  # type: ignore[arg-type]
     assert "probe" in head.sentence
     assert "0.900000" in head.sentence
 
@@ -435,7 +437,7 @@ def test_the_reading_accounts_for_the_exit_code() -> None:
 def test_the_wire_carries_the_fact_and_the_row() -> None:
     run, baseline = moved_run(0.9, 0.3)
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     payload = compare_json(comparison, head, baseline=baseline, full=True)
     assert payload["canary_moved"] is True
     assert payload["exit_code"] == EXIT_WORSE

@@ -214,7 +214,7 @@ def test_no_perimeter_field_crosses_through_a_comparison() -> None:
     """
     run = loaded_run()
     other = replace(run, created_at="2026-09-09T10:00:00+00:00")
-    head = headline(compare(run, other), run, other, locale="en")
+    head = headline(compare(run, other), run, other, locale="en", declared=None)
     difference = core_diff(run, other)
 
     documents = [

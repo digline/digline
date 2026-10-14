@@ -291,8 +291,10 @@ def test_the_page_is_the_report_plus_a_bar() -> None:
     Take both away and what is left must be byte for byte what `digline
     report` writes — same dates, same six decimals, same width.
     """
-    page = compare_page(RUN_B, RUN_A, locale="en", suite="brief")
-    document = render_html(compare(RUN_B, RUN_A), RUN_B, RUN_A, locale="en")
+    page = compare_page(RUN_B, RUN_A, locale="en", suite="brief", declared=None)
+    document = render_html(
+        compare(RUN_B, RUN_A), RUN_B, RUN_A, locale="en", declared=None
+    )
 
     start = page.index('<nav class="bar">')
     end = page.index("</nav>\n") + len("</nav>\n")
@@ -303,14 +305,18 @@ def test_the_page_is_the_report_plus_a_bar() -> None:
 def test_the_comparison_keeps_the_document_rules() -> None:
     """The screen may read dates its own way; this page may not, because this
     page *is* the document."""
-    page = compare_page(RUN_B, RUN_A, locale="en", suite="brief")
+    page = compare_page(RUN_B, RUN_A, locale="en", suite="brief", declared=None)
     assert "2026-08-21T10:00:00+00:00" in page  # ISO, not "21 Aug 10:00"
     assert 'class="wide"' not in page
 
 
 def test_the_comparison_page_honours_the_locale() -> None:
-    assert "È peggiorato?" in compare_page(RUN_B, RUN_A, locale="it", suite="brief")
-    assert "Did it get worse?" in compare_page(RUN_B, RUN_A, locale="en", suite="brief")
+    assert "È peggiorato?" in compare_page(
+        RUN_B, RUN_A, locale="it", suite="brief", declared=None
+    )
+    assert "Did it get worse?" in compare_page(
+        RUN_B, RUN_A, locale="en", suite="brief", declared=None
+    )
 
 
 def test_the_single_run_page_is_the_report_plus_a_bar() -> None:

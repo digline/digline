@@ -607,7 +607,14 @@ class ViewHandler(BaseHTTPRequestHandler):
             self._send(200, pages.run_page(run, locale=locale, suite=self.suite.name))
             return
         self._send(
-            200, pages.compare_page(run, baseline, locale=locale, suite=self.suite.name)
+            200,
+            pages.compare_page(
+                run,
+                baseline,
+                locale=locale,
+                suite=self.suite.name,
+                declared=self.suite.declared(),
+            ),
         )
 
     def _screen_case(self, locale: Locale, case_id: str) -> None:

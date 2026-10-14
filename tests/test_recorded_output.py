@@ -281,6 +281,7 @@ def test_promotion_writes_a_reference_without_the_answers(tmp_path: Path) -> Non
         declared.config_hash(),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert all(case.responses == () for case in promoted.results)
     text = store.baseline_path("acme", "qa").read_text(encoding="utf-8")
@@ -866,6 +867,7 @@ def test_a_replay_may_not_become_the_baseline(tmp_path: Path) -> None:
             declared.config_hash(),
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
 
 
@@ -932,11 +934,19 @@ def test_the_report_says_the_answers_were_replayed(repo: Path) -> None:
     again = rejudge(declared, source, key="src-key", created_at=LATER)
 
     head = headline(
-        __import__("digline").core.compare(again, source), again, source, locale="en"
+        __import__("digline").core.compare(again, source),
+        again,
+        source,
+        locale="en",
+        declared=None,
     )
     assert head.rejudged
     assert "replayed from a stored run" in head.sentence
     document = render_html(
-        __import__("digline").core.compare(again, source), again, source, locale="en"
+        __import__("digline").core.compare(again, source),
+        again,
+        source,
+        locale="en",
+        declared=None,
     )
     assert "src-key" in document

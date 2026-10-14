@@ -25,6 +25,7 @@ from digline.core import (
     Comparison,
     ConfigDelta,
     ConfigValue,
+    Declared,
     Denominator,
     Outcome,
     Run,
@@ -42,6 +43,7 @@ from digline.core import (
     is_token,
     key_of,
     misnamed,
+    nothing_judged,
     on_the_line,
     scale_lost,
     unreconciled,
@@ -197,6 +199,10 @@ class Headline:
     #: score moved and calling a changed input a regression would send a reader
     #: looking for a check that got worse. (ADR 0029 §2, §6)
     pinned_drifted: bool = False
+    #: None of the cases that count was judged: every case suspended, or a
+    #: document with no cases, read against what the suite declares. Read by
+    #: `exit_code()`, which returns 2. (ADR 0049 §3, §4)
+    nothing_judged: bool = False
     #: How many pinned paths this comparison could not answer for.
     #:
     #: **Visible, and deliberately not a failure** — the line between those two
@@ -728,7 +734,12 @@ def errored_verdicts(run: Run) -> tuple[ErroredVerdict, ...]:
 
 
 def headline(
-    comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
+    comparison: Comparison,
+    run: Run,
+    baseline: Run,
+    *,
+    locale: Locale,
+    declared: Declared | None,
 ) -> Headline:
     strings(locale)  # fail here, not halfway through a document
     counts: dict[Outcome, int] = {o: comparison.counts.get(o, 0) for o in OUTCOME_ORDER}
@@ -753,6 +764,11 @@ def headline(
         worse_text = phrase(locale, "fact.worse.many", count=regressed)
 
     suspended = suspended_cases(run)
+
+    # Read against the suite's declaration, never the run alone: a run that
+    # carries none of its subject cases still judged none of them. (ADR 0049 §3)
+    judged_nothing = nothing_judged(run, declared)
+    nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
 
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
@@ -933,6 +949,7 @@ def headline(
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
         pinned_drifted=comparison.pinned_drifted,
+        nothing_judged=judged_nothing,
         pinned_unchecked=unchecked_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
@@ -965,6 +982,10 @@ def headline(
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
                 calibration_text,
+                # Before the counts it would otherwise sit under: "Nothing got
+                # worse." about a run that judged nothing is the false sentence
+                # ADR 0049 exists to stop. (§1, §3)
+                nothing_text,
                 worse_text,
                 # Before the noise clause and for a stronger version of its
                 # reason: noise says a movement was too small to count, this
@@ -2342,7 +2363,12 @@ def _artifact_detail(delta: ArtifactDelta, locale: Locale) -> str:
 
 
 def render_html(
-    comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
+    comparison: Comparison,
+    run: Run,
+    baseline: Run,
+    *,
+    locale: Locale,
+    declared: Declared | None,
 ) -> str:
     """A self-contained HTML document, deterministic byte for byte.
 
@@ -2357,7 +2383,7 @@ def render_html(
     `locale` is mandatory and has no default: the language of a document with a
     recipient is not something to settle by omission.
     """
-    head = headline(comparison, run, baseline, locale=locale)
+    head = headline(comparison, run, baseline, locale=locale, declared=declared)
     answer = phrase(locale, "answer.yes" if head.worse else "answer.no")
     tally = "".join(
         f"<li>{escape(outcome)} <b>{head.counts[outcome]}</b></li>"

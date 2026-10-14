@@ -28,11 +28,14 @@ from tests._helpers import baseline_in, cli, git
 from digline.core import (
     NOTHING_EXTRA,
     Artifact,
+    CaseResult,
     Contains,
     CrossingRefusedError,
     Disclosure,
     RefusedError,
     Run,
+    Score,
+    Verdict,
     barred_from_crossing,
     project_served,
     redact,
@@ -70,6 +73,25 @@ FREE = (
 ARTIFACTS_DISCLOSED = Disclosure(artifacts=True)
 
 
+#: One judged case. A run with no case judged nothing, and since ADR 0049 that
+#: exits 2 and is never promoted, so a fixture about something else carries
+#: one rather than test that by accident. (ADR 0049 §3)
+JUDGED = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=1.0),
+            threshold=1.0,
+            status="pass",
+            reason="found",
+            # A digest, as a real assertion's identity is: the projection
+            # tests below refuse anything else.
+            assertion_id="0123456789abcdef",
+        ),
+    ),
+)
+
+
 def _run(*keys: str) -> Run:
     """A complete run recording each key as an artifact with its text."""
     return Run(
@@ -78,6 +100,7 @@ def _run(*keys: str) -> Run:
         suite="qa",
         config_hash="0123456789abcdef",
         created_at="2026-10-05T10:00:00+00:00",
+        results=(JUDGED,),
         artifacts={key: Artifact(sha="0" * 64, text="SECRET") for key in keys},
     )
 
@@ -173,14 +196,14 @@ def test_refusals_for_carries_the_crossing_with_no_store(key: str) -> None:
     """Whatever the `Disclosure`: a run carries none, because a baseline is the
     complete run (ADR 0042 §3). Answered from the document alone."""
     run = _run("prompt.md", key)
-    refusals = refusals_for(run, run.config_hash)
+    refusals = refusals_for(run, run.config_hash, declared=None)
     assert [type(r) for r in refusals] == [CrossingRefusedError]
     assert key in str(refusals[0])
 
 
 def test_refusals_for_is_silent_on_free_artifacts() -> None:
     run = _run(*FREE)
-    assert refusals_for(run, run.config_hash) == ()
+    assert refusals_for(run, run.config_hash, declared=None) == ()
 
 
 def test_the_crossing_comes_before_a_moved_configuration() -> None:
@@ -189,7 +212,7 @@ def test_the_crossing_comes_before_a_moved_configuration() -> None:
     configuration may be the change somebody intended. A choice made in the
     change that implements ADR 0042, which does not place the condition."""
     run = _run(".git/config")
-    refusals = refusals_for(run, "another-hash")
+    refusals = refusals_for(run, "another-hash", declared=None)
     assert [type(r).__name__ for r in refusals] == [
         "CrossingRefusedError",
         "ConfigMismatchError",

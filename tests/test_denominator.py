@@ -107,7 +107,7 @@ def test_a_moved_denominator_is_an_incomparability_and_not_a_regression() -> Non
     different case sets are not a movement, in either direction."""
     run = run_with(aggregate(1.0, 3))
     comparison = compare(run, REFERENCE)
-    head = headline(comparison, run, REFERENCE, locale="en")
+    head = headline(comparison, run, REFERENCE, locale="en", declared=None)
     assert head.worse is False
     assert exit_code(head) != EXIT_WORSE
 
@@ -151,7 +151,7 @@ def test_the_fact_crosses_the_wire() -> None:
     `"outcome": "unchanged"`. Now it reads a field."""
     run = run_with(aggregate(1.0, 3))
     comparison = compare(run, REFERENCE)
-    head = headline(comparison, run, REFERENCE, locale="en")
+    head = headline(comparison, run, REFERENCE, locale="en", declared=None)
     document = compare_json(comparison, head, baseline=REFERENCE, full=True)
     deltas = document["deltas"]
     assert isinstance(deltas, list)
@@ -227,7 +227,7 @@ def test_a_moved_denominator_pointing_down_is_not_a_regression() -> None:
     assert comparison.counts.get("regressed", 0) == 0
     assert comparison.regressed == ()
 
-    head = headline(comparison, run, LENIENT_REFERENCE, locale="en")
+    head = headline(comparison, run, LENIENT_REFERENCE, locale="en", declared=None)
     assert head.worse is False
     assert exit_code(head) != EXIT_WORSE
 
@@ -253,7 +253,7 @@ def test_an_honest_drop_still_exits_one() -> None:
     assert delta.denominator_moved is False
     assert comparison.counts["regressed"] == 1
 
-    head = headline(comparison, run, LENIENT_REFERENCE, locale="en")
+    head = headline(comparison, run, LENIENT_REFERENCE, locale="en", declared=None)
     assert head.worse is True
     assert exit_code(head) == EXIT_WORSE
 
@@ -280,7 +280,7 @@ def test_a_flip_down_is_not_an_incomparability_and_still_exits_one() -> None:
     assert delta.outcome == "regressed"
     assert delta.denominator_moved is False
 
-    head = headline(comparison, run, REFERENCE, locale="en")
+    head = headline(comparison, run, REFERENCE, locale="en", declared=None)
     assert head.worse is True
     assert exit_code(head) == EXIT_WORSE
 
@@ -297,7 +297,11 @@ def test_the_terminal_headline_says_it_was_not_a_comparison() -> None:
     document one command away."""
     run = run_with(both_pass(1.0, 3))
     head = headline(
-        compare(run, LENIENT_REFERENCE), run, LENIENT_REFERENCE, locale="en"
+        compare(run, LENIENT_REFERENCE),
+        run,
+        LENIENT_REFERENCE,
+        locale="en",
+        declared=None,
     )
     assert head.denominator_moved == 1
     assert "1 run-level check was measured over a different number of cases" in (
@@ -329,7 +333,11 @@ def test_the_document_files_it_under_neither_worse_nor_better() -> None:
     a finding stated to a customer that nobody established."""
     run = run_with(both_pass(1.0, 3))
     document = render_html(
-        compare(run, LENIENT_REFERENCE), run, LENIENT_REFERENCE, locale="en"
+        compare(run, LENIENT_REFERENCE),
+        run,
+        LENIENT_REFERENCE,
+        locale="en",
+        declared=None,
     )
     assert "What was not compared" in document
     assert "not a movement of one another" in document
@@ -351,7 +359,11 @@ def test_a_report_with_no_moved_denominator_gains_no_section() -> None:
     """
     run = run_with(both_pass(0.75, 4))
     document = render_html(
-        compare(run, LENIENT_REFERENCE), run, LENIENT_REFERENCE, locale="en"
+        compare(run, LENIENT_REFERENCE),
+        run,
+        LENIENT_REFERENCE,
+        locale="en",
+        declared=None,
     )
     assert "What was not compared" not in document
     # The shape of the document is the six sections it always had.
@@ -441,7 +453,7 @@ def test_the_flip_itself_is_untouched_and_the_run_is_not_made_redder() -> None:
     (delta,) = comparison.deltas
     assert delta.current is not None and delta.current.status == "pass"
 
-    head = headline(comparison, run, RED_REFERENCE, locale="en")
+    head = headline(comparison, run, RED_REFERENCE, locale="en", declared=None)
     assert head.worse is False
     assert exit_code(head) != EXIT_WORSE
 
@@ -538,7 +550,7 @@ def test_the_surfaces_say_it_with_the_sentences_they_already_had() -> None:
     """
     run = run_with(aggregate(1.0, 3))
     comparison = compare(run, RED_REFERENCE)
-    head = headline(comparison, run, RED_REFERENCE, locale="en")
+    head = headline(comparison, run, RED_REFERENCE, locale="en", declared=None)
 
     # The terminal sentence.
     assert head.denominator_moved == 1
@@ -552,7 +564,7 @@ def test_the_surfaces_say_it_with_the_sentences_they_already_had() -> None:
         assert claim not in line
 
     # The document.
-    document = render_html(comparison, run, RED_REFERENCE, locale="en")
+    document = render_html(comparison, run, RED_REFERENCE, locale="en", declared=None)
     assert "What was not compared" in document
     assert "not a movement of one another" in document
     assert "improved <b>0</b>" in document
@@ -697,12 +709,12 @@ def test_the_advisory_scenario_end_to_end_with_the_real_recall() -> None:
 
     # What a person reads. The gate is not among the improvements, and the
     # sentence names the two numbers of cases instead of a direction.
-    head = headline(comparison, attacked, reference, locale="en")
+    head = headline(comparison, attacked, reference, locale="en", declared=None)
     assert head.denominator_moved == 1
     assert "1 run-level check was measured over a different number of cases" in (
         head.sentence
     )
-    document = render_html(comparison, attacked, reference, locale="en")
+    document = render_html(comparison, attacked, reference, locale="en", declared=None)
     assert "What was not compared" in document
     assert "improved <b>0</b>" in document
 
@@ -751,7 +763,7 @@ def test_a_flip_down_can_be_a_false_alarm_and_still_exits_one() -> None:
         # No case got worse: the only regression in the run is the gate.
         assert comparison.regressed == (recall_delta,)
 
-        head = headline(comparison, run, reference, locale="en")
+        head = headline(comparison, run, reference, locale="en", declared=None)
         assert head.worse is True
         assert head.denominator_moved == 0
         assert exit_code(head) == EXIT_WORSE
@@ -767,7 +779,7 @@ def test_a_flip_down_can_be_a_false_alarm_and_still_exits_one() -> None:
         )
         lenient_comparison = compare(lenient, lenient_reference)
         lenient_head = headline(
-            lenient_comparison, lenient, lenient_reference, locale="en"
+            lenient_comparison, lenient, lenient_reference, locale="en", declared=None
         )
         assert lenient_head.denominator_moved == 1
         assert lenient_head.worse is False
@@ -915,7 +927,7 @@ def test_the_three_surfaces_state_the_checked_number_or_none_at_all() -> None:
     (delta,) = [d for d in comparison.deltas if d.scope == "run"]
     assert delta.counted is None, "the row carries the checked number"
 
-    document = render_html(comparison, run, run, locale="en")
+    document = render_html(comparison, run, run, locale="en", declared=None)
     assert "All 20 cases counted" not in document
     assert "20 of 20" not in document
 

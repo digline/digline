@@ -77,6 +77,7 @@ from digline.core.compare import (
     suite_deltas,
     withhold_artifacts,
 )
+from digline.core.declared import Declared, nothing_judged
 from digline.core.diff import (
     CheckDifference,
     Difference,
@@ -346,6 +347,7 @@ __all__ = [
     "Difference",
     "DifferentJudgesError",
     "DifferentRegimesError",
+    "Declared",
     "DifferentTenantsError",
     "DifferentSuitesError",
     "DocumentRefusedError",
@@ -366,6 +368,7 @@ __all__ = [
     "fold_judgements",
     "judged",
     "scale_lost",
+    "nothing_judged",
     "reconcile",
     "unreconciled",
     "unreconciled_verdict",

@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, get_args
 
-from digline.core import Outcome, Run, scale_lost
+from digline.core import Declared, Outcome, Run, nothing_judged, scale_lost
 from digline.report import Headline, unjudged_cases
 from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
@@ -304,15 +304,15 @@ def exit_code(head: Headline) -> int:
     the one the pipeline reports, or a real regression would hide behind a
     flaky provider.
 
-    A suspension never fails: it is a decision someone already made, not an
-    outcome. **That sentence is the whole of the rule, and it was never
-    deliberated.** It arrived with the first commit (`ae4a2af`), no ADR rules on
-    it, and ADR 0013 builds on it without examining it. What it justifies is one
-    suspension among judged cases. A run in which every case is suspended is a
-    state no single suspension decided, and what that run should exit is open
-    on #360.
+    **A suspension, at two levels.** At the level of the case it never fails:
+    it is a decision someone already made, not an outcome, and one suspended
+    case among judged cases moves nothing. At the level of the run, a run of
+    suspensions only does not pass: `head.nothing_judged`, for a run in which
+    none of the cases that count was judged, read against what the suite
+    declares. `0` asserts that something was measured, and there it was not.
+    (ADR 0049 §1, §3, §6)
 
-    `2` has three causes and this body is the enumeration of them — the one place
+    `2` has four causes and this body is the enumeration of them — the one place
     an enumeration is safe, because it is the source rather than a description of
     somebody else's set. `EXIT_UNJUDGED` keeps the name of the first; renaming an
     exported constant to settle a naming debt would break consumers to improve a
@@ -332,7 +332,7 @@ def exit_code(head: Headline) -> int:
         # headline can say what happened without saying something untrue about
         # it. (ADR 0016 §5)
         return EXIT_WORSE
-    if head.unjudged or head.scale_lost or head.pinned_drifted:
+    if head.unjudged or head.scale_lost or head.pinned_drifted or head.nothing_judged:
         # A lost scale is not an errored verdict — the score is real, and it is
         # the evidence — but the numbers beside it are not measurements, which
         # is what 2 already means. It comes after 1 by choice rather than by
@@ -349,28 +349,39 @@ def exit_code(head: Headline) -> int:
         # approved. A regression still outranks it: both stop the pipeline and
         # the sentence names both, so ordering the quieter one first would only
         # hide the louder. (ADR 0029 §6)
+        #
+        # And a run that judged nothing, for the reason `2` already has: the
+        # run could not be judged. Not `1`, which says a regression, and a run
+        # that measured nothing is an absence, not a worsening. A moved canary
+        # still outranks it, as it outranks every cause of 2. (ADR 0049 §3)
         return EXIT_UNJUDGED
     return EXIT_OK
 
 
-def run_exit_code(run: Run) -> int:
+def run_exit_code(run: Run, *, declared: Declared | None) -> int:
     """The exit code of a run with nothing to compare it against: a first
     round, before any baseline.
 
     **`exit_code`'s rule, restricted to what a lone run can say.** `1` needs a
     relation: a check got worse, a canary moved, a pin drifted from the
     reference. None of these has a meaning without a reference, so this
-    never returns `1`. What remains is `2`, for a case that could not be judged
-    or a calibration case outside its band. Both are read from the run alone,
-    by the same two functions `headline()` reads them with.
+    never returns `1`. What remains is `2`, for a case that could not be judged,
+    a calibration case outside its band, or a run that judged nothing. The
+    first two are read from the run alone, by the functions `headline()` reads
+    them with. The third is read against `declared`, **the same declaration the
+    front end hands to `headline()`**: a run document does not record what its
+    suite declares, and a path that read the run alone would let a judged
+    canary turn a subject suite green. `None` is a document with no suite
+    behind it. (ADR 0049 §3, *Requires*)
 
     **One function, so the rule has one place.** It was written inline twice,
     behind `digline report` and `digline explain`. The two copies agreed only
     because neither had moved yet (#318). `tests/test_run_exit_code.py` holds
     it to `exit_code`: for any run, this equals `exit_code` of the run compared
-    with itself, which is the comparison with no relation in it.
+    with itself, which is the comparison with no relation in it, both given the
+    same declaration.
     """
-    if unjudged_cases(run) or scale_lost(run):
+    if unjudged_cases(run) or scale_lost(run) or nothing_judged(run, declared):
         return EXIT_UNJUDGED
     return EXIT_OK
 
@@ -1035,6 +1046,11 @@ _ADDED: tuple[_AddedKey, ...] = (
     # present, so an empty list is a suite that was read, not a digline that
     # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
     _AddedKey("run", "notes", _STRINGS, "#396; ADR 0024 §6.4"),
+    # A run in which none of the cases that count was judged, read against the
+    # suite's declaration: a new cause of exit 2, which a consumer reading
+    # `exit_code` already honours, by the rule `pinned_drifted` arrived under.
+    _AddedKey("compare", "nothing_judged", _BOOL, "ADR 0049 §4"),
+    _AddedKey("compare.full", "nothing_judged", _BOOL, "ADR 0049 §4"),
 )
 
 

@@ -49,5 +49,6 @@ def cycle(path: Path, root: Path, *, promote: bool) -> str:
                 else key_of(current.created_at, current.config_hash)
             ),
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
     return ref.key

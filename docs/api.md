@@ -1942,11 +1942,17 @@ cannot take that `None`.
 from digline.core import compare
 from digline.report import render_html, render_run_html
 
-baseline = store.read_baseline(tenant, suite)
+baseline = store.read_baseline(suite.tenant, suite.name)
 if baseline is None:
     document = render_run_html(run, locale="en")  # look first, then promote
 else:
-    document = render_html(compare(run, baseline), run, baseline, locale="en")
+    document = render_html(
+        compare(run, baseline),
+        run,
+        baseline,
+        locale="en",
+        declared=suite.declared(),  # the `Suite` load_suite returned
+    )
 ```
 
 - **It is the same document as `render_html` wherever a section is about the
@@ -1955,9 +1961,9 @@ else:
   reference, and groups the cases by what each verdict is.
 - **It is not a verdict.** There is no headline, because "worse" is a relation
   and there is nothing to be worse than.
-  - `digline report` still exits `2` on a first round with an unjudged case or
-    a lost scale. A program gets the same number from
-    [`run_exit_code(run)`](#the-exit-code-exit_code-and-run_exit_code).
+  - `digline report` still exits `2` on a first round with an unjudged case, a
+    lost scale or nothing judged. A program gets the same number from
+    [`run_exit_code(run, declared=...)`](#the-exit-code-exit_code-and-run_exit_code).
 - **`locale` is mandatory**, for `render_html`'s reason: the document has a
   recipient.
 - **On a projected page, project first**: `project_served(run, mint)`, or
@@ -1974,25 +1980,38 @@ on its own, and that is a look at the run, not a comparison.
 
 The number `digline compare`, `report` and `explain` exit with, for a program
 that shows a run and has to say whether it passes (#318). Both are in
-`digline.wire`, both are pure, and neither needs a store or a suite:
+`digline.wire` and both are pure. Neither needs a store, and both need **the
+suite's declaration**, `suite.declared()`: which cases the suite measures, and
+which watch the model or the judge. A run document does not record it, and
+whether a run judged anything is read against it
+([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md) §3):
 
 ```python
 from digline.core import compare
 from digline.report import headline
 from digline.wire import exit_code, run_exit_code
 
-baseline = store.read_baseline(tenant, suite)
+declared = suite.declared()  # the `Suite` load_suite returned
+baseline = store.read_baseline(suite.tenant, suite.name)
 if baseline is None:
-    code = run_exit_code(run)  # a first round
+    code = run_exit_code(run, declared=declared)  # a first round
 else:
-    code = exit_code(headline(compare(run, baseline), run, baseline, locale="en"))
+    head = headline(
+        compare(run, baseline), run, baseline, locale="en", declared=declared
+    )
+    code = exit_code(head)
 ```
+
+`declared` is keyword-only and has no default, like `locale`: a path that
+forgot it would read the run alone, and a judged canary would turn a suite that
+measures a subject green. Pass `None` only for a document with no suite behind
+it. Then the cases the document carries are what counts.
 
 | Code | Constant | Means |
 |---|---|---|
 | `0` | `EXIT_OK` | proceed |
 | `1` | `EXIT_WORSE` | a check got worse, or a canary moved |
-| `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, or a pinned file drifted from the reference |
+| `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, a pinned file drifted from the reference, or the run judged nothing |
 
 Two more codes are exported beside them, and `exit_code()` never returns
 either, because neither is a verdict on the suite. `EXIT_USAGE` (`64`) is the
@@ -2002,18 +2021,20 @@ so a gate that measured nothing neither passes nor reports a regression
 ([ADR 0041](adr/0041-the-exit-code-of-a-failure-nobody-anticipated.md)).
 
 - **`exit_code(head)` is the rule**, read from a `Headline`. A regression or a
-  moved canary outranks the causes of `2`. A suspension never fails. That
-  rule was never deliberated: it arrived with the first commit and no ADR
-  rules on it. So a run whose cases are **all** suspended exits `0` too, and
-  whether it should is open on
-  [#360](https://github.com/digline/digline/issues/360). The headline's
-  `locale` does not change the number.
+  moved canary outranks the causes of `2`. A suspended case never fails, and a
+  run of suspensions only does not pass: where none of the cases the suite
+  measures was judged, `head.nothing_judged` is true and the code is `2`. A
+  suite of canaries and calibration cases only is judged by them. The
+  headline's `locale` does not change the number
+  ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md)).
 - **`run_exit_code(run)` is the same rule with nothing to compare against.**
   It never returns `1`, because *worse*, a moved canary and a drifted pin are
   relations. What is left is `2` for an unjudged case or a lost scale, read
-  from the run alone.
-  - **It is held to `exit_code` by a test**: for any run, it equals `exit_code`
-    of the run compared with itself, in clear, redacted and projected.
+  from the run alone, or for a run that judged nothing, read against
+  `declared`.
+  - **It is held to `exit_code` by a test**: for any run, given the same
+    declaration, it equals `exit_code` of the run compared with itself, in
+    clear, redacted and projected.
   - `digline report` and `digline explain` compute their first-round code
     through it, so a program and the CLI cannot disagree.
 - **On the wire**, `compare --json` and `explain --json` already carry the
@@ -2049,9 +2070,11 @@ plus the moved reference from ADR 0031. The last one checked is
 purpose.** It takes the configuration hash the run must match as an argument.
 That hash is the suite's, over the price of the target measured, and the value
 a caller finds in reach is the run's own `config_hash`. Passed that value, the
-check compares the run with itself and passes every time. `promote` takes what
-the suite was loaded as and computes the hash itself, so there is nothing to
-pass wrongly. A program that implements a store of its own meets
+check compares the run with itself and passes every time. It also takes the
+suite's declaration, which no run document carries
+([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md) §5).
+`promote` takes what the suite was loaded as and computes both itself, so
+there is nothing to pass wrongly. A program that implements a store of its own meets
 `promote_baseline` on the `ResultStore` protocol, and what that protocol owes
 is documented there.
 
@@ -2308,6 +2331,7 @@ digline's ([ADR 0036](adr/0036-the-name-table-and-the-process-that-owns-it.md)
 
 ```python
 from digline.core import Minter, TokenKind, project, run_to_json
+from digline.host import promote, utc_now_iso
 
 
 def mint(
@@ -2315,7 +2339,9 @@ def mint(
 ) -> str: ...  # look (kind, text) up in the table; mint a token if it is absent
 
 
-reference = store.promote_baseline(...)  # or digline.host.promote
+reference = promote(
+    store, loaded, key, target=None, replacing=replacing, promoted_at=utc_now_iso()
+)
 document = run_to_json(project(reference, mint))
 ```
 

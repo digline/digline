@@ -6,6 +6,35 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.32.0 — unreleased
+
+- **Breaking: a run that judged nothing exits `2` and cannot be promoted**
+  ([ADR 0049](docs/adr/0049-a-run-that-judged-nothing-does-not-pass.md),
+  #360, #374). A run judged nothing when none of the cases its suite measures
+  was judged: every one suspended, errored or absent from the run. Until now a
+  run whose every case was suspended exited `0` and could become the
+  reference, and the next round then read every check as *new here* under
+  *"Nothing got worse"*. Now `compare`, `report` and `explain` exit `2`, MCP's
+  `exit_code` reads `2`, and `promote` refuses it with `NothingJudgedError`,
+  whether or not the suite declares an aggregate. **There is no flag**: such
+  a run was not passing, it was reporting wrongly. To get past it, judge at
+  least one case or stop running the suite. A suite of canaries and
+  calibration cases only is judged by them and does not turn red. A suite
+  that judges at least one of its cases exits exactly as before, and an
+  aggregate in error beside judged cases still moves no exit code.
+- **The headline says which:** `nothing_judged` on the headline, in
+  `compare --json` and in the register's `outcome`, and a sentence of its own
+  in every locale. `output_version` and the register's version do not move:
+  both are added keys. A register line written before this carries no
+  `nothing_judged`, and reads as *not recorded*, never as `false`.
+- **Breaking for a program that calls digline's functions:** `headline`,
+  `render_html`, `run_exit_code` and `refusals_for`, and the `ResultStore`
+  protocol's `promote_baseline`, take a mandatory keyword-only `declared`:
+  the suite's declaration, `suite.declared()`, which a run document does not
+  carry. Pass `None` only for a document with no suite behind it.
+  `digline.host.promote` keeps its signature. A store of your own has to
+  accept the argument and hand it to `refusals_for`.
+
 ## digline-mcp 0.5.0 — 2026-10-12
 
 Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on

@@ -86,6 +86,7 @@ def test_the_full_cycle(tmp_path: Path) -> None:
         reference_suite.config_hash(),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
@@ -98,7 +99,7 @@ def test_the_full_cycle(tmp_path: Path) -> None:
     store.write_run(later)
 
     comparison = compare(later, baseline)
-    head = headline(comparison, later, baseline, locale="it")
+    head = headline(comparison, later, baseline, locale="it", declared=None)
 
     # 3. The headline answers the question the end company asks.
     assert head.worse is True
@@ -112,7 +113,7 @@ def test_the_full_cycle(tmp_path: Path) -> None:
     assert head.config_changed is False
 
     # 4. The document says the same thing, in the reader's language.
-    document = render_html(comparison, later, baseline, locale="it")
+    document = render_html(comparison, later, baseline, locale="it", declared=None)
     assert head.sentence in document
     assert "È peggiorato? Sì" in document
     assert "production" in document and "staging" in document
@@ -130,6 +131,7 @@ def test_the_cycle_leaves_only_what_belongs_in_the_repository(
         suite.config_hash(),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
 
     written = {
@@ -153,6 +155,7 @@ def test_a_run_that_could_not_judge_is_not_promotable(tmp_path: Path) -> None:
             suite.config_hash(),
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
 
 
@@ -170,11 +173,12 @@ def test_suspending_the_flaky_case_makes_the_suite_promotable(
         suite.config_hash(),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
 
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.suspended == 1
     assert head.unjudged == 0
 
@@ -192,6 +196,7 @@ def test_the_customer_can_send_the_verdict_without_the_data(
         reference_suite.config_hash(),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     baseline = store.read_baseline("acme-bank", "qa")
     assert baseline is not None
@@ -202,6 +207,8 @@ def test_the_customer_can_send_the_verdict_without_the_data(
     # The regression survives the boundary.
     assert compare(hidden, baseline).counts["regressed"] == 1
     # The judgement does not.
-    document = render_html(compare(hidden, baseline), hidden, baseline, locale="it")
+    document = render_html(
+        compare(hidden, baseline), hidden, baseline, locale="it", declared=None
+    )
     assert JUDGED not in document
     assert "dati redatti" in document

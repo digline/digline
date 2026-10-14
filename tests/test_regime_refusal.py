@@ -45,7 +45,9 @@ def worse(reference: Run) -> Run:
 
 
 def gate(run: Run, baseline: Run) -> int:
-    return exit_code(headline(compare(run, baseline), run, baseline, locale="en"))
+    return exit_code(
+        headline(compare(run, baseline), run, baseline, locale="en", declared=None)
+    )
 
 
 def test_the_regression_fails_the_gate_in_clear() -> None:

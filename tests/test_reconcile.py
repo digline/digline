@@ -187,7 +187,7 @@ def test_a_verdict_that_never_came_back_is_recorded_as_a_named_error() -> None:
 
 def test_it_says_so_first_names_the_check_and_exits_two() -> None:
     _suite, run = lost_one()
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.sentence.startswith(
         "The run does not reconcile with what the suite asked, at 1 check: "
         "c2 · agrees. This is not a regression: what the run measured is not "
@@ -220,7 +220,7 @@ def test_it_says_so_first_names_the_check_and_exits_two() -> None:
 
 def test_the_italian_clause() -> None:
     _suite, run = lost_one()
-    head = headline(compare(run, run), run, run, locale="it")
+    head = headline(compare(run, run), run, run, locale="it", declared=None)
     assert head.sentence.startswith(
         "L'esecuzione non torna con ciò che la suite ha chiesto, in 1 controllo: "
         "c2 · agrees. Non è una regressione"
@@ -237,6 +237,7 @@ def test_it_can_never_be_promoted_and_the_refusal_names_it(tmp_path: Path) -> No
             suite.config_hash(),
             expected_baseline=None,
             promoted_at="2026-09-19T11:00:00+00:00",
+            declared=None,
         )
     assert "not a regression" in str(caught.value)
     assert store.read_baseline("acme", "triage") is None
@@ -411,7 +412,7 @@ def test_a_run_that_gaps_a_whole_suite_stops_naming_and_counts() -> None:
 def test_the_bounded_clause_bounds_the_headline_and_the_wire() -> None:
     """The consequence where it was actually paid."""
     run = gapped(1000)
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     payload = compare_json(compare(run, run), head, baseline=run, full=False)
 
     assert head.unreconciled == 1000
@@ -450,7 +451,9 @@ def test_the_headline_no_longer_claims_every_case_could_be_judged() -> None:
     measured."""
     _suite, reference = lost_one()
     clean = execute(a_suite(), answering, created_at=CREATED)
-    head = headline(compare(clean, reference), clean, reference, locale="en")
+    head = headline(
+        compare(clean, reference), clean, reference, locale="en", declared=None
+    )
 
     assert head.reference_unreconciled == 1
     assert "The reference does not reconcile" in head.sentence
@@ -466,7 +469,9 @@ def test_it_moves_no_exit_code() -> None:
     comparison, which is `config_changed`'s shape."""
     _suite, reference = lost_one()
     clean = execute(a_suite(), answering, created_at=CREATED)
-    head = headline(compare(clean, reference), clean, reference, locale="en")
+    head = headline(
+        compare(clean, reference), clean, reference, locale="en", declared=None
+    )
 
     assert head.worse is False
     assert exit_code(head) != EXIT_UNJUDGED or head.unjudged > 0
@@ -491,7 +496,7 @@ def test_the_count_crosses_on_the_wire_as_an_added_key() -> None:
     _suite, reference = lost_one()
     clean = execute(a_suite(), answering, created_at=CREATED)
     comparison = compare(clean, reference)
-    head = headline(comparison, clean, reference, locale="en")
+    head = headline(comparison, clean, reference, locale="en", declared=None)
 
     payload = compare_json(comparison, head, baseline=reference, full=False)
     assert payload["reference_unreconciled"] == 1

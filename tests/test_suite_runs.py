@@ -65,6 +65,7 @@ def promote(store: FileResultStore, run: Run) -> None:
         run.config_hash,
         expected_baseline=None,
         promoted_at="2026-09-30T12:00:00+00:00",
+        declared=None,
     )
 
 

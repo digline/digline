@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from digline.core import Run, key_of
+from digline.core import Declared, Run, key_of
 from digline.store import Listing, Removal, RunNotFoundError, RunRef
 
 
@@ -77,6 +77,7 @@ class MemoryStore:
         expected_config_hash: str,
         *,
         expected_baseline: str | None,
+        declared: Declared | None,
         promoted_at: str,
     ) -> Run:
         raise NotImplementedError(

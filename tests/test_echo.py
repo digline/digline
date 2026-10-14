@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from digline.core import Run, SystemConfig, compare
+from digline.core import CaseResult, Run, Score, SystemConfig, Verdict, compare
 from digline.report import (
     LOCALES,
     Locale,
@@ -37,6 +37,23 @@ def config(model: str = "gpt-5.6-sol", **values: str) -> SystemConfig:
     return SystemConfig(values={"provider": "openai", "model": model, **values})
 
 
+#: One judged case. A run with no case judged nothing, and since ADR 0049 that
+#: exits 2 and is never promoted, so a fixture about something else carries
+#: one rather than test that by accident. (ADR 0049 §3)
+JUDGED = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=1.0),
+            threshold=1.0,
+            status="pass",
+            reason="found",
+            assertion_id="contains-1",
+        ),
+    ),
+)
+
+
 def a_run(created_at: str, target: SystemConfig) -> tuple[str, Run]:
     run = Run(
         tenant="acme",
@@ -44,6 +61,7 @@ def a_run(created_at: str, target: SystemConfig) -> tuple[str, Run]:
         suite="qa",
         config_hash="abc",
         created_at=created_at,
+        results=(JUDGED,),
         target_config=target,
         digline_version="0.13.0",
     )
@@ -187,7 +205,7 @@ def test_the_headline_and_the_reading_say_echoed_where_the_record_does(
 ) -> None:
     baseline, run = compared(run_target, run_target)
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale=locale)
+    head = headline(comparison, run, baseline, locale=locale, declared=None)
 
     clause = phrase(locale, "fact.target_config.echoed", model="gpt-5.6-sol")
     assert (clause in head.sentence) is echoed
@@ -209,6 +227,6 @@ def test_an_echo_moves_no_exit_code() -> None:
 
     target = config(resolved_model="gpt-5.6-sol")
     baseline, run = compared(target, target)
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.target_echoed is True
     assert exit_code(head) == 0

@@ -500,7 +500,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
     _warn_if_ahead(run, baseline)
 
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale=args.locale)
+    head = headline(
+        comparison, run, baseline, locale=args.locale, declared=suite.declared()
+    )
 
     if args.json:
         payload = compare_json(

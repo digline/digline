@@ -76,7 +76,7 @@ from digline.run import (
     planned_calls,
     rejudge,
 )
-from digline.store import ErroredRunError, FileResultStore, UncalibratedRunError
+from digline.store import FileResultStore, UncalibratedRunError
 from digline.store.migrate import NonAdditiveError, upgrade_document
 from digline.targets import CompletionResult, ModelPrice, Pricing, ScoreJudge, Usage
 from digline.wire import (
@@ -530,11 +530,13 @@ def test_a_run_with_no_calibration_case_says_nothing_about_one() -> None:
     run = execute(suite(cases=[Case(id="one")]), Counting(), created_at=CREATED)
     assert scale_lost(run) == ()
     assert "calibration" not in run_to_json(run)
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert not head.scale_lost
     assert "calibration" not in head.sentence
     assert "calibration" not in render_run_html(run, locale="en")
-    assert "calibration" not in render_html(compare(run, run), run, run, locale="en")
+    assert "calibration" not in render_html(
+        compare(run, run), run, run, locale="en", declared=None
+    )
     assert "calibration" not in [getattr(f, "kind", None) for f in facts(run)]
 
 
@@ -562,7 +564,7 @@ def test_movement_inside_the_band_is_not_a_regression() -> None:
     assert delta.outcome == "regressed"
     assert delta.calibration
 
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     assert not head.worse
     assert head.counts["regressed"] == 0
     assert exit_code(head) == EXIT_OK
@@ -574,7 +576,7 @@ def test_movement_inside_the_band_is_not_a_regression() -> None:
     assert rows[0]["calibration"] is True  # type: ignore[index]
     assert rows[0]["outcome"] == "regressed"  # type: ignore[index]
 
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     worse = document.split("What got worse")[1].split("</details>")[0]
     assert "half" not in worse
     assert "What got worse (0)" in document
@@ -608,7 +610,7 @@ def regressed_beside(run: Run) -> tuple[Run, Run]:
 def test_a_lost_scale_alone_exits_two() -> None:
     baseline = band_run((0.5, 0.5), created_at=CREATED)
     run = band_run((1.0, 1.0))
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.scale_lost
     assert not head.worse
     assert exit_code(head) == EXIT_UNJUDGED
@@ -616,7 +618,7 @@ def test_a_lost_scale_alone_exits_two() -> None:
 
 def test_a_regression_still_returns_one_and_the_calibration_clause_leads() -> None:
     run, baseline = regressed_beside(band_run((1.0,)))
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.worse and head.scale_lost
     assert exit_code(head) == EXIT_WORSE
     assert head.sentence.startswith("The calibration case half scored 1.000000")
@@ -627,7 +629,7 @@ def test_a_regression_still_returns_one_and_the_calibration_clause_leads() -> No
 def test_the_clause_exists_in_both_locales_and_names_the_samples(locale: str) -> None:
     baseline = band_run((0.5, 0.5), created_at=CREATED)
     run = band_run((1.0, 1.0, 1.0))
-    head = headline(compare(run, baseline), run, baseline, locale=locale)  # type: ignore[arg-type]
+    head = headline(compare(run, baseline), run, baseline, locale=locale, declared=None)  # type: ignore[arg-type]
     assert "half" in head.sentence
     assert "1.000000, 1.000000, 1.000000" in head.sentence
     assert "0.300000–0.700000" in head.sentence
@@ -640,7 +642,7 @@ def test_nothing_it_says_is_a_guess_or_advice(locale: str) -> None:
     baseline = band_run((0.5, 0.5), created_at=CREATED)
     run = band_run((1.0, 1.0))
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale=locale)  # type: ignore[arg-type]
+    head = headline(comparison, run, baseline, locale=locale, declared=None)  # type: ignore[arg-type]
     reading = " ".join(explain_text(facts(run, comparison), locale=locale))  # type: ignore[arg-type]
     clause = head.sentence.split(":")[0] + reading
     assert not spoken(SPECULATION, clause)
@@ -660,7 +662,7 @@ def test_the_wire_carries_the_fact() -> None:
     comparison = compare(run, baseline)
     payload = compare_json(
         comparison,
-        headline(comparison, run, baseline, locale="en"),
+        headline(comparison, run, baseline, locale="en", declared=None),
         baseline=baseline,
         full=False,
     )
@@ -680,7 +682,11 @@ def test_a_run_whose_scale_was_lost_is_not_promotable(tmp_path: Path) -> None:
     ref = store.write_run(run)
     with pytest.raises(UncalibratedRunError, match="calibration case"):
         store.promote_baseline(
-            ref, declared.config_hash(), expected_baseline=None, promoted_at=LATER
+            ref,
+            declared.config_hash(),
+            expected_baseline=None,
+            promoted_at=LATER,
+            declared=None,
         )
 
     held = execute(suite(score=0.5), Counting(), created_at=LATER)
@@ -689,6 +695,7 @@ def test_a_run_whose_scale_was_lost_is_not_promotable(tmp_path: Path) -> None:
         declared.config_hash(),
         expected_baseline=None,
         promoted_at=LATER,
+        declared=None,
     )
     assert promoted.results[1].calibration is not None
 
@@ -842,7 +849,9 @@ def test_a_third_party_check_that_names_its_score_otherwise_is_refused_by_the_dr
     was the declared one, the verdict's was not, and the identity binding read
     the score at the extreme. The driver now refuses the verdict first, so the
     calibration case is not judged at all. It is marked, it exits 2 and it is
-    not promotable, by the errored-run refusal rather than the calibration one.
+    not promotable, by a refusal for cases that were not judged rather than
+    the calibration one. Every case errored, so the run judged nothing, and
+    since ADR 0049 that refusal comes first.
 
     What the old test proved, that the band binds a differently named verdict
     by identity, is still true and still needed, for documents written before
@@ -851,24 +860,33 @@ def test_a_third_party_check_that_names_its_score_otherwise_is_refused_by_the_dr
     run = execute(declared, Counting(), created_at=CREATED)
     assert misnamed(run) == (("one", "graded"), ("half", "graded"))
     assert scale_lost(run) == ()
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert exit_code(head) == EXIT_UNJUDGED
     store = FileResultStore(str(tmp_path))
     ref = store.write_run(run)
-    with pytest.raises(ErroredRunError):
+    with pytest.raises(REFUSALS) as raised:
         store.promote_baseline(
-            ref, declared.config_hash(), expected_baseline=None, promoted_at=LATER
+            ref,
+            declared.config_hash(),
+            expected_baseline=None,
+            promoted_at=LATER,
+            declared=None,
         )
+    assert not isinstance(raised.value, UncalibratedRunError)
 
     before = recorded_before_the_name_check(run)
     [lost] = scale_lost(before)
     assert (lost.case_id, lost.check, lost.score) == ("half", "graded", 1.0)
-    head = headline(compare(before, before), before, before, locale="en")
+    head = headline(compare(before, before), before, before, locale="en", declared=None)
     assert exit_code(head) == EXIT_UNJUDGED
     ref = store.write_run(replace(before, created_at=LATER))
     with pytest.raises(UncalibratedRunError, match="calibration case"):
         store.promote_baseline(
-            ref, declared.config_hash(), expected_baseline=None, promoted_at=LATER
+            ref,
+            declared.config_hash(),
+            expected_baseline=None,
+            promoted_at=LATER,
+            declared=None,
         )
 
 
@@ -1277,12 +1295,16 @@ def test_the_fields_are_never_written_and_a_quoting_reason_stays_inside() -> Non
     assert "responses" not in json.loads(complete)["results"][1]
 
     comparison = compare(run, held)
-    head = headline(comparison, run, held, locale="en")
+    head = headline(comparison, run, held, locale="en", declared=None)
     boundary = {
         "run_to_json(redacted=True)": run_to_json(run, redacted=True),
         "report --redacted": render_run_html(redact(run), locale="en"),
         "report --redacted, compared": render_html(
-            compare(redact(run), redact(held)), redact(run), redact(held), locale="en"
+            compare(redact(run), redact(held)),
+            redact(run),
+            redact(held),
+            locale="en",
+            declared=None,
         ),
         "compare --json full": json.dumps(
             compare_json(comparison, head, baseline=held, full=True)

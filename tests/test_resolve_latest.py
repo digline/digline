@@ -52,7 +52,8 @@ def remove(store: FileResultStore, document: Run) -> None:
 
 def entry_naming(document: Run) -> RegisterEntry:
     counts = {
-        f.name: (False if f.type == "bool" else 0) for f in fields(RecordedOutcome)
+        f.name: (False if f.type.startswith("bool") else 0)
+        for f in fields(RecordedOutcome)
     }
     return RegisterEntry(
         recorded_at="2026-01-03T09:00:00+00:00",
@@ -79,6 +80,7 @@ def test_the_baseline_names_a_newer_run_that_is_gone(tmp_path: Path) -> None:
         newer.config_hash,
         expected_baseline=None,
         promoted_at="2026-01-03T09:00:00+00:00",
+        declared=None,
     )
     remove(store, newer)
 
@@ -111,6 +113,7 @@ def test_the_note_is_empty_when_nothing_on_record_is_newer(tmp_path: Path) -> No
         newer.config_hash,
         expected_baseline=None,
         promoted_at="2026-01-03T09:00:00+00:00",
+        declared=None,
     )
     store.append_register("acme", "test-suite", entry_naming(newer))
 

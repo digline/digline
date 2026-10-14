@@ -85,7 +85,7 @@ def test_the_headline_carries_three_facts() -> None:
     """Regressions and unjudged cases need different actions, and
     `config_changed` changes the meaning of both."""
     comparison, run, baseline = a_comparison()
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     assert head.worse is True
     assert head.unjudged == 0
     assert head.config_changed is False
@@ -94,7 +94,7 @@ def test_the_headline_carries_three_facts() -> None:
 def test_an_unjudged_case_is_not_counted_as_a_regression() -> None:
     baseline = a_run(verdict("llm_rubric", 0.91), when=CREATED_BASE)
     run = a_run(verdict("llm_rubric", None), when=CREATED_RUN)
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.worse is False
     assert head.unjudged == 1
     assert "1 case could not be judged" in head.sentence
@@ -121,7 +121,7 @@ def test_a_new_case_that_could_not_run_is_still_counted_as_unjudged() -> None:
     )
     comparison = compare(run, baseline)
     assert comparison.counts.get("errored", 0) == 0  # the outcome says `new`
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     assert head.unjudged == 1
     assert "1 of 2 cases judged, 1 could not be." in head.sentence
 
@@ -147,7 +147,12 @@ def test_unjudged_counts_cases_not_checks() -> None:
             ),
         ),
     )
-    assert headline(compare(run, baseline), run, baseline, locale="en").unjudged == 1
+    assert (
+        headline(
+            compare(run, baseline), run, baseline, locale="en", declared=None
+        ).unjudged
+        == 1
+    )
 
 
 def test_the_sentence_mentions_a_changed_configuration() -> None:
@@ -160,15 +165,17 @@ def test_the_sentence_mentions_a_changed_configuration() -> None:
         created_at=CREATED_RUN,
         results=(CaseResult("capital-of-italy", (verdict("llm_rubric", 0.91),)),),
     )
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.config_changed is True
     assert "compare different rules" in head.sentence
 
 
 def test_the_cli_and_the_report_say_the_same_sentence() -> None:
     comparison, run, baseline = a_comparison()
-    head = headline(comparison, run, baseline, locale="it")
-    assert head.sentence in render_html(comparison, run, baseline, locale="it")
+    head = headline(comparison, run, baseline, locale="it", declared=None)
+    assert head.sentence in render_html(
+        comparison, run, baseline, locale="it", declared=None
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -211,7 +218,7 @@ def test_the_terminal_line_and_the_report_row_come_from_one_string() -> None:
     """The guarantee this function exists for. If someone ever composes the two
     separately, this fails — which is the only way they stay in step."""
     comparison, run, baseline = many_regressions(3)
-    document = render_html(comparison, run, baseline, locale="it")
+    document = render_html(comparison, run, baseline, locale="it", declared=None)
     lines = summary_lines(comparison, run, baseline, locale="it")
 
     assert len(lines) == 3
@@ -263,7 +270,7 @@ def test_a_check_that_is_new_and_broken_is_still_listed() -> None:
     comparison = compare(run, baseline)
     assert comparison.counts.get("errored", 0) == 0  # the outcome says `new`
 
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     lines = summary_lines(comparison, run, baseline, locale="en")
 
     assert head.unjudged == 1
@@ -317,14 +324,14 @@ def test_two_renders_are_identical_byte_for_byte() -> None:
     """The report is a committable artifact: a diff must only move when a fact
     moves. Nothing here may be read from the clock."""
     comparison, run, baseline = a_comparison()
-    first = render_html(comparison, run, baseline, locale="en")
-    second = render_html(comparison, run, baseline, locale="en")
+    first = render_html(comparison, run, baseline, locale="en", declared=None)
+    second = render_html(comparison, run, baseline, locale="en", declared=None)
     assert first == second
 
 
 def test_only_the_recorded_dates_appear() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert CREATED_RUN in document and CREATED_BASE in document
 
 
@@ -333,7 +340,7 @@ def test_dates_and_numbers_are_not_localized() -> None:
     line, so formats do not move with the locale."""
     comparison, run, baseline = a_comparison()
     for locale in LOCALES:
-        document = render_html(comparison, run, baseline, locale=locale)
+        document = render_html(comparison, run, baseline, locale=locale, declared=None)
         assert CREATED_RUN in document  # ISO, not reformatted
         assert "0.780000" in document  # dot, not comma
         assert "0,780000" not in document
@@ -346,14 +353,14 @@ def test_dates_and_numbers_are_not_localized() -> None:
 
 def test_the_header_names_both_environments() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "staging" in document
     assert "production" in document
 
 
 def test_the_header_names_the_customer_and_the_suite() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "acme-bank" in document and "qa" in document
 
 
@@ -369,7 +376,9 @@ def test_a_reason_containing_markup_is_escaped() -> None:
     hostile = "<script>alert('x')</script> & <img src=x onerror=1>"
     baseline = a_run(verdict("llm_rubric", 0.91), when=CREATED_BASE)
     run = a_run(verdict("llm_rubric", 0.10, reason=hostile), when=CREATED_RUN)
-    document = render_html(compare(run, baseline), run, baseline, locale="en")
+    document = render_html(
+        compare(run, baseline), run, baseline, locale="en", declared=None
+    )
 
     # The property is that no *tag* survives, not that no word does. The string
     # `onerror=1` stays visible as text inside `&lt;img …&gt;`, which is inert:
@@ -392,7 +401,11 @@ def test_a_hostile_case_id_is_escaped() -> None:
         results=(CaseResult("<b>case</b>", (verdict("llm_rubric", 0.10),)),),
     )
     document = render_html(
-        compare(hostile_run, hostile_run), hostile_run, hostile_run, locale="en"
+        compare(hostile_run, hostile_run),
+        hostile_run,
+        hostile_run,
+        locale="en",
+        declared=None,
     )
     assert "<b>case</b>" not in document
     assert "&lt;b&gt;case&lt;/b&gt;" in document
@@ -409,10 +422,12 @@ def test_a_redacted_input_makes_the_report_redacted_without_a_flag() -> None:
     baseline = a_run(verdict("llm_rubric", 0.91), when=CREATED_BASE)
     run = redact(a_run(verdict("llm_rubric", 0.78), when=CREATED_RUN))
 
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.reasons_available is False
 
-    document = render_html(compare(run, baseline), run, baseline, locale="en")
+    document = render_html(
+        compare(run, baseline), run, baseline, locale="en", declared=None
+    )
     assert "produced from redacted data" in document
     assert "the judge explained itself" not in document
     assert "<redacted>" not in document  # the marker is never shown
@@ -421,7 +436,7 @@ def test_a_redacted_input_makes_the_report_redacted_without_a_flag() -> None:
 
 def test_a_complete_input_carries_the_judge_words() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "the judge explained itself" in document
 
 
@@ -434,7 +449,7 @@ def test_the_print_stylesheet_opens_collapsed_sections() -> None:
     """Printing is the declared route to PDF, and a printed report that hides
     the regressions is a wrong report."""
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "@media print" in document
     # The block runs to the end of the stylesheet; splitting on the first "}"
     # would cut it at the first nested rule.
@@ -445,7 +460,7 @@ def test_the_print_stylesheet_opens_collapsed_sections() -> None:
 
 def test_the_document_needs_no_script_to_be_read() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "<script" not in document.lower()
     assert "http://" not in document and "https://" not in document
 
@@ -466,7 +481,7 @@ def test_both_locales_cover_exactly_the_same_keys() -> None:
 def test_every_locale_renders() -> None:
     comparison, run, baseline = a_comparison()
     for locale in LOCALES:
-        document = render_html(comparison, run, baseline, locale=locale)
+        document = render_html(comparison, run, baseline, locale=locale, declared=None)
         assert document.startswith("<!DOCTYPE html>")
         assert f'<html lang="{locale}"' in document
 
@@ -475,15 +490,15 @@ def test_an_unknown_locale_fails_at_the_call_not_halfway() -> None:
     """A truncated report still looks like a report."""
     comparison, run, baseline = a_comparison()
     with pytest.raises(ValueError, match="unknown locale"):
-        render_html(comparison, run, baseline, locale="de")  # type: ignore[arg-type]
+        render_html(comparison, run, baseline, locale="de", declared=None)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="unknown locale"):
-        headline(comparison, run, baseline, locale="de")  # type: ignore[arg-type]
+        headline(comparison, run, baseline, locale="de", declared=None)  # type: ignore[arg-type]
 
 
 def test_the_two_locales_differ_in_wording_but_not_in_shape() -> None:
     comparison, run, baseline = a_comparison()
-    english = render_html(comparison, run, baseline, locale="en")
-    italian = render_html(comparison, run, baseline, locale="it")
+    english = render_html(comparison, run, baseline, locale="en", declared=None)
+    italian = render_html(comparison, run, baseline, locale="it", declared=None)
     assert english != italian
     assert "È peggiorato?" in italian
     assert "Did it get worse?" in english
@@ -497,7 +512,7 @@ def test_the_engine_english_is_not_leaked_into_the_italian_report() -> None:
     comparison, run, baseline = a_comparison()
     assert "score dropped from" in comparison.deltas[0].reason
     assert "score dropped from" not in render_html(
-        comparison, run, baseline, locale="it"
+        comparison, run, baseline, locale="it", declared=None
     )
 
 
@@ -508,20 +523,20 @@ def test_the_engine_english_is_not_leaked_into_the_italian_report() -> None:
 
 def test_regressions_come_before_everything_else() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert document.index("What got worse") < document.index("What stayed the same")
 
 
 def test_regressions_and_unjudged_are_open_by_default() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     first_two = document.split("<details")[1:3]
     assert all(chunk.startswith(" open") for chunk in first_two)
 
 
 def test_an_empty_section_says_so_rather_than_disappearing() -> None:
     comparison, run, baseline = a_comparison()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     assert "Nothing in this section." in document
 
 
@@ -531,7 +546,7 @@ def test_every_delta_appears_exactly_once() -> None:
     )
     run = a_run(verdict("llm_rubric", 0.78), verdict("contains", 1.0), when=CREATED_RUN)
     comparison = compare(run, baseline)
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     for delta in comparison.deltas:
         assert document.count(f"<code>{delta.assertion}</code>") == 1
 
@@ -669,7 +684,7 @@ def test_an_unknown_locale_fails_before_a_single_run_document_is_built() -> None
 def test_the_no_reference_heading_never_appears_with_a_baseline() -> None:
     comparison, run, baseline = a_comparison()
     for locale in LOCALES:
-        document = render_html(comparison, run, baseline, locale=locale)
+        document = render_html(comparison, run, baseline, locale=locale, declared=None)
         assert escape(TEXT[locale]["noreference.title"]) not in document
         assert escape(TEXT[locale]["noreference.sentence"]) not in document
         # The question is still asked, which is the other half of the same fact.
@@ -726,7 +741,7 @@ def test_a_suspended_case_is_counted_once_by_both_readers() -> None:
     """
     run = a_mixed_run()
     baseline = replace(run, created_at=CREATED_BASE, environment="production")
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(compare(run, baseline), run, baseline, locale="en", declared=None)
     assert head.suspended == suspended_cases(run) == run_tally(run).suspended
 
 

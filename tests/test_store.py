@@ -109,6 +109,7 @@ def test_the_baseline_file_is_readable_by_eye(tmp_path: Path) -> None:
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     text = store.baseline_path("acme", "test-suite").read_text(encoding="utf-8")
     assert text.startswith("{\n")  # indented, not minified
@@ -141,6 +142,7 @@ def test_it_promotes_a_run_with_the_matching_configuration(tmp_path: Path) -> No
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert promoted.config_hash == "hash-a"
     stored = store.read_baseline("acme", "test-suite")
@@ -159,6 +161,7 @@ def test_it_refuses_to_promote_a_run_from_another_configuration(tmp_path: Path) 
             expected_config_hash="new-hash",
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
     assert store.read_baseline("acme", "test-suite") is None
 
@@ -195,7 +198,11 @@ def test_it_refuses_to_promote_a_run_that_could_not_judge(tmp_path: Path) -> Non
 
     with pytest.raises(ErroredRunError, match="cannot-judge"):
         store.promote_baseline(
-            ref, cfg, expected_baseline=None, promoted_at="2026-01-02T09:00:00+00:00"
+            ref,
+            cfg,
+            expected_baseline=None,
+            promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
     assert store.read_baseline("acme", "qa") is None
 
@@ -212,6 +219,10 @@ def test_it_names_every_case_it_could_not_judge(tmp_path: Path) -> None:
         config_hash=cfg,
         created_at=CREATED,
         results=(
+            # Judged, so condition 3 is the refusal under test and not condition
+            # 10, which a run whose every case errored meets first.
+            # (ADR 0049 §3, §5)
+            CaseResult("judged", (budget(EvaluatorInputs(output="x", cost_usd=0.01)),)),
             CaseResult("alpha", (broken,)),
             CaseResult("beta", (broken,)),
         ),
@@ -219,7 +230,11 @@ def test_it_names_every_case_it_could_not_judge(tmp_path: Path) -> None:
     ref = store.write_run(run_with_errors)
     with pytest.raises(ErroredRunError) as raised:
         store.promote_baseline(
-            ref, cfg, expected_baseline=None, promoted_at="2026-01-02T09:00:00+00:00"
+            ref,
+            cfg,
+            expected_baseline=None,
+            promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
     assert "alpha" in str(raised.value) and "beta" in str(raised.value)
 
@@ -233,6 +248,7 @@ def test_a_clean_run_is_still_promotable(tmp_path: Path) -> None:
             "hash-a",
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
         is not None
     )
@@ -246,6 +262,7 @@ def test_a_nonexistent_run_cannot_be_promoted(tmp_path: Path) -> None:
             "hash-a",
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
 
 
@@ -263,6 +280,7 @@ def test_two_tenants_do_not_see_each_other(tmp_path: Path) -> None:
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
 
     assert store.read_baseline("acme", "test-suite") is not None
@@ -291,12 +309,14 @@ def test_each_tenant_keeps_its_own_baseline_for_the_same_suite(tmp_path: Path) -
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     store.promote_baseline(
         store.write_run(run(tenant="globex", cfg="hash-b")),
         "hash-b",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     acme = store.read_baseline("acme", "test-suite")
     globex = store.read_baseline("globex", "test-suite")
@@ -312,6 +332,7 @@ def test_comparing_across_tenants_is_refused(tmp_path: Path) -> None:
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     baseline = store.read_baseline("acme", "test-suite")
     assert baseline is not None
@@ -383,6 +404,7 @@ def test_rerunning_an_unchanged_suite_shows_no_regression(tmp_path: Path) -> Non
         cfg,
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     baseline = store.read_baseline("acme", "qa")
     assert baseline is not None
@@ -414,6 +436,7 @@ def test_reordering_the_suite_does_not_invent_regressions(tmp_path: Path) -> Non
         cfg,
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     baseline = store.read_baseline("acme", "qa")
     assert baseline is not None
@@ -434,5 +457,6 @@ def test_storage_is_local_to_the_project(tmp_path: Path) -> None:
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert FileResultStore(two).read_baseline("acme", "test-suite") is None

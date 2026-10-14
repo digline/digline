@@ -461,7 +461,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
     makes it. The nested builders are reached through these."""
     now, before = _pair()
     comparison = compare(now, before)
-    head = headline(comparison, now, before, locale="en")
+    head = headline(comparison, now, before, locale="en", declared=None)
     yield (
         "compare_json",
         "compare",

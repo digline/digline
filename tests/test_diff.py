@@ -690,7 +690,7 @@ def test_the_view_renders_the_verdict_against_the_baseline() -> None:
     the existing document is the right answer to it."""
     left = run_of(verdict("contains", 1.0), created_at=LEFT_AT)
     right = run_of(verdict("contains", 0.0), created_at=RIGHT_AT)
-    page = pages.compare_page(right, left, locale="en", suite="qa")
+    page = pages.compare_page(right, left, locale="en", suite="qa", declared=None)
     assert "Did it get worse?" in page
 
 

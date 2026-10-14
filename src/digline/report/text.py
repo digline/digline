@@ -135,6 +135,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "fact.noise.one": "1 check moved within noise.",
         "fact.noise.many": "{count} checks moved within noise.",
+        # Before every count, because it is what they would be counts of: no
+        # case the suite measures was judged, so "nothing got worse" beside it
+        # is not a measurement. (ADR 0049 §3, §4)
+        "fact.nothing_judged": (
+            "None of the cases this suite measures was judged, so this run "
+            "cannot say whether anything got worse."
+        ),
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1344,6 +1351,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "fact.noise.one": "1 controllo si è mosso entro il rumore.",
         "fact.noise.many": "{count} controlli si sono mossi entro il rumore.",
+        "fact.nothing_judged": (
+            "Nessuno dei casi che questa suite misura è stato giudicato: questa "
+            "run non può dire se qualcosa è peggiorato."
+        ),
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
         # A label and a colon rather than "{judged} casi giudicati": the

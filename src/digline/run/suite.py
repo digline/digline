@@ -19,6 +19,7 @@ from digline.core import (
     NOTHING_EXTRA,
     Assertion,
     CalibrationBand,
+    Declared,
     Disclosure,
     Faithfulness,
     Label,
@@ -590,6 +591,21 @@ class Suite:
                 f"confusion matrix, so every case needs a label. Missing on: "
                 f"{', '.join(unlabelled)}"
             )
+
+    def declared(self) -> Declared:
+        """The cases this suite declares, by kind: what a run of it is about.
+
+        Handed by the front end to every path that turns a run into a code or a
+        reference, because a run document does not record it. (ADR 0049 §3)
+        """
+        return Declared(
+            subject=frozenset(
+                c.id for c in self.cases if not c.canary and c.calibration is None
+            ),
+            watching=frozenset(
+                c.id for c in self.cases if c.canary or c.calibration is not None
+            ),
+        )
 
     def config_hash(self, *, pricing: str = "") -> str:
         """Fingerprint of the configuration — assertions, aggregates,

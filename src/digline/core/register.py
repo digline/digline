@@ -54,6 +54,11 @@ class RecordedOutcome:
     target_config_changed: bool
     judge_config_changed: bool
     rejudged: bool
+    #: Whether none of the cases that count was judged. **`None` is *not
+    #: declared*, never `False`**: a line written before ADR 0049 carries no
+    #: such key, and its absence says the digline that wrote it did not record
+    #: the fact, not that something was judged. (ADR 0049 §4)
+    nothing_judged: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)

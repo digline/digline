@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
+from digline.core.declared import Declared
 from digline.core.register import RegisterEntry
 from digline.core.run import (
     SCHEMA_VERSION,
@@ -130,6 +131,16 @@ class UncalibratedRunError(Exception):
     would become the reference a later run's shape is read against — and a
     baseline scored by a judge that has gone binary makes a collapse invisible
     for as long as it stands. (ADR 0024 §4.5)
+    """
+
+
+class NothingJudgedError(Exception):
+    """Raised when promoting a run that judged nothing.
+
+    A reference is a measurement, and a run in which none of the cases that
+    count was judged measured nothing: every case suspended, or a document with
+    no cases. Refused whether or not the suite declares an aggregate, which is
+    what closes #375's asymmetry. (ADR 0049 §5)
     """
 
 
@@ -615,6 +626,7 @@ class ResultStore(Protocol):
         expected_config_hash: str,
         *,
         expected_baseline: str | None,
+        declared: Declared | None,
         promoted_at: str,
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
@@ -677,15 +689,28 @@ class ResultStore(Protocol):
            outside the perimeter — a baseline carries every artifact's text
            into a versioned file, so this holds **whatever the `Disclosure`**
            (ADR 0042 §3).
+        10. `NothingJudgedError`, before 3, if the run judged none of the cases
+            that count, read against `declared` — each suspended, errored or
+            absent — **whether or not the suite declares an aggregate**. A
+            reference is a measurement, and a run that measured nothing cannot
+            be one. Before 3 so the reader is never sent to an aggregate, which
+            is always the symptom; and the refusal names each case with its
+            state, and 3's remedy for an errored one, because where the cases
+            errored the case is the cause. `declared` is the suite's
+            declaration, mandatory for the reason `expected_config_hash` is: a
+            run document does not carry it, and read off the run a judged
+            canary would make a subject suite promotable. `None` is a document
+            with no suite behind it (ADR 0049 §3, §5).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.
-        - **2 to 6, and 9, answer from the document alone.** They are
-          `digline.store.refusals_for(run, expected_config_hash)`, which returns
-          them in the order they are owed. **Call it rather than restating
+        - **2 to 6, 9 and 10 answer from the document**, and 10 from the
+          declaration beside it. They are
+          `digline.store.refusals_for(run, expected_config_hash, declared=...)`,
+          which returns them in the order they are owed. **Call it rather than restating
           them**: a second copy drifts from this one the first time a condition
           lands, and the miscount above is what that looks like.
         - **8 is yours, beside your own write**, because it asks what the store

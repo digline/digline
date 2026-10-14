@@ -143,7 +143,7 @@ def test_suspending_a_case_that_had_a_baseline_shows_as_missing() -> None:
 def test_the_headline_counts_suspended_cases() -> None:
     suite = a_suite(Case(id="live"), Case(id="parked", suspended=WHY))
     run = execute(suite, answering, created_at=CREATED)
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.suspended == 1
     assert "1 case is suspended" in head.sentence
 
@@ -153,7 +153,7 @@ def test_a_suspended_case_is_not_counted_as_unjudged() -> None:
     failed, suspended means someone decided not to try."""
     suite = a_suite(Case(id="parked", suspended=WHY))
     run = execute(suite, answering, created_at=CREATED)
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.suspended == 1
     assert head.unjudged == 0
     assert head.worse is False
@@ -162,7 +162,7 @@ def test_a_suspended_case_is_not_counted_as_unjudged() -> None:
 def test_the_report_names_the_suspended_case_and_its_reason() -> None:
     suite = a_suite(Case(id="live"), Case(id="parked", suspended=WHY))
     run = execute(suite, answering, created_at=CREATED)
-    document = render_html(compare(run, run), run, run, locale="en")
+    document = render_html(compare(run, run), run, run, locale="en", declared=None)
     assert "What is set aside" in document
     assert "parked" in document
     assert WHY in document
@@ -187,7 +187,7 @@ def test_the_reason_is_payload_and_does_not_survive_redaction() -> None:
 def test_the_redacted_report_shows_the_case_without_the_reason() -> None:
     suite = a_suite(Case(id="parked", suspended=WHY))
     run = redact(execute(suite, answering, created_at=CREATED))
-    document = render_html(compare(run, run), run, run, locale="en")
+    document = render_html(compare(run, run), run, run, locale="en", declared=None)
     assert "parked" in document
     assert "Rossi" not in document
     assert REDACTED not in document
@@ -212,6 +212,7 @@ def test_a_suite_with_a_suspended_case_can_be_promoted(tmp_path: Path) -> None:
         config_hash(suite.assertions),
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert promoted.results[1].suspended == WHY
 

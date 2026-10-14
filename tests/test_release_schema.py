@@ -158,7 +158,11 @@ def test_promotion_stamps_the_time_it_was_given(tmp_path: Path) -> None:
     ref = store.write_run(document)
 
     promoted = store.promote_baseline(
-        ref, document.config_hash, expected_baseline=None, promoted_at=PROMOTED
+        ref,
+        document.config_hash,
+        expected_baseline=None,
+        promoted_at=PROMOTED,
+        declared=None,
     )
     assert promoted.promoted_at == PROMOTED
     assert promoted.created_at == CREATED  # the measurement's own time, untouched
@@ -177,12 +181,20 @@ def test_the_store_reads_no_clock(tmp_path: Path) -> None:
     path = store.baseline_path("acme", "qa")
 
     store.promote_baseline(
-        ref, document.config_hash, expected_baseline=None, promoted_at=PROMOTED
+        ref,
+        document.config_hash,
+        expected_baseline=None,
+        promoted_at=PROMOTED,
+        declared=None,
     )
     first = path.read_text(encoding="utf-8")
     # The second promotion replaces the first, and says so.
     store.promote_baseline(
-        ref, document.config_hash, expected_baseline=ref.key, promoted_at=PROMOTED
+        ref,
+        document.config_hash,
+        expected_baseline=ref.key,
+        promoted_at=PROMOTED,
+        declared=None,
     )
     assert path.read_text(encoding="utf-8") == first
 
@@ -230,6 +242,7 @@ def test_the_comparison_names_when_the_reference_was_approved(locale: str) -> No
         current,
         baseline,
         locale=locale,  # type: ignore[arg-type]
+        declared=None,
     )
     assert PROMOTED in document
 
@@ -295,6 +308,7 @@ def test_a_migrated_run_still_promotes_under_the_hash_it_carries(
         document.config_hash,
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert promoted.config_hash == document.config_hash
     assert promoted.digline_version == ""

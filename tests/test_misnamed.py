@@ -45,9 +45,10 @@ from digline.core import (
     unmarked,
     unreconciled,
 )
+from digline.host import REFUSALS
 from digline.report import explain_text, facts, headline, render_run_html
 from digline.run import Case, Response, Suite, execute, rejudge
-from digline.store import ErroredRunError, FileResultStore
+from digline.store import FileResultStore
 from digline.wire import EXIT_UNJUDGED, compare_json, exit_code, explain_json
 
 CREATED = "2026-09-28T10:00:00+00:00"
@@ -332,7 +333,7 @@ def test_the_marker_counts_only_on_an_errored_verdict_and_only_as_true() -> None
 
 def test_the_headline_says_why_directly_before_the_unjudged_clause() -> None:
     run = redact(run_of(NamedByAnswer(), Contains(needle="refund")))
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     clause = (
         "1 check returned a verdict under a name that is not its assertion's, "
         "and it was refused: c1 · named_by_answer. The assertion is at fault, "
@@ -348,7 +349,7 @@ def test_the_headline_says_why_directly_before_the_unjudged_clause() -> None:
 
 def test_the_italian_clause() -> None:
     run = run_of(NamedByAnswer())
-    head = headline(compare(run, run), run, run, locale="it")
+    head = headline(compare(run, run), run, run, locale="it", declared=None)
     assert (
         "1 controllo ha restituito un verdetto con un nome che non è quello della "
         "sua asserzione, ed è stato rifiutato: c1 · named_by_answer."
@@ -357,7 +358,7 @@ def test_the_italian_clause() -> None:
 
 def test_a_run_that_refused_nothing_reads_as_it_always_did() -> None:
     run = run_of(Raises())
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.misnamed == 0
     assert "under a name" not in head.sentence
     assert all(fact.kind != "misnamed" for fact in facts(run) if hasattr(fact, "kind"))
@@ -393,12 +394,16 @@ def test_it_can_never_be_promoted(tmp_path: Path) -> None:
     run = execute(suite, answering, created_at=CREATED)
     store = FileResultStore(tmp_path)
     ref = store.write_run(run)
-    with pytest.raises(ErroredRunError, match="c1"):
+    # Refused, and by name. Which refusal is not this test's argument: its one
+    # case errored, so the run also judged nothing, and that comes first.
+    # (ADR 0049 §5)
+    with pytest.raises(REFUSALS, match="c1"):
         store.promote_baseline(
             ref,
             suite.config_hash(),
             expected_baseline=None,
             promoted_at="2026-09-28T11:00:00+00:00",
+            declared=None,
         )
 
 
@@ -437,7 +442,7 @@ def test_an_assertion_cannot_claim_it_was_refused_for_its_name() -> None:
     assert MISNAMED not in verdict.score.metadata
     assert verdict.score.metadata["measured"] == 3
     assert verdict.status == "error"
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert head.misnamed == 0
     assert "under a name that is not" not in head.sentence
 

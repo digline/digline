@@ -340,7 +340,9 @@ def test_a_redacted_run_may_not_keep_an_aggregate_reason() -> None:
 def test_the_report_puts_the_aggregate_above_the_cases() -> None:
     baseline = run_agreeing(set(CASES[:14]), BASE_AT)
     later = run_agreeing(set(CASES[:11]), LATER_AT)
-    document = render_html(compare(later, baseline), later, baseline, locale="en")
+    document = render_html(
+        compare(later, baseline), later, baseline, locale="en", declared=None
+    )
 
     assert document.index("Overall") < document.index("What got worse")
     assert "accuracy" in document
@@ -362,7 +364,9 @@ def test_an_aggregate_regression_is_named_in_the_summary() -> None:
     # A run-level verdict belongs to no case, so it says so.
     assert aggregate_line.startswith("whole run · accuracy · ")
 
-    assert headline(comparison, later, baseline, locale="en").worse is True
+    assert (
+        headline(comparison, later, baseline, locale="en", declared=None).worse is True
+    )
 
 
 def test_a_suspended_case_leaves_the_denominator_and_says_so(tmp_path: Path) -> None:

@@ -403,7 +403,8 @@ def test_below_the_floor_the_outcome_is_error_and_lists_the_scores() -> None:
 def test_a_suite_too_noisy_to_trust_cannot_be_promoted(tmp_path: Path) -> None:
     """The consequence that matters: an unstable check keeps the suite from ever
     becoming a reference."""
-    from digline.store import ErroredRunError, FileResultStore
+    from digline.host import REFUSALS
+    from digline.store import FileResultStore
 
     suite = Suite(
         tenant="acme",
@@ -428,12 +429,16 @@ def test_a_suite_too_noisy_to_trust_cannot_be_promoted(tmp_path: Path) -> None:
     assert run.results[0].verdicts[0].status == "error"
 
     store = FileResultStore(tmp_path)
-    with pytest.raises(ErroredRunError, match="one"):
+    # Refused, and by name; which refusal is not the argument. Its one case
+    # errored, so the run judged nothing too, and that is refused first.
+    # (ADR 0049 §5)
+    with pytest.raises(REFUSALS, match="one"):
         store.promote_baseline(
             store.write_run(run),
             suite.config_hash(),
             expected_baseline=None,
             promoted_at="2026-01-02T09:00:00+00:00",
+            declared=None,
         )
 
 

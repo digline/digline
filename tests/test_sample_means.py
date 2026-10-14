@@ -392,7 +392,7 @@ def test_the_line_names_both_absences(
 def test_the_wire_carries_the_count() -> None:
     now = as_run([judged((0.5, 0.5), means=True)], LATER)
     comparison = compare(now, now)
-    head = headline(comparison, now, now, locale="en")
+    head = headline(comparison, now, now, locale="en", declared=None)
     [item] = compare_json(comparison, head, baseline=now, full=True)["shape"]  # type: ignore[misc]
     assert item["run"]["sample_means"] == 1  # type: ignore[index]
 

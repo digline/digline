@@ -79,9 +79,15 @@ def explained(store: ResultStore, suite: Suite, key: str) -> Explained:
     if baseline is None:
         # A lost scale needs no reference either: it compares a score with a
         # declared band, not with a past. (ADR 0024 §4.5)
-        return Explained(run, None, facts(run), "run", run_exit_code(run))
+        return Explained(
+            run,
+            None,
+            facts(run),
+            "run",
+            run_exit_code(run, declared=suite.declared()),
+        )
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=suite.declared())
     return Explained(
         run, baseline, facts(run, comparison), "comparison", exit_code(head)
     )
@@ -157,11 +163,14 @@ def reported(
                 ).artifact_deltas,
             )
 
-    document = render_html(comparison, run, baseline, locale=locale)
+    declared = suite.declared()
+    document = render_html(comparison, run, baseline, locale=locale, declared=declared)
     # From the comparison the document was rendered from, never a fresh one:
     # over a redacted run a fresh `compare` has lost the digests, reads a moved
     # pin as `unknown`, and exits 0 under a page saying the file moved.
-    code = exit_code(headline(comparison, run, baseline, locale=locale))
+    code = exit_code(
+        headline(comparison, run, baseline, locale=locale, declared=declared)
+    )
     return Reported(document, code, read, baseline)
 
 
@@ -186,7 +195,7 @@ def _reported_single(
     document = render_run_html(run, locale=locale)
     # And so does a lost scale: a band is declared, not referenced. (ADR 0024
     # §4.5)
-    return Reported(document, run_exit_code(run), read, None)
+    return Reported(document, run_exit_code(run, declared=suite.declared()), read, None)
 
 
 def history(

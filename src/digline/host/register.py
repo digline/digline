@@ -19,6 +19,7 @@ from pathlib import Path
 from digline import __version__
 from digline.core import (
     DISPOSITIONS,
+    Declared,
     Disposition,
     Quoted,
     RecordedOutcome,
@@ -46,13 +47,16 @@ def entry_for(
     disposition: Disposition,
     recorded_at: str,
     digline_version: str,
+    declared: Declared | None,
 ) -> RegisterEntry:
     """The entry, from the two documents and the person's answer. Pure.
 
     The headline is built in `en` because only its facts are kept: the sentence
     is the one thing a register entry refuses (ADR 0021 §3).
     """
-    head = headline(compare(run, baseline), run, baseline, locale="en")
+    head = headline(
+        compare(run, baseline), run, baseline, locale="en", declared=declared
+    )
     counts = head.counts
     return RegisterEntry(
         recorded_at=recorded_at,
@@ -85,6 +89,7 @@ def entry_for(
             target_config_changed=head.target_config_changed,
             judge_config_changed=head.judge_config_changed,
             rejudged=head.rejudged,
+            nothing_judged=head.nothing_judged,
         ),
         exit_code=exit_code(head),
     )
@@ -121,6 +126,7 @@ def record(
         disposition=disposition,
         recorded_at=recorded_at,
         digline_version=__version__,
+        declared=suite.declared(),
     )
     try:
         store.append_register(suite.tenant, suite.name, entry)

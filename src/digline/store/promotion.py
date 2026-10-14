@@ -7,9 +7,11 @@ answer three different questions:
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
    and it is answered as the run is read (`read_run`).
-2. **The document.** Conditions 2 to 6, and 9, answer from the run alone.
-   Anybody, anywhere, holding the same document gets the same answer, so they
-   are a function: `refusals_for`.
+2. **The document.** Conditions 2 to 6, 9 and 10 answer from the run, and 10
+   from the suite's declaration beside it, which a run document does not carry
+   and the caller hands in as it hands in the configuration hash. Anybody,
+   anywhere, holding the same two gets the same answer, so they are a
+   function: `refusals_for`.
 3. **The write.** Condition 8 asks whether the baseline present *now* is still
    the one the run was compared against. That is a question about the store at
    this instant, and it belongs to each backend, beside its own write.
@@ -35,12 +37,14 @@ core, and are imported from there.
 from __future__ import annotations
 
 from digline.core.calibration import scale_lost
+from digline.core.declared import Declared, cases_that_count, nothing_judged
 from digline.core.reconcile import unreconciled
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
+    NothingJudgedError,
     ReplayedRunError,
     UncalibratedRunError,
 )
@@ -60,10 +64,13 @@ type PromotionRefusal = (
     | ErroredRunError
     | UncalibratedRunError
     | CrossingRefusedError
+    | NothingJudgedError
 )
 
 
-def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal, ...]:
+def refusals_for(
+    run: Run, expected_config_hash: str, *, declared: Declared | None
+) -> tuple[PromotionRefusal, ...]:
     """Every refusal the document itself carries, in the order they are owed.
 
     Empty when the document refuses nothing — the idiom `unreconciled` and
@@ -149,6 +156,43 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
                 f"{len(gaps)} check(s) ({named}): this is not a regression, and "
                 "what the run measured is not known. A baseline has to be a "
                 "measurement somebody can state; run the suite again"
+            )
+        )
+
+    # Condition 10, before 3: never send the reader to the aggregate, which is
+    # always the symptom. A run whose every case is suspended errors its
+    # aggregates too, and a person told first that a figure could not be
+    # computed investigates the figure. Where the cases errored, the cause is
+    # the case, so the refusal says, case by case, which of the three states
+    # it is in, and carries 3's remedy for the errored ones: an order in a list
+    # cannot say "it depends on why", and a sentence can. Read against the
+    # suite's declaration, as the exit code reads it, whether or not the suite
+    # declares an aggregate. (ADR 0049 §3, §5)
+    if nothing_judged(run, declared):
+        carried = {case.case_id: case for case in run.results}
+        states: list[str] = []
+        unjudgeable = False
+        for case_id in sorted(cases_that_count(run, declared)):
+            case = carried.get(case_id)
+            if case is None:
+                states.append(f"{case_id} (absent)")
+            elif case.suspended is not None:
+                states.append(f"{case_id} (suspended)")
+            else:
+                unjudgeable = True
+                states.append(f"{case_id} (could not be judged)")
+        remedy = (
+            " For a case that could not be judged, fix the case or remove it "
+            "from the suite."
+            if unjudgeable
+            else ""
+        )
+        refusals.append(
+            NothingJudgedError(
+                f"run {key} judged none of the {len(states)} case(s) its suite "
+                f"measures: {', '.join(states)}. A reference is a measurement, "
+                f"and this run measured nothing.{remedy} Run the suite with at "
+                "least one of its cases judged"
             )
         )
 

@@ -53,20 +53,22 @@ RUNS = {
 
 
 def test_a_clean_first_round_proceeds() -> None:
-    assert run_exit_code(clean()) == EXIT_OK
+    assert run_exit_code(clean(), declared=None) == EXIT_OK
 
 
 def test_a_case_that_could_not_be_judged_stops_it() -> None:
-    assert run_exit_code(errored()) == EXIT_UNJUDGED
+    assert run_exit_code(errored(), declared=None) == EXIT_UNJUDGED
 
 
 def test_a_lost_scale_stops_it_on_its_own() -> None:
     """No case errored here: the band alone is the cause."""
-    assert run_exit_code(band_lost(clean())) == EXIT_UNJUDGED
+    assert run_exit_code(band_lost(clean()), declared=None) == EXIT_UNJUDGED
 
 
 def test_a_first_round_never_says_worse() -> None:
-    assert EXIT_WORSE not in {run_exit_code(run) for run in RUNS.values()}
+    assert EXIT_WORSE not in {
+        run_exit_code(run, declared=None) for run in RUNS.values()
+    }
 
 
 def as_read(run: Run) -> Run:
@@ -99,5 +101,5 @@ def test_it_is_exit_code_on_a_comparison_with_no_relation_in_it(
     clear, redacted and projected, as `report --redacted` and a served page
     hand it."""
     run = SHAPES[shape](RUNS[name])
-    head = headline(compare(run, run), run, run, locale="en")
-    assert run_exit_code(run) == exit_code(head)
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
+    assert run_exit_code(run, declared=None) == exit_code(head)
