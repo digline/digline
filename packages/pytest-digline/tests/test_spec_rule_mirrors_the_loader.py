@@ -35,10 +35,12 @@ SPECS = [
     "/nowhere/both.py:support",
     "eval/both.toml",
     # The edges of the rule: a path with no `.py`, a tail that is not an
-    # identifier, and a Windows drive letter, which is not an attribute.
+    # identifier, a Windows drive letter, which is not an attribute, and a
+    # backslash path with no `.py`, which is a file by its separator alone.
     "eval/both",
     "eval/both.py:not-an-id",
     "C:\\suites\\qa.py",
+    "C:\\suites\\qa",
     "nowhere_pkg.mod",
     "nowhere_pkg.mod:support",
 ]
