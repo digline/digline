@@ -114,6 +114,14 @@ dependencies = [
     # import raises `ImportError`. It was owed at the cut and raised in this
     # package's own release, after the core was on PyPI, because a floor may
     # not name a release that does not exist yet.
+    #
+    # **Owed at the cut: raise to the core release that carries #562.**
+    # The `compare` tool passes `declared=` to `headline`, and both the argument
+    # and `Suite.declared` first ship with #562, so the sentence
+    # can say that a run judged nothing (ADR 0049). Against 0.31.0 the
+    # call raises `AttributeError`. A floor may not name a release that does not
+    # exist yet, so the row is in RELEASING.md's table of floors owed to the
+    # release.
     "digline>=0.31.0",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

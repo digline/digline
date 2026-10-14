@@ -75,8 +75,9 @@ PACKAGES = ROOT / "packages"
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
     # 0.31.0 — what every front end that runs a suite says about it before the
-    # first call, composed once (#396, ADR 0024 §6.4). Unreleased: both
-    # plugins' floors are owed at the cut, in RELEASING.md's table.
+    # first call, composed once (#396, ADR 0024 §6.4). digline-mcp's floor
+    # reached it in digline-mcp 0.5.0, and pytest-digline's in pytest-digline
+    # 0.2.4.
     "suite_notes": "0.31.0",
     # 0.29.0 — a refusal is classified by frame as well as by type, and the
     # MCP server renders it without a message digline did not write (#445,
