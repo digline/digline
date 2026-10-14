@@ -1,6 +1,19 @@
 # ADR 0049 — A run that judged nothing does not pass, and a front end does not say green where digline did not
 
-- Status: proposed 2026-10-13. **What it decides was ruled before it was
+- Status: accepted 2026-10-14, by Alessandro Prandini, the text first and
+  before any code. Nothing in it is implemented. **It was accepted after four
+  corrections, all made before acceptance:** three to §3, two in #557 (the
+  run whose every case that counts errored, and a suite of canaries and
+  calibration cases only) and one in #558 (the suite's declaration, not the
+  run), and one to *Requires*, in #559 (both paths that turn a run into a
+  code). **What the acceptance rests on, said in full.** The record was read
+  whole once, when it first landed, in #555. After that, at each correction,
+  the passages it changed were read: §3, the line in *Consequences*, *The
+  cases that count*, *Requires* and the invariant paragraph. It was not read
+  whole again after any correction. That is written here because four
+  accepted records point to this one, ADR 0002, 0010, 0013 and 0027, and
+  whoever rereads it should know what its acceptance stands on.
+  Proposed 2026-10-13. **What it decides was ruled before it was
   written.** The maintainer ruled the exit code, the promotion and the two
   levels of a suspension on 2026-10-13, on #360 and #374, and the plugin's rule
   the same day, on #484. The three comments carry the rulings verbatim, in
@@ -12,7 +25,7 @@
   suite of canaries and calibration cases only is judged by them, and what
   counts is read from the suite's declaration, not from the run (§3).
   **Nothing in it is decided by this record alone.** Acceptance is a ruling
-  on the text
+  on the text, and the start of this status says which text
 - Shipped: unreleased
 - Date: 2026-10-13
 - Opens: **an added key on the wire**, recorded in `_ADDED`
