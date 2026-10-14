@@ -254,6 +254,14 @@ def _suite_identity(spec: str) -> tuple[str, str | None]:
     is given. Anything else is a dotted module name, compared as written: which
     file it imports is known only by importing it, and this runs before any
     import, so `pkg.mod:suite` and `pkg/mod.py:suite` are not seen as one.
+
+    **A copy of the loader's rule, declared and pinned.** It mirrors
+    `host.loader.load_suite`, `_split` and the file-or-module test in
+    `_import`. If those change, this follows, and so do `_path_of` and
+    `_attribute_of`. `test_spec_rule_mirrors_the_loader.py` compares all
+    three with what the loader does, so a change there turns red rather than
+    leaving the copies to drift. A public function in `digline.host` would
+    remove the copy and raise this plugin's floor.
     """
     from digline.host import SUITE_ATTR, SUITE_SUFFIX
 
@@ -551,7 +559,8 @@ def _path_of(spec: str) -> Path:
 
     The loader's own rule (`host.loader._split`): only a trailing `:name`
     counts, and only when `name` is an identifier — so a Windows path like
-    `C:\\suites\\qa.py` keeps its drive letter.
+    `C:\\suites\\qa.py` keeps its drive letter. A copy, pinned with
+    `_suite_identity`'s: see there.
     """
     head, sep, tail = spec.rpartition(":")
     return Path(head if sep and tail.isidentifier() else spec).resolve()
