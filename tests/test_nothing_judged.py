@@ -317,6 +317,31 @@ def test_a_run_that_judged_nothing_is_refused(aggregate: tuple[Verdict, ...]) ->
     assert NothingJudgedError in refused_types(document, SUBJECT)
 
 
+def test_the_cause_is_refused_before_the_symptom(tmp_path: Path) -> None:
+    """Every case suspended, and an aggregate in error because of it: the
+    person promoting reads that nothing was judged, not that a figure could
+    not be computed, and the refusal names the cases. Cause before symptom is
+    the class of defect ADR 0049 closes. (Maintainer, 2026-10-14)"""
+    document = run(suspended("s1"), suspended("s2"), aggregate=(errored_aggregate(),))
+    first, *_ = refusals_for(document, CFG, declared=SUBJECT)
+    assert isinstance(first, NothingJudgedError)
+    assert "s1" in str(first) and "s2" in str(first)
+
+    store = FileResultStore(tmp_path)
+    ref = store.write_run(document)
+    with pytest.raises(NothingJudgedError, match="s1"):
+        store.promote_baseline(
+            ref, CFG, expected_baseline=None, declared=SUBJECT, promoted_at=RECORDED
+        )
+
+
+def test_the_refusal_names_a_declared_case_the_run_does_not_carry() -> None:
+    """Absent is one of the three ways a case went unjudged, and a name the
+    person can look for is what the refusal owes them."""
+    (refusal,) = refusals_for(run(canary()), CFG, declared=SUBJECT)
+    assert "s1" in str(refusal) and "s2" in str(refusal)
+
+
 def test_a_run_with_one_judged_subject_case_is_not_refused() -> None:
     assert (
         refusals_for(run(subject("s1"), suspended("s2")), CFG, declared=SUBJECT) == ()

@@ -178,7 +178,8 @@ def test_errored_cases_and_figures_are_one_refusal() -> None:
 
 def test_every_case_suspended_is_refused_with_or_without_an_aggregate() -> None:
     """#360's route. With an aggregate, the empty denominator is `error` (ADR
-    0002 §10) and condition 3 refuses it, then condition 10. Without one, the
+    0002 §10): condition 10 refuses the cause first, and condition 3 the
+    figure, its symptom, after it. Without one, the
     same run used to refuse nothing, and that was #375's asymmetry: whether
     nothing judged was promotable hung on a declaration that has nothing to do
     with it. Condition 10 refuses both. (ADR 0049 §5)"""
@@ -206,7 +207,7 @@ def test_every_case_suspended_is_refused_with_or_without_an_aggregate() -> None:
     at = "2026-01-01T10:00:00+00:00"
     measured = execute(suite(aggregate=True), target, created_at=at)
     declared = suite(aggregate=True).declared()
-    figure, nothing = refusals_for(measured, measured.config_hash, declared=declared)
+    nothing, figure = refusals_for(measured, measured.config_hash, declared=declared)
     assert isinstance(figure, ErroredRunError)
     assert "1 run-level check(s) (accuracy)" in str(figure)
     assert isinstance(nothing, NothingJudgedError)
@@ -244,9 +245,10 @@ def test_the_unreconciled_refusal_comes_before_the_errored_one() -> None:
 
 
 def test_every_refusal_a_document_carries_comes_back_in_order() -> None:
-    """2, 4, 6, 3, 10, 5 — a run that breaks all of them answers once for each,
+    """2, 4, 6, 10, 3, 5 — a run that breaks all of them answers once for each,
     which is what a single body raising the first could never show. Its one
-    subject case is a gap, so it judged nothing, and 10 comes after 3."""
+    subject case is a gap, so it judged nothing, and 10 comes before 3: the
+    cause before the symptom."""
     document = run(
         a_gap(),
         out_of_band(),
@@ -259,8 +261,8 @@ def test_every_refusal_a_document_carries_comes_back_in_order() -> None:
         ConfigMismatchError,
         ReplayedRunError,
         ErroredRunError,
-        ErroredRunError,
         NothingJudgedError,
+        ErroredRunError,
         UncalibratedRunError,
     ]
 
