@@ -30,8 +30,8 @@ digline: alpha · llm_rubric
   reason: looked
 
 ==================================== digline ===================================
-1 check got worse compared with the reference. Every case could be judged.
-1 case is suspended. The suite is unchanged from the reference.
+eval/suite.py: 1 check got worse compared with the reference. Every case could
+be judged. 1 case is suspended. The suite is unchanged from the reference.
 ```
 
 The reasoning is in [ADR 0013](adr/0013-the-pytest-plugin.md).

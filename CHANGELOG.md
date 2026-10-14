@@ -58,6 +58,26 @@ The version is chosen by the release that carries this, from what it carries.
   line, *"run-last-failure: … known failures not in selected tests"*. A CI
   configuration or a script that names old nodeids has to be updated.
 
+- **Each line of the `digline` summary starts with the path of its suite.**
+  With more than one `--digline-suite`, the summary printed one sentence per
+  suite with nothing to say which was which, so a reader could match them to
+  the rows only by order. Each line, and the `note:` beside it, now begins
+  with the path pytest prints for that suite's rows, relative to the directory
+  pytest was started from:
+
+  ```
+  =================================== digline ====================================
+  support/suite.py: Nothing got worse compared with the reference. …
+  billing/suite.py: 1 check got worse compared with the reference. …
+  ```
+
+  One suite is named too, so the form does not change when a second is added.
+  A script that reads the summary lines sees the prefix. Two suites taken from
+  one file are told apart by the attribute their rows' path carries:
+  `both.py:support: …` and `both.py:billing: …`.
+- **Docs: the README's example summary shows the sentence digline prints.** It
+  showed a wording digline does not produce.
+
 ## digline-mcp 0.5.0 — 2026-10-12
 
 Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on

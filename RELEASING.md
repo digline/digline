@@ -266,6 +266,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
+| `pytest-digline` | each line of the `digline` summary, and the `note:` beside it, now starts with the path pytest prints for its suite's rows (#570); before, a line carried only the sentence | that the summary's output changed: the cut decides by *Choosing the version* whether a changed output a user reads moves the minor, and the number says what it decided |
 | `pytest-digline` | a suite named as `file.py:attribute` gets nodeids that carry the attribute (#571), so a `--deselect` written against the old nodeid deselects nothing, and only warns | a break: the release moves the minor, by *Choosing the version*'s rule that holds for each package |
 
 Empty is the normal state here too. A row left after its package's release is a
