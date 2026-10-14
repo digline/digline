@@ -385,6 +385,13 @@ class _Opened:
     #: exactly as `summary_lines` composes it once for a whole listing.
     coincides: str
     headline: str
+    #: What digline exits with for this suite, `exit_code()` of the same
+    #: headline whose sentence is above: 0, 1 or 2, never a refusal, which
+    #: stops the session before an `_Opened` exists. **Not computed yet:**
+    #: always `EXIT_OK` until the `pytest_sessionfinish` hook that reads it
+    #: lands, in the same pull request, with `exit_code()` filling this field;
+    #: this note goes with it. (ADR 0049 §7)
+    exit_code: int
     #: Whether this run carries the judge's own words. False on a redacted run,
     #: where quoting a reason would be quoting something that is not there.
     reasons_available: bool
@@ -463,6 +470,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     from digline.host import load_suite, need_baseline, read_run, resolve_key
     from digline.report import config_changes, headline, scale_lost
     from digline.store import FileResultStore
+    from digline.wire import EXIT_OK
 
     suite, loaded = load_suite(spec, root=root)
     path = _path_of(spec)
@@ -482,6 +490,8 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
         comparison=comparison,
         coincides=config_changes(comparison.config_changes, LOCALE),
         headline=head.sentence,
+        # Not computed yet: see the field.
+        exit_code=EXIT_OK,
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
         note=resolved.note,

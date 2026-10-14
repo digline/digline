@@ -96,6 +96,10 @@ INTRODUCED: dict[str, str] = {
     # number: `--replacing` makes the release a minor (ADR 0031); whoever cuts
     # it owns the number, and this moves with digline-mcp's floor.
     "REFUSALS": "0.20.0",
+    # 0.6.0 — the exit code a comparison means, exported with `digline.wire`
+    # (`3100818`, `v0.6.0~2^2~10`). pytest-digline carries it on each suite it
+    # opens, so a session digline did not say green does not end green.
+    "EXIT_OK": "0.6.0",
     # 0.6.0 — the loader's default attribute and the TOML suffix, exported
     # with the TOML suite form (`c63fd66`, `v0.6.0~2^2~14`). pytest-digline
     # reads them to tell when two specs name one suite, before loading either.
