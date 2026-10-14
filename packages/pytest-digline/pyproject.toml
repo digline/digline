@@ -63,9 +63,11 @@ dependencies = [
     # Opening each `--digline-suite` passes `declared=` to `headline`, and both
     # the argument and `Suite.declared` first ship with #562, so the sentence
     # can say that a run judged nothing (ADR 0049). Against 0.31.0 the
-    # call raises `AttributeError`. A floor may not name a release that does not
-    # exist yet, so the row is in RELEASING.md's table of floors owed to the
-    # release.
+    # call raises `AttributeError`. The summary also asks `phrase` for
+    # `fact.session_not_green`, a key new in the same release (ADR 0049 §7);
+    # against 0.31.0 that raises `KeyError`. A floor may not name a release that
+    # does not exist yet, so the row is in RELEASING.md's table of floors owed
+    # to the release.
     "digline>=0.31.0",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry

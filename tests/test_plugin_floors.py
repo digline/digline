@@ -100,6 +100,12 @@ INTRODUCED: dict[str, str] = {
     # (`3100818`, `v0.6.0~2^2~10`). pytest-digline carries it on each suite it
     # opens, so a session digline did not say green does not end green.
     "EXIT_OK": "0.6.0",
+    "exit_code": "0.6.0",
+    # 0.1.0 — one localized string by key (`ae4a2af`, `v0.1.0~7`). The key the
+    # session line uses, `fact.session_not_green`, is new in the core release
+    # that carries ADR 0049 §7: a widened table the import cannot see, which is
+    # why pytest-digline's floor is owed at the cut, in RELEASING.md's table.
+    "phrase": "0.1.0",
     # 0.6.0 — the loader's default attribute and the TOML suffix, exported
     # with the TOML suite form (`c63fd66`, `v0.6.0~2^2~14`). pytest-digline
     # reads them to tell when two specs name one suite, before loading either.

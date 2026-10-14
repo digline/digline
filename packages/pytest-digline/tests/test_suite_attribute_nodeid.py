@@ -217,6 +217,9 @@ def test_each_summary_line_names_its_suite_by_the_attribute_too(
     matching them by order."""
     result = pytester.runpytest_subprocess("-p", "no:cacheprovider", *suites(*both))
     lines = summary_lines(result.stdout.str())
-    assert len(lines) == 2, lines
+    # The third line is the one a suite digline did not say green for gets,
+    # named the same way, attribute and all. (ADR 0049 §7)
+    assert len(lines) == 3, lines
     assert lines[0].startswith("both.py:support: Nothing got worse"), lines[0]
     assert lines[1].startswith("both.py:billing: 1 check got worse"), lines[1]
+    assert lines[2].startswith("both.py:billing: digline exits 1"), lines[2]
