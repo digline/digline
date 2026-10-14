@@ -690,10 +690,13 @@ class ResultStore(Protocol):
            into a versioned file, so this holds **whatever the `Disclosure`**
            (ADR 0042 §3).
         10. `NothingJudgedError`, before 3, if the run judged none of the cases
-            that count, read against `declared` — every case suspended, or a
-            document that carries none of them — **whether or not the suite
-            declares an aggregate**. A reference is a measurement, and a run
-            that measured nothing cannot be one. `declared` is the suite's
+            that count, read against `declared` — each suspended, errored or
+            absent — **whether or not the suite declares an aggregate**. A
+            reference is a measurement, and a run that measured nothing cannot
+            be one. Before 3 so the reader is never sent to an aggregate, which
+            is always the symptom; and the refusal names each case with its
+            state, and 3's remedy for an errored one, because where the cases
+            errored the case is the cause. `declared` is the suite's
             declaration, mandatory for the reason `expected_config_hash` is: a
             run document does not carry it, and read off the run a judged
             canary would make a subject suite promotable. `None` is a document

@@ -159,23 +159,40 @@ def refusals_for(
             )
         )
 
-    # Condition 10, before 3: the cause before the symptom. A run whose every
-    # case is suspended errors its aggregates too, and a person told first that
-    # a figure could not be computed investigates the figure, while the cause
-    # is that nothing was judged. Named by case, as 3 names its cases, so the
-    # order costs no names. Read against the suite's declaration, as the exit
-    # code reads it, whether or not the suite declares an aggregate.
-    # (ADR 0049 §3, §5)
-    counted = cases_that_count(run, declared)
+    # Condition 10, before 3: never send the reader to the aggregate, which is
+    # always the symptom. A run whose every case is suspended errors its
+    # aggregates too, and a person told first that a figure could not be
+    # computed investigates the figure. Where the cases errored, the cause is
+    # the case, so the refusal says, case by case, which of the three states
+    # it is in, and carries 3's remedy for the errored ones: an order in a list
+    # cannot say "it depends on why", and a sentence can. Read against the
+    # suite's declaration, as the exit code reads it, whether or not the suite
+    # declares an aggregate. (ADR 0049 §3, §5)
     if nothing_judged(run, declared):
-        names = ", ".join(sorted(counted))
+        carried = {case.case_id: case for case in run.results}
+        states: list[str] = []
+        unjudgeable = False
+        for case_id in sorted(cases_that_count(run, declared)):
+            case = carried.get(case_id)
+            if case is None:
+                states.append(f"{case_id} (absent)")
+            elif case.suspended is not None:
+                states.append(f"{case_id} (suspended)")
+            else:
+                unjudgeable = True
+                states.append(f"{case_id} (could not be judged)")
+        remedy = (
+            " For a case that could not be judged, fix the case or remove it "
+            "from the suite."
+            if unjudgeable
+            else ""
+        )
         refusals.append(
             NothingJudgedError(
-                f"run {key} judged none of the {len(counted)} case(s) its suite "
-                f"measures ({names}): each was suspended, could not be judged, "
-                "or is absent from the document. A reference is a measurement, "
-                "and this run measured nothing. Run the suite with at least one "
-                "of its cases judged"
+                f"run {key} judged none of the {len(states)} case(s) its suite "
+                f"measures: {', '.join(states)}. A reference is a measurement, "
+                f"and this run measured nothing.{remedy} Run the suite with at "
+                "least one of its cases judged"
             )
         )
 
