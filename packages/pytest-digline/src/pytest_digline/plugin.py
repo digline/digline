@@ -281,6 +281,11 @@ def _warn_on_stale_deselects(
             )
         )
         try:
+            # The warnings summary places this at this line, in the plugin.
+            # That is not a misplaced frame: there is no frame of the user's to
+            # place it in, because the cause is a value on the command line,
+            # not a call. No `stacklevel` reaches the user, so none is tried;
+            # the message carries the value and its replacements instead.
             warnings.warn(stale, stacklevel=1)
         except pytest.PytestWarning as exc:
             # `-W error` turned it into an exception. Refused as a usage error,
