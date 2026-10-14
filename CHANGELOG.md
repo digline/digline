@@ -35,6 +35,29 @@ notes under them are this file, verbatim.
   `digline.host.promote` keeps its signature. A store of your own has to
   accept the argument and hand it to `refusals_for`.
 
+## pytest-digline — unreleased
+
+The version is chosen by the release that carries this, from what it carries.
+
+- **Each line of the `digline` summary starts with the path of its suite.**
+  With more than one `--digline-suite`, the summary printed one sentence per
+  suite with nothing to say which was which, so a reader could match them to
+  the rows only by order. Each line, and the `note:` beside it, now begins
+  with the path pytest prints for that suite's rows, relative to the directory
+  pytest was started from:
+
+  ```
+  =================================== digline ====================================
+  support/suite.py: Nothing got worse compared with the reference. …
+  billing/suite.py: 1 check got worse compared with the reference. …
+  ```
+
+  One suite is named too, so the form does not change when a second is added.
+  A script that reads the summary lines sees the prefix. Two suites taken from
+  one file, `file.py:attribute`, share a path and so a prefix: that is #566.
+- **Docs: the README's example summary shows the sentence digline prints.** It
+  showed a wording digline does not produce.
+
 ## digline-mcp 0.5.0 — 2026-10-12
 
 Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on
