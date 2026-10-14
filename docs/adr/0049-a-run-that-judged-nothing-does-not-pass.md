@@ -7,11 +7,13 @@
   calibration cases only) and one in #558 (the suite's declaration, not the
   run); one to *Requires*, in #559 (both paths that turn a run into a code);
   and one to *Requires* and §5 in the pull request that accepts it (the
-  promotion takes the declaration too, as a mandatory argument). **What the
-  acceptance rests on, said in full.** The record was read whole once, when it
+  promotion takes the declaration too, as a mandatory argument, and
+  `promote` derives it from the suite it loaded). **What the acceptance rests
+  on, said in full.** The record was read whole once, when it
   first landed, in #555. After that, at each correction, the passages it
   changed were read: §3, the line in *Consequences*, *The cases that count*,
-  *Requires*, the invariant paragraph, and at the last correction §5's two
+  *Requires*, the invariant paragraph, and at the last correction
+  *Requires*' sentences on the promotion and on `promote`, §5's two
   paragraphs on the declaration and the *Test plan*'s item 9. It was not read
   whole again after any correction. That is written here because four
   accepted records point to this one, ADR 0002, 0010, 0013 and 0027, and
@@ -48,7 +50,14 @@
   `nothing_judged` `exit_code` reads, to `run_exit_code`, and to
   `ResultStore.promote_baseline` and `refusals_for`, where it is a mandatory
   argument (§5). With no suite, each applies §3's third clause. One path
-  without it would read the run, and reopen the road §3 closes. **A rule in
+  without it would read the run, and reopen the road §3 closes. **`promote`
+  derives the declaration from the suite it loaded, and does not take it as a
+  parameter.** A store does not hold the suite, so it is handed the
+  declaration. `promote` holds it: it already takes the suite and the pricing
+  from `loaded`, and the configuration hash from that suite. A function that
+  holds the suite does not ask its callers for a value derived from it, and
+  the reason above, that a run document does not carry the declaration, does
+  not reach it. **A rule in
   pytest-digline** at the end of a session (§7)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (an error is a third
   state, neither green nor a regression); [ADR
@@ -349,13 +358,15 @@ alone, `promote_baseline` would stay a road that promotes a run that judged
 nothing. Checked in the store from the run and in the front end from the
 declaration, one rule would live in two places.
 
-**What the argument costs.** A mandatory argument is a break in the protocol,
-not an addition: every implementer of `ResultStore` and every caller of
-`refusals_for` has to pass it. digline-ward, read in its source on
-2026-10-14, implements neither and calls neither: it promotes through
-`digline.host.promote`, whose signature does not change. It does call
-`render_html`, which builds a headline and so takes the declaration too (§3).
-Ward takes that argument in a pull request of its own.
+**What the argument costs.** A mandatory argument is a break, not an
+addition: it breaks every implementer of the `ResultStore` protocol and every
+caller of `refusals_for`. In this repository the only implementer is
+`FileResultStore`. The break is visible from `docs/api.md`, which sends a
+program that implements a store of its own to the protocol, and shows
+`store.promote_baseline(...)` as one way to reach the reference a projection
+starts from. `promote` keeps its signature (*Requires*). Whoever calls
+`render_html` has to pass the declaration too, because it builds a headline
+(§3).
 
 ### 6. A suspension, at two levels
 
