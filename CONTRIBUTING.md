@@ -89,6 +89,14 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   can be false, and so can the return to green. Both measures are needed: the
   variable stops new bytecode being written, and does not stop existing
   bytecode being read.
+
+  **One test cannot pass under the variable:**
+  `tests/test_cli.py::test_the_application_beside_the_suite_is_never_read_from_stale_bytecode`.
+  It asserts that a `__pycache__` is written, and the variable is what stops
+  that. So in a mutation run it is red whatever you mutated, and the red is
+  the method's, not a bite. Measured on 2026-10-14: red in every mutation run
+  of ADR 0049's core, and red on the unmutated tree with only the variable
+  set. Believe it only from a run without the variable.
 - **Write the tests before the code, and report each failure with its
   message.** A test written first and seen red is a test that could fail. And
   the message is the only way to tell a red for the right reason from a red for
