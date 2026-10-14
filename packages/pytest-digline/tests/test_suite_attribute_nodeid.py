@@ -189,3 +189,34 @@ def test_under_w_error_a_stale_deselect_stops_the_session(
     assert result.ret == pytest.ExitCode.USAGE_ERROR, printed
     assert "INTERNALERROR" not in printed, printed
     assert "both.py:support::alpha::contains" in printed, printed
+
+
+def summary_lines(text: str) -> list[str]:
+    """The lines of the `digline` section, between its separator and the next."""
+    lines = text.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.strip("= ") == "digline"]
+    assert len(starts) == 1, text
+    rest = lines[starts[0] + 1 :]
+    end = next(
+        (
+            i
+            for i, line in enumerate(rest)
+            if line.startswith("=") and line.endswith("=")
+        ),
+        len(rest),
+    )
+    return rest[:end]
+
+
+def test_each_summary_line_names_its_suite_by_the_attribute_too(
+    pytester: pytest.Pytester, both: tuple[str, str]
+) -> None:
+    """The summary names a line by the path pytest prints for its suite's rows,
+    and for a suite from one file of two that path carries the attribute. Without
+    it both lines would start `both.py: `, and the reader would be back to
+    matching them by order."""
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider", *suites(*both))
+    lines = summary_lines(result.stdout.str())
+    assert len(lines) == 2, lines
+    assert lines[0].startswith("both.py:support: Nothing got worse"), lines[0]
+    assert lines[1].startswith("both.py:billing: 1 check got worse"), lines[1]
