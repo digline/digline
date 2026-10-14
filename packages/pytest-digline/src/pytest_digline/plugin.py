@@ -77,8 +77,10 @@ RUN_SCOPE = "<run>"
 #: Set by `pytest_collection_modifyitems`, read by `pytest_terminal_summary`.
 #: On the config's stash rather than a module global: a module global is shared
 #: by every `Config` in the process, and `pytester` runs several in one.
-#: Each suite's headline, followed by its `latest` note when there is one.
-HEADLINES: pytest.StashKey[list[str]] = pytest.StashKey()
+#: Each named suite, by the nodeid of its `DiglineSuite` node, with what was
+#: opened for it: the summary prints its headline and its `latest` note, each
+#: under the path pytest prints for the suite's rows.
+SUITES: pytest.StashKey[list[tuple[str, _Opened]]] = pytest.StashKey()
 
 
 # --------------------------------------------------------------------------- #
@@ -142,7 +144,7 @@ def pytest_configure(config: pytest.Config) -> None:
     and the person who types `--co` after `--digline-run` is always doing it to
     find out what *would* happen.
     """
-    config.stash[HEADLINES] = []
+    config.stash[SUITES] = []
     if config.getoption("digline_run") and config.option.collectonly:
         raise pytest.UsageError(
             "--digline-run calls your provider and --collect-only exists to "
@@ -205,9 +207,7 @@ def pytest_collection_modifyitems(
         opened = _open(spec, config)
         node = _child(session, DiglineSuite, path=opened.path, opened=opened)
         items.extend(node.collect())
-        config.stash[HEADLINES].append(opened.headline)
-        if opened.note:
-            config.stash[HEADLINES].append(f"note: {opened.note}")
+        config.stash[SUITES].append((node.nodeid, opened))
 
 
 def _child[N: pytest.Item | pytest.File](
@@ -713,19 +713,35 @@ def pytest_terminal_summary(
     prints and the report shows, because a gate and a document must never say
     two different things about one run.
 
-    Under it, the note `latest` left, as `note: …`, the line `digline compare`
-    prints on stderr. Here and not as a warning: under `-W error` a warning
+    Each line starts with the path pytest prints for the suite's rows, so with
+    several suites a sentence is joined to its rows by name and not by order.
+
+    Under it, the note `latest` left, as `<path>: note: …`, the line `digline
+    compare` prints on stderr. Here and not as a warning: under `-W error` a warning
     fails the session, and a note is not a verdict. (#433)
     """
-    none: list[str] = []
-    sentences = config.stash.get(HEADLINES, none)
-    if not sentences:
+    none: list[tuple[str, _Opened]] = []
+    suites = config.stash.get(SUITES, none)
+    if not suites:
         return
     from digline.report import visible
 
     terminalreporter.write_sep("=", "digline")
-    for sentence in sentences:
-        # Sanitised at the sink like every other line this plugin writes: the
-        # sentence is built from a stored document — configuration values, an
-        # artifact tally, a canary's case id. (0.10.1)
-        terminalreporter.write_line(visible(sentence))
+    for nodeid, opened in suites:
+        # Named the way pytest names the suite's rows: its path relative to
+        # the directory pytest was started from, which is what
+        # `cwd_relative_nodeid` computes and what the progress lines and the
+        # short test summary print. A path, and not the suite's name: the name
+        # appears nowhere in pytest's report, and the path is the string the
+        # reader already has beside every row. Every line carries it, one
+        # suite or several, so a line is always joined to its rows by name.
+        # Two suites from one file share a path, and so a prefix (#566).
+        prefix = config.cwd_relative_nodeid(nodeid)
+        lines = [opened.headline]
+        if opened.note:
+            lines.append(f"note: {opened.note}")
+        for line in lines:
+            # Sanitised at the sink like every other line this plugin writes:
+            # the sentence is built from a stored document — configuration
+            # values, an artifact tally, a canary's case id. (0.10.1)
+            terminalreporter.write_line(visible(f"{prefix}: {line}"))

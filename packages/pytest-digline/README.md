@@ -21,8 +21,8 @@ digline: alpha · llm_rubric
   reason: signed=True, concise=False
 
 ==================================== digline ===================================
-1 check got worse; every case could be judged; 1 case is suspended; the rules
-are unchanged.
+eval/suite.py: 1 check got worse compared with the reference. Every case could
+be judged. 1 case is suspended. The suite is unchanged from the reference.
 ```
 
 One row per **check** — one assertion on one case — because that is digline's
