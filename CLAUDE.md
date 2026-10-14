@@ -193,6 +193,9 @@ artifacts that today exists in none of the audited competitors.
   other terminal output. Consistency between the two sentences is guaranteed by
   `headline()`, not by the user.
 - Every assertion has tests with at least one failing case.
+- How a test is believed (mutation, bytecode off, tests first, fault
+  injection) is written once, in `CONTRIBUTING.md` from *A test is not believed
+  until a mutation makes it fail*. Read it there; it is not copied here.
 - `tests/test_layering.py` is a **mandatory gate**, not a style test: it guarantees
   that the core stays pure and importable from Plumbline without dragging storage
   along. It must not be weakened or made optional; if it fails, the change is

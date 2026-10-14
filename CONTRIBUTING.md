@@ -34,14 +34,20 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   pure and importable on its own. If it fails, the change is wrong, not the test.
 - **Every assertion needs a failing case.** A check that cannot fail is a bug
   (fixed decision 3), and the test that proves it can is the one that says so.
-- **If you add a flag that turns something on, the flag's tests do not cover
-  the default.** They feel like they do, which is why this is written down.
-  Measured on `digline view --allow-promote` (ADR 0032): the refusal was deleted
-  from `do_POST`, and **48 tests exercising the flag all passed** — every
-  promotion through the enabled server, every refusal it forwards, the `Host`
-  and `Origin` guards. Not one of them can see a default that stopped refusing,
-  because not one of them runs on the default. Five tests caught it, and all
-  five were written about the *off* state.
+- **A test is not believed until a mutation makes it fail.** A green test says
+  that the code as it stands satisfies it, and nothing more: not that it pins
+  the property it was written for. So break the property on purpose — delete
+  the refusal, invert the condition, drop the field — run the test, and watch
+  it go red for that reason. Then restore. Until then the test is a claim.
+
+  **The case that wrote this down: a flag that turns something on, whose tests
+  do not cover the default.** They feel like they do. Measured on `digline view
+  --allow-promote` (ADR 0032): the refusal was deleted from `do_POST`, and **48
+  tests exercising the flag all passed** — every promotion through the enabled
+  server, every refusal it forwards, the `Host` and `Origin` guards. Not one of
+  them can see a default that stopped refusing, because not one of them runs on
+  the default. Five tests caught it, and all five were written about the *off*
+  state.
 
   So the rule, for the next opt-out as much as that one: **mutate the default
   away and run the suite.** If it stays green, what you have tested is the
@@ -50,13 +56,20 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   off state and cannot: one here went green under the mutation because its
   fixture had a single run that was already the baseline, so no row could have
   carried the button on any server at all.
-- **If you add a guard in front of another one, the old guard's tests go
-  empty.** A request that the new guard refuses never reaches the old one, and
-  a test expecting a refusal cannot tell whose it got. When `digline view
-  --allow-promote` gained its launch key (ADR 0033), the tests of the `Origin`
-  check, the rebinding guards and the walk over every refusal type would all
-  have passed **with their guards deleted**. The key refused first, and a
-  403 from the key reads the same as a 403 from the origin check.
+- **A mutation that does not bite is a finding about the test, not a
+  nuisance.** Its usual cause: the cases at the edge fail for a reason of their
+  own, before the property is ever reached, so the property you thought you
+  pinned is never put to the test. The remedy is not to choose another
+  mutation. It is to add the case that isolates the property, so that the
+  property is the only thing between that case and a red.
+
+  **The instance with teeth: a guard added in front of another one empties the
+  old guard's tests.** A request that the new guard refuses never reaches the
+  old one, and a test expecting a refusal cannot tell whose it got. When
+  `digline view --allow-promote` gained its launch key (ADR 0033), the tests of
+  the `Origin` check, the rebinding guards and the walk over every refusal type
+  would all have passed **with their guards deleted**. The key refused first,
+  and a 403 from the key reads the same as a 403 from the origin check.
 
   So, for every test of a guard that now sits behind yours: **send what your
   guard asks for**, so the request reaches the guard the test names. Assert
@@ -65,14 +78,46 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   already testing yours. This is the same family as the flag bullet above,
   where a test stays correct about a request while what stands in front of
   it moves, and it has four instances in one week.
+- **Run a mutation with bytecode off**: `PYTHONDONTWRITEBYTECODE=1` in the
+  environment, and the `__pycache__` directories of the tree emptied first. The
+  reason is a fact about Python, not about this repository. By default a `.pyc`
+  is trusted when the source's modification time, in whole seconds, and its
+  size both match what the `.pyc` recorded. A mutation of the same length as
+  the line it replaces, written within the same second as the bytecode, leaves
+  that `.pyc` valid: the run executes the old code. The same holds on the way
+  back, when the restore lands within the second of the mutation. So the red
+  can be false, and so can the return to green. Both measures are needed: the
+  variable stops new bytecode being written, and does not stop existing
+  bytecode being read.
+
+  **One test cannot pass under the variable:**
+  `tests/test_cli.py::test_the_application_beside_the_suite_is_never_read_from_stale_bytecode`.
+  It asserts that a `__pycache__` is written, and the variable is what stops
+  that. So in a mutation run it is red whatever you mutated, and the red is
+  the method's, not a bite. Measured on 2026-10-14: red in every mutation run
+  of ADR 0049's core, and red on the unmutated tree with only the variable
+  set. Believe it only from a run without the variable.
+- **Write the tests before the code, and report each failure with its
+  message.** A test written first and seen red is a test that could fail. And
+  the message is the only way to tell a red for the right reason from a red for
+  the wrong one: a test that fails because an import is missing, or a fixture
+  does not build, has said nothing about the property, and its status reads the
+  same as one that has.
+- **To test a failure path, inject a fault and assert a state.** Make the
+  thing the code depends on fail — the file unreadable, the target raising —
+  and assert what the outcome is: what was written, what was refused, what the
+  run file says. Do not fabricate data so that a branch runs, and do not
+  assert that a call was made. A test that asserts a call breaks the day the
+  call moves, and from then on fails for a reason that is not the one it was
+  written for.
 - **A mutation is a red made on purpose, so look for another tree before you
-  make one.** Two bullets above end in the same instruction, and the sweep
-  bullet below repeats it: delete the thing the test is supposed to notice and
-  run the suite. That instruction manufactures a failing test. The failure
-  stays inside your checkout. **The red does not**: push it to a branch with a
-  pull request open and it is a CI failure with your name on it, and saying
-  *"`test_x` fails"* anywhere makes it a claim about the code. Whoever reads it
-  has no way to know it was meant.
+  make one.** The bullets on the flag and on the guard, above, end in the same
+  instruction, and the sweep bullet below repeats it: delete the thing the test
+  is supposed to notice and run the suite. That instruction manufactures a
+  failing test. The failure stays inside your checkout. **The red does not**:
+  push it to a branch with a pull request open and it is a CI failure with your
+  name on it, and saying *"`test_x` fails"* anywhere makes it a claim about the
+  code. Whoever reads it has no way to know it was meant.
 
   **Two people on one file and two on one guard are different situations**, and
   only the first is one git can see. Editing the same file conflicts, out loud,
