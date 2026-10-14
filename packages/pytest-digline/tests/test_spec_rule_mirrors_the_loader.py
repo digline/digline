@@ -11,6 +11,11 @@ resolved, or the module it tried to import, so nothing is loaded. The attribute
 is the loader's own `_split`, a private name a test may import. The one part
 that is restated is which specs are TOML, by `SUITE_SUFFIX`: the loader's
 refusal reads the same for a missing `.toml` and a missing `.py`.
+
+Reading the rule through those refusals is reading it through a derivative. If
+the loader stops naming the path or the module in its refusal, this test can no
+longer read it and fails loudly, and that is meant: a guard that can no longer
+see has to say so.
 """
 
 from __future__ import annotations
