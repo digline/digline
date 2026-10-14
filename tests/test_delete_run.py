@@ -99,7 +99,11 @@ def legs(store: FileResultStore, r: Run, count: int) -> list[Path]:
 
 def promote(store: FileResultStore, r: Run, replacing: str | None = None) -> None:
     store.promote_baseline(
-        ref(r), r.config_hash, expected_baseline=replacing, promoted_at=PROMOTED
+        ref(r),
+        r.config_hash,
+        expected_baseline=replacing,
+        promoted_at=PROMOTED,
+        declared=None,
     )
 
 

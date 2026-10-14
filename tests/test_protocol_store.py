@@ -174,7 +174,11 @@ def test_the_fake_does_not_promote() -> None:
     ref = next(iter(store.runs))
     with pytest.raises(NotImplementedError, match="condition 8"):
         store.promote_baseline(
-            ref, "hash-a", expected_baseline=None, promoted_at="2026-01-03"
+            ref,
+            "hash-a",
+            expected_baseline=None,
+            promoted_at="2026-01-03",
+            declared=None,
         )
 
 

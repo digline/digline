@@ -198,13 +198,15 @@ def test_an_invisible_instruction_does_not_cross_the_redaction_boundary() -> Non
         "compare_json": json.dumps(
             compare_json(
                 comparison,
-                headline(comparison, run, baseline, locale="en"),
+                headline(comparison, run, baseline, locale="en", declared=None),
                 baseline=baseline,
                 full=True,
             ),
             ensure_ascii=False,
         ),
-        "the HTML report": render_html(comparison, run, baseline, locale="en"),
+        "the HTML report": render_html(
+            comparison, run, baseline, locale="en", declared=None
+        ),
         "a terminal line via visible()": visible(case_id),
         "--json via json_visible()": json_visible(
             json.dumps({"case_id": case_id}, ensure_ascii=False)

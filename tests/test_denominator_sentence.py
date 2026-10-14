@@ -109,7 +109,7 @@ def fifty(*, errored: int, failed: int = 0) -> Run:
 
 def test_the_headline_states_what_the_unjudged_count_is_a_count_of() -> None:
     reference, run = fifty(errored=0, failed=4), fifty(errored=7)
-    head = headline(compare(run, reference), run, reference, locale="en")
+    head = headline(compare(run, reference), run, reference, locale="en", declared=None)
     assert "43 of 50 cases judged, 7 could not be." in head.sentence
     # The bare count is gone rather than repeated beside the new sentence.
     assert "7 cases could not be judged" not in head.sentence
@@ -120,7 +120,7 @@ def test_a_clean_run_reads_as_it_always_did() -> None:
     kept: a suite with no errors carries no count of them."""
     reference, run = fifty(errored=0, failed=4), fifty(errored=0, failed=3)
     comparison = compare(run, reference)
-    head = headline(comparison, run, reference, locale="en")
+    head = headline(comparison, run, reference, locale="en", declared=None)
     assert "Every case could be judged." in head.sentence
     assert " of 50 " not in head.sentence
     for line in (
@@ -142,7 +142,7 @@ def test_suspended_cases_are_not_counted_as_judged() -> None:
         suspended("s1"),
         suspended("s2"),
     )
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert "6 of 10 cases judged, 2 could not be. 2 cases are suspended." in (
         head.sentence
     )
@@ -156,7 +156,7 @@ def test_suspended_cases_are_not_counted_as_judged() -> None:
 def test_a_run_of_one_case_keeps_the_bare_sentence() -> None:
     """Arithmetic rather than a sentence: "0 of 1 cases"."""
     run = run_of(outcome("only", "error"))
-    head = headline(compare(run, run), run, run, locale="en")
+    head = headline(compare(run, run), run, run, locale="en", declared=None)
     assert "1 case could not be judged." in head.sentence
     assert "0 of 1" not in head.sentence
 
@@ -213,7 +213,7 @@ def test_the_run_document_says_it_above_its_tally() -> None:
 )
 def test_both_locales(errored: int, headline_says: str, reading_says: str) -> None:
     reference, run = fifty(errored=0), fifty(errored=errored)
-    head = headline(compare(run, reference), run, reference, locale="it")
+    head = headline(compare(run, reference), run, reference, locale="it", declared=None)
     assert headline_says in head.sentence
     assert reading_says in explain_text(facts(run), locale="it")
 
@@ -240,7 +240,7 @@ def test_a_figure_that_left_cases_out_says_how_many_and_why() -> None:
         if "accuracy" in line
     ]
     assert line.endswith("8 of 10 cases counted; 2 could not be judged.")
-    document = render_html(comparison, run, reference, locale="en")
+    document = render_html(comparison, run, reference, locale="en", declared=None)
     assert "8 of 10 cases counted; 2 could not be judged." in document
 
 

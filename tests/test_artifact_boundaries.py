@@ -173,14 +173,14 @@ def test_refusals_for_carries_the_crossing_with_no_store(key: str) -> None:
     """Whatever the `Disclosure`: a run carries none, because a baseline is the
     complete run (ADR 0042 §3). Answered from the document alone."""
     run = _run("prompt.md", key)
-    refusals = refusals_for(run, run.config_hash)
+    refusals = refusals_for(run, run.config_hash, declared=None)
     assert [type(r) for r in refusals] == [CrossingRefusedError]
     assert key in str(refusals[0])
 
 
 def test_refusals_for_is_silent_on_free_artifacts() -> None:
     run = _run(*FREE)
-    assert refusals_for(run, run.config_hash) == ()
+    assert refusals_for(run, run.config_hash, declared=None) == ()
 
 
 def test_the_crossing_comes_before_a_moved_configuration() -> None:
@@ -189,7 +189,7 @@ def test_the_crossing_comes_before_a_moved_configuration() -> None:
     configuration may be the change somebody intended. A choice made in the
     change that implements ADR 0042, which does not place the condition."""
     run = _run(".git/config")
-    refusals = refusals_for(run, "another-hash")
+    refusals = refusals_for(run, "another-hash", declared=None)
     assert [type(r).__name__ for r in refusals] == [
         "CrossingRefusedError",
         "ConfigMismatchError",

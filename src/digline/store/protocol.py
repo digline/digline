@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
+from digline.core.declared import Declared
 from digline.core.register import RegisterEntry
 from digline.core.run import (
     SCHEMA_VERSION,
@@ -130,6 +131,16 @@ class UncalibratedRunError(Exception):
     would become the reference a later run's shape is read against — and a
     baseline scored by a judge that has gone binary makes a collapse invisible
     for as long as it stands. (ADR 0024 §4.5)
+    """
+
+
+class NothingJudgedError(Exception):
+    """Raised when promoting a run that judged nothing.
+
+    A reference is a measurement, and a run in which none of the cases that
+    count was judged measured nothing: every case suspended, or a document with
+    no cases. Refused whether or not the suite declares an aggregate, which is
+    what closes #375's asymmetry. (ADR 0049 §5)
     """
 
 
@@ -615,6 +626,7 @@ class ResultStore(Protocol):
         expected_config_hash: str,
         *,
         expected_baseline: str | None,
+        declared: Declared | None,
         promoted_at: str,
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.

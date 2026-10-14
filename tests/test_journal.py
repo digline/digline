@@ -524,7 +524,11 @@ def test_an_alias_that_rolled_across_the_seam_errors_instead_of_averaging(
     ref = FileResultStore(tmp_path).write_run(run)
     with pytest.raises(ErroredRunError):
         store.promote_baseline(
-            ref, run.config_hash, expected_baseline=None, promoted_at=LATER
+            ref,
+            run.config_hash,
+            expected_baseline=None,
+            promoted_at=LATER,
+            declared=None,
         )
 
 

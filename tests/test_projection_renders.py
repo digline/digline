@@ -41,11 +41,19 @@ def test_a_projected_reference_renders_against_itself_and_names_nothing(
     table = Table()
     reference: Run = project(promoted(), table)
     html = render_html(
-        compare(reference, reference), reference, reference, locale=locale
+        compare(reference, reference),
+        reference,
+        reference,
+        locale=locale,
+        declared=None,
     )
     for name in NAMES:
         assert name not in html, name
     assert tokens_in(html, table)
     assert not headline(
-        compare(reference, reference), reference, reference, locale=locale
+        compare(reference, reference),
+        reference,
+        reference,
+        locale=locale,
+        declared=None,
     ).worse

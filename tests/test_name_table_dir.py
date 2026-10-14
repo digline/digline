@@ -124,6 +124,7 @@ def test_a_whole_cycle_neither_touches_nor_reads_what_is_there(tmp_path: Path) -
         "hash-a",
         expected_baseline=None,
         promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
 
     assert store.list_runs("acme", "test-suite") == (ref,)

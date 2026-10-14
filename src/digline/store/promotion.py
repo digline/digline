@@ -35,12 +35,14 @@ core, and are imported from there.
 from __future__ import annotations
 
 from digline.core.calibration import scale_lost
+from digline.core.declared import Declared
 from digline.core.reconcile import unreconciled
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
     ErroredRunError,
+    NothingJudgedError,
     ReplayedRunError,
     UncalibratedRunError,
 )
@@ -60,10 +62,13 @@ type PromotionRefusal = (
     | ErroredRunError
     | UncalibratedRunError
     | CrossingRefusedError
+    | NothingJudgedError
 )
 
 
-def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal, ...]:
+def refusals_for(
+    run: Run, expected_config_hash: str, *, declared: Declared | None
+) -> tuple[PromotionRefusal, ...]:
     """Every refusal the document itself carries, in the order they are owed.
 
     Empty when the document refuses nothing — the idiom `unreconciled` and
@@ -95,6 +100,7 @@ def refusals_for(run: Run, expected_config_hash: str) -> tuple[PromotionRefusal,
     function holding nothing but the run can compute, and the only one a
     baseline has at all.
     """
+    del declared  # surface only: condition 10 lands with ADR 0049 §5
     key = key_of(run.created_at, run.config_hash)
     refusals: list[PromotionRefusal] = []
 

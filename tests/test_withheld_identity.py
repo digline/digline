@@ -55,7 +55,9 @@ def sentence(
         # One table for both, which is how two projections pair (ADR 0038 §3).
         table = Table()
         baseline, run = project_served(baseline, table), project_served(run, table)
-    return headline(compare(run, baseline), run, baseline, locale=locale).sentence
+    return headline(
+        compare(run, baseline), run, baseline, locale=locale, declared=None
+    ).sentence
 
 
 def withheld(locale: Locale, count: int) -> str:

@@ -191,6 +191,7 @@ def test_a_plain_run_declaring_itself_redacted_is_never_promoted(
             "hash-a",
             expected_baseline=None,
             promoted_at="2026-01-03T10:00:00+00:00",
+            declared=None,
         )
     assert not store.baseline_path("acme", "qa").exists()
 

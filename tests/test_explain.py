@@ -222,7 +222,7 @@ def test_every_setting_fact_comes_from_a_delta_the_report_reads() -> None:
 
 def test_every_tally_fact_is_the_number_the_headline_carries() -> None:
     comparison, run, baseline = a_pair()
-    head = headline(comparison, run, baseline, locale="en")
+    head = headline(comparison, run, baseline, locale="en", declared=None)
     tally = run_tally(run)
     expected: dict[str, object] = {
         "cases": tally.cases,
@@ -273,7 +273,7 @@ def anchors(fact: Fact) -> list[str]:
 @pytest.mark.parametrize("locale", LOCALES)
 def test_every_value_the_reading_prints_is_in_the_report(locale: Locale) -> None:
     comparison, run, baseline = a_pair()
-    document = render_html(comparison, run, baseline, locale=locale)
+    document = render_html(comparison, run, baseline, locale=locale, declared=None)
     reading = facts(run, comparison)
     assert reading, "an empty reading would make this gate prove nothing"
 
@@ -301,7 +301,7 @@ def test_a_reading_with_no_reference_is_in_the_run_document(locale: Locale) -> N
 def test_a_score_reads_the_same_in_both():
     """The dossier renders at four decimals; this must not copy it."""
     comparison, run, baseline = a_pair()
-    document = render_html(comparison, run, baseline, locale="en")
+    document = render_html(comparison, run, baseline, locale="en", declared=None)
     lines = "\n".join(explain_text(facts(run, comparison), locale="en"))
     assert "0.600000" in lines and escape("0.600000") in document
     assert "0.6000 " not in lines

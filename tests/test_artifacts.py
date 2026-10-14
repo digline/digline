@@ -424,7 +424,9 @@ def test_the_report_carries_the_line_taken_out_and_the_line_put_in() -> None:
     """The requirement in one sentence: a reader must be able to see the change,
     not be told there was one."""
     before, after = two_versions()
-    document = render_html(compare(after, before), after, before, locale="en")
+    document = render_html(
+        compare(after, before), after, before, locale="en", declared=None
+    )
     assert REMOVED in document
     assert ADDED in document
     # As a diff, not as two paragraphs: the signs are what make it readable.
@@ -440,7 +442,7 @@ def test_the_redacted_report_carries_neither() -> None:
     is the assertion that must never quietly stop being true."""
     before, after = two_versions()
     withheld = withhold_artifacts(compare(after, before))
-    document = render_html(withheld, redact(after), before, locale="en")
+    document = render_html(withheld, redact(after), before, locale="en", declared=None)
 
     assert REMOVED not in document
     assert ADDED not in document
@@ -461,7 +463,11 @@ def test_a_small_diff_opens_and_a_large_one_does_not() -> None:
     scores and the prompt was rewritten."""
     small_before, small_after = two_versions()
     small = render_html(
-        compare(small_after, small_before), small_after, small_before, locale="en"
+        compare(small_after, small_before),
+        small_after,
+        small_before,
+        locale="en",
+        declared=None,
     )
     assert "<details open><summary><code>prompt</code>" in small
 
@@ -469,7 +475,11 @@ def test_a_small_diff_opens_and_a_large_one_does_not() -> None:
     wide_v2 = "\n".join(f"changed {i}" for i in range(40))
     big_before, big_after = two_versions(wide_v1, wide_v2)
     big = render_html(
-        compare(big_after, big_before), big_after, big_before, locale="en"
+        compare(big_after, big_before),
+        big_after,
+        big_before,
+        locale="en",
+        declared=None,
     )
     # Scoped to the section: the report's own sections are `<details open>` too.
     section = big.split('<section class="artifacts">')[1].split("</section>")[0]
@@ -768,7 +778,9 @@ def test_a_drifted_pin_exits_two_and_an_unchecked_one_exits_zero() -> None:
     """
     before = a_pinned_run((), tools=Artifact(sha="a" * 64, text="v1"))
     moved = a_pinned_run(("tools",), tools=Artifact(sha="b" * 64, text="v2"))
-    drifted = headline(compare(moved, before), moved, before, locale="en")
+    drifted = headline(
+        compare(moved, before), moved, before, locale="en", declared=None
+    )
     assert exit_code(drifted) == 2, (
         "a pinned file that moved did not stop the pipeline: the declaration "
         "would be a line in a report, which is the vacuously green control "
@@ -782,7 +794,11 @@ def test_a_drifted_pin_exits_two_and_an_unchecked_one_exits_zero() -> None:
     assert "declared not to change" in drifted.sentence
 
     unchecked = headline(
-        compare(redact(moved), before), redact(moved), before, locale="en"
+        compare(redact(moved), before),
+        redact(moved),
+        before,
+        locale="en",
+        declared=None,
     )
     assert unchecked.pinned_unchecked == 1
     assert exit_code(unchecked) == 0, (
@@ -811,7 +827,7 @@ def test_the_withheld_report_gives_the_pin_a_count_and_never_a_path() -> None:
     # The **document**, not `artifact_lines`: the terminal returns nothing at all
     # once anything is withheld, and carries the count in the headline sentence
     # instead. The page is where the withheld clause has to appear.
-    section = render_html(held, redact(after), before, locale="en")
+    section = render_html(held, redact(after), before, locale="en", declared=None)
 
     assert "declared not to change" in section, (
         "the withheld comparison lost the pin: the party holding both runs "

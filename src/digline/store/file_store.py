@@ -43,6 +43,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
+from digline.core.declared import Declared
 from digline.core.refused import Quoted
 from digline.core.register import (
     DISPOSITIONS,
@@ -653,6 +654,7 @@ class FileResultStore:
         expected_config_hash: str,
         *,
         expected_baseline: str | None,
+        declared: Declared | None,
         promoted_at: str,
     ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant,
@@ -664,7 +666,7 @@ class FileResultStore:
         # they are owed. The first is raised and the rest are not looked at, which is
         # what the body this replaced did; the tuple leaves that choice here
         # rather than making it for every backend.
-        refusals = refusals_for(run, expected_config_hash)
+        refusals = refusals_for(run, expected_config_hash, declared=declared)
         if refusals:
             raise refusals[0]
 

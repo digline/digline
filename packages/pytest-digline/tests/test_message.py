@@ -102,7 +102,7 @@ def test_the_headline_is_printed_once_and_is_the_report_s(
     """
     path = baseline(FINE, {**FINE, "alpha": "Acme, unhappy", "beta": "Acme, unhappy"})
     comparison, run, base = _compared(path, pytester.path)
-    sentence = headline(comparison, run, base, locale="en").sentence
+    sentence = headline(comparison, run, base, locale="en", declared=None).sentence
 
     result = pytester.runpytest_subprocess("--digline-suite", str(path))
 

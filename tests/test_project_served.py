@@ -104,7 +104,7 @@ def test_promotions_refusals_are_not_applied() -> None:
     run = replace(
         unpromoted(), rejudged_from="2026-09-30T10-00-00-00-00-c0ffee00c0ffee00"
     )
-    assert len(refusals_for(run, "0123456789abcdef")) == 3
+    assert len(refusals_for(run, "0123456789abcdef", declared=None)) == 3
     served = project_served(run, Table())
     assert served.rejudged_from == run.rejudged_from
     assert [v.status for v in served.results[3].verdicts] == ["error"]
@@ -200,7 +200,7 @@ def test_through_one_table_the_comparison_finds_the_regression() -> None:
     reference = project(promoted(), table)
     served = project_served(unpromoted(), table)
     comparison = compare(served, reference)
-    assert headline(comparison, served, reference, locale="en").worse
+    assert headline(comparison, served, reference, locale="en", declared=None).worse
     regressed = [d.case_id for d in comparison.deltas if d.outcome == "regressed"]
     assert regressed == [table.token("case_id", CASE)]
 
@@ -226,7 +226,9 @@ def test_a_served_run_renders_against_the_reference_and_names_nothing(
     table = Table()
     reference = project(promoted(), table)
     served = project_served(unpromoted(), table)
-    html = render_html(compare(served, reference), served, reference, locale=locale)
+    html = render_html(
+        compare(served, reference), served, reference, locale=locale, declared=None
+    )
     for name in LEAKED:
         assert name not in html, name
     assert table.token("case_id", CASE) in html

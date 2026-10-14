@@ -588,10 +588,10 @@ def test_a_failing_group_beside_an_answer_of_no_is_explained() -> None:
     assert scoped.status == "fail"
 
     for locale in LOCALES:
-        head = headline(comparison, run, baseline, locale=locale)
+        head = headline(comparison, run, baseline, locale=locale, declared=None)
         assert not head.worse
         section = aggregates_section(
-            render_html(comparison, run, baseline, locale=locale)
+            render_html(comparison, run, baseline, locale=locale, declared=None)
         )
         assert '<p class="note">' in section, locale
 
@@ -604,7 +604,7 @@ def test_the_explanation_is_absent_when_something_really_did_get_worse() -> None
     run = ran(cases, at=LATER_AT, wrong=frozenset({"f2"}), threshold="9/10")
 
     comparison = compare(run, baseline)
-    assert headline(comparison, run, baseline, locale="en").worse
+    assert headline(comparison, run, baseline, locale="en", declared=None).worse
     assert '<p class="note">' not in aggregates_section(
-        render_html(comparison, run, baseline, locale="en")
+        render_html(comparison, run, baseline, locale="en", declared=None)
     )

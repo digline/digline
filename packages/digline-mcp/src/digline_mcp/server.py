@@ -268,7 +268,13 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # `en` and not a parameter: the sentence is a *document* string with a
         # recipient, and an agent is not that recipient. A caller who wants the
         # customer's sentence renders the report, which takes a mandatory locale.
-        head = headline(comparison, found, baseline, locale="en")
+        head = headline(
+            comparison,
+            found,
+            baseline,
+            locale="en",
+            declared=loaded_suite.declared(),
+        )
         return compare_json(
             comparison,
             head,

@@ -363,7 +363,7 @@ def test_the_reading_prints_both_shares_and_no_verdict_on_them(locale: str) -> N
 def test_it_is_never_in_the_headline_and_never_an_exit_code() -> None:
     now, before = collapsed()
     comparison = compare(now, before)
-    head = headline(comparison, now, before, locale="en")
+    head = headline(comparison, now, before, locale="en", declared=None)
     assert "0 or 1" not in head.sentence
     worse = sum(1 for d in comparison.deltas if d.outcome == "regressed")
     assert worse == 0
@@ -373,7 +373,7 @@ def test_it_is_never_in_the_headline_and_never_an_exit_code() -> None:
 def test_the_wire_carries_counts_under_full_only() -> None:
     now, before = collapsed()
     comparison = compare(now, before)
-    head = headline(comparison, now, before, locale="en")
+    head = headline(comparison, now, before, locale="en", declared=None)
     assert "shape" not in compare_json(comparison, head, baseline=before, full=False)
     [item] = compare_json(comparison, head, baseline=before, full=True)["shape"]  # type: ignore[misc]
     assert item == {

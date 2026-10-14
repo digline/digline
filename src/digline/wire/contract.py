@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, get_args
 
-from digline.core import Outcome, Run, scale_lost
+from digline.core import Declared, Outcome, Run, scale_lost
 from digline.report import Headline, unjudged_cases
 from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
@@ -353,7 +353,7 @@ def exit_code(head: Headline) -> int:
     return EXIT_OK
 
 
-def run_exit_code(run: Run) -> int:
+def run_exit_code(run: Run, *, declared: Declared | None) -> int:
     """The exit code of a run with nothing to compare it against: a first
     round, before any baseline.
 
@@ -370,6 +370,7 @@ def run_exit_code(run: Run) -> int:
     it to `exit_code`: for any run, this equals `exit_code` of the run compared
     with itself, which is the comparison with no relation in it.
     """
+    del declared  # surface only: read once ADR 0049 §3 lands
     if unjudged_cases(run) or scale_lost(run):
         return EXIT_UNJUDGED
     return EXIT_OK
@@ -1035,6 +1036,11 @@ _ADDED: tuple[_AddedKey, ...] = (
     # present, so an empty list is a suite that was read, not a digline that
     # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
     _AddedKey("run", "notes", _STRINGS, "#396; ADR 0024 §6.4"),
+    # A run in which none of the cases that count was judged, read against the
+    # suite's declaration: a new cause of exit 2, which a consumer reading
+    # `exit_code` already honours, by the rule `pinned_drifted` arrived under.
+    _AddedKey("compare", "nothing_judged", _BOOL, "ADR 0049 §4"),
+    _AddedKey("compare.full", "nothing_judged", _BOOL, "ADR 0049 §4"),
 )
 
 

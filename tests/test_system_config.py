@@ -317,7 +317,11 @@ def test_the_baseline_carries_the_configuration_that_produced_it(
     store = FileResultStore(tmp_path)
     ref = store.write_run(a_run(target={**ANTHROPIC, "temperature": 0.3}))
     promoted = store.promote_baseline(
-        ref, "cfg", expected_baseline=None, promoted_at="2026-01-02T09:00:00+00:00"
+        ref,
+        "cfg",
+        expected_baseline=None,
+        promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
     )
     assert promoted.target_config.values["temperature"] == 0.3
 
@@ -439,7 +443,13 @@ def test_the_report_names_the_instrument_that_joined(
     would be a lie about a suite that now grades with three."""
     now = a_run(judges=("anthropic/haiku", "openai/gpt-5-mini"))
     before = a_run(judges=("anthropic/haiku", "anthropic/opus"))
-    document = render_html(compare(now, before), now, before, locale=locale)  # type: ignore[arg-type]
+    document = render_html(
+        compare(now, before),
+        now,
+        before,
+        locale=locale,  # type: ignore[arg-type]
+        declared=None,
+    )
     assert expected in document
     assert "anthropic/opus" in document
 
@@ -518,7 +528,7 @@ def test_a_schema_seven_document_migrates_to_an_empty_configuration() -> None:
 def test_the_headline_says_it_is_not_known_rather_than_unchanged() -> None:
     now = a_run(target={**ANTHROPIC, "temperature": 0.7})
     before = a_run()
-    head = headline(compare(now, before), now, before, locale="en")
+    head = headline(compare(now, before), now, before, locale="en", declared=None)
     assert "is not known" in head.sentence
     assert not head.target_config_changed
 
@@ -703,7 +713,9 @@ def test_the_redacted_report_still_names_the_model_and_hides_the_host() -> None:
     before = a_run(
         target={"provider": "openai", "model": "gpt-4o", "base_url": "gw.acme.local"}
     )
-    document = render_html(compare(now, before), now, before, locale="it")
+    document = render_html(
+        compare(now, before), now, before, locale="it", declared=None
+    )
     assert "gpt-4o" in document and "gpt-5" in document
     assert "gw.acme.local" not in document
     assert "non incluso" in document
@@ -763,7 +775,13 @@ def test_the_report_says_a_drop_coincided_with_the_change(
     the strongest word two facts in one comparison support — but it is what
     makes a reviewer check the configuration before blaming the prompt."""
     now, before = regression_runs()
-    document = render_html(compare(now, before), now, before, locale=locale)  # type: ignore[arg-type]
+    document = render_html(
+        compare(now, before),
+        now,
+        before,
+        locale=locale,  # type: ignore[arg-type]
+        declared=None,
+    )
     assert expected in document
 
 
@@ -778,7 +796,7 @@ def test_a_drop_without_a_configuration_change_says_nothing_extra() -> None:
         results=before.results,
         target_config=now.target_config,
     )
-    document = render_html(compare(now, same), now, same, locale="en")
+    document = render_html(compare(now, same), now, same, locale="en", declared=None)
     assert "coincides with" not in document
 
 
@@ -786,7 +804,9 @@ def test_the_two_sentences_do_not_both_say_configuration() -> None:
     """They sat next to each other and meant two different things: the rules
     that judge, and the system that answered. The first one names the suite."""
     now, before = regression_runs()
-    sentence = headline(compare(now, before), now, before, locale="en").sentence
+    sentence = headline(
+        compare(now, before), now, before, locale="en", declared=None
+    ).sentence
     assert "The suite is unchanged from the reference." in sentence
     assert "answered under a different configuration" in sentence
     assert sentence.count("configuration") == 1
@@ -1034,7 +1054,7 @@ def test_the_report_says_a_java_drop_coincided_with_the_model_change(
     comparison = compare(now, before)
     assert comparison.has_regressions
     assert config_lines(comparison, locale="en") == ("system · temperature 0.3 → 0.7",)
-    document = render_html(comparison, now, before, locale="en")
+    document = render_html(comparison, now, before, locale="en", declared=None)
     assert "coincides with temperature 0.3 → 0.7" in document
 
 

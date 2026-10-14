@@ -31,6 +31,7 @@ from typing import cast
 from digline.core import (
     NO_BASELINE,
     CheckDifference,
+    Declared,
     Difference,
     Run,
     Verdict,
@@ -784,7 +785,14 @@ def _compare_form(
 # --------------------------------------------------------------------------- #
 
 
-def compare_page(run: Run, against: Run, *, locale: Locale, suite: str) -> str:
+def compare_page(
+    run: Run,
+    against: Run,
+    *,
+    locale: Locale,
+    suite: str,
+    declared: Declared | None,
+) -> str:
     """The exported report, with a navigation bar in front of it.
 
     `render_html` is called, not reimplemented, and nothing else is touched —
@@ -793,7 +801,9 @@ def compare_page(run: Run, against: Run, *, locale: Locale, suite: str) -> str:
     yields exactly what `digline report` writes, which is what the test
     asserts byte for byte.
     """
-    document = render_html(compare(run, against), run, against, locale=locale)
+    document = render_html(
+        compare(run, against), run, against, locale=locale, declared=declared
+    )
     bar = nav(locale, here="compare", suite=suite)
     # The view's stylesheet has to reach the bar, and the report's `<style>` is
     # the only one in the document.

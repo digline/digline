@@ -40,7 +40,9 @@ def test_a_projected_comparison_says_its_names_were_replaced(locale: Locale) -> 
     table = Table()
     reference = project(promoted(), table)
     served = project_served(unpromoted(), table)
-    html = render_html(compare(served, reference), served, reference, locale=locale)
+    html = render_html(
+        compare(served, reference), served, reference, locale=locale, declared=None
+    )
     assert says(html, locale, "header.projected")
     assert says(html, locale, "header.redacted")
 
@@ -50,7 +52,9 @@ def test_a_redacted_document_in_clear_does_not_claim_tokens(locale: Locale) -> N
     run = redact(unpromoted(), NOTHING_EXTRA)
     reference = redact(promoted(), NOTHING_EXTRA)
     alone = render_run_html(run, locale=locale)
-    against = render_html(compare(run, reference), run, reference, locale=locale)
+    against = render_html(
+        compare(run, reference), run, reference, locale=locale, declared=None
+    )
     for html in (alone, against):
         assert says(html, locale, "header.redacted")
         assert not says(html, locale, "header.projected")
@@ -61,7 +65,9 @@ def test_a_document_in_clear_says_neither(locale: Locale) -> None:
     run = unpromoted()
     reference = replace(promoted(), created_at="2026-09-01T00:00:00+00:00")
     alone = render_run_html(run, locale=locale)
-    against = render_html(compare(run, reference), run, reference, locale=locale)
+    against = render_html(
+        compare(run, reference), run, reference, locale=locale, declared=None
+    )
     for html in (alone, against):
         assert not says(html, locale, "header.redacted")
         assert not says(html, locale, "header.projected")

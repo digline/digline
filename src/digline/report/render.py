@@ -25,6 +25,7 @@ from digline.core import (
     Comparison,
     ConfigDelta,
     ConfigValue,
+    Declared,
     Denominator,
     Outcome,
     Run,
@@ -197,6 +198,10 @@ class Headline:
     #: score moved and calling a changed input a regression would send a reader
     #: looking for a check that got worse. (ADR 0029 §2, §6)
     pinned_drifted: bool = False
+    #: None of the cases that count was judged: every case suspended, or a
+    #: document with no cases, read against what the suite declares. Read by
+    #: `exit_code()`, which returns 2. (ADR 0049 §3, §4)
+    nothing_judged: bool = False
     #: How many pinned paths this comparison could not answer for.
     #:
     #: **Visible, and deliberately not a failure** — the line between those two
@@ -728,9 +733,15 @@ def errored_verdicts(run: Run) -> tuple[ErroredVerdict, ...]:
 
 
 def headline(
-    comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
+    comparison: Comparison,
+    run: Run,
+    baseline: Run,
+    *,
+    locale: Locale,
+    declared: Declared | None,
 ) -> Headline:
     strings(locale)  # fail here, not halfway through a document
+    del declared  # surface only: read once ADR 0049 §3 lands
     counts: dict[Outcome, int] = {o: comparison.counts.get(o, 0) for o in OUTCOME_ORDER}
     regressed = counts["regressed"]
 
@@ -2342,7 +2353,12 @@ def _artifact_detail(delta: ArtifactDelta, locale: Locale) -> str:
 
 
 def render_html(
-    comparison: Comparison, run: Run, baseline: Run, *, locale: Locale
+    comparison: Comparison,
+    run: Run,
+    baseline: Run,
+    *,
+    locale: Locale,
+    declared: Declared | None,
 ) -> str:
     """A self-contained HTML document, deterministic byte for byte.
 
@@ -2357,7 +2373,7 @@ def render_html(
     `locale` is mandatory and has no default: the language of a document with a
     recipient is not something to settle by omission.
     """
-    head = headline(comparison, run, baseline, locale=locale)
+    head = headline(comparison, run, baseline, locale=locale, declared=declared)
     answer = phrase(locale, "answer.yes" if head.worse else "answer.no")
     tally = "".join(
         f"<li>{escape(outcome)} <b>{head.counts[outcome]}</b></li>"

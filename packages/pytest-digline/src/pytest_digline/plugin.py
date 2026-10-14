@@ -330,7 +330,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     run = read_run(store, suite, resolved.key)
     baseline = need_baseline(store, suite)
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale=LOCALE)
+    head = headline(comparison, run, baseline, locale=LOCALE, declared=suite.declared())
     return _Opened(
         path=path,
         suite=suite,

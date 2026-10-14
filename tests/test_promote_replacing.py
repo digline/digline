@@ -69,7 +69,9 @@ def stored(store: FileResultStore, created_at: str, *, status: str = "pass") -> 
 def promote(
     store: FileResultStore, ref: RunRef, expected: str | None, *, at: str = SIGNED
 ) -> Run:
-    return store.promote_baseline(ref, CFG, expected_baseline=expected, promoted_at=at)
+    return store.promote_baseline(
+        ref, CFG, expected_baseline=expected, promoted_at=at, declared=None
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -111,5 +111,6 @@ def promote_priced(
         # itself. (ADR 0031 §1) The helper is imported under another name
         # because the parameter `replacing` would hide it in this function.
         expected_baseline=expected_baseline_of(replacing),
+        declared=suite.declared(),
         promoted_at=promoted_at,
     )
