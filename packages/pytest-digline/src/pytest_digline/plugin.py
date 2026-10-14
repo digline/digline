@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import sys
 import traceback
+import warnings
 from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -201,13 +202,91 @@ def pytest_collection_modifyitems(
     **import the user's suite a second time** — a module with an import-time
     side effect would perform it twice.
     """
+    #: The nodeid a file had before its suites carried their attribute,
+    #: mapped to the nodeids that replaced it: what a stale `--deselect` named.
+    renamed: dict[str, list[str]] = {}
     for spec in _specs(config):
         opened = _open(spec, config)
-        node = _child(session, DiglineSuite, path=opened.path, opened=opened)
+        node = _suite_node(session, spec, opened, renamed)
         items.extend(node.collect())
         config.stash[HEADLINES].append(opened.headline)
         if opened.note:
             config.stash[HEADLINES].append(f"note: {opened.note}")
+    _warn_on_stale_deselects(config, renamed)
+
+
+def _suite_node(
+    session: pytest.Session, spec: str, opened: _Opened, renamed: dict[str, list[str]]
+) -> DiglineSuite:
+    """The suite's node, named by its attribute when the spec has one.
+
+    Two suites from one file, `both.py:support` and `both.py:billing`, would
+    otherwise be two nodes at one path with identical nodeids, and `-k`,
+    `--deselect` and `--lf` could not tell their rows apart (#566). The node
+    built first is the one pytest names from the path alone: its nodeid is
+    pytest's rendering of that path, which this does not restate, and the
+    attribute is appended to it.
+    """
+    node = _child(session, DiglineSuite, path=opened.path, opened=opened)
+    attribute = _attribute_of(spec)
+    if attribute is None:
+        return node
+    named = _child(
+        session,
+        DiglineSuite,
+        path=opened.path,
+        opened=opened,
+        nodeid=f"{node.nodeid}:{attribute}",
+        name=f"{node.name}:{attribute}",
+    )
+    renamed.setdefault(node.nodeid, []).append(named.nodeid)
+    return named
+
+
+def _warn_on_stale_deselects(
+    config: pytest.Config, renamed: dict[str, list[str]]
+) -> None:
+    """One warning per `--deselect` value written for a nodeid that changed.
+
+    pytest deselects by prefix and says nothing about a prefix that matches
+    nothing, so a value naming a row by its old nodeid would let the row it
+    was meant to exclude run again in silence. The warning names, for that
+    value, the nodeids that replaced it. It does not honour the old form: it
+    says the form changed. A `PytestWarning`, so `-W error` stops the session,
+    which is what whoever passed it asked for, as a usage error. The value is
+    the user's own text, so it passes through `visible()` like every line this
+    plugin prints.
+    """
+    if not renamed:
+        # Inert unless a suite was named with an attribute: nothing to check,
+        # and digline is not imported for nothing (ADR 0013 §8).
+        return
+    from digline.report import visible
+
+    given: list[str] = list(config.getoption("deselect") or [])
+    for value in given:
+        replacements = [
+            new + value[len(old) :]
+            for old, news in renamed.items()
+            if value.startswith(f"{old}::")
+            for new in news
+        ]
+        if not replacements:
+            continue
+        stale = pytest.PytestWarning(
+            visible(
+                f"--deselect {value} names a row by the nodeid it had before a "
+                "suite named as file.py:attribute carried its attribute. It "
+                f"deselects nothing now. Use: {', '.join(replacements)}"
+            )
+        )
+        try:
+            warnings.warn(stale, stacklevel=1)
+        except pytest.PytestWarning as exc:
+            # `-W error` turned it into an exception. Refused as a usage error,
+            # as every refusal of the request is here, and not let through as
+            # INTERNALERROR, which reads as a crash of pytest or of this plugin.
+            raise pytest.UsageError(str(exc)) from exc
 
 
 def _child[N: pytest.Item | pytest.File](
@@ -401,6 +480,12 @@ def _measure(
         pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
     )
     store.write_run(run)
+
+
+def _attribute_of(spec: str) -> str | None:
+    """The `:attribute` a spec ends with, by `_path_of`'s rule, or None."""
+    _head, sep, tail = spec.rpartition(":")
+    return tail if sep and tail.isidentifier() else None
 
 
 def _path_of(spec: str) -> Path:
