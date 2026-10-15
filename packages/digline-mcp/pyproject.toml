@@ -8,6 +8,7 @@ license = "Apache-2.0"
 authors = [
     { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
 ]
+keywords = ["mcp", "mcp-server", "llm", "evaluation", "evals", "baseline"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
