@@ -16,6 +16,10 @@
   per-check sentences no longer call the interval they print "the noise of this
   check": it is the range of the reference's individual samples (#496). The
   word *noise* stays for the category, in the headline and in `explain`
+- Amended: 2026-10-15 — §5 and §6 gain dated notes and are kept as written.
+  [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) decides that
+  the floor compares means with means and applies only where an assertion
+  declares it (#496). Nothing changes until that code lands
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -202,6 +206,14 @@ Nothing here touches `Verdict`. A score below its threshold is `fail` whether or
 not it is within noise — noise explains a movement, it does not excuse a
 result — and the three states of ADR 0001 are untouched, in `--json` too.
 
+*Noted 2026-10-15 ([ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md)),
+the section above kept as written.* The interval this section judges a movement
+against is the range of the baseline's individual samples, and the value judged
+against it is a mean. ADR 0050 decides that the floor compares means with
+means: the quantity on the baseline's side becomes the dispersion of the mean
+of the judged samples, and the floor applies only where an assertion declares
+it. Until that code lands, this section describes what `compare()` does.
+
 ### 6. Where the noise floor does not reach
 
 **A flipped outcome is never within noise.** ADR 0001 put rule 3 above rule 4 for
@@ -228,6 +240,14 @@ That is right rather than unfortunate: a case decided five times out of five and
 now decided three times out of five has moved, and one case is a diagnosis. The
 noise floor earns its keep where the dispersion actually was — on a case that
 was already wobbling, and on the aggregate of §7.
+
+*Noted 2026-10-15 ([ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md)),
+the section above kept as written.* For a binary check, *a case that was
+already wobbling* is a baseline divided on outcomes, whose interval is `[0, 1]`:
+there the floor does not earn its keep, it concedes every movement that stays on
+one side of the threshold. ADR 0050 measures how large that is at K=5, shows
+that `min_agreement` sets it, and decides what replaces the range. The
+aggregate of §7 is outside ADR 0050.
 
 ### 7. The aggregate gets a noise interval of its own
 
