@@ -64,12 +64,29 @@ decision rather than an outcome* since it was written.
 
 ### What a pytest run does not carry
 
-**The process exit code.** `digline compare` exits `1` for a regression and `2`
-for a run it could not judge; a pytest run exits `1` for either. That is because
-pytest-digline does not change pytest's exit status, not because it could not: a
-plugin can set it at the end of a session. Whether pytest-digline should tell
-`2` from `1` is an open question, and answering yes would change the exit code
-of existing jobs.
+**The difference between digline's `1` and `2`.** `digline compare` exits `1`
+for a regression and `2` for a run it could not judge; a pytest run exits `1`
+for either, because pytest's own `2` means the session was interrupted.
+
+**But a session digline did not say green does not end green.** When any
+suite's comparison would make `digline compare` exit `1` or `2` and the session
+would otherwise end `0`, pytest-digline ends it `1`, and the summary carries one
+line per such suite, named by the path of its rows:
+
+```
+eval/suite.py: digline exits 2, so this session does not end green.
+```
+
+That is the case for what fails no row: a pinned file that drifted, and a run
+that judged nothing because every case the suite measures is suspended, where
+each case is still `SKIPPED` with its reason. There is no flag. A status that
+is already not `0` — a failing row, a usage error, an interruption — is left as
+it is. ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md) §7)
+
+pytest's own summary line at the bottom can stay green: over a drifted pin the
+same run ends with `1 passed` in green, and its exit code is `1`. That line
+counts the rows' outcomes, not the exit status, so no status written in any
+hook would change it. Read the exit code; the digline line above says why.
 
 The distinction survives where you can act on it: `F` and `E` are counted
 separately, `-rE` lists the errored rows on their own, and `--junit-xml` keeps

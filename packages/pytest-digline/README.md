@@ -54,10 +54,19 @@ The suspension is the one digline state an exit code cannot express: it never
 fails, so it disappears into `0`. pytest has had a state for *a decision rather
 than an outcome* since it was written, and this is it.
 
-**What a pytest run does not carry**: the process exit code. `digline compare`
-exits `1` for a regression and `2` for a run it could not judge; a pytest run
-exits `1` for either, because this plugin does not change pytest's exit status.
-A plugin can; whether this one should is an open question. The distinction survives in the report — `F` and `E` are counted
+**A session digline did not say green does not end green.** When a suite's
+comparison would make `digline compare` exit `1` or `2` and the session would
+otherwise end `0`, it ends `1`, and the summary says why, one line per suite:
+`eval/suite.py: digline exits 2, so this session does not end green.` That
+covers what fails no row: a pinned file that drifted, and a run that judged
+nothing because every case it measures is suspended. There is no flag. A
+status that is already not `0` is left as it is. pytest's own summary line at
+the bottom can stay green, because it counts the rows' outcomes and not the
+exit status: read the exit code, and the digline line above it says why.
+
+**What a pytest run does not carry**: the difference between digline's `1` and
+`2`. A pytest run exits `1` for either, because pytest's `2` means interrupted.
+The distinction survives in the report — `F` and `E` are counted
 separately, `-rE` lists the errored rows — and in `--junit-xml`. A job that
 needs `1` versus `2` runs `digline compare`, which is one command away.
 

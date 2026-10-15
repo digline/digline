@@ -398,6 +398,68 @@ pinned file that drifted produces no failing row, and #484 measured the session
 at `0`. A session whose every row is `SKIPPED` exits `0`, which is read from
 pytest's rule and not run here. These two are what the rule changes.
 
+*Narrowed 2026-10-15, the paragraph above kept as written.* "A session whose
+every row is `SKIPPED`" is narrower than it reads. A case suspended after the
+baseline was promoted keeps, beside its own `SKIPPED` row, one row for each
+check the baseline judged it on, built from the comparison's delta, and that
+row reads `PASSED`. Found while writing this section's test of a run that
+judged nothing (`packages/pytest-digline/tests/test_session_not_green.py`),
+which for that reason asserts the case's row alone, and run on `main` at
+`956e27d`: one case, judged and promoted, then suspended, gives
+`PASSED eval/suite.py::alpha::contains` and `SKIPPED [1] ... the refund API is
+down`, a session at `0`, and `digline compare` at `2`. The ruling is not
+changed by it: the plugin reads digline's code, not the rows, so that session
+now ends `1`. Item 13 of the tests below carries the same premise. The
+`PASSED` row is a defect of its own, #574, and is not ruled here.
+
+*Added 2026-10-15: pytest's last line stays green while the process exits
+`1`.* What a committed test holds, and runs in CI: over a drifted pin the
+process exits `1` while pytest's last line counts one test passed and none
+failed (`test_pytest_s_last_line_still_counts_a_pass_while_the_process_exits_1`
+in `packages/pytest-digline/tests/test_session_not_green.py`). It asserts the
+counts through `parseoutcomes`, and neither the line's form nor its colour, by
+choice: both change between pytest versions.
+
+What one run observed, which was not saved: a script, not committed, that
+builds this section's suite (one case, one `Contains`, one pinned file), runs
+and promotes it, then either changes the pinned file or suspends the case and
+runs `pytest --digline-suite` as a process. Both runs exited `1`, under the
+line *"eval/suite.py: digline exits 2, so this session does not end
+green."*; the last line read `1 passed in 0.07s` (drifted pin) and
+`1 passed, 1 skipped in 0.06s` (suspended case). With `--color=yes` that line
+was green, `\e[32m`, with only the words `1 skipped` yellow. The colour rests
+on that run alone.
+
+Why, read in `_pytest/terminal.py` at pytest 9.1.1, the version the lock
+holds:
+
+- `TerminalReporter.pytest_sessionfinish` (lines 957–994) is a wrapper. Every
+  other implementation, this plugin's `trylast` one included, runs inside its
+  `yield` (line 961). After it, the reporter calls `pytest_terminal_summary`
+  (lines 971–974), where the digline lines are printed, and then
+  `summary_stats()` (line 993).
+- `summary_stats` (lines 1252–1287) takes the line's text and colour from
+  `build_summary_stats_line`, through `_get_main_color` (line 1397) and
+  `_set_main_color` (line 1416) to `_determine_main_color` (lines 1404–1414).
+  That function reads `self.stats` alone: red for `failed` or `error`, yellow
+  for `warnings` or `xpassed`, green for `passed`.
+- None of these reads `exitstatus` or `session.exitstatus`. The `exitstatus`
+  the wrapper is called with decides only whether the summary is printed (line
+  971) and whether an interruption is reported (line 988).
+
+So the last line counts the rows' outcomes and not the exit status, and no
+status written in any hook, at any point, would change it. The digline line
+directly above it is the one that says why the code is `1`.
+
+Not read at the floor the package declares, pytest 8.0.0. Inferred from the
+code and not run: with `--max-warnings` exceeded, pytest itself turns a status
+of `0` into `MAX_WARNINGS_ERROR` and prints a red line of its own (lines
+976–985), and its last line keeps the outcomes' colour, yellow for the
+warnings. The behaviour is pytest's in general, not this plugin's.
+
+This note replaces a sentence said in the review of #575, that the last line
+takes a value bound before the implementations run.
+
 **With which code: `1`.** *Ruled 2026-10-13.* `1` because `2` is taken. In
 pytest's contract `2` is `ExitCode.INTERRUPTED`, so a session that exited `2`
 would tell whoever reads that code that it was interrupted, which is false.

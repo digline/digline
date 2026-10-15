@@ -110,9 +110,12 @@ def test_two_suites_each_line_names_its_own(pytester: pytest.Pytester) -> None:
     rows = progress_paths(text)
     assert rows == ["support/suite.py", "billing/suite.py"], rows
     lines = summary(text)
-    assert len(lines) == 2, lines
+    # The third line is the one a suite digline did not say green for gets,
+    # named the same way. (ADR 0049 §7)
+    assert len(lines) == 3, lines
     assert lines[0].startswith("support/suite.py: Nothing got worse"), lines[0]
     assert lines[1].startswith("billing/suite.py: 1 check got worse"), lines[1]
+    assert lines[2].startswith("billing/suite.py: digline exits 1"), lines[2]
 
 
 def test_the_note_carries_the_prefix_of_its_suite(pytester: pytest.Pytester) -> None:

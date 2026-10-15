@@ -338,6 +338,10 @@ because pytest's `2` is `ExitCode.INTERRUPTED`.
 *Accepted 2026-10-14:* ADR 0049 is accepted, so the value `1` is decided. Its
 code has not landed, and such a session still ends at `0`.
 
+*Landed with #575:* such a session now ends at `1`, and the summary names
+each suite whose code is not `0` with that code. Released with the pytest-digline
+release that carries it, on the core release that carries ADR 0049.
+
 So the trichotomy survives where it can and the loss is documented where it
 cannot:
 

@@ -34,12 +34,30 @@ notes under them are this file, verbatim.
   carry. Pass `None` only for a document with no suite behind it.
   `digline.host.promote` keeps its signature. A store of your own has to
   accept the argument and hand it to `refusals_for`.
+- **A sentence for a pytest session digline did not say green**,
+  `fact.session_not_green` in every locale: *"{suite}: digline exits {code},
+  so this session does not end green."* pytest-digline prints it (ADR 0049
+  §7). An added key; nothing that read the table before reads it differently.
 
 ## pytest-digline — unreleased
 
 The version is chosen by the release that carries this, from what it carries.
 
 **Breaking**
+
+- **A session digline did not say green does not end green** ([ADR
+  0049](docs/adr/0049-a-run-that-judged-nothing-does-not-pass.md) §7, #484).
+  When any suite's comparison would make `digline compare` exit `1` or `2`
+  and the session would otherwise end `0`, it ends `1`. That changes what
+  failed no row and ended `0` until now: a pinned file that drifted, and a
+  run that judged nothing because every case it measures is suspended, whose
+  cases are still `SKIPPED` with their reasons. The summary says why, one line
+  per such suite, named by the path of its rows: *"eval/suite.py: digline
+  exits 2, so this session does not end green."* `1` and not `2`, because
+  pytest's `2` means interrupted. A status that is already not `0` is left as
+  it is. **There is no flag**: such a session was not passing. To get past it,
+  fix what the suite's sentence names, judge at least one case, or stop gating
+  on the suite. Needs the core release that carries ADR 0049.
 
 - **A suite named as `file.py:attribute` has its own nodeids**, which name the
   attribute: `both.py:support::alpha::contains`, where they were

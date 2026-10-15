@@ -16,7 +16,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from digline.core import key_of
-from digline.host import load_suite, load_target, read_artifacts, utc_now_iso
+from digline.host import (
+    load_suite,
+    load_target,
+    read_artifacts,
+    read_pinned,
+    utc_now_iso,
+)
 from digline.run import execute
 from digline.store import FileResultStore
 
@@ -27,12 +33,16 @@ def cycle(path: Path, root: Path, *, promote: bool) -> str:
     spec = str(path)
     suite, loaded = load_suite(spec, root=root)
     target = load_target(None, loaded, spec)
+    artifacts = read_artifacts(suite, target, path.parent, root=root)
     run = execute(
         suite,
         target,
         created_at=utc_now_iso(),
         git_commit=None,
-        artifacts=read_artifacts(suite, target, path.parent, root=root),
+        artifacts=artifacts,
+        # As `digline run` and `--digline-run` resolve them: a suite that pins
+        # a file is refused by `execute` without its resolved pin set.
+        pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
     )
     store = FileResultStore(str(root))
     ref = store.write_run(run)

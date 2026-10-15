@@ -142,6 +142,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "None of the cases this suite measures was judged, so this run "
             "cannot say whether anything got worse."
         ),
+        # The line a pytest session prints for a suite digline did not say green
+        # for, named the way the session names that suite's rows. The code is
+        # `exit_code()`'s; its cause is in the suite's own sentence, which this
+        # line does not repeat. (ADR 0049 §7)
+        "fact.session_not_green": (
+            "{suite}: digline exits {code}, so this session does not end green."
+        ),
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1354,6 +1361,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.nothing_judged": (
             "Nessuno dei casi che questa suite misura è stato giudicato: questa "
             "run non può dire se qualcosa è peggiorato."
+        ),
+        "fact.session_not_green": (
+            "{suite}: digline esce con {code}, quindi questa sessione non "
+            "finisce verde."
         ),
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",

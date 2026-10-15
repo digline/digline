@@ -385,6 +385,10 @@ class _Opened:
     #: exactly as `summary_lines` composes it once for a whole listing.
     coincides: str
     headline: str
+    #: What digline exits with for this suite, `exit_code()` of the same
+    #: headline whose sentence is above: 0, 1 or 2, never a refusal, which
+    #: stops the session before an `_Opened` exists. (ADR 0049 §7)
+    exit_code: int
     #: Whether this run carries the judge's own words. False on a redacted run,
     #: where quoting a reason would be quoting something that is not there.
     reasons_available: bool
@@ -463,6 +467,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     from digline.host import load_suite, need_baseline, read_run, resolve_key
     from digline.report import config_changes, headline, scale_lost
     from digline.store import FileResultStore
+    from digline.wire import exit_code
 
     suite, loaded = load_suite(spec, root=root)
     path = _path_of(spec)
@@ -482,6 +487,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
         comparison=comparison,
         coincides=config_changes(comparison.config_changes, LOCALE),
         headline=head.sentence,
+        exit_code=exit_code(head),
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
         note=resolved.note,
@@ -876,7 +882,8 @@ def pytest_terminal_summary(
     suites = config.stash.get(SUITES, none)
     if not suites:
         return
-    from digline.report import visible
+    from digline.report import phrase, visible
+    from digline.wire import EXIT_OK
 
     terminalreporter.write_sep("=", "digline")
     for nodeid, opened in suites:
@@ -898,3 +905,45 @@ def pytest_terminal_summary(
             # the sentence is built from a stored document — configuration
             # values, an artifact tally, a canary's case id. (0.10.1)
             terminalreporter.write_line(visible(f"{prefix}: {line}"))
+        if opened.exit_code != EXIT_OK:
+            # Why this session does not end green, for this suite: digline's
+            # code, in digline's words, named by the same prefix as the sentence
+            # that says the cause. (ADR 0049 §7)
+            terminalreporter.write_line(
+                visible(
+                    phrase(
+                        LOCALE,
+                        "fact.session_not_green",
+                        suite=prefix,
+                        code=opened.exit_code,
+                    )
+                )
+            )
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """A session digline did not say green does not end green. (ADR 0049 §7)
+
+    When the session would end `0` and any suite's code is not `0`, it ends
+    `1`, pytest's *tests failed*: pytest's `2` is *interrupted*, which would be
+    false. One rule for every cause, because the code is `exit_code()`'s and
+    not a rule of this plugin's. A status that is already not `0` is left as
+    it is: `1`, `3`, `4`, `5` already say the session is not green.
+
+    `session.exitstatus` is read, not the `exitstatus` the hook is called with:
+    that argument is the same for every implementation, so it cannot show what
+    a plugin before this one set. `trylast` so that this reads after them.
+    pytest returns `session.exitstatus` after this hook (`wrap_session` in
+    `_pytest/main.py`, read at the locked pytest and at the floor this
+    package declares), so what is
+    written here is what the process exits with.
+    """
+    none: list[tuple[str, _Opened]] = []
+    suites = session.config.stash.get(SUITES, none)
+    if not suites or session.exitstatus != pytest.ExitCode.OK:
+        return
+    from digline.wire import EXIT_OK
+
+    if any(opened.exit_code != EXIT_OK for _, opened in suites):
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
