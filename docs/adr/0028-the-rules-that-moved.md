@@ -7,6 +7,11 @@
   [ADR 0027](0027-the-run-reconciles.md) were
 - Shipped: 0.18.0
 - Date: 2026-09-21
+- Amended: 2026-10-15 — §4 gains a dated note and is kept as written. It says
+  which half of `samples 3 → 5` wins and why, as §4 asks of whoever gives
+  `samples` a direction: the confidence, because
+  [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) has the floor
+  measure the mean's dispersion. No row changes until that code lands
 - Opens: **nothing.** No schema bump, and not a passenger on one. The run
   document gains no field. §1 is why it does not need to: everything
   `config_hash` fingerprints is already written down, bar one value, and §5
@@ -270,6 +275,34 @@ half dominates the other, and no arithmetic here can weigh them, so the row
 prints `samples 3 → 5` and stops. **A future release that gives this a
 direction is making a claim this record examined and refused**; if it is made,
 it is made in an amendment that says which half it decided wins, and why.
+
+*Amended 2026-10-15 ([ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md)),
+the paragraph above kept as written.* **The half that wins is the confidence:
+more samples is a tightening.** ADR 0050 decides that the floor compares means
+with means. The quantity on the baseline's side becomes the dispersion of the
+mean of the judged samples, estimated from those samples, instead of their
+range. That dispersion shrinks as K grows, so the second half above — more
+samples, a wider floor, more movement forgiven — stops being true: a larger K
+steadies the score and narrows the floor in the same edit, and the two halves
+point the same way. Where an assertion declares no floor, ADR 0050 gives it
+none, and a larger K only steadies the score.
+
+**Why this half.** A floor says how far a measurement moves by chance, and a
+mean of more samples moves less. The floor this paragraph weighed was the range
+of single draws, which grows with K while the mean it judges steadies; that is
+what made the two halves unweighable here. With the floor measuring the mean's
+own dispersion, both halves are about the same quantity, and they agree.
+
+**For every case's check.** The direction holds for the dispersion of the
+mean of the judged samples of every case's check, binary or not. ADR 0050
+frames its fourth point to binary checks, and that frame describes how much
+today's floor concedes, not which way a floor built on the mean's dispersion
+moves. A run-level aggregate's floor is outside ADR 0050 and outside this
+amendment.
+
+**Until the code lands, the row stays as written.** Today's floor is still the
+range, so `samples 3 → 5` still takes no verb. The verb is printed when the
+floor it describes is the one `compare()` reads.
 
 **The two directions are not summed.** A suite that tightened three bars and
 loosened one is not *tightened on balance*: there is no such quantity, and
