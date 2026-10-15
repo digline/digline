@@ -83,6 +83,11 @@ each case is still `SKIPPED` with its reason. There is no flag. A status that
 is already not `0` — a failing row, a usage error, an interruption — is left as
 it is. ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md) §7)
 
+pytest's own summary line at the bottom can stay green: over a drifted pin the
+same run ends with `1 passed` in green, and its exit code is `1`. That line
+counts the rows' outcomes, not the exit status, so no status written in any
+hook would change it. Read the exit code; the digline line above says why.
+
 The distinction survives where you can act on it: `F` and `E` are counted
 separately, `-rE` lists the errored rows on their own, and `--junit-xml` keeps
 them apart. A job that needs `1` versus `2` runs `digline compare`, which is one

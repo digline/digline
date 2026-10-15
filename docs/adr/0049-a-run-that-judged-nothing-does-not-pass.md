@@ -412,6 +412,47 @@ changed by it: the plugin reads digline's code, not the rows, so that session
 now ends `1`. Item 13 of the tests below carries the same premise. The
 `PASSED` row is a defect of its own, #574, and is not ruled here.
 
+*Added 2026-10-15: pytest's last line stays green while the process exits
+`1`.* Measured with a script that was not committed. It builds this section's
+suite (one case, one `Contains`, one pinned file), runs it with `digline run`,
+promotes it, and then either changes the pinned file or suspends the case,
+runs again, and runs `pytest --digline-suite` as a process. In both cases the
+process exited `1`, the digline summary carried *"eval/suite.py: digline exits
+2, so this session does not end green."*, and the last line read
+`1 passed in 0.07s` (drifted pin) and `1 passed, 1 skipped in 0.06s`
+(suspended case). With `--color=yes` that line is green, `\e[32m`, and only
+the words `1 skipped` are yellow. Read in `_pytest/terminal.py` at pytest
+9.1.1, the version the lock holds:
+
+- `TerminalReporter.pytest_sessionfinish` (lines 957–994) is a wrapper. Every
+  other implementation, this plugin's `trylast` one included, runs inside its
+  `yield` (line 961). After it, the reporter calls `pytest_terminal_summary`
+  (lines 971–974), where the digline lines are printed, and then
+  `summary_stats()` (line 993).
+- `summary_stats` (lines 1252–1287) takes the line's text and colour from
+  `build_summary_stats_line`, through `_get_main_color` (line 1397) and
+  `_set_main_color` (line 1416) to `_determine_main_color` (lines 1404–1414).
+  That function reads `self.stats` alone: red for `failed` or `error`, yellow
+  for `warnings` or `xpassed`, green for `passed`.
+- None of these reads `exitstatus` or `session.exitstatus`. The `exitstatus`
+  the wrapper is called with decides only whether the summary is printed (line
+  971) and whether an interruption is reported (line 988).
+
+So the last line counts the rows' outcomes and not the exit status, and no
+status written in any hook, at any point, would change it. The digline line
+directly above it is the one that says why the code is `1`.
+
+Not read at the floor the package declares, pytest 8.0.0. Inferred from the
+code and not run: with `--max-warnings` exceeded, pytest itself turns a status
+of `0` into `MAX_WARNINGS_ERROR` and prints a red line of its own (lines
+976–985), and its last line keeps the outcomes' colour, yellow for the
+warnings. The behaviour is pytest's in general, not this plugin's.
+
+This replaces a sentence of the maintainer's from the review of #575, which
+said the last line takes a value bound before the implementations run: that
+was wrong. `test_session_not_green.py` holds the exit code and the last line
+together.
+
 **With which code: `1`.** *Ruled 2026-10-13.* `1` because `2` is taken. In
 pytest's contract `2` is `ExitCode.INTERRUPTED`, so a session that exited `2`
 would tell whoever reads that code that it was interrupted, which is false.
