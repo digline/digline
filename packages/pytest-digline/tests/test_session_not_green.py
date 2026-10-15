@@ -102,6 +102,30 @@ def test_a_pinned_file_that_drifted_fails_the_session(
     assert summary_says(result, 2), result.stdout.str()
 
 
+def test_pytest_s_last_line_still_counts_a_pass_while_the_process_exits_1(
+    pytester: pytest.Pytester, promoted: Path
+) -> None:
+    """A guard on a claim about pytest, not on this plugin.
+
+    `packages/pytest-digline/README.md` and `docs/pytest.md` say that pytest's
+    last line can stay green while the session exits `1`, because that line
+    counts the rows' outcomes and not the exit status (ADR 0049 §7, the note of
+    2026-10-15). Only the counts are asserted, through `parseoutcomes`: the
+    line's exact form and its colour codes change between pytest versions, and
+    a test that broke on the form would say nothing.
+    """
+    pin(promoted, '{"tools": ["refund", "delete_account"]}')
+    cycle(promoted, pytester.path, promote=False)
+    result = run(pytester, promoted)
+    outcomes = result.parseoutcomes()
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
+    assert outcomes.get("passed") == 1 and "failed" not in outcomes, (
+        "pytest's last line now reflects the exit status, so the sentence in "
+        "packages/pytest-digline/README.md and docs/pytest.md saying it can stay "
+        f"green while the session exits 1 must be rewritten: {outcomes}"
+    )
+
+
 def test_a_run_that_judged_nothing_fails_the_session_and_the_case_stays_skipped(
     pytester: pytest.Pytester, promoted: Path
 ) -> None:
