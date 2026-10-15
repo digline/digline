@@ -398,6 +398,20 @@ pinned file that drifted produces no failing row, and #484 measured the session
 at `0`. A session whose every row is `SKIPPED` exits `0`, which is read from
 pytest's rule and not run here. These two are what the rule changes.
 
+*Narrowed 2026-10-15, the paragraph above kept as written.* "A session whose
+every row is `SKIPPED`" is narrower than it reads. A case suspended after the
+baseline was promoted keeps, beside its own `SKIPPED` row, one row for each
+check the baseline judged it on, built from the comparison's delta, and that
+row reads `PASSED`. Found while writing this section's test of a run that
+judged nothing (`packages/pytest-digline/tests/test_session_not_green.py`),
+which for that reason asserts the case's row alone, and run on `main` at
+`956e27d`: one case, judged and promoted, then suspended, gives
+`PASSED eval/suite.py::alpha::contains` and `SKIPPED [1] ... the refund API is
+down`, a session at `0`, and `digline compare` at `2`. The ruling is not
+changed by it: the plugin reads digline's code, not the rows, so that session
+now ends `1`. Item 13 of the tests below carries the same premise. The
+`PASSED` row is a defect of its own, #574, and is not ruled here.
+
 **With which code: `1`.** *Ruled 2026-10-13.* `1` because `2` is taken. In
 pytest's contract `2` is `ExitCode.INTERRUPTED`, so a session that exited `2`
 would tell whoever reads that code that it was interrupted, which is false.
