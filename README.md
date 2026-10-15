@@ -286,6 +286,11 @@ the judgement layer beside it. It reaches a test run through
 [`digline/digline-action`](https://github.com/digline/digline-action), and CI
 without a Python toolchain through `ghcr.io/digline/digline`.
 
+From here: the [examples](#examples) below each run with no API key, the
+reasoning behind every rule is in [`docs/adr/`](docs/adr/), and
+[`CONTRIBUTING.md`](CONTRIBUTING.md) says how to set up the repository, run the
+tests, and what a change has to show before it lands.
+
 ## Examples
 
 The projects in [`examples/`](examples/) each answer a question somebody
