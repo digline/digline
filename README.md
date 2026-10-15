@@ -53,7 +53,7 @@ for teams shipping LLM features for someone else, who have to show a customer
 what was tested, when, under which commit, and who approved it.
 
 Wondering how digline differs from promptfoo, DeepEval, or observability
-platforms? See [How digline compares](https://digline.dev/comparison/).
+platforms? See [How digline compares](https://digline.dev/comparison/?ref=github).
 
 ## Quickstart
 
