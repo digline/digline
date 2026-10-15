@@ -28,3 +28,24 @@ cannot be added.
 
 A visit that arrives without `ref` is counted as without `ref`. Where it came
 from is not guessed.
+
+*2026-10-15: the parameter stays `ref`.* The eleven values are sources, and
+`ref` is the parameter GoatCounter reads as a visit's source; `campaign` names
+a campaign, which this list is not. Both produce a row: `ref` as the visit's
+source, `campaign` as a name in the Campaigns panel. That was read in
+`hit.go` on the `master` branch of arp242/goatcounter and in its *Track
+campaigns* help page, not in the version goatcounter.com runs, and no real
+count was tested. And the parameter is not changed because links already
+published carry it: changing it now would split their attribution from that
+of the links that follow.
+
+*2026-10-15: what `github` and `pypi` can mean.* Every package in this
+repository names `readme = "README.md"` in its `pyproject.toml`, so each
+package's README is also its page on PyPI, and the README at the root is
+digline's. A link inside a README cannot tell the two places apart: on such a
+link, `github` means "the README", not "from GitHub". The *Project links* on a
+PyPI page come instead from `[project.urls]`, not from the README. For every
+package here they are Homepage, Documentation and Changelog, all to
+digline.dev, and they appear only on PyPI, so `pypi` can be carried today, on
+those links. None of them carries a `ref` yet; tagging them changes
+`pyproject.toml` and is a decision not taken here.

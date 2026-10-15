@@ -8,6 +8,7 @@ license = "Apache-2.0"
 authors = [
     { name = "Alessandro Prandini", email = "alessandro.prandini@ict-group.it" },
 ]
+keywords = ["pytest", "pytest-plugin", "llm", "evals", "evaluation", "regression", "baseline"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Pytest",
