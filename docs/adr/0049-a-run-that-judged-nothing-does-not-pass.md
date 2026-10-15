@@ -413,16 +413,25 @@ now ends `1`. Item 13 of the tests below carries the same premise. The
 `PASSED` row is a defect of its own, #574, and is not ruled here.
 
 *Added 2026-10-15: pytest's last line stays green while the process exits
-`1`.* Measured with a script that was not committed. It builds this section's
-suite (one case, one `Contains`, one pinned file), runs it with `digline run`,
-promotes it, and then either changes the pinned file or suspends the case,
-runs again, and runs `pytest --digline-suite` as a process. In both cases the
-process exited `1`, the digline summary carried *"eval/suite.py: digline exits
-2, so this session does not end green."*, and the last line read
-`1 passed in 0.07s` (drifted pin) and `1 passed, 1 skipped in 0.06s`
-(suspended case). With `--color=yes` that line is green, `\e[32m`, and only
-the words `1 skipped` are yellow. Read in `_pytest/terminal.py` at pytest
-9.1.1, the version the lock holds:
+`1`.* What a committed test holds, and runs in CI: over a drifted pin the
+process exits `1` while pytest's last line counts one test passed and none
+failed (`test_pytest_s_last_line_still_counts_a_pass_while_the_process_exits_1`
+in `packages/pytest-digline/tests/test_session_not_green.py`). It asserts the
+counts through `parseoutcomes`, and neither the line's form nor its colour, by
+choice: both change between pytest versions.
+
+What one run observed, which was not saved: a script, not committed, that
+builds this section's suite (one case, one `Contains`, one pinned file), runs
+and promotes it, then either changes the pinned file or suspends the case and
+runs `pytest --digline-suite` as a process. Both runs exited `1`, under the
+line *"eval/suite.py: digline exits 2, so this session does not end
+green."*; the last line read `1 passed in 0.07s` (drifted pin) and
+`1 passed, 1 skipped in 0.06s` (suspended case). With `--color=yes` that line
+was green, `\e[32m`, with only the words `1 skipped` yellow. The colour rests
+on that run alone.
+
+Why, read in `_pytest/terminal.py` at pytest 9.1.1, the version the lock
+holds:
 
 - `TerminalReporter.pytest_sessionfinish` (lines 957–994) is a wrapper. Every
   other implementation, this plugin's `trylast` one included, runs inside its
@@ -448,10 +457,8 @@ of `0` into `MAX_WARNINGS_ERROR` and prints a red line of its own (lines
 976–985), and its last line keeps the outcomes' colour, yellow for the
 warnings. The behaviour is pytest's in general, not this plugin's.
 
-This replaces a sentence of the maintainer's from the review of #575, which
-said the last line takes a value bound before the implementations run: that
-was wrong. `test_session_not_green.py` holds the exit code and the last line
-together.
+This note replaces a sentence said in the review of #575, that the last line
+takes a value bound before the implementations run.
 
 **With which code: `1`.** *Ruled 2026-10-13.* `1` because `2` is taken. In
 pytest's contract `2` is `ExitCode.INTERRUPTED`, so a session that exited `2`
