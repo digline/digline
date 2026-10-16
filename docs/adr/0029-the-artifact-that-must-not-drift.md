@@ -13,6 +13,12 @@
   [ADR 0014](0014-what-may-ride-a-schema-bump.md) §1 requires. Nothing else
   moves: `REGISTER_VERSION` stays at 1 (§10) and `OUTPUT_VERSION` stays at 2,
   because the wire grows by an added key
+- Amended: 2026-10-16 — §7, §8 and §9 gain dated notes and are kept as
+  written. [ADR 0051](0051-a-pinned-path-the-run-no-longer-records.md)
+  decides that a pin the reference held and the judged run does not is
+  reported, that a pin with no reference value is reported as unchecked in
+  its own right, and that a lost path and an unreferenced pin together
+  return 2 (#483). Nothing changes until that code lands
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
   (artifacts are outside `config_hash`), §4 (withheld rather than absent) and
   §5 (a redacted run reports `unknown` and stays honest about it);
@@ -313,6 +319,15 @@ would produce a `missing`, which cannot happen, because the run's own recording
 is what the pin is validated against — the dump not being there is a failed run,
 not a green one.
 
+*Noted 2026-10-16 ([ADR 0051](0051-a-pinned-path-the-run-no-longer-records.md)),
+the section above kept as written.* `new` and `missing` have a cause this
+section does not name: a pinned file renamed and changed in the same run
+leaves the old path `missing` and the new one `new`, and neither fires
+(#483). ADR 0051 keeps the rule that an absence is not a change, and gives
+these outcomes names of their own: a pinned `new` row is reported as
+unchecked, and a pin the reference held is reported when the judged run does
+not hold it.
+
 ### 8. A withheld pin never passes, and never fails, and is never silent
 
 The third thing 2026-09-20 left open, and the one with a real conflict in it.
@@ -346,6 +361,14 @@ digline does not grow a flag for it: a flag that turns *I do not know* into
 *failed* would be the first place in this system where a number asserts more
 than the document behind it.
 
+*Noted 2026-10-16 ([ADR 0051](0051-a-pinned-path-the-run-no-longer-records.md)),
+the section above kept as written.* This section is about a withheld pin,
+and its ruling holds for it: `pinned_unchecked` keeps its meaning and its
+count. ADR 0051 rules on a pin nobody withheld: a path the reference pinned
+and the judged run does not record, together with a pinned path that has no
+reference value, returns 2. Nobody chose to lose the pin, and no flag set
+beforehand covers it.
+
 ### 9. The run's declaration governs; a withdrawn pin is reported, not enforced
 
 Two runs, two pin sets. The run being judged declares, by ADR 0016 §1's reading
@@ -364,6 +387,13 @@ baseline and no gate fires. This is the same protection the *cases* have and one
 less than the thresholds have, and it is the price of condition 1. The suite is
 versioned in git; a diff that removes a pin is a diff a reviewer can see, and
 that is the whole of the guarantee.
+
+*Noted 2026-10-16 ([ADR 0051](0051-a-pinned-path-the-run-no-longer-records.md)),
+the section above kept as written.* *"The comparison reports it"* was
+decided here and never built: nothing reads the baseline's pins. ADR 0051
+builds it, with the same ruling: a withdrawn pin is reported and moves
+nothing. It returns 2 only when the withdrawn path is gone from the judged
+run and a pinned path there has no reference value.
 
 ### 9b. A stored document is trusted input, and the pin's integrity rests on the party it measures
 
