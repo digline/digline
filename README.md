@@ -160,35 +160,6 @@ The exit code is the answer: `0` fine, `1` got worse, `2` could not be judged.
 Everything lands in `.digline/<tenant>/` — `baselines/` committed, `runs/`
 git-ignored through a `.gitignore` digline writes for you.
 
-## Claude Code and MCP
-
-**If you use Claude Code**, digline also installs as a plugin. What it ships
-first is the judgement layer. The [`operating-digline`](plugins/digline/skills/operating-digline/SKILL.md)
-skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
-agent is about to run a suite or read a comparison. Beside it is the MCP server,
-which measures, reads and explains, and cannot promote a baseline. Two lines
-plus one dependency: the server imports your suite, so it runs from your
-project's `.venv`.
-
-```bash
-uv add --dev digline-mcp
-claude plugin marketplace add digline/digline
-claude plugin install digline@digline --scope project
-```
-
-The agent's own shell commands are not the server. A bare `digline` typed
-there resolves through the `PATH` of the shell Claude Code started, which comes
-from your login profile and from whatever environment was active when you
-launched it, and it can be another project's install at another version.
-`uv run digline` resolves through your project's environment.
-
-What it installs, and what its hook does and does not guarantee:
-[`plugins/digline/README.md`](plugins/digline/README.md).
-
-In another agent, the skill alone installs through [skills.sh](https://skills.sh):
-`npx skills add digline/digline --skill operating-digline`. That is the skill
-without the MCP server or the hook, taken from `main` rather than a release.
-
 ## What it checks
 
 **Per case** — pure functions `(inputs) -> Verdict`, no I/O, callable on their own:
@@ -262,6 +233,35 @@ One card each — parameters, typical values, what to watch out for — in
 
 Worked through with real numbers in [`docs/guide.md`](docs/guide.md); the
 reasoning behind every fixed decision is in [`docs/adr/`](docs/adr/).
+
+## Claude Code and MCP
+
+digline also installs as a Claude Code plugin. What it ships first is the
+judgement layer. The [`operating-digline`](plugins/digline/skills/operating-digline/SKILL.md)
+skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
+agent is about to run a suite or read a comparison. Beside it is the MCP server,
+which measures, reads and explains, and cannot promote a baseline. Two lines
+plus one dependency: the server imports your suite, so it runs from your
+project's `.venv`.
+
+```bash
+uv add --dev digline-mcp
+claude plugin marketplace add digline/digline
+claude plugin install digline@digline --scope project
+```
+
+The agent's own shell commands are not the server. A bare `digline` typed
+there resolves through the `PATH` of the shell Claude Code started, which comes
+from your login profile and from whatever environment was active when you
+launched it, and it can be another project's install at another version.
+`uv run digline` resolves through your project's environment.
+
+What it installs, and what its hook does and does not guarantee:
+[`plugins/digline/README.md`](plugins/digline/README.md).
+
+In another agent, the skill alone installs through [skills.sh](https://skills.sh):
+`npx skills add digline/digline --skill operating-digline`. That is the skill
+without the MCP server or the hook, taken from `main` rather than a release.
 
 ## Commands
 
