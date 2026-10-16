@@ -1,15 +1,6 @@
 # digline
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
-  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in an agentic flow" width="960">
-</picture>
-
----
-
-<br>
-
-**Regression testing for LLM applications — with the baseline in your repository, not on someone's server.**
+**A Python regression gate for LLM applications: the approved baseline is a file in your repository, and every run in CI is compared against it.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
@@ -18,6 +9,13 @@
 [![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/digline/digline/actions/workflows/ci.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14570/badge)](https://www.bestpractices.dev/projects/14570)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/digline/digline/badge)](https://scorecard.dev/viewer/?uri=github.com/digline/digline)
+
+---
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
+  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in an agentic flow" width="960">
+</picture>
 
 Your prompt worked on Tuesday. On Thursday it works a little less — not enough
 to break, enough for a user to notice in two weeks. No ordinary test catches it,
@@ -69,32 +67,8 @@ or with pip in an existing environment: `pip install digline`.
 the pip path an older interpreter says `ERROR: No matching distribution found`
 with `from versions: none`, which does not say why — that is what it means.
 
-**If you use Claude Code**, digline also installs as a plugin. What it ships
-first is the judgement layer. The [`operating-digline`](plugins/digline/skills/operating-digline/SKILL.md)
-skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
-agent is about to run a suite or read a comparison. Beside it is the MCP server,
-which measures, reads and explains, and cannot promote a baseline. Two lines
-plus one dependency: the server imports your suite, so it runs from your
-project's `.venv`.
-
-```bash
-uv add --dev digline-mcp
-claude plugin marketplace add digline/digline
-claude plugin install digline@digline --scope project
-```
-
-The agent's own shell commands are not the server. A bare `digline` typed
-there resolves through the `PATH` of the shell Claude Code started, which comes
-from your login profile and from whatever environment was active when you
-launched it, and it can be another project's install at another version.
-`uv run digline` resolves through your project's environment.
-
-What it installs, and what its hook does and does not guarantee:
-[`plugins/digline/README.md`](plugins/digline/README.md).
-
-In another agent, the skill alone installs through [skills.sh](https://skills.sh):
-`npx skills add digline/digline --skill operating-digline`. That is the skill
-without the MCP server or the hook, taken from `main` rather than a release.
+If you use Claude Code, digline also installs as a plugin with an MCP server — see
+[Claude Code and MCP](#claude-code-and-mcp) below.
 
 `suite.py` — complete and runnable, no API key:
 
@@ -185,6 +159,35 @@ $ echo $?
 The exit code is the answer: `0` fine, `1` got worse, `2` could not be judged.
 Everything lands in `.digline/<tenant>/` — `baselines/` committed, `runs/`
 git-ignored through a `.gitignore` digline writes for you.
+
+## Claude Code and MCP
+
+**If you use Claude Code**, digline also installs as a plugin. What it ships
+first is the judgement layer. The [`operating-digline`](plugins/digline/skills/operating-digline/SKILL.md)
+skill carries the same rules as [`AGENTS.md`](AGENTS.md), and loads when the
+agent is about to run a suite or read a comparison. Beside it is the MCP server,
+which measures, reads and explains, and cannot promote a baseline. Two lines
+plus one dependency: the server imports your suite, so it runs from your
+project's `.venv`.
+
+```bash
+uv add --dev digline-mcp
+claude plugin marketplace add digline/digline
+claude plugin install digline@digline --scope project
+```
+
+The agent's own shell commands are not the server. A bare `digline` typed
+there resolves through the `PATH` of the shell Claude Code started, which comes
+from your login profile and from whatever environment was active when you
+launched it, and it can be another project's install at another version.
+`uv run digline` resolves through your project's environment.
+
+What it installs, and what its hook does and does not guarantee:
+[`plugins/digline/README.md`](plugins/digline/README.md).
+
+In another agent, the skill alone installs through [skills.sh](https://skills.sh):
+`npx skills add digline/digline --skill operating-digline`. That is the skill
+without the MCP server or the hook, taken from `main` rather than a release.
 
 ## What it checks
 
