@@ -8,6 +8,15 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+- **A command line digline refuses exits `64`, not `2`.** An unknown flag,
+  a flag with no value, a required flag left out, a choice that is not one,
+  or an unknown subcommand exits `64`, `EXIT_USAGE`, as
+  [ADR 0008](docs/adr/0008-the-two-run-report.md) §1 said a bad flag did. It
+  exited argparse's own `2` instead, in every command and in `digline-mcp`.
+  **For whoever reads the code in CI:** from this release `2` means only what
+  the contract says, a run that could not be judged. A mistyped flag no longer
+  reads as one. A pipeline that treated `2` as "fix the command" now gets
+  `64` for that. `--help` and `--version` still exit `0`.
 - **Behaviour change: a pinned file renamed and changed in one run exits `2`**
   ([ADR 0051](docs/adr/0051-a-pinned-path-the-run-no-longer-records.md),
   #483). Until now the old path read as *missing* and the new one as *new*,

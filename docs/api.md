@@ -2011,7 +2011,7 @@ it. Then the cases the document carries are what counts.
 |---|---|---|
 | `0` | `EXIT_OK` | proceed |
 | `1` | `EXIT_WORSE` | a check got worse, or a canary moved |
-| `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, a pinned file drifted from the reference, or the run judged nothing |
+| `2` | `EXIT_UNJUDGED` | a case could not be judged, a calibration case left its band, a pinned file drifted from the reference, a pin the reference held lost its path beside a pinned file with no reference ([ADR 0051](adr/0051-a-pinned-path-the-run-no-longer-records.md)), or the run judged nothing |
 
 Two more codes are exported beside them, and `exit_code()` never returns
 either, because neither is a verdict on the suite. `EXIT_USAGE` (`64`) is the

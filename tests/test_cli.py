@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -25,6 +26,7 @@ from digline.cli import (
     OUTPUT_VERSION,
     build_parser,
     exit_code,
+    main,
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.report import Headline
@@ -1747,3 +1749,132 @@ def test_the_reading_takes_no_out_flag(repo: Path) -> None:
     )
     assert done.returncode != EXIT_OK
     assert "--out" in done.stderr
+
+
+# --------------------------------------------------------------------------- #
+# A command the parser refuses exits 64 (ADR 0008 §1)
+# --------------------------------------------------------------------------- #
+#
+# ADR 0008 §1: "a bad flag, an unreadable run, a refused pair (§3) exit
+# `EXIT_USAGE` (64)". The parser exited argparse's own 2 instead, which is
+# `EXIT_UNJUDGED`: a pipeline that mistyped a flag read *the run could not be
+# judged*. The tests below run every subcommand through each refusal the parser
+# makes, in process, so what is measured is the parser each subcommand really
+# has and not a reading of argparse's documentation.
+
+#: For each subcommand, the arguments that parse: every required option with a
+#: value it accepts. Nothing here is read, because the parser refuses before a
+#: command runs, and these arguments only make sure the refusal under test is
+#: the one that fires.
+PARSES: dict[str, tuple[str, ...]] = {
+    "run": ("--suite", "s.py"),
+    "rejudge": ("--suite", "s.py", "--run", "k"),
+    "compare": ("--suite", "s.py", "--run", "k"),
+    "diff": ("--suite", "s.py", "k1", "k2"),
+    "list": ("--suite", "s.py"),
+    "migrate": ("--suite", "s.py"),
+    "promote": ("--suite", "s.py", "--run", "k", "--replacing", "none"),
+    "delete": ("--suite", "s.py", "--run", "k"),
+    "register": ("--suite", "s.py", "--run", "k", "--disposition", "accepted"),
+    "view": ("--suite", "s.py"),
+    "explain": ("--suite", "s.py", "--run", "k"),
+    "log": ("--suite", "s.py"),
+    "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
+}
+
+#: The subcommands that take a choice, and the option that carries it. The
+#: others have none, so a wrong choice cannot be asked of them.
+CHOICE: dict[str, str] = {
+    "compare": "--locale",
+    "diff": "--locale",
+    "register": "--disposition",
+    "explain": "--locale",
+    "log": "--locale",
+    "report": "--locale",
+}
+
+
+def refused(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> tuple[str | int | None, str]:
+    """The exit code `main` stopped with, and what it printed on stderr."""
+    with pytest.raises(SystemExit) as stopped:
+        main(argv)
+    return stopped.value.code, capsys.readouterr().err
+
+
+def test_the_table_names_every_subcommand_the_parser_has() -> None:
+    """Read off the parser's own usage line, so a subcommand added later is
+    refused here until it is in the table and goes through every case below."""
+    usage = build_parser().format_usage()
+    match = re.search(r"\{([a-z,]+)\}", usage)
+    assert match is not None, usage
+    assert set(match.group(1).split(",")) == set(PARSES)
+    assert set(CHOICE) <= set(PARSES)
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_an_unknown_flag_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], "--no-such-flag"], capsys)
+    assert "unrecognized arguments: --no-such-flag" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command}` with an unknown flag exited {code}: a pipeline that "
+        "mistyped a flag would read it as a verdict (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_a_missing_value_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], "--suite"], capsys)
+    assert "argument --suite: expected one argument" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command} --suite` with no value exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_a_missing_required_flag_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    without_suite = list(PARSES[command][2:])
+    code, err = refused([command, *without_suite], capsys)
+    assert "the following arguments are required: --suite" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command}` without --suite exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(CHOICE))
+def test_an_invalid_choice_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], CHOICE[command], "xx"], capsys)
+    assert f"argument {CHOICE[command]}: invalid choice: 'xx'" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command} {CHOICE[command]} xx` exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+def test_an_unknown_subcommand_exits_64(capsys: pytest.CaptureFixture[str]) -> None:
+    code, err = refused(["nosuchcommand"], capsys)
+    assert "invalid choice: 'nosuchcommand'" in err, err
+    assert code == EXIT_USAGE, f"an unknown subcommand exited {code}, not 64"
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["--help"], ["--version"], ["compare", "--help"], ["report", "--help"]],
+    ids=["root --help", "root --version", "compare --help", "report --help"],
+)
+def test_help_and_version_still_exit_0(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Why the refusal is `error()` and not every `SystemExit`: `--help` and
+    `--version` end the process through the same exit, and they are answers,
+    not refusals."""
+    code, _err = refused(argv, capsys)
+    assert code == 0, f"`digline {' '.join(argv)}` exited {code}, not 0"

@@ -32,6 +32,7 @@ import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import NoReturn
 
 from digline import __version__
 from digline.cli.output import emit, say
@@ -1029,8 +1030,25 @@ def cmd_report(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+class _Parser(argparse.ArgumentParser):
+    """argparse's parser, refusing a command line with the usage code.
+
+    `error()` is argparse's own body with one number changed: 64, `EXIT_USAGE`,
+    where argparse exits 2, which is `EXIT_UNJUDGED`, so a pipeline that
+    mistyped a flag read *the run could not be judged*. ADR 0008 §1 declared 64
+    for a bad flag from the start. Every subcommand's parser is one of these
+    too, because `add_subparsers` builds them of the parent's type, and the
+    tests run all thirteen. `exit()` is left alone: `--help` and `--version`
+    end the process through it with 0, and they are answers, not refusals.
+    """
+
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog="digline",
         # Not `__doc__`. A module docstring is written for whoever opens the
         # file; `--help` is read by somebody who wants to know what to type.
