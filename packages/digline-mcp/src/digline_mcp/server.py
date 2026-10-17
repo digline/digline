@@ -21,13 +21,14 @@ them. (ADR 0011 §1)
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass
 
 # Aliased so `digline_mcp.server.version` does not read as something this
 # module exports.
 from importlib.metadata import version as _distribution_version
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
@@ -59,6 +60,7 @@ from digline.report import headline
 from digline.run import CallPlan, Suite, suite_notes
 from digline.store import FileResultStore
 from digline.wire import (
+    EXIT_USAGE,
     compare_json,
     diff_json,
     explain_json,
@@ -487,6 +489,21 @@ def _acknowledge(plan: CallPlan, acknowledged: int | None) -> None:
     )
 
 
+class _Parser(argparse.ArgumentParser):
+    """argparse's parser, refusing a command line with the usage code.
+
+    `error()` is argparse's own body with one number changed: 64, `EXIT_USAGE`,
+    where argparse exits 2, which is `EXIT_UNJUDGED`. The same rule as the
+    `digline` command line's, where ADR 0008 §1 declares it: this is a second
+    program with a parser of its own. `exit()` is left alone: `--help` ends
+    the process through it with 0, and that is an answer, not a refusal.
+    """
+
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     """One server, one repository, over stdio.
 
@@ -495,7 +512,7 @@ def main(argv: list[str] | None = None) -> int:
     network calls the user did not configure, and a server that listened by
     default would be that mistake facing outward.
     """
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog="digline-mcp",
         description=(
             "MCP server over one digline repository. Reads results and measures "

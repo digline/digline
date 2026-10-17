@@ -22,6 +22,7 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
 
+from digline.wire import EXIT_USAGE
 from digline_mcp import server
 from digline_mcp.server import build_server
 
@@ -161,5 +162,38 @@ def test_the_root_is_never_implied(
     monkeypatch.setattr(server, "build_server", started)
     with pytest.raises(SystemExit) as stopped:
         server.main([])
-    assert stopped.value.code == 2
+    # 64 and no longer argparse's 2: a refused command line is a usage error,
+    # as ADR 0008 §1 says for the CLI, and 2 is `EXIT_UNJUDGED`, a verdict
+    # this server never gave. The same parser rule as `digline`'s.
+    assert stopped.value.code == EXIT_USAGE
     assert "--root" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("argv", "said"),
+    [
+        (["--root", ".", "--no-such-flag"], "unrecognized arguments: --no-such-flag"),
+        (["--root"], "argument --root: expected one argument"),
+    ],
+    ids=["unknown flag", "missing value"],
+)
+def test_a_refused_command_line_exits_64(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+    said: str,
+) -> None:
+    """`digline-mcp` is a second program with a parser of its own, and the
+    usage error is the same fact there: 64, never `EXIT_UNJUDGED`'s 2.
+    (ADR 0008 §1)"""
+
+    def started(*_args: object) -> None:
+        raise AssertionError("a server was built from a refused command line")
+
+    monkeypatch.setattr(server, "build_server", started)
+    with pytest.raises(SystemExit) as stopped:
+        server.main(argv)
+    assert said in capsys.readouterr().err
+    assert stopped.value.code == EXIT_USAGE, (
+        f"digline-mcp {' '.join(argv)} exited {stopped.value.code}, not 64"
+    )

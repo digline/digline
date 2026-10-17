@@ -65,13 +65,13 @@ def entries(repo: Path) -> list[dict[str, Any]]:
 
 @pytest.mark.parametrize("arguments", [(), ("--disposition", "maybe")])
 def test_the_disposition_is_mandatory(repo: Path, arguments: tuple[str, ...]) -> None:
-    """Refused by the parser, and nothing is written. The exit code is argparse's
-    own, as for every missing flag in the CLI — ADR 0021's test plan records why
-    it is not 64."""
+    """Refused by the parser, and nothing is written. It exits 64, the usage
+    error ADR 0008 §1 declares for a bad flag. ADR 0021's test plan recorded
+    argparse's 2 here, and its dated note says why that was the deviation."""
     promote_first(repo)
     key = run_key(repo)
     done = cli(repo, "register", "--suite", SUITE, "--run", key, *arguments)
-    assert done.returncode != EXIT_OK
+    assert done.returncode == EXIT_USAGE, done.stderr
     assert "--disposition" in done.stderr
     assert not register_file(repo).exists()
 

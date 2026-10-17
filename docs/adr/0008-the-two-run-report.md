@@ -493,3 +493,12 @@ lives, so what is tested is the page and not the socket.
 **`digline diff` exits 0 on a report full of differences**, and 64 on each
 refusal. This is the test that would catch decision 1 being quietly undone, and
 it is the one to read first if this ADR ever looks like it stopped being true.
+
+*Noted 2026-10-17, the paragraph above kept as written.* "64 on each refusal"
+was tested on `diff`'s own refusals and never on the parser's. So §1's "a bad
+flag … exit `EXIT_USAGE` (64)" went unimplemented from the start: a bad flag, a
+missing value or a missing required flag exited argparse's 2, which is
+`EXIT_UNJUDGED`'s number. The parser of the CLI, and the one of `digline-mcp`,
+now exit 64. A test runs every subcommand through an unknown flag, a missing
+value and a missing required flag, and the six that take a choice through an
+invalid one.
