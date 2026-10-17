@@ -92,6 +92,22 @@ would have failed on `one`'s answer: deduced from the check and the recorded
 answer, not run. A suite whose checks cannot tell its application from
 another's is the ordinary case, and there nothing at all shows.
 
+*(c) Two suites in one session, where the second imports a name that exists
+only in the first one's directory.* `first/` holds `helper.py`, which `first`'s
+suite never imports, so it is never in `sys.modules`; `second/suite.py` imports
+`helper`. Measured the same way, at `d8df3aa`, where `digline/host/loader.py`
+is unchanged from `415f773`.
+
+| step | what happened |
+|---|---|
+| `run first/suite.py` | the target answered `answer from first` |
+| `run second/suite.py`, same session | the import **succeeded**: `second`'s target answered **`answer from first/helper.py`**, and `second`'s store recorded it |
+| control: `run second/suite.py` alone, a fresh session | refused: *"could not import 'helper': No module named 'helper'"* |
+| control: `digline run --suite second/suite.py`, a fresh process | the same refusal, **exit 64** |
+
+Here it is `first/` left on `sys.path`, not `sys.modules`, that answered: an
+import that fails on its own succeeded, and a refusal became a measurement.
+
 **Not measured:** the reverse order in (b); an application that is a package
 rather than one module; Python versions other than 3.13.11; `pytest-digline`
 and `--target`.
@@ -130,7 +146,7 @@ costs declared.
      next suite's directory, and a name the next suite imports that exists
      only in the earlier suite's directory would be **found** there, where
      otherwise the import would have failed. That turns an error into a wrong
-     measurement, the same class of defect as #513;
+     measurement, the same class of defect as #513, and (c) measured it;
    - **the path hook, the importer cache entry and `_scoped`.** These are taken
      out for symmetry, not because they were found harmful. Each is keyed on
      one directory and holds no module, so today they do no harm; but that is
