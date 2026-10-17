@@ -8,10 +8,10 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
-digline **0.32.0**. **A minor, because what digline refuses has grown:** a
-command line it cannot parse exits 64 instead of 2, an option given two
-different values is refused, a run that judged nothing exits 2 and cannot be
-promoted, and a pinned file renamed and changed exits 2 where the comparison
+digline **0.32.0**. **A minor, because what a user relies on stops working as
+it did:** a command line it cannot parse exits 64 instead of 2, an option given
+two different values is refused, a run that judged nothing exits 2 and cannot
+be promoted, and a pinned file renamed and changed exits 2 where the comparison
 used to pass. A suite loaded a second time in one process reads its application
 from disk instead of what the first load left behind, so a cache or a client
 opened at import no longer survives into the next run. A program that calls
