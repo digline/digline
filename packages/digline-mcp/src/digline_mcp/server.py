@@ -504,6 +504,17 @@ class _Once(argparse.Action):
     `_Parser.parse_known_args` to compare once the line is read. (#567)
     """
 
+    def __init__(
+        self, option_strings: Sequence[str], dest: str, nargs: Any = None, **kwargs: Any
+    ) -> None:
+        # The check `store`'s own class makes, which this one does not inherit.
+        if nargs == 0:
+            raise ValueError(
+                f"{dest}: an option that stores a value cannot take zero of them; "
+                "a flag is `store_true` or `store_const`"
+            )
+        super().__init__(option_strings, dest, nargs=nargs, **kwargs)
+
     def __call__(
         self,
         parser: argparse.ArgumentParser,
@@ -552,9 +563,9 @@ class _Parser(argparse.ArgumentParser):
         self.register("action", None, _Once)
         self.register("action", "store", _Once)
 
-    # argparse's stub overloads this on the namespace's type; one signature
-    # that returns what it was given covers both, and the checker cannot
-    # match it to the overloads.
+    # This accepts any namespace and returns `Any`. argparse's stub overloads
+    # the method on the namespace's type, and the checker cannot match this
+    # one signature to those overloads.
     def parse_known_args(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, args: Sequence[str] | None = None, namespace: Any = None
     ) -> tuple[Any, list[str]]:

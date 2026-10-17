@@ -246,6 +246,11 @@ def test_the_server_has_options_that_take_a_value(
     assert options_taking_a_value(capsys) == ["--root", "--tenant", "--env"]
 
 
+# The options are listed by hand here, where the CLI's tests derive them from
+# the parser: `main()` builds this parser inside itself, and there is no
+# parser to read. `test_the_server_has_options_that_take_a_value` is what keeps
+# the list in line with the usage line, so the asymmetry is chosen, not
+# forgotten.
 @pytest.mark.parametrize("option", ["--root", "--tenant", "--env"])
 def test_an_option_given_two_values_is_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str

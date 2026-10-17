@@ -1887,7 +1887,7 @@ def test_help_and_version_still_exit_0(
 
 
 # --------------------------------------------------------------------------- #
-# An option that takes one value, given twice, is refused (#567)
+# An option given different values is refused (#567)
 # --------------------------------------------------------------------------- #
 #
 # argparse keeps the last value of a repeated option and drops the others
@@ -2042,6 +2042,13 @@ def test_two_targets_on_run_are_refused_by_name(
     values = ("a.py:target", "b.py:target")
     argv = ["run", "--suite", "s.py", "--target", values[0], "--target", values[1]]
     named_case(argv, "--target", values, "target", capsys)
+
+
+def test_an_option_that_stores_nothing_is_refused_when_declared() -> None:
+    """`_Once` replaces `store`, and keeps the check `store` made: an option
+    declared with `nargs=0` stores nothing, which is a flag declared wrong."""
+    with pytest.raises(ValueError, match="cannot take zero of them"):
+        build_parser().add_argument("--nothing", nargs=0)
 
 
 def test_meta_stays_repeatable_and_keeps_every_value() -> None:
