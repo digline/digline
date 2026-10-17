@@ -281,6 +281,9 @@ def rejudge(
         artifacts=dict(source.artifacts),
         rejudged_from=key,
         judge_samples=judge_samples,
+        # The answers are the source's, so is what is known of the modules that
+        # produced them. (ADR 0052, decision 2)
+        modules_unchecked=source.modules_unchecked,
     )
 
 

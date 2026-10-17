@@ -258,6 +258,7 @@ def measure(
     run_metadata: Mapping[str, object] | None = None,
     artifacts: Mapping[str, Artifact] | None = None,
     pinned: Sequence[str] = (),
+    modules_unchecked: Sequence[str] | None = None,
     mapper: Mapper = default_mapper,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
@@ -278,6 +279,7 @@ def measure(
         run_metadata=run_metadata,
         artifacts=artifacts,
         pinned=pinned,
+        modules_unchecked=modules_unchecked,
         done=prepared.done,
         spent=prepared.spent,
         on_case=journal.append,

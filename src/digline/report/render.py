@@ -239,6 +239,10 @@ class Headline:
     #: two readings, a rename and a removal, cannot be told apart, and in one of
     #: them a guarantee was lost. (ADR 0051 §3)
     pinned_lost: bool = False
+    #: How many modules the judged run found already loaded from elsewhere, or
+    #: `None` where the judged run did not record it. Read from the judged run
+    #: alone, and moves no number. (ADR 0052, decision 3)
+    modules_unchecked: int | None = 0
     #: The endpoint returned the id it was sent as the model that answered, on
     #: the run being compared — so the identity the record seems to confirm is
     #: not identified at all. The twelfth fact: an absence disguised as a
@@ -906,6 +910,24 @@ def headline(
         else ""
     )
     lost_text = phrase(locale, "fact.pinned.lost") if comparison.pinned_lost else ""
+    # From the judged run alone, as pins are, and three states rather than two:
+    # silent at zero, a count, or *not recorded*, which is said rather than read
+    # as zero. It warns about runs ADR 0052 declares suspect, so the silence of
+    # `fact.target_config.unknown`, which would only reassure, is not its rule.
+    # Moves no number. (ADR 0052, decision 3 and Its price)
+    modules_count = (
+        None if run.modules_unchecked is None else len(run.modules_unchecked)
+    )
+    if modules_count is None:
+        modules_text = phrase(locale, "fact.modules_unchecked.unrecorded")
+    elif modules_count:
+        modules_text = phrase(
+            locale,
+            f"fact.modules_unchecked.{'one' if modules_count == 1 else 'many'}",
+            count=modules_count,
+        )
+    else:
+        modules_text = ""
 
     # The canary speaks after what the system *declared* and before the judge,
     # because it says what the system *did*: measured rather than declared, and
@@ -993,6 +1015,7 @@ def headline(
         pinned_unreferenced=unreferenced_count,
         pinned_withdrawn=withdrawn_count,
         pinned_lost=comparison.pinned_lost,
+        modules_unchecked=modules_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
         target_echoed=echoed is not None,
@@ -1064,6 +1087,9 @@ def headline(
                 unreferenced_text,
                 withdrawn_text,
                 lost_text,
+                # Beside the pins: the same shape, a control that could not run
+                # for some of what the run measured. (ADR 0052, decision 3)
+                modules_text,
                 rejudged_text,
                 target_text,
                 echo_text,
@@ -1722,6 +1748,21 @@ def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
             detail += " · " + phrase(locale, "artifacts.pinned.marker.withdrawn")
         lines.append(f"{delta.path} · {detail}")
     return tuple(lines)
+
+
+def module_lines(run: Run, *, locale: Locale) -> Sequence[str]:
+    """One line per module the judged run found already loaded elsewhere, for
+    the terminal, where the pin markers are.
+
+    The names on the terminal and in the run document, the count in the page,
+    whose rule is that a path is never named there. Nothing when the run
+    records none, or records nothing. (ADR 0052, decision 2)
+    """
+    names = run.modules_unchecked or ()
+    if not names:
+        return ()
+    marker = phrase(locale, "modules_unchecked.marker")
+    return tuple(f"{name} · {marker}" for name in names)
 
 
 def against_line(baseline: Run, *, locale: Locale) -> str:

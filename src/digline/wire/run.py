@@ -429,6 +429,11 @@ def run_document(
             # it out of the boundary form reintroduced exactly that pair.
             # (F-4, the 0.19.0 delta-pass)
             "pinned": sorted(run.pinned),
+            # The modules nobody read from source, names and all, or `None` for
+            # a run that did not record it. (ADR 0052, the field on the run)
+            "modules_unchecked": (
+                None if run.modules_unchecked is None else list(run.modules_unchecked)
+            ),
             # What the run consumed, as the two lines the document holds. It
             # crosses because of its **grain**: a run total is the software
             # house's own invoice for its own run — it names no case, no request

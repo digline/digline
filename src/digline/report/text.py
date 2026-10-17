@@ -224,6 +224,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "declared not to change here has no reference, so whether one became "
             "the other could not be judged."
         ),
+        # Three states of the judged run: a count, or *not recorded*; zero is
+        # silent. One clause they end on, the consequence; only the cause
+        # differs. (ADR 0052, decision 3)
+        "fact.modules_unchecked.one": (
+            "1 module was already loaded elsewhere in this process, so whether "
+            "it matches the file on disk is not known."
+        ),
+        "fact.modules_unchecked.many": (
+            "{count} modules were already loaded elsewhere in this process, so "
+            "whether they match the files on disk is not known."
+        ),
+        "fact.modules_unchecked.unrecorded": (
+            "This run does not record whether the modules it measured were read "
+            "from source, so whether they match the files on disk is not known."
+        ),
         "fact.rejudged": (
             "The answers in this run were replayed from a stored run, not "
             "measured: the target was not asked anything."
@@ -1484,6 +1499,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un file che il riferimento dichiarava immutabile non c'è più, e un "
             "file dichiarato immutabile qui non ha un riferimento, quindi non si "
             "è potuto stabilire se l'uno sia diventato l'altro."
+        ),
+        "fact.modules_unchecked.one": (
+            "1 modulo era già caricato altrove in questo processo, quindi non si "
+            "sa se corrisponda al file su disco."
+        ),
+        "fact.modules_unchecked.many": (
+            "{count} moduli erano già caricati altrove in questo processo, quindi "
+            "non si sa se corrispondano ai file su disco."
+        ),
+        "fact.modules_unchecked.unrecorded": (
+            "Questa esecuzione non registra la lettura da sorgente dei moduli che "
+            "ha misurato, quindi non si sa se corrispondano ai file su disco."
         ),
         "fact.rejudged": (
             "Le risposte di questa esecuzione sono state riascoltate da una "

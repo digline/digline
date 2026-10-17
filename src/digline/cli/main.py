@@ -81,6 +81,7 @@ from digline.report import (
     headline,
     judge_reading,
     log_text,
+    module_lines,
     rule_lines,
     summary_lines,
 )
@@ -321,6 +322,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         run_metadata=_meta(args.meta),
         artifacts=artifacts,
         pinned=pinned,
+        modules_unchecked=loaded.modules_unchecked,
     )
 
     if args.json:
@@ -534,6 +536,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
     # the thing measured: what was under test, what it was measured with, then
     # the bar it was held to. (ADR 0028 §8)
     moved = (*moved, *rule_lines(comparison, locale=args.locale))
+    # And the modules the judged run could not read from source, by name: the
+    # headline has the count. (ADR 0052, decision 2)
+    moved = (*moved, *module_lines(run, locale=args.locale))
     if moved:
         say()
         for line in moved:
