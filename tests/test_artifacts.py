@@ -16,6 +16,8 @@ import os
 import re
 import subprocess
 from collections.abc import Sequence
+from dataclasses import replace
+from html import unescape
 from pathlib import Path
 from typing import cast
 
@@ -26,6 +28,7 @@ from digline.core import (
     NOTHING_EXTRA,
     Artifact,
     CaseResult,
+    Comparison,
     Contains,
     Disclosure,
     Run,
@@ -38,10 +41,17 @@ from digline.core import (
 )
 from digline.core.run import SCHEMA_VERSION, run_from_json, run_to_json
 from digline.host import read_artifacts
-from digline.report import artifact_lines, diff_lines, headline, render_html
+from digline.report import (
+    Headline,
+    Locale,
+    artifact_lines,
+    diff_lines,
+    headline,
+    render_html,
+)
 from digline.run import Case, Response, Suite, execute
 from digline.store import FileResultStore
-from digline.wire import exit_code
+from digline.wire import compare_json, exit_code
 from digline.wire.run import run_document
 
 SUITE = """\
@@ -965,6 +975,382 @@ def test_a_run_document_carries_the_pin_across_the_boundary() -> None:
     assert run_document(redact(run), NOTHING_EXTRA)["pinned"] == ["tools.json"], (
         "the boundary form dropped the declaration: a reader outside the "
         "perimeter gets an exit code the document cannot account for"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# A pinned path the judged run no longer records (ADR 0051)
+# --------------------------------------------------------------------------- #
+#
+# Three facts join the comparison and one of them moves the exit code. A pinned
+# row with no reference value is `pinned_unreferenced`; a pin the reference
+# held and the judged run does not is `pinned_withdrawn`; a withdrawn path the
+# judged run does not record, beside an unreferenced pin, is `pinned_lost`, and
+# that alone returns 2. (ADR 0051, *The decision*)
+#
+# The paths carry `underwriting` for the reason the ADR 0029 block gives: a
+# token no tenant, suite or boilerplate string shares.
+
+#: The headline's clauses for the three facts, one file each. Asserted whole,
+#: so a failure prints the sentence the record will carry.
+UNREFERENCED_ONE = (
+    "1 file declared not to change has no reference to compare with, so "
+    "whether it changed was not checked."
+)
+WITHDRAWN_ONE = "1 file the reference declared not to change is not declared here."
+LOST = (
+    "A file the reference declared not to change is gone, and a file declared "
+    "not to change here has no reference, so whether one became the other "
+    "could not be judged."
+)
+
+OLD = "eval/d1/underwriting-tools.json"
+NEW = "eval/d2/underwriting-tools.json"
+
+#: The same case, judged worse: the one check that passed now fails.
+WORSE = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=0.0),
+            threshold=1.0,
+            status="fail",
+            reason="missing",
+            assertion_id="contains-1",
+        ),
+    ),
+)
+
+
+def judged(run: Run, baseline: Run) -> tuple[Comparison, Headline]:
+    """The comparison and the headline a front end would build from it."""
+    comparison = compare(run, baseline)
+    return comparison, headline(comparison, run, baseline, locale="en", declared=None)
+
+
+def test_a_pinned_file_renamed_and_changed_is_lost_and_exits_two() -> None:
+    """#483, the case the record is for. The old path is gone from the judged
+    run, the new one has no reference value, and from the two documents nothing
+    says whether one became the other: the gate says it could not judge.
+    (ADR 0051 §3)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2")})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 2, (
+        "a pinned file renamed and changed in one run exited "
+        f"{exit_code(head)}: the pin lost its path and the gate still read "
+        f"green. The headline should end with {LOST!r}; it says {head.sentence!r}"
+    )
+    assert comparison.pinned_unreferenced == (NEW,)
+    assert comparison.pinned_withdrawn == (OLD,)
+    assert comparison.pinned_lost
+    for clause in (UNREFERENCED_ONE, WITHDRAWN_ONE, LOST):
+        assert clause in head.sentence, (
+            f"expected {clause!r} in the headline; it says {head.sentence!r}"
+        )
+
+
+def test_a_pin_added_beside_a_new_file_is_unreferenced_and_moves_nothing() -> None:
+    """§7's case: the comparison right after a pin is declared. Its reason
+    against `new` was a reason against red, not against the sentence: *this pin
+    has no reference to compare against yet* is true. (ADR 0051 §1)"""
+    before = a_pinned_run(())
+    after = a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2")})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 0, (
+        "a pin added beside its file moved the exit code: the feature would go "
+        "red on the comparison that declared it (ADR 0029 §7)"
+    )
+    assert UNREFERENCED_ONE in head.sentence, (
+        f"expected {UNREFERENCED_ONE!r} in the headline; it says {head.sentence!r}"
+    )
+    assert comparison.pinned_unreferenced == (NEW,)
+    assert comparison.pinned_withdrawn == ()
+    assert not comparison.pinned_lost
+
+
+def test_a_pin_withdrawn_with_its_file_is_reported_and_moves_nothing() -> None:
+    """§9's withdrawal, the file gone with the declaration. A withdrawal that
+    could not be made without a red would be a pin nobody could ever remove.
+    (ADR 0051 §2)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run(())
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 0, (
+        "a pin withdrawn with its file moved the exit code: §9's withdrawal "
+        "would need a red to make"
+    )
+    assert WITHDRAWN_ONE in head.sentence, (
+        f"expected {WITHDRAWN_ONE!r} in the headline; it says {head.sentence!r}"
+    )
+    assert comparison.pinned_withdrawn == (OLD,)
+    assert comparison.pinned_unreferenced == ()
+    assert not comparison.pinned_lost
+
+
+def test_a_pin_withdrawn_while_its_file_stays_is_reported() -> None:
+    """The half of §9 the code never built: the file is still recorded and
+    still compared, and the reference's declaration on it is gone. ADR 0029 §9
+    ruled *"the comparison reports it"*, and nothing read the baseline's pins.
+    (ADR 0051 §2)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 0, (
+        "a withdrawn pin on a file that stayed moved the exit code: §9 reports "
+        "a withdrawal and never enforces it"
+    )
+    assert WITHDRAWN_ONE in head.sentence, (
+        f"expected {WITHDRAWN_ONE!r} in the headline; it says {head.sentence!r}"
+    )
+    assert comparison.pinned_withdrawn == (OLD,)
+    assert not comparison.pinned_lost
+
+
+def test_the_declared_cost_removing_one_pinned_file_and_pinning_another() -> None:
+    """**The cost ADR 0051 declares, not a defect.** A run that removes pinned
+    file X and adds a pin on a new file Y is, from the two documents,
+    indistinguishable from the rename of #483, and in one of the two readings a
+    guarantee was lost. Where the readings cannot be told apart the gate says
+    it could not judge, which is what 2 means. A change that makes this exit 0
+    reopens #483. (ADR 0051 §3, *The declared cost*)"""
+    removed, added = "prompts/underwriting-x.md", "prompts/underwriting-y.md"
+    before = a_pinned_run((removed,), **{removed: Artifact(sha="a" * 64, text="x")})
+    after = a_pinned_run((added,), **{added: Artifact(sha="c" * 64, text="y")})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 2, (
+        f"removing pinned {removed} and pinning a new {added} exited "
+        f"{exit_code(head)}: that run cannot be told from a rename, and ADR "
+        f"0051 declares a 2 for it. The headline should end with {LOST!r}; it "
+        f"says {head.sentence!r}"
+    )
+    assert comparison.pinned_lost
+    assert LOST in head.sentence
+
+
+def test_a_lost_pin_beside_a_worse_check_exits_one() -> None:
+    """Precedence does not move: a regression outranks every cause of 2, by
+    ADR 0029 §6 and ADR 0024 §4.5. (ADR 0051, *Precedence is unchanged*)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = replace(
+        a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2")}),
+        results=(WORSE,),
+    )
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 1, (
+        f"a lost pin beside a check that got worse exited {exit_code(head)}: "
+        "the quieter cause would hide the louder one"
+    )
+    assert comparison.pinned_lost
+
+
+def test_a_withheld_side_answers_unchecked_before_unreferenced() -> None:
+    """A withheld side is read first: `artifact_deltas()` answers `unknown`
+    before it asks about `new`, so the renamed path of a redacted run is §8's
+    fact, counted and not passed, and moves nothing. (ADR 0051, *A withheld
+    side is read first*)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = redact(a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2")}))
+    comparison, head = judged(after, before)
+
+    assert comparison.pinned_unchecked == (NEW,)
+    assert exit_code(head) == 0, (
+        "a withheld pinned path moved the exit code: the comparison asserted "
+        "something about a digest it does not hold (ADR 0029 §8)"
+    )
+    assert comparison.pinned_withdrawn == (OLD,), (
+        "the reference's pin on the old path was not reported as withdrawn: the "
+        "fact is about the declaration, and the judged run's pins are readable "
+        "in a redacted comparison"
+    )
+    assert comparison.pinned_unreferenced == (), (
+        "a withheld pinned path was counted as having no reference: it has one "
+        "nobody here can read, which is §8's fact and not ADR 0051's"
+    )
+    assert not comparison.pinned_lost
+
+
+def test_pinned_unchecked_keeps_its_count_beside_an_unreferenced_pin() -> None:
+    """`pinned_unchecked` keeps its meaning and its count: a withheld pin is
+    counted as before, and a pinned row with no reference value beside it is
+    counted elsewhere. §8 invited consumers to build a rule on this count.
+    (ADR 0051, *What does not change*)"""
+    held, fresh = "prompts/underwriting-held.md", "prompts/underwriting-fresh.md"
+    before = a_pinned_run((), **{held: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run(
+        (held, fresh),
+        **{held: Artifact(withheld=True), fresh: Artifact(sha="c" * 64, text="f")},
+    )
+    comparison, head = judged(after, before)
+
+    assert comparison.pinned_unchecked == (held,)
+    assert head.pinned_unchecked == 1
+    assert exit_code(head) == 0
+    assert comparison.pinned_unreferenced == (fresh,), (
+        "the unreferenced pin was not counted on its own: either it went into "
+        "`pinned_unchecked` and changed what a consumer's rule counts, or it "
+        "was not reported at all"
+    )
+
+
+def test_a_pinned_file_changed_under_its_own_name_still_drifts() -> None:
+    """The road ADR 0029 built, untouched: same path, new digest, exit 2 for
+    drift and for nothing new. (ADR 0051, *What does not change*)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((OLD,), **{OLD: Artifact(sha="b" * 64, text="v2")})
+    comparison, head = judged(after, before)
+
+    assert comparison.pinned_drifted
+    assert exit_code(head) == 2
+    assert comparison.pinned_unreferenced == ()
+    assert comparison.pinned_withdrawn == ()
+    assert not comparison.pinned_lost
+
+
+def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
+    """No pin, no pin fact: the default every suite that pins nothing reads.
+    (ADR 0051, *What does not change*)"""
+    before = a_pinned_run((), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((), **{NEW: Artifact(sha="b" * 64, text="v2")})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 0
+    assert comparison.pinned_unreferenced == ()
+    assert comparison.pinned_withdrawn == ()
+    assert not comparison.pinned_lost
+
+
+def test_compare_json_carries_the_three_facts_at_output_version_two() -> None:
+    """Three added keys, and no bump: an added key does not break a consumer,
+    and what changes here is behaviour, not format. (ADR 0051, *Its price*)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2")})
+    comparison, head = judged(after, before)
+    payload = compare_json(comparison, head, baseline=before, full=False, run=after)
+
+    assert payload["output_version"] == 2
+    missing = {"pinned_unreferenced", "pinned_withdrawn", "pinned_lost"} - set(payload)
+    assert not missing, f"compare --json does not carry {sorted(missing)}"
+    assert (
+        payload["pinned_unreferenced"],
+        payload["pinned_withdrawn"],
+        payload["pinned_lost"],
+    ) == (1, 1, True)
+
+
+#: The document's three clauses for #483, as each locale words them. "In this
+#: run" where the headline says "here": a document is read apart from the
+#: command that printed it. (ADR 0051, beside `artifacts.pinned.*`)
+DOCUMENT_CLAUSES: dict[Locale, tuple[str, ...]] = {
+    "en": (
+        "1 file declared not to change has no reference to compare with, so "
+        "whether it changed was not checked.",
+        "1 file the reference declared not to change is not declared so in this run.",
+        "A file the reference declared not to change is gone, and a file declared "
+        "not to change in this run has no reference, so whether one became the "
+        "other could not be judged.",
+    ),
+    "it": (
+        "1 file dichiarato immutabile non ha un riferimento con cui confrontarlo, "
+        "quindi non è stato verificato se sia cambiato.",
+        "1 file che il riferimento dichiarava immutabile non è dichiarato tale in "
+        "questa esecuzione.",
+        "Un file che il riferimento dichiarava immutabile non c'è più, e un file "
+        "dichiarato immutabile in questa esecuzione non ha un riferimento, quindi "
+        "non si è potuto stabilire se l'uno sia diventato l'altro.",
+    ),
+}
+
+
+def test_the_document_carries_the_three_clauses_of_a_lost_pin() -> None:
+    """§8 named the document beside the sentence and the wire, and these are the
+    same kind of fact: counts in the artifacts section, never a path.
+    (ADR 0051, ADR 0029 §8)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1\n")})
+    after = a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2\n")})
+    comparison = compare(after, before)
+    for locale, clauses in DOCUMENT_CLAUSES.items():
+        page = unescape(
+            render_html(comparison, after, before, locale=locale, declared=None)
+        )
+        for clause in clauses:
+            assert clause in page, (
+                f"the {locale} document does not say {clause!r}: the fact is on "
+                "the headline and the wire and missing from the page a customer "
+                "reads"
+            )
+
+
+def test_the_terminal_marks_both_rows_of_a_lost_pin() -> None:
+    """Before ADR 0051 the two lines of #483 said nothing about a pin, which is
+    the silence being removed. Each row carries its own marker, after the
+    outcome, as `declared not to change` does for a drifted pin."""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1\n")})
+    after = a_pinned_run((NEW,), **{NEW: Artifact(sha="b" * 64, text="v2\n")})
+    comparison = compare(after, before)
+    expected: dict[Locale, tuple[str, ...]] = {
+        "en": (
+            f"{OLD} · no longer declared · was declared not to change",
+            f"{NEW} · added since the reference · declared not to change, no "
+            "reference to compare with",
+        ),
+        "it": (
+            f"{OLD} · non più dichiarato · era dichiarato immutabile",
+            f"{NEW} · aggiunto rispetto al riferimento · dichiarato immutabile, "
+            "senza riferimento con cui confrontarlo",
+        ),
+    }
+    for locale, lines in expected.items():
+        assert tuple(artifact_lines(comparison, locale=locale)) == lines
+
+
+def test_a_pin_withdrawn_on_a_file_that_did_not_move_gets_no_terminal_line() -> None:
+    """**ADR 0051's decision, not an oversight.** `artifact_lines` lists the files
+    that moved, and a pin withdrawn on a file that did not move is not a
+    movement: the file gets no line. The withdrawal is said where facts about
+    the comparison are said, in the headline and in the document. (ADR 0051 §2)
+    """
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1\n")})
+    after = a_pinned_run((), **{OLD: Artifact(sha="a" * 64, text="v1\n")})
+    comparison, head = judged(after, before)
+
+    assert WITHDRAWN_ONE in head.sentence
+    page = unescape(render_html(comparison, after, before, locale="en", declared=None))
+    assert DOCUMENT_CLAUSES["en"][1] in page
+    assert tuple(artifact_lines(comparison, locale="en")) == (), (
+        "a file that did not move got a terminal line: the list of files that "
+        "moved now names one that did not"
+    )
+
+
+def test_two_pinned_files_renamed_together_count_both_and_say_lost_once() -> None:
+    """#483 in the plural: the two counts take their `many` forms, and the lost
+    clause is one fact about the comparison, so it is said once. (ADR 0051)"""
+    olds = ("eval/d1/underwriting-a.json", "eval/d1/underwriting-b.json")
+    news = ("eval/d2/underwriting-a.json", "eval/d2/underwriting-b.json")
+    before = a_pinned_run(olds, **{p: Artifact(sha="a" * 64, text="v1") for p in olds})
+    after = a_pinned_run(news, **{p: Artifact(sha="b" * 64, text="v2") for p in news})
+    comparison, head = judged(after, before)
+
+    assert exit_code(head) == 2
+    assert (comparison.pinned_unreferenced, comparison.pinned_withdrawn) == (news, olds)
+    for clause in (
+        "2 files declared not to change have no reference to compare with, so "
+        "whether they changed was not checked.",
+        "2 files the reference declared not to change are not declared here.",
+    ):
+        assert clause in head.sentence, (
+            f"expected {clause!r} in the headline; it says {head.sentence!r}"
+        )
+    assert head.sentence.count(LOST) == 1, (
+        f"the lost clause appears {head.sentence.count(LOST)} times: it is one "
+        "fact about the comparison, not one per file"
     )
 
 

@@ -313,6 +313,12 @@ COMPARE_KEYS = {
     # which none of the cases that count was judged. A consumer that reads only
     # `exit_code` already sees it; this says which cause fired.
     "nothing_judged",
+    # Joined with ADR 0051, same rule: two counts that move no number and a
+    # fifth cause of exit 2. A consumer that reads only `exit_code` already
+    # sees the third; the counts say which half of it is present.
+    "pinned_unreferenced",
+    "pinned_withdrawn",
+    "pinned_lost",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that
     # *added* keys leave a consumer working, and these two answer a question
     # nothing else on this list can — same rules, same prompt, different model.

@@ -8,6 +8,28 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+- **Behaviour change: a pinned file renamed and changed in one run exits `2`**
+  ([ADR 0051](docs/adr/0051-a-pinned-path-the-run-no-longer-records.md),
+  #483). Until now the old path read as *missing* and the new one as *new*,
+  neither counted as drift, and `compare` exited `0` with nothing about pins
+  in the headline. Now a path the reference pinned that the judged run no
+  longer records, beside a pinned path with no reference value, is
+  `pinned_lost`, and `compare`, `report` and `explain` exit `2`, as MCP's
+  `exit_code` does. **This is what you may meet in CI without looking for
+  it:** a comparison that exited `0` on that case exits `2` after upgrading,
+  over the same two stored runs. A run that removes one pinned file and pins
+  a new one in the same change exits `2` too: from the two documents it
+  cannot be told from a rename, and the record declares that cost. To get
+  past it, promote the run once you have looked at it.
+- **Two facts that move no exit code**, each with a sentence of its own in
+  every locale: `pinned_unreferenced`, a pinned file the reference never
+  recorded, so whether it changed was not checked; and `pinned_withdrawn`, a
+  pin the reference held and this run does not, which ADR 0029 §9 said the
+  comparison reports and nothing did. A pin added beside its file, or one
+  withdrawn on its own, stays green. `pinned_unchecked` keeps its meaning and
+  its count. All three are on the headline and in `compare --json`;
+  `output_version` does not move, because they are added keys, and the
+  register gains nothing.
 - **Breaking: a run that judged nothing exits `2` and cannot be promoted**
   ([ADR 0049](docs/adr/0049-a-run-that-judged-nothing-does-not-pass.md),
   #360, #374). A run judged nothing when none of the cases its suite measures
