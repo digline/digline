@@ -20,7 +20,7 @@ own that implements `promote_baseline`, must now pass
 `declared=suite.declared()`. Three things digline could not check — a pinned
 file with no reference, a pin the judged run no longer declares, and a module
 already loaded from elsewhere — it now names instead of passing over, and none
-of them moves an exit code. Schema 19 comes with it, for one field. Run
+of them moves an exit code alone. Schema 19 comes with it, for one field. Run
 `digline migrate`. `OUTPUT_VERSION` does not move.
 
 ```sh
