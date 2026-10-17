@@ -553,6 +553,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "declared not to change, no reference to compare with"
         ),
         "artifacts.pinned.marker.withdrawn": "was declared not to change",
+        # Beside a module's name on the terminal, in the form of the pin markers.
+        # (ADR 0052, decision 2)
+        "modules_unchecked.marker": "already loaded, not read from source",
         "artifacts.tally": "+{added} −{removed} lines",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Fingerprint",
@@ -1787,6 +1790,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "dichiarato immutabile, senza riferimento con cui confrontarlo"
         ),
         "artifacts.pinned.marker.withdrawn": "era dichiarato immutabile",
+        "modules_unchecked.marker": "già caricato, non letto da sorgente",
         "artifacts.tally": "+{added} −{removed} righe",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Impronta",

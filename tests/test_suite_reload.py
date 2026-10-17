@@ -33,11 +33,21 @@ from pathlib import Path
 
 import pytest
 
-from digline.core import NOTHING_EXTRA, CaseResult, Run, Score, Verdict, compare, redact
+from digline.core import (
+    NOTHING_EXTRA,
+    CaseResult,
+    Contains,
+    Run,
+    Score,
+    Verdict,
+    compare,
+    redact,
+)
 from digline.core.run import SCHEMA_VERSION, run_from_dict, run_to_dict
 from digline.host import load_suite, load_target
 from digline.host import loader as loader_module
 from digline.report import headline, module_lines, phrase, render_html
+from digline.run import Case, Response, Suite, execute
 from digline.store.migrate import upgrade_document
 from digline.wire import compare_json, exit_code
 from digline.wire.run import run_document
@@ -450,6 +460,25 @@ def test_not_recorded_is_never_written_as_zero() -> None:
 
 def test_the_field_stays_out_of_config_hash() -> None:
     """Two runs of one configuration can carry different values; a field that
-    varies while the configuration does not stays out of its identity."""
-    run, baseline = a_run(("brief",)), a_run(())
-    assert not compare(run, baseline).config_changed
+    varies while the configuration does not stays out of its identity. Both
+    produced by `execute()`, which is where `config_hash` is computed: a run
+    built by hand carries whatever hash it is given."""
+    suite = Suite(
+        tenant="probe",
+        environment="probe",
+        name="probe",
+        assertions=[Contains(needle="answer")],
+        cases=[Case(id="c1")],
+    )
+
+    def target(case: Case) -> Response:
+        return Response(output="answer", cost_usd=0.0, latency_ms=1.0)
+
+    created = "2026-10-17T10:00:00+00:00"
+    named = execute(suite, target, created_at=created, modules_unchecked=("brief",))
+    clean = execute(suite, target, created_at=created, modules_unchecked=())
+    assert named.modules_unchecked != clean.modules_unchecked
+    assert named.config_hash == clean.config_hash, (
+        "two runs of one configuration differ in config_hash because they "
+        "differ in modules_unchecked: the field entered the run's identity"
+    )
