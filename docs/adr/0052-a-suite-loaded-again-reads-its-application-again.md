@@ -290,7 +290,8 @@ answered. A baseline promoted from such a run carries the same doubt. This
 record cannot repair them, and says so.
 
 **A judged run can carry the value *not recorded*, and the headline says so.**
-The reader does not migrate on its own: a document of an older schema is
+Every line number in this paragraph and the four after it is read at
+`d8df3aa`. The reader does not migrate on its own: a document of an older schema is
 refused (`core/run.py:3047-3051` at `d8df3aa`, `if version !=
 SCHEMA_VERSION`). After a deliberate `digline migrate`, a run written before
 the code that implements this record carries `modules_unchecked` as *not
