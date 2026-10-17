@@ -1840,7 +1840,11 @@ def test_a_missing_value_exits_64(
 def test_a_missing_required_flag_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    without_suite = list(PARSES[command][2:])
+    given = PARSES[command]
+    # `--suite` and its value, found by name: a reordered table must not make
+    # this drop some other option and still pass.
+    at = given.index("--suite")
+    without_suite = [*given[:at], *given[at + 2 :]]
     code, err = refused([command, *without_suite], capsys)
     assert "the following arguments are required: --suite" in err, err
     assert code == EXIT_USAGE, (
