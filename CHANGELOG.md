@@ -19,21 +19,21 @@ notes under them are this file, verbatim.
   place for the previous suite's scope: the suite's module, the modules that
   resolved in its directory, the directory on `sys.path`, its path hook, its
   importer cache entry, and the directory in the loader's own `_scoped`.
-  Nothing it did not insert is touched. **The declared
-  cost:** a suite that counted on module state persisting between runs in one
-  process, a cache, a counter or a client opened at import, starts again at
-  each load. A `digline` command loads one suite and exits, so nothing changes
-  there. Runs already stored by a long-lived process after an edit cannot be
-  told apart: nothing they record says which application answered.
-  **A module already loaded from elsewhere is named, not refused:
-  `modules_unchecked`.** A test module that imports the application before the
-  suite does is the normal pytest layout, and digline cannot read that module
-  from source; the run says so. The names are on the run document and, beside
-  *already loaded, not read from source*, under `digline compare`'s sentence.
-  The count is in the headline, in `compare --json` and in the report, read
-  from the judged run alone. It moves no exit code. A program that calls
-  `execute()` passes `modules_unchecked=loaded.modules_unchecked`; without it,
-  its runs say *not recorded*.
+  Nothing it did not insert is touched. **The declared cost:** a suite that
+  counted on module state persisting between runs in one process, a cache, a
+  counter or a client opened at import, starts again at each load. A `digline`
+  command loads one suite and exits, so nothing changes there. Runs already
+  stored by a long-lived process after an edit cannot be told apart: nothing
+  they record says which application answered. **A module already loaded from
+  elsewhere is named, not refused: `modules_unchecked`.** A test module that
+  imports the application before the suite does is the normal pytest layout,
+  and digline cannot read that module from source; the run says so. The names
+  are on the run document and, beside *already loaded, not read from source*,
+  under `digline compare`'s sentence. The count is in the headline, in
+  `compare --json` and in the report, read from the judged run alone. It moves
+  no exit code. A program that calls `execute()` passes
+  `modules_unchecked=loaded.modules_unchecked`; without it, its runs say *not
+  recorded*.
 - **Schema 19, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
   18 → 19 for one field, `modules_unchecked`. The step writes nothing: a run
   written before this release recorded nothing about which modules it read
@@ -47,7 +47,8 @@ notes under them are this file, verbatim.
   were ignored and to run `digline migrate`; a run named by its key exits `64`
   with *"schema_version 18 is not supported (expected 19)"*. Migrate once, and
   commit the migrated reference. A 0.31.x reader refuses a schema-19 document,
-  and a resume journal does not move. `output_version` does not move either: the keys are added.
+  and a resume journal does not move. `output_version` does not move either:
+  the keys are added.
 - **An option given two different values is refused, and the refusal names
   both** (#567). argparse kept the last value of a repeated option and dropped
   the others without a word: `compare --suite a.py --suite b.py` compared
