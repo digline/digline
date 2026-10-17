@@ -196,6 +196,34 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} files declared not to change are not included here, so "
             "whether they changed was not checked."
         ),
+        # A pinned file the reference never recorded: included, and with nothing
+        # to be compared with. Not the unchecked sentence, whose "not included
+        # here" would be false for it. (ADR 0051 §1)
+        "fact.pinned.unreferenced.one": (
+            "1 file declared not to change has no reference to compare with, so "
+            "whether it changed was not checked."
+        ),
+        "fact.pinned.unreferenced.many": (
+            "{count} files declared not to change have no reference to compare "
+            "with, so whether they changed was not checked."
+        ),
+        # A pin the reference held and this run does not: the file may be gone
+        # or still here, and the sentence says only what is known. (ADR 0051 §2)
+        "fact.pinned.withdrawn.one": (
+            "1 file the reference declared not to change is not declared here."
+        ),
+        "fact.pinned.withdrawn.many": (
+            "{count} files the reference declared not to change are not declared here."
+        ),
+        # The two together, and the reason this exits 2: the readings cannot be
+        # told apart. One form, because it is a single fact about the
+        # comparison and the counts are in the two clauses before it.
+        # (ADR 0051 §3)
+        "fact.pinned.lost": (
+            "A file the reference declared not to change is gone, and a file "
+            "declared not to change here has no reference, so whether one became "
+            "the other could not be judged."
+        ),
         "fact.rejudged": (
             "The answers in this run were replayed from a stored run, not "
             "measured: the target was not asked anything."
@@ -481,6 +509,35 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} files declared not to change are not included, so whether "
             "they changed was not checked."
         ),
+        # ADR 0051's three, as the headline gives them. "In this run" where the
+        # headline says "here": a document is read apart from the command that
+        # printed it, and "here" would point at the page.
+        "artifacts.pinned.unreferenced.one": (
+            "1 file declared not to change has no reference to compare with, so "
+            "whether it changed was not checked."
+        ),
+        "artifacts.pinned.unreferenced.many": (
+            "{count} files declared not to change have no reference to compare "
+            "with, so whether they changed was not checked."
+        ),
+        "artifacts.pinned.withdrawn.one": (
+            "1 file the reference declared not to change is not declared so in "
+            "this run."
+        ),
+        "artifacts.pinned.withdrawn.many": (
+            "{count} files the reference declared not to change are not declared "
+            "so in this run."
+        ),
+        "artifacts.pinned.lost": (
+            "A file the reference declared not to change is gone, and a file "
+            "declared not to change in this run has no reference, so whether one "
+            "became the other could not be judged."
+        ),
+        # Beside a file's line on the terminal, as `artifacts.pinned.marker` is.
+        "artifacts.pinned.marker.unreferenced": (
+            "declared not to change, no reference to compare with"
+        ),
+        "artifacts.pinned.marker.withdrawn": "was declared not to change",
         "artifacts.tally": "+{added} −{removed} lines",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Fingerprint",
@@ -1408,6 +1465,26 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} file dichiarati immutabili non sono inclusi qui, quindi "
             "non è stato verificato se siano cambiati."
         ),
+        "fact.pinned.unreferenced.one": (
+            "1 file dichiarato immutabile non ha un riferimento con cui "
+            "confrontarlo, quindi non è stato verificato se sia cambiato."
+        ),
+        "fact.pinned.unreferenced.many": (
+            "{count} file dichiarati immutabili non hanno un riferimento con cui "
+            "confrontarli, quindi non è stato verificato se siano cambiati."
+        ),
+        "fact.pinned.withdrawn.one": (
+            "1 file che il riferimento dichiarava immutabile qui non è dichiarato tale."
+        ),
+        "fact.pinned.withdrawn.many": (
+            "{count} file che il riferimento dichiarava immutabili qui non sono "
+            "dichiarati tali."
+        ),
+        "fact.pinned.lost": (
+            "Un file che il riferimento dichiarava immutabile non c'è più, e un "
+            "file dichiarato immutabile qui non ha un riferimento, quindi non si "
+            "è potuto stabilire se l'uno sia diventato l'altro."
+        ),
         "fact.rejudged": (
             "Le risposte di questa esecuzione sono state riascoltate da una "
             "esecuzione archiviata, non misurate: al sistema in prova non è "
@@ -1657,6 +1734,32 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} file dichiarati immutabili non sono inclusi, quindi non "
             "è stato verificato se siano cambiati."
         ),
+        "artifacts.pinned.unreferenced.one": (
+            "1 file dichiarato immutabile non ha un riferimento con cui "
+            "confrontarlo, quindi non è stato verificato se sia cambiato."
+        ),
+        "artifacts.pinned.unreferenced.many": (
+            "{count} file dichiarati immutabili non hanno un riferimento con cui "
+            "confrontarli, quindi non è stato verificato se siano cambiati."
+        ),
+        "artifacts.pinned.withdrawn.one": (
+            "1 file che il riferimento dichiarava immutabile non è dichiarato "
+            "tale in questa esecuzione."
+        ),
+        "artifacts.pinned.withdrawn.many": (
+            "{count} file che il riferimento dichiarava immutabili non sono "
+            "dichiarati tali in questa esecuzione."
+        ),
+        "artifacts.pinned.lost": (
+            "Un file che il riferimento dichiarava immutabile non c'è più, e un "
+            "file dichiarato immutabile in questa esecuzione non ha un "
+            "riferimento, quindi non si è potuto stabilire se l'uno sia "
+            "diventato l'altro."
+        ),
+        "artifacts.pinned.marker.unreferenced": (
+            "dichiarato immutabile, senza riferimento con cui confrontarlo"
+        ),
+        "artifacts.pinned.marker.withdrawn": "era dichiarato immutabile",
         "artifacts.tally": "+{added} −{removed} righe",
         "artifacts.column.file": "File",
         "artifacts.column.fingerprint": "Impronta",

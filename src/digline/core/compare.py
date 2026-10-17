@@ -148,6 +148,14 @@ class ArtifactDelta:
     #: the reader who cannot check for themselves, while a row survives
     #: `withhold_artifacts` with its outcome intact. (ADR 0029 §3, §5)
     pinned: bool = False
+    #: Whether the **reference** declared that this path must not drift.
+    #:
+    #: `pinned` is the judged run's declaration and governs (ADR 0029 §9); this
+    #: is the other side's, read so that a pin the reference held and the judged
+    #: run does not is reported rather than silent. On the row for `pinned`'s
+    #: reason: a row survives `withhold_artifacts`, so the fact does too.
+    #: (ADR 0051 §2)
+    reference_pinned: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -443,6 +451,68 @@ class Comparison:
         from the 0.19.0 delta-pass)
         """
         return len(self.pinned_unchecked)
+
+    @property
+    def pinned_unreferenced(self) -> tuple[str, ...]:
+        """The pinned paths with no reference value, by path.
+
+        A pinned row whose outcome is `new`: the reference never recorded the
+        path, so whether it changed was not checked. Its own fact and not
+        `pinned_unchecked`, which counts what redaction withheld and whose
+        sentence, *not included here*, is false for a row that is included and
+        has nothing to be compared with. Reported, and moves no number: §7's
+        reason against `new` was a reason against red, not against the
+        sentence. (ADR 0051 §1)
+        """
+        return tuple(
+            d.path for d in self.artifact_deltas if d.pinned and d.outcome == "new"
+        )
+
+    @property
+    def pinned_unreferenced_count(self) -> int:
+        """How many, for `pinned_unchecked_count`'s reason: a renderer reaches
+        for the count, and a path can describe a customer."""
+        return len(self.pinned_unreferenced)
+
+    @property
+    def pinned_withdrawn(self) -> tuple[str, ...]:
+        """The paths the reference pinned and the judged run does not, by path.
+
+        ADR 0029 §9 ruled that a withdrawn pin *"is not silent either: the
+        comparison reports it"*, and nothing read the reference's pins until
+        this. It covers a pinned path the judged run no longer records and one
+        it still records but no longer pins. Reported, and moves no number: a
+        withdrawal that needed a red would be a pin nobody could remove.
+        (ADR 0051 §2)
+        """
+        return tuple(
+            d.path for d in self.artifact_deltas if d.reference_pinned and not d.pinned
+        )
+
+    @property
+    def pinned_withdrawn_count(self) -> int:
+        """How many, for `pinned_unchecked_count`'s reason."""
+        return len(self.pinned_withdrawn)
+
+    @property
+    def pinned_lost(self) -> bool:
+        """A path the reference pinned is gone from the judged run, **and** a
+        pinned path there has no reference value. The fact `exit_code()` reads
+        beside `pinned_drifted`.
+
+        From the two documents nothing says whether one became the other: a
+        rename that changed the file and a removal beside a new pin read the
+        same, and in one of the two a guarantee was lost. Where the readings
+        cannot be told apart the gate says it could not judge, which is what 2
+        means. Either half alone is reported and moves nothing. A withheld side
+        answers `unknown` before `new` or `missing`, so a redacted comparison
+        never reaches this. (ADR 0051 §3)
+        """
+        gone = any(
+            d.reference_pinned and not d.pinned and d.outcome == "missing"
+            for d in self.artifact_deltas
+        )
+        return gone and bool(self.pinned_unreferenced)
 
     @property
     def target_config_changed(self) -> bool:
@@ -1708,6 +1778,10 @@ def withhold_artifacts(comparison: Comparison) -> Comparison:
                 # `test_a_withheld_comparison_still_knows_the_path_was_pinned`
                 # and its mutation control. (ADR 0029 §5)
                 pinned=delta.pinned,
+                # The reference's declaration, carried for the same reason:
+                # dropping it would turn a withdrawn pin silent in the one
+                # document whose reader cannot check. (ADR 0051 §2)
+                reference_pinned=delta.reference_pinned,
             )
             for delta in comparison.artifact_deltas
         ),
@@ -1729,10 +1803,17 @@ def artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
     deltas: list[ArtifactDelta] = []
     # Read from `run` and not from the union, because a pin is a declaration
     # about the side being judged: a pin the reference carried and this run
-    # dropped is an author withdrawing it, which ADR 0029 §9 reports elsewhere
-    # and refuses to enforce — a pin nobody could ever remove is worse than no
-    # pin. `diff()` passes its right-hand run here, and gates on nothing.
+    # dropped is an author withdrawing it, which ADR 0029 §9 reports and
+    # refuses to enforce — a pin nobody could ever remove is worse than no pin.
+    # The report is `Comparison.pinned_withdrawn`, read from the row's
+    # `reference_pinned` below: until ADR 0051 this comment said "elsewhere"
+    # and nothing read the reference's pins. `diff()` passes its right-hand run
+    # here, and gates on nothing.
     pinned = set(run.pinned)
+    # And the reference's, read beside them and never in their place: the
+    # judged run's declaration still governs, and this is what lets a pin the
+    # reference held be reported when the judged run drops it. (ADR 0051 §2)
+    referenced = set(baseline.pinned)
     for path in sorted(run.artifacts.keys() | baseline.artifacts.keys()):
         now, before = run.artifacts.get(path), baseline.artifacts.get(path)
         withheld = (now is not None and now.withheld) or (
@@ -1757,6 +1838,7 @@ def artifact_deltas(run: Run, baseline: Run) -> tuple[ArtifactDelta, ...]:
                 after_sha="" if now is None else now.sha,
                 withheld=withheld,
                 pinned=path in pinned,
+                reference_pinned=path in referenced,
             )
         )
     return tuple(deltas)

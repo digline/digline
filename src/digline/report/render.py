@@ -225,6 +225,20 @@ class Headline:
     #: it for the party holding neither run. It joins `target_echoed` and
     #: `on_the_line` as a fact that informs and moves no number. (ADR 0029 §8)
     pinned_unchecked: int = 0
+    #: How many pinned paths have no reference value: the reference never
+    #: recorded them, so whether they changed was not checked. Named, and moves
+    #: no number, like `pinned_unchecked` beside it — and kept apart from it,
+    #: whose count consumers were invited to build a rule on. (ADR 0051 §1)
+    pinned_unreferenced: int = 0
+    #: How many paths the reference pinned and the judged run does not. ADR
+    #: 0029 §9's report of a withdrawn pin, which nothing built until ADR 0051.
+    #: Moves no number. (ADR 0051 §2)
+    pinned_withdrawn: int = 0
+    #: A path the reference pinned is gone from the judged run and a pinned path
+    #: there has no reference value. Read by `exit_code()`, which returns 2 — the
+    #: two readings, a rename and a removal, cannot be told apart, and in one of
+    #: them a guarantee was lost. (ADR 0051 §3)
+    pinned_lost: bool = False
     #: The endpoint returned the id it was sent as the model that answered, on
     #: the run being compared — so the identity the record seems to confirm is
     #: not identified at all. The twelfth fact: an absence disguised as a
@@ -867,6 +881,31 @@ def headline(
         if unchecked_count
         else ""
     )
+    # The three of ADR 0051, each its own clause for the reason the unchecked one
+    # is: they can all be true of one comparison, and a reader shown only the
+    # loudest would think the others had been settled. Counts and never paths,
+    # by `pinned_unchecked_count`'s reason.
+    unreferenced_count = comparison.pinned_unreferenced_count
+    unreferenced_text = (
+        phrase(
+            locale,
+            f"fact.pinned.unreferenced.{'one' if unreferenced_count == 1 else 'many'}",
+            count=unreferenced_count,
+        )
+        if unreferenced_count
+        else ""
+    )
+    withdrawn_count = comparison.pinned_withdrawn_count
+    withdrawn_text = (
+        phrase(
+            locale,
+            f"fact.pinned.withdrawn.{'one' if withdrawn_count == 1 else 'many'}",
+            count=withdrawn_count,
+        )
+        if withdrawn_count
+        else ""
+    )
+    lost_text = phrase(locale, "fact.pinned.lost") if comparison.pinned_lost else ""
 
     # The canary speaks after what the system *declared* and before the judge,
     # because it says what the system *did*: measured rather than declared, and
@@ -951,6 +990,9 @@ def headline(
         pinned_drifted=comparison.pinned_drifted,
         nothing_judged=judged_nothing,
         pinned_unchecked=unchecked_count,
+        pinned_unreferenced=unreferenced_count,
+        pinned_withdrawn=withdrawn_count,
+        pinned_lost=comparison.pinned_lost,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
         target_echoed=echoed is not None,
@@ -1018,6 +1060,10 @@ def headline(
                 # act on outside this run.
                 pinned_text,
                 unchecked_text,
+                # The two halves, then what they amount to together. (ADR 0051)
+                unreferenced_text,
+                withdrawn_text,
+                lost_text,
                 rejudged_text,
                 target_text,
                 echo_text,
@@ -1666,6 +1712,14 @@ def artifact_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
         # beside a path the reader is already allowed to see.
         if delta.pinned and delta.outcome == "changed":
             detail += " · " + phrase(locale, "artifacts.pinned.marker")
+        # And the two rows ADR 0051 names, which said nothing about a pin
+        # before: a pinned path with no reference value, and a path the
+        # reference pinned that this run does not. A rename of a pinned file is
+        # one of each, and both lines now say so. (ADR 0051 §1, §2)
+        elif delta.pinned and delta.outcome == "new":
+            detail += " · " + phrase(locale, "artifacts.pinned.marker.unreferenced")
+        elif delta.reference_pinned and not delta.pinned:
+            detail += " · " + phrase(locale, "artifacts.pinned.marker.withdrawn")
         lines.append(f"{delta.path} · {detail}")
     return tuple(lines)
 
@@ -2085,6 +2139,25 @@ def _artifacts(comparison: Comparison, locale: Locale) -> str:
             f"artifacts.pinned.unchecked.{'one' if len(unchecked) == 1 else 'many'}",
             count=len(unchecked),
         )
+    # The three of ADR 0051, in the order the headline gives them and by the
+    # same rule: counts, never a path. §8 named the document beside the sentence
+    # and the wire, and these are the same kind of fact.
+    unreferenced = comparison.pinned_unreferenced_count
+    if unreferenced:
+        note += " " + phrase(
+            locale,
+            f"artifacts.pinned.unreferenced.{'one' if unreferenced == 1 else 'many'}",
+            count=unreferenced,
+        )
+    withdrawn = comparison.pinned_withdrawn_count
+    if withdrawn:
+        note += " " + phrase(
+            locale,
+            f"artifacts.pinned.withdrawn.{'one' if withdrawn == 1 else 'many'}",
+            count=withdrawn,
+        )
+    if comparison.pinned_lost:
+        note += " " + phrase(locale, "artifacts.pinned.lost")
 
     rows = "".join(
         "<tr>"
