@@ -7,8 +7,10 @@
 - Shipped: unreleased
 - Date: 2026-10-17
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
-  `OUTPUT_VERSION`. What the code that implements it opens is under *Its
-  price*
+  `OUTPUT_VERSION`. The code that implements it opens an additive schema bump,
+  with its step in `_STEPS`, for `modules_unchecked` on the run (*The field on
+  the run*, below). The number is not written here: another branch may raise
+  the version before that code lands
 - Amends: the guarantee in the docstring of `digline/host/loader.py`, that
   *"everything that resolves in that directory"* is read *"through a finder
   scoped to it alone — because the application under test is what changes
@@ -156,8 +158,9 @@ costs declared.
 2. **A name already loaded from somewhere digline did not load it is named,
    not refused: `modules_unchecked`.** A name that would resolve inside the
    suite's scope and is already in `sys.modules` from an origin digline did not
-   load stays as it is, and the run says so: a count, on the wire and in the
-   document, that moves no number, in the form of `pinned_unchecked`.
+   load stays as it is, and the run says so: the names and their count, on the
+   wire and in the document, moving no number, in the form of
+   `pinned_unchecked`.
 
    **Why it is named.** The authority is ADR 0029 §8: *"A control that quietly
    reports success when it could not run is worse than no control, because it
@@ -212,6 +215,62 @@ were weighed, at `415f773`:
 - **Reading from source.** What is loaded again is still read through the
   scoped finder and the `SourceOnlyLoader`.
 
+## The field on the run, checked against ADR 0014 §1
+
+`modules_unchecked` is recorded on the run, so that a stored run's document
+says it and a comparison can read it (decision 3). ADR 0014 §1 lets a field
+ride a schema bump only if three conditions hold, *"checked in the ADR that
+proposes the field, and the ADR says so in its own words"*. Here they are.
+
+1. **It leaves `config_hash` untouched.** Two runs of one identical
+   configuration can carry different values: one in a fresh `digline` process,
+   where nothing was loaded before the suite, and one as the second call in a
+   `digline-mcp` session, where something was. A field that varies while the
+   configuration does not cannot be part of the configuration's identity
+   without renaming stored runs, and unpromoting baselines, for a reason that
+   is not a change of rule.
+
+2. **It migrates additively, with the value *not recorded*.** A document
+   written before this field records nothing about it, and the migration says
+   exactly that. It is the rule two fields already follow, at `d8df3aa`:
+   `Run.digline_version` (`core/run.py:1369`), where *"`""` means **not
+   recorded** — a migrated file, a document built in a test — and is never read
+   as version zero"* (`:1365-1366`); and `Run.usage` (`:1416`), where *"`None`
+   is **not recorded**: a migrated document, a `Run` built by hand in a test, a
+   library caller who built one directly. It is never read as zero, on the rule
+   `digline_version = ""` already follows — a run measured last month consumed
+   something, and nothing in its document can say what"* (`:1405-1408`).
+   ADR 0014 §1 names the case among its examples: *"`{}` for a record nobody
+   kept"*.
+
+   **Zero is excluded.** Zero would state that the control ran for every
+   module, in exactly the runs this record says cannot be known: the false
+   green of ADR 0029 §8, written into a migration. An old run says *I do not
+   know*, not *none*.
+
+   **`_NON_ADDITIVE` was weighed and set aside.** A version listed there has no
+   step, so every document older than it, every run and every baseline, stops
+   being readable (`store/migrate.py:375-384`, `:410-419`), and what it costs
+   whoever holds the store is a choice between staying behind and doing it all
+   again.
+
+   **The refusal inside a step is not needed either.** `store/migrate.py:330`
+   refuses one document inside an additive step, because that document lacks
+   something its reading requires. A document written before this field lacks
+   nothing: it did not record it.
+
+3. **It does not widen what travels.** The count and the names both cross, and
+   `redact()` drops neither. The second fact is limited to names that would
+   resolve inside the suite's scope, which is the perimeter from which
+   artifact paths and pinned paths already cross: an artifact's path stays when
+   its text is withheld (`wire/run.py:413-415` at `d8df3aa`: *"The path stays
+   either way, and `withheld` says which absence it is"*, by ADR 0003), and a
+   pinned path crosses after `redact()` (ADR 0029 §3, held by
+   `test_a_run_document_carries_the_pin_across_the_boundary`). This is not a
+   new kind of name at the boundary. It is decided here and not later because
+   ADR 0014 §1 says why: *"There is no third answer, and 'we will decide at the
+   boundary later' is the answer that ships the leak."*
+
 ## Its price
 
 **A suite that counts on module state persisting between runs in one process
@@ -228,10 +287,13 @@ another application's. Nothing recorded in those runs says which application
 answered. A baseline promoted from such a run carries the same doubt. This
 record cannot repair them, and says so.
 
-**When the second fact is recorded on the run**, so that a stored run's
-document says it, the run document gains a field, and by
-[ADR 0014](0014-what-may-ride-a-schema-bump.md) §1 a field is a schema
-passenger. Whether it rides a bump, and which, is decided with the code.
+**A value *not recorded* never reaches a comparison's headline.** A judged run
+is produced by the version that records the field, so it always carries a
+count. The value *not recorded* appears only on a reference promoted before
+the code that implements this record, and the headline reads the judged run
+alone (decision 3). The doubt over baselines measured before the correction is
+the one declared above, and the code neither tells them apart nor prints
+anything about them. That is a choice, not a gap.
 
 **Not covered here.**
 
