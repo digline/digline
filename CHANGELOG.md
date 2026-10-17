@@ -8,6 +8,26 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+digline **0.32.0**. **A minor, because what digline refuses has grown:** a
+command line it cannot parse exits 64 instead of 2, an option given two
+different values is refused, a run that judged nothing exits 2 and cannot be
+promoted, and a pinned file renamed and changed exits 2 where the comparison
+used to pass. A suite loaded a second time in one process reads its application
+from disk instead of what the first load left behind, so a cache or a client
+opened at import no longer survives into the next run. A program that calls
+`headline`, `render_html`, `run_exit_code` or `refusals_for`, or a store of its
+own that implements `promote_baseline`, must now pass
+`declared=suite.declared()`. Three things digline could not check — a pinned
+file with no reference, a pin the judged run no longer declares, and a module
+already loaded from elsewhere — it now names instead of passing over, and none
+of them moves an exit code. Schema 19 comes with it, for one field. Run
+`digline migrate`. `OUTPUT_VERSION` does not move.
+
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
 - **Behaviour change: a suite loaded again in the same process reads its
   application again** ([ADR 0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
   #513). In `digline-mcp` a second load was answered by what the first left
