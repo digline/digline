@@ -240,6 +240,38 @@ def test_an_earlier_suite_directory_leaves_scoped(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("process_state")
+def test_a_submodule_of_an_application_package_is_unloaded(tmp_path: Path) -> None:
+    """The second row again, for an application that is a package: `app.sub`
+    resolves in the suite's directory, through `app`, so it goes with it. The
+    record's *"every module the suite imports that resolves in its directory"*
+    covers it as written (ADR 0052, decision 1)."""
+    where = tmp_path / "one"
+    (where / "app").mkdir(parents=True)
+    (where / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (where / "app" / "sub.py").write_text(
+        'def reply(case_id):\n    return "answer from app.sub to " + case_id\n',
+        encoding="utf-8",
+    )
+    first = a_suite(tmp_path, "one", brief=None)
+    first.write_text(
+        first.read_text(encoding="utf-8").replace(
+            "from digline.core import Contains",
+            "import app.sub\nfrom digline.core import Contains",
+        ),
+        encoding="utf-8",
+    )
+    load_suite(str(first))
+    assert "app.sub" in sys.modules
+    load_suite(str(a_suite(tmp_path, "two", brief=None)))
+    assert "app.sub" not in sys.modules, (
+        "`app.sub`, a submodule of the application package loaded for the suite "
+        "in one/, is still in sys.modules after the next load: a later suite "
+        "importing it is answered with one/'s copy (ADR 0052, decision 1)"
+    )
+    assert "app" not in sys.modules
+
+
+@pytest.mark.usefixtures("process_state")
 def test_the_standard_library_and_third_parties_are_not_touched(tmp_path: Path) -> None:
     """The boundary: digline takes out what it put there for the suite's scope,
     and nothing else. A standard-library module and a third-party one the suite
