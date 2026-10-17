@@ -2051,6 +2051,14 @@ def test_an_option_that_stores_nothing_is_refused_when_declared() -> None:
         build_parser().add_argument("--nothing", nargs=0)
 
 
+def test_a_const_without_an_optional_value_is_refused_when_declared() -> None:
+    """The other check `store` made: a `const` is what an option given with no
+    value stores, so declaring one where the value is not optional is a
+    declaration that cannot mean anything."""
+    with pytest.raises(ValueError, match="so it needs `nargs='\\?'`"):
+        build_parser().add_argument("--fixed", const="x")
+
+
 def test_meta_stays_repeatable_and_keeps_every_value() -> None:
     """`--meta` is `append` by choice: each one is a different key, and the rule
     is about an option that takes one value."""

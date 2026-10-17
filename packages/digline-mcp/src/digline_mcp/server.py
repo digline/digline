@@ -505,15 +505,25 @@ class _Once(argparse.Action):
     """
 
     def __init__(
-        self, option_strings: Sequence[str], dest: str, nargs: Any = None, **kwargs: Any
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Any = None,
+        const: Any = None,
+        **kwargs: Any,
     ) -> None:
-        # The check `store`'s own class makes, which this one does not inherit.
+        # The checks `store`'s own class makes, which this one does not inherit.
         if nargs == 0:
             raise ValueError(
                 f"{dest}: an option that stores a value cannot take zero of them; "
                 "a flag is `store_true` or `store_const`"
             )
-        super().__init__(option_strings, dest, nargs=nargs, **kwargs)
+        if const is not None and nargs != argparse.OPTIONAL:
+            raise ValueError(
+                f"{dest}: a `const` is the value of an option given with none, "
+                f"so it needs `nargs={argparse.OPTIONAL!r}`"
+            )
+        super().__init__(option_strings, dest, nargs=nargs, const=const, **kwargs)
 
     def __call__(
         self,
