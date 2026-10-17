@@ -222,9 +222,7 @@ One card each — parameters, typical values, what to watch out for — in
   baseline's interval is reported as unchanged rather than as a regression — a
   tool that cries wolf on its own measurement error teaches people to promote
   past it. It never rescues a flip, and it never invents an interval it does not
-  have. The interval you see is the reference's own, never this run's, so it
-  appears once you have promoted a sampled baseline. A check that flips from
-  pass to fail is always a regression, whatever the interval says.
+  have, so you see one once you have promoted a sampled baseline.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
