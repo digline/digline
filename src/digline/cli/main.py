@@ -1146,7 +1146,8 @@ def build_parser() -> argparse.ArgumentParser:
         # file; `--help` is read by somebody who wants to know what to type.
         description=(
             "Check that an LLM's answers have not got worse, against a baseline "
-            "committed in your own repository."
+            "in your repository, reporting how much the score moves on its own "
+            "when you sample."
         ),
         epilog="Options for one command: digline <command> -h",
     )
