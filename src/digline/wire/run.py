@@ -429,8 +429,14 @@ def run_document(
             # it out of the boundary form reintroduced exactly that pair.
             # (F-4, the 0.19.0 delta-pass)
             "pinned": sorted(run.pinned),
-            # The modules nobody read from source, names and all, or `None` for
+            # The modules nobody read from source, names and all, or `null` for
             # a run that did not record it. (ADR 0052, the field on the run)
+            #
+            # `null` is a convention, not a decision. The form follows `usage`,
+            # the next key, while in the run file the absent key is *not
+            # recorded* and a null is a malformed document (`core/run.py`, the
+            # reader's "`in`, not `.get()`"). **No ADR decides the form on the
+            # wire**: this copies a practice and applies no rule.
             "modules_unchecked": (
                 None if run.modules_unchecked is None else list(run.modules_unchecked)
             ),

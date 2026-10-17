@@ -18,7 +18,8 @@ notes under them are this file, verbatim.
   measured. Now, before the next load, digline takes out what it put in
   place for the previous suite's scope: the suite's module, the modules that
   resolved in its directory, the directory on `sys.path`, its path hook, its
-  importer cache entry. Nothing it did not insert is touched. **The declared
+  importer cache entry, and the directory in the loader's own `_scoped`.
+  Nothing it did not insert is touched. **The declared
   cost:** a suite that counted on module state persisting between runs in one
   process, a cache, a counter or a client opened at import, starts again at
   each load. A `digline` command loads one suite and exits, so nothing changes
@@ -40,8 +41,13 @@ notes under them are this file, verbatim.
   the judged run, it gets a sentence of its own, *"This run does not record
   whether the modules it measured were read from source, so whether they match
   the files on disk is not known."*, and `null` in `compare --json`; no number
-  moves. A 0.31.x reader refuses a schema-19 document, and a resume journal
-  does not move. `output_version` does not move either: the keys are added.
+  moves. **This is what you may meet in CI:** upgrade digline without running
+  `digline migrate`, and every run already stored is refused, the reference
+  with them. `compare --run latest` exits `64` and says the runs at schema 18
+  were ignored and to run `digline migrate`; a run named by its key exits `64`
+  with *"schema_version 18 is not supported (expected 19)"*. Migrate once, and
+  commit the migrated reference. A 0.31.x reader refuses a schema-19 document,
+  and a resume journal does not move. `output_version` does not move either: the keys are added.
 - **An option given two different values is refused, and the refusal names
   both** (#567). argparse kept the last value of a repeated option and dropped
   the others without a word: `compare --suite a.py --suite b.py` compared
