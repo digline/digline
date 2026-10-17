@@ -26,10 +26,12 @@ digline gives you an **approved reference** — the baseline — and on every ch
 tells you whether you are below it: which case, which check, by how much. The
 baseline is a JSON file in your repository, so it goes through code review and
 it rolls back with `git`. No server, no account, no network call you have not
-configured yourself. When a check uses a model to grade, that grader does not
-always agree with itself. Ask digline to sample and it records how much the
-score moved on its own and prints that next to the verdict, so you can see
-whether a drop is bigger than the measurement.
+configured yourself.
+
+When a check uses a model to grade, that grader does not always agree with
+itself. Ask digline to sample and it records how much the score moved on its
+own and prints that next to the verdict, so you can see whether a drop is
+bigger than the measurement.
 
 ```console
 $ digline compare --suite suite.py --run latest
