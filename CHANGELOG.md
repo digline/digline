@@ -84,6 +84,9 @@ notes under them are this file, verbatim.
   `fact.session_not_green` in every locale: *"{suite}: digline exits {code},
   so this session does not end green."* pytest-digline prints it (ADR 0049
   §7). An added key; nothing that read the table before reads it differently.
+- `digline --help` and the package description now say that the score's own
+  movement is measured and reported when you sample, and the description that
+  the measurement is the reference's.
 
 ## pytest-digline — unreleased
 
