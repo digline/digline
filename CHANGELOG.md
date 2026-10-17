@@ -8,6 +8,21 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+- **An option given two different values is refused, and the refusal names
+  both** (#567). argparse kept the last value of a repeated option and dropped
+  the others without a word: `compare --suite a.py --suite b.py` compared
+  `b.py` alone and exited with its code, and nothing said `a.py` was gone. Now
+  `digline` and `digline-mcp` exit `64` with *"argument --suite: given
+  different values ('a.py', 'b.py'); it takes one, so give it once"*. The same
+  value given twice drops nothing and still passes; values are compared as
+  stored, so `--port 80 --port 080` is one port. `--meta`, which is
+  repeatable by design, and flags such as `--json` on `run` are not touched.
+  **The declared cost:** a script that builds a command line from defaults
+  and overrides one by adding the flag again at the end now exits `64` when
+  the new value is different, which is the case it cared about; when it is
+  the same, nothing changes. Build the line without the duplicate. A command
+  line that says two things at once is the person's mistake, and guessing
+  which one they meant is deciding for them in silence.
 - **A command line digline refuses exits `64`, not `2`.** An unknown flag,
   a flag with no value, a required flag left out, a choice that is not one,
   or an unknown subcommand exits `64`, `EXIT_USAGE`, as

@@ -15,6 +15,7 @@ outside and would be worth nothing.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import anyio
@@ -197,3 +198,81 @@ def test_a_refused_command_line_exits_64(
     assert stopped.value.code == EXIT_USAGE, (
         f"digline-mcp {' '.join(argv)} exited {stopped.value.code}, not 64"
     )
+
+
+# --------------------------------------------------------------------------- #
+# An option given different values is refused (#567)
+# --------------------------------------------------------------------------- #
+
+
+def options_taking_a_value(capsys: pytest.CaptureFixture[str]) -> list[str]:
+    """Read off the server's own usage line, so an option added tomorrow is in
+    the tests without anybody adding it here: every option followed by a
+    metavar takes a value."""
+    with pytest.raises(SystemExit):
+        server.main(["--help"])
+    usage = " ".join(capsys.readouterr().out.split("\n\n", 1)[0].split())
+    return re.findall(r"(--[a-z-]+) [A-Z]+", usage)
+
+
+def started_with(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+) -> tuple[str | int | None, str, tuple[object, ...] | None]:
+    """The exit code and stderr if the command line was refused, or the
+    arguments `build_server` would have started with. No server starts."""
+    received: list[tuple[object, ...]] = []
+
+    class Stopped:
+        def run(self, **_kwargs: object) -> None:
+            pass
+
+    def recorder(*args: object) -> Stopped:
+        received.append(args)
+        return Stopped()
+
+    monkeypatch.setattr(server, "build_server", recorder)
+    try:
+        server.main(argv)
+    except SystemExit as stopped:
+        return stopped.code, capsys.readouterr().err, None
+    return None, capsys.readouterr().err, received[0]
+
+
+def test_the_server_has_options_that_take_a_value(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert options_taking_a_value(capsys) == ["--root", "--tenant", "--env"]
+
+
+# The options are listed by hand here, where the CLI's tests derive them from
+# the parser: `main()` builds this parser inside itself, and there is no
+# parser to read. `test_the_server_has_options_that_take_a_value` is what keeps
+# the list in line with the usage line, so the asymmetry is chosen, not
+# forgotten.
+@pytest.mark.parametrize("option", ["--root", "--tenant", "--env"])
+def test_an_option_given_two_values_is_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str
+) -> None:
+    """Measured before this: `--root a --root b` started the server on `b`, and
+    `--tenant` and `--env` kept their last value the same way."""
+    root = [] if option == "--root" else ["--root", "r"]
+    argv = [*root, option, "first", option, "second"]
+    code, err, started = started_with(monkeypatch, capsys, argv)
+    assert code == EXIT_USAGE, (
+        f"digline-mcp {' '.join(argv)} started with {started}: one of the two "
+        "values was dropped without a word (#567)"
+    )
+    assert f"argument {option}: given different values ('first', 'second')" in err
+
+
+@pytest.mark.parametrize("option", ["--root", "--tenant", "--env"])
+def test_an_option_given_the_same_value_twice_is_accepted(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str
+) -> None:
+    root = [] if option == "--root" else ["--root", "r"]
+    argv = [*root, option, "same", option, "same"]
+    code, err, started = started_with(monkeypatch, capsys, argv)
+    assert started is not None, f"refused (exit {code}): {err}"
+    assert "same" in started

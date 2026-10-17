@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 # Aliased so `digline_mcp.server.version` does not read as something this
@@ -489,6 +490,56 @@ def _acknowledge(plan: CallPlan, acknowledged: int | None) -> None:
     )
 
 
+#: Where `_Once` keeps every value an option was given while a command line is
+#: read. `_Parser.parse_known_args` removes it before the namespace is
+#: returned, so no reader ever sees it.
+_GIVEN = "_digline_given_"
+
+
+class _Once(argparse.Action):
+    """`store`, keeping every value an option was given on the way.
+
+    The value is stored as `store` stores it, so an option reads as it always
+    did. Each one is also kept, under a reserved name, for
+    `_Parser.parse_known_args` to compare once the line is read. (#567)
+    """
+
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        dest: str,
+        nargs: Any = None,
+        const: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        # The checks `store`'s own class makes, which this one does not inherit.
+        if nargs == 0:
+            raise ValueError(
+                f"{dest}: an option that stores a value cannot take zero of them; "
+                "a flag is `store_true` or `store_const`"
+            )
+        if const is not None and nargs != argparse.OPTIONAL:
+            raise ValueError(
+                f"{dest}: a `const` is the value of an option given with none, "
+                f"so it needs `nargs={argparse.OPTIONAL!r}`"
+            )
+        super().__init__(option_strings, dest, nargs=nargs, const=const, **kwargs)
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        setattr(namespace, self.dest, values)
+        key = _GIVEN + self.dest
+        given: list[tuple[str, object]] = getattr(namespace, key, [])
+        # A positional has no option string, and is consumed once anyway.
+        name = self.option_strings[-1] if self.option_strings else self.dest
+        setattr(namespace, key, [*given, (name, values)])
+
+
 class _Parser(argparse.ArgumentParser):
     """argparse's parser, refusing a command line with the usage code.
 
@@ -497,7 +548,49 @@ class _Parser(argparse.ArgumentParser):
     `digline` command line's, where ADR 0008 §1 declares it: this is a second
     program with a parser of its own. `exit()` is left alone: `--help` ends
     the process through it with 0, and that is an answer, not a refusal.
+
+    **And it refuses an option given different values.** argparse keeps the
+    last value of a repeated option and drops the others without a word, so
+    `--suite a.py --suite b.py` measured `b.py` and never said `a.py` was gone
+    (#567). A command line that says two things at once is the person's
+    mistake, and guessing which one they meant is deciding for them in silence.
+    The same value twice drops nothing and passes; values are compared as
+    stored, after `type=`. An option declared `append` is repeatable by
+    choice, and a flag takes no value, so neither is touched.
+
+    **One place, not a list.** The constructor makes `_Once` the default
+    action, for every `add_argument` without an `action=` and for an explicit
+    `"store"`. An option added tomorrow is covered without anybody remembering
+    to mark it, where `action=` on each option would be a list that ages.
+    `register` is a public method of argparse but not a documented one. If it
+    went away the parser would fail on the first command with an
+    `AttributeError`, not quietly; if it stayed and stopped being consulted,
+    the tests that repeat every option would go red.
     """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.register("action", None, _Once)
+        self.register("action", "store", _Once)
+
+    # This accepts any namespace and returns `Any`. argparse's stub overloads
+    # the method on the namespace's type, and the checker cannot match this
+    # one signature to those overloads.
+    def parse_known_args(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, args: Sequence[str] | None = None, namespace: Any = None
+    ) -> tuple[Any, list[str]]:
+        parsed, extras = super().parse_known_args(args, namespace)
+        for key in [name for name in vars(parsed) if name.startswith(_GIVEN)]:
+            given: list[tuple[str, object]] = getattr(parsed, key)
+            delattr(parsed, key)
+            values = [value for _, value in given]
+            if any(value != values[0] for value in values[1:]):
+                named = ", ".join(repr(value) for value in values)
+                self.error(
+                    f"argument {given[0][0]}: given different values ({named}); "
+                    "it takes one, so give it once"
+                )
+        return parsed, extras
 
     def error(self, message: str) -> NoReturn:
         self.print_usage(sys.stderr)
