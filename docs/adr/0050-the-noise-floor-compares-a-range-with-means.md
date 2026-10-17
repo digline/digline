@@ -7,7 +7,8 @@
   lands. After it landed, and before acceptance, the maintainer added a fourth
   item to *Four things this carries* on 2026-10-17: whatever prints the floor
   prints what it was computed from, which answers ADR 0006's third reason. The
-  same day the third item gained the test that will hold its sentence
+  same day the third item named the page its sentence will live on and the test
+  that will hold it; until that code lands, nothing holds it
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
@@ -131,10 +132,11 @@ and digline is not imposing it on anyone.
 - **Binary checks stay the tolerance's business.** For a binary check the dispersion of the
   mean is `sqrt(p(1−p)/K)`, about `0.179` at `p=0.8` and K=5: still wide. The documentation
   should say that a binary check is served by its declared tolerance, rather than leaving
-  each author to find it out. The change that implements this lands with that sentence on
-  a page of `docs/` and a test that fails when the page stops saying it, run by the three
-  `gates` checks `main` requires. Until then the sentence is a commitment of this record,
-  and nothing holds it.
+  each author to find it out. The change that implements this lands with that sentence in
+  `docs/guide.md`, section *The second control: what the check measured about itself*,
+  and a test that fails when the page stops saying it, run by the three `gates` checks
+  `main` requires. Until then the sentence is a commitment of this record, and nothing
+  holds it.
 - **A reader can no longer check the floor by eye.** ADR 0006's third reason for the
   observed interval was that the min and the max *"are what a reader can check against the
   raw samples printed beside them"* (ADR 0006, lines 496-497 at `2fedf3e`). A dispersion
@@ -146,9 +148,9 @@ and digline is not imposing it on anyone.
 *Added 2026-10-17, by the maintainer, before acceptance.* The fourth item answers ADR
 0006's third reason, which the paragraph *The answer ADR 0006 is owed* leaves to it. As
 landed in #579, the list read *"Three things this carries"* and held the first three. The
-same day, the third item gained its last two sentences, the test that holds its sentence
-and the gate that runs it. As landed, it ended at *"rather than leaving each author to find
-it out"*.
+same day, the third item gained its last two sentences, which name the page its sentence
+will live on and the test that will hold it. Nothing holds it yet. As landed, it ended at
+*"rather than leaving each author to find it out"*.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
