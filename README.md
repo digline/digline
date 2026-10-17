@@ -1,6 +1,6 @@
 # digline
 
-**A Python regression gate for LLM applications: the approved baseline is a file in your repository, and every run in CI is compared against it.**
+**Regression testing for LLM applications: sample your reference and a score drop is read against how much that score moves on its own. A flip from pass to fail is always a regression.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
@@ -26,7 +26,13 @@ digline gives you an **approved reference** — the baseline — and on every ch
 tells you whether you are below it: which case, which check, by how much. The
 baseline is a JSON file in your repository, so it goes through code review and
 it rolls back with `git`. No server, no account, no network call you have not
-configured yourself.
+configured yourself. When a check uses a model to grade, that grader does not
+always agree with itself. Ask digline to sample and it records how much the
+score moved on its own and prints that next to the verdict, so you can see
+whether a drop is bigger than the measurement. The interval you see is the
+reference's own, never this run's, so it appears once you have promoted a
+sampled baseline. A check that flips from pass to fail is always a regression,
+whatever the interval says.
 
 ```console
 $ digline compare --suite suite.py --run latest
