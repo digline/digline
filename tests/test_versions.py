@@ -333,11 +333,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.32.0": (
-            "the core release digline-mcp's and pytest-digline's floors are "
-            "owed to, in the table of floors owed at the cut, because both pass "
-            "`declared=` to `headline` (#562): a plan naming the release it "
-            "waits for, which the cut deletes with the rows"
+        "0.31.0": (
+            "the release whose index-race status is recorded (the smoke build's "
+            "181-second wait, the reviewer gate, the counts, the signatures, the "
+            "installed versions, the tags on one digest, the capture and the "
+            "seven locks), the floor pytest-digline 0.2.4 and digline-mcp 0.5.0 "
+            "were owed to in their own entries, and the release against which "
+            "digline-mcp's and pytest-digline's call to `Suite.declared` raises "
+            "`AttributeError` in the table of floors owed: history, told as "
+            "such now that 0.32.0 is the tree's version"
         ),
         "0.9.0": (
             "the digline image `digline/digline-action@v1` still defaulted to "
@@ -350,7 +354,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "waits, the installed versions, the tags on one digest and the "
             "seven locks), and the release against which digline-mcp's and "
             "pytest-digline's import of `suite_notes` raises `ImportError` in "
-            "the table of floors owed: history, told as such now that 0.31.0 "
+            "the table of floors owed: history, told as such now that 0.32.0 "
             "is the tree's version"
         ),
         "0.4.6": (
@@ -376,7 +380,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "versions, the tags on one digest and the seven locks), and the "
             "release against which digline-mcp's and pytest-digline's new "
             "calls raise `TypeError` in the table of floors owed: history, "
-            "told as such now that 0.31.0 is the tree's version"
+            "told as such now that 0.32.0 is the tree's version"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -391,7 +395,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
             "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.31.0 is the tree's version"
+            "told as such now that 0.32.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "

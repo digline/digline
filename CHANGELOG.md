@@ -8,6 +8,67 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+digline **0.32.0**. **A minor, because what a user relies on stops working as
+it did:** a command line digline cannot parse exits 64 instead of 2, an option
+given two different values is refused, a run that judged nothing exits 2 and
+cannot be promoted, and a pinned file renamed and changed exits 2 where the
+comparison used to pass. A suite loaded a second time in one process reads its
+application from disk instead of what the first load left behind, so a cache or
+a client opened at import no longer survives into the next run. A program that
+calls `headline`, `render_html`, `run_exit_code` or `refusals_for`, or a store
+of its own that implements `promote_baseline`, must now pass
+`declared=suite.declared()`. Three things digline could not check — a pinned
+file with no reference, a pin the judged run no longer declares, and a module
+already loaded from elsewhere — it now names instead of passing over, and none
+of them moves an exit code alone. Schema 19 comes with it, for one field. Run
+`digline migrate`. `OUTPUT_VERSION` does not move.
+
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
+- **Behaviour change: a suite loaded again in the same process reads its
+  application again** ([ADR 0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
+  #513). In `digline-mcp` a second load was answered by what the first left
+  behind, measured three ways: an edit to the application was not read, a
+  second suite's `brief` answered with the first suite's, and a module only the
+  first suite's directory held was found from the second. A `pytest-digline`
+  session with several suites loads them through the same loader; it was not
+  measured. Now, before the next load, digline takes out what it put in
+  place for the previous suite's scope: the suite's module, the modules that
+  resolved in its directory, the directory on `sys.path`, its path hook, its
+  importer cache entry, and the directory in the loader's own `_scoped`.
+  Nothing it did not insert is touched. **The declared cost:** a suite that
+  counted on module state persisting between runs in one process, a cache, a
+  counter or a client opened at import, starts again at each load. A `digline`
+  command loads one suite and exits, so nothing changes there. Runs already
+  stored by a long-lived process after an edit cannot be told apart: nothing
+  they record says which application answered. **A module already loaded from
+  elsewhere is named, not refused: `modules_unchecked`.** A test module that
+  imports the application before the suite does is the normal pytest layout,
+  and digline cannot read that module from source; the run says so. The names
+  are on the run document and, beside *already loaded, not read from source*,
+  under `digline compare`'s sentence. The count is in the headline, in
+  `compare --json` and in the report, read from the judged run alone. It moves
+  no exit code. A program that calls `execute()` passes
+  `modules_unchecked=loaded.modules_unchecked`; without it, its runs say *not
+  recorded*.
+- **Schema 19, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
+  18 → 19 for one field, `modules_unchecked`. The step writes nothing: a run
+  written before this release recorded nothing about which modules it read
+  from source, and the absent key says *not recorded*, never zero. Compared as
+  the judged run, it gets a sentence of its own, *"This run does not record
+  whether the modules it measured were read from source, so whether they match
+  the files on disk is not known."*, and `null` in `compare --json`; no number
+  moves. **This is what you may meet in CI:** upgrade digline without running
+  `digline migrate`, and every run already stored is refused, the reference
+  with them. `compare --run latest` exits `64` and says the runs at schema 18
+  were ignored and to run `digline migrate`; a run named by its key exits `64`
+  with *"schema_version 18 is not supported (expected 19)"*. Migrate once, and
+  commit the migrated reference. A 0.31.x reader refuses a schema-19 document,
+  and a resume journal does not move. `output_version` does not move either:
+  the keys are added.
 - **An option given two different values is refused, and the refusal names
   both** (#567). argparse kept the last value of a repeated option and dropped
   the others without a word: `compare --suite a.py --suite b.py` compared

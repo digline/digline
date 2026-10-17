@@ -550,6 +550,9 @@ def _measure(
         # while being handed no pin set, so a front end that skipped this would
         # be refused rather than silently recording no control. (ADR 0029 §4)
         pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
+        # A test module importing the application the suite imports is the
+        # normal arrangement here, and the run says so. (ADR 0052, decision 2)
+        modules_unchecked=loaded.modules_unchecked,
     )
     store.write_run(run)
 

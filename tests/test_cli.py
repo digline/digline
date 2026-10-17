@@ -323,6 +323,8 @@ COMPARE_KEYS = {
     "pinned_unreferenced",
     "pinned_withdrawn",
     "pinned_lost",
+    # A count from the judged run, or null where it records none. (ADR 0052)
+    "modules_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that
     # *added* keys leave a consumer working, and these two answer a question
     # nothing else on this list can — same rules, same prompt, different model.

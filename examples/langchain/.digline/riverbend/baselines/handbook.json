@@ -342,7 +342,7 @@
       ]
     }
   ],
-  "schema_version": 18,
+  "schema_version": 19,
   "suite": "handbook",
   "target_config": {},
   "tenant": "riverbend"

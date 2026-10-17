@@ -414,6 +414,9 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             prepared=prepared,
             artifacts=artifacts,
             pinned=pinned,
+            # The process this server is, long-lived, is the case ADR 0052 was
+            # written for. (decision 2)
+            modules_unchecked=open_.loaded.modules_unchecked,
         )
         # `usage=` as the CLI passes it: what the run consumed is one fact, and
         # a caller must not have to know which front end it asked. The parity

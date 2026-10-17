@@ -1075,6 +1075,19 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("compare.full", "pinned_withdrawn", _INT, "ADR 0051 §2"),
     _AddedKey("compare", "pinned_lost", _BOOL, "ADR 0051 §3"),
     _AddedKey("compare.full", "pinned_lost", _BOOL, "ADR 0051 §3"),
+    # The modules the judged run found already loaded elsewhere: a count on the
+    # comparison, the names on the run. `null` on both is *not recorded*, a run
+    # written before the field or built by a caller that loaded nothing, and
+    # never zero. Moves no number, so no consumer reading `exit_code` reads it
+    # differently. (ADR 0052, decisions 2 and 3)
+    _AddedKey("compare", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
+    _AddedKey("compare.full", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
+    _AddedKey(
+        "run_document",
+        "modules_unchecked",
+        _k(_arr("string"), "null"),
+        "ADR 0052",
+    ),
 )
 
 

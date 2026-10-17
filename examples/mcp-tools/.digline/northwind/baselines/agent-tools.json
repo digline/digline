@@ -80,7 +80,7 @@
       ]
     }
   ],
-  "schema_version": 18,
+  "schema_version": 19,
   "suite": "agent-tools",
   "target_config": {},
   "tenant": "northwind",
