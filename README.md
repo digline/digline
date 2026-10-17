@@ -29,10 +29,7 @@ it rolls back with `git`. No server, no account, no network call you have not
 configured yourself. When a check uses a model to grade, that grader does not
 always agree with itself. Ask digline to sample and it records how much the
 score moved on its own and prints that next to the verdict, so you can see
-whether a drop is bigger than the measurement. The interval you see is the
-reference's own, never this run's, so it appears once you have promoted a
-sampled baseline. A check that flips from pass to fail is always a regression,
-whatever the interval says.
+whether a drop is bigger than the measurement.
 
 ```console
 $ digline compare --suite suite.py --run latest
@@ -225,7 +222,9 @@ One card each — parameters, typical values, what to watch out for — in
   baseline's interval is reported as unchanged rather than as a regression — a
   tool that cries wolf on its own measurement error teaches people to promote
   past it. It never rescues a flip, and it never invents an interval it does not
-  have.
+  have. The interval you see is the reference's own, never this run's, so it
+  appears once you have promoted a sampled baseline. A check that flips from
+  pass to fail is always a regression, whatever the interval says.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
