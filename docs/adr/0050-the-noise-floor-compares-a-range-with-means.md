@@ -4,16 +4,19 @@
   written:** the maintainer ruled the decision below on 2026-10-15, on #496.
   The text is not yet accepted, and nothing in it is implemented. #496 stays
   open: this record answers its question, and the issue closes when the code
-  lands
+  lands. After it landed, and before acceptance, the maintainer added a fourth
+  item to *Four things this carries* on 2026-10-17: whatever prints the floor
+  prints what it was computed from, which answers ADR 0006's third reason
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
-  `OUTPUT_VERSION`. The code that implements it is a break, said under *Three
+  `OUTPUT_VERSION`. The code that implements it is a break, said under *Four
   things this carries*
 - Amends: [ADR 0028](0028-the-rules-that-moved.md) §4, which left a direction
   for `samples` to an amendment that says which half wins and why; the
   amendment is there, in its own words. [ADR 0006](0006-repeated-samples-and-the-noise-floor.md)
-  §5 and §6 carry dated notes pointing here
+  §5, §6 and the variance alternative under *Alternatives considered* carry
+  dated notes pointing here
 - Assumes: [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) §5 (the
   floor is the baseline's, never the current run's), §7 (the aggregate's
   interval) and §12 (agreement counts an errored sample against itself)
@@ -117,7 +120,7 @@ backwards. What makes a poor estimate acceptable is that it is **asked for**: wh
 declares a floor at K=3 is declaring that they accept an estimate made from three numbers,
 and digline is not imposing it on anyone.
 
-**Three things this carries.**
+**Four things this carries.**
 
 - **A break.** A check with `tolerance=0` and a baseline that is not unanimous will begin
   reporting movements it used to call `unchanged`. That is the point of the change, not a
@@ -128,6 +131,17 @@ and digline is not imposing it on anyone.
   mean is `sqrt(p(1−p)/K)`, about `0.179` at `p=0.8` and K=5: still wide. The documentation
   should say that a binary check is served by its declared tolerance, rather than leaving
   each author to find it out.
+- **A reader can no longer check the floor by eye.** ADR 0006's third reason for the
+  observed interval was that the min and the max *"are what a reader can check against the
+  raw samples printed beside them"* (ADR 0006, lines 496-497 at `2fedf3e`). A dispersion
+  with a declared width cannot be checked that way. So whatever prints the floor prints
+  what it was computed from — the judged samples, their standard deviation, K, and the
+  declared width — or the floor becomes a number the reader takes on trust, which is the
+  one thing ADR 0006 was right to refuse.
+
+*Added 2026-10-17, by the maintainer, before acceptance.* The fourth item answers ADR
+0006's third reason, which the paragraph *The answer ADR 0006 is owed* leaves to it. As
+landed in #579, the list read *"Three things this carries"* and held the first three.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
