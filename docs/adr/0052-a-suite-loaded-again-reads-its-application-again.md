@@ -26,14 +26,14 @@
   outcome that would go red on a healthy first comparison teaches that the
   feature is noise), §8 (a control that could not run is counted, not
   passed, and moves no number) and §9 (the run being judged declares)
-- Touches: nothing in `CLAUDE.md`'s *fixed* section. Decision 3 — *no
-  vacuously green assertion* — is the reason: a run measured on an application
-  that is not the one on disk is a green nobody measured
+- Touches: nothing in `CLAUDE.md`'s *fixed* section. `CLAUDE.md`'s fixed
+  decision 3 — *no vacuously green assertion* — is the reason: a run measured
+  on an application that is not the one on disk is a green nobody measured
 - Number: 0052. Swept on 2026-10-17, before a line was written, across
   `origin/main` (`415f773`), every local and remote branch and tag (83 refs,
   after a fetch with `--prune`), the worktrees of this repository and the open
-  pull requests (#586, which adds no record). The highest number taken
-  anywhere is 0051
+  pull requests (#586, open at the time of the sweep, which adds no record).
+  The highest number taken anywhere is 0051
 
 ## Context
 
@@ -190,11 +190,13 @@ costs declared.
 3. **The rule: `modules_unchecked` is read in the comparison's headline too,
    from the run being judged only.** The comparison is where the exit code is
    read, and a verdict built on a measurement with a declared gap cannot be
-   silent there: ADR 0029 §8, applied one level up. Only the judged run's
-   count is read, as pins are read from the judged run alone
-   (`core/compare.py:1812` at `415f773`, `pinned = set(run.pinned)`) and as
-   ADR 0029 §9 rules that the run being judged declares. It moves no number,
-   as `pinned_unchecked` moves none.
+   silent there: ADR 0029 §8, applied one level up. Only the judged run is
+   read, as pins are read from the judged run alone (`core/compare.py:1812`
+   at `415f773`, `pinned = set(run.pinned)`) and as ADR 0029 §9 rules that the
+   run being judged declares. What is read is its count, **or the fact that
+   its value is not recorded**, and that fact is said too (*Its price*, from
+   its third paragraph). Neither moves a number, as `pinned_unchecked` moves
+   none.
 
 **The name.** `modules_unchecked` follows `pinned_unchecked`. Three candidates
 were weighed, at `415f773`:
@@ -287,13 +289,39 @@ another application's. Nothing recorded in those runs says which application
 answered. A baseline promoted from such a run carries the same doubt. This
 record cannot repair them, and says so.
 
-**A value *not recorded* never reaches a comparison's headline.** A judged run
-is produced by the version that records the field, so it always carries a
-count. The value *not recorded* appears only on a reference promoted before
-the code that implements this record, and the headline reads the judged run
-alone (decision 3). The doubt over baselines measured before the correction is
-the one declared above, and the code neither tells them apart nor prints
-anything about them. That is a choice, not a gap.
+**A judged run can carry the value *not recorded*, and the headline says so.**
+The reader does not migrate on its own: a document of an older schema is
+refused (`core/run.py:3047-3051` at `d8df3aa`, `if version !=
+SCHEMA_VERSION`). After a deliberate `digline migrate`, a run written before
+the code that implements this record carries `modules_unchecked` as *not
+recorded*, and it can be the judged run by every road: `digline compare --run`
+with its key or with `latest` (`cli/main.py:135`, `host/resolve.py:98`); the
+`compare` tool of `digline-mcp` (`server.py:266`, resolving at `:223`); and
+`pytest-digline`, which always compares `latest` (`plugin.py:479`).
+
+The rule: the headline says it, and it moves no number. The precedent for the
+form is `fact.target_config.unknown` (`report/render.py:1390-1391`): *"The
+configuration of the system under test is not recorded on both sides, so
+whether it changed is not known."* (`report/text.py:334-337`).
+
+The same precedent is silent in one case, and that silence does not apply
+here. It rests on *"a sentence that reassures about a configuration nobody
+recorded is one the reader learns to skip"* (`render.py:954-956`). This
+sentence does not reassure. It warns, about runs this record declares suspect
+and indistinguishable.
+
+`usage` and `digline_version` are not counter-precedents. Neither puts the
+ground of the verdict in doubt, and the freshness of the modules a run
+measured does. An empty `digline_version` is read outside the headline, and
+never into the exit code (`_warn_if_ahead`, `cli/main.py:223-237`).
+
+What the sentence states is exact: that the value is not recorded, and so
+that whether the application was read from source is not known. It does not
+state that the run comes from before the correction. *Not recorded* also
+covers a document built by hand in a test or by a library caller, as the
+comment on `Run.usage` says (`core/run.py:1405-1408`). Its wording is measured
+when the failing tests are written; what this record fixes is the fact and the
+work the sentence has to do.
 
 **Not covered here.**
 
