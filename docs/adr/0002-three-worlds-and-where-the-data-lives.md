@@ -22,6 +22,11 @@
   generated `case_id`"* is rewritten at acceptance, whose words stand. The
   bridge bullet itself needed no amendment from it: it was corrected on
   2026-09-27 on grounds of its own
+- Amended: 2026-10-17, by [ADR 0052](0052-a-suite-loaded-again-reads-its-application-again.md)
+  — **§9's *"What resolves inside the suite's directory is also read from
+  source"*** holds for a name loaded the first time in a process, and not for
+  one already in `sys.modules`. A dated note at the end of that paragraph block
+  says so; the text above it is kept as written
 
 ## Context
 
@@ -548,6 +553,15 @@ The scope is a single directory, deliberately. A loader for every module would s
 every import in order to protect files that do not change during an evaluation — stdlib
 and site-packages — and would reach far beyond what this tool has the right to alter. Like
 the other two, it holds only for a spec that is a path.
+
+*Noted 2026-10-17 ([ADR 0052](0052-a-suite-loaded-again-reads-its-application-again.md)),
+the paragraphs above kept as written.* The finder is reached only for a name that is not
+already in `sys.modules`. In a process that loads a suite more than once, the first load
+of a name decided what every later load got, whatever was on disk by then: measured
+through `digline-mcp`, where a second `run` after an edit answered with the old
+application and `compare` exited 0 (#513). ADR 0052 decides that what digline put in
+place for a suite's scope, its modules and its entries on `sys.path` and beside it, is
+taken out before the next load, and that a name already loaded from elsewhere is named.
 
 **Git status is read before any import of ours.** Otherwise the answer would depend on
 what our loading had just done rather than on the state the user left the repository in.
