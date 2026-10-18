@@ -123,7 +123,8 @@ digline migrate --suite suite.py
   reference, and the next round then read every check as *new here* under
   *"Nothing got worse"*. Now `compare`, `report` and `explain` exit `2`, MCP's
   `exit_code` reads `2`, and `promote` refuses it with `NothingJudgedError`,
-  whether or not the suite declares an aggregate. **There is no flag**: such
+  whether or not the suite declares an aggregate. A promotion from
+  `digline view`'s page refuses it the same way. **There is no flag**: such
   a run was not passing, it was reporting wrongly. To get past it, judge at
   least one case or stop running the suite. A suite of canaries and
   calibration cases only is judged by them and does not turn red. A suite
