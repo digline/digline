@@ -1080,11 +1080,26 @@ code no gate had passed.
 
 ```sh
 git fetch origin
-git log --oneline -1 origin/main        # the merge commit of the release PR
+git log --oneline -1 origin/main        # main's tip, not always the release PR
 git merge-base --is-ancestor <sha> origin/main && echo on-main
 git tag -a v<version> -m "<every package the run publishes>" <sha>
 git push origin v<version>
 ```
+
+*Corrected 2026-10-18, the rule above kept as written.* The comment beside
+`git log` read *"the merge commit of the release PR"*, which said that `main`'s
+tip is that commit. It is only while nothing has landed since. On 2026-10-18 it
+was not: #604 and #605 merged after #603, the release pull request of
+pytest-digline 0.3.0, and a tag on the tip would have published digline-mcp
+0.6.0 beside it. Before that tag, `tools/tag_names.py "pytest-digline 0.3.0"`
+run on the tip named the two packages and exited `1`, and on #603's merge
+commit named one and exited `0`. **Nothing would have stopped a tag on the
+tip.** `tag_names.py` is run by hand: no step of `publish.yml` or
+`docker-publish.yml` runs it. And the check below admits the tip, because the
+tip is an ancestor of `origin/main`. **The rule is the merge commit of the
+release pull request. The command only reads the tip, and when the tip is not
+that commit, it is found from the pull request**
+(`gh pr view <N> --json mergeCommit`) and tagged instead.
 
 **`publish.yml` and `docker-publish.yml` refuse any other commit.** Their first
 job, `on-main`, runs `.github/on_main.py`, and every job that builds or publishes
@@ -1530,6 +1545,22 @@ Both were found the same day, after the tag, by the delta-passes over the two
 plugins. The scripts are in `private/delta-pass-plugins-2026-10-18-probes/`.
 The repair is pytest-digline 0.3.0 and digline-mcp 0.6.0, each declaring
 `digline>=0.32.0,<0.33`, and it reaches users with their two tags.
+
+*Added 2026-10-18.* **After the `pypi` job, PyPI can serve a version that a
+resolver does not find yet.** Measured twice that day, by the check in a clean
+environment after each tag:
+- **pytest-digline 0.3.0**, wheel uploaded at 13:06:48Z. `uv pip install
+  pytest-digline==0.3.0` found no such version, after the version's JSON
+  endpoint already served it, with the project's endpoint still naming 0.2.4
+  as the latest. The simple index was next read at 13:08:37Z and listed it,
+  and the next attempt resolved.
+- **digline-mcp 0.6.0**, wheel uploaded at 13:13:48Z. The simple index listed
+  it at 13:14:56Z, the install after that found no such version, and a retry
+  at 13:15:19Z resolved.
+
+So the check in a clean environment after a tag retries, and a failure on its
+first attempt is not a missing publication. How long the index takes is not
+measured here, and no wait is set.
 
 ## Signatures on the GitHub release
 
