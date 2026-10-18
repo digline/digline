@@ -5,7 +5,9 @@
   Proposed 2026-10-17. The decision below was ruled on 2026-10-17,
   on #513, before this record was written. The text is not yet accepted, and
   nothing in it is implemented. #513 stays open: this record answers its
-  question, and the issue closes when the code lands
+  question, and the issue closes when the code lands. *The block above is the
+  proposed phase's own text, kept as written.* Its sentence that nothing in it
+  is implemented was true then; `Shipped:` below says when the code landed
 - Shipped: 0.32.0
 - Date: 2026-10-17
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no

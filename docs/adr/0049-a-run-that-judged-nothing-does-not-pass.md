@@ -1,7 +1,7 @@
 # ADR 0049 — A run that judged nothing does not pass, and a front end does not say green where digline did not
 
 - Status: accepted 2026-10-14, by Alessandro Prandini, the text first and
-  before any code. Nothing in it is implemented. **It was accepted after five
+  before any code. Nothing in it was implemented then. **It was accepted after five
   corrections, all made before acceptance:** three to §3, two in #557 (the run
   whose every case that counts errored, and a suite of canaries and calibration
   cases only) and one in #558 (the suite's declaration, not the run); one to
