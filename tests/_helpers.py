@@ -29,6 +29,7 @@ __all__ = [
     "configured_repo",
     "git",
     "hand_over",
+    "printing_repo",
     "run_key",
     "stamp_journal_format",
     "suite_source",
@@ -231,4 +232,95 @@ def configured_repo(
             return rows.setdefault((kind, text), secrets.token_urlsafe(16))
 
         path.write_text(run_to_json(project(clear, mint)), encoding="utf-8")
+    return root
+
+
+#: What `printing_repo`'s user code prints, one mark per window (ADR 0043 §8,
+#: amended 2026-10-18): none of them may reach digline's standard output.
+MARKS = {
+    "suite import": "MARK-SUITE-IMPORT",
+    "module print": "MARK-MODULE-PRINT",
+    "module os.write": "MARK-MODULE-OSWRITE",
+    "target call": "MARK-TARGET-CALL",
+    "judge call": "MARK-ASSERTION-CALL",
+    "target file import": "MARK-TFILE-IMPORT",
+    "target file call": "MARK-TFILE-CALL",
+}
+
+PRINTING_APP = """\
+import os
+
+print("MARK-MODULE-PRINT")
+# Below Python's sys.stdout, at the descriptor: what a redirection of the
+# `sys.stdout` object alone does not reach.
+os.write(1, b"MARK-MODULE-OSWRITE\\n")
+"""
+
+PRINTING_TARGET = """\
+from digline.run import Response
+
+print("MARK-TFILE-IMPORT")
+
+
+def target(case):
+    print("MARK-TFILE-CALL")
+    return Response(
+        output="The capital is Rome.",
+        input="What is the capital?",
+        cost_usd=0.01,
+        latency_ms=100.0,
+    )
+"""
+
+
+def printing_repo(root: Path) -> Path:
+    """The shared suite with user code that prints in every window, run and
+    promoted through the CLI.
+
+    The suite's own module prints when it is imported, and imports
+    `printing_app`, which resolves in its directory and prints both through
+    `print` and through `os.write(1, ...)`. The target prints at each call, and
+    so does the judge, which is the user's code that runs while a verdict is
+    made. `printing_target.py` is a second target for `--target`, which prints
+    when it is imported and at each call.
+    """
+    git(root, "init", "-q")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "Test")
+    suite = write_suite(
+        root, preamble='import printing_app\n\nprint("MARK-SUITE-IMPORT")\n'
+    )
+    text = suite.read_text(encoding="utf-8")
+    for old, new in (
+        (
+            "def _judge(prompt):\n",
+            'def _judge(prompt):\n    print("MARK-ASSERTION-CALL")\n',
+        ),
+        ("def target(case):\n", 'def target(case):\n    print("MARK-TARGET-CALL")\n'),
+    ):
+        assert text.count(old) == 1, f"the shared suite no longer has {old!r}"
+        text = text.replace(old, new)
+    suite.write_text(text, encoding="utf-8")
+    (root / "printing_app.py").write_text(PRINTING_APP, encoding="utf-8")
+    (root / "printing_target.py").write_text(PRINTING_TARGET, encoding="utf-8")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "a suite that prints")
+    first = cli(root, "run", "--suite", "suite_qa.py")
+    assert first.returncode == EXIT_OK, first.stderr
+    # The key from the store and not from standard output: what reaches standard
+    # output is what the tests built on this fixture examine, and a fixture
+    # that read it would fail before the test meant to notice could.
+    (stored,) = (root / ".digline").glob("*/runs/qa/*.json")
+    key = stored.stem
+    promoted = cli(
+        root,
+        "promote",
+        "--replacing",
+        baseline_in(root),
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+    )
+    assert promoted.returncode == EXIT_OK, promoted.stderr
     return root

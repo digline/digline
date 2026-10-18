@@ -834,7 +834,8 @@ with authentication in it.
 and what the user's code prints while a tool runs is assigned to standard
 error. The SDK points descriptor 1 at standard error while it serves; what
 Python held in its buffer was written after the descriptor was pointed back.
-The amendment closes that, and names the late writes it does not reach.
+The amendment closes that, and names the late writes it leaves open here:
+the SDK, not digline, puts the descriptor back as it shuts down.
 
 ## §9 — The playbook rides with the instrument
 

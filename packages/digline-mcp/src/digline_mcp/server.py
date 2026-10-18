@@ -21,8 +21,9 @@ them. (ADR 0011 §1)
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 # Aliased so `digline_mcp.server.version` does not read as something this
@@ -450,9 +451,43 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         ("run", run, MEASURES),
     ):
         server.add_tool(
-            fn, name=name, description=DESCRIPTIONS[name], annotations=hints
+            _flushed(fn),
+            name=name,
+            description=DESCRIPTIONS[name],
+            annotations=hints,
         )
     return server
+
+
+def _flushed(tool: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """The tool, with what the user's code printed during it written out before
+    it answers.
+
+    Standard output is the protocol here (ADR 0011 §8), and what the suite,
+    the application it imports, a target or a judge prints is assigned to
+    standard error (ADR 0043 §8, amended 2026-10-18). While it serves, the SDK
+    points descriptor 1 at standard error and writes the protocol to a private
+    copy. What Python holds in `sys.stdout`'s buffer is written to descriptor 1
+    when it is flushed, so flushed here, at the end of every call, it reaches
+    standard error. Left to the interpreter's exit, it was written after the
+    SDK had pointed the descriptor back, onto the protocol.
+
+    At the one place every tool is registered, so a tool added to the list is
+    covered without anybody remembering it. The signature is the tool's own
+    (`functools.wraps`), and the SDK builds each tool's schema from it.
+    **What it does not reach** is written after the last call's flush and
+    before the interpreter exits: a thread of the user's printing later, an
+    `atexit` handler, a `__del__`. The amendment declares those.
+    """
+
+    @functools.wraps(tool)
+    def call(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            return tool(*args, **kwargs)
+        finally:
+            sys.stdout.flush()
+
+    return call
 
 
 def _acknowledge(plan: CallPlan, acknowledged: int | None) -> None:
