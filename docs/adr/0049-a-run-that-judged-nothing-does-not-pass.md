@@ -30,7 +30,7 @@
   counts is read from the suite's declaration, not from the run (§3).
   **Nothing in it is decided by this record alone.** Acceptance is a ruling
   on the text, and the start of this status says which text
-- Shipped: unreleased
+- Shipped: 0.32.0
 - Date: 2026-10-13
 - Opens: **an added key on the wire**, recorded in `_ADDED`
   (`src/digline/wire/contract.py`). No `OUTPUT_VERSION` move, by that module's

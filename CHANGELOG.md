@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.32.0 — unreleased
+## 0.32.0 — 2026-10-18
 
 digline **0.32.0**. **A minor, because what a user relies on stops working as
 it did:** a command line digline cannot parse exits 64 instead of 2, an option
