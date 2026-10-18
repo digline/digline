@@ -17,6 +17,7 @@ still on standard output, so a fix that silenced everything fails it.
 
 from __future__ import annotations
 
+import ast
 import re
 import shutil
 from pathlib import Path
@@ -121,4 +122,81 @@ def test_digline_still_writes_its_own_answer_to_standard_output(
     ), (
         "`digline compare` did not write its sentence to standard output:\n"
         f"{compared.stdout}"
+    )
+
+
+#: Each front end, and where in it standard output may be touched: a whole
+#: module (`None`) or the named functions in one. Everywhere else a new window
+#: is covered because nothing there can write to standard output directly.
+#: pytest-digline is not here: under pytest standard output is pytest's, and its
+#: one reader is the terminal (ADR 0043 §8, amended 2026-10-18).
+OUTPUT_FUNCTIONS: dict[str, dict[str, frozenset[str] | None]] = {
+    "digline.cli": {"output.py": None},
+    "digline_mcp": {"server.py": frozenset({"_flushed"})},
+}
+
+
+def _touches_stdout(node: ast.AST) -> str:
+    """What `node` does to standard output, or `""` when it does nothing."""
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        return "print(...)" if node.func.id == "print" else ""
+    if isinstance(node, ast.Attribute) and ast.unparse(node) in {
+        "sys.stdout",
+        "sys.__stdout__",
+    }:
+        return ast.unparse(node)
+    if (
+        isinstance(node, ast.Call)
+        and ast.unparse(node.func) == "os.write"
+        and node.args
+        and ast.unparse(node.args[0]) == "1"
+    ):
+        return "os.write(1, ...)"
+    return ""
+
+
+def _offenders(
+    node: ast.AST, allowed: frozenset[str], inside: frozenset[str], where: str
+) -> list[str]:
+    """Every touch of standard output under `node` outside the `allowed`
+    functions, as `where:line what`."""
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        inside = inside | {node.name}
+    found: list[str] = []
+    touched = _touches_stdout(node)
+    if touched and not (inside & allowed):
+        found.append(f"{where}:{getattr(node, 'lineno', '?')} {touched}")
+    for child in ast.iter_child_nodes(node):
+        found += _offenders(child, allowed, inside, where)
+    return found
+
+
+@pytest.mark.parametrize("module", sorted(OUTPUT_FUNCTIONS))
+def test_no_front_end_touches_standard_output_outside_its_output_function(
+    module: str,
+) -> None:
+    """The structural half, in the style of `test_layering.py`: a `print`, a
+    `sys.stdout` or `sys.__stdout__`, or an `os.write` to descriptor 1 in a front
+    end is refused outside the place that owns standard output. The tests above
+    hold the windows that exist; this one is why the next one is born covered."""
+    import importlib
+
+    package = importlib.import_module(module)
+    roots = [Path(entry) for entry in package.__path__]
+    allowed = OUTPUT_FUNCTIONS[module]
+    offenders: list[str] = []
+    for source in sorted({s for root in roots for s in root.glob("*.py")}):
+        if source.name in allowed and allowed[source.name] is None:
+            continue
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        offenders += _offenders(
+            tree,
+            allowed.get(source.name) or frozenset(),
+            frozenset(),
+            f"{module}/{source.name}",
+        )
+    assert offenders == [], (
+        "these touch standard output outside the place that owns it, so what "
+        "they write would share it with the user's code (ADR 0043 §8): "
+        + ", ".join(offenders)
     )

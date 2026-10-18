@@ -53,7 +53,6 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import secrets
-import sys
 import threading
 import urllib.parse
 
@@ -69,7 +68,7 @@ from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from digline.cli.output import say
+from digline.cli.output import flush, say
 from digline.core import key_of
 from digline.host import (
     REFUSALS,
@@ -861,7 +860,7 @@ def serve(
             else "read-only; --allow-promote to promote"
         )
         say(f"digline view on {shown} — {mode} — ctrl-c to stop")
-        sys.stdout.flush()
+        flush()
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

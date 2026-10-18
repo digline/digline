@@ -41,7 +41,10 @@
   message the user's code writes without raising, to standard output, is the
   same payload as one it raises, and it had no rule: it reached every reader
   of digline's standard output, first line included. Its code has not landed,
-  and no release ships it
+  and no release ships it. *Landed with #609:* the command line keeps standard
+  output for digline and points what the user's code writes at standard
+  error, and the MCP server writes out what a tool's call printed before it
+  answers. To ship with digline 0.32.1 and the digline-mcp release after 0.6.0
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;

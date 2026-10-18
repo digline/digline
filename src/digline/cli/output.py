@@ -39,16 +39,91 @@ file. A new command, a new field or a new committed file is sanitised because
 it cannot reach a terminal any other way. The family has bitten three times,
 each at a door the rule was not yet written on: `say()` first, then the HTML
 `emit()`, then the JSON one.
+
+**Standard output carries digline alone.** What the suite, the application it
+imports, a target or a judge prints is assigned to standard error, the
+perimeter of the person who ran the command (ADR 0043 §8, amended 2026-10-18).
+`own_stdout()` does it for the length of a command: it keeps digline a private
+copy of the descriptor standard output was, and points descriptor 1 at standard
+error, so whatever writes there, `print`, `os.write(1, ...)` or a child
+process, lands on standard error. `say()` and `emit()` write to the copy. One
+place, so no window the user's code runs in has to be remembered:
+`tests/test_stdout_carries_digline_alone.py` holds each window, and
+`tests/test_terminal_escapes.py` refuses `sys.stdout` in a front end outside
+this file.
 """
 
 from __future__ import annotations
 
+import os
 import sys
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import TextIO
 
-__all__ = ["emit", "say", "visible"]
+__all__ = ["emit", "flush", "own_stdout", "say", "visible"]
 
 from digline.core import json_visible
 from digline.report import visible
+
+#: digline's own standard output while `own_stdout()` holds it; `None` outside,
+#: where it is `sys.stdout` as it always was.
+_ours: TextIO | None = None
+
+
+def _stdout() -> TextIO:
+    return _ours if _ours is not None else sys.stdout
+
+
+@contextmanager
+def own_stdout() -> Generator[None]:
+    """Standard output for digline alone, for the length of the block.
+
+    A private duplicate of descriptor 1 becomes digline's standard output, and
+    descriptor 1 is pointed at standard error, so what the user's code writes
+    there, at any level, reaches standard error. On the way out what it left in
+    Python's buffer is flushed while descriptor 1 still points at standard
+    error, digline's own output is flushed, and descriptor 1 is put back.
+
+    **The flush before the redirection is not a precaution.** Python holds what
+    is written to `sys.stdout` in a buffer and writes it to whatever descriptor
+    1 is when it flushes: a byte held across the redirection lands on the other
+    side of it. That is how two import lines reached the MCP server's protocol
+    stream after the SDK pointed the descriptor back (ADR 0043 §8).
+
+    Only when `sys.stdout` is descriptor 1. A caller that replaced it, pytest's
+    capture among them, is left as it is: the descriptor is not the stream it
+    reads.
+    """
+    global _ours
+    try:
+        backed = sys.stdout.fileno() == 1
+    except (AttributeError, OSError, ValueError):
+        backed = False
+    if not backed:
+        yield
+        return
+    sys.stdout.flush()
+    private = os.dup(1)
+    ours = os.fdopen(
+        private,
+        "w",
+        encoding=sys.stdout.encoding,
+        errors=sys.stdout.errors,
+        # Line-buffered where the original was, a terminal, so a line reaches
+        # whoever is watching as it is said.
+        buffering=1 if sys.stdout.line_buffering else -1,
+    )
+    os.dup2(2, 1)
+    _ours = ours
+    try:
+        yield
+    finally:
+        sys.stdout.flush()
+        ours.flush()
+        os.dup2(private, 1)
+        _ours = None
+        ours.close()
 
 
 def say(text: str = "", *, err: bool = False) -> None:
@@ -58,7 +133,7 @@ def say(text: str = "", *, err: bool = False) -> None:
     key or a JSON document, and a note that broke it would teach people to
     ignore notes.
     """
-    print(visible(text), file=sys.stderr if err else sys.stdout)
+    print(visible(text), file=sys.stderr if err else _stdout())
 
 
 def emit(document: str) -> None:
@@ -80,4 +155,10 @@ def emit(document: str) -> None:
     thing printed here may not either. (from the release delta-pass over 0.15.0)
     """
     safe = json_visible(document)
-    print(safe, end="" if safe.endswith("\n") else "\n")
+    print(safe, end="" if safe.endswith("\n") else "\n", file=_stdout())
+
+
+def flush() -> None:
+    """Write what digline has said so far, now: a caller reading a line, such
+    as the port `digline view` bound, should not wait for a buffer."""
+    _stdout().flush()

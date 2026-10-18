@@ -14,6 +14,14 @@ closes, and never cut short with `terminate()`. The leak this guards against
 was Python's buffer for standard output, written when the server stopped and
 the SDK pointed descriptor 1 back at the protocol: a test that killed the
 server would kill the leak with it and pass.
+
+The module the suite imports also writes `MARK-MODULE-OSWRITE` with
+`os.write(1, ...)`, and it is not among what reaches the protocol stream, before
+the fix or after it. That write goes straight to descriptor 1, which the SDK
+points at standard error while it serves, so it never sat in Python's buffer
+and never reached the protocol. This test catches the buffer; a write at the
+descriptor is held on the command line, by
+`tests/test_stdout_carries_digline_alone.py`, where nothing else diverts it.
 """
 
 from __future__ import annotations
