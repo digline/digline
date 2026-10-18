@@ -1498,6 +1498,45 @@ bearing and neither is obvious:
 `select_unpublished.py` copies rather than moves, which is what leaves `dist/`
 whole for that step to read.
 
+*Ruled 2026-10-18.* **Between the `testpypi` job and the `pypi` gate, the core
+being released is run against every plugin PyPI serves. That check is owed at
+that point of `publish.yml`, and today it does not exist.** In a clean
+environment: the core as TestPyPI serves it, which is the wheel the `pypi` job
+will publish, and each plugin at the newest version PyPI serves. It holds for a
+tag of the core: a tag of plugins alone puts no core on TestPyPI, so there is
+no new core to run them against. Its result goes in the job summary beside the
+counts that the amendment of 2026-10-04 (*After the tag: what to watch, and
+what to ignore*) puts in front of the approver before the click. A user who
+installs or upgrades the core gets exactly that pair, and nothing else tests
+it. `tests/test_plugin_floors.py` looks the other way, from the plugin in the
+tree to the core it needs, and the plugin in the tree is not the one users
+have.
+
+The plugins are tried in two ways, and each is declared:
+- **pytest-digline and digline-mcp as their users run them**: a pytest session
+  that names a suite, and every tool of the MCP server.
+- **The three providers, digline-anthropic, digline-openai and
+  digline-bedrock, by importing each package and building its public entry
+  points, with no network and no key.** The break this check looks for is a
+  signature, not a credential.
+
+0.32.0 was released without this check, and both served plugins that call the
+comparison broke on it. 0.32.0 made `declared` a mandatory argument of
+`headline`. The changelog declared the break for *"a program that calls
+digline's functions"*, and two of those programs were ours, each declaring
+`digline>=0.31.0` with nothing above it:
+- **pytest-digline 0.2.4** stopped every session that named a suite with
+  *"TypeError: headline() missing 1 required keyword-only argument:
+  'declared'"*, and pytest exited `3`. Under `--digline-run` the target had
+  already been called and the run written.
+- **digline-mcp 0.5.0** answered its `compare` tool with *"Error executing
+  tool compare"*, over the same `TypeError`. Its other seven tools answered.
+
+Both were found the same day, after the tag, by the delta-passes over the two
+plugins. The scripts are in `private/delta-pass-plugins-2026-10-18-probes/`.
+The repair is pytest-digline 0.3.0 and digline-mcp 0.6.0, each declaring
+`digline>=0.32.0,<0.33`, and it reaches users with their two tags.
+
 ## Signatures on the GitHub release
 
 From the first release after 0.19.1, the last step of `github-release` attaches
