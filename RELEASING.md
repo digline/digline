@@ -243,7 +243,6 @@ and the cut that settles the row deletes it.
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
 | `digline-mcp` | the `compare` tool passes `declared=loaded_suite.declared()` to `headline`, both new in the core release that carries #562 (ADR 0049); against 0.31.0 `Suite.declared` does not exist and the call raises `AttributeError` | `0.32.0` | release digline-mcp on its own tag, once the core is on PyPI; if the core release is not 0.32.0, raise to the one it is, and drop RELEASING.md's `0.32.0` in `test_versions.py`'s `RECORDED` |
-| `pytest-digline` | opening each `--digline-suite` passes `declared=suite.declared()` to `headline`, both new in the core release that carries #562 (ADR 0049); against 0.31.0 `Suite.declared` does not exist and the call raises `AttributeError`. The summary also asks `phrase` for `fact.session_not_green`, a key new in the same release (ADR 0049 §7); against 0.31.0 that raises `KeyError` | `0.32.0` | release pytest-digline on its own tag, once the core is on PyPI; if the core release is not 0.32.0, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -266,10 +265,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| `pytest-digline` | each line of the `digline` summary, and the `note:` beside it, now starts with the path pytest prints for its suite's rows (#570); before, a line carried only the sentence | that the summary's output changed: the cut decides by *Choosing the version* whether a changed output a user reads moves the minor, and the number says what it decided |
-| `pytest-digline` | a suite named as `file.py:attribute` gets nodeids that carry the attribute (#571), so a `--deselect` written against the old nodeid deselects nothing, and only warns | a break: the release moves the minor, by *Choosing the version*'s rule that holds for each package |
-| `pytest-digline` | two specs that name the same suite are refused as a usage error, before any suite loads (#566), where the session used to run the suite twice | a break: a session that ran now stops, so the release moves the minor, as the row above already asks |
-| `pytest-digline` | a session that would end `0` ends `1` when digline's code for any suite is not `0` (ADR 0049 §7, #484): a drifted pin or a run that judged nothing now fails a session that passed | a break: sessions that ended `0` now end `1`, so the release moves the minor, as the rows above already ask |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
