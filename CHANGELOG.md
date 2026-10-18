@@ -20,7 +20,9 @@ notes under them are this file, verbatim.
   looked for your own prints on standard output, they are on standard error
   now.** Nothing digline writes moved, and no stored document changes. A
   caller that joins the two streams, as `2>&1` does, sees both together as
-  before.
+  before. **Not reached:** what your code writes after the command has
+  finished, from a thread still running, an `atexit` handler or a `__del__`,
+  still reaches standard output, after digline's own lines.
 
 ## digline-mcp — unreleased
 
