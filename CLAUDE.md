@@ -88,6 +88,11 @@ correct its structural mistakes and are not negotiable.
    imports, a target, a library. Who wrote a message is read from the frame
    that raised it, through every wrap, never from its type. It reaches the
    person who ran the command and no other recipient.
+   *Added 2026-10-18 (ADR 0043, amended).* Standard output carries digline
+   alone. What the suite, the application it imports, a target or an
+   assertion prints is assigned to standard error, the perimeter of the
+   person who ran the command. Not yet true in the code: today it reaches
+   standard output, first line included.
    The **artifacts** a suite declares — the prompt is the thing under test — are
    recorded in every run and cross a boundary only under
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so

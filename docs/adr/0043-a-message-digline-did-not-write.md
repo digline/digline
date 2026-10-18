@@ -37,6 +37,11 @@
   and `pytest_digline` out and in §2's `locations`. `pytest-digline` calls
   `refused_exit` and hands it its directory. Who wrote a message is read as
   before, and the plugin prints §3's rendering for it, the whole sentence
+- Amended: 2026-10-18, in §8, and with it ADR 0011's stdio transport. A
+  message the user's code writes without raising, to standard output, is the
+  same payload as one it raises, and it had no rule: it reached every reader
+  of digline's standard output, first line included. Its code has not landed,
+  and no release ships it
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -589,6 +594,56 @@ Until the code ships, the line in `CLAUDE.md` carries one sentence more: it
 says that a refusal on the MCP server still carries such a message, and names
 the advisory. The sentence goes in the change that ships the repair. A rule
 that is not yet true says so where it is stated.
+
+*Amended 2026-10-18.* The line quoted above names a message raised. What
+the user's code **prints** is the same payload, and no rule said where it
+goes.
+**Standard output carries digline alone. What the suite, the application it
+imports, a target or an assertion writes there is assigned to standard error,
+the perimeter of the person who ran the command.** Standard output is read by
+others: a pipeline that takes `digline run`'s key from it, an action that
+turns `compare`'s first line into a headline and a pull request comment, and
+an MCP client, for which it is the protocol.
+
+Measured with digline 0.32.0 from PyPI on `examples/classifier`, one `print`
+per window, the command line called as digline-action calls it, counts as
+standard output / standard error:
+
+| Window | `run` | `compare` | Line 1 |
+|---|---|---|---|
+| the suite's import | 1 / 0 | 1 / 0 | no, line 2 |
+| a module it imports | 1 / 0 | 1 / 0 | **yes** |
+| the target, each call | 100 / 0 | — | no |
+| an assertion, each call | 100 / 0 | — | no |
+| a `--target` file's import | 1 / 0 | — | no |
+| its target, each call | 100 / 0 | — | no |
+
+On the MCP server's stdio transport the two import lines reached the protocol
+stream as lines that are not JSON-RPC; the `compare` response itself carried
+none. The SDK points descriptor 1 at standard error while it serves and back at
+the protocol when it stops, and the two lines, held until then in Python's
+buffer for standard output, were written after it was pointed back. Under
+pytest-digline the same prints reach the terminal. 0.30.0 and 0.31.0 gave the
+same counts, and no commit in the history of `src/` or `packages/` ever
+redirected standard output.
+
+**What this does not do.** It does not touch a document: no stored run, no
+`junit.xml` and no MCP response carried a printed byte, so there is nothing
+there to remove. It promises nothing about what a wrapper does with standard
+error. A CI log, an action's job log and an MCP client that records the
+server's standard error are all where that stream goes, and what they keep or
+show is theirs. If the caller joins the two streams, as `2>&1` does, there is
+no separation left, because descriptor 1 is then descriptor 2. That is the
+caller's choice, declared here rather than found later. And on the MCP server
+it does not reach what the user's code writes after the last flush of standard
+output and before the interpreter exits. Measured with digline-mcp 0.6.0 and a
+suite that flushes at the end of its import, standing in for the flush after
+each tool call: a print from the suite's own thread after the tool had
+answered, an `atexit` handler and a `__del__` at shutdown each reached the
+protocol stream as a line that is not JSON-RPC. The same thread's print,
+flushed while the server still served, went to standard error. Closing those
+three would depend on the order of the SDK's own shutdown, so they are
+declared and not closed.
 
 ## Amendments
 

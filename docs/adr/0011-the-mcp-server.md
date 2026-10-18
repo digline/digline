@@ -829,6 +829,13 @@ configure, and a server that listened by default would be the same mistake
 facing outward. If a remote transport is ever wanted it is a separate record,
 with authentication in it.
 
+*Amended 2026-10-18 by [ADR 0043](0043-a-message-digline-did-not-write.md)
+§8.* Standard output is the protocol here, so it carries the protocol alone,
+and what the user's code prints while a tool runs is assigned to standard
+error. The SDK points descriptor 1 at standard error while it serves; what
+Python held in its buffer was written after the descriptor was pointed back.
+The amendment closes that, and names the late writes it does not reach.
+
 ## §9 — The playbook rides with the instrument
 
 Tool descriptions are not `--help`. They are loaded into the context of the
