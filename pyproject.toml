@@ -42,7 +42,7 @@ Repository = "https://github.com/digline/digline"
 Issues = "https://github.com/digline/digline/issues"
 
 [project.scripts]
-digline = "digline.cli.main:main"
+digline = "digline.cli.main:entry"
 
 # A dependency group, not an extra: `uv sync` installs it by default, so a
 # fresh clone can run the gates without anyone having to know a flag.

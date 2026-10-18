@@ -1423,7 +1423,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def entry() -> int:
+    """The `digline` command: the process's own entry, which `pyproject.toml`'s
+    script and `python -m digline.cli` call.
+
+    The same command as `main()`, except that standard output is not given back
+    when it ends. The process is about to exit, and what the user's code writes
+    between now and then, from a thread, an `atexit` handler or a `__del__`,
+    belongs on standard error with the rest of what it printed. (ADR 0043 §8,
+    amended 2026-10-18)
+    """
+    return _command(None, give_back=False)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    """The command, for a caller inside its own process: standard output is
+    given back when the command ends, whatever `argv` is."""
+    return _command(argv, give_back=True)
+
+
+def _command(argv: Sequence[str] | None, *, give_back: bool) -> int:
     # No bytecode written anywhere for the duration of this process. Running an
     # evaluation must not leave artifacts in the user's tree — new untracked
     # files make a repository dirty, and digline would then report every run
@@ -1437,7 +1456,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # command and not around each call into the suite, so no window has to
         # be remembered. After the parser, whose `--help` is digline's answer
         # on standard output. (ADR 0043 §8, amended 2026-10-18)
-        with own_stdout():
+        with own_stdout(give_back=give_back):
             return int(args.func(args))
     except UsageError as exc:
         say(f"digline: {exc}", err=True)
@@ -1488,4 +1507,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+    raise SystemExit(entry())

@@ -76,7 +76,7 @@ def _stdout() -> TextIO:
 
 
 @contextmanager
-def own_stdout() -> Generator[None]:
+def own_stdout(*, give_back: bool = True) -> Generator[None]:
     """Standard output for digline alone, for the length of the block.
 
     A private duplicate of descriptor 1 becomes digline's standard output, and
@@ -94,6 +94,14 @@ def own_stdout() -> Generator[None]:
     Only when `sys.stdout` is descriptor 1. A caller that replaced it, pytest's
     capture among them, is left as it is: the descriptor is not the stream it
     reads.
+
+    `give_back=False` is for the process's own entry, `main.entry()`: the
+    descriptor is not put back, so what the user's code writes after the
+    command, from a thread still running, an `atexit` handler or a `__del__`,
+    still reaches standard error. Put back, it reached standard output after
+    digline's own lines, where `key=$(digline run ...)` reads. A caller of
+    `main()` inside its own process gets it back, or its own `print` would land
+    on standard error for the rest of that process.
     """
     global _ours
     try:
@@ -121,9 +129,10 @@ def own_stdout() -> Generator[None]:
     finally:
         sys.stdout.flush()
         ours.flush()
-        os.dup2(private, 1)
-        _ours = None
-        ours.close()
+        if give_back:
+            os.dup2(private, 1)
+            _ours = None
+            ours.close()
 
 
 def say(text: str = "", *, err: bool = False) -> None:

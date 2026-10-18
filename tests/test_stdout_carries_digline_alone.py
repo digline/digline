@@ -20,6 +20,8 @@ from __future__ import annotations
 import ast
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -122,6 +124,78 @@ def test_digline_still_writes_its_own_answer_to_standard_output(
     ), (
         "`digline compare` did not write its sentence to standard output:\n"
         f"{compared.stdout}"
+    )
+
+
+LATE_WRITERS = """
+import atexit as _atexit
+import threading as _threading
+import time as _time
+
+_atexit.register(lambda: print("MARK-LATE-ATEXIT"))
+
+
+def _late():
+    _time.sleep(0.5)
+    print("MARK-LATE-THREAD")
+
+
+_threading.Thread(target=_late, daemon=False).start()
+"""
+
+
+def test_what_the_suite_writes_after_the_command_goes_to_standard_error(
+    printing: Path,
+) -> None:
+    """The process's own entry does not give standard output back: what a thread
+    of the suite's or an `atexit` handler writes once the command has finished
+    still reaches standard error. Given back, it reached standard output after
+    the key, inside `key=$(digline run ...)`."""
+    suite = printing / "suite_qa.py"
+    suite.write_text(suite.read_text(encoding="utf-8") + LATE_WRITERS, encoding="utf-8")
+    done = cli(printing, "run", "--suite", "suite_qa.py")
+    _on_stderr_not_stdout(
+        done.stdout, done.stderr, "MARK-LATE-THREAD", "MARK-LATE-ATEXIT"
+    )
+    assert len(done.stdout.splitlines()) == 1 and KEY.match(done.stdout.strip()), (
+        f"`digline run`'s standard output is not exactly its key:\n{done.stdout}"
+    )
+
+
+IN_PROCESS = """\
+import os
+import sys
+
+from digline.cli.main import main
+
+main(["run", "--suite", "suite_qa.py"])
+print("MARK-AFTER-MAIN-PRINT", flush=True)
+os.write(1, b"MARK-AFTER-MAIN-FD\\n")
+"""
+
+
+def test_main_gives_standard_output_back_to_a_caller_in_its_process(
+    printing: Path,
+) -> None:
+    """The library half: `main()`, called inside a process that goes on, puts
+    descriptor 1 back, so what that process writes afterwards is on its
+    standard output as before."""
+    done = subprocess.run(
+        [sys.executable, "-c", IN_PROCESS],
+        cwd=printing,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    for mark in ("MARK-AFTER-MAIN-PRINT", "MARK-AFTER-MAIN-FD"):
+        assert mark in done.stdout, (
+            f"{mark}, written after `main()` returned, is not on standard output: "
+            f"`main()` kept descriptor 1 on standard error.\nStandard output:\n"
+            f"{done.stdout}\nStandard error:\n{done.stderr}"
+        )
+    assert [line for line in done.stdout.splitlines() if KEY.match(line)], (
+        f"`main()` did not write its key to standard output:\n{done.stdout}"
     )
 
 
