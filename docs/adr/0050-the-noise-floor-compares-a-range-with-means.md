@@ -163,15 +163,16 @@ and digline is not imposing it on anyone.
   declared width — or the floor becomes a number the reader takes on trust, which is the
   one thing ADR 0006 was right to refuse.
 - **The floor is a lower bound when its samples come from a replay.** ADR 0024 §5.6
-  measured it: on brief's `brief-reason`, 21 cases, a `Faithfulness` check judged by Haiku,
-  the abstention rate was 2.0% over a stored run against 8–10.5% live, and its conclusion
-  is that *"`judge_samples` reports a lower bound… a replay can only be kinder, because it
-  cannot serve an answer nobody has written"* (ADR 0024, lines 1056-1070 at `51349aa`). A
-  dispersion estimated from those samples is therefore a lower bound on the variation the
-  next live run will show, and a floor built from it forgives less than the live noise
-  warrants. The error falls on the side of calling a movement real when it was noise, which
-  is the side ADR 0028 §4 says this product chooses — *red is the side this product chooses
-  to be wrong on* — and it is declared here rather than discovered.
+  measured an abstention rate of 2.0% over a stored run against 8–10.5% live — on brief's
+  `brief-reason`, 21 cases, a `Faithfulness` check judged by Haiku — and argues from it
+  that *"`judge_samples` reports a lower bound… a replay can only be kinder, because it
+  cannot serve an answer nobody has written"* (ADR 0024, lines 1056-1070 at `51349aa`). No
+  dispersion of score between a replay and a live run is measured there. A dispersion
+  estimated from replayed samples is therefore a lower bound on the variation the next live
+  run will show, and a floor built from it forgives less than the live noise warrants. The
+  error falls on the side of calling a movement real when it was noise, which is the side
+  ADR 0028 §4 says this product chooses — *red is the side this product chooses to be wrong
+  on* — and it is declared here rather than discovered.
 
 *Added 2026-10-17, by the maintainer, before acceptance.* The fourth item answers ADR
 0006's third reason, which the paragraph *The answer ADR 0006 is owed* leaves to it. As
