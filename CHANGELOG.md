@@ -218,6 +218,44 @@ The version is chosen by the release that carries this, from what it carries.
 - **Docs: the README's example summary shows the sentence digline prints.** It
   showed a wording digline does not produce.
 
+## digline-mcp 0.6.0 — 2026-10-18
+
+Published by its own tag, `digline-mcp-v0.6.0`, after digline 0.32.0 was on
+PyPI. **A minor, because a command line that worked or failed one way now
+fails another:** a refused command line exits `64` instead of `2`, and an
+option given two different values is refused.
+
+- **digline-mcp 0.5.0 does not work with digline 0.32.0: its `compare` tool
+  does not answer.** The agent receives *"Error executing tool compare"* and
+  nothing that names the cause, which in the server's process is
+  *"TypeError: headline() missing 1 required keyword-only argument:
+  'declared'"*. The other seven tools answer. 0.5.0 declared
+  `digline>=0.31.0` with nothing above it, so installing or upgrading digline
+  gave it 0.32.0, where `headline` takes `declared` and has no default.
+  Upgrade to 0.6.0, or keep 0.5.0 with digline 0.31.x.
+- **The dependency is `digline>=0.32.0,<0.33`, the first cap on the core.**
+  The floor: `compare` passes `declared=loaded_suite.declared()` to
+  `headline`, new in 0.32.0; against 0.31.0 the call raises `AttributeError`.
+  The cap: a minor of the core can change a signature this server calls, as
+  0.32.0 did to 0.5.0. With the cap a resolver keeps digline inside 0.32 for
+  this release, instead of installing a pair that fails.
+- **Breaking: a command line the server refuses exits `64`, not `2`** ([ADR
+  0008](docs/adr/0008-the-two-run-report.md) §1). An unknown flag, a flag
+  with no value or `--root` left out exits `64`, `EXIT_USAGE`, as `digline`
+  does from 0.32.0. Your MCP client reports a server that will not start
+  either way; a wrapper that read `2` reads `64` now.
+- **Breaking: an option given two different values is refused** (#567).
+  `--root a --root b` served `b` and said nothing about `a`. Now the server
+  exits `64` with *"argument --root: given different values ('a', 'b'); it
+  takes one, so give it once"*. The same value twice still passes.
+- **`run` records `modules_unchecked`** ([ADR
+  0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
+  decision 2): the modules the suite's directory holds that this long-lived
+  process had already loaded from elsewhere. A run measured by 0.5.0 carries
+  no such field, and `compare` says it is *not recorded*. That a suite loaded
+  again reads its application again is digline 0.32.0's, and reaches the
+  server through it.
+
 ## digline-mcp 0.5.0 — 2026-10-12
 
 Published by its own tag, `digline-mcp-v0.5.0`, after digline 0.31.0 was on

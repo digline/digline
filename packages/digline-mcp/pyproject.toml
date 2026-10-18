@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.5.0"
+version = "0.6.0"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -116,14 +116,21 @@ dependencies = [
     # package's own release, after the core was on PyPI, because a floor may
     # not name a release that does not exist yet.
     #
-    # **Owed at the cut: raise to the core release that carries #562.**
-    # The `compare` tool passes `declared=` to `headline`, and both the argument
-    # and `Suite.declared` first ship with #562, so the sentence
-    # can say that a run judged nothing (ADR 0049). Against 0.31.0 the
-    # call raises `AttributeError`. A floor may not name a release that does not
-    # exist yet, so the row is in RELEASING.md's table of floors owed to the
-    # release.
-    "digline>=0.31.0",
+    # Raised to 0.32.0 by signature: the `compare` tool passes
+    # `declared=loaded_suite.declared()` to `headline`, and both the argument
+    # and `Suite.declared` first ship in 0.32.0, so the sentence can say that a
+    # run judged nothing (ADR 0049). Against 0.31.0 the call raises
+    # `AttributeError`. It was owed at the cut and raised in this package's own
+    # release, after the core was on PyPI, because a floor may not name a
+    # release that does not exist yet.
+    #
+    # And a cap, `<0.33`, the first on the core. 0.32.0 made `declared` a
+    # mandatory argument of `headline`, and 0.5.0, which declared
+    # `digline>=0.31.0` and nothing above it, could no longer answer `compare`
+    # on it: the tool raised `TypeError`. A core minor may change a signature
+    # this server calls, so the resolver keeps the core inside the minor this
+    # release was run against, and a user stays on a pair that works.
+    "digline>=0.32.0,<0.33",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
