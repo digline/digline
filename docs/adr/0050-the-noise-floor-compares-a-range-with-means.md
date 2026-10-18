@@ -8,11 +8,15 @@
   item to *Four things this carries* on 2026-10-17: whatever prints the floor
   prints what it was computed from, which answers ADR 0006's third reason. The
   same day the third item named the page its sentence will live on and the test
-  that will hold it; until that code lands, nothing holds it
+  that will hold it; until that code lands, nothing holds it. On 2026-10-18,
+  still before acceptance, the maintainer added a fifth item, and the heading
+  became *Five things this carries*: the floor is a lower bound when its samples
+  come from a replay. The same day *What this ADR does not claim* gained two
+  limits, on the one measurement of variation between runs this project has
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
-  `OUTPUT_VERSION`. The code that implements it is a break, said under *Four
+  `OUTPUT_VERSION`. The code that implements it is a break, said under *Five
   things this carries*
 - Amends: [ADR 0028](0028-the-rules-that-moved.md) §4, which left a direction
   for `samples` to an amendment that says which half wins and why; the
@@ -99,6 +103,20 @@ sits outside its own interval. Nothing here decides that, and it is not the same
 **What this ADR does not claim.** How often each case occurs in practice, and what
 `min_agreement` real suites declare. Neither is measured here.
 
+Nor that the variation between runs is what the noise inside one run predicts, beyond a
+single measurement. The only one in this project that sets the variance of the mean between
+runs against the prediction from internal noise alone — 21 runs, two assertions, `0.000027`
+against `0.000031` and `0.00132` against `0.00107`, one below the prediction and one above —
+spans 27 minutes, and says so: *"they say nothing about drift over days or model
+versions"*. Its author also records that K=3 is far from the K much greater than 1 that
+Miller's appendix C asks for, *"so the floors above inherit the noise"*. That is [*The more
+samples I took, the less my noise floor could see*](https://digline.dev/blog/more-samples-less-floor/),
+lines 31, 50, 187 and 191 at `0d9edb5` of `digline/digline.dev`. Its scripts live in a
+private repository, and nobody can re-run them, as the post itself says at line 213.
+
+And that measurement does not say whether the outputs were fixed or generated again at each
+run, so whether its variance between runs includes the target's is not known.
+
 ## The decision
 
 *Ruled 2026-10-15.* The measured floor stays, and two things change.
@@ -122,7 +140,7 @@ backwards. What makes a poor estimate acceptable is that it is **asked for**: wh
 declares a floor at K=3 is declaring that they accept an estimate made from three numbers,
 and digline is not imposing it on anyone.
 
-**Four things this carries.**
+**Five things this carries.**
 
 - **A break.** A check with `tolerance=0` and a baseline that is not unanimous will begin
   reporting movements it used to call `unchanged`. That is the point of the change, not a
@@ -144,6 +162,16 @@ and digline is not imposing it on anyone.
   what it was computed from — the judged samples, their standard deviation, K, and the
   declared width — or the floor becomes a number the reader takes on trust, which is the
   one thing ADR 0006 was right to refuse.
+- **The floor is a lower bound when its samples come from a replay.** ADR 0024 §5.6
+  measured it: on brief's `brief-reason`, 21 cases, a `Faithfulness` check judged by Haiku,
+  the abstention rate was 2.0% over a stored run against 8–10.5% live, and its conclusion
+  is that *"`judge_samples` reports a lower bound… a replay can only be kinder, because it
+  cannot serve an answer nobody has written"* (ADR 0024, lines 1056-1070 at `51349aa`). A
+  dispersion estimated from those samples is therefore a lower bound on the variation the
+  next live run will show, and a floor built from it forgives less than the live noise
+  warrants. The error falls on the side of calling a movement real when it was noise, which
+  is the side ADR 0028 §4 says this product chooses — *red is the side this product chooses
+  to be wrong on* — and it is declared here rather than discovered.
 
 *Added 2026-10-17, by the maintainer, before acceptance.* The fourth item answers ADR
 0006's third reason, which the paragraph *The answer ADR 0006 is owed* leaves to it. As
@@ -151,6 +179,12 @@ landed in #579, the list read *"Three things this carries"* and held the first t
 same day, the third item gained its last two sentences, which name the page its sentence
 will live on and the test that will hold it. Nothing holds it yet. As landed, it ended at
 *"rather than leaving each author to find it out"*.
+
+*Added 2026-10-18, by the maintainer, before acceptance.* The fifth item, and with it the
+heading, which read *"Four things this carries"* until then. The fifth item says which way
+a floor estimated from a replay errs. The same day *What this ADR does not claim* gained its
+second and third paragraphs, on the one measurement of variation between runs this project
+has: what it covers, and what it does not say. *The answer ADR 0006 is owed* is unchanged.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
