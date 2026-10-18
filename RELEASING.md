@@ -422,6 +422,29 @@ The reason this needs writing down at all is that the feature commit is *temptin
 it is green, it is the change everyone was working on, and nothing about it
 announces that it is not the release.
 
+*Noted 2026-10-18, cutting 0.32.0, the section above kept as written.* Three
+deviations from it, all on this release.
+- **The version cannot wait for the cut when the release moves the schema.**
+  Lines 391-393 at `51349aa` say *"The version moves **at the cut**"*, and the
+  docstring of `test_the_schema_this_workspace_writes_belongs_to_a_release`
+  (`tests/test_example_caps.py`, line 312 at `51349aa`) says `pyproject.toml`
+  *"is bumped at release time"*. Schema 19 moved in #590 (`c3828de`), and that
+  test stays red until the version has a `RELEASED` row for the schema the tree
+  writes. So the version moved in the same pull request (`21e2a5a`), and that
+  pull request was the bump. *Two rituals*, lines 60-66 at `51349aa`, already
+  says a moved schema obliges a version bump; what it does not say is that the
+  bump then leaves the cut.
+- **The `Shipped:` sweep ran in the release pull request.** Lines 405-406 at
+  `51349aa` put it in the bump pull request (*"steps 1 to 5 and the `Shipped:`
+  sweep"*). #590 merged without it, and ADR 0049, 0051 and 0052 took
+  `0.32.0` in the release pull request, the last two with their acceptance.
+- **The walkthrough line was not in the release pull request.** Lines 604-606
+  at `b2f423b` say the release pull request *"also carries one of two
+  lines"*, and line 613 says *"The absence is declared, never left to be
+  read."* #593 dated the 0.32.0 entry with neither. The walkthrough was not
+  owed, and that is declared in v0.32.0's paragraph under *Status: what each
+  path has proven*, which *After the tag* step 4 writes.
+
 ## Before the tag: the changelog
 
 `CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
@@ -1759,6 +1782,90 @@ This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
+
+- **v0.32.0 — the gate was approved seven seconds after the run began
+  waiting, and the smoke build waited 211 seconds for an upload that came
+  after the click.** `publish` (`39113757246`) passed on attempt 1,
+  `github-release` and the site jobs included. `docker-publish`
+  (`39113757217`) passed on attempt 1. `tools/tag_names.py "digline 0.32.0"`
+  ran on #593's merge commit, `b2f423b`, which was `origin/main`, immediately
+  before the tag: one package, named. digline-mcp's and pytest-digline's
+  `src/` had moved since the tags that published their versions (#562, #566,
+  #570, #571, #575, #590), on purpose, because their floors may not name
+  0.32.0 before it is served; each follows on its own tag.
+
+  **The reviewer gate.** `/approvals` reads `approved` by `alexpran` on
+  `pypi`, and the environment reads `can_admins_bypass: false`. The `pypi`
+  deployment went `waiting` at 09:04:33Z and `queued` at 09:04:40Z, and the
+  job ran 09:04:41Z to 09:05:22Z. The session had not yet sent the approver
+  anything when the approval came; the counts below were on the run's page
+  before it, written by the run.
+  - 12 `twine check` `PASSED`, one per file built; TestPyPI's selection, and
+    PyPI's read before the gate, 2 `publish` and 10 `skip`, the two being
+    `digline` 0.32.0's wheel and sdist; `imported 6`, and the quickstart's 3
+    calls.
+  - Uploads at 09:05:02 and 09:05:04. The `pypi` job's wait saw `digline`
+    0.32.0 served `after 0s`.
+  - **The version endpoint and its control were read by hand at 09:19:48Z**,
+    not at the time: `/pypi/digline/0.32.0/json` answered 200 and
+    `/pypi/digline/9.9.9/json` answered 404.
+
+  **The signatures.** `release_bundles.py` ran with `TIMEOUT=600` and
+  `INTERVAL=10`, and had its two bundles at 09:05:34. Ten files were skipped,
+  each by the tag that published it. `sigstore verify` printed `OK` for both,
+  and both `.sigstore.json` are on the release.
+
+  **The index race, both builds.**
+  - **The smoke build waited 211 seconds**, from its first read at 09:02:30
+    to the eighth at 09:06:01, because `docker-publish` started with the tag
+    and the upload came after the click. Seven reads saw serial 42135226 with
+    no 0.32.0; the eighth saw serial 42392033 with it. Inside the build (`#9`)
+    the wait saw it `after 0s`, and the multi-arch build's arm64 leg (`#15`)
+    `after 0s`.
+  - **The multi-arch build's amd64 leg was `CACHED`** (`#10` to `#13`), so it
+    installed nothing and proves nothing about the index: the arm64 leg is the
+    one that read it.
+  - Both builds that ran installed `digline-0.32.0`, `digline-anthropic-0.6.1`,
+    `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
+  - `0.32.0`, `0.32` and `latest` resolve to one digest,
+    `sha256:92392560329d6f19afa74ad165bdcc441f63aaccc4c6e23e411f1a5e545dc98d`,
+    read from the registry's manifest endpoint on each tag.
+
+  **Step 6, the capture.** In the smoke build (`#9`) and the arm64 leg
+  (`#15`), `side=wait` and `side=pip` were logged for `digline` with the same
+  serial, 42392033, and the same `etag`, the page after the upload. In `#9`
+  the last hop of `via` differed between the two, which is the table's third
+  row; in `#15` it was the same. The capture ran, the pair was present, and it
+  had nothing to explain. Only `digline`'s pair was read for this entry.
+
+  **Elsewhere.**
+  - The seven example locks moved to 0.32.0 with `--upgrade-package digline`.
+    Their diff was read, three lines per lock, and nothing else moved. The
+    first pass left `classifier`'s on 0.31.0, and a second pass a minute later
+    moved it, read at the time as the index reaching that machine late.
+  - Nine example reports were re-rendered against 0.32.0. `classifier` is
+    curated and `prompt-first` held, as the step says.
+  - The MCP registry job skipped: the registry already holds digline-mcp
+    0.5.0. The site's nav job found every record of the tag listed.
+  - **The browser walkthrough was not owed**, by Alessandro's decision of
+    2026-10-18: nothing in the launch key, the hand-over or the promote form
+    changed since 0.30.0, the last release that ran it. The promotion behind
+    the form gained ADR 0049's refusal of a run that judged nothing. That
+    the form refuses it as it refuses every other refusal is **read in the
+    code, not exercised**, at `b2f423b`: the form calls `promote_priced`
+    (`src/digline/cli/view.py`, line 708), which hands
+    `declared=suite.declared()` to the store's `promote_baseline`
+    (`src/digline/host/promotion.py`, line 114), whose `refusals_for`
+    raises `NothingJudgedError` (`src/digline/store/promotion.py`, line
+    191), and the view catches it among `REFUSALS` (`view.py`, line 717).
+    It is the same `promote_baseline` with the same refusals as `digline
+    promote`, and a walkthrough is what would have shown it. **The 0.32.0
+    entry carries neither of the two lines this file prescribes** (lines
+    600-614 at `b2f423b`), and it is declared here because *"the absence
+    is declared, never left to be read"*.
+  - The delta-pass is `private/delta-pass-0.32.0.md`, with one finding
+    awaiting a ruling.
+  - `digline-action`'s default image (step 7) is not moved yet.
 
 - **pytest-digline-v0.2.4 — a named tag after the core, one package, its
   floor owed to 0.31.0.** `publish` (`38272207404`) passed on attempt 1, with

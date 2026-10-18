@@ -1,10 +1,19 @@
 # ADR 0051 — A pinned path the judged run no longer records
 
-- Status: proposed 2026-10-16. The decision below was ruled on 2026-10-16,
+- Status: accepted 2026-10-18, by Alessandro Prandini, after its code landed
+  in #582. **#483 stays open for its promotion half.** The code of the
+  comparison has landed; the promotion's has not, and *Context* leaves it
+  outside this record (*"`promote` computes no comparison … That is outside
+  this record"*). The sentence below on closing #483 holds for the half that
+  landed.
+  Proposed 2026-10-16. The decision below was ruled on 2026-10-16,
   on #483, before this record was written. The text is not yet accepted, and
   nothing in it is implemented. #483 stays open: this record answers its
-  question, and the issue closes when the code lands
-- Shipped: unreleased
+  question, and the issue closes when the code lands. *The block above is the
+  proposed phase's own text, kept as written, and speaks from that phase.* The
+  start of this status carries what is true now, and `Shipped:` below says in
+  which release the code landed
+- Shipped: 0.32.0
 - Date: 2026-10-16
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`. The code that implements it moves no schema either: the

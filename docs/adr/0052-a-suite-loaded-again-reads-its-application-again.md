@@ -1,10 +1,15 @@
 # ADR 0052 — A suite loaded again reads its application again
 
-- Status: proposed 2026-10-17. The decision below was ruled on 2026-10-17,
+- Status: accepted 2026-10-18, by Alessandro Prandini, after its code landed
+  in #590. #513 was closed on 2026-10-17, after #590 merged.
+  Proposed 2026-10-17. The decision below was ruled on 2026-10-17,
   on #513, before this record was written. The text is not yet accepted, and
   nothing in it is implemented. #513 stays open: this record answers its
-  question, and the issue closes when the code lands
-- Shipped: unreleased
+  question, and the issue closes when the code lands. *The block above is the
+  proposed phase's own text, kept as written, and speaks from that phase.* The
+  start of this status carries what is true now, and `Shipped:` below says in
+  which release the code landed
+- Shipped: 0.32.0
 - Date: 2026-10-17
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`. The code that implements it opens an additive schema bump,

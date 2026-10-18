@@ -1,22 +1,23 @@
 # ADR 0049 — A run that judged nothing does not pass, and a front end does not say green where digline did not
 
 - Status: accepted 2026-10-14, by Alessandro Prandini, the text first and
-  before any code. Nothing in it is implemented. **It was accepted after five
-  corrections, all made before acceptance:** three to §3, two in #557 (the run
-  whose every case that counts errored, and a suite of canaries and calibration
-  cases only) and one in #558 (the suite's declaration, not the run); one to
-  *Requires*, in #559 (both paths that turn a run into a code); and one to
-  *Requires* and §5 in the pull request that accepts it (the promotion takes
-  the declaration too, as a mandatory argument, and `promote` is to derive it
-  from the suite it loaded). **What the acceptance rests on, said in full.**
-  The record was read whole once, when it first landed, in #555. After that, at
-  each correction, the passages it changed were read: §3, the line in
-  *Consequences*, *The cases that count*, *Requires*, the invariant paragraph,
-  and at the last correction *Requires*' sentences on the promotion and on
-  `promote`, §5's two paragraphs on the declaration and the *Test plan*'s
-  item 9. It was not read whole again after any correction. That is written
-  here because four accepted records point to this one, ADR 0002, 0010, 0013
-  and 0027, and whoever rereads it should know what its acceptance stands on.
+  before any code. Nothing in it was implemented then. **It was accepted after
+  five corrections, all made before acceptance:** three to §3, two in #557 (the
+  run whose every case that counts errored, and a suite of canaries and
+  calibration cases only) and one in #558 (the suite's declaration, not the
+  run); one to *Requires*, in #559 (both paths that turn a run into a code);
+  and one to *Requires* and §5 in the pull request that accepts it (the
+  promotion takes the declaration too, as a mandatory argument, and `promote`
+  is to derive it from the suite it loaded). **What the acceptance rests on,
+  said in full.** The record was read whole once, when it first landed, in
+  #555. After that, at each correction, the passages it changed were read: §3,
+  the line in *Consequences*, *The cases that count*, *Requires*, the invariant
+  paragraph, and at the last correction *Requires*' sentences on the promotion
+  and on `promote`, §5's two paragraphs on the declaration and the *Test
+  plan*'s item 9. It was not read whole again after any correction. That is
+  written here because four accepted records point to this one, ADR 0002, 0010,
+  0013 and 0027, and whoever rereads it should know what its acceptance stands
+  on.
   Proposed 2026-10-13. **What it decides was ruled before it was
   written.** The maintainer ruled the exit code, the promotion and the two
   levels of a suspension on 2026-10-13, on #360 and #374, and the plugin's rule
@@ -30,7 +31,7 @@
   counts is read from the suite's declaration, not from the run (§3).
   **Nothing in it is decided by this record alone.** Acceptance is a ruling
   on the text, and the start of this status says which text
-- Shipped: unreleased
+- Shipped: 0.32.0
 - Date: 2026-10-13
 - Opens: **an added key on the wire**, recorded in `_ADDED`
   (`src/digline/wire/contract.py`). No `OUTPUT_VERSION` move, by that module's
