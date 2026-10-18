@@ -343,7 +343,9 @@ def test_the_step_to_fourteen_writes_nothing() -> None:
     # still arrives here unchanged but for its version.
     # 16 -> 17 writes only onto a calibration band, and this run has none.
     # 17 -> 18 writes `projected: false`, which this document already holds.
-    assert SCHEMA_VERSION == 18
+    # 18 -> 19 writes nothing: an absent `modules_unchecked` is *not
+    # recorded* (ADR 0052).
+    assert SCHEMA_VERSION == 19
     assert upgrade_document({**current, "schema_version": 13}) == current
 
 

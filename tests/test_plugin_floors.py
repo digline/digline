@@ -99,7 +99,10 @@ INTRODUCED: dict[str, str] = {
     # 0.6.0 — the exit code a comparison means, exported with `digline.wire`
     # (`3100818`, `v0.6.0~2^2~10`). pytest-digline carries it on each suite it
     # opens, so a session digline did not say green does not end green.
+    # `EXIT_USAGE` came in the same commit, and digline-mcp's parser exits
+    # with it on a refused command line (ADR 0008 §1).
     "EXIT_OK": "0.6.0",
+    "EXIT_USAGE": "0.6.0",
     "exit_code": "0.6.0",
     # 0.1.0 — one localized string by key (`ae4a2af`, `v0.1.0~7`). The key the
     # session line uses, `fact.session_not_green`, is new in the core release

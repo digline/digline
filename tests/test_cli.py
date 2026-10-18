@@ -7,12 +7,15 @@ the exit code.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import cast
 
 import pytest
 from tests._helpers import baseline_in, cli, run_key, suite_source, write_suite
@@ -25,6 +28,7 @@ from digline.cli import (
     OUTPUT_VERSION,
     build_parser,
     exit_code,
+    main,
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.report import Headline
@@ -313,6 +317,14 @@ COMPARE_KEYS = {
     # which none of the cases that count was judged. A consumer that reads only
     # `exit_code` already sees it; this says which cause fired.
     "nothing_judged",
+    # Joined with ADR 0051, same rule: two counts that move no number and a
+    # fifth cause of exit 2. A consumer that reads only `exit_code` already
+    # sees the third; the counts say which half of it is present.
+    "pinned_unreferenced",
+    "pinned_withdrawn",
+    "pinned_lost",
+    # A count from the judged run, or null where it records none. (ADR 0052)
+    "modules_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that
     # *added* keys leave a consumer working, and these two answer a question
     # nothing else on this list can — same rules, same prompt, different model.
@@ -1741,3 +1753,407 @@ def test_the_reading_takes_no_out_flag(repo: Path) -> None:
     )
     assert done.returncode != EXIT_OK
     assert "--out" in done.stderr
+
+
+# --------------------------------------------------------------------------- #
+# A command the parser refuses exits 64 (ADR 0008 §1)
+# --------------------------------------------------------------------------- #
+#
+# ADR 0008 §1: "a bad flag, an unreadable run, a refused pair (§3) exit
+# `EXIT_USAGE` (64)". The parser exited argparse's own 2 instead, which is
+# `EXIT_UNJUDGED`: a pipeline that mistyped a flag read *the run could not be
+# judged*. The tests below run every subcommand through each refusal the parser
+# makes, in process, so what is measured is the parser each subcommand really
+# has and not a reading of argparse's documentation.
+
+#: For each subcommand, the arguments that parse: every required option with a
+#: value it accepts. Nothing here is read, because the parser refuses before a
+#: command runs, and these arguments only make sure the refusal under test is
+#: the one that fires.
+PARSES: dict[str, tuple[str, ...]] = {
+    "run": ("--suite", "s.py"),
+    "rejudge": ("--suite", "s.py", "--run", "k"),
+    "compare": ("--suite", "s.py", "--run", "k"),
+    "diff": ("--suite", "s.py", "k1", "k2"),
+    "list": ("--suite", "s.py"),
+    "migrate": ("--suite", "s.py"),
+    "promote": ("--suite", "s.py", "--run", "k", "--replacing", "none"),
+    "delete": ("--suite", "s.py", "--run", "k"),
+    "register": ("--suite", "s.py", "--run", "k", "--disposition", "accepted"),
+    "view": ("--suite", "s.py"),
+    "explain": ("--suite", "s.py", "--run", "k"),
+    "log": ("--suite", "s.py"),
+    "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
+}
+
+#: The subcommands that take a choice, and the option that carries it. The
+#: others have none, so a wrong choice cannot be asked of them.
+CHOICE: dict[str, str] = {
+    "compare": "--locale",
+    "diff": "--locale",
+    "register": "--disposition",
+    "explain": "--locale",
+    "log": "--locale",
+    "report": "--locale",
+}
+
+
+def refused(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> tuple[str | int | None, str]:
+    """The exit code `main` stopped with, and what it printed on stderr."""
+    with pytest.raises(SystemExit) as stopped:
+        main(argv)
+    return stopped.value.code, capsys.readouterr().err
+
+
+def test_the_table_names_every_subcommand_the_parser_has() -> None:
+    """Read off the parser's own usage line, so a subcommand added later is
+    refused here until it is in the table and goes through every case below."""
+    usage = build_parser().format_usage()
+    match = re.search(r"\{([a-z,]+)\}", usage)
+    assert match is not None, usage
+    assert set(match.group(1).split(",")) == set(PARSES)
+    assert set(CHOICE) <= set(PARSES)
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_an_unknown_flag_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], "--no-such-flag"], capsys)
+    assert "unrecognized arguments: --no-such-flag" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command}` with an unknown flag exited {code}: a pipeline that "
+        "mistyped a flag would read it as a verdict (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_a_missing_value_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], "--suite"], capsys)
+    assert "argument --suite: expected one argument" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command} --suite` with no value exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_a_missing_required_flag_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    given = PARSES[command]
+    # `--suite` and its value, found by name: a reordered table must not make
+    # this drop some other option and still pass.
+    at = given.index("--suite")
+    without_suite = [*given[:at], *given[at + 2 :]]
+    code, err = refused([command, *without_suite], capsys)
+    assert "the following arguments are required: --suite" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command}` without --suite exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+@pytest.mark.parametrize("command", sorted(CHOICE))
+def test_an_invalid_choice_exits_64(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, err = refused([command, *PARSES[command], CHOICE[command], "xx"], capsys)
+    assert f"argument {CHOICE[command]}: invalid choice: 'xx'" in err, err
+    assert code == EXIT_USAGE, (
+        f"`digline {command} {CHOICE[command]} xx` exited {code}, not 64 (ADR 0008 §1)"
+    )
+
+
+def test_an_unknown_subcommand_exits_64(capsys: pytest.CaptureFixture[str]) -> None:
+    code, err = refused(["nosuchcommand"], capsys)
+    assert "invalid choice: 'nosuchcommand'" in err, err
+    assert code == EXIT_USAGE, f"an unknown subcommand exited {code}, not 64"
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["--help"], ["--version"], ["compare", "--help"], ["report", "--help"]],
+    ids=["root --help", "root --version", "compare --help", "report --help"],
+)
+def test_help_and_version_still_exit_0(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Why the refusal is `error()` and not every `SystemExit`: `--help` and
+    `--version` end the process through the same exit, and they are answers,
+    not refusals."""
+    code, _err = refused(argv, capsys)
+    assert code == 0, f"`digline {' '.join(argv)}` exited {code}, not 0"
+
+
+# --------------------------------------------------------------------------- #
+# An option given different values is refused (#567)
+# --------------------------------------------------------------------------- #
+#
+# argparse keeps the last value of a repeated option and drops the others
+# without a word: `compare --suite a.py --suite b.py` compared `b.py` alone and
+# exited with its code. The rule: an option given different values is refused,
+# and the same value given twice passes, because it drops nothing. The rule is
+# the parser's, not a list of flags, so the options below are read off the
+# parser itself, and an option added tomorrow is in them without anybody adding
+# it here.
+
+#: The class argparse gives `action="append"`, read off a parser rather than
+#: named, because the name is private to argparse. An option declared with it
+#: is repeatable by choice, and the rule leaves it alone.
+APPEND = type(argparse.ArgumentParser().add_argument("--x", action="append"))
+
+
+def subparsers() -> dict[str, argparse.ArgumentParser]:
+    """Each subcommand's own parser, as `build_parser()` builds it."""
+    root = build_parser()
+    for action in root._actions:  # pyright: ignore[reportPrivateUsage]
+        choices: object = action.choices
+        if isinstance(choices, dict):
+            return cast(dict[str, argparse.ArgumentParser], choices)
+    raise AssertionError("the parser has no subcommands")
+
+
+def value_options() -> list[tuple[str, argparse.Action]]:
+    """Every option that takes a value, in every subcommand, except the ones
+    declared repeatable. A flag (`nargs=0`) takes none."""
+    return [
+        (command, action)
+        for command, parser in sorted(subparsers().items())
+        for action in parser._actions  # pyright: ignore[reportPrivateUsage]
+        if action.option_strings and action.nargs != 0 and type(action) is not APPEND
+    ]
+
+
+def two_values(action: argparse.Action) -> tuple[str, str]:
+    """Two different values the option accepts."""
+    if action.choices is not None:
+        first, second, *_ = list(action.choices)
+        return str(first), str(second)
+    if action.type is int:
+        return "1", "2"
+    return "first.py", "second.py"
+
+
+def stored(action: argparse.Action, value: str) -> object:
+    """The value as the namespace holds it, after `type=`."""
+    return int(value) if action.type is int else value
+
+
+def without(given: tuple[str, ...], option: str) -> list[str]:
+    """`given` with `option` and its value taken out, found by name."""
+    if option not in given:
+        return list(given)
+    at = given.index(option)
+    return [*given[:at], *given[at + 2 :]]
+
+
+def parsed(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> tuple[str | int | None, str, argparse.Namespace | None]:
+    """What the parser alone does with `argv`: the exit code it stopped with
+    and its stderr, or `None` and the namespace it accepted. Nothing runs, so a
+    command line the rule does not refuse is never executed here."""
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as stopped:
+        return stopped.code, capsys.readouterr().err, None
+    return None, capsys.readouterr().err, args
+
+
+VALUE_OPTIONS = value_options()
+
+
+def test_the_rule_reaches_options_in_every_subcommand() -> None:
+    """The parametrization below is not empty, and it is not one subcommand: a
+    reading of the parser that found nothing would pass every test it drives."""
+    assert {command for command, _ in VALUE_OPTIONS} == set(PARSES)
+    assert len(VALUE_OPTIONS) > len(PARSES)
+
+
+@pytest.mark.parametrize(
+    ("command", "action"),
+    VALUE_OPTIONS,
+    ids=[f"{command} {action.option_strings[-1]}" for command, action in VALUE_OPTIONS],
+)
+def test_an_option_given_two_values_is_refused_and_both_are_named(
+    command: str, action: argparse.Action, capsys: pytest.CaptureFixture[str]
+) -> None:
+    option = action.option_strings[-1]
+    first, second = two_values(action)
+    argv = [command, *without(PARSES[command], option), option, first, option, second]
+    code, err, args = parsed(argv, capsys)
+    given = f"{option} {first!r} and {option} {second!r}"
+    assert code == EXIT_USAGE, (
+        f"`digline {command}` refused {given} with exit {code}, not 64"
+        if args is None
+        else f"`digline {command}` accepted {given} and kept "
+        f"{getattr(args, action.dest)!r}: the other value was dropped without a "
+        "word (#567)"
+    )
+    named = f"{stored(action, first)!r}, {stored(action, second)!r}"
+    assert f"argument {option}: given different values ({named})" in err, err
+
+
+def named_case(
+    argv: list[str],
+    option: str,
+    values: tuple[str, str],
+    dest: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """One of the three cases #567 measured: refused with 64, both values named
+    in the order given."""
+    code, err, args = parsed(argv, capsys)
+    given = f"{option} {values[0]!r} and {option} {values[1]!r}"
+    assert code == EXIT_USAGE, (
+        f"{given} were refused with exit {code}, not 64"
+        if args is None
+        else f"{given} were accepted and {getattr(args, dest)!r} was kept: the "
+        "other was dropped without a word (#567)"
+    )
+    named = f"{values[0]!r}, {values[1]!r}"
+    assert f"argument {option}: given different values ({named})" in err, err
+
+
+def test_two_suites_on_compare_are_refused_by_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The case #567 measured: `billing` was compared, `support` was never
+    loaded, and nothing said so."""
+    values = ("both.py:support", "both.py:billing")
+    argv = ["compare", "--suite", values[0], "--suite", values[1], "--run", "latest"]
+    named_case(argv, "--suite", values, "suite", capsys)
+
+
+def test_two_runs_on_compare_are_refused_by_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Measured beside #567: the last `--run` was the run compared."""
+    values = ("k1", "k2")
+    argv = ["compare", "--suite", "s.py", "--run", values[0], "--run", values[1]]
+    named_case(argv, "--run", values, "run", capsys)
+
+
+def test_two_targets_on_run_are_refused_by_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Measured beside #567: the last `--target` was the target called."""
+    values = ("a.py:target", "b.py:target")
+    argv = ["run", "--suite", "s.py", "--target", values[0], "--target", values[1]]
+    named_case(argv, "--target", values, "target", capsys)
+
+
+def test_an_option_that_stores_nothing_is_refused_when_declared() -> None:
+    """`_Once` replaces `store`, and keeps the check `store` made: an option
+    declared with `nargs=0` stores nothing, which is a flag declared wrong."""
+    with pytest.raises(ValueError, match="cannot take zero of them"):
+        build_parser().add_argument("--nothing", nargs=0)
+
+
+def test_a_const_without_an_optional_value_is_refused_when_declared() -> None:
+    """The other check `store` made: a `const` is what an option given with no
+    value stores, so declaring one where the value is not optional is a
+    declaration that cannot mean anything."""
+    with pytest.raises(ValueError, match="so it needs `nargs='\\?'`"):
+        build_parser().add_argument("--fixed", const="x")
+
+
+def test_meta_stays_repeatable_and_keeps_every_value() -> None:
+    """`--meta` is `append` by choice: each one is a different key, and the rule
+    is about an option that takes one value."""
+    args = build_parser().parse_args(
+        ["run", "--suite", "s.py", "--meta", "a=1", "--meta", "b=2"]
+    )
+    assert args.meta == ["a=1", "b=2"]
+
+
+def test_a_flag_given_twice_is_still_accepted() -> None:
+    """A flag takes no value, so giving it twice drops nothing."""
+    args = build_parser().parse_args(
+        ["run", "--suite", "s.py", "--keep-errors", "--keep-errors"]
+    )
+    assert args.keep_errors is True
+
+
+@pytest.mark.parametrize(
+    ("command", "action"),
+    VALUE_OPTIONS,
+    ids=[f"{command} {action.option_strings[-1]}" for command, action in VALUE_OPTIONS],
+)
+def test_an_option_given_the_same_value_twice_is_accepted(
+    command: str, action: argparse.Action, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The same value twice drops nothing, so it passes, and the value reaches
+    the reader as one value."""
+    option = action.option_strings[-1]
+    value, _ = two_values(action)
+    argv = [command, *without(PARSES[command], option), option, value, option, value]
+    code, err, args = parsed(argv, capsys)
+    assert args is not None, (
+        f"`digline {command}` refused {option} {value!r} given twice (exit {code}): "
+        f"{err}"
+    )
+    assert getattr(args, action.dest) == stored(action, value)
+
+
+def test_json_given_twice_without_a_value_is_accepted() -> None:
+    """`--json` takes an optional value: given twice without one, both are its
+    `const`, and nothing is dropped."""
+    args = build_parser().parse_args(
+        ["compare", "--suite", "s.py", "--run", "k", "--json", "--json"]
+    )
+    assert args.json == "headline"
+
+
+def test_the_same_port_written_two_ways_is_one_value() -> None:
+    """Compared as stored, after `type=int`: `80` and `080` are one port."""
+    args = build_parser().parse_args(
+        ["view", "--suite", "s.py", "--port", "80", "--port", "080"]
+    )
+    assert args.port == 80
+
+
+@pytest.mark.parametrize("command", sorted(PARSES))
+def test_no_reserved_name_reaches_the_namespace(command: str) -> None:
+    """What the rule keeps while it parses is gone once it has parsed. A name
+    left behind would reach a `--json` or a `repr` one day, and nobody would
+    know where it came from. Every option of the subcommand is given twice with
+    one value, so the bookkeeping runs for all of them."""
+    options = [action for name, action in VALUE_OPTIONS if name == command]
+    base: tuple[str, ...] = PARSES[command]
+    for action in options:
+        base = tuple(without(base, action.option_strings[-1]))
+    argv = [command, *base]
+    for action in options:
+        option = action.option_strings[-1]
+        value, _ = two_values(action)
+        argv += [option, value, option, value]
+    args = build_parser().parse_args(argv)
+    dests = {
+        action.dest
+        for action in subparsers()[command]._actions  # pyright: ignore[reportPrivateUsage]
+    }
+    extra = set(vars(args)) - dests - {"command", "func"}
+    assert not extra, f"`digline {command}` left {sorted(extra)} in the namespace"
+
+
+@pytest.mark.parametrize(
+    ("command", "action"),
+    VALUE_OPTIONS,
+    ids=[f"{command} {action.option_strings[-1]}" for command, action in VALUE_OPTIONS],
+)
+def test_an_option_given_once_is_read_as_before(
+    command: str, action: argparse.Action
+) -> None:
+    """The control: the normal road. Each option given once parses, and its
+    value reaches the reader as one value, not as a list."""
+    option = action.option_strings[-1]
+    value, _ = two_values(action)
+    args = build_parser().parse_args(
+        [command, *without(PARSES[command], option), option, value]
+    )
+    expected: object = int(value) if action.type is int else value
+    assert getattr(args, action.dest) == expected

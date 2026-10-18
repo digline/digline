@@ -1033,6 +1033,7 @@ def execute(
     run_metadata: Mapping[str, object] | None = None,
     artifacts: Mapping[str, Artifact] | None = None,
     pinned: Sequence[str] | None = None,
+    modules_unchecked: Sequence[str] | None = None,
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
     pricing: str | None = None,
@@ -1258,6 +1259,12 @@ def execute(
         # layer opens no files. The invariant at the top of this function is what
         # makes handing them down unforgettable. (ADR 0029 §3)
         pinned=tuple(pinned or ()),
+        # What the loader found, handed down like the pins. `None` from a caller
+        # that loaded nothing through digline is *not recorded*, and is written
+        # so rather than as an empty list. (ADR 0052, decision 2)
+        modules_unchecked=(
+            None if modules_unchecked is None else tuple(modules_unchecked)
+        ),
         # Already read, like `created_at` and `git_commit`: the driver produces
         # a `Run` and opens no files. What the suite *declares* is a list of
         # paths; turning those into bytes is the CLI's job. (ADR 0003)

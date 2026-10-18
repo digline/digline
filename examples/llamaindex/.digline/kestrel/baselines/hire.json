@@ -281,7 +281,7 @@
       ]
     }
   ],
-  "schema_version": 18,
+  "schema_version": 19,
   "suite": "hire",
   "target_config": {},
   "tenant": "kestrel"

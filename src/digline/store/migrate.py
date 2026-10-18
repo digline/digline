@@ -351,6 +351,16 @@ def _add_schema_eighteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_nineteen(raw: dict[str, Any]) -> dict[str, Any]:
+    """18 -> 19. One passenger: `modules_unchecked`, and the step writes
+    nothing. A document before 19 recorded nothing about which modules were
+    read from source, and the absent key is how *not recorded* is written. A
+    `[]` here would say every module was read, which nobody measured.
+    (ADR 0052, the field on the run)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -368,6 +378,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     15: _add_schema_sixteen,
     16: _add_schema_seventeen,
     17: _add_schema_eighteen,
+    18: _add_schema_nineteen,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

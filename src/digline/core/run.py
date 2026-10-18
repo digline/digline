@@ -237,7 +237,15 @@ __all__ = [
 #    its refusal**: 0.24.x would ignore the key and meet tokens where it
 #    expects a provider and a model. The step writes `false`, which is what
 #    every document before 18 is. (ADR 0034 §8)
-SCHEMA_VERSION = 18
+#
+# 19: one passenger, `modules_unchecked`, additive. A reader that ignores it
+#    reads every number right, because the fact moves none; what it misses is
+#    a sentence. Written only where it was recorded, absent is *not recorded*,
+#    on `usage`'s rule, and the step writes nothing, because a document before
+#    19 recorded nothing about it. Checked against ADR 0014 §1: outside
+#    `config_hash`, since two runs of one configuration can differ in it.
+#    (ADR 0052, the field on the run)
+SCHEMA_VERSION = 19
 
 
 class DocumentRefusedError(ValueError):
@@ -1414,6 +1422,13 @@ class Run:
     #: per-call counts do not: they ride `RecordedResponse` and are payload.
     #: (ADR 0025 §1, §8)
     usage: RunUsage | None = None
+    #: The names the loader found already in `sys.modules` from an origin
+    #: digline did not load, so whether the application was read from source is
+    #: not known for them. `None` is **not recorded**, on `usage`'s rule: a
+    #: migrated document, a `Run` built by hand. Never read as zero. It crosses,
+    #: names and all: they come from the perimeter artifact and pinned paths
+    #: already cross from. (ADR 0052, decision 2 and the field on the run)
+    modules_unchecked: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -2090,6 +2105,10 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # counts are payload and go with the responses above, which is why the
         # split is by grain and not by field. (ADR 0025 §8)
         usage=run.usage,
+        # Carried in clear, names and all: they come from the perimeter the
+        # artifacts and pinned paths already cross from. (ADR 0052, the field on
+        # the run, condition 3)
+        modules_unchecked=run.modules_unchecked,
     )
 
 
@@ -2309,6 +2328,13 @@ def run_to_dict(run: Run) -> dict[str, object]:
         # before schema 14 and every `Run` built by hand. Absent is *not
         # recorded* and never a run that consumed nothing. (ADR 0025 §7)
         **({"usage": _run_usage_to_dict(run.usage)} if run.usage is not None else {}),
+        # Absent where nothing recorded it, on `usage`'s rule: absent is *not
+        # recorded* and never zero names. (ADR 0052)
+        **(
+            {"modules_unchecked": list(run.modules_unchecked)}
+            if run.modules_unchecked is not None
+            else {}
+        ),
     }
 
 
@@ -2542,6 +2568,18 @@ def _run_usage_to_dict(usage: RunUsage) -> dict[str, object]:
         "target": totals_to_dict(usage.target),
         "judge": totals_to_dict(usage.judge),
     }
+
+
+def _module_names_from(raw: object) -> tuple[str, ...]:
+    """`modules_unchecked` back. Called only where the key is present, so a
+    null is refused, as `usage`'s is, rather than read as *not recorded*."""
+    if not isinstance(raw, list) or not all(
+        isinstance(name, str) for name in cast(list[object], raw)
+    ):
+        raise ValueError(
+            f"run: modules_unchecked is {raw!r}, which is not a list of module names"
+        )
+    return tuple(cast(list[str], raw))
 
 
 def _run_usage_from_dict(raw: object) -> RunUsage:
@@ -3135,6 +3173,12 @@ def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
         # `in`, not `.get()`: an absent key is *not recorded* and a null is a
         # malformed document, and the two must not arrive here as one value.
         usage=(None if "usage" not in raw else _run_usage_from_dict(raw["usage"])),
+        # `in` for `usage`'s reason: absent is *not recorded*, a null is refused.
+        modules_unchecked=(
+            None
+            if "modules_unchecked" not in raw
+            else _module_names_from(raw["modules_unchecked"])
+        ),
     )
 
 

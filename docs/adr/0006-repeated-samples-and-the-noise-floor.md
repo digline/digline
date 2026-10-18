@@ -20,6 +20,11 @@
   [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) decides that
   the floor compares means with means and applies only where an assertion
   declares it (#496). Nothing changes until that code lands
+- Amended: 2026-10-17 — the variance alternative under *Alternatives
+  considered* gains a dated note and is kept as written.
+  [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) reverses it:
+  the first two reasons are answered there, and the third becomes a
+  requirement on what prints the floor
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -495,6 +500,16 @@ them.
 assumes a distribution, and five samples are not enough to earn the assumption.
 The min and the max are what was seen, which is a fact rather than a model, and
 they are what a reader can check against the raw samples printed beside them.
+
+*Noted 2026-10-17 ([ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md)),
+the paragraph above kept as written.* ADR 0050 reverses this choice, in its
+paragraph *The answer ADR 0006 is owed* (lines 110-118 at `2fedf3e`): the floor
+measures the dispersion of the mean instead of the observed interval. The first
+and the second reason, that the variance assumes a distribution and that five
+samples cannot earn it, are answered there. The third, that a reader can check
+the min and the max against the samples printed beside them, is accepted, and
+becomes a requirement in ADR 0050: whatever prints the floor prints what it was
+computed from.
 
 **A fourth `Outcome`, `within_noise`.** Rejected for the reason ADR 0001
 rejected a fourth state: the vocabulary a reader learns is the product's

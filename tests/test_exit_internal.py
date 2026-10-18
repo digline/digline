@@ -544,14 +544,19 @@ suite = dataclasses.replace(suite, assertions=[*suite.assertions, Exiting()])
 
 @pytest.mark.parametrize(
     ("args", "code"),
-    [(["--help"], EXIT_OK), (["run", "--no-such-flag"], 2)],
+    [(["--help"], EXIT_OK), (["run", "--no-such-flag"], EXIT_USAGE)],
     ids=["help", "bad-flag"],
 )
-def test_digline_s_own_argument_parser_still_exits_as_before(
+def test_digline_s_own_argument_parser_is_never_refused_as_code_digline_ran(
     tmp_path: Path, args: list[str], code: int
 ) -> None:
     """The control: `argparse` raises `SystemExit` for digline itself, outside
-    the `try` the rule lives in, and keeps its codes."""
+    the `try` the rule lives in, and it is never refused as code digline ran.
+    ADR 0041's rule is on the frame, not on the number. The number is the
+    parser's own: `--help` exits 0, and a refused command line exits 64, by
+    ADR 0008 §1, where it exited argparse's 2 until that was made true. The
+    assertion on "code digline ran" is the half ADR 0041 protects, and it does
+    not change."""
     done = cli(tmp_path, *args)
 
     assert done.returncode == code

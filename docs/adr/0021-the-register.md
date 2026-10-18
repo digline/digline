@@ -477,6 +477,13 @@ example ships no rotation, and the marker arrives with the first one.
 which is `EXIT_UNJUDGED`'s number: a pipeline that typed `--disposition` wrong
 reads *the run could not be judged*. The fix is one parser for the whole CLI and
 it touches ADR 0008 §2's contract, so it is not made in passing here.
+*Noted 2026-10-17: the question was already decided, in [ADR
+0008](0008-the-two-run-report.md) §1, which says "a bad flag, an unreadable
+run, a refused pair (§3) exit `EXIT_USAGE` (64)". argparse's 2 was a deviation
+from that decision, not one of two conventions to choose between. The fix does
+not touch ADR 0008 §2, which is about which command gates and not about usage
+errors: the parser now exits 64, as §1 said it did. The paragraph is kept as
+written.*
 
 **Requiring a register entry before a promotion.** The two gestures are kept
 apart in §2. Whether a team may make one a precondition of the other is a policy

@@ -1,6 +1,6 @@
 # digline
 
-**A Python regression gate for LLM applications: the approved baseline is a file in your repository, and every run in CI is compared against it.**
+**Regression testing for LLM applications: sample your reference and a score drop is read against how much that score moves on its own. A flip from pass to fail is always a regression.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
@@ -27,6 +27,11 @@ tells you whether you are below it: which case, which check, by how much. The
 baseline is a JSON file in your repository, so it goes through code review and
 it rolls back with `git`. No server, no account, no network call you have not
 configured yourself.
+
+When a check uses a model to grade, that grader does not always agree with
+itself. Ask digline to sample and it records how much the score moved on its
+own and prints that next to the verdict, so you can see whether a drop is
+bigger than the measurement.
 
 ```console
 $ digline compare --suite suite.py --run latest
@@ -219,7 +224,7 @@ One card each — parameters, typical values, what to watch out for — in
   baseline's interval is reported as unchanged rather than as a regression — a
   tool that cries wolf on its own measurement error teaches people to promote
   past it. It never rescues a flip, and it never invents an interval it does not
-  have.
+  have, so you see one once you have promoted a sampled baseline.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
@@ -334,7 +339,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.31.0`, pre-1.0. The offline cycle — write the suite, run, compare, promote,
+`0.32.0`, pre-1.0. The offline cycle — write the suite, run, compare, promote,
 report, and commit what a person decided — is complete, covered by tests, and
 used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. The API may

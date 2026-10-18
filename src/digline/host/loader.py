@@ -32,7 +32,7 @@ import os
 import shlex
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.machinery import (
     EXTENSION_SUFFIXES,
     SOURCE_SUFFIXES,
@@ -104,6 +104,94 @@ def _finder(directory: str) -> FileFinder:
 _scoped: set[str] = set()
 
 
+@dataclass(slots=True)
+class _Footprint:
+    """What digline put in the process for the scopes of the suites it loaded
+    since the last `load_suite`, and nothing else: each list holds only what
+    digline inserted, so taking it out touches nothing it did not put there.
+    (ADR 0052, decision 1)"""
+
+    #: The suites' own modules, `_digline_suite_<stem>`.
+    names: list[str] = field(default_factory=list[str])
+    #: Directories digline put on `sys.path`; one already there is not listed.
+    paths: list[str] = field(default_factory=list[str])
+    #: The path hooks `_scope_to_source` installed.
+    hooks: list[Callable[[str], FileFinder]] = field(
+        default_factory=list[Callable[[str], FileFinder]]
+    )
+    #: `sys.path_importer_cache` keys digline set.
+    cached: list[str] = field(default_factory=list[str])
+    #: The real paths added to `_scoped`.
+    scoped: list[str] = field(default_factory=list[str])
+
+
+_footprint = _Footprint()
+
+
+def _ours(module: object, scoped: list[str]) -> bool:
+    """Whether `module` was read by digline's finder from one of `scoped`.
+
+    By its loader, not by where its file is: a module a test imported from the
+    same directory through the ordinary machinery is not digline's to remove.
+    """
+    spec = getattr(module, "__spec__", None)
+    if spec is None or not isinstance(spec.loader, SourceOnlyLoader):
+        return False
+    origin = os.path.realpath(spec.origin or "")
+    return any(origin.startswith(real + os.sep) for real in scoped)
+
+
+def _take_out() -> None:
+    """Remove what the previous loads put in place for their scopes, so the next
+    load reads its application from disk. Every row of ADR 0052's table, and
+    only what `_footprint` recorded."""
+    global _footprint
+    done, _footprint = _footprint, _Footprint()
+    tops = {
+        name
+        for name, module in list(sys.modules.items())
+        if "." not in name and _ours(module, done.scoped)
+    }
+    for name in list(sys.modules):
+        # A package's submodules go with it: the ordinary finder read them on
+        # the package's behalf, inside the scope.
+        if name in done.names or name.partition(".")[0] in tops:
+            del sys.modules[name]
+    for directory in done.paths:
+        if directory in sys.path:
+            sys.path.remove(directory)
+    for hook in done.hooks:
+        if hook in sys.path_hooks:
+            sys.path_hooks.remove(hook)
+    for directory in done.cached:
+        sys.path_importer_cache.pop(directory, None)
+    _scoped.difference_update(done.scoped)
+
+
+def _unchecked(directory: str) -> tuple[str, ...]:
+    """The names that would resolve in `directory` and are in `sys.modules`
+    from an origin digline's finder did not read. (ADR 0052, decision 2)"""
+    try:
+        entries = list(os.scandir(directory))
+    except OSError:
+        return ()
+    names: set[str] = set()
+    for entry in entries:
+        stem, suffix = os.path.splitext(entry.name)
+        if entry.is_dir() and os.path.isfile(os.path.join(entry.path, "__init__.py")):
+            names.add(entry.name)
+        elif entry.is_file() and suffix in SOURCE_SUFFIXES:
+            names.add(stem)
+    real = os.path.realpath(directory)
+    return tuple(
+        sorted(
+            name
+            for name in names
+            if name in sys.modules and not _ours(sys.modules[name], [real])
+        )
+    )
+
+
 def _scope_to_source(directory: str) -> None:
     """Make imports resolving in `directory` read from disk, always.
 
@@ -124,6 +212,7 @@ def _scope_to_source(directory: str) -> None:
     if real in _scoped:
         return
     _scoped.add(real)
+    _footprint.scoped.append(real)
 
     def hook(path: str) -> FileFinder:
         if os.path.realpath(path) != real:
@@ -132,9 +221,11 @@ def _scope_to_source(directory: str) -> None:
         return _finder(path)
 
     sys.path_hooks.insert(0, hook)
+    _footprint.hooks.append(hook)
     # The cache is consulted before the hooks, so the entry has to be replaced
     # too — otherwise a finder built earlier would keep serving this directory.
     sys.path_importer_cache[directory] = _finder(directory)
+    _footprint.cached.append(directory)
 
 
 def _split(spec: str) -> tuple[str, str | None]:
@@ -204,6 +295,7 @@ def _import(module_part: str, spec: str) -> ModuleType:
         directory = str(path.parent)
         if directory not in sys.path:
             sys.path.insert(0, directory)
+            _footprint.paths.append(directory)
         # …and what resolves there is read from disk, never from bytecode.
         _scope_to_source(directory)
 
@@ -212,6 +304,7 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # Registered before execution so a module using dataclasses that refer
         # to their own names resolves normally.
         sys.modules[name] = module
+        _footprint.names.append(name)
         # An import the suite cannot satisfy is a refusal with a reader, as it
         # already is for the dotted form below. Unwrapped it was classified as
         # nobody's refusal, so the MCP server passed it on as the bare "Error
@@ -429,6 +522,10 @@ class Loaded:
     suite: Suite
     module: ModuleType | None = None
     target: Target | None = None
+    #: The names that would resolve inside the suite's scope and were already in
+    #: `sys.modules` from an origin digline did not load, so whether they match
+    #: the files on disk is not known. Named, never refused. (ADR 0052, decision 2)
+    modules_unchecked: tuple[str, ...] = ()
 
     @property
     def is_data(self) -> bool:
@@ -443,6 +540,11 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
     new flag — the CLI already dispatches on the shape of what it is given, and
     one more suffix is the smallest addition to a surface people have learned.
     """
+    # Before any load, of either form: what the previous suite's scope put in
+    # the process goes, so a long-lived process reads each suite's application
+    # from disk as a fresh one does. Not in `load_target`, which loads beside
+    # the suite it is given. (ADR 0052, decision 1)
+    _take_out()
     if spec.endswith(SUITE_SUFFIX):
         path = Path(spec)
         if not path.is_file():
@@ -461,7 +563,13 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
     value = _pick(module, attr or SUITE_ATTR, spec, "suite")
     if not isinstance(value, Suite):
         raise UsageError(f"{spec!r} gave a {type(value).__name__}, not a Suite")
-    return value, Loaded(suite=value, module=module)
+    # A file spec only: a dotted one has no scope (ADR 0002 §9).
+    unchecked = (
+        _unchecked(os.path.dirname(module.__file__ or ""))
+        if module.__name__ in _footprint.names
+        else ()
+    )
+    return value, Loaded(suite=value, module=module, modules_unchecked=unchecked)
 
 
 def load_target(spec: str | None, loaded: Loaded, suite_spec: str) -> Target:

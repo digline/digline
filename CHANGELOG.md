@@ -8,6 +8,113 @@ notes under them are this file, verbatim.
 
 ## 0.32.0 — unreleased
 
+digline **0.32.0**. **A minor, because what a user relies on stops working as
+it did:** a command line digline cannot parse exits 64 instead of 2, an option
+given two different values is refused, a run that judged nothing exits 2 and
+cannot be promoted, and a pinned file renamed and changed exits 2 where the
+comparison used to pass. A suite loaded a second time in one process reads its
+application from disk instead of what the first load left behind, so a cache or
+a client opened at import no longer survives into the next run. A program that
+calls `headline`, `render_html`, `run_exit_code` or `refusals_for`, or a store
+of its own that implements `promote_baseline`, must now pass
+`declared=suite.declared()`. Three things digline could not check — a pinned
+file with no reference, a pin the judged run no longer declares, and a module
+already loaded from elsewhere — it now names instead of passing over, and none
+of them moves an exit code alone. Schema 19 comes with it, for one field. Run
+`digline migrate`. `OUTPUT_VERSION` does not move.
+
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
+- **Behaviour change: a suite loaded again in the same process reads its
+  application again** ([ADR 0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
+  #513). In `digline-mcp` a second load was answered by what the first left
+  behind, measured three ways: an edit to the application was not read, a
+  second suite's `brief` answered with the first suite's, and a module only the
+  first suite's directory held was found from the second. A `pytest-digline`
+  session with several suites loads them through the same loader; it was not
+  measured. Now, before the next load, digline takes out what it put in
+  place for the previous suite's scope: the suite's module, the modules that
+  resolved in its directory, the directory on `sys.path`, its path hook, its
+  importer cache entry, and the directory in the loader's own `_scoped`.
+  Nothing it did not insert is touched. **The declared cost:** a suite that
+  counted on module state persisting between runs in one process, a cache, a
+  counter or a client opened at import, starts again at each load. A `digline`
+  command loads one suite and exits, so nothing changes there. Runs already
+  stored by a long-lived process after an edit cannot be told apart: nothing
+  they record says which application answered. **A module already loaded from
+  elsewhere is named, not refused: `modules_unchecked`.** A test module that
+  imports the application before the suite does is the normal pytest layout,
+  and digline cannot read that module from source; the run says so. The names
+  are on the run document and, beside *already loaded, not read from source*,
+  under `digline compare`'s sentence. The count is in the headline, in
+  `compare --json` and in the report, read from the judged run alone. It moves
+  no exit code. A program that calls `execute()` passes
+  `modules_unchecked=loaded.modules_unchecked`; without it, its runs say *not
+  recorded*.
+- **Schema 19, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
+  18 → 19 for one field, `modules_unchecked`. The step writes nothing: a run
+  written before this release recorded nothing about which modules it read
+  from source, and the absent key says *not recorded*, never zero. Compared as
+  the judged run, it gets a sentence of its own, *"This run does not record
+  whether the modules it measured were read from source, so whether they match
+  the files on disk is not known."*, and `null` in `compare --json`; no number
+  moves. **This is what you may meet in CI:** upgrade digline without running
+  `digline migrate`, and every run already stored is refused, the reference
+  with them. `compare --run latest` exits `64` and says the runs at schema 18
+  were ignored and to run `digline migrate`; a run named by its key exits `64`
+  with *"schema_version 18 is not supported (expected 19)"*. Migrate once, and
+  commit the migrated reference. A 0.31.x reader refuses a schema-19 document,
+  and a resume journal does not move. `output_version` does not move either:
+  the keys are added.
+- **An option given two different values is refused, and the refusal names
+  both** (#567). argparse kept the last value of a repeated option and dropped
+  the others without a word: `compare --suite a.py --suite b.py` compared
+  `b.py` alone and exited with its code, and nothing said `a.py` was gone. Now
+  `digline` and `digline-mcp` exit `64` with *"argument --suite: given
+  different values ('a.py', 'b.py'); it takes one, so give it once"*. The same
+  value given twice drops nothing and still passes; values are compared as
+  stored, so `--port 80 --port 080` is one port. `--meta`, which is
+  repeatable by design, and flags such as `--json` on `run` are not touched.
+  **The declared cost:** a script that builds a command line from defaults
+  and overrides one by adding the flag again at the end now exits `64` when
+  the new value is different, which is the case it cared about; when it is
+  the same, nothing changes. Build the line without the duplicate. A command
+  line that says two things at once is the person's mistake, and guessing
+  which one they meant is deciding for them in silence.
+- **A command line digline refuses exits `64`, not `2`.** An unknown flag,
+  a flag with no value, a required flag left out, a choice that is not one,
+  or an unknown subcommand exits `64`, `EXIT_USAGE`, as
+  [ADR 0008](docs/adr/0008-the-two-run-report.md) §1 said a bad flag did. It
+  exited argparse's own `2` instead, in every command and in `digline-mcp`.
+  **For whoever reads the code in CI:** from this release `2` means only what
+  the contract says, a run that could not be judged. A mistyped flag no longer
+  reads as one. A pipeline that treated `2` as "fix the command" now gets
+  `64` for that. `--help` and `--version` still exit `0`.
+- **Behaviour change: a pinned file renamed and changed in one run exits `2`**
+  ([ADR 0051](docs/adr/0051-a-pinned-path-the-run-no-longer-records.md),
+  #483). Until now the old path read as *missing* and the new one as *new*,
+  neither counted as drift, and `compare` exited `0` with nothing about pins
+  in the headline. Now a path the reference pinned that the judged run no
+  longer records, beside a pinned path with no reference value, is
+  `pinned_lost`, and `compare`, `report` and `explain` exit `2`, as MCP's
+  `exit_code` does. **This is what you may meet in CI without looking for
+  it:** a comparison that exited `0` on that case exits `2` after upgrading,
+  over the same two stored runs. A run that removes one pinned file and pins
+  a new one in the same change exits `2` too: from the two documents it
+  cannot be told from a rename, and the record declares that cost. To get
+  past it, promote the run once you have looked at it.
+- **Two facts that move no exit code**, each with a sentence of its own in
+  every locale: `pinned_unreferenced`, a pinned file the reference never
+  recorded, so whether it changed was not checked; and `pinned_withdrawn`, a
+  pin the reference held and this run does not, which ADR 0029 §9 said the
+  comparison reports and nothing did. A pin added beside its file, or one
+  withdrawn on its own, stays green. `pinned_unchecked` keeps its meaning and
+  its count. All three are on the headline and in `compare --json`;
+  `output_version` does not move, because they are added keys, and the
+  register gains nothing.
 - **Breaking: a run that judged nothing exits `2` and cannot be promoted**
   ([ADR 0049](docs/adr/0049-a-run-that-judged-nothing-does-not-pass.md),
   #360, #374). A run judged nothing when none of the cases its suite measures
@@ -38,6 +145,9 @@ notes under them are this file, verbatim.
   `fact.session_not_green` in every locale: *"{suite}: digline exits {code},
   so this session does not end green."* pytest-digline prints it (ADR 0049
   §7). An added key; nothing that read the table before reads it differently.
+- `digline --help` and the package description now say that the score's own
+  movement is measured and reported when you sample, and the description that
+  the measurement is the reference's.
 
 ## pytest-digline — unreleased
 

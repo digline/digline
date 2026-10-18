@@ -312,7 +312,7 @@ def exit_code(head: Headline) -> int:
     declares. `0` asserts that something was measured, and there it was not.
     (ADR 0049 §1, §3, §6)
 
-    `2` has four causes and this body is the enumeration of them — the one place
+    `2` has five causes and this body is the enumeration of them — the one place
     an enumeration is safe, because it is the source rather than a description of
     somebody else's set. `EXIT_UNJUDGED` keeps the name of the first; renaming an
     exported constant to settle a naming debt would break consumers to improve a
@@ -332,7 +332,13 @@ def exit_code(head: Headline) -> int:
         # headline can say what happened without saying something untrue about
         # it. (ADR 0016 §5)
         return EXIT_WORSE
-    if head.unjudged or head.scale_lost or head.pinned_drifted or head.nothing_judged:
+    if (
+        head.unjudged
+        or head.scale_lost
+        or head.pinned_drifted
+        or head.pinned_lost
+        or head.nothing_judged
+    ):
         # A lost scale is not an errored verdict — the score is real, and it is
         # the evidence — but the numbers beside it are not measurements, which
         # is what 2 already means. It comes after 1 by choice rather than by
@@ -354,6 +360,12 @@ def exit_code(head: Headline) -> int:
         # run could not be judged. Not `1`, which says a regression, and a run
         # that measured nothing is an absence, not a worsening. A moved canary
         # still outranks it, as it outranks every cause of 2. (ADR 0049 §3)
+        #
+        # And a lost pin, beside the drifted one and for its reason: a path the
+        # reference pinned is gone and a pinned path has no reference value, so
+        # the system that produced these numbers may not be the one the
+        # reference approved, and nothing in either document says which. A
+        # regression still outranks it. (ADR 0051 §3)
         return EXIT_UNJUDGED
     return EXIT_OK
 
@@ -1059,6 +1071,31 @@ _ADDED: tuple[_AddedKey, ...] = (
     # `null` where nothing was declared — beside the two edges it produced.
     _AddedKey("delta", "noise_se", _NUM_OR_NULL, "#496; ADR 0050"),
     _AddedKey("fact.check", "noise_se", _NUM_OR_NULL, "#496; ADR 0050"),
+    # A pinned path with no reference value and a pin the reference held and
+    # the judged run does not: two counts that move no number, for the reason
+    # `pinned_unchecked` is a count. And the two together, a new cause of exit
+    # 2 that a consumer reading `exit_code` already honours. No bump: the keys
+    # are added, and what changes is behaviour — a comparison that exited 0 on
+    # that case now exits 2 — which no version of the format can say.
+    _AddedKey("compare", "pinned_unreferenced", _INT, "ADR 0051 §1"),
+    _AddedKey("compare.full", "pinned_unreferenced", _INT, "ADR 0051 §1"),
+    _AddedKey("compare", "pinned_withdrawn", _INT, "ADR 0051 §2"),
+    _AddedKey("compare.full", "pinned_withdrawn", _INT, "ADR 0051 §2"),
+    _AddedKey("compare", "pinned_lost", _BOOL, "ADR 0051 §3"),
+    _AddedKey("compare.full", "pinned_lost", _BOOL, "ADR 0051 §3"),
+    # The modules the judged run found already loaded elsewhere: a count on the
+    # comparison, the names on the run. `null` on both is *not recorded*, a run
+    # written before the field or built by a caller that loaded nothing, and
+    # never zero. Moves no number, so no consumer reading `exit_code` reads it
+    # differently. (ADR 0052, decisions 2 and 3)
+    _AddedKey("compare", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
+    _AddedKey("compare.full", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
+    _AddedKey(
+        "run_document",
+        "modules_unchecked",
+        _k(_arr("string"), "null"),
+        "ADR 0052",
+    ),
 )
 
 

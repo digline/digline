@@ -169,11 +169,18 @@ canary moved. They are separate fields — `worse` and `canary_moved` — becaus
 canary that *improved* is a changed model too, and calling that "worse" would be
 a sentence nobody could reconcile with the number beside it.
 
-`2` has two causes as well: a case could not be judged (`unjudged`), or a
-calibration case scored outside its declared band (`scale_lost`). The second is
-not an error — the score is real — but the judged numbers beside it are not
-measurements, which is what `2` already meant. A regression beside a lost scale
-still returns `1`, and the calibration clause leads the headline either way.
+`2` has five causes: a case could not be judged (`unjudged`), a calibration
+case scored outside its declared band (`scale_lost`), a pinned file drifted
+from the reference (`pinned_drifted`), a pinned path of the reference is gone
+while a pinned path here has no reference (`pinned_lost`), or the run judged
+nothing (`nothing_judged`). A lost pin is what a pinned file renamed and
+changed in one run looks like, and also a pinned file removed beside a new pin:
+the two cannot be told apart, so `2`. A lost scale is not an error — the score
+is real — but the judged numbers beside it are not measurements, which is what
+`2` already meant. A run judged nothing when none of the cases its suite
+measures was judged: every one suspended, errored or absent. A suite of
+canaries and calibration cases only is judged by them. A regression beside any
+of them still returns `1`, and the headline says which.
 
 **Name the digline that produced what you are reading.** Run the CLI through
 the project's environment (`uv run digline …`), never a bare `digline`, which
@@ -181,7 +188,7 @@ is whichever install is first on your shell's `PATH`. A run records the digline
 that wrote it (`digline_version`). A comparison, a view and an explanation
 record nothing, so ask the same executable: `uv run digline --version`. It
 holds for that command only, because your shell can change before the next
-one. When it differs from the release these rules describe (**0.31.0**), say so
+one. When it differs from the release these rules describe (**0.32.0**), say so
 beside the result. A difference is a hypothesis, not a cause: before blaming
 it, re-run the same command on the release these rules describe.
 
