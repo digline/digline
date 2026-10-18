@@ -237,8 +237,17 @@ option given two different values is refused.
   The floor: `compare` passes `declared=loaded_suite.declared()` to
   `headline`, new in 0.32.0; against 0.31.0 the call raises `AttributeError`.
   The cap: a minor of the core can change a signature this server calls, as
-  0.32.0 did to 0.5.0. With the cap a resolver keeps digline inside 0.32 for
-  this release, instead of installing a pair that fails.
+  0.32.0 did to 0.5.0.
+
+  **The cap holds where the resolver resolves the whole environment.** In a
+  project, `uv add --upgrade digline` keeps digline inside `0.32`; without this
+  cap the same command moves to the next minor, which is how we know the cap is
+  what held it. `pip install -U digline` and `uv pip install -U digline` do not
+  hold it: both install the newer core beside this plugin, pip printing a line
+  that begins `ERROR:` and exiting `0`, uv saying nothing at all. Measured with
+  pip 26.2.1 and uv 0.11.14 against a `0.33.0` built locally, since PyPI holds
+  no `0.33`. So upgrade the core through the project's resolver, or pin
+  `digline` yourself.
 - **Breaking: a command line the server refuses exits `64`, not `2`** ([ADR
   0008](docs/adr/0008-the-two-run-report.md) §1). An unknown flag, a flag
   with no value or `--root` left out exits `64`, `EXIT_USAGE`, as `digline`
