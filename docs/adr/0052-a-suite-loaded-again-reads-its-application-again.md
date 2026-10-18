@@ -11,6 +11,10 @@
   which release the code landed
 - Shipped: 0.32.0
 - Date: 2026-10-17
+- Amended: 2026-10-18 — condition 3 under *The field on the run* gains a
+  dated correction and is kept as written. Its conclusion stands and its
+  reason does not: module names cross as class (b) of ADR 0034 §4, not
+  beside artifact paths, which are class (c) and become tokens
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`. The code that implements it opens an additive schema bump,
   with its step in `_STEPS`, for `modules_unchecked` on the run (*The field on
@@ -277,6 +281,27 @@ proposes the field, and the ADR says so in its own words"*. Here they are.
    new kind of name at the boundary. It is decided here and not later because
    ADR 0014 §1 says why: *"There is no third answer, and 'we will decide at the
    boundary later' is the answer that ships the leak."*
+
+   *Corrected 2026-10-18, the condition above kept as written.* **Its
+   conclusion stands: the count and the names cross, and `redact()` drops
+   neither. Its reason is wrong.** Artifact paths are class (c) of
+   [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
+   §4, and a projection turns them into tokens: they are among §5's six
+   strings (lines 582-585 at `b2f423b`). So they are not the perimeter module
+   names cross from. Module names cross because they are the software house's
+   own strings, as `suite` and `git_commit` are: class (b). §13 says what that
+   does not buy: *"A stringless document does not give a stringless
+   repository: `tenant` and `suite` are directory names, and the guarantee
+   stops at the file boundary"* (lines 1020-1022 at `b2f423b`).
+
+   **What stays open.** `modules_unchecked` is named in none of §4's three
+   classes, so today it **passes unclassified**, where §4 prescribes
+   *"refused, not passed"* (line 528 at `b2f423b`). It behaves correctly by
+   coincidence, not by classification, and the gate that would decide it is
+   §4's, which has not shipped. `_check_projected` (`core/run.py`, line 1571
+   at `b2f423b`) leaves it unchecked, beside the class (b) fields it leaves
+   unchecked too. ADR 0034 is not amended here: naming a field in its
+   enumeration changes an accepted record, and it belongs to the gate.
 
 ## Its price
 
