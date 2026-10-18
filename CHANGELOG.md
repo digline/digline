@@ -150,9 +150,34 @@ digline migrate --suite suite.py
   movement is measured and reported when you sample, and the description that
   the measurement is the reference's.
 
-## pytest-digline — unreleased
+## pytest-digline 0.3.0 — 2026-10-18
 
-The version is chosen by the release that carries this, from what it carries.
+Published by its own tag, `pytest-digline-v0.3.0`, after digline 0.32.0 was on
+PyPI. **A minor, because sessions that passed now stop or fail**, by the rule
+that holds for each package: the exit status, the nodeids of a suite named as
+`file.py:attribute`, and a suite named twice, below.
+
+- **pytest-digline 0.2.4 does not work with digline 0.32.0.** Every session
+  that names a suite with `--digline-suite` stops with *"TypeError:
+  headline() missing 1 required keyword-only argument: 'declared'"*, and
+  pytest exits `3`. With `--digline-run` the target is called and the run is
+  written first, then the session stops the same way. 0.2.4 declared
+  `digline>=0.31.0` with nothing above it, so installing or upgrading digline
+  gave it 0.32.0, where `headline` takes `declared` and has no default.
+  Upgrade to 0.3.0, or keep 0.2.4 with digline 0.31.x.
+- **The dependency is `digline>=0.32.0,<0.33`, the first cap on the core.**
+  The floor: opening each suite passes `declared=suite.declared()` to
+  `headline`, and the summary asks for `fact.session_not_green`, both new in
+  0.32.0; against 0.31.0 the first raises `AttributeError`. The cap: a minor
+  of the core can change a signature this plugin calls, as 0.32.0 did to
+  0.2.4. With the cap a resolver keeps digline inside 0.32 for this release,
+  instead of installing a pair that fails.
+- **A run written by `--digline-run` records `modules_unchecked`** ([ADR
+  0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
+  decision 2): the modules the suite's directory holds that were already
+  loaded from elsewhere, which in a pytest session is the normal case when a
+  test module imports the application first. A run written by 0.2.4 carries
+  no such field, and `digline compare` says it is *not recorded*.
 
 **Breaking**
 
