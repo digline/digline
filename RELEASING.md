@@ -3823,6 +3823,19 @@ Ruled 2026-10-01, the names in the morning, the keys the same day, and the
 fields of a listed dataclass that afternoon, before the tag of 0.25.3.
 `private/delta-pass-0.25.1.md` is the first pass run under the first half.
 
+*Ruled 2026-10-18.* **Every plugin tag carries a delta-pass over its own
+surface.** The question above is what a release made reachable, and a plugin
+tag is a release: it publishes a package the core's pass does not read,
+because that pass diffs the core between two core tags. A plugin's pass diffs
+the package between its last tag and the one being cut, in the same three
+ways, and its report goes in `private/` beside the core's.
+`tools/public_fields.py` already imports every plugin (`PACKAGES`, lines
+33-47), so its diff names a plugin's classes beside the core's, and the core's
+lines are the core pass's, not read again. The act came before the rule:
+`private/delta-pass-plugins-0.6.0.md` passed over digline-anthropic and
+digline-bedrock 0.6.0 on 2026-10-02, and `private/delta-pass-0.32.0.md` said
+of its two plugins that *"their pass rides those tags"*.
+
 The rule is here because 0.8.0 earned it in hours. That release added three
 surfaces, and the pass over them found that `resolved_model` travelled in clear
 out of a redacted run from a compatible endpoint, beside a `base_url` withheld
