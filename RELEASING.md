@@ -422,6 +422,23 @@ The reason this needs writing down at all is that the feature commit is *temptin
 it is green, it is the change everyone was working on, and nothing about it
 announces that it is not the release.
 
+*Noted 2026-10-18, cutting 0.32.0, the section above kept as written.* Two
+deviations from it, both on this release.
+- **The version cannot wait for the cut when the release moves the schema.**
+  Lines 391-393 at `51349aa` say *"The version moves **at the cut**"*, and the
+  docstring of `test_the_schema_this_workspace_writes_belongs_to_a_release`
+  (`tests/test_example_caps.py`, line 312 at `51349aa`) says `pyproject.toml`
+  *"is bumped at release time"*. Schema 19 moved in #590 (`c3828de`), and that
+  test stays red until the version has a `RELEASED` row for the schema the tree
+  writes. So the version moved in the same pull request (`21e2a5a`), and that
+  pull request was the bump. *Two rituals*, lines 60-66 at `51349aa`, already
+  says a moved schema obliges a version bump; what it does not say is that the
+  bump then leaves the cut.
+- **The `Shipped:` sweep ran in the release pull request.** Lines 405-406 at
+  `51349aa` put it in the bump pull request (*"steps 1 to 5 and the `Shipped:`
+  sweep"*). #590 merged without it, and ADR 0049, 0051 and 0052 took
+  `0.32.0` in the release pull request, the last two with their acceptance.
+
 ## Before the tag: the changelog
 
 `CHANGELOG.md` is updated **on the commit the tag will point at**, not after.
