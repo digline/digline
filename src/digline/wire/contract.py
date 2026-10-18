@@ -1051,6 +1051,14 @@ _ADDED: tuple[_AddedKey, ...] = (
     # `exit_code` already honours, by the rule `pinned_drifted` arrived under.
     _AddedKey("compare", "nothing_judged", _BOOL, "ADR 0049 §4"),
     _AddedKey("compare.full", "nothing_judged", _BOOL, "ADR 0049 §4"),
+    # The width of the recorded noise band in standard errors of the mean, on
+    # the two shapes that flatten one. Written only where the check declared a
+    # floor, so an undeclared suite emits the document it always did, and
+    # absent reads as the range band it had before. (#496; ADR 0050)
+    # The width the band was built from, in standard errors of the mean, and
+    # `null` where nothing was declared — beside the two edges it produced.
+    _AddedKey("delta", "noise_se", _NUM_OR_NULL, "#496; ADR 0050"),
+    _AddedKey("fact.check", "noise_se", _NUM_OR_NULL, "#496; ADR 0050"),
 )
 
 

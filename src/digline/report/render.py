@@ -1459,19 +1459,30 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     # the sentence claims, and a reader has to see it inside the statement rather
     # than trailing it. (ADR 0006 §10)
     noise = _noise_interval(delta, locale)
+    # Which sentences, not merely which numbers. A declared floor is a band
+    # around the baseline's **mean**, and the sentences written for the range
+    # band claim it is made of the individual samples — which would be a
+    # measurement nobody took. (ADR 0050)
+    declared = ".declared" if delta.noise_se is not None else ""
 
     over_budget = _exceedances(now, locale)
 
     if delta.within_noise:
         return (
-            phrase(locale, "detail.within_noise", before=was, now=is_now, noise=noise)
+            phrase(
+                locale,
+                f"detail.within_noise{declared}",
+                before=was,
+                now=is_now,
+                noise=noise,
+            )
             + over_budget
         )
     if delta.outcome == "regressed":
-        key = "detail.dropped.beyond_noise" if noise else "detail.dropped"
+        key = f"detail.dropped.beyond_noise{declared}" if noise else "detail.dropped"
         return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
     if delta.outcome == "improved":
-        key = "detail.rose.beyond_noise" if noise else "detail.rose"
+        key = f"detail.rose.beyond_noise{declared}" if noise else "detail.rose"
         return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
     return phrase(locale, "detail.unchanged", now=is_now) + over_budget
 
@@ -1581,12 +1592,24 @@ def _noise_interval(delta: AssertionDelta, locale: Locale) -> str:
     """
     if delta.noise_min is None or delta.noise_max is None:
         return ""
+    if delta.noise_se is None:
+        return phrase(
+            locale,
+            "noise.interval",
+            low=fmt_score(delta.noise_min),
+            high=fmt_score(delta.noise_max),
+            count=delta.noise_samples,
+        )
+    # A declared floor prints the width it was built from: the band alone says
+    # what the suite excused, and the width says how confident that excuse is.
+    # (ADR 0050)
     return phrase(
         locale,
-        "noise.interval",
+        f"noise.interval.declared.{'one' if delta.noise_se == 1.0 else 'many'}",
         low=fmt_score(delta.noise_min),
         high=fmt_score(delta.noise_max),
         count=delta.noise_samples,
+        se=f"{delta.noise_se:g}",
     )
 
 

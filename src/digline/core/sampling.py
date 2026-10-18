@@ -315,6 +315,10 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         ),
         threshold=first.threshold,
         tolerance=first.tolerance,
+        # The declaration every sample carried, from the same assertion that
+        # produced them: a fold that dropped it would be a check whose samples
+        # are recorded and whose floor is silently gone. (ADR 0050)
+        noise_se=first.noise_se,
         status="pass" if meets(mean, first.threshold) else "fail",
         reason=f"mean of {len(verdicts)} samples ({_rendered(verdicts)})",
         assertion_id=first.assertion_id,
@@ -466,11 +470,13 @@ class Repeated(AssertionBase):
     # `init=False` makes it impossible to pass one that contradicts the inner.
     threshold: float = field(init=False, default=0.0)
     tolerance: float = field(init=False, default=0.0)
+    noise_se: float | None = field(init=False, default=None)
     accepts: frozenset[OutputKind] = field(init=False, default=frozenset())
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "threshold", self.inner.threshold)
         object.__setattr__(self, "tolerance", self.inner.tolerance)
+        object.__setattr__(self, "noise_se", getattr(self.inner, "noise_se", None))
         object.__setattr__(self, "accepts", self.inner.accepts)
         if self.samples < 2:
             raise RefusedError(
@@ -515,6 +521,10 @@ class Repeated(AssertionBase):
             ),
             threshold=combined.threshold,
             tolerance=combined.tolerance,
+            # The declaration, re-stamped with the rest of the fold above: the
+            # wrapper's identity is the one recorded, so its rules are the ones
+            # that decide. (ADR 0050)
+            noise_se=combined.noise_se,
             status=combined.status,
             reason=combined.reason,
             assertion_id=self.identity,

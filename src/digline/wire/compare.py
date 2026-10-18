@@ -45,7 +45,7 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
     """
     before = None if delta.baseline is None else delta.baseline.score.score
     after = None if delta.current is None else delta.current.score.score
-    return {
+    payload: dict[str, object] = {
         "case_id": delta.case_id,
         "scope": delta.scope,
         "assertion": delta.assertion,
@@ -57,6 +57,14 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         "noise_min": delta.noise_min,
         "noise_max": delta.noise_max,
         "noise_samples": delta.noise_samples,
+        # The width the band above was built from, in standard errors of the
+        # mean, and `null` where the check declared no floor (ADR 0050):
+        # beside the two edges it produced, so a consumer reads one row of
+        # three rather than a convention about which keys happen to be
+        # present. A pipeline that wants to print the band the way the report
+        # does has the width it was built from; one that reads only the two
+        # edges is unaffected by a field that says `null`.
+        "noise_se": delta.noise_se,
         # Which row produced the exit code, when the headline says a canary
         # moved. A pipeline that reads only the number sees no change in kind;
         # one that wants to point at the check has the field. (ADR 0016 §8)
@@ -73,6 +81,7 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         # (ADR 0012 §3, amended 2026-09-18)
         "denominator_moved": delta.denominator_moved,
     }
+    return payload
 
 
 def _side_json(side: ShapeSide) -> dict[str, int]:

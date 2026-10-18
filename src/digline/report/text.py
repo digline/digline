@@ -557,18 +557,39 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "another."
         ),
         "noise.interval": "{low}–{high} across {count} samples",
+        # A declared floor (ADR 0050) prints its width beside the band: the
+        # band is the baseline's mean widened by that width, so a reader who
+        # wants to argue with the excuse is owed the number it was built from.
+        "noise.interval.declared.one": (
+            "{low}–{high} across {count} samples, 1 standard error of the mean"
+        ),
+        "noise.interval.declared.many": (
+            "{low}–{high} across {count} samples, {se} standard errors of the mean"
+        ),
         "detail.within_noise": (
             "Score moved from {before} to {now} — inside the range of the "
             "reference's individual samples ({noise}); not counted as a "
             "regression."
         ),
+        "detail.within_noise.declared": (
+            "Score moved from {before} to {now} — inside the declared noise "
+            "floor ({noise}); not counted as a regression."
+        ),
         "detail.dropped.beyond_noise": (
             "Score fell from {before} to {now} — outside the range of the "
             "reference's individual samples ({noise})."
         ),
+        "detail.dropped.beyond_noise.declared": (
+            "Score fell from {before} to {now} — outside the declared noise "
+            "floor ({noise})."
+        ),
         "detail.rose.beyond_noise": (
             "Score rose from {before} to {now} — outside the range of the "
             "reference's individual samples ({noise})."
+        ),
+        "detail.rose.beyond_noise.declared": (
+            "Score rose from {before} to {now} — outside the declared noise "
+            "floor ({noise})."
         ),
         "detail.flipped.worse": "Went from passing to failing ({before} → {now}).",
         "detail.flipped.better": "Went from failing to passing ({before} → {now}).",
@@ -1723,18 +1744,36 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "dell'altro."
         ),
         "noise.interval": "{low}–{high} su {count} campioni",
+        "noise.interval.declared.one": (
+            "{low}–{high} su {count} campioni, 1 errore standard della media"
+        ),
+        "noise.interval.declared.many": (
+            "{low}–{high} su {count} campioni, {se} errori standard della media"
+        ),
         "detail.within_noise": (
             "Il punteggio si è spostato da {before} a {now} — dentro "
             "l'intervallo dei singoli campioni del riferimento ({noise}); non "
             "conta come peggioramento."
         ),
+        "detail.within_noise.declared": (
+            "Il punteggio si è spostato da {before} a {now} — dentro la fascia "
+            "di rumore dichiarata ({noise}); non conta come peggioramento."
+        ),
         "detail.dropped.beyond_noise": (
             "Il punteggio è sceso da {before} a {now} — fuori dall'intervallo "
             "dei singoli campioni del riferimento ({noise})."
         ),
+        "detail.dropped.beyond_noise.declared": (
+            "Il punteggio è sceso da {before} a {now} — fuori dalla fascia di "
+            "rumore dichiarata ({noise})."
+        ),
         "detail.rose.beyond_noise": (
             "Il punteggio è salito da {before} a {now} — fuori "
             "dall'intervallo dei singoli campioni del riferimento ({noise})."
+        ),
+        "detail.rose.beyond_noise.declared": (
+            "Il punteggio è salito da {before} a {now} — fuori dalla fascia di "
+            "rumore dichiarata ({noise})."
         ),
         "detail.flipped.worse": "Da superato a non superato ({before} → {now}).",
         "detail.flipped.better": "Da non superato a superato ({before} → {now}).",

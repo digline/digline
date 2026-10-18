@@ -134,12 +134,47 @@ def _written_at(cls: type) -> str:
     return f"{cls.__qualname__}, in {cls.__module__}"
 
 
+#: The one field dropped from a fingerprint at every depth, not only at the top
+#: of the assertion that declares it. `threshold` and `tolerance` are *not*
+#: dropped recursively: they are already in a nested assertion's payload today,
+#: and removing them would move every wrapper's pinned identity — a change of a
+#: different order, made deliberately and separately. This one has to match the
+#: bytes the wrapper hashed to **before** the field existed, which is what the
+#: pin in `tests/test_check_kind.py` holds. (ADR 0050)
+_NESTED_IDENTITY_EXCLUDED = frozenset({"noise_se"})
+
+
+def _without_declared(value: object, names: frozenset[str]) -> object:
+    """`value` again with every key in `names` removed, at every depth.
+
+    An exclusion that stopped at the first nesting level would fingerprint the
+    declaration anyway the moment a wrapper carried one: `Repeated`'s identity
+    is built over `asdict(inner)`, so a field the top-level skip drops would
+    still appear in a nested assertion's own payload and move every wrapper's
+    fingerprint — and with it `config_hash`, the committed baselines, and the
+    `assertion_id` old documents record. (`dataclass_identity`)
+    """
+    if isinstance(value, dict):
+        return {
+            key: _without_declared(item, names)
+            for key, item in cast(dict[str, object], value).items()
+            if key not in names
+        }
+    if isinstance(value, list):
+        return [_without_declared(item, names) for item in cast(list[object], value)]
+    return value
+
+
 def dataclass_identity(obj: object, excluded: frozenset[str]) -> str:
     """A stable fingerprint of a dataclass's declared fields, minus `excluded`.
 
     Shared by `AssertionBase` and `RunAssertionBase`: one derivation means one
     set of rules about what counts as a different check, and no chance of the
     two drifting apart.
+
+    Excluded names are skipped at the top level, and `_NESTED_IDENTITY_EXCLUDED`
+    is dropped at every depth, so a wrapper around a check fingerprints that
+    check exactly as it did before the field was added to it. (ADR 0050)
     """
     if not is_dataclass(obj):
         raise AssertionShapeError(
@@ -148,11 +183,13 @@ def dataclass_identity(obj: object, excluded: frozenset[str]) -> str:
             "@dataclass(frozen=True), or override `identity` with a stable "
             "fingerprint of what it checks."
         )
-    payload = {"__type__": type(obj).__name__}
+    payload: dict[str, object] = {"__type__": type(obj).__name__}
     for f in fields(cast(Any, obj)):
         if f.name in excluded:
             continue
-        payload[f.name] = cast(Any, canonical(getattr(obj, f.name)))
+        payload[f.name] = _without_declared(
+            canonical(getattr(obj, f.name)), _NESTED_IDENTITY_EXCLUDED
+        )
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -174,6 +211,10 @@ def error_verdict(assertion: Assertion, reason: str) -> Verdict:
         score=Score(name=assertion.name, score=None),
         threshold=assertion.threshold,
         tolerance=assertion.tolerance,
+        # Carried for the reason `tolerance` is, though nothing scores an error:
+        # the declaration is part of what the suite said about this check, and a
+        # verdict that dropped it would read back as a check with no floor.
+        noise_se=getattr(assertion, "noise_se", None),
         status="error",
         reason=reason,
         assertion_id=assertion.identity,
@@ -199,6 +240,15 @@ class AssertionBase:
     name: str
     threshold: float
     tolerance: float
+    #: The declared width of this check's noise floor, in **standard errors of
+    #: the mean** (ADR 0050), or `None` where the check declares no floor and is
+    #: decided by its `tolerance` alone.
+    #:
+    #: A value rather than a bare annotation, deliberately: `_graded` reads
+    #: `self.noise_se` on every assertion, including a third-party one written
+    #: before this field existed. Those keep `None` and the behaviour they had —
+    #: and gain a floor the moment they declare one. (ADR 0050)
+    noise_se: float | None = None
     accepts: frozenset[OutputKind]
     #: What kind of check this is (see `CheckKind`). Declared without a value
     #: here so that a concrete class must say it: a default would make every
@@ -210,7 +260,9 @@ class AssertionBase:
 
     #: Fields deliberately outside `identity`. They describe *how* a result is
     #: judged, not *what* is checked, and they already travel in every `Verdict`.
-    IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset({"threshold", "tolerance"})
+    IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
+        {"threshold", "tolerance", "noise_se"}
+    )
 
     @property
     def identity(self) -> str:
@@ -277,6 +329,10 @@ class AssertionBase:
             score=Score(name=self.name, score=value, metadata=dict(metadata or {})),
             threshold=self.threshold,
             tolerance=self.tolerance,
+            # The declaration rides the verdict the way `tolerance` does: a
+            # baseline file then carries everything `compare()` needs to size
+            # this check's noise floor. (ADR 0050)
+            noise_se=self.noise_se,
             status="pass" if meets(value, self.threshold) else "fail",
             reason=reason,
             assertion_id=self.identity,
@@ -325,6 +381,7 @@ class Equals(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = ALL_KINDS
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
@@ -360,6 +417,7 @@ class Contains(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -399,6 +457,7 @@ class NotContains(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -451,6 +510,7 @@ class Affix(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -512,6 +572,7 @@ class IsJson(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -577,6 +638,7 @@ class Length(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -699,6 +761,7 @@ class Levenshtein(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 0.9
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -751,6 +814,7 @@ class Regex(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -789,6 +853,7 @@ class JsonSchema(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_OR_STRUCTURED
 
     def __post_init__(self) -> None:
@@ -905,6 +970,7 @@ class LlmRubric(AssertionBase):
     judge: Judge
     threshold: float
     tolerance: float
+    noise_se: float | None = None
     name: str = "llm_rubric"
     KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_OR_CONVERSATION
@@ -1003,6 +1069,7 @@ class PiiAbsent(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
@@ -1074,6 +1141,7 @@ class Faithfulness(AssertionBase):
     judge: ClaimJudge
     threshold: float
     tolerance: float
+    noise_se: float | None = None
     name: str = "faithfulness"
     KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_ONLY
@@ -1190,6 +1258,7 @@ class ToolsCalled(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = ALL_KINDS
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
@@ -1324,6 +1393,7 @@ class ToolCalledWith(AssertionBase):
     KIND: ClassVar[CheckKind] = "deterministic"
     threshold: float = 1.0
     tolerance: float = 0.0
+    noise_se: float | None = None
     accepts: frozenset[OutputKind] = ALL_KINDS
 
     def __post_init__(self) -> None:
@@ -1570,6 +1640,7 @@ class CostBudget(AssertionBase):
 
     max_usd: float
     tolerance: float
+    noise_se: float | None = None
     name: str = "cost_budget"
     KIND: ClassVar[CheckKind] = "budget"
     threshold: float = 0.5
@@ -1620,6 +1691,7 @@ class LatencyBudget(AssertionBase):
 
     max_ms: float
     tolerance: float
+    noise_se: float | None = None
     name: str = "latency_budget"
     KIND: ClassVar[CheckKind] = "budget"
     threshold: float = 0.5

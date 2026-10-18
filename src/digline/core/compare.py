@@ -273,6 +273,12 @@ class AssertionDelta:
     #: How many samples the interval was measured over, for the sentence the
     #: report prints: "0.85–0.95 across 5 samples".
     noise_samples: int = 0
+    #: The width of that band in **standard errors of the mean**, where the
+    #: check declared a floor, and `None` where the band is the range ADR 0006
+    #: §5 measures over the baseline's individual samples — or where there is no
+    #: band at all. The report prints whichever one it is holding, and never
+    #: describes one as the other. (ADR 0050)
+    noise_se: float | None = None
     #: This delta belongs to a case that watches the model rather than measuring
     #: it. A fact beside the outcome, like `within_noise` and for the same
     #: reason: `Outcome` gains no sixth member, and a reader who has learnt the
@@ -654,10 +660,32 @@ class Noise:
     low: float | None = None
     high: float | None = None
     count: int = 0
+    #: The declared width of this band, in standard errors of the mean, or
+    #: `None` for the band ADR 0006 §5 measures: the baseline's individual
+    #: samples, from its worst to its best. The two bands have different shapes
+    #: and answer different questions, so every sentence that carries one names
+    #: which it is. (ADR 0050)
+    se: float | None = None
 
     @property
     def known(self) -> bool:
         return self.low is not None and self.high is not None
+
+    @property
+    def what(self) -> str:
+        """How this band is named in the sentences that carry it.
+
+        Two bands, two names, and the difference is the whole point of ADR
+        0050: one is the range the baseline's individual samples covered, the
+        other is the width the suite declared around the baseline's mean. A
+        sentence that called the second "the individual samples" would describe
+        a measurement nobody took.
+        """
+        return (
+            "the declared noise floor"
+            if self.se is not None
+            else "the range of the baseline's individual samples"
+        )
 
     def covers(self, score: float) -> bool:
         """Whether `score` is inside the interval the baseline observed.
@@ -676,18 +704,17 @@ class Noise:
 
     def rendered(self) -> str:
         assert self.low is not None and self.high is not None
-        return f"{self.low:.6f}-{self.high:.6f} across {self.count} samples"
+        band = f"{self.low:.6f}-{self.high:.6f} across {self.count} samples"
+        # A declared band prints the width it was built from, so a reader who
+        # wants to argue with the floor has the number rather than only its
+        # consequences. (ADR 0050)
+        return band if self.se is None else f"{band} ({standard_errors(self.se)})"
 
     def beyond(self) -> str:
         """The clause added to a movement that left the interval. Nothing at all
         where there is no interval: silence is what "not known" sounds like, and
         a sentence about an absent measurement would read as a measurement."""
-        return (
-            f", outside the range of the baseline's individual samples "
-            f"({self.rendered()})"
-            if self.known
-            else ""
-        )
+        return f", outside {self.what} ({self.rendered()})" if self.known else ""
 
 
 def considered_cases(verdict: Verdict) -> int | None:
@@ -930,11 +957,52 @@ def _incomparable_clause(now: Verdict, before: Verdict) -> str:
     )
 
 
-def _noise(verdict: Verdict) -> Noise:
+def standard_errors(width: float) -> str:
+    """`1 standard error of the mean`, and plural above one.
+
+    One spelling, used by the reasons `compare()` writes and by the report's
+    phrase arguments, so a terminal and a document never describe the same
+    declared floor two ways. (ADR 0050)
+    """
+    return f"{width:g} standard error{'' if width == 1.0 else 's'} of the mean"
+
+
+def _noise(verdict: Verdict, *, se: float | None = None) -> Noise:
+    """The band a movement is judged against, from the **baseline's** samples.
+
+    With no `se` this is ADR 0006 §5's band, unchanged: the range the baseline's
+    individual samples covered. With one it is ADR 0050's — the baseline's mean,
+    widened by `se` standard errors of that mean — and it is the only band a
+    case-scope check may have. The samples are the same measurement either way;
+    what differs is which question they answer: "did this system ever score this
+    low?" against "could another draw of the same system land here?". A mean is
+    compared with a band around a mean, and the band narrows as the suite
+    samples more, because `se` divides by the square root of how many there are.
+    """
     score = verdict.score
     if not score.sampled:
         return Noise()
-    return Noise(score.sample_min, score.sample_max, len(score.samples))
+    if se is None:
+        return Noise(score.sample_min, score.sample_max, len(score.samples))
+    mean = score.score
+    assert mean is not None
+    # Population spread, `ddof=0`: the baseline's samples *are* the population
+    # to this comparison — they are what the reference recorded — so the width
+    # is what those samples show, with nothing guessed about the rest of the
+    # system's behaviour. (ADR 0050 §1)
+    variance = sum((value - mean) ** 2 for value in score.samples) / len(score.samples)
+    width = se * (variance**0.5) / (len(score.samples) ** 0.5)
+    # Both edges stored at the precision every score is stored at, so the band
+    # a caller can name — `0.621115` in the report, `0.621115` in `--json`, the
+    # same float in a probe at the edge — is the same number rather than one
+    # that merely prints the same. The range band above needs no such pass: its
+    # edges *are* stored scores.
+    return Noise(
+        at_precision(mean - width),
+        at_precision(mean + width),
+        len(score.samples),
+        se,
+    )
 
 
 def compare(run: Run, baseline: Run) -> Comparison:
@@ -1163,7 +1231,20 @@ def compare(run: Run, baseline: Run) -> Comparison:
         # the promoted, reviewed measurement; letting a noisy new run widen its
         # own excuse is how a regression hides inside a model that got less
         # stable. (ADR 0006 §5)
-        floor = _noise(before)
+        #
+        # What the interval *is*, ADR 0050 decides. For a case-scope check it is
+        # the band the assertion **declares**: the baseline's mean ± its width in
+        # standard errors of that mean — and a check that declares nothing has no
+        # floor at all, so nothing but its tolerance can quiet a movement. The
+        # run-level aggregates are out of that ADR's scope and keep the range
+        # band, because an aggregate's per-sample values are means of a whole
+        # run and their spread is already a spread of means.
+        if scope == "run":
+            floor = _noise(before)
+        elif now.noise_se is None:
+            floor = Noise()
+        else:
+            floor = _noise(before, se=now.noise_se)
         within_noise = False
 
         # Before every branch below, because it decides whether `unchanged` is
@@ -1196,8 +1277,8 @@ def compare(run: Run, baseline: Run) -> Comparison:
             moved_to = "unchanged"
             within_noise = True
             why = (
-                f"score moved from {was} to {is_now}, inside the range of the "
-                f"baseline's individual samples ({floor.rendered()})"
+                f"score moved from {was} to {is_now}, inside {floor.what} "
+                f"({floor.rendered()})"
             )
         elif delta < 0:
             moved_to = "regressed"
@@ -1226,6 +1307,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_min=floor.low,
                 noise_max=floor.high,
                 noise_samples=floor.count,
+                noise_se=floor.se,
                 canary=case_id in canaries,
                 calibration=case_id in calibrated,
             )

@@ -59,6 +59,9 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "noise_min": fact.noise.low,
                 "noise_max": fact.noise.high,
                 "noise_samples": fact.noise.count,
+                # The width of that band in standard errors of the mean, and
+                # absent where the check declared no floor. (ADR 0050)
+                "noise_se": fact.noise.se,
                 # An added key, beside the kind rather than inside it: `kind`
                 # keeps the six values a consumer already matches on, and a
                 # check whose two sides counted different cases is now

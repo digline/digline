@@ -1789,6 +1789,20 @@ def config_hash(
         for a in run_assertions
     )
     body: list[object] = [entries, samples, min_agreement, aggregates]
+    # Declared noise floors ride the way a price does: only what a suite
+    # declared, and only when it declared some, so every suite that declares no
+    # floor keeps the exact bytes, hash and run keys it had before. It belongs
+    # here for the reason a threshold does — a wider floor excuses more movement,
+    # so promoting a baseline across the change silently is what this refuses —
+    # and only the declarations are added, leaving `entries` byte-identical.
+    # (ADR 0050)
+    declared_floors = sorted(
+        (a.identity, _num(float(width)))
+        for a in assertions
+        if (width := getattr(a, "noise_se", None)) is not None
+    )
+    if declared_floors:
+        body.append(declared_floors)
     if pricing:
         # Appended only when present: every suite that declares no price keeps
         # the exact bytes, and so the exact hash and run keys, it had before.
@@ -2110,6 +2124,12 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
         "tolerance": _num(verdict.tolerance),
         "metadata": canonical(verdict.score.metadata),
     }
+    # Absent when the check declares no floor, never `null`: a suite that
+    # declares none writes the byte-identical file it wrote before ADR 0050,
+    # and the reader below takes absence as "no declaration" rather than as a
+    # number it has to invent.
+    if verdict.noise_se is not None:
+        payload["noise_se"] = _num(verdict.noise_se)
     # Absent when there is one sample, never `null`: an unsampled check records
     # nothing, so a run file from a suite left at `samples=1` is byte for byte
     # the file that suite produced before ADR 0006. (ADR 0006 §4)
@@ -2205,6 +2225,10 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         ),
         threshold=declared_number(raw, "threshold", where),
         tolerance=declared_number(raw, "tolerance", where),
+        # Optional on purpose, and the absence is the answer: the key was added
+        # by ADR 0050 and a document without it is a suite that declared no
+        # floor, which is exactly what `None` means to `compare()`.
+        noise_se=_optional_number(raw, "noise_se", where),
         status=cast(Status, str(_required(raw, "status", where))),
         # A redacted document has no `reason` to read; the marker keeps the
         # reconstructed verdict valid without inventing content. One that

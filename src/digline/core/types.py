@@ -545,6 +545,16 @@ class Verdict:
     #: not a measurement: it is outside `identity` and `config_hash`, and no
     #: comparison, gate or exit code reads it. (ADR 0024 §6.1, §6.4)
     judged: bool = False
+    #: The width of this check's noise floor, in **standard errors of the
+    #: mean**, or `None` where the check declares no floor at all. A
+    #: declaration, not a measurement: the band itself is the *baseline's*
+    #: sample spread scaled by this number, and is computed in `compare()`.
+    #: Recorded here for the reason `tolerance` is — a baseline file then
+    #: carries everything needed to interpret it, and `compare()` stays
+    #: self-sufficient with two arguments. Written to the document only when
+    #: declared, so a suite that declares no floor produces the byte-identical
+    #: file it produced before. (ADR 0050)
+    noise_se: float | None = None
 
     def __post_init__(self) -> None:
         if not self.assertion_id:
@@ -571,6 +581,15 @@ class Verdict:
         # round-tripped copy are indistinguishable.
         object.__setattr__(self, "threshold", at_precision(self.threshold))
         object.__setattr__(self, "tolerance", at_precision(self.tolerance))
+        if self.noise_se is not None:
+            if self.noise_se < 0:
+                raise ValueError(
+                    f"the verdict {self.score.name!r} carries a negative "
+                    f"noise_se ({self.noise_se}): a width in standard errors is "
+                    "a non-negative number, and a negative one would invert the "
+                    "band it declares (ADR 0050)"
+                )
+            object.__setattr__(self, "noise_se", at_precision(self.noise_se))
         if self.score.score is not None:
             rounded = at_precision(self.score.score)
             if rounded != self.score.score:

@@ -112,13 +112,21 @@ def test_the_aggregate_threshold_is_inclusive_at_the_edge() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def verdict(name: str, score: float, *, threshold: float, tolerance: float) -> Verdict:
+def verdict(
+    name: str,
+    score: float,
+    *,
+    threshold: float,
+    tolerance: float,
+    noise_se: float | None = None,
+) -> Verdict:
     return Verdict(
         score=Score(name=name, score=score),
         threshold=threshold,
         status="pass" if score >= threshold else "fail",
         reason="test reason",
         tolerance=tolerance,
+        noise_se=noise_se,
         assertion_id=f"id-{name}",
     )
 
@@ -229,14 +237,16 @@ def test_the_delta_the_rule_tests_is_the_delta_the_wire_carries() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 3. The measured noise floor: `sample_min <= score <= sample_max`
+# 3. The declared noise floor: `low <= score <= high`
 # --------------------------------------------------------------------------- #
 
 
-def sampled(score: float, *samples: float) -> Verdict:
-    """A baseline that wobbled, with the interval its samples span. `tolerance`
-    is zero throughout this section so the declared rule cannot answer first —
-    `compare()` checks it before the measured floor."""
+def sampled(score: float, *samples: float, noise_se: float | None = 1.0) -> Verdict:
+    """A baseline that wobbled, declaring the floor it is judged against.
+    `tolerance` is zero throughout this section so the declared rule cannot
+    answer first — `compare()` checks it before the measured floor — and
+    `noise_se` defaults to one because a case-scope check has no band it does
+    not declare (ADR 0050)."""
     return Verdict(
         score=Score(
             name="rubric",
@@ -249,24 +259,61 @@ def sampled(score: float, *samples: float) -> Verdict:
         status="pass",
         reason="folded",
         tolerance=0.0,
+        noise_se=noise_se,
         assertion_id="id-rubric",
     )
 
 
 def against(score: float, baseline: Verdict) -> tuple[str, bool]:
+    # The probe declares what the baseline declares: the floor is the current
+    # run's declaration read against the reference's samples, so a run that
+    # declared nothing would be judging against no band at all. (ADR 0050)
     comparison = compare(
-        run_of(verdict("rubric", score, threshold=0.5, tolerance=0.0)),
+        run_of(
+            verdict(
+                "rubric",
+                score,
+                threshold=0.5,
+                tolerance=0.0,
+                noise_se=baseline.noise_se,
+            )
+        ),
         run_of(baseline),
     )
     delta = comparison.deltas[0]
     return delta.outcome, delta.within_noise
 
 
+def band(baseline: Verdict) -> tuple[float, float]:
+    """The edges `compare()` itself computes for this baseline — not a
+    recomputation of the formula beside them, so a probe at an edge is a probe
+    at the very float `covers()` will compare against, on the storage grid every
+    score already lives on. (ADR 0050)"""
+    score = baseline.score.score
+    assert score is not None
+    comparison = compare(
+        run_of(
+            verdict(
+                "rubric",
+                score,
+                threshold=0.5,
+                tolerance=0.0,
+                noise_se=baseline.noise_se,
+            )
+        ),
+        run_of(baseline),
+    )
+    delta = comparison.deltas[0]
+    assert delta.noise_min is not None and delta.noise_max is not None
+    return delta.noise_min, delta.noise_max
+
+
 def test_the_noise_floor_is_inclusive_at_the_low_end() -> None:
     baseline = sampled(0.8, 0.6, 0.8, 1.0, 0.8, 0.8)
-    assert against(0.6, baseline) == ("unchanged", True)
-    assert against(0.6 + STEP, baseline) == ("unchanged", True)
-    assert against(0.6 - STEP, baseline) == ("regressed", False)
+    low, _ = band(baseline)
+    assert against(low, baseline) == ("unchanged", True)
+    assert against(low + STEP, baseline) == ("unchanged", True)
+    assert against(low - STEP, baseline) == ("regressed", False)
 
 
 def test_the_noise_floor_is_inclusive_at_the_high_end() -> None:
@@ -275,9 +322,10 @@ def test_the_noise_floor_is_inclusive_at_the_high_end() -> None:
     would leave the test above green while turning a rise the baseline had
     already shown into an `improved`."""
     baseline = sampled(0.78, 0.6, 0.8, 0.9, 0.8, 0.8)
-    assert against(0.9, baseline) == ("unchanged", True)
-    assert against(0.9 - STEP, baseline) == ("unchanged", True)
-    assert against(0.9 + STEP, baseline) == ("improved", False)
+    _, high = band(baseline)
+    assert against(high, baseline) == ("unchanged", True)
+    assert against(high - STEP, baseline) == ("unchanged", True)
+    assert against(high + STEP, baseline) == ("improved", False)
 
 
 # --------------------------------------------------------------------------- #

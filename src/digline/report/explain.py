@@ -608,7 +608,9 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
         after=None if now is None else now.score.score,
         delta=delta.delta,
         threshold=None if now is None else now.threshold,
-        noise=Noise(delta.noise_min, delta.noise_max, delta.noise_samples),
+        noise=Noise(
+            delta.noise_min, delta.noise_max, delta.noise_samples, delta.noise_se
+        ),
         # Read off *this run's* verdict, not the delta's interval: the noise
         # above is the baseline's, because that is what a movement is judged
         # against, while being on the line is a fact about the measurement this
@@ -1143,14 +1145,27 @@ def _on_line(fact: CheckFact, locale: Locale) -> str:
 
 def _interval(noise: Noise, locale: Locale) -> str:
     """The interval, rendered by the key the report already renders it with, so
-    one movement reads the same in a reading and in a document."""
+    one movement reads the same in a reading and in a document.
+
+    A declared floor (ADR 0050) prints the width it was built from beside the
+    band — the band alone says what the suite excused, and the width says how
+    much of that excuse was measurement rather than confidence."""
     assert noise.low is not None and noise.high is not None
+    if noise.se is None:
+        return phrase(
+            locale,
+            "noise.interval",
+            low=fmt_score(noise.low),
+            high=fmt_score(noise.high),
+            count=noise.count,
+        )
     return phrase(
         locale,
-        "noise.interval",
+        f"noise.interval.declared.{'one' if noise.se == 1.0 else 'many'}",
         low=fmt_score(noise.low),
         high=fmt_score(noise.high),
         count=noise.count,
+        se=f"{noise.se:g}",
     )
 
 

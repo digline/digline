@@ -106,6 +106,38 @@ The version is chosen by the release that carries this, from what it carries.
   `both.py:support: …` and `both.py:billing: …`.
 - **Docs: the README's example summary shows the sentence digline prints.** It
   showed a wording digline does not produce.
+- **Breaking: a case's noise floor is the band its assertion declares, and a
+  check that declares none has no floor at all** ([ADR
+  0050](docs/adr/0050-the-noise-floor-compares-a-range-with-means.md), #496).
+  Until now a movement was judged against the range of the *baseline's
+  individual samples* — a band that **widens** as the suite samples more,
+  while the mean it is judged against steadies, so the floor ran backwards.
+  Below unanimity a binary baseline's range was `[0, 1]`, which covers every
+  score: a check written with `tolerance=0` to say *this must not move at
+  all* was the check the floor silenced, reporting every same-side movement
+  `unchanged`. Now a case-scope check's floor is the baseline's mean widened
+  by the standard errors its assertion **declares** with `noise_se` — one,
+  two, the number is the assertion author's and digline never infers it —
+  and a check that declares nothing has no floor: only its declared tolerance
+  can quiet a movement. The band narrows as the suite samples more, because
+  the width divides by the square root of how many samples there are.
+  **Run-level aggregates keep the range band unchanged**: an aggregate's
+  per-sample values are already means of a whole run, so their spread is a
+  spread of means — ADR 0050 names that floor out of scope where it opens.
+  A check whose floor used to excuse it and
+  that declares no `noise_se` can begin reporting movements it called
+  `unchanged` — that is the point of the change, not a side effect. There is
+  no flag and no migration: declare a width, or let the tolerance speak.
+- **`noise_se` rides every comparison and every explanation, and it is
+  excluded from identity.** It is a field on an assertion, on the verdict it
+  produces and on a repeated assertion, `null` where nothing is declared,
+  and it appears in `compare --json`'s `delta` and in `explain`'s `check`
+  alongside `noise_min`/`noise_max`. It is an added key, so `output_version`
+  does not move. Declaring it or changing it moves no pinned identity and no
+  config hash. The report names the band it used to print bare —
+  `0.621115–0.978885 across 5 samples, 1 standard error of the mean` — and
+  says *declared noise floor* rather than *the range of the baseline's
+  individual samples* wherever a case-scope floor spoke.
 
 ## digline-mcp 0.5.0 — 2026-10-12
 

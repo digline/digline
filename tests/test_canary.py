@@ -350,7 +350,12 @@ def test_a_canary_added_or_removed_is_not_a_moved_model() -> None:
 
 def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None:
     """The floor doing its job. Without it every wobble would stop a release,
-    which is the canary nobody trusts."""
+    which is the canary nobody trusts.
+
+    The floor has to be declared, since ADR 0050: a check that declares none is
+    judged by its tolerance alone, and this one writes `tolerance=0`. So both
+    sides declare the width they did here by default before that ruling.
+    """
     sampled = Verdict(
         score=Score(
             name="contains",
@@ -362,6 +367,7 @@ def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None
         threshold=0.5,
         status="pass",
         reason="judged",
+        noise_se=1.0,
         assertion_id="id-contains",
     )
     now = Verdict(
@@ -375,6 +381,7 @@ def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None
         threshold=0.5,
         status="pass",
         reason="judged",
+        noise_se=1.0,
         assertion_id="id-contains",
     )
     run = Run(
