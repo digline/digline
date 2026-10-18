@@ -307,7 +307,11 @@ def printing_repo(root: Path) -> Path:
     git(root, "commit", "-qm", "a suite that prints")
     first = cli(root, "run", "--suite", "suite_qa.py")
     assert first.returncode == EXIT_OK, first.stderr
-    key = first.stdout.strip().splitlines()[-1]
+    # The key from the store and not from standard output: what reaches standard
+    # output is what the tests built on this fixture examine, and a fixture
+    # that read it would fail before the test meant to notice could.
+    (stored,) = (root / ".digline").glob("*/runs/qa/*.json")
+    key = stored.stem
     promoted = cli(
         root,
         "promote",
