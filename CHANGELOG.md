@@ -170,8 +170,17 @@ that holds for each package: the exit status, the nodeids of a suite named as
   `headline`, and the summary asks for `fact.session_not_green`, both new in
   0.32.0; against 0.31.0 the first raises `AttributeError`. The cap: a minor
   of the core can change a signature this plugin calls, as 0.32.0 did to
-  0.2.4. With the cap a resolver keeps digline inside 0.32 for this release,
-  instead of installing a pair that fails.
+  0.2.4.
+
+  **The cap holds where the resolver resolves the whole environment.** In a
+  project, `uv add --upgrade digline` keeps digline inside `0.32`; without this
+  cap the same command moves to the next minor, which is how we know the cap is
+  what held it. `pip install -U digline` and `uv pip install -U digline` do not
+  hold it: both install the newer core beside this plugin, pip printing a line
+  that begins `ERROR:` and exiting `0`, uv saying nothing at all. Measured with
+  pip 26.2.1 and uv 0.11.14 against a `0.33.0` built locally, since PyPI holds
+  no `0.33`. So upgrade the core through the project's resolver, or pin
+  `digline` yourself.
 - **A run written by `--digline-run` records `modules_unchecked`** ([ADR
   0052](docs/adr/0052-a-suite-loaded-again-reads-its-application-again.md),
   decision 2): the modules the suite's directory holds that were already
