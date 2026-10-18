@@ -1889,6 +1889,21 @@ is the one a quiet log cannot supply.
   - **The multi-arch build's amd64 leg was `CACHED`** (`#10` to `#13`), so it
     installed nothing and proves nothing about the index: the arm64 leg is the
     one that read it.
+
+    *Added 2026-10-18.* What that leg published was read afterwards from the
+    artifact, through ghcr.io's registry API, and not from the log.
+    `ghcr.io/digline/digline:0.32.0` declares `digline-0.32.0` in its
+    `.dist-info` on linux/amd64
+    (`sha256:b82a01f3dd46d12ce8afdc9ba8d0d92a577f2957bea60756df93a96bc90bb83e`)
+    and on linux/arm64
+    (`sha256:f036b214e109ea1a507cbeefd945fd380679db5d378561f3f0a21f468152020a`).
+    Between `0.32.0` and `0.31.0` the one layer the two tags share is 32 bytes
+    and holds no `.dist-info`. The layer with site-packages has a different
+    digest in each tag, so no layer with site-packages was reused.
+    `pytest_digline` and `digline_mcp` are in neither architecture. The script
+    and its output are in `private/image-0.32.0-read/`. **Not known: what that
+    leg had in its cache**, because the build's log was not read for it. This
+    says that what was published is right, not why the leg was `CACHED`.
   - Both builds that ran installed `digline-0.32.0`, `digline-anthropic-0.6.1`,
     `digline-bedrock-0.6.1` and `digline-openai-0.5.2`.
   - `0.32.0`, `0.32` and `latest` resolve to one digest,
