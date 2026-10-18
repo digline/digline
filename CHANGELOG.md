@@ -20,13 +20,13 @@ notes under them are this file, verbatim.
   looked for your own prints on standard output, they are on standard error
   now.** Nothing digline writes moved, and no stored document changes. A
   caller that joins the two streams, as `2>&1` does, sees both together as
-  before. **Not reached:** what your code writes after the command has
-  finished, from a thread still running, an `atexit` handler or a `__del__`,
-  still reaches standard output, after digline's own lines.
+  before. What your code writes after the command has finished, from a thread
+  still running, an `atexit` handler or a `__del__`, goes to standard error
+  too: the `digline` command keeps standard output for itself to the end of
+  the process. A program that calls `digline.cli.main.main()` inside its own
+  process gets standard output back when the call returns.
 
-## digline-mcp — unreleased
-
-The version is chosen by the release that carries this, from what it carries.
+## digline-mcp 0.6.1 — unreleased
 
 - **What the suite prints no longer reaches the protocol stream**
   ([ADR 0043](docs/adr/0043-a-message-digline-did-not-write.md) §8, amended
@@ -38,6 +38,18 @@ The version is chosen by the release that carries this, from what it carries.
   before it answers, so it reaches standard error. **Not reached:** a `print`
   from a thread of the suite after the tool has answered, an `atexit` handler,
   or a `__del__` at shutdown. The amendment declares those.
+- **The dependency stays `digline>=0.32.0,<0.33`.** The fix is in the server
+  alone and needs nothing the core added after 0.32.0.
+
+  **The cap holds where the resolver resolves the whole environment.** In a
+  project, `uv add --upgrade digline` keeps digline inside `0.32`; without this
+  cap the same command moves to the next minor, which is how we know the cap is
+  what held it. `pip install -U digline` and `uv pip install -U digline` do not
+  hold it: both install the newer core beside this plugin, pip printing a line
+  that begins `ERROR:` and exiting `0`, uv saying nothing at all. Measured with
+  pip 26.2.1 and uv 0.11.14 against a `0.33.0` built locally, since PyPI holds
+  no `0.33`. So upgrade the core through the project's resolver, or pin
+  `digline` yourself.
 
 ## 0.32.0 — 2026-10-18
 

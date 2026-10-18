@@ -637,16 +637,27 @@ error. A CI log, an action's job log and an MCP client that records the
 server's standard error are all where that stream goes, and what they keep or
 show is theirs. If the caller joins the two streams, as `2>&1` does, there is
 no separation left, because descriptor 1 is then descriptor 2. That is the
-caller's choice, declared here rather than found later. And on the MCP server
-it does not reach what the user's code writes after the last flush of standard
-output and before the interpreter exits. Measured with digline-mcp 0.6.0 and a
-suite that flushes at the end of its import, standing in for the flush after
-each tool call: a print from the suite's own thread after the tool had
-answered, an `atexit` handler and a `__del__` at shutdown each reached the
-protocol stream as a line that is not JSON-RPC. The same thread's print,
-flushed while the server still served, went to standard error. Closing those
-three would depend on the order of the SDK's own shutdown, so they are
-declared and not closed.
+caller's choice, declared here rather than found later.
+
+**What the user's code writes late**, after the command or the tool call has
+finished and before the interpreter exits, from a thread of its own, an
+`atexit` handler or a `__del__`, is closed on the command line and open on the
+MCP server. On the command line the process's own entry keeps descriptor 1 on
+standard error to the end and does not give it back, so those writes reach
+standard error. Given back, they reached standard output after digline's own
+lines: measured with `digline run`, a thread's print and an `atexit` handler's
+line followed the key, inside what `key=$(digline run …)` captures. A caller
+that runs `main()` inside its own process gets descriptor 1 back when it
+returns, and what that process writes afterwards is its own. On the MCP server
+the window stays open. Measured with digline-mcp 0.6.0 and a suite that
+flushes at the end of its import, standing in for the flush after each tool
+call: a print from the suite's own thread after the tool had answered, an
+`atexit` handler and a `__del__` at shutdown each reached the protocol stream
+as a line that is not JSON-RPC, while the same thread's print, flushed while
+the server still served, went to standard error. There descriptor 1 is put
+back by the SDK as it shuts down, not by digline, so closing those three would
+depend on the order of the SDK's own shutdown: they are declared and not
+closed.
 
 ## Amendments
 
