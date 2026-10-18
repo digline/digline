@@ -242,7 +242,6 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | the `compare` tool passes `declared=loaded_suite.declared()` to `headline`, both new in the core release that carries #562 (ADR 0049); against 0.31.0 `Suite.declared` does not exist and the call raises `AttributeError` | `0.32.0` | release digline-mcp on its own tag, once the core is on PyPI; if the core release is not 0.32.0, raise to the one it is, and drop RELEASING.md's `0.32.0` in `test_versions.py`'s `RECORDED` |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
