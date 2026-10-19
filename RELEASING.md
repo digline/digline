@@ -1906,12 +1906,12 @@ is the one a quiet log cannot supply.
   - **The index race, both builds.** The smoke build waited 300 seconds, from
     its first read at 07:51:08Z to the eleventh at 07:56:08Z. Ten reads saw
     serial 42392033 with no 0.32.1, and the eleventh saw serial 42428832 with
-    it. Inside the build (`#9`) the wait saw it `after 0s`. The multi-arch
-    build's amd64 leg was `CACHED` (`#10` to `#13`), and its arm64 leg (`#15`)
-    saw it `after 1s`.
-  - **The image, read from the registry's API** after the build, by the
-    script in `private/image-0.32.0-read/`. `ghcr.io/digline/digline:0.32.1`
-    is index
+    it. Inside the build (`#9`) the wait saw it `after 0s`, and the multi-arch
+    build's arm64 leg (`#15`) saw it `after 1s`.
+  - **The multi-arch build's amd64 leg was `CACHED`** (`#10` to `#13`), so its
+    log proves nothing about what that leg installed. **The artifact was read
+    instead**, from the registry's API after the build, by the script in
+    `private/image-0.32.0-read/`. `ghcr.io/digline/digline:0.32.1` is index
     `sha256:dd84bb0b3a94ae8180e1c0e8fe7f4f203ee578af2685730882c2a0a51d073539`:
     - linux/amd64
       `sha256:aa36a2cde0bdbee023a64789f2ab6c8b95ab557e09061077fdaa659077b37723`
@@ -1949,6 +1949,64 @@ is the one a quiet log cannot supply.
   - **Not done at the tag**: step 7, digline-action's default image, is still
     0.31.0 on its `main` and `v1`. `release-followup` reads it as `FAIL` on
     `e3d1fa3`, and #594 and #612 stay open.
+
+- **digline-mcp-v0.6.0 — a named tag after the core, one package, the
+  repair of 0.5.0's `compare` on digline 0.32.0.** `publish` (`39130414788`)
+  passed on attempt 1, with `github-release` and the site jobs skipped, as on
+  any plugin tag, and no `docker-publish`. `tools/tag_names.py "digline-mcp
+  0.6.0"` ran on #604's merge commit, `e9d0761`, immediately before the tag:
+  one package, named. `server.json` there named 0.6.0 in both `version`
+  fields. `/approvals` reads `approved` by `alexpran` on `pypi`.
+  - **The gate was seen waiting**: at 13:13:21Z the session's poll found the
+    `PyPI` job queued on the environment. Deployment `7155050263` went
+    `waiting` at 13:13:15Z, `queued` at 13:13:22Z (about seven seconds),
+    `in_progress` at 13:13:23Z and `success` at 13:14:15Z.
+  - Counts: 12 `twine check` `PASSED`, one per file built; TestPyPI's
+    selection and PyPI's read before the gate, 2 `publish` and 10 `skip`, the
+    two being `digline-mcp` 0.6.0's wheel and sdist, with `pytest-digline`
+    0.3.0 among the skips; `imported 6` and the quickstart's 3 calls, after
+    TestPyPI and after PyPI.
+  - The `pypi` job ran 13:13:23Z to 13:14:15Z. Uploads at 13:13:48 and
+    13:13:49. The job's wait saw `digline-mcp` 0.6.0 served `after 10s`.
+  - **The MCP registry**: the job published `dev.digline/digline-mcp` 0.6.0,
+    `isLatest: true` at 13:14:25Z, and 0.5.0 became `false`.
+  - **The index**: the simple index listed 0.6.0 at 13:14:56Z, the install
+    after that found no such version, and a retry at 13:15:19Z resolved. That
+    is the second measurement of the lag.
+  - **The check in a clean environment**: `digline-mcp` 0.6.0 and digline
+    0.32.0 from PyPI, no cache. Every tool answers, `compare` with `exit_code
+    0`. `private/delta-pass-plugins-2026-10-18-probes/` (`e4ab3e2`).
+
+- **pytest-digline-v0.3.0 — a named tag after the core, one package, the
+  repair of 0.2.4 on digline 0.32.0.** `publish` (`39129908323`) passed on
+  attempt 1, with `github-release` and the site jobs skipped, as on any plugin
+  tag, and no `docker-publish`. `tools/tag_names.py "pytest-digline 0.3.0"`
+  ran on #603's merge commit, `12cd529`, immediately before the tag: one
+  package, named. On `main`'s tip, `6b3b200`, the same command named two,
+  `digline-mcp` 0.6.0 beside it, which is why the tag went on the merge commit
+  (*Tag the merge commit, and nothing else*). `/approvals` reads `approved` by
+  `alexpran` on `pypi`.
+  - **The gate was not seen waiting**: the session's 20-second poll found the
+    `PyPI` job only once it had finished. Deployment `7154973886`'s states,
+    read afterwards, hold the window: `waiting` at 13:06:25Z, `queued` at
+    13:06:31Z (about six seconds), `in_progress` at 13:06:33Z and `success` at
+    13:07:27Z.
+  - Counts: 12 `twine check` `PASSED`, one per file built; TestPyPI's
+    selection and PyPI's read before the gate, 2 `publish` and 10 `skip`, the
+    two being `pytest-digline` 0.3.0's wheel and sdist; `imported 6` and the
+    quickstart's 3 calls, after TestPyPI and after PyPI.
+  - The `pypi` job ran 13:06:32Z to 13:07:26Z. Uploads at 13:06:48 and
+    13:06:50. The job's wait saw `pytest-digline` 0.3.0 served `after 20s`.
+  - **The index**: the version's JSON endpoint served 0.3.0 while the
+    project's still named 0.2.4 as the latest, and `uv pip install
+    pytest-digline==0.3.0` found no such version. The simple index was next
+    read at 13:08:37Z and listed it, and the next attempt resolved. That is
+    the first measurement of the lag *What CI proves about each index*
+    declares.
+  - **The check in a clean environment**: `pytest-digline` 0.3.0 and digline
+    0.32.0 from PyPI, no cache, `direct_url` absent. `--digline-run` and a
+    session that reads `latest`, on quickstart-toml, both end `0`.
+    `private/delta-pass-plugins-2026-10-18-probes/` (`287cfd6`).
 
 - **v0.32.0 — the gate was approved seven seconds after the run began
   waiting, and the smoke build waited 211 seconds for an upload that came
