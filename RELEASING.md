@@ -1911,7 +1911,9 @@ is the one a quiet log cannot supply.
   - **The multi-arch build's amd64 leg was `CACHED`** (`#10` to `#13`), so its
     log proves nothing about what that leg installed. **The artifact was read
     instead**, from the registry's API after the build, by the script in
-    `private/image-0.32.0-read/`. `ghcr.io/digline/digline:0.32.1` is index
+    `private/image-0.32.0-read/`, and what it answered is
+    `private/release-0.32.1-checks/image-read-0.32.1.out`.
+    `ghcr.io/digline/digline:0.32.1` is index
     `sha256:dd84bb0b3a94ae8180e1c0e8fe7f4f203ee578af2685730882c2a0a51d073539`:
     - linux/amd64
       `sha256:aa36a2cde0bdbee023a64789f2ab6c8b95ab557e09061077fdaa659077b37723`
