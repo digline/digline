@@ -14,6 +14,7 @@ nobody can trust is worse than none, because it is followed.
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -252,6 +253,154 @@ def test_the_nav_gates_are_forbidden_to_skip_where_ci_runs_them() -> None:
         "the negative half is part of the gate: a check that cannot fail has "
         "verified nothing, and this one's value is that it refuses to skip"
     )
+
+
+#: What `tests/_tags.py` gives a test to read a release by its tag. A call to
+#: either one is a test that skips on a shallow clone.
+TAG_READERS = ("archived_source", "tags_absent")
+
+
+def tag_reading_tests() -> dict[str, str]:
+    """`{test name: file}` for every test that reads one of this repository's
+    release tags, through `tests/_tags.py`.
+
+    Derived by reading the test tree, as `site_reading_tests` is, and one step
+    further: two files reach the helper through a module function of their own
+    (`old_source`), so a function that calls it counts, and so does every test
+    that calls such a function. Parsed rather than matched by line, because the
+    helper is called from inside a function a line scan cannot place.
+    """
+    found: dict[str, str] = {}
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        functions = {
+            node.name: {
+                call.func.id
+                for call in ast.walk(node)
+                if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+            }
+            for node in ast.parse(path.read_text(encoding="utf-8")).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        wrappers = {
+            name
+            for name, calls in functions.items()
+            if not name.startswith("test_") and calls & set(TAG_READERS)
+        }
+        for name, calls in functions.items():
+            if name.startswith("test_") and calls & (set(TAG_READERS) | wrappers):
+                found[name] = path.name
+    return found
+
+
+def test_the_tag_readers_are_found_at_all() -> None:
+    """A guard on the guard: a parse that found nothing would let the test
+    below pass over an empty list. Eleven when this was written, in five files.
+    """
+    found = tag_reading_tests()
+    assert len(found) >= 11, found
+    assert len(set(found.values())) >= 5, found
+
+
+def test_ci_runs_every_test_that_reads_a_release_tag() -> None:
+    """A check against an old release that CI does not run only ever skips.
+
+    The eleven sat at the bottom of every green `gates` run as `11 skipped`:
+    `actions/checkout` fetches one commit and no tags, so no old reader was
+    built and no row of `RELEASED` was read, anywhere. The `readers` job
+    fetches the tags and runs them by node id with `DIGLINE_TAGS_REQUIRED` set,
+    and this holds that list to the tree, so a twelfth cannot be written that
+    skips everywhere.
+    """
+    readers = job_body("readers")
+    missing = [
+        f"tests/{file}::{name}"
+        for name, file in tag_reading_tests().items()
+        if f"tests/{file}::{name}" not in readers
+    ]
+    assert not missing, (
+        "these tests read a release tag and the `readers` job does not run "
+        "them, so they skip everywhere and their check is performed by "
+        "nothing:\n  " + "\n  ".join(missing)
+    )
+
+
+def test_the_readers_are_forbidden_to_skip_where_ci_runs_them() -> None:
+    """The fetch, the variable and the control are the mechanism, so they are
+    pinned with the job.
+
+    Without the fetch the eleven fail rather than run; without the variable a
+    fetch that silently brought nothing would skip all eleven and report
+    success. And the control removes a tag after the fetch and requires both
+    the failure and the reason, because a failure for any other reason would
+    prove nothing about the variable.
+    """
+    readers = job_body("readers")
+    assert "refs/tags/v0.*:refs/tags/v0.*" in readers
+    assert "--depth 1" in readers
+    assert "DIGLINE_TAGS_REQUIRED" in readers
+    steps = [
+        line.split("- name:", 1)[1].strip()
+        for line in readers.splitlines()
+        if "- name:" in line
+    ]
+    control = "And the control that must fail"
+    assert control in steps, steps
+    assert steps.index(control) == len(steps) - 1, steps
+    assert "git tag -d v0.1.0" in readers
+    assert "DIGLINE_TAGS_REQUIRED is set, so this check may not skip" in readers
+
+
+#: The table's header, which is also its contract: the last column is the one
+#: that turns a skipped check into somebody's task.
+NOT_RUN_HEADER = ["Check", "Why CI does not run it", "Where it runs instead"]
+
+
+def not_run_by_ci() -> list[list[str]]:
+    """The rows of RELEASING.md's *What CI does not run*, cell by cell.
+
+    Every line of the table below its header and separator is a row, however it
+    is spaced: a row this parse skipped would be a row no assertion reads.
+    """
+    page = RELEASING.read_text(encoding="utf-8")
+    assert "\n### What CI does not run\n" in page, "RELEASING.md lost the section"
+    section = page.split("\n### What CI does not run\n", 1)[1]
+    section = re.split(r"\n#{2,3} ", section)[0]
+    table = [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in section.splitlines()
+        if line.lstrip().startswith("|")
+    ]
+    assert table and table[0] == NOT_RUN_HEADER, table[:1]
+    return table[2:]
+
+
+def test_what_ci_does_not_run_names_real_checks_ci_does_not_run() -> None:
+    """A check CI skips is covered by whoever the table names, or by nobody.
+
+    The table is held to the tree in three ways, so it cannot age into a
+    comment: a node id that no longer exists is a row about nothing, one that
+    `ci.yml` now runs is a row that is false, and a row without a place where
+    the check runs instead is a hole recorded rather than a task assigned.
+    """
+    rows = not_run_by_ci()
+    assert rows, "the table has no rows, so this test would pass over nothing"
+    workflow = CI.read_text(encoding="utf-8")
+    for row in rows:
+        assert len(row) == 3, row
+        node, why, where = row
+        assert why and where, f"{node}: every column is required, and the last most"
+        file, _, name = node.strip("`").partition("::")
+        path = ROOT / file
+        assert path.is_file(), f"{node}: {file} does not exist"
+        defined = {
+            item.name
+            for item in ast.parse(path.read_text(encoding="utf-8")).body
+            if isinstance(item, ast.FunctionDef)
+        }
+        assert name in defined, f"{node}: {file} defines no {name}"
+        assert node.strip("`") not in workflow and name not in workflow, (
+            f"{node} is in ci.yml, so CI runs it and the row is false"
+        )
 
 
 FOLLOWUP = ROOT / ".github" / "workflows" / "release-followup.yml"

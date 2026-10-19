@@ -13,19 +13,18 @@ tag, and are skipped where the tags are absent.
 
 from __future__ import annotations
 
-import io
 import itertools
 import json
 import os
 import subprocess
 import sys
-import tarfile
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 from tests._helpers import stamp_journal_format
+from tests._tags import archived_source
 
 from digline.core import (
     CaseResult,
@@ -405,18 +404,7 @@ def test_the_wire_carries_the_count() -> None:
 
 
 def old_source(tmp_path: Path) -> Path:
-    root = Path(__file__).resolve().parents[1]
-    archive = subprocess.run(  # noqa: S603
-        ["git", "archive", "v0.14.1", "src"],  # noqa: S607
-        cwd=root,
-        capture_output=True,
-        check=False,
-    )
-    if archive.returncode != 0:
-        pytest.skip("v0.14.1 is not in this checkout (shallow clone, no tags)")
-    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
-        tar.extractall(tmp_path / "old", filter="data")
-    return tmp_path / "old" / "src"
+    return archived_source("v0.14.1", tmp_path / "old")
 
 
 def run_old(source: Path, code: str, *args: str) -> subprocess.CompletedProcess[str]:

@@ -290,6 +290,79 @@ jobs:
           fi
           echo "control failed as required, and named the variable"
 
+  readers:
+    name: The old readers, built from their tags, where they may not skip
+    # Eleven tests check a released digline against what this tree writes:
+    # ten build that release's reader from `git archive <tag> src` and run it,
+    # and one reads `SCHEMA_VERSION` out of every tag `RELEASED` names in
+    # `test_example_caps.py`. The checkout below fetches one commit and no
+    # tags, so in `gates` all eleven skip, and `11 skipped` at the bottom of a
+    # green run is a silence: no old reader was built and no row was read.
+    #
+    # So this job fetches the tags and runs the eleven by node id with
+    # `DIGLINE_TAGS_REQUIRED` set, where `tests/_tags.py` turns a missing tag
+    # into a failure that names it. Depth 1 is enough, measured on cfabd4e:
+    # `git archive` and `git show <tag>:path` read the tag's tree and no
+    # history. `refs/tags/v0.*` follows each new core release without an edit
+    # here and leaves the plugin tags out. `test_releasing.py` holds the list
+    # below to every test that calls `tests/_tags.py`, so a twelfth cannot be
+    # written that skips everywhere.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: The tags the old readers are built from
+        run: git fetch --depth 1 --no-tags origin 'refs/tags/v0.*:refs/tags/v0.*'
+
+      - name: The readers, where they may not skip
+        env:
+          DIGLINE_TAGS_REQUIRED: "1"
+        run: >
+          uv run pytest -q
+          tests/test_recorded_output.py::test_a_0_12_reader_refuses_not_reported_by_name
+          tests/test_calibration.py::test_a_0_13_1_reader_refuses_a_document_carrying_one
+          tests/test_nameless_tool_call.py::test_0_14_1_refuses_a_newer_document_on_its_version
+          tests/test_nameless_tool_call.py::test_0_14_1_refuses_the_omitted_tool_by_name_at_any_schema
+          tests/test_nameless_tool_call.py::test_this_reader_reads_what_0_14_1_wrote
+          tests/test_nameless_tool_call.py::test_0_14_1_refuses_a_journal_leg_carrying_one_by_name
+          tests/test_sample_means.py::test_0_14_1_refuses_a_schema_13_document_on_its_version
+          tests/test_sample_means.py::test_without_the_bump_0_14_1_would_read_means_as_judgements
+          tests/test_sample_means.py::test_this_reader_reads_the_fold_0_14_1_wrote_as_not_stamped
+          tests/test_sample_means.py::test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway
+          tests/test_example_caps.py::test_the_table_agrees_with_the_tags
+
+      # The negative half, as `docs` has it: a tag that is certainly missing,
+      # because it was just removed, after a fetch that brought the rest. The
+      # same test has to FAIL, and for that reason; checking the exit code
+      # alone would pass on a syntax error in the test file.
+      - name: And the control that must fail
+        env:
+          DIGLINE_TAGS_REQUIRED: "1"
+        run: |
+          git tag -d v0.1.0
+          if uv run pytest -q \
+            tests/test_example_caps.py::test_the_table_agrees_with_the_tags \
+            > control.log 2>&1; then
+            echo "::error::the table check passed with v0.1.0 removed:"
+            echo "::error::DIGLINE_TAGS_REQUIRED is not being honoured."
+            cat control.log
+            exit 1
+          fi
+          if ! grep -q "DIGLINE_TAGS_REQUIRED is set, so this check may not skip" control.log \
+            || ! grep -q "v0.1.0" control.log
+          then
+            echo "::error::the control failed, but not for the reason under test:"
+            cat control.log
+            exit 1
+          fi
+          echo "control failed as required, and named the variable and the tag"
+
   glyphs:
     name: The site's fonts set every character of these docs
     # Twice on 2026-09-29, five hours apart, an ADR carried a character the

@@ -650,6 +650,18 @@ Two of these are easy to think you can skip, and both were the same mistake:
   describes a release that does not exist. Running `ruff` and `pytest` straight
   from a system Python never touches it.
 
+### What CI does not run
+
+A check CI cannot run is run by somebody or by nobody, and a list that does not
+say who is a list of holes. So each row names where the check runs instead, and
+that column is never empty. `tests/test_releasing.py` holds the table to the
+tree: every node id must exist, none may appear in `ci.yml` (a check CI runs
+does not belong here), and no row may leave the last column blank.
+
+| Check | Why CI does not run it | Where it runs instead |
+|---|---|---|
+| `tests/test_artifact_boundaries.py::test_a_case_folded_store_path_is_the_store_on_this_filesystem` | It skips with `this filesystem is case-sensitive`, and every Ubuntu runner's filesystem tells upper and lower case apart. | The gates above, on the machine that tags. A macOS disk as it comes does not tell them apart, and there the check runs: it ran and passed in the gates at `2a21282` on 2026-10-19. |
+
 ## Before the tag: the home capture
 
 `docs/assets/home/home.json` is what the home of digline.dev shows: the
