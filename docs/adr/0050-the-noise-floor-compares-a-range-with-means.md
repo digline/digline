@@ -12,7 +12,8 @@
   still before acceptance, the maintainer added a fifth item, and the heading
   became *Five things this carries*: the floor is a lower bound when its samples
   come from a replay. The same day *What this ADR does not claim* gained two
-  limits, on the one measurement of variation between runs this project has
+  limits, on the one measurement of variation between runs this project has:
+  what it covers, and what it does not say
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
