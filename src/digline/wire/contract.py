@@ -17,6 +17,7 @@ from digline.report import Headline, unjudged_cases
 from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
 __all__ = [
+    "EXIT_INTERNAL",
     "EXIT_OK",
     "EXIT_UNJUDGED",
     "EXIT_USAGE",
@@ -280,8 +281,8 @@ EXIT_UNJUDGED = 2
 #: Not a verdict, and `exit_code()` never returns it: it is the front end
 #: refusing the request that was made, which `AGENTS.md` §6 states as "anything
 #: else is the CLI refusing the request you made, not a verdict on the suite".
-#: It sits with the others because the four are one documented table, and a
-#: reader asking what `2` means should not find three answers here and one
+#: It sits with the others because the five are one documented table, and a
+#: reader asking what `2` means should not find some answers here and the rest
 #: somewhere else.
 EXIT_USAGE = 64
 #: Not a verdict either, and `exit_code()` never returns it: a failure nobody
