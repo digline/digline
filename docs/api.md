@@ -2020,6 +2020,17 @@ anticipated: the command line prints its traceback and exits `70`, never `1`,
 so a gate that measured nothing neither passes nor reports a regression
 ([ADR 0041](adr/0041-the-exit-code-of-a-failure-nobody-anticipated.md)).
 
+**All three of `0`, `1` and `2` mean digline ran.** A non-zero exit is not a
+failure of digline: `0` and `1` are a verdict on the suite — nothing got worse,
+something did — and `2` is a verdict on the run: something could not be judged,
+so it says nothing about the suite. `EXIT_USAGE` and `EXIT_INTERNAL` are not
+verdicts at all, and `exit_code()` never returns either. Two of this project's
+surfaces group these differently, and each is right about a different
+question. digline's line falls between the three codes `exit_code()` can
+return and the two it cannot. `digline-action` groups `0` and `1` as the
+verdict on the suite and puts `2` with the rest, as one of digline's own codes
+that is not a verdict on the suite.
+
 - **`exit_code(head)` is the rule**, read from a `Headline`. A regression or a
   moved canary outranks the causes of `2`. A suspended case never fails, and a
   run of suspensions only does not pass: where none of the cases the suite

@@ -166,6 +166,8 @@ $ echo $?
 ```
 
 The exit code is the answer: `0` fine, `1` got worse, `2` could not be judged.
+None of the three is a failure of digline: a wrapper that treats a non-zero
+exit as a crash is reading a verdict as an error.
 Everything lands in `.digline/<tenant>/` — `baselines/` committed, `runs/`
 git-ignored through a `.gitignore` digline writes for you.
 
