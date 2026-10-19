@@ -8,6 +8,22 @@ notes under them are this file, verbatim.
 
 ## 0.32.1 — unreleased
 
+digline **0.32.1**. **A patch, because nothing digline promised has changed:**
+no schema, no `OUTPUT_VERSION`, no migration, and every run, baseline and
+report it writes is what it was. What changed is who owns a stream. **Standard
+output carries digline alone.** What your suite prints, what the application it
+imports prints while it is imported, what your target and your judge print
+while they answer, and what a thread or an `atexit` handler of yours writes
+after the command has finished, all reach standard error, the stream of the
+person who ran the command. They used to reach standard output, ahead of
+digline's own lines: the first line of `compare`'s report could be a line your
+code wrote, and `key=$(digline run …)` could hold eight lines instead of one.
+The server's half of this comes with digline-mcp 0.6.1.
+
+```sh
+uv add --upgrade digline
+```
+
 - **What your suite prints goes to standard error, not standard output**
   ([ADR 0043](docs/adr/0043-a-message-digline-did-not-write.md) §8, amended
   2026-10-18). Until now a `print` in the suite, in a module it imports, in a
