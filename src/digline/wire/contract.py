@@ -279,8 +279,9 @@ EXIT_OK = 0
 EXIT_WORSE = 1
 EXIT_UNJUDGED = 2
 #: Not a verdict, and `exit_code()` never returns it: it is the front end
-#: refusing the request that was made, which `AGENTS.md` §6 states as "anything
-#: else is the CLI refusing the request you made, not a verdict on the suite".
+#: refusing the request that was made. `AGENTS.md` §6 states it as "`64` is the
+#: CLI refusing the request you made.", and says of `EXIT_USAGE` and
+#: `EXIT_INTERNAL` together: "Neither is a verdict on the suite."
 #: It sits with the others because the five are one documented table, and a
 #: reader asking what `2` means should not find some answers here and the rest
 #: somewhere else.
