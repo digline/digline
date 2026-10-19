@@ -1154,7 +1154,11 @@ def build_parser() -> argparse.ArgumentParser:
             "in your repository, reporting how much the score moves on its own "
             "when you sample."
         ),
-        epilog="Options for one command: digline <command> -h",
+        epilog=(
+            "Options for one command: digline <command> -h. Exit codes 0, 1 "
+            "and 2 are verdicts, and each means digline ran: "
+            "https://digline.dev/product/api/"
+        ),
     )
     # Right after the parser and before the subcommands, so it is reachable as
     # `digline --version` and not only as a flag on one of them. `action=

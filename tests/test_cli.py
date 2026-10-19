@@ -1629,6 +1629,17 @@ def test_the_help_is_written_for_whoever_typed_it() -> None:
     assert "digline <command> -h" in helped
 
 
+def test_the_help_says_a_non_zero_exit_is_a_verdict() -> None:
+    """The reader of `--help` is the one writing a wrapper, and a wrapper that
+    reads `1` as a crash reads a verdict as an error. The meaning of each code
+    is on the API page, given as a URL because the wheel ships no `docs/`.
+    Joined on whitespace, since argparse rewraps the epilog to the terminal."""
+    helped = " ".join(build_parser().format_help().split())
+
+    assert "Exit codes 0, 1 and 2 are verdicts, and each means digline ran" in helped
+    assert "https://digline.dev/product/api/" in helped
+
+
 def test_the_help_and_the_package_summary_say_the_same_thing() -> None:
     """A PyPI page and a terminal describing one tool two ways is one of them
     being out of date, and no way to tell which."""
