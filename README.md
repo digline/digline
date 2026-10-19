@@ -327,9 +327,10 @@ actually arrives with. Every one runs with no API key, carries its committed
 ## What digline is not
 
 - **Not an observability platform.** Dashboards over production traces are a
-  served market. What is designed and not yet built is narrower: evaluating
-  production responses inside *your* perimeter, and turning a failure into a
-  committed test case.
+  served market. digline asks for none of that: what it needs from the system
+  under test is a function or an HTTP endpoint. What is designed and not yet
+  built is narrower: evaluating production responses inside *your* perimeter,
+  and turning a failure into a committed test case.
 - **Not a red-teaming tool.** digline generates no attacks. Once one is found,
   it becomes a `Case`, and the suite makes sure it never works again.
 - **Not YAML.** The suite is Python — or, within declared limits, TOML: cases
