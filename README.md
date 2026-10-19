@@ -18,8 +18,8 @@
 </picture>
 
 *The agent above is the one editing your code, not one running in production.
-digline runs in your pipeline over the suite you committed: it reads no traces,
-and what it needs from your system is one callable entry point.*
+digline runs in your pipeline over the suite you committed: it reads no
+traces.*
 
 Your prompt worked on Tuesday. On Thursday it works a little less — not enough
 to break, enough for a user to notice in two weeks. No ordinary test catches it,
