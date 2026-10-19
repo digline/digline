@@ -12,17 +12,16 @@ measurement wearing the declared suite's name.
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import subprocess
 import sys
-import tarfile
 from pathlib import Path
 from typing import Any
 
 import pytest
 from tests._helpers import baseline_in, cli, run_key
+from tests._tags import archived_source
 
 from digline.core import (
     MAX_RECORDED_CHARS,
@@ -799,17 +798,7 @@ def test_a_0_12_reader_refuses_not_reported_by_name(tmp_path: Path) -> None:
     that 0.12.1 refuses the value by name. Run against 0.12.1's own source, taken
     from its tag; skipped where the tags are absent — CI checks out shallow —
     as `test_example_caps.py` skips its own check against the history."""
-    root = Path(__file__).resolve().parents[1]
-    archive = subprocess.run(  # noqa: S603
-        ["git", "archive", "v0.12.1", "src"],  # noqa: S607
-        cwd=root,
-        capture_output=True,
-        check=False,
-    )
-    if archive.returncode != 0:
-        pytest.skip("v0.12.1 is not in this checkout (shallow clone, no tags)")
-    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
-        tar.extractall(tmp_path / "old", filter="data")
+    archived_source("v0.12.1", tmp_path / "old")
 
     # Written at schema 11, which is what every release from 0.12.1 to 0.13.3
     # wrote a `not_reported` call into. A document at 12 is refused by 0.12.1

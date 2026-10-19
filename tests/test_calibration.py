@@ -8,12 +8,10 @@ refuses, the driver, every denominator, what fires, the sentence and the wire.
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import subprocess
 import sys
-import tarfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -21,6 +19,7 @@ from typing import Any, ClassVar
 
 import pytest
 from tests._helpers import baseline_in, cli
+from tests._tags import archived_source
 from tests._vocabulary import ADVICE, SPECULATION, spoken
 
 from digline.core import (
@@ -1181,17 +1180,7 @@ def test_a_0_13_1_reader_refuses_a_document_carrying_one(tmp_path: Path) -> None
     absent, as `test_recorded_output.py` skips its own. (ADR 0014 §1, ADR 0024
     §9)
     """
-    root = Path(__file__).resolve().parents[1]
-    archive = subprocess.run(  # noqa: S603
-        ["git", "archive", "v0.13.1", "src"],  # noqa: S607
-        cwd=root,
-        capture_output=True,
-        check=False,
-    )
-    if archive.returncode != 0:
-        pytest.skip("v0.13.1 is not in this checkout (shallow clone, no tags)")
-    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
-        tar.extractall(tmp_path / "old", filter="data")
+    archived_source("v0.13.1", tmp_path / "old")
 
     # Stamped 12, the schema that brought the calibration case: a document at
     # 13 would be refused on its version too, for a bump that is not this one.

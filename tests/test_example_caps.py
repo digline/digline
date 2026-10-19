@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from tests._tags import tags_absent
 
 from digline.core.run import SCHEMA_VERSION
 
@@ -344,10 +345,18 @@ def test_the_schema_this_workspace_writes_belongs_to_a_release() -> None:
 def test_the_table_agrees_with_the_tags() -> None:
     """The pin, verified against the history it was taken from.
 
-    Skipped where the tags are absent — CI checks out shallow — so this is the
-    check that runs on a full clone and on anyone's machine, not the one the
-    gate depends on.
+    Skipped where the tags are absent — the `gates` job checks out shallow —
+    and an error in `ci.yml`'s `readers` job, which fetches every `v0.*` tag
+    and sets `DIGLINE_TAGS_REQUIRED`.
+
+    Every row is asked, and a missing tag does not stop the rows after it. It
+    used to: the loop skipped at the first tag it could not show, so one tag
+    missing from a fetch left every later row unchecked and named only that
+    one. A fetch that brought some of the tags is fixed by learning all the
+    ones it missed.
     """
+    missing: list[str] = []
+    wrong: list[str] = []
     for version, schema in sorted(RELEASED.items(), key=lambda row: as_tuple(row[0])):
         tag = f"v{version}"
         shown = subprocess.run(  # noqa: S603
@@ -358,13 +367,19 @@ def test_the_table_agrees_with_the_tags() -> None:
             check=False,
         )
         if shown.returncode != 0:
-            pytest.skip(f"{tag} is not in this checkout (shallow clone, no tags)")
+            missing.append(tag)
+            continue
         found = re.search(r"^SCHEMA_VERSION = (\d+)$", shown.stdout, re.M)
-        assert found is not None, f"{tag} has no SCHEMA_VERSION in core/run.py"
-        assert int(found.group(1)) == schema, (
-            f"RELEASED says {version} writes schema {schema}, and {tag} "
-            f"declares {found.group(1)}. The tag is the record."
-        )
+        if found is None:
+            wrong.append(f"{tag} has no SCHEMA_VERSION in core/run.py")
+        elif int(found.group(1)) != schema:
+            wrong.append(
+                f"RELEASED says {version} writes schema {schema}, and {tag} "
+                f"declares {found.group(1)}"
+            )
+    assert not wrong, "The tag is the record:\n  " + "\n  ".join(wrong)
+    if missing:
+        tags_absent(missing)
 
 
 # --------------------------------------------------------------------------- #
