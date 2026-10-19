@@ -47,7 +47,10 @@ hand-over or the promote form changed since 0.30.0, the last release that ran
 it. `view` changed in one line: its startup line, which carries the address, is
 written through digline's own standard output and flushed there.
 
-## digline-mcp 0.6.1 — unreleased
+## digline-mcp 0.6.1 — 2026-10-19
+
+Published by its own tag, `digline-mcp-v0.6.1`, after digline 0.32.1 was on
+PyPI.
 
 - **What the suite prints no longer reaches the protocol stream**
   ([ADR 0043](docs/adr/0043-a-message-digline-did-not-write.md) §8, amended
