@@ -350,6 +350,59 @@ def test_the_readers_are_forbidden_to_skip_where_ci_runs_them() -> None:
     assert "DIGLINE_TAGS_REQUIRED is set, so this check may not skip" in readers
 
 
+#: The table's header, which is also its contract: the last column is the one
+#: that turns a skipped check into somebody's task.
+NOT_RUN_HEADER = ["Check", "Why CI does not run it", "Where it runs instead"]
+
+
+def not_run_by_ci() -> list[list[str]]:
+    """The rows of RELEASING.md's *What CI does not run*, cell by cell.
+
+    Every line of the table below its header and separator is a row, however it
+    is spaced: a row this parse skipped would be a row no assertion reads.
+    """
+    page = RELEASING.read_text(encoding="utf-8")
+    assert "\n### What CI does not run\n" in page, "RELEASING.md lost the section"
+    section = page.split("\n### What CI does not run\n", 1)[1]
+    section = re.split(r"\n#{2,3} ", section)[0]
+    table = [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in section.splitlines()
+        if line.lstrip().startswith("|")
+    ]
+    assert table and table[0] == NOT_RUN_HEADER, table[:1]
+    return table[2:]
+
+
+def test_what_ci_does_not_run_names_real_checks_ci_does_not_run() -> None:
+    """A check CI skips is covered by whoever the table names, or by nobody.
+
+    The table is held to the tree in three ways, so it cannot age into a
+    comment: a node id that no longer exists is a row about nothing, one that
+    `ci.yml` now runs is a row that is false, and a row without a place where
+    the check runs instead is a hole recorded rather than a task assigned.
+    """
+    rows = not_run_by_ci()
+    assert rows, "the table has no rows, so this test would pass over nothing"
+    workflow = CI.read_text(encoding="utf-8")
+    for row in rows:
+        assert len(row) == 3, row
+        node, why, where = row
+        assert why and where, f"{node}: every column is required, and the last most"
+        file, _, name = node.strip("`").partition("::")
+        path = ROOT / file
+        assert path.is_file(), f"{node}: {file} does not exist"
+        defined = {
+            item.name
+            for item in ast.parse(path.read_text(encoding="utf-8")).body
+            if isinstance(item, ast.FunctionDef)
+        }
+        assert name in defined, f"{node}: {file} defines no {name}"
+        assert node.strip("`") not in workflow and name not in workflow, (
+            f"{node} is in ci.yml, so CI runs it and the row is false"
+        )
+
+
 FOLLOWUP = ROOT / ".github" / "workflows" / "release-followup.yml"
 
 
