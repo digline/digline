@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.32.1 — unreleased
+## 0.32.1 — 2026-10-19
 
 digline **0.32.1**. **A patch, because nothing digline promised has changed:**
 no schema, no `OUTPUT_VERSION`, no migration, and every run, baseline and
@@ -41,6 +41,11 @@ uv add --upgrade digline
   too: the `digline` command keeps standard output for itself to the end of
   the process. A program that calls `digline.cli.main.main()` inside its own
   process gets standard output back when the call returns.
+
+**The browser walkthrough was not owed.** Nothing in the launch key, the
+hand-over or the promote form changed since 0.30.0, the last release that ran
+it. `view` changed in one line: its startup line, which carries the address, is
+written through digline's own standard output and flushed there.
 
 ## digline-mcp 0.6.1 — unreleased
 
