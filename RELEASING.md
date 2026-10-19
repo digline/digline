@@ -4196,6 +4196,12 @@ names.
    and all three image tags on one digest. See *The index race*.
 3. **The example locks:** regenerate them, then dispatch `ci.yml`. See *The example
    legs* below.
+   The dispatch against `main` runs on the same ref as the push that landed the
+   locks, so `cancel-in-progress` (`ci.yml`, `concurrency`) cancels the push's
+   `ci` if it is still running. Nothing is left unverified, because the dispatch
+   runs the same `ci` on the same commit, but that commit's run list keeps a
+   cancelled `ci`: on 2026-10-19, at `253e6cd`, run 39229593661 (push,
+   cancelled) and run 39229616911 (dispatch, green).
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
