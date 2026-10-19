@@ -1938,6 +1938,17 @@ is the one a quiet log cannot supply.
     finding.
   - **The seven example locks** moved to 0.32.1 with `--upgrade-package
     digline`, in the pull request that wrote this paragraph.
+
+    *Deviation, 2026-10-19.* *The example legs* asks for one dispatch, against
+    `main` once the locks are in, and that is the run that counts. A second
+    was run on the branch before the merge, to learn whether the locks
+    resolved against the published package rather than find out after:
+    `ci.yml` run `39227044486`, on `after-0.32.1` at `fccffb7`. Its eleven
+    example legs were green. The run still reads `failure`, for one job, *"The
+    site still builds from these docs"*. `tools/sync-docs.sh` refuses a
+    checkout ahead of `origin/main`, which is what that check exists for, and
+    the same job was green in the pull request's run, `39227072319`. That red
+    in the list of runs is expected, and not a defect of the branch.
   - **What this release does not prove, declared.** Fifteen tests skip in
     `gates`; `private/release-0.32.1-checks/` lists them with their reasons.
     - The eleven readers across versions, such as
