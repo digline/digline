@@ -1847,6 +1847,109 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-mcp-v0.6.1 — a named tag after the core, one package, the
+  server's half of ADR 0043 §8's amendment.** `publish` (`39224246309`) passed
+  on attempt 1. `github-release` and the site jobs were skipped, as on any
+  plugin tag, and there was no `docker-publish`. `tools/tag_names.py
+  "digline-mcp 0.6.1"` ran on #613's merge commit, `e3d1fa3`, which was
+  `origin/main`, immediately before the tag: one package, named.
+  `server.json` at that commit was read for 0.6.1 in both `version` fields,
+  because the registry entry it becomes cannot be changed.
+  - **The gate**: `approved` by `alexpran` on `pypi`. Deployment `7169362352`
+    went `waiting` at 08:41:18Z, `queued` at 08:41:25Z (about seven seconds),
+    `in_progress` at 08:41:27Z and `success` at 08:42:05Z.
+  - **Counts**: 12 `twine check` `PASSED`. TestPyPI's selection, and PyPI's
+    read before the gate, gave 2 `publish` and 10 `skip`, the two being
+    digline-mcp 0.6.1's wheel and sdist, with digline 0.32.1 among the skips.
+    `imported 6`, and the quickstart's 3 calls.
+  - **The index**: uploads at 08:41:47Z and 08:41:48Z, and the `pypi` job's
+    wait saw digline-mcp 0.6.1 `after 0s`. In the check in a clean
+    environment, the first `uv pip install digline-mcp==0.6.1`, at about
+    08:44, found no such version, and the retry 30 seconds later resolved.
+    That is the third measurement of the lag *What CI proves about each index*
+    declares, after pytest-digline 0.3.0's and digline-mcp 0.6.0's.
+  - **The MCP registry**: the job published `dev.digline/digline-mcp` 0.6.1,
+    `isLatest: true` at 08:42:17Z, and 0.6.0 became `false`.
+  - **The check in a clean environment**: digline-mcp 0.6.1 and digline
+    0.32.1 from PyPI, no cache, both installed with `direct_url` absent.
+    - The tool definitions are byte-identical, 327 lines, and every tool
+      answers, `compare` with `exit_code 0`.
+    - On the stdio channel, read until the server exits on its own, there are
+      0 lines that are not JSON-RPC, against 10 with 0.6.0.
+    - The three late writes still reach it, 9 lines, as the amendment
+      declares.
+
+    `private/release-digline-mcp-0.6.1-checks/`.
+  - **The delta-pass** is `private/delta-pass-digline-mcp-0.6.1.md`
+    (`8ac217e`, its probes named in `0e8d851`). No finding.
+
+- **v0.32.1 — the smoke build waited 300 seconds, and the gate about two
+  minutes.** `publish` (`39218641054`) passed on attempt 1, `github-release`
+  and the site jobs included. `docker-publish` (`39218641170`) passed on
+  attempt 1. `tools/tag_names.py "digline 0.32.1"` ran on #611's merge commit,
+  `0e3afe9`, which was `origin/main`, immediately before the tag: one package,
+  named. digline-mcp was still 0.6.0 in its `pyproject.toml`, so already
+  served and skipped. Its 0.6.1 followed on its own tag.
+  - **The gate**: `approved` by `alexpran` on `pypi`. Deployment `7168512022`
+    went `waiting` at 07:53:26Z, `queued` at 07:55:23Z (about two minutes),
+    `in_progress` at 07:55:24Z and `success` at 07:56:14Z.
+  - **Counts**: 12 `twine check` `PASSED`. TestPyPI's selection, and PyPI's
+    read before the gate, gave 2 `publish` and 10 `skip`, the two being
+    digline 0.32.1's wheel and sdist. `imported 6`, and the quickstart's 3
+    calls.
+  - **The index**: uploads at 07:55:45Z and 07:55:47Z, and the `pypi` job's
+    wait saw digline 0.32.1 `after 10s`. In the check in a clean environment
+    `digline==0.32.1` resolved at the first attempt.
+  - **The signatures**: `release_bundles.py` read the version endpoint
+    `after 10s` and had its two bundles at 07:56:38. `sigstore verify` printed
+    `OK` for both, and both `.sigstore.json` are on the release.
+  - **The index race, both builds.** The smoke build waited 300 seconds, from
+    its first read at 07:51:08Z to the eleventh at 07:56:08Z. Ten reads saw
+    serial 42392033 with no 0.32.1, and the eleventh saw serial 42428832 with
+    it. Inside the build (`#9`) the wait saw it `after 0s`. The multi-arch
+    build's amd64 leg was `CACHED` (`#10` to `#13`), and its arm64 leg (`#15`)
+    saw it `after 1s`.
+  - **The image, read from the registry's API** after the build, by the
+    script in `private/image-0.32.0-read/`. `ghcr.io/digline/digline:0.32.1`
+    is index
+    `sha256:dd84bb0b3a94ae8180e1c0e8fe7f4f203ee578af2685730882c2a0a51d073539`:
+    - linux/amd64
+      `sha256:aa36a2cde0bdbee023a64789f2ab6c8b95ab557e09061077fdaa659077b37723`
+      and linux/arm64
+      `sha256:7e169df18ea3fcd602ba41d3b53e4194a2361b2eee35a31fea47b4327e74db0f`
+      both declare `digline-0.32.1` in their `.dist-info`;
+    - the base layers it shares with `0.32.0` (layers 0 to 3 and the 32-byte
+      one) are the same on each architecture;
+    - the layer with site-packages is new on both.
+
+    `0.32.1`, `0.32` and `latest` resolve to that one index, read by
+    `release-followup` on `e3d1fa3`.
+  - **The check in a clean environment**: digline 0.32.1 from PyPI, no cache,
+    `direct_url` absent, on quickstart-toml of `v0.32.1` and on a suite that
+    prints at import.
+    - `run`'s standard output is one line, the key, and `compare`'s first line
+      is digline's sentence.
+    - `key=$(digline run …)` holds one line, where with 0.32.0 it held eight.
+
+    `private/release-0.32.1-checks/`.
+  - **The delta-pass** is `private/delta-pass-0.32.1.md` (`18d0e5d`). No
+    finding.
+  - **The seven example locks** moved to 0.32.1 with `--upgrade-package
+    digline`, in the pull request that wrote this paragraph.
+  - **What this release does not prove, declared.** Fifteen tests skip in
+    `gates`; `private/release-0.32.1-checks/` lists them with their reasons.
+    - The eleven readers across versions, such as
+      `test_the_table_agrees_with_the_tags`, need a release tag. They cannot
+      run in CI: `gates` checks out shallow, with no tags, and the jobs that
+      fetch the whole history run no pytest.
+    - The three checks of the site's nav run only in the `docs` job, which is
+      not among the checks required to merge.
+    - The one about a case-folded store path cannot run on a Linux runner,
+      whose filesystem is case-sensitive.
+  - **Not done at the tag**: step 7, digline-action's default image, is still
+    0.31.0 on its `main` and `v1`. `release-followup` reads it as `FAIL` on
+    `e3d1fa3`, and #594 and #612 stay open.
+
 - **v0.32.0 — the gate was approved seven seconds after the run began
   waiting, and the smoke build waited 211 seconds for an upload that came
   after the click.** `publish` (`39113757246`) passed on attempt 1,
