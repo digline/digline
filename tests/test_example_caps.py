@@ -24,10 +24,16 @@ makes it hold by construction instead.
 The check needs a fact the working tree does not carry: **which schema each
 released version wrote**. That is in the tags, and `RELEASED` below is it,
 pinned — read once with `git show vX.Y.Z:src/digline/core/run.py`, not
-remembered. Pinned rather than read at test time because CI checks out shallow
-and without tags, and a gate that cannot run in CI is not a gate;
-`test_the_table_agrees_with_the_tags` verifies the pin wherever the history is
-actually present.
+remembered. Pinned rather than read at test time because the caps below are
+checked in `ci.yml`'s `gates` job, which checks out shallow and without tags,
+and a gate that cannot run there is not a gate.
+
+The pin itself is checked against the tags by
+`test_the_table_agrees_with_the_tags`, and CI runs it: the `readers` job
+fetches every `v0.*` tag and sets `DIGLINE_TAGS_REQUIRED`, so there a missing
+tag is a failure and not a skip. It also runs on any clone that has the tags.
+So the table stays in the file for the gate that reads it, and the tags it was
+read from still check it on every run of `ci.yml`.
 
 The `INTRODUCED` discipline from `test_plugin_floors.py`, in the same shape: the
 current release must have a row, and its row must agree with the
