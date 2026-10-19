@@ -198,6 +198,7 @@ RELEASED: dict[str, int] = {
     "0.31.0": 18,
     # 19 — `modules_unchecked`, additive (ADR 0052).
     "0.32.0": 19,
+    "0.32.1": 19,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
