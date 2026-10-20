@@ -1,6 +1,15 @@
 # ADR 0050 — The noise floor compares a range of single samples with a movement of means
 
-- Status: proposed 2026-10-15. **What it decides was ruled before it was
+- Status: accepted 2026-10-20, by Alessandro Prandini, the text first and before
+  any code, the way
+  [ADR 0048](0048-the-versions-a-suite-holds-and-the-one-in-force.md) was.
+  Nothing in it is implemented. The release question left open at the end of
+  this record — whether a suite keeps the floor for one release with a warning
+  or loses it at once — is answered with the second: no flag and no window, on
+  the argument ADR 0031 §3 makes against a flag as a standing permission, and
+  because the one deprecation this project allowed, `SuiteRuns.listing` in
+  0.26.0, is still here.
+  Proposed 2026-10-15. **What it decides was ruled before it was
   written:** the maintainer ruled the decision below on 2026-10-15, on #496.
   The text is not yet accepted, and nothing in it is implemented. #496 stays
   open: this record answers its question, and the issue closes when the code
@@ -19,6 +28,9 @@
   carried the aggregates' exclusion from *Context* into the second decision,
   gave a tied graded sample set to the tolerance in the first decision and the
   fourth item, and noted two sentences of *Context* superseded by digline#635.
+  *The block above is the proposed phase's own text, kept as written, and speaks
+  from that phase.* The start of this status carries what is true now, and
+  `Shipped:` below says that no release carries it yet
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
@@ -230,6 +242,10 @@ has: what it covers, and what it does not say. *The answer ADR 0006 is owed* is 
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
+
+*Answered 2026-10-20.* At once, with no flag and no window: the argument ADR 0031 §3 makes
+against a flag as a standing permission, and the one deprecation this project allowed,
+which is still here.
 
 ## Test plan
 
