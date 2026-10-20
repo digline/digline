@@ -40,7 +40,9 @@
   for `samples` to an amendment that says which half wins and why; the
   amendment is there, in its own words. [ADR 0006](0006-repeated-samples-and-the-noise-floor.md)
   §5, §6 and the variance alternative under *Alternatives considered* carry
-  dated notes pointing here
+  dated notes pointing here. [ADR 0014](0014-what-may-ride-a-schema-bump.md) §1,
+  whose first condition a declared width cannot satisfy as written and which is
+  extended there
 - Assumes: [ADR 0006](0006-repeated-samples-and-the-noise-floor.md) §5 (the
   floor is the baseline's, never the current run's), §7 (the aggregate's
   interval) and §12 (agreement counts an errored sample against itself)
@@ -239,6 +241,21 @@ heading, which read *"Four things this carries"* until then. The fifth item says
 a floor estimated from a replay errs. The same day *What this ADR does not claim* gained its
 second and third paragraphs, on the one measurement of variation between runs this project
 has: what it covers, and what it does not say. *The answer ADR 0006 is owed* is unchanged.
+
+**The passenger rule (ADR 0014 §1).** *Added 2026-10-20, after acceptance.* Schema
+20 carries one passenger, and the first condition is the one that needed amending
+rather than satisfying:
+
+| passenger | 1 — the hash | 2 — the migration | 3 — the boundary |
+|---|---|---|---|
+| `floor_standard_errors` (the second of *Five things this carries*) | a declaration about how a rule is read, like a tolerance, so it joins the hash — but only where a suite declares it, and a suite that declares none hashes exactly as before: ADR 0014 §1, extended here the way ADR 0022 §3 extended it for a price | absent — a baseline written before this could not have declared a width, and inventing one would hand a check a floor nobody chose | a declaration the suite's author wrote, like a tolerance; travels |
+
+One consequence of the first column is worth saying out loud rather than
+discovering: changing a declared width moves `config_hash`, so the baseline stops
+being promotable against the new suite and the report says the rules changed. That
+is right — the width is one of the rules a movement is read against — and it is the
+same cost a changed tolerance carries today. A suite that declares none pays none
+of it.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.

@@ -76,6 +76,11 @@ in the ADR that proposes the field, and the ADR says so in its own words:
    its target joins them — a rate is the ruler a `CostBudget` reads cost on, as
    a threshold is the bar a check is read against. A suite that declares none
    hashes exactly as before.)*
+   *(Amended 2026-10-20 by
+   [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md): a
+   noise-floor width the suite declares joins them too — a width is how wide the
+   floor a movement is read against is, as a tolerance is how far that movement
+   may go. A suite that declares none hashes exactly as before.)*
 2. **It migrates additively, without inventing.** There has to be a value the
    old document already justifies: `false` for a flag that did not exist,
    `{}` for a record nobody kept, a derivation from something already written
@@ -275,6 +280,11 @@ negotiable:
 The plugin floors gate is **name**-based, not schema-based, so a bump forces no
 plugin release: `pytest-digline`'s `digline>=0.9.0` and `digline-mcp`'s
 `digline>=0.6.0` stay true statements about the names those packages import.
+
+*Amended 2026-10-20.* The two floors quoted above have moved since: both read
+`digline>=0.32.0,<0.33`. The claim stands — the gate is name-based, and a bump
+forces no plugin release — and the caps those specifiers also carry are a separate
+step, written in `RELEASING.md`.
 
 ## Consequences
 

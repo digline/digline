@@ -202,6 +202,16 @@ cannot go green. Found on the way to 0.22.0, where the step had never been
 written: the test's own message cited this file for a rule this file did not
 contain.
 
+**The plugins' caps, on a minor.** `digline-mcp` and `pytest-digline` pin
+`digline>=X,<Y`. Nothing here reddens when the version moves past `Y`: both take
+digline from the workspace, so the cap does not stop the resolution in this tree,
+and the plugin floors gate reads the floor and drops everything after the comma.
+What the cap decides is who gets the release. In a project, the resolver keeps the
+core below `Y` and does not say why. `pip install -U digline` and `uv pip install
+-U digline` install the newer core beside the capped plugin anyway: pip prints
+`ERROR:` and exits 0, uv says nothing. So the caps move in the same pull request
+as the version, and nothing will remind you.
+
 **Then one more, which no test reddens: say which decisions this release
 ships.** Every record in `docs/adr/` carries `- Shipped:`, a core version or
 `unreleased`:
