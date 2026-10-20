@@ -415,13 +415,20 @@ def test_a_rise_inside_the_interval_is_not_an_improvement_either() -> None:
 def test_an_unanimous_baseline_has_no_floor() -> None:
     """§6. Five out of five is the ordinary case away from the boundary, and it
     leaves an interval of zero width — so every later change of mind is still
-    reported. That is right rather than unfortunate."""
+    reported. That is right rather than unfortunate.
+
+    ADR 0006 §6: "An interval of zero width is not a noise floor … so there is
+    no interval, so the absolute rule holds." The name already said so; until
+    #602 the body asserted the interval `(1.0, 1.0)` that the rule says is not
+    there, and the comparison printed it as though it had been measured."""
     before = folded(1.0, 1.0, 1.0, 1.0, 1.0)
     now = folded(1.0, 1.0, 1.0, 0.0, 1.0)
     delta = compare_one(now, before)
     assert delta.outcome == "regressed"
     assert not delta.within_noise
-    assert (delta.noise_min, delta.noise_max) == (1.0, 1.0)
+    assert (delta.noise_min, delta.noise_max) == (None, None)
+    assert delta.noise_samples == 0
+    assert "individual samples" not in delta.reason
 
 
 def test_a_baseline_with_no_samples_keeps_the_absolute_rule() -> None:
@@ -606,6 +613,57 @@ def test_the_aggregates_interval_reaches_compare() -> None:
     assert delta.scope == "run"
     assert delta.outcome == "unchanged"
     assert delta.within_noise
+
+
+def test_an_aggregate_whose_slices_tie_away_from_its_score_keeps_its_floor() -> None:
+    """A guard on how far #602's change reaches, not a test of the change: it
+    passes with it and without it.
+
+    A case's verdict has the mean of its samples as its score, so a tied
+    interval sits on the score, covers only a delta of zero, and the tolerance
+    has already answered that. An aggregate's recorded score is computed from
+    the folded verdicts while its interval comes from one aggregate per sample
+    index (§7), so here every slice reads 0.5 and the recorded score is 1.0.
+    That zero-width interval is away from the score, it does excuse a movement,
+    and emptying it would turn this `unchanged` into a regression. The rule
+    that empties a tied interval empties it only where it sits on the score."""
+    accuracy = Accuracy(over="check", threshold="1/2", tolerance=0.0)
+    # Each case passes once in two, at opposite indices: both folded verdicts
+    # pass at 0.5, and each slice agrees with the marks once in two.
+    before = with_noise_interval(
+        accuracy,
+        [outcome("a", "positive", 1.0, 0.0), outcome("b", "positive", 0.0, 1.0)],
+    )
+    now = with_noise_interval(
+        accuracy,
+        [outcome("a", "positive", 1.0, 1.0), outcome("b", "positive", 0.0, 0.0)],
+    )
+    assert before.score.score == 1.0
+    assert before.score.sample_min == before.score.sample_max == 0.5
+    assert now.score.score == 0.5
+    comparison = compare(
+        Run(
+            tenant="acme",
+            environment="staging",
+            suite="s",
+            config_hash="h",
+            created_at=CREATED,
+            aggregate=(now,),
+        ),
+        Run(
+            tenant="acme",
+            environment="staging",
+            suite="s",
+            config_hash="h",
+            created_at=CREATED,
+            aggregate=(before,),
+        ),
+    )
+    delta = comparison.deltas[0]
+    assert delta.scope == "run"
+    assert delta.outcome == "unchanged"
+    assert delta.within_noise
+    assert (delta.noise_min, delta.noise_max, delta.noise_samples) == (0.5, 0.5, 2)
 
 
 # -- The run this ADR was written about ------------------------------------ #
@@ -953,11 +1011,10 @@ def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
         "samples); "
         "not counted as a regression." in document
     )
-    assert (
-        "Score fell from 0.900000 to 0.600000 — outside the range of the "
-        "reference&#x27;s individual samples (0.900000–0.900000 across 5 "
-        "samples)." in document
-    )
+    # The steady baseline's five samples are all 0.9: no interval (ADR 0006
+    # §6), so the sentence names none.
+    assert "Score fell from 0.900000 to 0.600000." in document
+    assert "0.900000–0.900000" not in document
 
 
 def test_the_italian_sentences_say_the_same_thing() -> None:
@@ -968,10 +1025,8 @@ def test_the_italian_sentences_say_the_same_thing() -> None:
         "dentro l&#x27;intervallo dei singoli campioni del riferimento "
         "(0.600000–1.000000 su 5 campioni)" in document
     )
-    assert (
-        "fuori dall&#x27;intervallo dei singoli campioni del riferimento "
-        "(0.900000–0.900000 su 5 campioni)" in document
-    )
+    assert "Il punteggio è sceso da 0.900000 a 0.600000." in document
+    assert "0.900000–0.900000" not in document
     assert "non conta come peggioramento" in document
 
 

@@ -736,9 +736,15 @@ class Noise:
         than an omission of it: noise is not mirrored onto the side that did not
         show any. A check whose baseline only ever dropped has `high` equal to
         its own score, so a rise is outside the interval and reported. And an
-        interval of zero width — five samples out of five agreeing, the ordinary
-        case away from the boundary — covers nothing but the score itself, so
-        every later change of mind is still a finding. (ADR 0006 §6)
+        interval of zero width covers nothing but its own point.
+
+        A case's zero-width interval — five samples out of five agreeing, the
+        ordinary case away from the boundary — no longer arrives here: its
+        point is the baseline's own score, and `_noise` hands it over as no
+        interval at all, because ADR 0006 §6 says it is not a floor (#602). The
+        zero-width intervals that still do are an aggregate's, whose slices can
+        tie on a value away from its recorded score, and there the one point
+        covered is that value, not the score.
         """
         if self.low is None or self.high is None:
             return False
@@ -1003,6 +1009,17 @@ def _incomparable_clause(now: Verdict, before: Verdict) -> str:
 def _noise(verdict: Verdict) -> Noise:
     score = verdict.score
     if not score.sampled:
+        return Noise()
+    # Tied samples on the score itself are not a floor (ADR 0006 §6): the one
+    # point they cover is a delta of zero, which the tolerance answers first,
+    # so the outcome is the same either way, and printing `x-x across 5
+    # samples` would report as measured an interval the rule says is not there.
+    # Only *on the score*: an aggregate's recorded score and its interval are
+    # computed apart (ADR 0006), so its slices can tie away from that score,
+    # and that interval excuses a movement, so it stays. All three
+    # values are at storage precision — the interval rounded by `Score`, the
+    # score by `Verdict` — so `==` is exact. (#602)
+    if score.sample_min == score.sample_max == score.score:
         return Noise()
     return Noise(score.sample_min, score.sample_max, len(score.samples))
 
