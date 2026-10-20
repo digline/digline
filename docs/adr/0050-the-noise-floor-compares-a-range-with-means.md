@@ -13,7 +13,12 @@
   became *Five things this carries*: the floor is a lower bound when its samples
   come from a replay. The same day *What this ADR does not claim* gained two
   limits, on the one measurement of variation between runs this project has:
-  what it covers, and what it does not say
+  what it covers, and what it does not say. On 2026-10-20, still before
+  acceptance, the maintainer corrected the break's description in the first
+  item, named in the second item the two things `docs/guide.md` must withdraw,
+  carried the aggregates' exclusion from *Context* into the second decision,
+  gave a tied graded sample set to the tolerance in the first decision and the
+  fourth item, and noted two sentences of *Context* superseded by digline#635.
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
@@ -46,6 +51,11 @@ inclusive at both ends, at storage precision. `compare()` reaches the floor last
 present on one side only, an error, a flipped outcome, a moved denominator and the declared
 tolerance are all decided before it.
 
+*Amended 2026-10-20.* Since digline#635 (`bc84f52`), `_noise` does not build that interval
+when it would be a point sitting on the baseline's own score: it hands over no interval at
+all, because ADR 0006 §6 says an interval of zero width is not a floor. The description
+above holds for every other case.
+
 **First consequence: the floor can only widen the invisible zone.** `unchanged` is *within
 the tolerance* **or** *within the floor*, a disjunction tried in that order. The floor can
 only add movements to `unchanged`, never take one away. It is not a filter; it is an
@@ -67,6 +77,11 @@ unanimous baseline gives a point, with no effect. A baseline that is not unanimo
 that does not flip the outcome is reported `unchanged`, with no tolerance to appeal to. A
 check written with `tolerance=0` to say *this must not move at all* is the check the floor
 silences.
+
+*Amended 2026-10-20.* Since digline#635 a unanimous baseline gives no interval rather than
+a point. The consequence is unchanged — a point on the score never excused anything,
+because a delta of zero is decided by the tolerance first — and what changed is what gets
+printed.
 
 **Fourth: for a binary check, below unanimity the floor concedes every same-side movement
 there is.** Unanimity is a property of the outcomes, not of the scores: a binary check's
@@ -127,9 +142,20 @@ run, so whether its variance between runs includes the target's is not known.
    the range of the samples themselves. The floor then narrows as K grows, which is what a
    floor is for. This is the direction ADR 0028 §4 left open, and the amendment there says
    which half wins and why.
+   The dispersion of a tied sample set is zero, so a graded check whose judged samples
+   happen to coincide would get a floor of zero width — the object ADR 0006 §6 refuses,
+   and the one digline#635 stopped `_noise` handing over when its point was the baseline's
+   own score — and a declared width does not rescue it, because any multiple of zero is
+   zero. A tied sample set is the tolerance's business too, on the same ground the third
+   item below gives binary checks.
 2. **It applies only where an assertion declares it.** Today every assertion is given a
    widened `unchanged` zone whether or not its author asked for one. After this, an
    assertion that declares no floor is decided by its tolerance alone.
+   A run-level aggregate is outside this, as *Context* says above: nothing here decides
+   what its floor becomes, and it is not the same defect. An aggregate's recorded score
+   need not be the mean of its slices, so emptying its floor moves verdicts, and
+   `test_an_aggregate_whose_slices_tie_away_from_its_score_keeps_its_floor` holds that it
+   is not emptied.
 
 **The answer ADR 0006 is owed.** ADR 0006 refused variance and standard deviation because
 *"it assumes a distribution, and five samples are not enough to earn the assumption"*. That
@@ -143,11 +169,23 @@ and digline is not imposing it on anyone.
 
 **Five things this carries.**
 
-- **A break.** A check with `tolerance=0` and a baseline that is not unanimous will begin
-  reporting movements it used to call `unchanged`. That is the point of the change, not a
-  side effect, and it needs a release note and a version decision by `RELEASING.md`'s rule.
+- **A break.** Every movement the floor called `unchanged` and the tolerance does not
+  cover will begin to be reported. The first consequence above is why that is the whole
+  of it: `unchanged` is the tolerance *or* the floor, tried in that order, so taking the
+  floor away takes back exactly what only the floor was granting. A check with
+  `tolerance=0` is the sharpest case and not the condition — its author asked for no
+  movement at all, and for a binary baseline that is not unanimous the floor covers every
+  possible score whatever the tolerance says. That is the point of the change, not a side
+  effect, and it needs a release note and a version decision by `RELEASING.md`'s rule.
 - **A new declared quantity.** A dispersion-based floor needs a width — one standard error,
   two — and that width is declared, never inferred. Whoever writes it owns the number.
+  That is the sentence `docs/guide.md` currently
+  denies: section *The second control: what the check measured about itself* says of the
+  floor that "Nobody chose it and nobody can widen it by hand" (lines 533-535), and the
+  section closes by telling the reader a tolerance can be tightened back "because the
+  measured floor is now doing the other job" (lines 555-558) — advice that puts whoever
+  followed it in the path of the break above. Both are withdrawn by the change that
+  implements this, in the same landing as the sentence the third item asks for.
 - **Binary checks stay the tolerance's business.** For a binary check the dispersion of the
   mean is `sqrt(p(1−p)/K)`, about `0.179` at `p=0.8` and K=5: still wide. The documentation
   should say that a binary check is served by its declared tolerance, rather than leaving
@@ -163,6 +201,8 @@ and digline is not imposing it on anyone.
   what it was computed from — the judged samples, their standard deviation, K, and the
   declared width — or the floor becomes a number the reader takes on trust, which is the
   one thing ADR 0006 was right to refuse.
+  A tied sample set has no floor to print, by the first decision above, so nothing here
+  asks for a standard deviation of zero to be rendered as a width.
 - **The floor is a lower bound when its samples come from a replay.** ADR 0024 §5.6
   measured an abstention rate of 2.0% over a stored run against 8–10.5% live — on brief's
   `brief-reason`, 21 cases, a `Faithfulness` check judged by Haiku — and argues from it
