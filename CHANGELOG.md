@@ -8,6 +8,8 @@ notes under them are this file, verbatim.
 
 ## 0.33.0 — unreleased
 
+digline **0.33.0**.
+
 - **Schema 20, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
   19 → 20 for one field, `floor_standard_errors` on a verdict. The step writes
   nothing: a document written before this release could not have declared a
