@@ -6,6 +6,15 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.33.0 — unreleased
+
+- **Schema 20, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
+  19 → 20 for one field, `floor_standard_errors` on a verdict. The step writes
+  nothing: a document written before this release could not have declared a
+  width, and the absent key says *declared none*, never `null`. A 0.32.x
+  reader refuses a schema-20 document, and a resume journal does not move.
+  `output_version` does not move either.
+
 ## 0.32.1 — 2026-10-19
 
 digline **0.32.1**. **A patch, because nothing digline promised has changed:**
