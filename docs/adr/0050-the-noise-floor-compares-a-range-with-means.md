@@ -19,6 +19,11 @@
   carried the aggregates' exclusion from *Context* into the second decision,
   gave a tied graded sample set to the tolerance in the first decision and the
   fourth item, and noted two sentences of *Context* superseded by digline#635.
+  Accepted on 2026-10-20, and the release question left open at the end of this
+  record — whether a suite keeps the floor for one release with a warning or
+  loses it at once — is answered with the second: no flag and no window, on the
+  ground ADR 0031 §3 and ADR 0004 take, and because the one deprecation this
+  project allowed, `SuiteRuns.listing` in 0.26.0, is still here
 - Shipped: unreleased
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
@@ -230,6 +235,10 @@ has: what it covers, and what it does not say. *The answer ADR 0006 is owed* is 
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
+
+*Answered 2026-10-20.* At once, with no flag and no window — the position ADR 0031 §3 and
+ADR 0004 take on flags and on deprecation windows, and the one deprecation this project
+allowed is still here.
 
 ## Test plan
 
