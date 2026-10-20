@@ -265,8 +265,9 @@ artifacts that today exists in none of the audited competitors.
   `origin/main`" and said the same false thing about a branch that was not.
 
 - **`main` is protected, and nothing bypasses it.** A ruleset on the default
-  branch requires the three `gates` checks — `gates (3.12)`, `gates (3.13)`
-  and `gates (3.14)` — to have passed **on the ref** before it can land,
+  branch requires four checks — `gates (3.12)`, `gates (3.13)`,
+  `gates (3.14)` and `The old readers, built from their tags, where they may
+  not skip` — to have passed **on the ref** before it can land,
   requires a branch to be up to date with `main` before merging, sends every
   merge through a **merge queue** (since 2026-09-29, below), and blocks force
   pushes and deletions.
@@ -274,7 +275,11 @@ artifacts that today exists in none of the audited competitors.
   declared in `pyproject.toml` and nothing ran it, and #365 was a defect that
   existed only there. `tests/test_ci_matrix.py` now holds the matrix equal to
   the declared versions; adding the check to the ruleset is still by hand.
-  **Those three are the whole list, and `docs` is deliberately not among
+  *The readers joined on 2026-10-19* (#625; the ruleset's last update reads
+  15:20 CEST that day, read back from the API on 2026-10-20). The job fetches
+  the release tags and makes a missing one a red rather than a skip, and a
+  check nothing requires would not stop that red from landing.
+  **Those four are the whole list, and `docs` is deliberately not among
   them:** a check that the documented process guarantees will be red cannot be
   a required check. The reason, and the deadlock it avoids, are in
   [`RELEASING.md`](RELEASING.md) and stay there; a red `docs` on `main` between
@@ -283,7 +288,7 @@ artifacts that today exists in none of the audited competitors.
   checks this repository's pages against another repository's font subsets, so
   a subset cut again on the site's side would turn it red on a pull request here
   that caused nothing — and a check that depends on another repository must not
-  block this one. It is read, not required. No actor bypasses those three checks: there is no `--admin` path, and
+  block this one. It is read, not required. No actor bypasses those four checks: there is no `--admin` path, and
   asking for one is not a route either. So every change has one shape —
   **push the branch, wait for green, then put it in the queue.** A direct push
   to `main` is refused, and that refusal is the rule working rather than an
@@ -339,14 +344,14 @@ artifacts that today exists in none of the audited competitors.
   on `pull_request` and on pushes to `main`, and a push to any other branch
   starts nothing at all: the branch arrives green-looking with no checks on
   it, and a ref with no checks is a ref that cannot land. So the shape above,
-  in full: push the branch, open a pull request, wait for the three gates,
+  in full: push the branch, open a pull request, wait for the four checks,
   enqueue. Observed on the first try: the first push of the branch that recorded
   the status-check rule produced **zero check runs**, and PR #82 had to be
   opened before anything could go green.
 
   **The merge queue, since 2026-09-29.** Enqueuing is not merging. The queue
   builds `main` plus the pull request on a `gh-readonly-queue/main/...` ref,
-  runs the three gates **again, on that ref**, and only then moves `main` to that
+  runs the four checks **again, on that ref**, and only then moves `main` to that
   commit. So a pull request is green twice: once on its own head, once as what
   `main` will be. The merge method is still `merge` and the commit that lands
   is still a merge commit. What the queue replaces is the step where a person
