@@ -45,6 +45,8 @@ __all__ = [
     "Verdict",
     "at_precision",
     "canonical",
+    "declared_floor",
+    "floor_width_refusal",
     "meets",
     "normalize_output",
     "output_kind",
@@ -501,6 +503,45 @@ class UnidentifiedVerdictError(ValueError):
     """
 
 
+def floor_width_refusal(value: object) -> str | None:
+    """Why `value` is not a floor width, or `None` when it is one, or absent.
+
+    A width is a positive, finite number of standard errors (ADR 0050, the
+    second of *Five things this carries*). `None` is *not declared*. Zero is
+    refused rather than read as *no floor*: that would be a second way to say
+    `None`, and an interval of zero width is not a floor (ADR 0006 §6). A
+    boolean is refused before the number test because `True` is an `int`, and
+    would otherwise declare one standard error in silence.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return f"floor_standard_errors must be a number, got {value!r}"
+    if not math.isfinite(value) or value <= 0:
+        return (
+            f"floor_standard_errors must be a positive finite number of standard "
+            f"errors, got {value!r}"
+        )
+    return None
+
+
+def declared_floor(check: object) -> float | None:
+    """The floor width `check` declares, or `None` where it declares none.
+
+    Read with a default rather than through the `Assertion` protocol: the
+    protocol gains no member, so a check of somebody else's written before the
+    field existed still satisfies it and declares nothing (ADR 0005 §6's rule).
+
+    Refused here, as a `ValueError`, rather than converted: `float(True)` is
+    `1.0`, so a reader that converted first could no longer tell a boolean from
+    a width.
+    """
+    value: object = getattr(check, "floor_standard_errors", None)
+    if (refusal := floor_width_refusal(value)) is not None:
+        raise ValueError(refusal)
+    return None if value is None else float(cast(float, value))
+
+
 @dataclass(frozen=True, slots=True)
 class Verdict:
     """What an assertion produces and what a driver consumes. Never a bare
@@ -545,6 +586,13 @@ class Verdict:
     #: not a measurement: it is outside `identity` and `config_hash`, and no
     #: comparison, gate or exit code reads it. (ADR 0024 §6.1, §6.4)
     judged: bool = False
+    #: How wide, in standard errors of the mean, the floor its check declares.
+    #: `None` is *declared none*. Recorded here for `tolerance`'s reason, so a
+    #: document carries what reading it needs. Copied off the assertion, like
+    #: the tolerance, and outside `identity`; inside `config_hash` only where it
+    #: is declared. **Nothing reads it to decide anything yet**: in phase 1 of
+    #: #496 the floor is still the range. (ADR 0050)
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.assertion_id:
@@ -552,6 +600,12 @@ class Verdict:
                 f"the verdict {self.score.name!r} carries no assertion_id: "
                 "compare() pairs on it, and one derived from the name would "
                 "pair verdicts that were never the same check (ADR 0001 §2)"
+            )
+        if (refusal := floor_width_refusal(self.floor_standard_errors)) is not None:
+            raise ValueError(refusal)
+        if self.floor_standard_errors is not None:
+            object.__setattr__(
+                self, "floor_standard_errors", float(self.floor_standard_errors)
             )
 
         # Standard frozen-dataclass idiom: `__post_init__` is the one place

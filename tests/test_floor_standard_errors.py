@@ -37,6 +37,7 @@ from digline.core import (
     Accuracy,
     AssertionBase,
     CaseResult,
+    Comparison,
     Contains,
     CostBudget,
     EvaluatorInputs,
@@ -113,8 +114,11 @@ def test_repeated_copies_it_from_inner_and_takes_none_of_its_own() -> None:
     wrapped = Repeated(inner=inner, samples=3, min_agreement="2/3")
     assert wrapped.floor_standard_errors == 2
     with pytest.raises(TypeError):
-        Repeated(  # type: ignore[call-arg]
-            inner=inner, samples=3, min_agreement="2/3", floor_standard_errors=1
+        Repeated(
+            inner=inner,
+            samples=3,
+            min_agreement="2/3",
+            floor_standard_errors=1,  # pyright: ignore[reportCallIssue]
         )
 
 
@@ -137,13 +141,13 @@ def test_a_repeated_checks_identity_does_not_move_either() -> None:
     stored baseline. `c73e8b47d3e65471` is this check's identity on `main` at
     8c59027."""
 
-    def wrapped(**width: float) -> Repeated:
-        inner = Contains(needle="hello", tolerance=0.05, **width)
+    def wrapped(width: float | None = None) -> Repeated:
+        inner = Contains(needle="hello", tolerance=0.05, floor_standard_errors=width)
         return Repeated(inner=inner, samples=3, min_agreement="2/3")
 
     assert wrapped().identity == "c73e8b47d3e65471"
-    assert wrapped(floor_standard_errors=1).identity == "c73e8b47d3e65471"
-    assert wrapped(floor_standard_errors=2).identity == "c73e8b47d3e65471"
+    assert wrapped(1).identity == "c73e8b47d3e65471"
+    assert wrapped(2).identity == "c73e8b47d3e65471"
 
 
 def test_a_moved_width_pairs_the_verdicts_instead_of_a_new_and_a_missing() -> None:
@@ -165,11 +169,12 @@ CHECKS = (
 )
 
 
-def undeclared(**explicit: None) -> tuple[Any, ...]:
+def undeclared() -> tuple[Any, ...]:
+    """`CHECKS`, with `None` passed for the width rather than left out."""
     return (
-        Contains(needle="hello", **explicit),
-        Regex(pattern="^h", tolerance=0.1, **explicit),
-        CostBudget(max_usd=0.02, tolerance=0.05, **explicit),
+        Contains(needle="hello", floor_standard_errors=None),
+        Regex(pattern="^h", tolerance=0.1, floor_standard_errors=None),
+        CostBudget(max_usd=0.02, tolerance=0.05, floor_standard_errors=None),
     )
 
 
@@ -178,7 +183,7 @@ def test_config_hash_does_not_move_for_a_suite_that_declares_nothing() -> None:
     and every run renamed on the day of the release. The literals are what
     `main` computed at 8c59027, before the field existed. `None` passed
     explicitly is the same declaration as leaving it out."""
-    for checks in (CHECKS, undeclared(floor_standard_errors=None)):
+    for checks in (CHECKS, undeclared()):
         assert config_hash(checks) == "18d4f01827c1c0d4"
         assert config_hash(checks, samples=5, min_agreement=0.6) == "f30479048c7413d9"
         gate = Accuracy(over="check", threshold="1/2", tolerance=0.0)
@@ -246,7 +251,7 @@ def test_a_suite_refuses_a_width_that_is_not_a_positive_finite_number(
             tenant="acme",
             environment="staging",
             name="s",
-            assertions=[Contains(needle="hello", floor_standard_errors=width)],  # type: ignore[arg-type]
+            assertions=[Contains(needle="hello", floor_standard_errors=width)],  # pyright: ignore[reportArgumentType]
             cases=[Case(id="one")],
         )
 
@@ -254,7 +259,7 @@ def test_a_suite_refuses_a_width_that_is_not_a_positive_finite_number(
 @pytest.mark.parametrize("width", REFUSED, ids=repr)
 def test_config_hash_refuses_it_too(width: object) -> None:
     with pytest.raises(ValueError, match=FIELD):
-        config_hash((Contains(needle="hello", floor_standard_errors=width),))  # type: ignore[arg-type]
+        config_hash((Contains(needle="hello", floor_standard_errors=width),))  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("width", REFUSED, ids=repr)
@@ -266,7 +271,7 @@ def test_a_verdict_refuses_it_too(width: object) -> None:
             status="pass",
             reason="found",
             assertion_id="id",
-            floor_standard_errors=width,  # type: ignore[arg-type]
+            floor_standard_errors=width,  # pyright: ignore[reportArgumentType]
         )
 
 
@@ -391,10 +396,13 @@ def test_no_verdict_changes_whatever_the_width(width: float | None) -> None:
     )
     with_width = compare(make_run([moved]), make_run([spread_baseline(width)]))
     without = compare(make_run([moved_plain]), make_run([spread_baseline(None)]))
-    shape = lambda c: [  # noqa: E731
-        (d.outcome, d.delta, d.reason, d.within_noise, d.noise_min, d.noise_max)
-        for d in c.deltas
-    ]
+
+    def shape(c: Comparison) -> list[tuple[object, ...]]:
+        return [
+            (d.outcome, d.delta, d.reason, d.within_noise, d.noise_min, d.noise_max)
+            for d in c.deltas
+        ]
+
     assert shape(with_width) == shape(without)
     assert reference.deltas[0].outcome == "unchanged"
 

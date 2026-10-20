@@ -87,6 +87,9 @@ type Expansion = Literal["new_group", "now_grouped", ""]
 #: document holds, and the row exists to say exactly that. (ADR 0028 §5)
 AGREEMENT_FIELD = "min_agreement"
 
+#: The `field` of a row about a declared floor width. (ADR 0050)
+WIDTH_FIELD = "floor_standard_errors"
+
 
 class DifferentTenantsError(ValueError):
     """Raised when the two runs belong to different tenants: one end customer's
@@ -199,15 +202,17 @@ class SuiteDelta:
     the same split as `AssertionDelta`, and for the same reason: a name is for
     the sentence, an identity is for the pairing.
 
-    `field` names the value that moved — `threshold`, `tolerance`, `samples` —
-    and is empty for a rule that arrived or left whole. One row per moved value
-    rather than per rule, because a check whose threshold and tolerance both
-    moved moved them in possibly opposite directions, and one row would have to
-    choose a verb.
+    `field` names the value that moved — `threshold`, `tolerance`, `samples`,
+    `floor_standard_errors` — and is empty for a rule that arrived or left
+    whole. One row per moved value rather than per rule, because a check whose
+    threshold and tolerance both moved moved them in possibly opposite
+    directions, and one row would have to choose a verb.
 
     `before` and `after` are floats or `None`, and `None` here means **not
     established** rather than zero: the sample count of a rule whose verdicts
     all errored before their fold is genuinely unknown, and the row says so.
+    The one exception is `floor_standard_errors`, whose `None` is *declared
+    none*: on a `changed` row it is a width added or withdrawn. (ADR 0050)
     """
 
     rule: str
@@ -251,6 +256,11 @@ class _Rule:
     threshold: float | None
     tolerance: float | None
     samples: float | None
+    #: The declared floor width. Here `None` is *declared none*, which is
+    #: established, unlike the three above; `width_known` is false only where
+    #: the run's own verdicts disagree about it. (ADR 0050)
+    width: float | None = None
+    width_known: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -1601,7 +1611,41 @@ def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
                 after=after,
             )
         )
+    out.extend(_width_moved(key, here, there))
     return tuple(out)
+
+
+def _width_moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
+    """The declared floor width, named where it moved.
+
+    `None` on either side is a declaration of none, so `2 -> —` is a width
+    withdrawn, never *not recorded*. **No verb**: nothing reads the width to
+    decide anything in phase 1 of #496, so neither *looser* nor *stricter* is
+    true of it yet. (ADR 0050)
+    """
+    if not (here.width_known and there.width_known):
+        return (
+            SuiteDelta(
+                rule=here.name,
+                assertion_id=key[1],
+                scope=key[0],
+                outcome="unknown",
+                field=WIDTH_FIELD,
+            ),
+        )
+    if here.width == there.width:
+        return ()
+    return (
+        SuiteDelta(
+            rule=here.name,
+            assertion_id=key[1],
+            scope=key[0],
+            outcome="changed",
+            field=WIDTH_FIELD,
+            before=there.width,
+            after=here.width,
+        ),
+    )
 
 
 def _expansion(name: str, scope: Scope, before: dict[_RuleKey, _Rule]) -> Expansion:
@@ -1720,11 +1764,17 @@ def _rule_from(verdicts: Sequence[Verdict]) -> _Rule:
     `None`, meaning *not established*, and the row it produces says `unknown`
     rather than picking the first one it met.
     """
+    widths = {v.floor_standard_errors for v in verdicts}
     return _Rule(
         name=verdicts[0].score.name,
         threshold=_agreed(v.threshold for v in verdicts),
         tolerance=_agreed(v.tolerance for v in verdicts),
         samples=_agreed(_samples_of(v) for v in verdicts),
+        # Not `_agreed`: its `None` is *not established*, and a width's is
+        # *declared none*, so a check that declares none on every case has a
+        # value, and one disagreement leaves it unknown. (ADR 0050)
+        width=next(iter(widths)) if len(widths) == 1 else None,
+        width_known=len(widths) == 1,
     )
 
 

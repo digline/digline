@@ -759,8 +759,11 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     # the flag is the run's, and the journal records cases and configurations,
     # which do not write it. It moved to 19 under ADR 0052 for
     # `modules_unchecked`, and holds an eighth: the loader's finding is handed
-    # to the run by its launcher, and the journal records none of it.
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (19, 3)
+    # to the run by its launcher, and the journal records none of it. It moved
+    # to 20 under ADR 0050 for `floor_standard_errors`, and holds a ninth: the
+    # width rides inside the verdicts a leg already records, absent where none
+    # is declared, so a leg written before it reads as declaring none.
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (20, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

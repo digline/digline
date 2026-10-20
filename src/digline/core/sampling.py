@@ -18,7 +18,7 @@ from dataclasses import dataclass, field, replace
 from statistics import fmean
 from typing import ClassVar, cast
 
-from digline.core.assertions import AssertionBase
+from digline.core.assertions import AssertionBase, dataclass_identity
 from digline.core.protocols import Assertion
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.refused import RefusedError
@@ -31,6 +31,7 @@ from digline.core.types import (
     Status,
     Verdict,
     at_precision,
+    declared_floor,
     meets,
     within,
 )
@@ -232,6 +233,7 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
             status="error",
             reason=reason,
             assertion_id=first.assertion_id,
+            floor_standard_errors=first.floor_standard_errors,
         )
 
     if not scores:
@@ -318,6 +320,7 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         status="pass" if meets(mean, first.threshold) else "fail",
         reason=f"mean of {len(verdicts)} samples ({_rendered(verdicts)})",
         assertion_id=first.assertion_id,
+        floor_standard_errors=first.floor_standard_errors,
     )
 
 
@@ -466,11 +469,13 @@ class Repeated(AssertionBase):
     # `init=False` makes it impossible to pass one that contradicts the inner.
     threshold: float = field(init=False, default=0.0)
     tolerance: float = field(init=False, default=0.0)
+    floor_standard_errors: float | None = field(init=False, default=None)
     accepts: frozenset[OutputKind] = field(init=False, default=frozenset())
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "threshold", self.inner.threshold)
         object.__setattr__(self, "tolerance", self.inner.tolerance)
+        object.__setattr__(self, "floor_standard_errors", declared_floor(self.inner))
         object.__setattr__(self, "accepts", self.inner.accepts)
         if self.samples < 2:
             raise RefusedError(
@@ -518,6 +523,20 @@ class Repeated(AssertionBase):
             status=combined.status,
             reason=combined.reason,
             assertion_id=self.identity,
+            floor_standard_errors=self.floor_standard_errors,
+        )
+
+    @property
+    def identity(self) -> str:
+        """`AssertionBase.identity`, with the floor width kept out of `inner`.
+
+        `inner` is fingerprinted whole, so without this its width would reach
+        this identity, and a moved width would unpair a `Repeated` check that
+        the same edit leaves paired everywhere else. Its threshold and tolerance
+        still reach it, as they did before the width existed. (ADR 0050)
+        """
+        return dataclass_identity(
+            self, self.IDENTITY_EXCLUDED, nested=frozenset({"floor_standard_errors"})
         )
 
 

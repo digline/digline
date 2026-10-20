@@ -361,6 +361,15 @@ def _add_schema_nineteen(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty(raw: dict[str, Any]) -> dict[str, Any]:
+    """19 -> 20. One passenger: `floor_standard_errors` on a verdict, and the
+    step writes nothing. A document before 20 could not have declared a width,
+    and the absent key is how *declared none* is written. Inventing one would
+    hand a check a floor nobody chose. (ADR 0050)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -379,6 +388,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     16: _add_schema_seventeen,
     17: _add_schema_eighteen,
     18: _add_schema_nineteen,
+    19: _add_schema_twenty,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

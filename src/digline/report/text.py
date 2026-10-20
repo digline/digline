@@ -484,6 +484,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.field.threshold": "threshold of",
         "rules.field.tolerance": "tolerance of",
         "rules.field.samples": "samples of",
+        "rules.field.floor_standard_errors": "floor width of",
         "rules.moved.loosened": "{field} {name} {before} → {after} (looser)",
         "rules.moved.tightened": "{field} {name} {before} → {after} (stricter)",
         # No parenthesis, and it is the decision of ADR 0028 §4 rather than a
@@ -1726,6 +1727,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.field.threshold": "soglia di",
         "rules.field.tolerance": "tolleranza di",
         "rules.field.samples": "campioni di",
+        "rules.field.floor_standard_errors": "larghezza del pavimento di",
         "rules.moved.loosened": "{field} {name} {before} → {after} (più larga)",
         "rules.moved.tightened": "{field} {name} {before} → {after} (più stretta)",
         "rules.moved": "{field} {name} {before} → {after}",
