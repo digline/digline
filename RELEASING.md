@@ -136,11 +136,17 @@ Do them in this order, from the repository root:
 #    an editable install still naming the release before this one.
 uv sync --all-packages
 
-# 2. The five claims written by hand. Every occurrence in these five files is
-#    a live claim about what is released, so a plain substitution is right here
-#    and nowhere else.
+# 2. The claims written by hand: the seven files LIVE pins, and the plugin's
+#    copy of the skill, which test_claude_plugin.py holds byte for byte to
+#    .claude/skills/operating-digline/SKILL.md. Every occurrence of the old
+#    version in these eight files is a live claim about what is released, so a
+#    plain substitution is right here and nowhere else. On a minor,
+#    docker/README.md's `<major>.<minor>` tag row moves too, and this
+#    substitution does not reach it: edit that row by hand.
 sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md \
-    plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json
+    plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+    AGENTS.md .claude/skills/operating-digline/SKILL.md \
+    plugins/digline/skills/operating-digline/SKILL.md
 ```
 
 `tests/test_versions.py::LIVE` names seven and what it reads in each:
