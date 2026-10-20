@@ -31,7 +31,9 @@ and a gate that cannot run there is not a gate.
 The pin itself is checked against the tags by
 `test_the_table_agrees_with_the_tags`, and CI runs it: the `readers` job
 fetches every `v0.*` tag and sets `DIGLINE_TAGS_REQUIRED`, so there a missing
-tag is a failure and not a skip. It also runs on any clone that has the tags.
+tag is a failure and not a skip. The one exception is the row of the version
+`pyproject.toml` names, before its tag exists, and it is warned rather than
+passed in silence. It also runs on any clone that has the tags.
 So the table stays in the file for the gate that reads it, and the tags it was
 read from still check it on every run of `ci.yml`.
 
@@ -49,6 +51,7 @@ import re
 import subprocess
 import sys
 import tomllib
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
@@ -361,6 +364,13 @@ def test_the_table_agrees_with_the_tags() -> None:
     missing from a fetch left every later row unchecked and named only that
     one. A fetch that brought some of the tags is fixed by learning all the
     ones it missed.
+
+    One row is excused its tag: the row of the version `pyproject.toml` names,
+    when that tag does not exist yet. The release pull request bumps the
+    version and adds the row, and the tag can only go on its merge commit, so
+    without the excuse the release could never land. The excuse is warned, not
+    silent, and it covers that row alone: a missing tag on any other row fails
+    here as before.
     """
     missing: list[str] = []
     wrong: list[str] = []
@@ -385,6 +395,17 @@ def test_the_table_agrees_with_the_tags() -> None:
                 f"declares {found.group(1)}"
             )
     assert not wrong, "The tag is the record:\n  " + "\n  ".join(wrong)
+    being_cut = f"v{workspace_version()}"
+    if being_cut in missing:
+        missing.remove(being_cut)
+        warnings.warn(
+            f"{being_cut} is the version pyproject.toml names and has no tag "
+            "yet, so its row was not read from one. That is the window between "
+            "the bump and the tag, declared (ADR 0014 §6, point 6): the tag "
+            "goes on the release pull request's merge commit, and from then on "
+            "this row is checked like every other.",
+            stacklevel=1,
+        )
     if missing:
         tags_absent(missing)
 
