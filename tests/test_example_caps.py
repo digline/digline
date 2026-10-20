@@ -31,7 +31,9 @@ and a gate that cannot run there is not a gate.
 The pin itself is checked against the tags by
 `test_the_table_agrees_with_the_tags`, and CI runs it: the `readers` job
 fetches every `v0.*` tag and sets `DIGLINE_TAGS_REQUIRED`, so there a missing
-tag is a failure and not a skip. It also runs on any clone that has the tags.
+tag is a failure and not a skip. The one exception is the row of the version
+`pyproject.toml` names, before its tag exists, and it is warned rather than
+passed in silence. It also runs on any clone that has the tags.
 So the table stays in the file for the gate that reads it, and the tags it was
 read from still check it on every run of `ci.yml`.
 
@@ -47,13 +49,15 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 import tomllib
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
 import pytest
-from tests._tags import tags_absent
+from tests._tags import TAGS_REQUIRED, tags_absent
 
 from digline.core.run import SCHEMA_VERSION
 
@@ -360,6 +364,13 @@ def test_the_table_agrees_with_the_tags() -> None:
     missing from a fetch left every later row unchecked and named only that
     one. A fetch that brought some of the tags is fixed by learning all the
     ones it missed.
+
+    One row is excused its tag: the row of the version `pyproject.toml` names,
+    when that tag does not exist yet. The release pull request bumps the
+    version and adds the row, and the tag can only go on its merge commit, so
+    without the excuse the release could never land. The excuse is warned, not
+    silent, and it covers that row alone: a missing tag on any other row fails
+    here as before.
     """
     missing: list[str] = []
     wrong: list[str] = []
@@ -384,8 +395,61 @@ def test_the_table_agrees_with_the_tags() -> None:
                 f"declares {found.group(1)}"
             )
     assert not wrong, "The tag is the record:\n  " + "\n  ".join(wrong)
+    being_cut = f"v{workspace_version()}"
+    if being_cut in missing:
+        missing.remove(being_cut)
+        warnings.warn(
+            f"{being_cut} is the version pyproject.toml names and has no tag "
+            "yet, so its row was not read from one. That is the window between "
+            "the bump and the tag, declared (ADR 0014 §6, point 6): the tag "
+            "goes on the release pull request's merge commit, and from then on "
+            "this row is checked like every other.",
+            stacklevel=1,
+        )
     if missing:
         tags_absent(missing)
+
+
+#: Versions no tag will ever carry, for the tests of the window below.
+UNTAGGED = ("97.0.0", "98.0.0", "99.0.0")
+
+
+def table_against_tags(
+    monkeypatch: pytest.MonkeyPatch, rows: tuple[str, ...], workspace: str
+) -> None:
+    """Run the table check over `rows`, as a workspace at `workspace`, where
+    the check may not skip."""
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "RELEASED", dict.fromkeys(rows, SCHEMA_VERSION))
+    monkeypatch.setattr(module, "workspace_version", lambda: workspace)
+    monkeypatch.setenv(TAGS_REQUIRED, "1")
+    test_the_table_agrees_with_the_tags()
+
+
+def test_the_release_being_cut_may_lack_its_tag_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The release pull request bumps `pyproject.toml` and adds the row, and
+    the tag goes on its merge commit: until then that one row has no tag to be
+    read from. The window is declared (ADR 0014 §6, point 6), not hidden."""
+    with pytest.warns(UserWarning, match=r"v99\.0\.0"):
+        table_against_tags(monkeypatch, ("99.0.0",), workspace="99.0.0")
+
+
+def test_a_row_of_another_version_without_its_tag_still_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.warns(UserWarning), pytest.raises(pytest.fail.Exception) as failed:
+        table_against_tags(monkeypatch, ("98.0.0", "99.0.0"), workspace="99.0.0")
+    assert "v98.0.0" in str(failed.value)
+    assert "v99.0.0" not in str(failed.value)
+
+
+def test_every_row_without_its_tag_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(pytest.fail.Exception) as failed:
+        table_against_tags(monkeypatch, UNTAGGED, workspace="1.0.0")
+    for version in UNTAGGED:
+        assert f"v{version}" in str(failed.value)
 
 
 # --------------------------------------------------------------------------- #

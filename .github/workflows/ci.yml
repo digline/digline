@@ -301,9 +301,11 @@ jobs:
     #
     # So this job fetches the tags and runs the eleven by node id with
     # `DIGLINE_TAGS_REQUIRED` set, where `tests/_tags.py` turns a missing tag
-    # into a failure that names it. Depth 1 is enough, measured on cfabd4e:
-    # `git archive` and `git show <tag>:path` read the tag's tree and no
-    # history. `refs/tags/v0.*` follows each new core release without an edit
+    # into a failure that names it. One tag may be missing, and is warned: the
+    # version `pyproject.toml` names, while its release pull request waits for
+    # the tag that goes on its merge commit. Depth 1 is enough, measured on
+    # cfabd4e: `git archive` and `git show <tag>:path` read the tag's tree and
+    # no history. `refs/tags/v0.*` follows each new core release without an edit
     # here and leaves the plugin tags out. `test_releasing.py` holds the list
     # below to every test that calls `tests/_tags.py`, so a twelfth cannot be
     # written that skips everywhere.
