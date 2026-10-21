@@ -46,6 +46,12 @@ gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000.
 opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636.
 ```
 
+The shape line is there for every judged check, and it reports one thing: what
+fraction of the judged scores sat at the ends of the scale, here and in the
+reference. It never says which fraction is better — a rubric that has stopped
+grading and started voting is something a reader has to weigh, not a verdict
+(ADR 0024 §6.3). The reading itself is set out under *Shape*, below.
+
 A comparison states no threshold, and the report is why: its case tables are
 about movement against a reference and print no bars, so a reading of one
 prints none either. The number is on the fact and in `--json`, and the run
@@ -55,6 +61,9 @@ not a convention.
 
 With **no baseline** it reads the run alone, and says so by what it does not
 say — no "reference", no "got worse", no comparison of any kind:
+
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
 
 ```console
 $ digline explain --suite suite.py --run latest
