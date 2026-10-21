@@ -12,6 +12,10 @@
   `samples` a direction: the confidence, because
   [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) has the floor
   measure the mean's dispersion. No row changes until that code lands
+- Amended: 2026-10-21 — §2 gains `floor_standard_errors` as a fourth `field`
+  and §3 gains where its `unknown` row comes from, both kept as written. The
+  verb the 2026-10-15 note deferred is printed: the code landed in #496's
+  second phase
 - Opens: **nothing.** No schema bump, and not a passenger on one. The run
   document gains no field. §1 is why it does not need to: everything
   `config_hash` fingerprints is already written down, bar one value, and §5
@@ -228,6 +232,22 @@ it is the shape of the key. The case set is already named, per case, by the
 `new` and `missing` deltas `compare()` has always produced. Adding a test is the
 most ordinary edit in the product and it stays silent on this surface. §6 is the
 one shape that looks like an exception, and it is not one.
+
+*Amended 2026-10-21 ([ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md)),
+§2 and §3 kept as written.* **`field` gains a fourth value,
+`floor_standard_errors`, and its `unknown` row is not reached the way the other
+three are.** A declared width is a rule like a threshold and moves the same way:
+it reads `loosened` where it rose or appeared and `tightened` where it fell or
+went away, which is §4's direction applied to a rule nobody had when §2 was
+written.
+
+**Where its `unknown` comes from.** For a threshold, a tolerance or a `samples`
+count, §3's second rule reaches `unknown` when one side holds no value and the
+other does — not established, or declared values that disagree between the
+cases. A width reaches it from one side alone: where a single side's cases
+declare different widths the row is `unknown` and `before` and `after` are both
+empty, whether or not the other side agrees with itself. Nothing was established
+to compare, so the row names no number.
 
 ### 4. The direction is named. The rules are never gated
 
