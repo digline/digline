@@ -1095,9 +1095,10 @@ def _floor(now: Verdict, before: Verdict) -> tuple[Noise, str]:
     sqrt(K)` with `s` and `K` from the baseline's judged samples, times the
     width the judged run's check declares, either side of the baseline's score
     (ADR 0050, the first decision, as amended 2026-10-21: what is judged is a
-    difference of two means, whose dispersion is `sqrt(2)` times one mean's). The samples are the
-    baseline's, never this run's (ADR 0006 §5); the width is the rule in force,
-    so a width withdrawn takes the floor with it (the second decision).
+    difference of two means, whose dispersion is `sqrt(2)` times one mean's).
+    The samples are the baseline's, never this run's (ADR 0006 §5); the width
+    is the rule in force, so a width withdrawn takes the floor with it (the
+    second decision).
 
     No floor, and the tolerance alone decides, where: the check declares no
     width; the verdict was not sampled; fewer than two samples were judged, so
