@@ -754,14 +754,18 @@ the tag:
 - **The recapture itself**, carried to the site by `sync-docs.sh` and built as
   *Before the tag: the site*, below, describes.
 - **`/start/`'s own counts.** The prose at `docs/start.md:35` in digline.dev,
-  and its three translations, say how many checks moved within noise, and
+  and its three translations, say how many checks moved within noise.
   `claim_problems` in digline.dev's `tools/hooks/home.py` fails the site's build
-  when those words and the capture disagree. A recapture that moves the count
-  moves the prose and its three translations with it, in a pull request on
-  digline.dev for `docs/start.md` and `docs/{de,es,it}/start.md`. (On 0.33.0 it
-  goes from three to two, because the `steady` scenario's cost no longer rises
-  for a reason.)
-- **For 0.33.0 only:** `digline/digline.dev#214`, built, green and held. It
+  when the English page's words and the capture disagree. It reads
+  `start/index.html` alone, so nothing fails when a translation disagrees. A
+  recapture that moves the count moves the prose and its three translations
+  with it, in a pull request on digline.dev for `docs/start.md` and
+  `docs/{de,es,it}/start.md`. (On 0.33.0 it goes from three to two, because the
+  `steady` scenario's cost no longer rises for a reason.)
+- **For 0.33.0 only:** `digline/digline.dev#214`, held. Its `Build` went green
+  at 10:04:04Z on 2026-10-21, against a digline `main` from before #653
+  (merged 10:47:23Z), which changed the home's `steady` scenario. That green
+  describes another tree, so it is built again before the merge. It
   carries `home.roadmap.shipped_text`, `home.problem.with_reference_items.noise`
   and a dated note on the post *The more samples I took, the less my noise floor
   could see*. Merge it with the tag, not before: the home describes the released
@@ -4560,6 +4564,24 @@ This red is the *short* one, and it belongs to the release commit. The days
 between the version bump and the tag are the other window, and `ci` does not go
 red through them: see *The window before the tag*. Dating the changelog heading
 is what ends that window and hands the pins back to this race.
+
+*Noted 2026-10-21, the three paragraphs above kept as written.* They do not
+contradict step 3 of *The release commit is its own landing*. They presuppose a
+tagged commit that also carries the bump of `docker/Dockerfile`, which was true
+while the bump and the release were one commit. Since they are two pull
+requests, the release commit touches nothing under `docker/`, and
+`image-touched` in `ci.yml` skips it. It builds only where the diff against the
+base touches `docker/`, `ci.yml` or `docker-publish.yml`, or where there is no
+base. Measured on `v0.32.0` (`b2f423b`) and `v0.32.1` (`0e3afe9`): the image job
+was skipped on the `merge_group` run and on the push to `main`, and built green
+on the `workflow_run` `ci` after `publish`. The bump of 0.33.0 was #641, so its
+release commit has the same shape. Read off the condition and not measured: the
+red is still there for a build with no base between the dated heading and
+`publish`, such as the weekly schedule or a dispatch, and for a queue group in
+which a pull request that touches `docker/` lands beside the release pull
+request. The comment on the wait step in `ci.yml` carries the old sentence. It
+is corrected after `publish`, because a change to `ci.yml` builds the image on
+the release commit.
 
 **A red `docker-publish` on the release tag no longer means "re-run it".** It
 used to: the job's own wait asked only about `digline`, from the runner, and
