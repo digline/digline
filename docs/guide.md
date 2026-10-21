@@ -530,9 +530,13 @@ So there are now two controls, and they are not the same kind of statement:
 - **`tolerance` is declared.** A reviewer decided this much movement is
   acceptable. It is a judgement, it is in the suite, and it goes through a code
   review.
-- **The noise floor is measured.** This is how far the check moved on its own,
-  in the baseline, across its own samples. Nobody chose it and nobody can widen
-  it by hand.
+- **The noise floor is measured, and how much of it to forgive is declared.** A
+  check that declares `floor_standard_errors` gets a floor of that many standard
+  errors of the movement, either side of the baseline's score: the dispersion is
+  measured from the baseline's samples, the multiplier is a reviewer's
+  judgement. A check that declares none is decided by its tolerance alone. And
+  the floor is computed from the samples, which for a binary check are 0 or 1,
+  so a binary check is served by its declared tolerance.
 
 They are checked in that order, both produce `unchanged`, and the reason says
 which one spoke — so you are never left guessing whether a check was quiet
@@ -547,15 +551,11 @@ rather than an omission:
 - **It reads the baseline's interval, never this run's.** The baseline is the
   promoted, reviewed measurement. A run that got noisier is not allowed to widen
   its own excuse.
-- **An interval of zero width is not a floor.** Five votes out of five, which is
-  the ordinary case away from the boundary, leaves nothing to be inside — so
-  every later change of mind is still reported. The floor earns its keep where
-  the wobble actually was, and on the aggregate of chapter 7.
-
-None of this replaces the tolerance you measured. It means a tolerance set
-generously as a hand-rolled noise floor can be tightened back to what a reviewer
-actually intends to allow, because the measured floor is now doing the other
-job.
+- **Samples that agree give no floor:** five votes out of five leave a standard
+  deviation of zero, and no multiple of zero is an interval. A binary check gets
+  none either, for a different reason — its samples are 0 or 1, and that is the
+  tolerance's business by rule, not because their dispersion vanishes. There the
+  tolerance alone decides, and every later change of mind is still reported.
 
 ## 5. The threshold goes where the system is
 
@@ -1058,6 +1058,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,
@@ -1255,6 +1256,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,
@@ -1476,6 +1478,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,

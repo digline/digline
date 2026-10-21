@@ -2199,7 +2199,16 @@ there is nothing to gate on. A golden key set in the tests fails the build when
 the command prints a key the set does not list, so an addition is deliberate and
 visible, not forbidden. It needs no bump: *added* keys leave a consumer working,
 which is why these arrived without one. Each delta carries `within_noise`, `noise_min`,
-`noise_max` and `noise_samples` beside its outcome.
+`noise_max` and `noise_samples` beside its outcome, and `noise_width`, `noise_sd` and
+`noise_judged`: the width the check declares, the standard deviation of the baseline's
+judged samples, and those samples. From them the floor is
+`noise_width · √2 · noise_sd / √noise_samples` either side of the baseline's score, and
+the `√2` is not optional: what is judged is the movement between two means, whose
+standard error is `√2` times one mean's (ADR 0050, decision 1 as amended 2026-10-21).
+`null`, `null` and `[]` there mean the range an aggregate carries, or no floor at all.
+`explain --json` carries the same three on each check, and `noise_source`: `reference`
+for the floor a movement was judged against, `run` for the samples a run read alone
+took, which is not a floor.
 
 ## Verdicts and comparison
 
