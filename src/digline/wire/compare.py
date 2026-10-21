@@ -57,6 +57,13 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         "noise_min": delta.noise_min,
         "noise_max": delta.noise_max,
         "noise_samples": delta.noise_samples,
+        # What a floor from the mean was computed from: the declared width, the
+        # judged samples' standard deviation and the samples. `null`, `null`
+        # and `[]` on a range and where there is no floor. Added keys, so
+        # `output_version` does not move. (ADR 0050, the fourth item)
+        "noise_width": delta.noise_width,
+        "noise_sd": delta.noise_sd,
+        "noise_judged": list(delta.noise_judged),
         # Which row produced the exit code, when the headline says a canary
         # moved. A pipeline that reads only the number sees no change in kind;
         # one that wants to point at the check has the field. (ADR 0016 §8)

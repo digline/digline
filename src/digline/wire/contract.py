@@ -1090,6 +1090,19 @@ _ADDED: tuple[_AddedKey, ...] = (
         _k(_arr("string"), "null"),
         "ADR 0052",
     ),
+    # What a floor from the mean was computed from, on a comparison's row and on
+    # explain's check: the declared width, the judged samples' standard
+    # deviation, and the samples. `null`, `null` and `[]` on a range and where
+    # there is no floor. On explain, whose interval it is: `reference` for the
+    # floor a movement was judged against, `run` for the samples a run read
+    # alone took, which is not a floor. (ADR 0050, the fourth item)
+    _AddedKey("delta", "noise_width", _NUM_OR_NULL, "ADR 0050"),
+    _AddedKey("delta", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
+    _AddedKey("delta", "noise_judged", _k(_arr("number")), "ADR 0050"),
+    _AddedKey("fact.check", "noise_width", _NUM_OR_NULL, "ADR 0050"),
+    _AddedKey("fact.check", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
+    _AddedKey("fact.check", "noise_judged", _k(_arr("number")), "ADR 0050"),
+    _AddedKey("fact.check", "noise_source", _STR, "ADR 0050"),
 )
 
 

@@ -59,6 +59,14 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "noise_min": fact.noise.low,
                 "noise_max": fact.noise.high,
                 "noise_samples": fact.noise.count,
+                # The inputs of a floor from the mean, as on `delta_json`, and
+                # whose interval this is: the reference's floor in a
+                # comparison, or the samples this run took, read alone, which
+                # is not a floor at all. (ADR 0050, the fourth item)
+                "noise_width": fact.noise.width,
+                "noise_sd": fact.noise.sd,
+                "noise_judged": list(fact.noise.judged),
+                "noise_source": fact.noise_source,
                 # An added key, beside the kind rather than inside it: `kind`
                 # keeps the six values a consumer already matches on, and a
                 # check whose two sides counted different cases is now

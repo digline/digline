@@ -266,6 +266,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.canary.beyond": (
             ", outside the range of the reference's individual samples ({interval})"
         ),
+        "fact.canary.beyond.mean": ", outside the reference's noise floor ({interval})",
         # No *likely*, and the absence is chosen: that word is the canary's,
         # which infers a model from behaviour. Here nothing is inferred — the
         # band was declared and the score was observed. (ADR 0024 §4.6)
@@ -633,18 +634,38 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "another."
         ),
         "noise.interval": "{low}–{high} across {count} samples",
+        # A floor from the mean, printed with what it was computed from: a
+        # declared width cannot be checked by eye otherwise. (ADR 0050)
+        "noise.mean": (
+            "{low}–{high}, {width} standard errors of the movement either side "
+            "of the reference's score: standard deviation {sd} over {count} "
+            "judged samples ({values}), a standard error of the mean of "
+            "{mean_se}, and √2 times that, {movement_se}, for the movement"
+        ),
         "detail.within_noise": (
             "Score moved from {before} to {now} — inside the range of the "
             "reference's individual samples ({noise}); not counted as a "
             "regression."
         ),
+        "detail.within_noise.mean": (
+            "Score moved from {before} to {now} — inside the reference's "
+            "noise floor ({noise}); not counted as a regression."
+        ),
         "detail.dropped.beyond_noise": (
             "Score fell from {before} to {now} — outside the range of the "
             "reference's individual samples ({noise})."
         ),
+        "detail.dropped.beyond_noise.mean": (
+            "Score fell from {before} to {now} — outside the reference's "
+            "noise floor ({noise})."
+        ),
         "detail.rose.beyond_noise": (
             "Score rose from {before} to {now} — outside the range of the "
             "reference's individual samples ({noise})."
+        ),
+        "detail.rose.beyond_noise.mean": (
+            "Score rose from {before} to {now} — outside the reference's "
+            "noise floor ({noise})."
         ),
         "detail.flipped.worse": "Went from passing to failing ({before} → {now}).",
         "detail.flipped.better": "Went from failing to passing ({before} → {now}).",
@@ -1151,6 +1172,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{where} moved from {before} to {now}, inside the interval its "
             "reference measured."
         ),
+        "explain.check.within_noise.mean": (
+            "{where} moved from {before} to {now}, inside the noise floor "
+            "its reference's samples give, {noise}."
+        ),
         "explain.check.new": (
             "{where} was checked here and is not in the reference, so there is "
             "nothing to hold it against."
@@ -1168,6 +1193,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.bar": " The bar is {threshold}.",
         "explain.noise.beyond": (
             " That is outside the interval its reference measured, {noise}."
+        ),
+        "explain.noise.beyond.mean": (
+            " That is outside the noise floor its reference's samples give, {noise}."
         ),
         "explain.nothing": "Nothing in this group.",
         # `digline log` (ADR 0020). The multi-run vocabulary is this reading's
@@ -1539,6 +1567,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.canary.beyond": (
             ", fuori dall'intervallo dei singoli campioni del riferimento ({interval})"
         ),
+        "fact.canary.beyond.mean": (
+            ", fuori dal pavimento di rumore del riferimento ({interval})"
+        ),
         "fact.calibration.one": (
             "Il caso di calibrazione {case} ha ottenuto {score}{across}, fuori "
             "dalla banda dichiarata {low}–{high}: i punteggi giudicati in questa "
@@ -1859,18 +1890,37 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "dell'altro."
         ),
         "noise.interval": "{low}–{high} su {count} campioni",
+        "noise.mean": (
+            "{low}–{high}, {width} errori standard del movimento attorno al "
+            "punteggio del riferimento: deviazione standard {sd} su {count} "
+            "campioni giudicati ({values}), un errore standard della media di "
+            "{mean_se}, e √2 volte quello, {movement_se}, per il movimento"
+        ),
         "detail.within_noise": (
             "Il punteggio si è spostato da {before} a {now} — dentro "
             "l'intervallo dei singoli campioni del riferimento ({noise}); non "
             "conta come peggioramento."
         ),
+        "detail.within_noise.mean": (
+            "Il punteggio si è spostato da {before} a {now} — dentro il "
+            "pavimento di rumore del riferimento ({noise}); non conta come "
+            "peggioramento."
+        ),
         "detail.dropped.beyond_noise": (
             "Il punteggio è sceso da {before} a {now} — fuori dall'intervallo "
             "dei singoli campioni del riferimento ({noise})."
         ),
+        "detail.dropped.beyond_noise.mean": (
+            "Il punteggio è sceso da {before} a {now} — fuori dal pavimento "
+            "di rumore del riferimento ({noise})."
+        ),
         "detail.rose.beyond_noise": (
             "Il punteggio è salito da {before} a {now} — fuori "
             "dall'intervallo dei singoli campioni del riferimento ({noise})."
+        ),
+        "detail.rose.beyond_noise.mean": (
+            "Il punteggio è salito da {before} a {now} — fuori dal pavimento "
+            "di rumore del riferimento ({noise})."
         ),
         "detail.flipped.worse": "Da superato a non superato ({before} → {now}).",
         "detail.flipped.better": "Da non superato a superato ({before} → {now}).",
@@ -2379,6 +2429,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{where} si è spostato da {before} a {now}, entro l'intervallo "
             "misurato dal riferimento."
         ),
+        "explain.check.within_noise.mean": (
+            "{where} si è spostato da {before} a {now}, entro il pavimento di "
+            "rumore dato dai campioni del riferimento, {noise}."
+        ),
         "explain.check.new": (
             "{where} è stato controllato qui e non è nel riferimento, quindi "
             "non c'è nulla con cui confrontarlo."
@@ -2396,6 +2450,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.bar": " La soglia è {threshold}.",
         "explain.noise.beyond": (
             " È fuori dall'intervallo misurato dal riferimento, {noise}."
+        ),
+        "explain.noise.beyond.mean": (
+            " È fuori dal pavimento di rumore dato dai campioni del "
+            "riferimento, {noise}."
         ),
         "explain.nothing": "Niente in questo gruppo.",
         "log.heading": (

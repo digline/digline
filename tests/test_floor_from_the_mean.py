@@ -45,6 +45,7 @@ from digline.core.compare import AssertionDelta
 from digline.core.types import at_precision
 from digline.report import render_html
 from digline.report.explain import explain_text, facts
+from digline.report.text import Locale
 from digline.wire.compare import delta_json
 from digline.wire.explain import fact_json
 
@@ -118,12 +119,15 @@ def comparison(now: Verdict, before: Verdict) -> Comparison:
 
 
 def test_a_declared_width_gives_a_floor_from_the_standard_error_of_the_mean() -> None:
-    se = stdev(SPREAD) / math.sqrt(len(SPREAD))
+    """Standard errors of the movement: `sqrt(2) * s / sqrt(K)`, because what is
+    judged is a difference of two means (ADR 0050, decision 1 as amended
+    2026-10-21). For SPREAD and a width of 2, 0.8 ± 0.089443."""
+    movement = math.sqrt(2) * stdev(SPREAD) / math.sqrt(len(SPREAD))
     delta = compared(sampled([0.75] * 5, width=2), sampled(SPREAD, width=2))
     assert delta.outcome == "unchanged"
     assert delta.within_noise
-    assert delta.noise_min == pytest.approx(0.8 - 2 * se, abs=1e-6)
-    assert delta.noise_max == pytest.approx(0.8 + 2 * se, abs=1e-6)
+    assert delta.noise_min == pytest.approx(0.8 - 2 * movement, abs=1e-6)
+    assert delta.noise_max == pytest.approx(0.8 + 2 * movement, abs=1e-6)
     assert delta.noise_samples == 5
     assert delta.noise_width == 2.0
     assert delta.noise_sd == pytest.approx(stdev(SPREAD), abs=1e-6)
@@ -131,20 +135,22 @@ def test_a_declared_width_gives_a_floor_from_the_standard_error_of_the_mean() ->
 
 
 def test_a_movement_inside_the_range_but_outside_the_mean_floor_is_reported() -> None:
-    """0.72 is inside 0.7–0.9, the range today's floor excused, and outside
-    0.8 ± 2 standard errors of the mean, which is 0.737–0.863."""
-    delta = compared(sampled([0.72] * 5, width=2), sampled(SPREAD, width=2))
+    """0.705 is inside 0.7–0.9, the range the old floor excused, and outside
+    0.8 ± 2 standard errors of the movement, which is 0.710557–0.889443."""
+    delta = compared(sampled([0.705] * 5, width=2), sampled(SPREAD, width=2))
     assert delta.outcome == "regressed"
     assert not delta.within_noise
 
 
 def test_the_floor_narrows_as_k_grows() -> None:
     """The point of ADR 0050: more samples, a steadier mean, a narrower floor.
-    The range of the same values does not narrow at all."""
+    The range of the same values does not narrow at all. At a width of 2, four
+    samples give 0.8 ± 0.163299 and sixteen give 0.8 ± 0.073030, so a movement
+    to 0.71 is inside the first and outside the second."""
     few = (0.7, 0.9, 0.7, 0.9)
     many = few * 4
-    narrow = compared(sampled([0.74] * 4, width=2), sampled(many, width=2))
-    wide = compared(sampled([0.74] * 4, width=2), sampled(few, width=2))
+    narrow = compared(sampled([0.71] * 4, width=2), sampled(many, width=2))
+    wide = compared(sampled([0.71] * 4, width=2), sampled(few, width=2))
     assert narrow.noise_min is not None and narrow.noise_max is not None
     assert wide.noise_min is not None and wide.noise_max is not None
     assert narrow.noise_max - narrow.noise_min < wide.noise_max - wide.noise_min
@@ -251,17 +257,20 @@ def test_outside_the_range_with_no_floor_says_nothing_about_a_floor() -> None:
 # What prints the floor prints what it was computed from (the fourth item)
 # --------------------------------------------------------------------------- #
 
-INPUTS = ("0.7, 0.8, 0.9, 0.8, 0.8", "0.070711", "5", "2")
-
 
 def test_the_reason_prints_the_inputs() -> None:
     covered = compared(sampled([0.75] * 5, width=2), sampled(SPREAD, width=2))
-    beyond = compared(sampled([0.72] * 5, width=2), sampled(SPREAD, width=2))
+    beyond = compared(sampled([0.705] * 5, width=2), sampled(SPREAD, width=2))
     for delta in (covered, beyond):
         assert "0.7, 0.8, 0.9, 0.8, 0.8" in delta.reason
         assert "standard deviation 0.070711" in delta.reason
         assert "5 judged samples" in delta.reason
-        assert "2 standard errors of the mean" in delta.reason
+        assert "2 standard errors of the movement" in delta.reason
+        # Both standard errors, so a reader rebuilds the interval: one mean's,
+        # and the movement's, which is sqrt(2) times it. (ADR 0050, the fourth
+        # item, and decision 1 as amended)
+        assert "a standard error of the mean of 0.031623" in delta.reason
+        assert "√2 times that, 0.044722, for the movement" in delta.reason
     assert "inside the baseline's noise floor" in covered.reason
     assert "outside the baseline's noise floor" in beyond.reason
 
@@ -269,35 +278,47 @@ def test_the_reason_prints_the_inputs() -> None:
 @pytest.mark.parametrize(
     ("locale", "words"),
     [
-        ("en", ("standard errors of the mean", "judged samples")),
-        ("it", ("errori standard della media", "campioni giudicati")),
+        ("en", ("standard errors of the movement", "standard error of the mean")),
+        ("it", ("errori standard del movimento", "errore standard della media")),
     ],
 )
-def test_the_report_prints_the_inputs(locale: str, words: tuple[str, str]) -> None:
-    for now in (0.75, 0.72):
+def test_the_report_prints_the_inputs(locale: Locale, words: tuple[str, str]) -> None:
+    for now in (0.75, 0.705):
         before = make_run([sampled(SPREAD, width=2)])
         current = make_run([sampled([now] * 5, width=2)])
         page = render_html(
             compare(current, before), current, before, locale=locale, declared=None
-        )  # type: ignore[arg-type]
-        for needle in (*words, "0.7, 0.8, 0.9, 0.8, 0.8", "0.070711"):
+        )
+        for needle in (
+            *words,
+            "0.7, 0.8, 0.9, 0.8, 0.8",
+            "0.070711",
+            "0.031623",
+            "0.044722",
+        ):
             assert needle in page, (locale, now, needle)
 
 
 @pytest.mark.parametrize(
     ("locale", "words"),
     [
-        ("en", ("standard errors of the mean", "judged samples")),
-        ("it", ("errori standard della media", "campioni giudicati")),
+        ("en", ("standard errors of the movement", "standard error of the mean")),
+        ("it", ("errori standard del movimento", "errore standard della media")),
     ],
 )
-def test_explain_prints_the_inputs(locale: str, words: tuple[str, str]) -> None:
-    for now in (0.75, 0.72):
+def test_explain_prints_the_inputs(locale: Locale, words: tuple[str, str]) -> None:
+    for now in (0.75, 0.705):
         before = make_run([sampled(SPREAD, width=2)])
         current = make_run([sampled([now] * 5, width=2)])
         reading = facts(current, compare(current, before))
-        text = " ".join(explain_text(reading, locale=locale))  # type: ignore[arg-type]
-        for needle in (*words, "0.7, 0.8, 0.9, 0.8, 0.8", "0.070711"):
+        text = " ".join(explain_text(reading, locale=locale))
+        for needle in (
+            *words,
+            "0.7, 0.8, 0.9, 0.8, 0.8",
+            "0.070711",
+            "0.031623",
+            "0.044722",
+        ):
             assert needle in text, (locale, now, needle)
 
 
