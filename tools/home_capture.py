@@ -78,14 +78,15 @@ Answer the customer's question in one sentence.
 
 #: The steady scenario's prompt: the signature line the quickstart's answers are
 #: signed with, and a line of guidance that costs tokens and changes nothing
-#: else. The second is the one that moves between its two runs.
+#: else. The second is the one that moves between its two runs, reworded to
+#: within three characters of its length, so the cost's own move is between a
+#: sixtieth and a hundredth of the jitter's, and what the comparison sees is
+#: the jitter. The rewording is
+#: one of the six of twelve that a floor of two standard errors of the movement
+#: kept green with a check inside it, the majority of the measurement in
+#: `private/`, measure-the-floor-figures-2026-10-21.
 GUIDANCE_LINE = "Keep the answer to one sentence."
-CHANGED_GUIDANCE = (
-    "Keep the answer to one sentence, say what the customer can do next, name "
-    "the policy it comes from, avoid jargon and internal codes, never promise a "
-    "date the order page does not already show, and do not repeat the question "
-    "back."
-)
+CHANGED_GUIDANCE = "Keep each answer to a sentence."
 
 STEADY_PROMPT = f"""\
 You are the support assistant for Northwind.
@@ -93,20 +94,29 @@ You are the support assistant for Northwind.
 {SIGNATURE_LINE}
 """
 
-#: What one call costs, per sample, in the steady fixture: a canned model that
-#: bills the prompt it was sent and never the same twice to the last cent. Five
-#: numbers, cycled, so a run measures a band and two runs of the same prompt
-#: measure the same one. They add up to zero, so the mean is the prompt's own
-#: cost, and they are wider than the suite's declared tolerance — a band
-#: narrower than the tolerance can never absorb anything, because `compare`
-#: asks the tolerance first (ADR 0009).
-JITTER = (0.0, 0.004, -0.004, 0.003, -0.003)
+#: How far one call's cost strays, per sample, in the steady fixture: a canned
+#: model that bills the prompt it was sent and never the same twice. Each
+#: sample draws uniformly from ±JITTER, seeded from the exact prompt and the
+#: sample's place in the run, so a run measures a dispersion, two runs of one
+#: prompt draw the same numbers, and a reworded prompt draws new ones from the
+#: same distribution. The driver asks serially, case by case in the suite's
+#: order, so a sample's place is the same in every run. The smallest cost the
+#: prompt and the answers allow, less the jitter, stays above zero, so every
+#: score stays below 1.
+JITTER = 0.005
+
+#: The width the steady fixture's cost budget declares: two standard errors of
+#: the movement, so its floor is `2 · √2 · sd / √K` from the reference's own
+#: samples. (ADR 0050)
+FLOOR_WIDTH = 2
 
 MODEL_STEADY = (
     "The model and the judge are canned: no provider is called. The reply is "
-    "billed for the prompt it was sent, plus a jitter that cycles through five "
-    "values, so five samples of a case measure a band; the only edit between "
-    "the two runs is one line of prompt.md, which the suite declares."
+    "billed for the prompt it was sent, plus a jitter drawn from that prompt, "
+    "so five samples of a case measure a dispersion; the cost budget declares "
+    "a noise floor of two standard errors of the movement; the only edit "
+    "between the two runs is one line of prompt.md, reworded to within three "
+    "characters of its length, which the suite declares."
 )
 
 MODEL = (
@@ -155,12 +165,16 @@ def _replace_once(text: str, old: str, new: str, *, where: str) -> str:
 def steady_fixture(files: dict[str, str]) -> dict[str, str]:
     """The quickstart, with a prompt that is paid for and a case set aside.
 
-    Three differences from the quickstart, and each is a thing the home's
+    Four differences from the quickstart, and each is a thing the home's
     sentence has to be able to say:
 
       * the reply is billed for the prompt it was sent — its cost is the
-        prompt's length plus a jitter that cycles through JITTER — so five
-        samples of a case measure a band rather than one number;
+        prompt's length plus a jitter drawn from ±JITTER, seeded from the
+        prompt — so five samples of a case measure a dispersion rather than
+        one number;
+      * the cost budget declares a floor of FLOOR_WIDTH standard errors of
+        the movement, so that dispersion is a floor a movement can sit
+        inside (ADR 0050: no floor is given where none is declared);
       * `prompt.md` is declared as an artifact, so a change to it is a file
         under test that changed;
       * one case is suspended, with its reason, so nothing runs it.
@@ -171,7 +185,8 @@ def steady_fixture(files: dict[str, str]) -> dict[str, str]:
         files["app.py"],
         '"""The system under test, and the judge. Both would be yours."""\n',
         '"""The system under test, and the judge. Both would be yours."""\n\n'
-        "import itertools\n\n"
+        "import itertools\n"
+        "import random\n\n"
         f"JITTER = {JITTER!r}\n"
         "_SAMPLE = itertools.count()\n",
         where="app.py",
@@ -186,7 +201,8 @@ def steady_fixture(files: dict[str, str]) -> dict[str, str]:
         '    """Your model call. Canned, and billed for the prompt it was sent."""\n'
         "    text = ANSWERS[question_id]\n"
         "    cost = 0.004 + 0.001 * (len(text) + len(prompt)) / 100\n"
-        "    return text, cost + JITTER[next(_SAMPLE) % len(JITTER)]\n",
+        '    draw = random.Random(f"{prompt}|{next(_SAMPLE)}")\n'
+        "    return text, cost + draw.uniform(-JITTER, JITTER)\n",
         where="app.py",
     )
     support = _replace_once(
@@ -216,6 +232,13 @@ def steady_fixture(files: dict[str, str]) -> dict[str, str]:
         '        Case(id="is-it-waterproof"),\n'
         '        Case(id="refund-status", '
         'suspended="the refund API is down, ticket 412"),\n',
+        where="support.py",
+    )
+    support = _replace_once(
+        support,
+        "CostBudget(max_usd=0.02, tolerance=0.05)",
+        "CostBudget(max_usd=0.02, tolerance=0.05, "
+        f"floor_standard_errors={FLOOR_WIDTH})",
         where="support.py",
     )
     return {**files, "app.py": app, "support.py": support, "prompt.md": STEADY_PROMPT}
@@ -380,6 +403,22 @@ def band(documents: list[dict[str, Any]]) -> str:
     return "; ".join(sorted(found))
 
 
+def billed_samples(documents: list[dict[str, Any]]) -> list[float]:
+    """Every cost-budget sample the run files record, read from the documents.
+
+    A budget scores `cap / (cap + cost)`, so a sample below 1 is a cost above
+    zero: the jitter never took a reply's cost to nothing.
+    """
+    return [
+        float(value)
+        for document in documents
+        for result in document["results"]
+        for verdict in result["verdicts"]
+        if verdict.get("assertion") == "cost_budget"
+        for value in cast(list[float], verdict.get("samples") or [])
+    ]
+
+
 def _succeeded(entry: dict[str, Any]) -> None:
     if entry["exit"] != 0:
         raise CaptureError(
@@ -417,12 +456,18 @@ def steady(root: Path, guide: str) -> dict[str, Any]:
     The quickstart's compare says four things and three of them are "nothing".
     This one moves what can move without anything getting worse: the prompt is
     declared and paid for, so a line of it changing is a file under test that
-    changed and a cost that moves — and, five samples in, moves no further than
-    the band the reference measured. One case is suspended throughout.
+    changed. The line is reworded to within three characters of its length, so
+    the prompt's own cost moves the score by about 0.0009 of a point where the
+    jitter moves it by about 0.06 to 0.09 — what moves is the jitter. The cost
+    budget declares a floor of
+    two standard errors of the movement, computed from the reference's five
+    samples, and at least one case's cost moves past its tolerance and stays
+    inside that floor. One case is suspended throughout.
 
-    It must end green, with a check inside the noise, a suspended case and a
-    changed artifact, or this script fails: a capture that lost any of the three
-    would put on /start/ a sentence the tool did not print.
+    It must end green, with a check inside the noise, a suspended case, a
+    changed artifact and every billed sample below a score of 1, or this
+    script fails: a capture that lost any of them would put on /start/ a
+    sentence the tool did not print.
     """
     space = workspace(root, steady_fixture(chapter_one_files(guide)))
     before = space.run()
@@ -458,6 +503,22 @@ def steady(root: Path, guide: str) -> dict[str, Any]:
         )
     for name, wrong in steady_problems(facts):
         raise CaptureError(f"the steady scenario has no {name}: {wrong}")
+    if abs(len(CHANGED_GUIDANCE) - len(GUIDANCE_LINE)) > 3:
+        raise CaptureError(
+            "the steady scenario's rewording is not within three characters of "
+            f"the line it replaces: {len(GUIDANCE_LINE)} and {len(CHANGED_GUIDANCE)}"
+        )
+    billed = billed_samples([space.run_document(before), space.run_document(after)])
+    if not billed:
+        raise CaptureError(
+            "the steady scenario's run files record no cost-budget sample, so "
+            "whether a reply cost nothing cannot be read from them"
+        )
+    if max(billed) >= 1:
+        raise CaptureError(
+            "the steady scenario billed a sample that cost nothing: "
+            f"{len(billed)} samples, the highest scoring {max(billed)}"
+        )
 
     return {
         "run_ids": [before, after],
