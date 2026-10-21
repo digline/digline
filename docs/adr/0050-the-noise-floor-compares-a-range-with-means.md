@@ -281,12 +281,15 @@ which is still here.
 
 ## Test plan
 
-The fourth point's figures come from an enumeration, and a figure in a public text
-regenerates from an artifact that runs in CI:
-`tests/test_noise_floor_concedes_every_same_side_move.py`. For a binary check at K=5 and a
-threshold of `0.5`, it folds every count of passes, fails and samples that could not be
-judged with `combine_samples` at each `min_agreement` five samples can produce, and puts
-every same-side pair through `compare()` at tolerance `0`. It holds the coincidence — the
-widest same-side movement and the widest the floor excuses are the same number — at each
-`min_agreement`, that at unanimity no baseline is divided and nothing is excused, and the
-five figures above.
+The fourth point's figures come from an enumeration, and the enumeration runs in CI:
+`tests/test_no_same_side_move_is_excused_for_a_binary_check.py`. For a binary check at K=5
+and a threshold of 0.5, it folds every count of passes, fails and samples that could not be
+judged with `combine_samples`, at each `min_agreement` five samples can produce, and puts
+every same-side pair through `compare()` at tolerance 0, with no width declared and with
+one. It holds two things: the five figures of the fourth point, as the widest same-side
+movement those folds permit, which is what the range floor excused in full and the evidence
+that justified this decision; and that `compare()` now excuses none of them, because a
+binary check is the tolerance's business.
+
+*Amended 2026-10-21:* the file was `tests/test_noise_floor_concedes_every_same_side_move.py`,
+which held the coincidence through the range floor.
