@@ -19,6 +19,8 @@ invariant, and `test_assertions.py` holds the budgets at their cap.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from digline.core import (
@@ -229,14 +231,20 @@ def test_the_delta_the_rule_tests_is_the_delta_the_wire_carries() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 3. The measured noise floor: `sample_min <= score <= sample_max`
+# 3. The noise floor: `low <= score <= high`, both ends inclusive
 # --------------------------------------------------------------------------- #
 
 
+#: The floor width every check in this section declares. The floor is ADR
+#: 0050's, `w * sqrt(2) * s / sqrt(K)` either side of the baseline's score, and
+#: what is held here is that `covers()` takes both of its ends inclusively.
+WIDTH = 2.0
+
+
 def sampled(score: float, *samples: float) -> Verdict:
-    """A baseline that wobbled, with the interval its samples span. `tolerance`
-    is zero throughout this section so the declared rule cannot answer first —
-    `compare()` checks it before the measured floor."""
+    """A baseline that wobbled, declaring a floor. `tolerance` is zero
+    throughout this section so the declared rule cannot answer first —
+    `compare()` checks it before the floor."""
     return Verdict(
         score=Score(
             name="rubric",
@@ -250,23 +258,33 @@ def sampled(score: float, *samples: float) -> Verdict:
         reason="folded",
         tolerance=0.0,
         assertion_id="id-rubric",
+        floor_standard_errors=WIDTH,
     )
 
 
 def against(score: float, baseline: Verdict) -> tuple[str, bool]:
-    comparison = compare(
-        run_of(verdict("rubric", score, threshold=0.5, tolerance=0.0)),
-        run_of(baseline),
+    now = replace(
+        verdict("rubric", score, threshold=0.5, tolerance=0.0),
+        floor_standard_errors=WIDTH,
     )
+    comparison = compare(run_of(now), run_of(baseline))
     delta = comparison.deltas[0]
     return delta.outcome, delta.within_noise
 
 
+def ends(baseline: Verdict) -> tuple[float, float]:
+    """The floor's two ends, as `compare()` built them for `baseline`."""
+    delta = compare(run_of(baseline), run_of(baseline)).deltas[0]
+    assert delta.noise_min is not None and delta.noise_max is not None
+    return delta.noise_min, delta.noise_max
+
+
 def test_the_noise_floor_is_inclusive_at_the_low_end() -> None:
     baseline = sampled(0.8, 0.6, 0.8, 1.0, 0.8, 0.8)
-    assert against(0.6, baseline) == ("unchanged", True)
-    assert against(0.6 + STEP, baseline) == ("unchanged", True)
-    assert against(0.6 - STEP, baseline) == ("regressed", False)
+    low, _ = ends(baseline)
+    assert against(low, baseline) == ("unchanged", True)
+    assert against(low + STEP, baseline) == ("unchanged", True)
+    assert against(low - STEP, baseline) == ("regressed", False)
 
 
 def test_the_noise_floor_is_inclusive_at_the_high_end() -> None:
@@ -275,9 +293,10 @@ def test_the_noise_floor_is_inclusive_at_the_high_end() -> None:
     would leave the test above green while turning a rise the baseline had
     already shown into an `improved`."""
     baseline = sampled(0.78, 0.6, 0.8, 0.9, 0.8, 0.8)
-    assert against(0.9, baseline) == ("unchanged", True)
-    assert against(0.9 - STEP, baseline) == ("unchanged", True)
-    assert against(0.9 + STEP, baseline) == ("improved", False)
+    _, high = ends(baseline)
+    assert against(high, baseline) == ("unchanged", True)
+    assert against(high - STEP, baseline) == ("unchanged", True)
+    assert against(high + STEP, baseline) == ("improved", False)
 
 
 # --------------------------------------------------------------------------- #

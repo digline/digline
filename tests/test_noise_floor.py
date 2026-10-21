@@ -68,15 +68,22 @@ def make_run(verdicts: Sequence[Verdict], *, case_id: str = "c1") -> Run:
     )
 
 
-def sample(score: float, *, threshold: float = 0.5, name: str = "check") -> Verdict:
+def sample(
+    score: float,
+    *,
+    threshold: float = 0.5,
+    name: str = "check",
+    width: float | None = None,
+) -> Verdict:
     """One un-folded sample: what an assertion returns before anything repeats
-    it."""
+    it. `width` is the floor its check declares (ADR 0050), carried by the fold."""
     return Verdict(
         score=Score(name=name, score=score),
         threshold=threshold,
         status="pass" if score >= threshold else "fail",
         reason=f"sample scored {score}",
         assertion_id=f"id-{name}",
+        floor_standard_errors=width,
     )
 
 
@@ -359,36 +366,42 @@ def compare_one(now: Verdict, before: Verdict) -> AssertionDelta:
     return comparison.deltas[0]
 
 
-def folded(*scores: float, threshold: float = 0.5) -> Verdict:
+def folded(
+    *scores: float, threshold: float = 0.5, width: float | None = None
+) -> Verdict:
     return combine_samples(
-        [sample(value, threshold=threshold) for value in scores], min_agreement=0.0
+        [sample(value, threshold=threshold, width=width) for value in scores],
+        min_agreement=0.0,
     )
 
 
 def test_a_drop_inside_the_baselines_interval_is_unchanged() -> None:
-    """The rule this ADR exists for. The baseline wobbled between 0.6 and 1.0
-    over its own five samples; a run landing at 0.7 has not said anything the
-    baseline did not already say."""
-    before = folded(1.0, 1.0, 0.6, 1.0, 0.8)
-    now = folded(0.7, 0.7, 0.7, 0.7, 0.7)
+    """The rule this ADR exists for, on the floor ADR 0050 gives it: a check
+    that declares two standard errors of the movement. The baseline wobbled
+    between 0.6 and 1.0 over its own five samples, mean 0.88; a run landing at
+    0.7 is inside 0.88 ± 0.226274, so it has not said anything the baseline did
+    not already say."""
+    before = folded(1.0, 1.0, 0.6, 1.0, 0.8, width=2)
+    now = folded(0.7, 0.7, 0.7, 0.7, 0.7, width=2)
     delta = compare_one(now, before)
     assert delta.outcome == "unchanged"
     assert delta.within_noise
-    assert (delta.noise_min, delta.noise_max, delta.noise_samples) == (0.6, 1.0, 5)
+    assert (delta.noise_min, delta.noise_max, delta.noise_samples) == (
+        0.653726,
+        1.106274,
+        5,
+    )
 
 
 def test_a_drop_outside_the_interval_is_still_a_regression() -> None:
-    before = folded(1.0, 1.0, 0.9, 1.0, 0.9)
-    now = folded(0.6, 0.6, 0.6, 0.6, 0.6)
+    before = folded(1.0, 1.0, 0.9, 1.0, 0.9, width=2)
+    now = folded(0.6, 0.6, 0.6, 0.6, 0.6, width=2)
     delta = compare_one(now, before)
     assert delta.outcome == "regressed"
     assert not delta.within_noise
-    # The interval rides along anyway: the report says what the movement left.
-    assert (delta.noise_min, delta.noise_max) == (0.9, 1.0)
-    assert (
-        "outside the range of the baseline's individual samples (0.900000-"
-        "1.000000 across 5 samples)" in delta.reason
-    )
+    # The floor rides along anyway: the report says what the movement left.
+    assert (delta.noise_min, delta.noise_max) == (0.890718, 1.029282)
+    assert "outside the baseline's noise floor (0.890718-1.029282" in delta.reason
 
 
 def test_the_floor_is_the_baselines_and_never_this_runs() -> None:
@@ -405,8 +418,8 @@ def test_a_rise_inside_the_interval_is_not_an_improvement_either() -> None:
     """One test for both directions. Noise explains a movement whichever way it
     went, and calling this an improvement would be the same false finding with
     a friendlier name."""
-    before = folded(0.6, 1.0, 0.6, 0.6, 0.6)
-    now = folded(0.9, 0.9, 0.9, 0.9, 0.9)
+    before = folded(0.6, 1.0, 0.6, 0.6, 0.6, width=2)
+    now = folded(0.9, 0.9, 0.9, 0.9, 0.9, width=2)
     delta = compare_one(now, before)
     assert delta.outcome == "unchanged"
     assert delta.within_noise
@@ -963,10 +976,10 @@ def test_the_run_it_came_back_to_needs_no_promotion() -> None:
 
 def noise_comparison() -> Comparison:
     """One check within the noise, one beyond it, against the same baseline."""
-    steady = folded(0.9, 0.9, 0.9, 0.9, 0.9, threshold=0.5)
-    wobbly = folded(1.0, 0.6, 1.0, 1.0, 1.0, threshold=0.5)
-    now_within = folded(0.75, 0.75, 0.75, 0.75, 0.75, threshold=0.5)
-    now_beyond = folded(0.6, 0.6, 0.6, 0.6, 0.6, threshold=0.5)
+    steady = folded(0.9, 0.9, 0.9, 0.9, 0.9, threshold=0.5, width=2)
+    wobbly = folded(1.0, 0.6, 1.0, 1.0, 1.0, threshold=0.5, width=2)
+    now_within = folded(0.75, 0.75, 0.75, 0.75, 0.75, threshold=0.5, width=2)
+    now_beyond = folded(0.6, 0.6, 0.6, 0.6, 0.6, threshold=0.5, width=2)
     return compare(
         make_run(
             [replace_name(now_within, "wobbly"), replace_name(now_beyond, "steady")]
@@ -997,7 +1010,7 @@ def test_the_within_noise_sentence_names_the_interval(locale: Locale) -> None:
     document = render_html(comparison, run, run, locale=locale, declared=None)
     # Rendered at FLOAT_PRECISION like every other score, and with the dot, so
     # two renderings of one run still diff line by line.
-    assert "0.600000–1.000000" in document
+    assert "0.693726–1.146274" in document
     assert "5" in document
 
 
@@ -1006,11 +1019,10 @@ def test_the_english_sentences_read_as_the_adr_wrote_them() -> None:
     run = make_run([])
     document = render_html(comparison, run, run, locale="en", declared=None)
     assert (
-        "Score moved from 0.920000 to 0.750000 — inside the range of the "
-        "reference&#x27;s individual samples (0.600000–1.000000 across 5 "
-        "samples); "
-        "not counted as a regression." in document
+        "Score moved from 0.920000 to 0.750000 — inside the reference&#x27;s "
+        "noise floor (0.693726–1.146274, 2 standard errors of the movement" in document
     )
+    assert "not counted as a regression." in document
     # The steady baseline's five samples are all 0.9: no interval (ADR 0006
     # §6), so the sentence names none.
     assert "Score fell from 0.900000 to 0.600000." in document
@@ -1022,8 +1034,8 @@ def test_the_italian_sentences_say_the_same_thing() -> None:
     run = make_run([])
     document = render_html(comparison, run, run, locale="it", declared=None)
     assert (
-        "dentro l&#x27;intervallo dei singoli campioni del riferimento "
-        "(0.600000–1.000000 su 5 campioni)" in document
+        "dentro il pavimento di rumore del riferimento "
+        "(0.693726–1.146274, 2 errori standard del movimento" in document
     )
     assert "Il punteggio è sceso da 0.900000 a 0.600000." in document
     assert "0.900000–0.900000" not in document
