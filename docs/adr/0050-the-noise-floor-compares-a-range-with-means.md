@@ -8,7 +8,8 @@
   or loses it at once — is answered with the second: no flag and no window, on
   the argument ADR 0031 §3 makes against a flag as a standing permission, and
   because the one deprecation this project allowed, `SuiteRuns.listing` in
-  0.26.0, is still here.
+  0.26.0, is still here. Amended 2026-10-21, decision 1: the floor is a
+  multiple of the standard error of the movement, not of one mean.
   Proposed 2026-10-15. **What it decides was ruled before it was
   written:** the maintainer ruled the decision below on 2026-10-15, on #496.
   The text is not yet accepted, and nothing in it is implemented. #496 stays
@@ -162,6 +163,20 @@ run, so whether its variance between runs includes the target's is not known.
    own score — and a declared width does not rescue it, because any multiple of zero is
    zero. A tied sample set is the tolerance's business too, on the same ground the third
    item below gives binary checks.
+   *Amended 2026-10-21.* The dispersion of one mean understates what the floor has
+   to cover. What `compare()` judges is the **difference** between two means, and
+   the dispersion of a difference of two means of K samples each is `√2` times the
+   dispersion of one of them. So the floor is `w · √2 · s / √K`, and
+   `floor_standard_errors` is standard errors **of the movement**, which is what
+   `√2 · s / √K` is. ADR 0006 §5 is untouched: `s` still comes from the baseline's
+   samples alone, so a noisy new run still cannot widen its own excuse, and the
+   assumption this adds is only that the run is as noisy as the reviewed baseline.
+   Without the `√2`, a width of 2 covers 1.414 standard deviations of the movement
+   rather than 2, which under a normal reports an unchanged check worse about 16%
+   of the time. In a simulation of this project's home-page scenario, with a jitter
+   of ±0.005 seeded from the prompt, 6 of 12 rewordings of one guidance line within
+   three characters of its length reported a check worse while only that jitter had
+   moved.
 2. **It applies only where an assertion declares it.** Today every assertion is given a
    widened `unchanged` zone whether or not its author asked for one. After this, an
    assertion that declares no floor is decided by its tolerance alone.
