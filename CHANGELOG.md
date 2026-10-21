@@ -67,6 +67,37 @@ digline migrate --suite suite.py
   it fell. Changing a declared width moves `config_hash`, so a run made under
   the old width can no longer be promoted against the new suite and the report
   says the rules changed; a suite that declares none pays none of that.
+- **A floor of zero width is no longer printed as a measured one**
+  ([ADR 0006](docs/adr/0006-repeated-samples-and-the-noise-floor.md) §6, #602,
+  #635). Where a baseline's samples all agree on its own score, a comparison
+  used to print an interval — `(0.700000–0.700000 across 5 samples)` — and call
+  it the floor that covered a movement. ADR 0006 §6 has said since September
+  that an interval of zero width is not a floor, and the outcome was already
+  right: `noise_min` and `noise_max` are now `null`, `noise_samples` is `0`, and
+  the clause is gone. **No verdict moves**, measured over the offline suite and
+  over 19 real runs against one baseline, at case and run level.
+
+  **Found by uoparaji, with the measurement that showed it.** Six runs of a
+  two-case suite replaying stored outputs, so that only the judge varied, under
+  digline 0.31.0 and config `3bb54311dc664926`:
+
+  ```text
+  2026-10-17T17-01-35-365843-00-00-3bb54311dc664926
+  2026-10-17T17-14-16-960767-00-00-3bb54311dc664926
+  2026-10-18T10-35-36-722379-00-00-3bb54311dc664926
+  2026-10-18T10-41-15-056274-00-00-3bb54311dc664926
+  2026-10-18T10-46-43-765681-00-00-3bb54311dc664926
+  2026-10-18T10-51-59-774797-00-00-3bb54311dc664926
+  ```
+
+  Taking each run in turn as the baseline, its floor contained another run's
+  mean in 52 of 60 pairs; five of the eight misses came from one baseline whose
+  five samples were all `0.700000`, a floor of zero width. Without that
+  baseline, 52 of 55. The same six runs measured the dispersion of their own
+  means, `0.0167` and `0.0214` by case, against the `0.0151` and `0.0137` that a
+  single run's samples predict — the second measurement of between-run
+  variation this project has, and, as the issue itself says, one of the judge
+  alone and not of the generation.
 - **Schema 20, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
   19 → 20 for one field, `floor_standard_errors` on a verdict. The step writes
   nothing: a document written before this release could not have declared a
