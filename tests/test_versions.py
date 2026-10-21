@@ -333,13 +333,20 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.32.1": (
+            "the release whose index-race status is recorded (the gate, the "
+            "counts, the index waits, the check in a clean environment, the "
+            "smoke build's wait, the image read from the registry, the "
+            "delta-pass and the seven locks), beside digline-mcp 0.6.1's: "
+            "history, told as such now that 0.33.0 is the tree's version"
+        ),
         "0.32.0": (
             "the release whose index-race status is recorded (the gate approved "
             "seven seconds in, the counts, the smoke build's wait, the tags on "
             "one digest and the image read from the registry afterwards), the "
             "three deviations noted while cutting it, the release that shipped "
             "without running the served plugins, and its delta-pass: history, "
-            "told as such now that 0.32.1 is the tree's version"
+            "told as such now that 0.33.0 is the tree's version"
         ),
         "0.31.0": (
             "the release whose index-race status is recorded (the smoke build's "
@@ -348,7 +355,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "seven locks), the floor pytest-digline 0.2.4 and digline-mcp 0.5.0 "
             "were owed to in their own entries and declared on PyPI, which the "
             "note on the plugins PyPI serves quotes: history, told as such now "
-            "that 0.32.1 is the tree's version"
+            "that 0.33.0 is the tree's version"
         ),
         "0.9.0": (
             "the digline image `digline/digline-action@v1` still defaulted to "
@@ -386,7 +393,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "cancelled and re-run, the tag message, the counts, the installed "
             "versions, the tags on one digest and the seven locks), and the "
             "release whose floors digline-mcp and pytest-digline once owed: "
-            "history, told as such now that 0.32.1 is the tree's version"
+            "history, told as such now that 0.33.0 is the tree's version"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -401,7 +408,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
             "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.32.1 is the tree's version"
+            "told as such now that 0.33.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "

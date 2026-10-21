@@ -37,6 +37,7 @@ from digline.core.aggregate import RUN_ASSERTION_MEMBERS
 from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.refused import RefusedError
+from digline.core.types import floor_width_refusal
 
 __all__ = [
     "BlindTolerance",
@@ -343,6 +344,14 @@ class Suite:
         # paid for. (#420)
         for assertion in self.assertions:
             check_shape(assertion, ASSERTION_MEMBERS, "an assertion")
+            # Read with a default: the protocol carries no width, so a check
+            # that predates the field declares none. Refused before anything
+            # is paid for, as a tolerance that is not finite would be. (ADR 0050)
+            width: object = getattr(assertion, "floor_standard_errors", None)
+            if (refusal := floor_width_refusal(width)) is not None:
+                raise RefusedError(
+                    f"suite {self.name!r}, check {assertion.name!r}: {refusal}"
+                )
         for aggregate in self.run_assertions:
             check_shape(aggregate, RUN_ASSERTION_MEMBERS, "a run assertion")
         # Before the duplicate check below, so `"prompt.md"` and

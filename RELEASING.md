@@ -136,17 +136,26 @@ Do them in this order, from the repository root:
 #    an editable install still naming the release before this one.
 uv sync --all-packages
 
-# 2. The five claims written by hand. Every occurrence in these five files is
-#    a live claim about what is released, so a plain substitution is right here
-#    and nowhere else.
+# 2. The claims written by hand: the seven files LIVE pins, and the plugin's
+#    copy of the skill, which test_claude_plugin.py holds byte for byte to
+#    .claude/skills/operating-digline/SKILL.md. Every occurrence of the old
+#    version in these eight files is a live claim about what is released, so a
+#    plain substitution is right here and nowhere else. On a minor,
+#    docker/README.md's `<major>.<minor>` tag row moves too, and this
+#    substitution does not reach it: edit that row by hand.
 sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md \
-    plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json
+    plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
+    AGENTS.md .claude/skills/operating-digline/SKILL.md \
+    plugins/digline/skills/operating-digline/SKILL.md
 ```
 
-`tests/test_versions.py::LIVE` names those five and what it reads in each:
+`tests/test_versions.py::LIVE` names seven and what it reads in each:
 `README.md`'s `## Status` line, `docker/Dockerfile`'s `ARG DIGLINE_VERSION`,
-the tag table in `docker/README.md`, and the Claude Code plugin's `version`
-beside the `ref` its marketplace installs it from. The ref names a tag this
+the tag table in `docker/README.md`, the Claude Code plugin's `version`
+beside the `ref` its marketplace installs it from, and the release the
+playbook's rules describe in `AGENTS.md` and in
+`.claude/skills/operating-digline/SKILL.md`, whose copy in the plugin
+`test_claude_plugin.py` holds byte for byte. The ref names a tag this
 release has not pushed yet, so between the merge and the tag an install fails;
 it points at a release, never at `main`, on purpose. `test_the_minor_tag_follows_the_release`
 reads a fourth thing in that table — the `<major>.<minor>` tag, which has its
@@ -277,6 +286,12 @@ it and deletes it.
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
+
+**The plugins, after this release.** `digline-mcp` and `pytest-digline` are
+published with caps below this core. Raising the caps in this tree reaches
+nobody: until both are released again, a project that holds them resolves
+the previous core, and is not told. So a minor that moves the caps owes a
+release of each plugin that holds one.
 
 ### The six that stay red until you have done all four
 

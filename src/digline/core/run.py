@@ -39,6 +39,8 @@ from digline.core.types import (
     Verdict,
     at_precision,
     canonical,
+    declared_floor,
+    floor_width_refusal,
     output_kind,
     travels,
 )
@@ -245,7 +247,14 @@ __all__ = [
 #    19 recorded nothing about it. Checked against ADR 0014 §1: outside
 #    `config_hash`, since two runs of one configuration can differ in it.
 #    (ADR 0052, the field on the run)
-SCHEMA_VERSION = 19
+#
+# 20: one passenger, `floor_standard_errors` on a verdict, additive. Written
+#    only where the check declared a width; absent is *declared none*, never
+#    `null`, and the step writes nothing, because a document before 20 could
+#    not have declared one. Checked against ADR 0014 §1 in ADR 0050's
+#    passenger table: inside `config_hash`, but only where declared, so a
+#    suite that declares none hashes exactly as before. (ADR 0050)
+SCHEMA_VERSION = 20
 
 
 class DocumentRefusedError(ValueError):
@@ -1792,6 +1801,7 @@ def config_hash(
     tying them into the fingerprint would make the baseline useless the moment a
     case is added. Nothing here ever sees a case.
     """
+    assertions = tuple(assertions)
     entries = sorted(
         (a.identity, _num(a.threshold), _num(a.tolerance)) for a in assertions
     )
@@ -1808,6 +1818,19 @@ def config_hash(
         # Appended only when present: every suite that declares no price keeps
         # the exact bytes, and so the exact hash and run keys, it had before.
         body.append(pricing)
+    # The floor widths, on the price's rule and for its reason: a width is a
+    # rule a movement is read against, so it belongs in the hash, and only
+    # where a check declares one, so a suite that declares none keeps the
+    # bytes it had. Keyed under its own name rather than appended bare, so a
+    # width can never read as a price. `declared_floor` refuses what is not a
+    # width. (ADR 0050, ADR 0014 §1 as amended)
+    widths = sorted(
+        (a.identity, _num(width))
+        for a in assertions
+        if (width := declared_floor(a)) is not None
+    )
+    if widths:
+        body.append({"floor_standard_errors": widths})
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -1871,6 +1894,10 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
         reason=REDACTED,
         tolerance=verdict.tolerance,
         assertion_id=verdict.assertion_id,
+        # A declaration, like the tolerance beside it, and listed for the same
+        # reason the samples are: a field this rebuild does not name is a
+        # field it drops. (ADR 0050, ADR 0014 §1's third condition)
+        floor_standard_errors=verdict.floor_standard_errors,
         # A fact about the check, never about the case. (ADR 0024 §6.4)
         judged=verdict.judged,
     )
@@ -2153,6 +2180,10 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     # (ADR 0024 §6.4)
     if verdict.judged:
         payload["judged"] = True
+    # Absent where no width is declared, never `null`: a check that declares
+    # none writes the document it wrote before schema 20. (ADR 0050)
+    if verdict.floor_standard_errors is not None:
+        payload["floor_standard_errors"] = _num(verdict.floor_standard_errors)
     return payload
 
 
@@ -2233,7 +2264,26 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # Absent is *not recorded as judged*, which is true of every verdict
         # written before 12, and nothing is guessed from a check's name.
         judged=_optional_flag(raw, "judged", where),
+        floor_standard_errors=_declared_width(raw, where),
     )
+
+
+def _declared_width(raw: Mapping[str, Any], where: str) -> float | None:
+    """`floor_standard_errors` where it is written, and only as a width.
+
+    Absent is *declared none*. A `null` is refused rather than read as absent:
+    the writer never puts one there, so a document that does was not written
+    by digline as it stands. (ADR 0050)
+    """
+    if "floor_standard_errors" not in raw:
+        return None
+    value = raw["floor_standard_errors"]
+    if value is None or floor_width_refusal(value) is not None:
+        raise DocumentRefusedError(
+            f"{where}: 'floor_standard_errors' is written only as a positive "
+            f"finite number, got {value!r}"
+        )
+    return float(cast(float, value))
 
 
 def _sample_means(raw: Mapping[str, Any]) -> bool:

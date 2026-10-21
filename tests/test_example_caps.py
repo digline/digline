@@ -210,6 +210,8 @@ RELEASED: dict[str, int] = {
     # 19 — `modules_unchecked`, additive (ADR 0052).
     "0.32.0": 19,
     "0.32.1": 19,
+    # 20 — `floor_standard_errors` on a verdict, additive (ADR 0050).
+    "0.33.0": 20,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

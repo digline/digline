@@ -11,7 +11,7 @@ not acquire a dependency for a compatibility shim.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Protocol, cast
 
 from digline.core.assertions import AssertionBase
@@ -69,6 +69,7 @@ class FromAutoevals(AssertionBase):
     scorer: AutoevalsScorer
     threshold: float
     tolerance: float
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
     name: str = "autoevals"
     #: Whether the scorer asks a **model** for the number it returns.
     #:
@@ -104,7 +105,7 @@ class FromAutoevals(AssertionBase):
     #: autoevals check would stop pairing and need re-promoting, for a
     #: declaration that changed no number. (ADR 0024 §6.4, amended 2026-09-19)
     IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
-        {"threshold", "tolerance", "judged"}
+        {"threshold", "tolerance", "judged", "floor_standard_errors"}
     )
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
