@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.33.0 — unreleased
+## 0.33.0 — 2026-10-21
 
 digline **0.33.0**. **A minor, because a comparison forgives less than it did:**
 a sampled check used to be given a widened `unchanged` zone whether or not
@@ -104,6 +104,14 @@ digline migrate --suite suite.py
   width, and the absent key says *declared none*, never `null`. A 0.32.x
   reader refuses a schema-20 document, and a resume journal does not move.
   `output_version` does not move either.
+
+**The browser walkthrough was not owed.** Nothing in the launch key, the
+hand-over or the promote form changed since 0.32.1, which declared the same
+back to 0.30.0, the last release that ran it. Since `v0.32.1` nothing changed
+under `src/digline/host`, in `cli/view.py` or in `report/pages.py`, and
+`cli/main.py` changed only in the epilog of `--help`. The pages `view` serves
+render a comparison through `report/render.py` and `report/text.py`, which
+changed in what a comparison says about the floor and in none of the controls.
 
 ## 0.32.1 — 2026-10-19
 
