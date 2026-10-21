@@ -349,8 +349,9 @@ def test_a_canary_added_or_removed_is_not_a_moved_model() -> None:
 
 
 def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None:
-    """The floor doing its job. Without it every wobble would stop a release,
-    which is the canary nobody trusts."""
+    """The floor doing its job, where the check declares one (ADR 0050).
+    Without it every wobble would stop a release, which is the canary nobody
+    trusts."""
     sampled = Verdict(
         score=Score(
             name="contains",
@@ -363,6 +364,7 @@ def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None
         status="pass",
         reason="judged",
         assertion_id="id-contains",
+        floor_standard_errors=2,
     )
     now = Verdict(
         score=Score(
@@ -376,6 +378,7 @@ def test_a_movement_inside_the_baselines_interval_is_not_a_moved_model() -> None
         status="pass",
         reason="judged",
         assertion_id="id-contains",
+        floor_standard_errors=2,
     )
     run = Run(
         tenant="acme",

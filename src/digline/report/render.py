@@ -27,6 +27,7 @@ from digline.core import (
     ConfigValue,
     Declared,
     Denominator,
+    Noise,
     Outcome,
     Run,
     ScaleLost,
@@ -436,8 +437,8 @@ def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
 
     The bare `0.60 → 0.50` of the configuration line is not enough here and that
     is the whole point of the record: a number with no verb beside it is what
-    let a lowered bar read like an added test. `samples` is the one row that
-    prints without a verb, deliberately — see `SuiteDelta.direction`.
+    let a lowered bar read like an added test. A row whose movement has no
+    direction prints without one, deliberately — see `SuiteDelta.direction`.
     """
     if delta.rule == AGREEMENT_FIELD:
         # Its own sentence: this row is not a rule that moved, it is the one
@@ -1348,7 +1349,12 @@ def _canary_fact(comparison: Comparison, locale: Locale) -> str:
     assert first.current.score.score is not None
     assert first.baseline.score.score is not None
     interval = _noise_interval(first, locale)
-    beyond = phrase(locale, "fact.canary.beyond", interval=interval) if interval else ""
+    canary_key = (
+        "fact.canary.beyond.mean"
+        if first.noise_width is not None
+        else "fact.canary.beyond"
+    )
+    beyond = phrase(locale, canary_key, interval=interval) if interval else ""
     where = first.case_id or first.assertion
     key = "fact.canary.one" if len(moved) == 1 else "fact.canary.many"
     return phrase(
@@ -1531,19 +1537,28 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
     # the sentence claims, and a reader has to see it inside the statement rather
     # than trailing it. (ADR 0006 §10)
     noise = _noise_interval(delta, locale)
+    # A floor from the mean is named as one, and printed with its inputs; the
+    # range an aggregate carries keeps its own words. (ADR 0050)
+    mean = ".mean" if delta.noise_width is not None else ""
 
     over_budget = _exceedances(now, locale)
 
     if delta.within_noise:
         return (
-            phrase(locale, "detail.within_noise", before=was, now=is_now, noise=noise)
+            phrase(
+                locale,
+                f"detail.within_noise{mean}",
+                before=was,
+                now=is_now,
+                noise=noise,
+            )
             + over_budget
         )
     if delta.outcome == "regressed":
-        key = "detail.dropped.beyond_noise" if noise else "detail.dropped"
+        key = f"detail.dropped.beyond_noise{mean}" if noise else "detail.dropped"
         return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
     if delta.outcome == "improved":
-        key = "detail.rose.beyond_noise" if noise else "detail.rose"
+        key = f"detail.rose.beyond_noise{mean}" if noise else "detail.rose"
         return phrase(locale, key, before=was, now=is_now, noise=noise) + over_budget
     return phrase(locale, "detail.unchanged", now=is_now) + over_budget
 
@@ -1653,6 +1668,24 @@ def _noise_interval(delta: AssertionDelta, locale: Locale) -> str:
     """
     if delta.noise_min is None or delta.noise_max is None:
         return ""
+    if delta.noise_width is not None and delta.noise_sd is not None:
+        # What it was computed from, beside it, or the floor is a number the
+        # reader takes on trust. (ADR 0050, the fourth item)
+        mean_se, movement_se = Noise(
+            sd=delta.noise_sd, count=delta.noise_samples
+        ).standard_errors()
+        return phrase(
+            locale,
+            "noise.mean",
+            low=fmt_score(delta.noise_min),
+            high=fmt_score(delta.noise_max),
+            width=f"{delta.noise_width:g}",
+            sd=fmt_score(delta.noise_sd),
+            count=delta.noise_samples,
+            values=", ".join(f"{value:g}" for value in delta.noise_judged),
+            mean_se=fmt_score(mean_se),
+            movement_se=fmt_score(movement_se),
+        )
     return phrase(
         locale,
         "noise.interval",
@@ -2371,9 +2404,9 @@ def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
 
     The direction gets a column of its own rather than a word inside the middle
     cell, so that a reader scanning the table sees the verbs in a line. An empty
-    cell there is `samples`, and it is empty because no verb is true of it —
-    which the column header's own note says, rather than leaving a blank to be
-    read as an oversight.
+    cell there is a row whose movement has no direction — `samples` on a
+    run-level aggregate — and it is empty because no verb is true of it, not by
+    oversight. (ADR 0028 §4, as amended 2026-10-15)
     """
     moved = (
         phrase(

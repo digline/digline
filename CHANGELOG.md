@@ -8,8 +8,96 @@ notes under them are this file, verbatim.
 
 ## 0.33.0 — unreleased
 
-digline **0.33.0**.
+digline **0.33.0**. **A minor, because a comparison forgives less than it did:**
+a sampled check used to be given a widened `unchanged` zone whether or not
+anyone asked for one, and now it is given none unless it declares
+`floor_standard_errors`. A movement your reference used to call noise is
+reported. Where a check does declare a width, the floor is a different quantity:
+so many standard errors of the movement between the two means, computed from the
+reference's samples, which narrows as the number of samples grows instead of
+widening. A check whose samples are 0 or 1, and one whose samples agree, get no
+floor at all, and their tolerance decides alone. A case check's `samples` row now
+prints *stricter* or *looser* where it printed neither, and so does a declared
+width that changed. Changing a declared width moves `config_hash`, the same cost
+a changed tolerance carries. Schema 20 comes with it, for one field. Run
+`digline migrate`. `OUTPUT_VERSION` does not move.
 
+```sh
+uv add --upgrade digline
+digline migrate --suite suite.py
+```
+
+- **Behaviour change: the noise floor is declared, and it is the dispersion of
+  the movement** ([ADR 0050](docs/adr/0050-the-noise-floor-compares-a-range-with-means.md),
+  #496). Until now every sampled check carried a second route to `unchanged` that
+  nobody chose: the interval its reference's samples happened to span. A drop
+  inside that interval was forgiven. Two things were wrong with it. It widened as
+  samples were added, so steadying a score bought a wider excuse; and it was the
+  range of single draws, while what a comparison judges is the movement of a
+  mean. And it forgave movements that were not noise at all: on this project's
+  own home page, the example that demonstrates the floor had a longer prompt
+  between its two runs, so the cost rose for a reason, and the range covered
+  it. The example now rewords that line to within three characters of its
+  length, and with real noise two of its checks move inside the declared floor
+  where three moved inside the range. **Now a check gets a floor only where it
+  declares `floor_standard_errors`, and the floor is that many standard errors of the
+  movement:** `width · √2 · sd / √K` either side of the reference's score, with
+  `sd` and `K` from the reference's judged samples. The `√2` is there because the
+  movement is the difference of two means, whose dispersion is `√2` times one
+  mean's; without it a width of 2 covers 1.414 standard deviations of what it
+  judges rather than 2, and a check that did not change is reported worse about
+  12% of the time at five samples, where the tolerance does not already absorb
+  the movement — the tail of a t with four degrees of freedom, because the
+  dispersion is estimated from those samples too. With the `√2` it is about 6%. **The declared cost:** a suite that declared no width loses the
+  floor at once, with no flag and no window, and comparisons that passed on it
+  fail. The reason is in the record: a flag would be a standing permission to
+  keep a rule nobody chose. A check whose samples are 0 or 1 gets no floor — the
+  dispersion of a mean of 0s and 1s forgives almost anything, so its tolerance
+  is the control — and neither does a check whose samples agree, because no
+  multiple of zero is an interval, nor does one where fewer than two of the
+  reference's samples were judged, because a single sample has no dispersion.
+  Where a width is declared and one of those leaves no floor, the reason of a
+  reported movement says which. A run-level aggregate keeps the range of its
+  samples, which this record leaves outside. Whatever prints the floor prints
+  what it was computed from, so the interval can be recomputed from the
+  sentence. **A case check's `samples` row now carries a direction**, more
+  samples reading *stricter* and fewer *looser*
+  ([ADR 0028](docs/adr/0028-the-rules-that-moved.md) §4, amended 2026-10-15), and
+  a declared width that changed reads *looser* where it rose and *stricter* where
+  it fell. Changing a declared width moves `config_hash`, so a run made under
+  the old width can no longer be promoted against the new suite and the report
+  says the rules changed; a suite that declares none pays none of that.
+- **A floor of zero width is no longer printed as a measured one**
+  ([ADR 0006](docs/adr/0006-repeated-samples-and-the-noise-floor.md) §6, #602,
+  #635). Where a baseline's samples all agree on its own score, a comparison
+  used to print an interval — `(0.700000–0.700000 across 5 samples)` — and call
+  it the floor that covered a movement. ADR 0006 §6 has said since September
+  that an interval of zero width is not a floor, and the outcome was already
+  right: `noise_min` and `noise_max` are now `null`, `noise_samples` is `0`, and
+  the clause is gone. **No verdict moves**, measured over the offline suite and
+  over 19 real runs against one baseline, at case and run level.
+
+  **Found by uoparaji, with the measurement that showed it.** Six runs of a
+  two-case suite replaying stored outputs, so that only the judge varied, under
+  digline 0.31.0 and config `3bb54311dc664926`:
+
+  ```text
+  2026-10-17T17-01-35-365843-00-00-3bb54311dc664926
+  2026-10-17T17-14-16-960767-00-00-3bb54311dc664926
+  2026-10-18T10-35-36-722379-00-00-3bb54311dc664926
+  2026-10-18T10-41-15-056274-00-00-3bb54311dc664926
+  2026-10-18T10-46-43-765681-00-00-3bb54311dc664926
+  2026-10-18T10-51-59-774797-00-00-3bb54311dc664926
+  ```
+
+  Taking each run in turn as the baseline, its floor contained another run's
+  mean in 52 of 60 pairs; five of the eight misses came from one baseline whose
+  five samples were all `0.700000`, a floor of zero width. Without that
+  baseline, 52 of 55. The same six runs measured the dispersion of their own
+  means, `0.0167` and `0.0214` by case, against the `0.0151` and `0.0137` that a
+  single run's samples predict — the second measurement of between-run
+  variation this project has, and, as the issue itself says, one of the judge
+  alone and not of the generation.
 - **Schema 20, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
   19 → 20 for one field, `floor_standard_errors` on a verdict. The step writes
   nothing: a document written before this release could not have declared a

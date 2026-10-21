@@ -746,6 +746,27 @@ if no case comes back worse — a capture that went green would put a claim on
 the home the tool did not make. Read the diff of the file before committing it:
 the run keys and the date always move, anything else moving is news.
 
+**The site, at the tag.** Some things on digline.dev become true only when the
+release is out, so they happen here, after step 3, and not in *Owed to the next
+version*, whose rows go when the number is chosen while these must last until
+the tag:
+
+- **The recapture itself**, carried to the site by `sync-docs.sh` and built as
+  *Before the tag: the site*, below, describes.
+- **`/start/`'s own counts.** The prose at `docs/start.md:35` in digline.dev,
+  and its three translations, say how many checks moved within noise, and
+  `claim_problems` in digline.dev's `tools/hooks/home.py` fails the site's build
+  when those words and the capture disagree. A recapture that moves the count
+  moves the prose and its three translations with it, in a pull request on
+  digline.dev for `docs/start.md` and `docs/{de,es,it}/start.md`. (On 0.33.0 it
+  goes from three to two, because the `steady` scenario's cost no longer rises
+  for a reason.)
+- **For 0.33.0 only:** `digline/digline.dev#214`, built, green and held. It
+  carries `home.roadmap.shipped_text`, `home.problem.with_reference_items.noise`
+  and a dated note on the post *The more samples I took, the less my noise floor
+  could see*. Merge it with the tag, not before: the home describes the released
+  product. Delete this item once it is merged.
+
 ## Before the tag: the alert list
 
 One question, asked of the Code scanning tab: **new alerts since the last tag?**

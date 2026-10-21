@@ -531,9 +531,13 @@ So there are now two controls, and they are not the same kind of statement:
 - **`tolerance` is declared.** A reviewer decided this much movement is
   acceptable. It is a judgement, it is in the suite, and it goes through a code
   review.
-- **The noise floor is measured.** This is how far the check moved on its own,
-  in the baseline, across its own samples. Nobody chose it and nobody can widen
-  it by hand.
+- **The noise floor is measured, and how much of it to forgive is declared.** A
+  check that declares `floor_standard_errors` gets a floor of that many standard
+  errors of the movement, either side of the baseline's score: the dispersion is
+  measured from the baseline's samples, the multiplier is a reviewer's
+  judgement. A check that declares none is decided by its tolerance alone. And
+  the floor is computed from the samples, which for a binary check are 0 or 1,
+  so a binary check is served by its declared tolerance.
 
 They are checked in that order, both produce `unchanged`, and the reason says
 which one spoke — so you are never left guessing whether a check was quiet
@@ -548,15 +552,11 @@ rather than an omission:
 - **It reads the baseline's interval, never this run's.** The baseline is the
   promoted, reviewed measurement. A run that got noisier is not allowed to widen
   its own excuse.
-- **An interval of zero width is not a floor.** Five votes out of five, which is
-  the ordinary case away from the boundary, leaves nothing to be inside — so
-  every later change of mind is still reported. The floor earns its keep where
-  the wobble actually was, and on the aggregate of chapter 7.
-
-None of this replaces the tolerance you measured. It means a tolerance set
-generously as a hand-rolled noise floor can be tightened back to what a reviewer
-actually intends to allow, because the measured floor is now doing the other
-job.
+- **Samples that agree give no floor:** five votes out of five leave a standard
+  deviation of zero, and no multiple of zero is an interval. A binary check gets
+  none either, for a different reason — its samples are 0 or 1, and that is the
+  tolerance's business by rule, not because their dispersion vanishes. There the
+  tolerance alone decides, and every later change of mind is still reported.
 
 ## 5. The threshold goes where the system is
 
@@ -1029,6 +1029,9 @@ that pull request is the whole argument.
 A case that errors, or one you set aside, is coverage that shrank. It never
 shows up as a failure, which is why it needs its own trigger.
 
+The width is declared here because a floor exists only where a check asks for
+one, the way *The second control* set out.
+
 ```python
 # support.py
 """The suite: who, where, what is checked, on what."""
@@ -1060,6 +1063,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,
@@ -1257,6 +1261,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,
@@ -1300,15 +1305,19 @@ Nothing got worse compared with the reference. 1 check moved within noise. 3 che
 Two things are missing from that page, and only one of them is missing on
 purpose.
 
-The second sentence is the one that moved. The rubric on `how-do-i-return` did
-drop — `0.920000` to `0.760000`,
+The second sentence is the one that moved. The rubric on `how-do-i-return`
+did drop — `0.920000` to `0.760000`,
 [chapter 2 all over again](#2-the-judges-noise-one-run-two-runs) — and it is
-not in the list of regressions, because `0.76` is inside the interval the
-baseline's own five votes spanned. The headline says so out loud rather than
-staying quiet: a run that is clean because nothing moved and a run that is
-clean because what moved was noise are two different states of the world, and
-a reader is owed both. `digline report` carries the line itself, with the
-interval and which control spoke.
+not in the list of regressions, because the check declared a width and `0.76`
+falls inside the floor that width buys: the baseline's five votes have a
+standard deviation of `0.178885`, so one mean's standard error is `0.080000`
+and the movement's is `√2` times that, `0.113137`. Two of those either side
+of `0.920000` reach down to `0.693726`, and the drop is `1.414` of them. The
+headline says so out loud rather than staying quiet: a run that is clean
+because nothing moved and a run that is clean because what moved was noise
+are two different states of the world, and a reader is owed both.
+`digline report` carries the line itself, with the floor and what it was
+computed from.
 
 And there is the trap, in the other silence. The case you just added, the one
 that reproduces the customer's complaint, **is not mentioned at all.** It is
@@ -1478,6 +1487,7 @@ suite = Suite(
                 judge=judge,
                 threshold=rules.THRESHOLD,
                 tolerance=rules.TOLERANCE,
+                floor_standard_errors=2,
             ),
             samples=rules.SAMPLES,
             min_agreement=rules.AGREEMENT,

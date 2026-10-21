@@ -23,6 +23,9 @@ for the purpose and marked as judgment.
 
 One run key, and the presence of a baseline decides the rest:
 
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
+
 ```console
 $ digline explain --suite suite.py --run latest
 What ran
@@ -30,15 +33,24 @@ What ran
 10 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite changed since the reference, so these numbers compare different rules.
+llm_rubric: 0.0% of 15 judged scores at 0 or 1, against 20.0% of 15 in the reference.
 
 What differed underneath
 prompts/system.txt changed: +1 −0 lines.
+llm_rubric.threshold moved from 0.7 to 0.6, which is a looser bar than the reference was approved under.
+The agreement floor is not recorded in a run, so whether it moved cannot be told from these two.
 
 What moved
-gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. That is outside the interval its reference measured, 1.000000–1.000000 across 3 samples.
+gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000.
 opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636.
 ```
+
+The shape line is there for every judged check, and it reports one thing: what
+fraction of the judged scores sat at the ends of the scale, here and in the
+reference. It never says which fraction is better — a rubric that has stopped
+grading and started voting is something a reader has to weigh, not a verdict
+(ADR 0024 §6.3). The reading itself is set out under *Shape*, below.
 
 A comparison states no threshold, and the report is why: its case tables are
 about movement against a reference and print no bars, so a reading of one
@@ -49,6 +61,9 @@ not a convention.
 
 With **no baseline** it reads the run alone, and says so by what it does not
 say — no "reference", no "got worse", no comparison of any kind:
+
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
 
 ```console
 $ digline explain --suite suite.py --run latest
@@ -135,29 +150,147 @@ $ digline explain --suite suite.py --run latest --json
 emits the **fact list the prose is rendered from** — typed facts with case and
 assertion references — and no sentences at all:
 
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
+
 ```json
 {
-  "output_version": 2,
-  "scope": "comparison",
+  "baseline_key": "2026-10-21T07-41-16-574186-00-00-8d81ff7740eae5b6",
   "exit_code": 1,
-  "note": "",
-  "run_key": "2026-09-04T13-56-48-910510-00-00-331b1cfd9709f0cd",
-  "baseline_key": "2026-09-04T13-55-47-725244-00-00-331b1cfd9709f0cd",
   "facts": [
-    {"about": "run", "kind": "cases", "count": 5, "state": null},
-    {"about": "setting", "kind": "artifact", "name": "prompts/system.txt",
-     "outcome": "changed", "before": null, "after": null,
-     "withheld": false, "added": 1, "removed": 0},
-    {"about": "setting", "kind": "rule", "name": "llm_rubric.threshold",
-     "outcome": "changed", "before": 0.7, "after": 0.6,
-     "withheld": false, "added": 0, "removed": 0,
-     "direction": "loosened"},
-    {"about": "check", "kind": "regressed", "scope": "case",
-     "case_id": "gift-wrap", "assertion": "llm_rubric",
-     "assertion_id": "llm_rubric:…", "before": 1.0, "after": 0.7,
-     "delta": -0.3, "threshold": 0.7,
-     "noise_min": 1.0, "noise_max": 1.0, "noise_samples": 3}
-  ]
+    {
+      "about": "run",
+      "count": 5,
+      "kind": "cases",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 10,
+      "kind": "checks",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "unjudged",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "suspended",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "suite_config",
+      "state": true
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "shape",
+      "shape": {
+        "assertion_id": "4e7ba5d3e226025c",
+        "check": "llm_rubric",
+        "reference": {
+          "claims_unrecorded": 0,
+          "extremes": 3,
+          "sample_means": 0,
+          "scores": 15,
+          "single_claim": 0
+        },
+        "run": {
+          "claims_unrecorded": 0,
+          "extremes": 0,
+          "sample_means": 0,
+          "scores": 15,
+          "single_claim": 0
+        }
+      },
+      "state": null
+    },
+    {
+      "about": "setting",
+      "added": 1,
+      "after": null,
+      "before": null,
+      "kind": "artifact",
+      "name": "prompts/system.txt",
+      "outcome": "changed",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "setting",
+      "added": 0,
+      "after": 0.6,
+      "before": 0.7,
+      "direction": "loosened",
+      "kind": "rule",
+      "name": "llm_rubric.threshold",
+      "outcome": "changed",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "setting",
+      "added": 0,
+      "after": null,
+      "before": null,
+      "kind": "rule",
+      "name": "min_agreement",
+      "outcome": "unknown",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "check",
+      "after": 0.7,
+      "assertion": "llm_rubric",
+      "assertion_id": "4e7ba5d3e226025c",
+      "before": 1.0,
+      "case_id": "gift-wrap",
+      "delta": -0.3,
+      "denominator_moved": false,
+      "kind": "regressed",
+      "noise_judged": [],
+      "noise_max": null,
+      "noise_min": null,
+      "noise_samples": 0,
+      "noise_sd": null,
+      "noise_source": "",
+      "noise_width": null,
+      "scope": "case",
+      "threshold": 0.6
+    },
+    {
+      "about": "check",
+      "after": 0.636364,
+      "assertion": "levenshtein",
+      "assertion_id": "9831ae8fdaf2e736",
+      "before": 1.0,
+      "case_id": "opening-hours",
+      "delta": -0.363636,
+      "denominator_moved": false,
+      "kind": "regressed",
+      "noise_judged": [],
+      "noise_max": null,
+      "noise_min": null,
+      "noise_samples": 0,
+      "noise_sd": null,
+      "noise_source": "",
+      "noise_width": null,
+      "scope": "case",
+      "threshold": 0.5
+    }
+  ],
+  "note": "",
+  "output_version": 2,
+  "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60",
+  "scope": "comparison"
 }
 ```
 
@@ -180,11 +313,20 @@ honest. The other three settings are things *under test* — how the system was
 configured, which instrument graded, which file was the subject. A rule is the
 bar they were held to, and it carries `direction`: `"loosened"` where this run
 is held to less than the reference was approved under, `"tightened"` where it is
-held to more. The key is **absent** where the movement has no direction, which
-is every `samples` row and is a different statement from *unchanged*
-(ADR 0028 §4). `withheld` is always `false` here: nothing a rule is made of can
-be kept back, which is why this is the one part of the reading that is complete
-at a boundary.
+held to more. The key is **absent** for two different reasons, and neither is
+*unchanged* (ADR 0028 §4). One row moved and has no direction to give: a
+`samples` row on a run-level aggregate, because an aggregate's floor is still
+the range of its own samples and nothing here can weigh them — a case check's
+`samples` does carry a direction, since more samples steadies the score and
+narrows the floor. The others are not known to have moved at all: a threshold, a
+tolerance, a `samples` or a width comes through as `unknown` where one side's
+own cases do not settle on a single value, by disagreeing or, for `samples`, by
+erroring before it was counted. `min_agreement` is always one of those, because
+a run does not record it; its row is there only where the configuration's
+fingerprint moved, and it says that whether the floor changed cannot be read
+from these two documents. `withheld` is always `false` here: nothing a rule is
+made of can be kept back, which is why this is the one part of the reading that
+is complete at a boundary.
 
 `scope` is `"comparison"` or `"run"` and is stated rather than left to be
 inferred: a run whose comparison found nothing and a run with no reference at

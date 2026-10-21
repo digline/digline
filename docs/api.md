@@ -1032,34 +1032,51 @@ disables silently.
 They travel, for the same reason `spread` does: they measure the system's own
 variability, not what it judged.
 
-`compare()` then reads them as a **noise floor**. After the declared tolerance,
-a movement that lands inside the interval the *baseline* observed across its own
-samples is `unchanged`, and the delta says so:
+`compare()` reads them as a **noise floor**, and only where a check asks for one:
+an assertion that declares `floor_standard_errors` gets a floor, and one that
+declares none is decided by its tolerance alone. After the declared tolerance, a
+movement that lands inside the floor is `unchanged`, and the delta says so:
 
 ```python
-delta.within_noise  # True when the interval is what called it unchanged
+delta.within_noise  # True when the floor is what called it unchanged
 delta.noise_min, delta.noise_max, delta.noise_samples
 ```
 
 `Outcome` gains no member — a movement within noise **is** `unchanged`, and the
 fact rides beside it, in `--json` as in the report.
 
-Four things it does not do:
+**It never rescues a flip.** `pass` → `fail` is rule 3 of `compare()` and sits
+above the numeric branch, so a drop through the threshold is reported whatever
+the samples did, and whatever width the check declares. The floor can never wave
+a failure through.
 
-- **it never rescues a flip.** `pass` → `fail` is rule 3 of `compare()` and
-  sits above the numeric branch, so a drop through the threshold is reported
-  whatever the samples did. It follows that the floor can never wave a failure
-  through;
-- **it reads the baseline's interval, never this run's.** The baseline is the
-  promoted, reviewed measurement; letting a noisy new run widen its own excuse
-  is how a regression hides inside a model that got less stable;
-- **an interval of zero width is not a floor.** Five samples out of five — the
-  ordinary case away from the boundary — leaves nothing to be inside, so every
-  later change of mind is reported;
-- **it invents nothing where there is no interval.** A baseline promoted before
-  this release, or a suite at `samples=1`, keeps the absolute rule, and the
-  report says the noise of that check is not known rather than implying there is
-  none.
+The floor is that many standard errors **of the movement**,
+`width · √2 · sd / √K` either side of the baseline's score, where `sd` is the
+standard deviation of the judged samples and `K` their number. The `√2` is there
+because what `compare()` judges is the difference between two means, and the
+dispersion of a difference of two means is `√2` times one mean's.
+
+`sd` and `K` come from the **baseline's** samples, never this run's: the
+baseline is the promoted, reviewed measurement, and a noisy new run is not
+allowed to widen its own excuse.
+
+There is no floor, and the tolerance alone decides, in five cases:
+
+- the check declares no width;
+- the verdict was not sampled;
+- fewer than two of the baseline's samples were judged, so a standard deviation
+  is not defined;
+- the samples agree: five votes out of five leave a standard deviation of zero,
+  and no multiple of zero is an interval;
+- the check is binary: its samples are 0 or 1, and that is the tolerance's
+  business by rule, not because their dispersion vanishes.
+
+Where a width is declared and one of the last three leaves no floor, the reason
+of a movement that gets reported says which one, so a declared floor that did
+not apply is never silent.
+
+An **aggregate** keeps the range of its samples as its floor: ADR 0050 leaves it
+outside.
 
 An **aggregate** has no samples of its own, so it gets an interval a different
 way: the driver evaluates it once more per sample index — the sample-0 verdict
@@ -1220,12 +1237,10 @@ be made stable — `Repeated` with `min_agreement`, a tighter rubric, a judge at
 lower temperature.
 
 The tolerance is the **declared** control and stays a judgement someone makes.
-Beside it, a sampled check now carries a **measured** one — the interval its own
-samples spanned in the baseline, see [the noise floor](#the-interval-and-the-noise-floor).
-They are checked in that order, both produce `unchanged`, and the reason says
-which one spoke. A tolerance that was set generously as a hand-rolled noise
-floor can be tightened back to what a reviewer actually means to allow; nothing
-forces it, and nothing breaks if nobody does.
+Beside it, a sampled check that declares `floor_standard_errors` gets a **noise
+floor**, computed from the baseline's samples, see
+[the noise floor](#the-interval-and-the-noise-floor). They are checked in that
+order, both produce `unchanged`, and the reason says which one spoke.
 
 ### A tolerance that switches the check off
 
@@ -1263,9 +1278,11 @@ threshold and a tolerance, and the line says nothing about them:
   binary check folded over five samples scores `0, 0.2, … 1`, and at
   `threshold=0.5` a tolerance of `0.4` already holds every move on either side.
   `examples/classifier` declares exactly that, on purpose.
-- **The noise floor.** A second way to `unchanged`, measured from the baseline's
-  samples and never declared. A baseline whose samples spanned 0 to 1 blinds the
-  check the same way, and no declaration can show it.
+- **The noise floor.** A second way to `unchanged`, where a check declares a
+  width: that many standard errors of the movement, computed from the baseline's
+  samples rather than written as a number. A wide width over a baseline that
+  wobbled widely blinds the check the same way, and this rule reads only the
+  threshold and the tolerance, so it cannot show it.
 - **A threshold that moved between the baseline and this run.** The sides are
   drawn at the suite's threshold. A baseline measured under another one has
   sides of its own, and `compare` reports that change as a loosened rule.
@@ -2199,7 +2216,16 @@ there is nothing to gate on. A golden key set in the tests fails the build when
 the command prints a key the set does not list, so an addition is deliberate and
 visible, not forbidden. It needs no bump: *added* keys leave a consumer working,
 which is why these arrived without one. Each delta carries `within_noise`, `noise_min`,
-`noise_max` and `noise_samples` beside its outcome.
+`noise_max` and `noise_samples` beside its outcome, and `noise_width`, `noise_sd` and
+`noise_judged`: the width the check declares, the standard deviation of the baseline's
+judged samples, and those samples. From them the floor is
+`noise_width · √2 · noise_sd / √noise_samples` either side of the baseline's score, and
+the `√2` is not optional: what is judged is the movement between two means, whose
+standard error is `√2` times one mean's (ADR 0050, decision 1 as amended 2026-10-21).
+`null`, `null` and `[]` there mean the range an aggregate carries, or no floor at all.
+`explain --json` carries the same three on each check, and `noise_source`: `reference`
+for the floor a movement was judged against, `run` for the samples a run read alone
+took, which is not a floor.
 
 ## Verdicts and comparison
 
@@ -2244,7 +2270,7 @@ on a baseline that predates ADR 0005, reports `unknown`: neither is a change, so
 a baseline promoted last month keeps comparing without being promoted again.
 The rules apply in this order: presence on one side only, then error, then a
 change of outcome (**regardless of the tolerance**), then the declared
-tolerance, then the measured noise floor — see
+tolerance, then the noise floor, where the check declares one — see
 [the interval](#the-interval-and-the-noise-floor). The last two both produce
 `unchanged`, and `within_noise` on the delta says which one spoke.
 
@@ -2262,9 +2288,12 @@ What that means at each limit:
 - **the declared tolerance**, on a delta, is `abs(delta) <= tolerance`: a
   movement exactly equal to the tolerance is **`unchanged`** (and `same` under
   `diff`);
-- **the measured noise floor**, on the baseline's interval, is
-  `sample_min <= score <= sample_max`: a score exactly on either end of the
-  interval is **within noise**, so `unchanged` with `within_noise` set;
+- **the noise floor**, where a check declares one, is `low <= score <= high`,
+  with `low` and `high` the baseline's score minus and plus
+  `width · √2 · sd / √K`, both `sd` and the two endpoints at storage precision
+  (for an aggregate, its samples' `sample_min` and `sample_max`): a score
+  exactly on either end is **within noise**, so `unchanged` with `within_noise`
+  set;
 - **a budget** is `measured <= cap`: a cost or a latency exactly at its ceiling
   is **within budget**, and scores exactly `0.5`;
 - **`min_agreement`** is `agreement >= min_agreement`: samples that agree

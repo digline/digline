@@ -212,6 +212,11 @@ class CheckFact:
     #: "not known" sounds like: ADR 0006 §5 refuses to print a phrase about a
     #: measurement nobody took.
     noise: Noise = Noise()
+    #: Whose interval `noise` is: `reference` for the floor a movement was
+    #: judged against, `run` for the samples a run read alone took — which is
+    #: not a floor, and the two must not read alike. `""` where there is none.
+    #: (ADR 0050)
+    noise_source: Literal["", "reference", "run"] = ""
     #: The interval this check measured covers its own threshold, so the verdict
     #: rests on which samples were drawn. Beside the kind rather than replacing
     #: it — the check really did pass or fail, and this says how firmly.
@@ -608,7 +613,15 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
         after=None if now is None else now.score.score,
         delta=delta.delta,
         threshold=None if now is None else now.threshold,
-        noise=Noise(delta.noise_min, delta.noise_max, delta.noise_samples),
+        noise=Noise(
+            delta.noise_min,
+            delta.noise_max,
+            delta.noise_samples,
+            width=delta.noise_width,
+            sd=delta.noise_sd,
+            judged=delta.noise_judged,
+        ),
+        noise_source="reference" if delta.noise_min is not None else "",
         # Read off *this run's* verdict, not the delta's interval: the noise
         # above is the baseline's, because that is what a movement is judged
         # against, while being on the line is a fact about the measurement this
@@ -662,6 +675,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             after=verdict.score.score,
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
+            noise_source="run" if verdict.score.sampled else "",
             on_the_line=on_the_line(verdict),
         )
         for case in run.results
@@ -680,6 +694,7 @@ def _checks_alone(run: Run) -> list[Fact]:
             after=verdict.score.score,
             threshold=verdict.threshold,
             noise=_recorded_noise(verdict),
+            noise_source="run" if verdict.score.sampled else "",
             on_the_line=on_the_line(verdict),
             # Checked against the run, which this reading holds: a figure whose
             # matrix the run disproves states no denominator rather than a
@@ -969,8 +984,8 @@ def _rule_line(fact: SettingFact, locale: Locale, *, before: str, after: str) ->
     it as a clause, because the two directions are different sentences in both
     locales and a clause bolted onto one sentence would have to be grammatical
     in both. `""` falls through to the key with no suffix, which is the sentence
-    that names both values and no verb — `samples`, and only `samples`.
-    (ADR 0028 §4)
+    that names both values and no verb — `samples` on a run-level aggregate,
+    and only that. (ADR 0028 §4)
 
     The agreement floor is its own key, because it is the one row here that is
     not a rule that moved but a rule nobody can say moved. (ADR 0028 §5)
@@ -1102,13 +1117,25 @@ def _check_said(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
                 + _on_line(fact, locale)
             )
         case "unchanged" | "within_noise":
-            said = phrase(
-                locale,
-                f"explain.check.{fact.kind}",
-                where=where,
-                before=before,
-                now=now,
-            )
+            if fact.kind == "within_noise" and fact.noise.from_the_mean:
+                # The floor printed with its inputs, because a declared width
+                # cannot be checked by eye otherwise. (ADR 0050, the fourth item)
+                said = phrase(
+                    locale,
+                    "explain.check.within_noise.mean",
+                    where=where,
+                    before=before,
+                    now=now,
+                    noise=_interval(fact.noise, locale),
+                )
+            else:
+                said = phrase(
+                    locale,
+                    f"explain.check.{fact.kind}",
+                    where=where,
+                    before=before,
+                    now=now,
+                )
             return said + _bar(fact, locale, compared=compared) + _on_line(fact, locale)
         case "new":
             # No score, and the document is why: `detail.new` states that the
@@ -1145,6 +1172,20 @@ def _interval(noise: Noise, locale: Locale) -> str:
     """The interval, rendered by the key the report already renders it with, so
     one movement reads the same in a reading and in a document."""
     assert noise.low is not None and noise.high is not None
+    if noise.width is not None and noise.sd is not None:
+        mean_se, movement_se = noise.standard_errors()
+        return phrase(
+            locale,
+            "noise.mean",
+            low=fmt_score(noise.low),
+            high=fmt_score(noise.high),
+            width=f"{noise.width:g}",
+            sd=fmt_score(noise.sd),
+            count=noise.count,
+            values=", ".join(f"{value:g}" for value in noise.judged),
+            mean_se=fmt_score(mean_se),
+            movement_se=fmt_score(movement_se),
+        )
     return phrase(
         locale,
         "noise.interval",
@@ -1161,7 +1202,12 @@ def _beyond(fact: CheckFact, locale: Locale) -> str:
     (ADR 0006 §5)."""
     if not fact.noise.known:
         return ""
-    return phrase(locale, "explain.noise.beyond", noise=_interval(fact.noise, locale))
+    key = (
+        "explain.noise.beyond.mean"
+        if fact.noise.from_the_mean
+        else "explain.noise.beyond"
+    )
+    return phrase(locale, key, noise=_interval(fact.noise, locale))
 
 
 def _bar(fact: CheckFact, locale: Locale, *, compared: bool) -> str:

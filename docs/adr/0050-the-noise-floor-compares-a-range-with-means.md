@@ -3,13 +3,19 @@
 - Status: accepted 2026-10-20, by Alessandro Prandini, the text first and before
   any code, the way
   [ADR 0048](0048-the-versions-a-suite-holds-and-the-one-in-force.md) was.
-  Nothing in it is implemented. The release question left open at the end of
-  this record — whether a suite keeps the floor for one release with a warning
-  or loses it at once — is answered with the second: no flag and no window, on
-  the argument ADR 0031 §3 makes against a flag as a standing permission, and
-  because the one deprecation this project allowed, `SuiteRuns.listing` in
-  0.26.0, is still here. Amended 2026-10-21, decision 1: the floor is a
-  multiple of the standard error of the movement, not of one mean.
+  The code followed, in #496's second phase. The release question left open at
+  the end of this record — whether a suite keeps the floor for one release with
+  a warning or loses it at once — is answered with the second: no flag and no
+  window, on the argument ADR 0031 §3 makes against a flag as a standing
+  permission, and because the one deprecation this project allowed,
+  `SuiteRuns.listing` in 0.26.0, is still here.
+  Amended 2026-10-21, decision 1: the floor is a multiple of the standard error
+  of the movement, not of one mean.
+  Amended 2026-10-21, the passenger rule: a declared width that changes reads
+  `loosened` or `tightened`.
+  Corrected 2026-10-21: the false-worse rate in decision 1's amendment is one
+  tail and the reference is a t, not a normal; and the passenger rule named the
+  wrong document as unpromotable.
   Proposed 2026-10-15. **What it decides was ruled before it was
   written:** the maintainer ruled the decision below on 2026-10-15, on #496.
   The text is not yet accepted, and nothing in it is implemented. #496 stays
@@ -177,6 +183,21 @@ run, so whether its variance between runs includes the target's is not known.
    of ±0.005 seeded from the prompt, 6 of 12 rewordings of one guidance line within
    three characters of its length reported a check worse while only that jitter had
    moved.
+   *Corrected 2026-10-21.* Two figures above are wrong, and the reference
+   distribution is the wrong one. `compare()` reports `regressed` below and
+   `improved` above, so the rate at which an unchanged check is reported *worse*
+   is one tail, about 8% under a normal, not the 16% named there, which is both.
+   In the simulation it was 5 of 12 rewordings, not 6: the script counted a
+   movement either way, and one of the six was red for a check reported better.
+   And the normal is not the right reference — `sd` is estimated from the
+   baseline's K samples, so the tail is a t with K−1 degrees of freedom, which at
+   K=5, where the tolerance does not already absorb the movement, gives about
+   11.5% per check one-sided for a width of 2 without the `√2`, and about 5.8%
+   with it. The `√2` stands, because it corrects what the floor is
+   a multiple of, but it buys less than a normal suggests, and what is left is
+   the estimate's own noise at small K. That simulation is one draw of a strongly
+   correlated count: P(≥5 of 36) is 0.27 and P(0 of 36) is 0.29, so it does not
+   tell 8% from 14% and should not be read as confirming either.
 2. **It applies only where an assertion declares it.** Today every assertion is given a
    widened `unchanged` zone whether or not its author asked for one. After this, an
    assertion that declares no floor is decided by its tolerance alone.
@@ -271,6 +292,19 @@ being promotable against the new suite and the report says the rules changed. Th
 is right — the width is one of the rules a movement is read against — and it is the
 same cost a changed tolerance carries today. A suite that declares none pays none
 of it.
+*Amended 2026-10-21.* The report says the rules changed; this says which way.
+A declared width that rises, or appears where there was none, forgives more
+movement, so its row reads `loosened`; one that falls, or goes away, forgives
+less, and reads `tightened`. The reason is the one above: the width is one of
+the rules a movement is read against, and a changed tolerance has carried a
+direction all along. Without it a suite could widen its declared excuse
+between two runs and the output would name the change without naming its
+direction — the same thing ADR 0006 §5 refuses on the measured side, where a
+noisier run is not allowed to widen its own excuse.
+*Corrected 2026-10-21.* "The baseline stops being promotable" names the wrong
+document. `ConfigMismatchError` refuses a **run** whose `config_hash` is not
+the one the suite now has, so what stops being promotable is a run made under
+the old width; a baseline already promoted is untouched.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
@@ -281,12 +315,15 @@ which is still here.
 
 ## Test plan
 
-The fourth point's figures come from an enumeration, and a figure in a public text
-regenerates from an artifact that runs in CI:
-`tests/test_noise_floor_concedes_every_same_side_move.py`. For a binary check at K=5 and a
-threshold of `0.5`, it folds every count of passes, fails and samples that could not be
-judged with `combine_samples` at each `min_agreement` five samples can produce, and puts
-every same-side pair through `compare()` at tolerance `0`. It holds the coincidence — the
-widest same-side movement and the widest the floor excuses are the same number — at each
-`min_agreement`, that at unanimity no baseline is divided and nothing is excused, and the
-five figures above.
+The fourth point's figures come from an enumeration, and the enumeration runs in CI:
+`tests/test_no_same_side_move_is_excused_for_a_binary_check.py`. For a binary check at K=5
+and a threshold of 0.5, it folds every count of passes, fails and samples that could not be
+judged with `combine_samples`, at each `min_agreement` five samples can produce, and puts
+every same-side pair through `compare()` at tolerance 0, with no width declared and with
+one. It holds two things: the five figures of the fourth point, as the widest same-side
+movement those folds permit, which is what the range floor excused in full and the evidence
+that justified this decision; and that `compare()` now excuses none of them, because a
+binary check is the tolerance's business.
+
+*Amended 2026-10-21:* the file was `tests/test_noise_floor_concedes_every_same_side_move.py`,
+which held the coincidence through the range floor.

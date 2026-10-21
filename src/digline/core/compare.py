@@ -7,9 +7,11 @@ threshold". See `docs/adr/0001-verdict-not-score.md`.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
+from statistics import stdev
 from typing import Literal
 
 from digline.core.aggregate import split_grouped_name
@@ -224,12 +226,15 @@ class SuiteDelta:
     #:
     #: A threshold lowered, a tolerance raised, a rule removed: **loosened** —
     #: the run is held to less than the reference was approved under. The
-    #: inverses: **tightened**. And `""` for `samples`, which takes no verb: more
-    #: samples is a better-founded score *and*, because the interval a sampled
-    #: check records is measured rather than declared, usually a **wider** noise
-    #: floor — which `compare()` then forgives more movement inside. The two
-    #: halves run opposite ways, nothing here can weigh them, so the row prints
-    #: both counts and stops. (ADR 0028 §4)
+    #: inverses: **tightened**. `samples` on a case's check is a bar too: more
+    #: samples steadies the score and, since the floor is the dispersion of the
+    #: mean of the baseline's samples, narrows the floor in the same edit, so the
+    #: two halves point the same way and more is **tightened**, fewer
+    #: **loosened**. On a run-level aggregate it stays `""`: that floor is
+    #: outside ADR 0050, and nothing says which way it moves. (ADR 0028 §4, as
+    #: amended 2026-10-15) A declared width that rises or appears is
+    #: **loosened**, one that falls or goes away **tightened**. (ADR 0050, the
+    #: passenger rule, amended 2026-10-21)
     direction: Direction = ""
     field: str = ""
     before: float | None = None
@@ -291,6 +296,13 @@ class AssertionDelta:
     #: How many samples the interval was measured over, for the sentence the
     #: report prints: "0.85–0.95 across 5 samples".
     noise_samples: int = 0
+    #: What a floor from the mean was computed from — the declared width, the
+    #: standard deviation and the judged samples — so whatever prints it prints
+    #: them. `None`, `None` and `()` on a range and where there is no floor.
+    #: (ADR 0050, the fourth item)
+    noise_width: float | None = None
+    noise_sd: float | None = None
+    noise_judged: tuple[float, ...] = ()
     #: This delta belongs to a case that watches the model rather than measuring
     #: it. A fact beside the outcome, like `within_noise` and for the same
     #: reason: `Outcome` gains no sixth member, and a reader who has learnt the
@@ -734,10 +746,31 @@ class Noise:
     low: float | None = None
     high: float | None = None
     count: int = 0
+    #: Where the floor is the dispersion of the mean (ADR 0050): the declared
+    #: width in standard errors, the standard deviation of the judged samples,
+    #: and those samples, which is what it was computed from and what whatever
+    #: prints it prints beside it (the fourth item). `None`, `None` and `()` on
+    #: the range an aggregate still carries.
+    width: float | None = None
+    sd: float | None = None
+    judged: tuple[float, ...] = ()
 
     @property
     def known(self) -> bool:
         return self.low is not None and self.high is not None
+
+    @property
+    def from_the_mean(self) -> bool:
+        return self.width is not None
+
+    def standard_errors(self) -> tuple[float, float]:
+        """The standard error of one mean, `s / sqrt(K)`, and of the movement
+        between two, `sqrt(2)` times it: both printed, so a reader can rebuild
+        the interval from the numbers beside it. (ADR 0050, decision 1 as
+        amended 2026-10-21)"""
+        assert self.sd is not None and self.count > 0
+        mean = self.sd / math.sqrt(self.count)
+        return at_precision(mean), at_precision(math.sqrt(2) * mean)
 
     def covers(self, score: float) -> bool:
         """Whether `score` is inside the interval the baseline observed.
@@ -762,17 +795,41 @@ class Noise:
 
     def rendered(self) -> str:
         assert self.low is not None and self.high is not None
+        if self.width is not None and self.sd is not None:
+            # Every input beside the interval, so a reader can recompute it:
+            # what a dispersion with a declared width needs, and the one thing
+            # ADR 0006 was right to refuse is a number taken on trust. (ADR
+            # 0050, the fourth item)
+            values = ", ".join(f"{value:g}" for value in self.judged)
+            mean_se, movement_se = self.standard_errors()
+            return (
+                f"{self.low:.6f}-{self.high:.6f}, {self.width:g} standard errors "
+                f"of the movement either side of the baseline's score: standard "
+                f"deviation {self.sd:.6f} over {self.count} judged samples "
+                f"({values}), a standard error of the mean of {mean_se:.6f}, and "
+                f"√2 times that, {movement_se:.6f}, for the movement"
+            )
         return f"{self.low:.6f}-{self.high:.6f} across {self.count} samples"
 
     def beyond(self) -> str:
         """The clause added to a movement that left the interval. Nothing at all
         where there is no interval: silence is what "not known" sounds like, and
         a sentence about an absent measurement would read as a measurement."""
+        if not self.known:
+            return ""
+        if self.from_the_mean:
+            return f", outside the baseline's noise floor ({self.rendered()})"
         return (
             f", outside the range of the baseline's individual samples "
             f"({self.rendered()})"
-            if self.known
-            else ""
+        )
+
+    def inside(self) -> str:
+        """The clause for a movement this interval covers."""
+        if self.from_the_mean:
+            return f"inside the baseline's noise floor ({self.rendered()})"
+        return (
+            f"inside the range of the baseline's individual samples ({self.rendered()})"
         )
 
 
@@ -1034,6 +1091,81 @@ def _noise(verdict: Verdict) -> Noise:
     return Noise(score.sample_min, score.sample_max, len(score.samples))
 
 
+def _floor(now: Verdict, before: Verdict) -> tuple[Noise, str]:
+    """A case's floor, and the clause that says why there is none.
+
+    The dispersion of the **movement** between two means, `sqrt(2) * s /
+    sqrt(K)` with `s` and `K` from the baseline's judged samples, times the
+    width the judged run's check declares, either side of the baseline's score
+    (ADR 0050, the first decision, as amended 2026-10-21: what is judged is a
+    difference of two means, whose dispersion is `sqrt(2)` times one mean's).
+    The samples are the baseline's, never this run's (ADR 0006 §5); the width
+    is the rule in force, so a width withdrawn takes the floor with it (the
+    second decision).
+
+    No floor, and the tolerance alone decides, where: the check declares no
+    width; the verdict was not sampled; fewer than two samples were judged, so
+    a standard deviation is not defined, which no ADR names; the samples are
+    binary, read off the samples as ADR 0050's *Context* reads them, not off
+    the check's kind, and `sample_means` is the exception it names; or they are
+    all equal, so their dispersion is zero. The clause is for the reason of a
+    movement that gets reported, and says the permanent fact that explains it:
+    nothing about when the rule changed.
+    """
+    score = before.score
+    width = now.floor_standard_errors
+    if not score.sampled or score.score is None:
+        return Noise(), ""
+    if width is None:
+        # The break, explained where it shows: a movement today's range would
+        # have excused is reported, and the two facts that say why are on the
+        # data and on the configuration. Silent where the range would not have
+        # covered it either, because then nothing changed for this movement.
+        reach = _noise(before)
+        if (
+            reach.known
+            and now.score.score is not None
+            and reach.covers(now.score.score)
+        ):
+            return Noise(), (
+                f", {reach.inside()}, and this check declares no noise floor"
+            )
+        return Noise(), ""
+    judged = score.samples
+    absent = ", and no noise floor applies: "
+    if len(judged) < 2:
+        return Noise(), (
+            absent + "fewer than two of the baseline's samples were judged, so "
+            "their dispersion is not defined and the tolerance decides"
+        )
+    if not score.sample_means and all(value in (0.0, 1.0) for value in judged):
+        return Noise(), (
+            absent + "the baseline's samples are all 0 or 1, so the tolerance "
+            "decides (ADR 0050: a binary check is the tolerance's business)"
+        )
+    # At storage precision, the number printed beside the floor: a reader who
+    # rebuilds the interval from the sentence gets the interval the sentence
+    # states, digit for digit. (ADR 0050, the fourth item)
+    spread = at_precision(stdev(judged))
+    if spread == 0:
+        return Noise(), (
+            absent + "the baseline's samples are all equal, so their dispersion "
+            "is zero and the tolerance decides"
+        )
+    half = width * math.sqrt(2) * spread / math.sqrt(len(judged))
+    return (
+        Noise(
+            at_precision(score.score - half),
+            at_precision(score.score + half),
+            len(judged),
+            width=width,
+            sd=spread,
+            judged=judged,
+        ),
+        "",
+    )
+
+
 def compare(run: Run, baseline: Run) -> Comparison:
     """Compare `run` against `baseline`.
 
@@ -1260,7 +1392,11 @@ def compare(run: Run, baseline: Run) -> Comparison:
         # the promoted, reviewed measurement; letting a noisy new run widen its
         # own excuse is how a regression hides inside a model that got less
         # stable. (ADR 0006 §5)
-        floor = _noise(before)
+        # A case's floor is the mean's dispersion where its check declares a
+        # width (ADR 0050); an aggregate keeps the range, which ADR 0050 leaves
+        # outside its scope, held by the test of the slices that tie away from
+        # the score.
+        floor, absent = (_noise(before), "") if scope == "run" else _floor(now, before)
         within_noise = False
 
         # Before every branch below, because it decides whether `unchanged` is
@@ -1292,16 +1428,13 @@ def compare(run: Run, baseline: Run) -> Comparison:
         elif floor.covers(now.score.score):
             moved_to = "unchanged"
             within_noise = True
-            why = (
-                f"score moved from {was} to {is_now}, inside the range of the "
-                f"baseline's individual samples ({floor.rendered()})"
-            )
+            why = f"score moved from {was} to {is_now}, {floor.inside()}"
         elif delta < 0:
             moved_to = "regressed"
-            why = f"score dropped from {was} to {is_now}{floor.beyond()}"
+            why = f"score dropped from {was} to {is_now}{floor.beyond()}{absent}"
         else:
             moved_to = "improved"
-            why = f"score rose from {was} to {is_now}{floor.beyond()}"
+            why = f"score rose from {was} to {is_now}{floor.beyond()}{absent}"
 
         # The interval rides along whichever outcome won — a regression
         # included, because "outside the range of the reference's individual
@@ -1323,6 +1456,9 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_min=floor.low,
                 noise_max=floor.high,
                 noise_samples=floor.count,
+                noise_width=floor.width,
+                noise_sd=floor.sd,
+                noise_judged=floor.judged,
                 canary=case_id in canaries,
                 calibration=case_id in calibrated,
             )
@@ -1558,10 +1694,19 @@ def suite_deltas(run: Run, baseline: Run) -> tuple[SuiteDelta, ...]:
 #: How each field moves when it is **loosened** — the bar admitting more than
 #: the reference approved. A threshold falling lets a lower score pass; a
 #: tolerance rising forgives a larger drop before it counts as a regression.
+#: Fewer samples, on a case's check, is a less steady score judged against a
+#: wider floor.
 #:
-#: `samples` is deliberately absent, and `_moved` reads that absence as *no
-#: verb*. See `SuiteDelta.direction`.
-_LOOSENS: dict[str, int] = {"threshold": -1, "tolerance": +1}
+#: `samples` is the one entry read by scope: on a run-level aggregate `_sign`
+#: gives it no verb. See `SuiteDelta.direction`.
+_LOOSENS: dict[str, int] = {"threshold": -1, "tolerance": +1, "samples": -1}
+
+
+def _sign(field: str, scope: Scope) -> int:
+    """Which way `field` loosens, or `0` where moving it takes no verb."""
+    if field == "samples" and scope != "case":
+        return 0
+    return _LOOSENS.get(field, 0)
 
 
 def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
@@ -1594,7 +1739,7 @@ def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
             continue
         if after == prior:
             continue
-        sign = _LOOSENS.get(field, 0)
+        sign = _sign(field, key[0])
         direction: Direction = ""
         if sign:
             loosened = (after < prior) if sign < 0 else (after > prior)
@@ -1619,9 +1764,10 @@ def _width_moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, 
     """The declared floor width, named where it moved.
 
     `None` on either side is a declaration of none, so `2 -> —` is a width
-    withdrawn, never *not recorded*. **No verb**: nothing reads the width to
-    decide anything in phase 1 of #496, so neither *looser* nor *stricter* is
-    true of it yet. (ADR 0050)
+    withdrawn, never *not recorded*. A width that rises, or appears where there
+    was none, forgives more movement and is **loosened**; one that falls, or
+    goes away, forgives less and is **tightened**. (ADR 0050, the passenger
+    rule, amended 2026-10-21)
     """
     if not (here.width_known and there.width_known):
         return (
@@ -1635,12 +1781,16 @@ def _width_moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, 
         )
     if here.width == there.width:
         return ()
+    loosened = there.width is None or (
+        here.width is not None and here.width > there.width
+    )
     return (
         SuiteDelta(
             rule=here.name,
             assertion_id=key[1],
             scope=key[0],
             outcome="changed",
+            direction="loosened" if loosened else "tightened",
             field=WIDTH_FIELD,
             before=there.width,
             after=here.width,
