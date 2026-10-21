@@ -1303,15 +1303,19 @@ Nothing got worse compared with the reference. 1 check moved within noise. 3 che
 Two things are missing from that page, and only one of them is missing on
 purpose.
 
-The second sentence is the one that moved. The rubric on `how-do-i-return` did
-drop — `0.920000` to `0.760000`,
+The second sentence is the one that moved. The rubric on `how-do-i-return`
+did drop — `0.920000` to `0.760000`,
 [chapter 2 all over again](#2-the-judges-noise-one-run-two-runs) — and it is
-not in the list of regressions, because `0.76` is inside the interval the
-baseline's own five votes spanned. The headline says so out loud rather than
-staying quiet: a run that is clean because nothing moved and a run that is
-clean because what moved was noise are two different states of the world, and
-a reader is owed both. `digline report` carries the line itself, with the
-interval and which control spoke.
+not in the list of regressions, because the check declared a width and `0.76`
+falls inside the floor that width buys: the baseline's five votes have a
+standard deviation of `0.178885`, so one mean's standard error is `0.080000`
+and the movement's is `√2` times that, `0.113137`. Two of those either side
+of `0.920000` reach down to `0.693726`, and the drop is `1.414` of them. The
+headline says so out loud rather than staying quiet: a run that is clean
+because nothing moved and a run that is clean because what moved was noise
+are two different states of the world, and a reader is owed both.
+`digline report` carries the line itself, with the floor and what it was
+computed from.
 
 And there is the trap, in the other silence. The case you just added, the one
 that reproduces the customer's complaint, **is not mentioned at all.** It is
