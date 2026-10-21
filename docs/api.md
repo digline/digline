@@ -1237,12 +1237,10 @@ be made stable — `Repeated` with `min_agreement`, a tighter rubric, a judge at
 lower temperature.
 
 The tolerance is the **declared** control and stays a judgement someone makes.
-Beside it, a sampled check now carries a **measured** one — the interval its own
-samples spanned in the baseline, see [the noise floor](#the-interval-and-the-noise-floor).
-They are checked in that order, both produce `unchanged`, and the reason says
-which one spoke. A tolerance that was set generously as a hand-rolled noise
-floor can be tightened back to what a reviewer actually means to allow; nothing
-forces it, and nothing breaks if nobody does.
+Beside it, a sampled check that declares `floor_standard_errors` gets a **noise
+floor**, computed from the baseline's samples, see
+[the noise floor](#the-interval-and-the-noise-floor). They are checked in that
+order, both produce `unchanged`, and the reason says which one spoke.
 
 ### A tolerance that switches the check off
 
@@ -1280,9 +1278,11 @@ threshold and a tolerance, and the line says nothing about them:
   binary check folded over five samples scores `0, 0.2, … 1`, and at
   `threshold=0.5` a tolerance of `0.4` already holds every move on either side.
   `examples/classifier` declares exactly that, on purpose.
-- **The noise floor.** A second way to `unchanged`, measured from the baseline's
-  samples and never declared. A baseline whose samples spanned 0 to 1 blinds the
-  check the same way, and no declaration can show it.
+- **The noise floor.** A second way to `unchanged`, where a check declares a
+  width: that many standard errors of the movement, computed from the baseline's
+  samples rather than written as a number. A wide width over a baseline that
+  wobbled widely blinds the check the same way, and this rule reads only the
+  threshold and the tolerance, so it cannot show it.
 - **A threshold that moved between the baseline and this run.** The sides are
   drawn at the suite's threshold. A baseline measured under another one has
   sides of its own, and `compare` reports that change as a loosened rule.
@@ -2270,7 +2270,7 @@ on a baseline that predates ADR 0005, reports `unknown`: neither is a change, so
 a baseline promoted last month keeps comparing without being promoted again.
 The rules apply in this order: presence on one side only, then error, then a
 change of outcome (**regardless of the tolerance**), then the declared
-tolerance, then the measured noise floor — see
+tolerance, then the noise floor, where the check declares one — see
 [the interval](#the-interval-and-the-noise-floor). The last two both produce
 `unchanged`, and `within_noise` on the delta says which one spoke.
 

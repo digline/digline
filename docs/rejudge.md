@@ -182,8 +182,9 @@ judgement that errors is counted, not escalated — it is the instrument's fault
 not the case's, and its chance grows with M. An answer with no scored judgement
 at all is unjudged, as it would be anyway.
 
-**Never on the noise floor.** `compare()` reads `sample_min` and `sample_max` as
-the baseline's interval; the judge's range never reaches them, and a
+**Never on the noise floor.** The floor `compare()` reads is computed from the
+baseline's own samples — their standard deviation for a check that declares a
+width, their range for an aggregate — and the judge's range never reaches it; a
 `--judge-samples` replay is not promotable, like every replay.
 
 **Never without the scale.** A judge that has gone binary is *more* repeatable:
