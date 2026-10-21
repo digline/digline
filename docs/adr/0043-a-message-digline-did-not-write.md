@@ -45,7 +45,9 @@
   output for digline and points what the user's code writes at standard
   error, and the MCP server writes out what a tool's call printed before it
   answers. Shipped in digline 0.32.1, for the command line; the server's
-  half waits for digline-mcp 0.6.1, on its own tag
+  half waits for digline-mcp 0.6.1, on its own tag. *Shipped 2026-10-19:*
+  the server's half is in digline-mcp 0.6.1, whose tag contains #609's merge;
+  what the user's code writes late is still open (§8)
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;

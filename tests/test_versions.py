@@ -172,6 +172,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "agent's grant to run `migrate`, told as when it stopped. History",
         "0.4.0": "'the one case in 0.4.0' — the state of a shipped release",
     },
+    "CLAUDE.md": {
+        "0.32.1": (
+            "'True in the CLI since 0.32.1': the release that shipped #609's "
+            "command-line half of ADR 0043 §8, told as history. Moving the number "
+            "would say a later release shipped it"
+        ),
+    },
     "docs/migrate.md": {
         "0.21.0": "'a person's decision from 0.21.0 on' — the release that "
         "made `migrate` one, because its step can change what a run says. "
