@@ -104,10 +104,10 @@ between that recorded nothing are counted rather than skipped — the
 the previous *recorded* sighting and not with the previous run, so a stretch of
 silence widens the window instead of breaking the comparison.
 
-Where no roll is found the reading says `No roll recorded.`, and that sentence is
-scoped by the spans above it: on a history where eleven of thirteen sightings
-identify nothing, it means *there was almost nothing to compare*, not *the
-provider held still*.
+Where no roll is found the reading says `No roll recorded.`, and that
+sentence is scoped by the spans above it: where eleven of thirteen sightings
+identify nothing, as in the store above, it means there was almost nothing to
+compare, not that the provider held still.
 
 ## A run that is missing
 
