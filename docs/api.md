@@ -2288,9 +2288,12 @@ What that means at each limit:
 - **the declared tolerance**, on a delta, is `abs(delta) <= tolerance`: a
   movement exactly equal to the tolerance is **`unchanged`** (and `same` under
   `diff`);
-- **the measured noise floor**, on the baseline's interval, is
-  `sample_min <= score <= sample_max`: a score exactly on either end of the
-  interval is **within noise**, so `unchanged` with `within_noise` set;
+- **the noise floor**, where a check declares one, is `low <= score <= high`,
+  with `low` and `high` the baseline's score minus and plus
+  `width · √2 · sd / √K`, both `sd` and the two endpoints at storage precision
+  (for an aggregate, its samples' `sample_min` and `sample_max`): a score
+  exactly on either end is **within noise**, so `unchanged` with `within_noise`
+  set;
 - **a budget** is `measured <= cap`: a cost or a latency exactly at its ceiling
   is **within budget**, and scores exactly `0.5`;
 - **`min_agreement`** is `agreement >= min_agreement`: samples that agree
