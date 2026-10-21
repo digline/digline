@@ -219,6 +219,34 @@ artifacts that today exists in none of the audited competitors.
   the reading has no artefact behind it. The shape is the same on a
   measurement and on prose: name the limit where the claim is, and let it be
   read as a shape that recurs rather than as evidence.
+- **A check counts when its verdict has been read.** *Observed 2026-10-21, seven
+  times in one day.* `closingIssuesReferences` was read five seconds after #646
+  was opened and not again before the enqueue, and it missed the keyword,
+  because it lists issues and never a pull request; that pull request's body
+  closed #644. #645's state was read once just after a merge and quoted four
+  minutes later in a published comment, by which time Dependabot had closed it.
+  `ruff check` was red on `core/compare.py` for nine commits of #653's branch
+  and was reported clean twice; the session that reported it said afterwards
+  that it had read the tail of the output instead of the verdict. A test
+  command never ran at all, because zsh refused a glob with no matches, which
+  is indistinguishable from a pass; checking this very paragraph, the same
+  shell read `$c:s…` as a modifier and swallowed a revision, caught from the
+  fatal message. And a run of the new floor's tests against the old code
+  passed 25 of 25, because pytest's own configuration puts this checkout's
+  `src` ahead of the installed package in `sys.path` — caught by reading which
+  module was loaded, before it was reported. Two more were caught in the
+  writing, which is where the cheap catches are: a search pattern that
+  demanded `\s+#`, narrower than the claim made for it, and the word
+  *measured* in a draft amendment about a simulation. Describing these took
+  three rounds, because three of them were first written more strongly than
+  the record supports.
+
+  So: read the verdict, not the tail — the exit code or the summary line,
+  never the last lines of scrollback. Before trusting a check, write down what
+  it does not cover: a pattern narrower than its claim, or an API field that
+  answers a different question, passes silently and looks exactly like a pass.
+  And a fact about anything that can change goes into a public text only if it
+  was read for the sentence that states it, not earlier in the session.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.
