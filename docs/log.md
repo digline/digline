@@ -47,12 +47,21 @@ Dispositions recorded
     2026-09-16T06:51:09.241817+00:00 · accepted: 2026-09-13T09-14-22-104553-00-00-331b1cfd9709f0cd, exit 0 — 0 worse, 0 better, 0 not judged
 ```
 
-That is one suite's fourteen runs, and the honest thing about it is how much of
-it is absence. Read the target side down: four runs written by a release that
-did not record what answered; three by one that did, against a provider that
-returned no id; three against an endpoint that returned the id it was sent; then
-two named snapshots with a silent run between them. **Two reported sightings out
-of thirteen**, and the roll sits between them.
+That is a fourteen-run store built for this page, shaped like the one this
+project keeps on itself, and the honest thing about it is how much of it is
+absence. Read the target side down: four runs written by a release that did
+not record what answered; three by one that did, against a provider that
+returned no id; three against an endpoint that returned the id it was sent;
+then two named snapshots with a silent run between them. **Two reported
+sightings out of thirteen**, and the roll sits between them.
+
+The absence is the part drawn from life. This project's own store held sixteen
+runs over seven days with **12 not recorded, 3 echoed, and zero reported
+identities**, which [ADR 0020](adr/0020-the-reading-across-runs.md) sets out.
+The roll is the part that is built: as of 2026-10-21, in no store this project
+can still read has a requested model ever come back as two different reported
+identities, so no roll has happened yet. The feature exists for the day one
+does.
 
 *Reported*, not *verified*, and the distinction is the whole point of the page.
 A provider that names a snapshot we did not ask for has told us more than one
