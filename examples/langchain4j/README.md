@@ -140,7 +140,7 @@ So, precisely, where each stands here:
 | | |
 |---|---|
 | `config_path` | **exercised**, since 0.3.0 |
-| `usage_path` | **exercised.** The token counts above are read out of a real answer on every run of this example |
+| `usage_path` | **exercised.** The token counts above are read out of the answer's JSON body on every run, by the `usage_path` the suite declares. On the default path that body comes from the bundled stub, which returns the same counts every time; with `SUPPORT_URL` set they come from whatever your service reports. |
 | `tools_path`, `tool_calls_path` | **not exercised.** This assistant calls no tools, so the trajectory JSON above is a contract you may be the first to run |
 
 If you are wiring the trajectory and something does not fit the shape above, that
