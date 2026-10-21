@@ -178,7 +178,8 @@ def _sessions_in(body: str) -> list[Session]:
     for line in body.splitlines():
         if line.startswith("$ "):
             sessions.append(Session(line[2:].strip()))
-        elif line.strip() and sessions:
+        elif line.strip():
+            assert sessions, f"{line!r} follows no `$ ` command, so nothing replays it"
             sessions[-1].expected.append(line.rstrip())
     return sessions
 

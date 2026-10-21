@@ -1,9 +1,10 @@
 # Working with digline
 
 Eight chapters in the order the problems actually arrive. Every file on this
-page is a file you can run, every terminal block came out of running them, and a
-test replays the whole sequence top to bottom on every build — so if the page
-and the tool ever disagree, the build is what breaks.
+page is a file you can run, every result in a terminal block came out of running
+them unless the text beside it says otherwise, and a test replays the whole
+sequence top to bottom on every build — so if the page and the tool ever
+disagree, the build is what breaks.
 
 1. [A baseline is a photograph](#1-a-baseline-is-a-photograph)
 2. [The judge's noise: one run, two runs](#2-the-judges-noise-one-run-two-runs)
@@ -783,9 +784,10 @@ off. Choosing the median cost one command.
 **A run that could not judge every case is not in the comparison, and the
 arithmetic will not tell you.** A case that errors leaves the confusion matrix,
 so `accuracy 16/20` and `accuracy 16/21` are different questions wearing the
-same units. digline refuses that comparison in as many words —
+same units. digline refuses that comparison in as many words, in a report this
+page describes rather than runs —
 
-```console
+```text
 2 run-level checks were measured over a different number of cases than the
 reference, so they are not comparisons.
 whole run · precision · Measured over 20 cases here and 21 in the reference,
@@ -1652,6 +1654,10 @@ approved neither of these.
 
 `digline diff` takes two runs and judges neither. Two keys, in either order —
 `latest` resolves on both, as everywhere else:
+
+The keys in the next block stand in for two of your own, and the numbers
+beside them are an example of the shape, not a measurement: running the files
+did not produce it.
 
 ```text
 $ digline diff --suite support.py <key of run A> latest
