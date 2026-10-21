@@ -4583,6 +4583,17 @@ request. The comment on the wait step in `ci.yml` carries the old sentence. It
 is corrected after `publish`, because a change to `ci.yml` builds the image on
 the release commit.
 
+*Added 2026-10-21.* **On a release that moves the home capture, `docs` and
+`glyphs` are red on the tagged commit, until the site's pull request lands.**
+Both build digline.dev from this tree, and the site's build refuses a
+`/start/` that does not show what `docs/assets/home/home.json` captured, so
+every run on the release commit before that pull request lands keeps the red.
+Neither is a required check, and neither is a reason to hold the tag. Measured
+on v0.33.0's `79b38cc`. The `merge_group` run failed both jobs at 12:15Z and
+the push run at 12:19Z, on *"home: /start/ does not show what was captured"*,
+and digline.dev #215 moved `/start/` at 13:23:28Z. The `workflow_run` `ci`
+that followed `publish`, on the same commit at 13:39Z, had both green.
+
 **A red `docker-publish` on the release tag no longer means "re-run it".** It
 used to: the job's own wait asked only about `digline`, from the runner, and
 the build then installed four versions from inside a container. Re-running was
