@@ -113,6 +113,25 @@ under `src/digline/host`, in `cli/view.py` or in `report/pages.py`, and
 render a comparison through `report/render.py` and `report/text.py`, which
 changed in what a comparison says about the floor and in none of the controls.
 
+## digline-mcp 0.6.2 — 2026-10-21
+
+Published by `v0.33.0`, with digline 0.33.0. **A patch, because nothing the
+server does changes:** its code is 0.6.1's. What moves is the dependency, now
+`digline>=0.32.0,<0.34`, so a project that holds digline-mcp can take digline
+0.33.0. 0.6.1 caps the core at `<0.33`, and a project that holds it stays on
+0.32 and is not told. The floor stays `digline>=0.32.0`. What `compare` answers
+about the noise floor is the core's, and it changes with digline 0.33.0, above.
+
+## pytest-digline 0.3.1 — 2026-10-21
+
+Published by `v0.33.0`, with digline 0.33.0. **A patch, because nothing the
+plugin does changes:** its code is 0.3.0's. What moves is the dependency, now
+`digline>=0.32.0,<0.34`, so a project that holds pytest-digline can take
+digline 0.33.0. 0.3.0 caps the core at `<0.33`, and a project that holds it
+stays on 0.32 and is not told. The floor stays `digline>=0.32.0`. What a
+session reports about the noise floor is the core's, and it changes with
+digline 0.33.0, above.
+
 ## 0.32.1 — 2026-10-19
 
 digline **0.32.1**. **A patch, because nothing digline promised has changed:**

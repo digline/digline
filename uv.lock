@@ -687,7 +687,7 @@ requires-dist = [
 
 [[package]]
 name = "digline-mcp"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "packages/digline-mcp" }
 dependencies = [
     { name = "digline" },
@@ -2246,7 +2246,7 @@ wheels = [
 
 [[package]]
 name = "pytest-digline"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "packages/pytest-digline" }
 dependencies = [
     { name = "digline" },
