@@ -304,8 +304,8 @@ amendment.
 range, so `samples 3 → 5` still takes no verb. The verb is printed when the
 floor it describes is the one `compare()` reads.
 
-*Amended 2026-10-21, the paragraph above kept as written: the code landed, and a
-case check's `samples` row prints the verb.*
+*The condition above was met on 2026-10-21, in #496's second phase: the code
+landed, and a case check's `samples` row prints the verb.*
 
 **The two directions are not summed.** A suite that tightened three bars and
 loosened one is not *tightened on balance*: there is no such quantity, and
