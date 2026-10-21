@@ -37,8 +37,8 @@
   fourth item, and noted two sentences of *Context* superseded by digline#635.
   *The block above is the proposed phase's own text, kept as written, and speaks
   from that phase.* The start of this status carries what is true now, and
-  `Shipped:` below says that no release carries it yet
-- Shipped: unreleased
+  `Shipped:` below names the release that first carries it
+- Shipped: 0.33.0
 - Date: 2026-10-15
 - Opens: **nothing on landing.** No code, no `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`. The code that implements it is a break, said under *Five
