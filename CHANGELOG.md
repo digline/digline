@@ -34,8 +34,13 @@ digline migrate --suite suite.py
   inside that interval was forgiven. Two things were wrong with it. It widened as
   samples were added, so steadying a score bought a wider excuse; and it was the
   range of single draws, while what a comparison judges is the movement of a
-  mean. **Now a check gets a floor only where it declares
-  `floor_standard_errors`, and the floor is that many standard errors of the
+  mean. And it forgave movements that were not noise at all: on this project's
+  own home page, the example that demonstrates the floor had a longer prompt
+  between its two runs, so the cost rose for a reason, and the range covered
+  it. The example now rewords that line to within three characters of its
+  length, and with real noise two of its checks move inside the declared floor
+  where three moved inside the range. **Now a check gets a floor only where it
+  declares `floor_standard_errors`, and the floor is that many standard errors of the
   movement:** `width · √2 · sd / √K` either side of the reference's score, with
   `sd` and `K` from the reference's judged samples. The `√2` is there because the
   movement is the difference of two means, whose dispersion is `√2` times one
