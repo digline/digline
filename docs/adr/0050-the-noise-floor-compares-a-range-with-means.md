@@ -3,13 +3,16 @@
 - Status: accepted 2026-10-20, by Alessandro Prandini, the text first and before
   any code, the way
   [ADR 0048](0048-the-versions-a-suite-holds-and-the-one-in-force.md) was.
-  Nothing in it is implemented. The release question left open at the end of
-  this record — whether a suite keeps the floor for one release with a warning
-  or loses it at once — is answered with the second: no flag and no window, on
-  the argument ADR 0031 §3 makes against a flag as a standing permission, and
-  because the one deprecation this project allowed, `SuiteRuns.listing` in
-  0.26.0, is still here. Amended 2026-10-21, decision 1: the floor is a
-  multiple of the standard error of the movement, not of one mean.
+  The code followed, in #496's second phase. The release question left open at
+  the end of this record — whether a suite keeps the floor for one release with
+  a warning or loses it at once — is answered with the second: no flag and no
+  window, on the argument ADR 0031 §3 makes against a flag as a standing
+  permission, and because the one deprecation this project allowed,
+  `SuiteRuns.listing` in 0.26.0, is still here.
+  Amended 2026-10-21, decision 1: the floor is a multiple of the standard error
+  of the movement, not of one mean.
+  Amended 2026-10-21, the passenger rule: a declared width that changes reads
+  `loosened` or `tightened`.
   Proposed 2026-10-15. **What it decides was ruled before it was
   written:** the maintainer ruled the decision below on 2026-10-15, on #496.
   The text is not yet accepted, and nothing in it is implemented. #496 stays
@@ -271,6 +274,15 @@ being promotable against the new suite and the report says the rules changed. Th
 is right — the width is one of the rules a movement is read against — and it is the
 same cost a changed tolerance carries today. A suite that declares none pays none
 of it.
+*Amended 2026-10-21.* The report says the rules changed; this says which way.
+A declared width that rises, or appears where there was none, forgives more
+movement, so its row reads `loosened`; one that falls, or goes away, forgives
+less, and reads `tightened`. The reason is the one above: the width is one of
+the rules a movement is read against, and a changed tolerance has carried a
+direction all along. Without it a suite could widen its declared excuse
+between two runs and the output would name the change without naming its
+direction — the same thing ADR 0006 §5 refuses on the measured side, where a
+noisier run is not allowed to widen its own excuse.
 
 **Not decided here.** The migration: whether a suite keeps the floor by default for one
 release with a warning, or loses it at once. That is a release question.
