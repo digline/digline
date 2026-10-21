@@ -2405,8 +2405,8 @@ def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
     The direction gets a column of its own rather than a word inside the middle
     cell, so that a reader scanning the table sees the verbs in a line. An empty
     cell there is a row whose movement has no direction — `samples` on a
-    run-level aggregate, or the floor's width — and it is empty because no verb
-    is true of it, not by oversight. (ADR 0028 §4, as amended 2026-10-15)
+    run-level aggregate — and it is empty because no verb is true of it, not by
+    oversight. (ADR 0028 §4, as amended 2026-10-15)
     """
     moved = (
         phrase(

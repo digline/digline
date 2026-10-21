@@ -57,7 +57,7 @@ from digline.core import (
 from digline.core.refused import RefusedError
 from digline.core.run import SCHEMA_VERSION, config_hash, pricing_digest, run_from_dict
 from digline.host.toml_suite import AGGREGATES, ASSERTIONS, load_toml_suite
-from digline.report import render_html
+from digline.report import Locale, render_html
 from digline.report.render import rule_lines
 from digline.run import Case, Suite
 from digline.store.migrate import upgrade_document
@@ -407,23 +407,42 @@ def test_no_verdict_changes_whatever_the_width(width: float | None) -> None:
     assert reference.deltas[0].outcome == "unchanged"
 
 
-def test_the_rules_that_moved_name_a_declared_width() -> None:
-    before = judged(Contains(needle="hello"))
-    now = judged(Contains(needle="hello", floor_standard_errors=2))
+@pytest.mark.parametrize(
+    ("before_width", "after_width", "direction", "en", "it"),
+    [
+        (None, 2, "loosened", "(looser)", "(più larga)"),
+        (1, 2, "loosened", "(looser)", "(più larga)"),
+        (2, 1, "tightened", "(stricter)", "(più stretta)"),
+        (2, None, "tightened", "(stricter)", "(più stretta)"),
+    ],
+)
+def test_the_rules_that_moved_name_a_declared_width_and_its_direction(
+    before_width: int | None, after_width: int | None, direction: str, en: str, it: str
+) -> None:
+    """A wider width forgives more and is looser; a narrower one is stricter.
+
+    A width that appears where there was none forgives more, like one that
+    rose, and one that goes away forgives less, like one that fell: the width
+    is one of the rules a movement is read against, and a changed tolerance
+    has carried a direction all along. (ADR 0050, the passenger rule, amended
+    2026-10-21)
+    """
+    before = judged(Contains(needle="hello", floor_standard_errors=before_width))
+    now = judged(Contains(needle="hello", floor_standard_errors=after_width))
     comparison = compare(make_run([now], config="b"), make_run([before], config="a"))
     (row,) = comparison.suite_deltas
-    assert (row.field, row.outcome, row.before, row.after) == (
+    assert (row.field, row.outcome, row.direction, row.before, row.after) == (
         FIELD,
         "changed",
-        None,
-        2.0,
+        direction,
+        None if before_width is None else float(before_width),
+        None if after_width is None else float(after_width),
     )
-    # No verb in this phase: nothing reads the width yet, so neither *looser*
-    # nor *stricter* is true of it.
-    assert row.direction == ""
-    for locale in ("en", "it"):
+    words: dict[Locale, str] = {"en": en, "it": it}
+    for locale, word in words.items():
         (line,) = rule_lines(comparison, locale=locale)
         assert "contains" in line
+        assert line.endswith(word)
 
 
 def test_a_width_moved_on_one_check_names_that_check_only() -> None:

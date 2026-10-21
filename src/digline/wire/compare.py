@@ -130,9 +130,9 @@ def rule_json(delta: SuiteDelta) -> dict[str, object]:
     that reason — `config_json` has one because a configuration can carry a
     perimeter value, and a rule cannot. (ADR 0028 §1)
 
-    `direction` is `""` where the movement has no direction, which is every
-    `samples` row. A consumer that reads it as a verb must read the empty string
-    as *no verb* rather than as *unchanged*.
+    `direction` is `""` where the movement has no direction, which is the
+    `samples` row of a run-level aggregate. A consumer that reads it as a verb
+    must read the empty string as *no verb* rather than as *unchanged*.
     """
     return {
         "rule": delta.rule,

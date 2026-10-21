@@ -232,7 +232,9 @@ class SuiteDelta:
     #: two halves point the same way and more is **tightened**, fewer
     #: **loosened**. On a run-level aggregate it stays `""`: that floor is
     #: outside ADR 0050, and nothing says which way it moves. (ADR 0028 §4, as
-    #: amended 2026-10-15)
+    #: amended 2026-10-15) A declared width that rises or appears is
+    #: **loosened**, one that falls or goes away **tightened**. (ADR 0050, the
+    #: passenger rule, amended 2026-10-21)
     direction: Direction = ""
     field: str = ""
     before: float | None = None
@@ -1762,9 +1764,10 @@ def _width_moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, 
     """The declared floor width, named where it moved.
 
     `None` on either side is a declaration of none, so `2 -> —` is a width
-    withdrawn, never *not recorded*. **No verb**: nothing reads the width to
-    decide anything in phase 1 of #496, so neither *looser* nor *stricter* is
-    true of it yet. (ADR 0050)
+    withdrawn, never *not recorded*. A width that rises, or appears where there
+    was none, forgives more movement and is **loosened**; one that falls, or
+    goes away, forgives less and is **tightened**. (ADR 0050, the passenger
+    rule, amended 2026-10-21)
     """
     if not (here.width_known and there.width_known):
         return (
@@ -1778,12 +1781,16 @@ def _width_moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, 
         )
     if here.width == there.width:
         return ()
+    loosened = there.width is None or (
+        here.width is not None and here.width > there.width
+    )
     return (
         SuiteDelta(
             rule=here.name,
             assertion_id=key[1],
             scope=key[0],
             outcome="changed",
+            direction="loosened" if loosened else "tightened",
             field=WIDTH_FIELD,
             before=there.width,
             after=here.width,

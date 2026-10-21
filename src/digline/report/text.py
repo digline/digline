@@ -489,9 +489,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.moved.loosened": "{field} {name} {before} → {after} (looser)",
         "rules.moved.tightened": "{field} {name} {before} → {after} (stricter)",
         # No parenthesis, for a row whose movement has no direction: `samples`
-        # on a run-level aggregate, whose floor is outside ADR 0050, and the
-        # floor's width. A case's `samples` takes the parenthesis above, more
-        # samples being stricter. (ADR 0028 §4, as amended 2026-10-15)
+        # on a run-level aggregate, whose floor is outside ADR 0050. A case's
+        # `samples` and the floor's width take the parenthesis above. (ADR 0028
+        # §4, as amended 2026-10-15; ADR 0050, the passenger rule, amended
+        # 2026-10-21)
         "rules.moved": "{field} {name} {before} → {after}",
         "rules.new": "{name} added",
         "rules.new.new_group": "{name} added, over a group the reference lacked",
@@ -1090,9 +1091,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "than the reference was approved under."
         ),
         # No verb, for a rule whose movement has no direction: `samples` on a
-        # run-level aggregate, whose floor is outside ADR 0050, and the floor's
-        # width. A case's `samples` takes `.tightened` or `.loosened` above.
-        # (ADR 0028 §4, as amended 2026-10-15)
+        # run-level aggregate, whose floor is outside ADR 0050. A case's
+        # `samples` and the floor's width take `.tightened` or `.loosened`
+        # above. (ADR 0028 §4, as amended 2026-10-15; ADR 0050, the passenger
+        # rule, amended 2026-10-21)
         "explain.setting.rule.changed": "{name} moved from {before} to {after}.",
         "explain.setting.rule.new.tightened": (
             "{name} is a check this run was held to and the reference was not."
