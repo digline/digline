@@ -2225,7 +2225,8 @@ standard error is `√2` times one mean's (ADR 0050, decision 1 as amended 2026-
 `null`, `null` and `[]` there mean the range an aggregate carries, or no floor at all.
 `explain --json` carries the same three on each check, and `noise_source`: `reference`
 for the floor a movement was judged against, `run` for the samples a run read alone
-took, which is not a floor.
+took, which is not a floor, and `""` where there is no interval: a movement judged
+without a floor, or a check that took no samples.
 
 ## Verdicts and comparison
 
