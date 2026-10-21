@@ -1032,34 +1032,51 @@ disables silently.
 They travel, for the same reason `spread` does: they measure the system's own
 variability, not what it judged.
 
-`compare()` then reads them as a **noise floor**. After the declared tolerance,
-a movement that lands inside the interval the *baseline* observed across its own
-samples is `unchanged`, and the delta says so:
+`compare()` reads them as a **noise floor**, and only where a check asks for one:
+an assertion that declares `floor_standard_errors` gets a floor, and one that
+declares none is decided by its tolerance alone. After the declared tolerance, a
+movement that lands inside the floor is `unchanged`, and the delta says so:
 
 ```python
-delta.within_noise  # True when the interval is what called it unchanged
+delta.within_noise  # True when the floor is what called it unchanged
 delta.noise_min, delta.noise_max, delta.noise_samples
 ```
 
 `Outcome` gains no member — a movement within noise **is** `unchanged`, and the
 fact rides beside it, in `--json` as in the report.
 
-Four things it does not do:
+**It never rescues a flip.** `pass` → `fail` is rule 3 of `compare()` and sits
+above the numeric branch, so a drop through the threshold is reported whatever
+the samples did, and whatever width the check declares. The floor can never wave
+a failure through.
 
-- **it never rescues a flip.** `pass` → `fail` is rule 3 of `compare()` and
-  sits above the numeric branch, so a drop through the threshold is reported
-  whatever the samples did. It follows that the floor can never wave a failure
-  through;
-- **it reads the baseline's interval, never this run's.** The baseline is the
-  promoted, reviewed measurement; letting a noisy new run widen its own excuse
-  is how a regression hides inside a model that got less stable;
-- **an interval of zero width is not a floor.** Five samples out of five — the
-  ordinary case away from the boundary — leaves nothing to be inside, so every
-  later change of mind is reported;
-- **it invents nothing where there is no interval.** A baseline promoted before
-  this release, or a suite at `samples=1`, keeps the absolute rule, and the
-  report says the noise of that check is not known rather than implying there is
-  none.
+The floor is that many standard errors **of the movement**,
+`width · √2 · sd / √K` either side of the baseline's score, where `sd` is the
+standard deviation of the judged samples and `K` their number. The `√2` is there
+because what `compare()` judges is the difference between two means, and the
+dispersion of a difference of two means is `√2` times one mean's.
+
+`sd` and `K` come from the **baseline's** samples, never this run's: the
+baseline is the promoted, reviewed measurement, and a noisy new run is not
+allowed to widen its own excuse.
+
+There is no floor, and the tolerance alone decides, in five cases:
+
+- the check declares no width;
+- the verdict was not sampled;
+- fewer than two of the baseline's samples were judged, so a standard deviation
+  is not defined;
+- the samples agree: five votes out of five leave a standard deviation of zero,
+  and no multiple of zero is an interval;
+- the check is binary: its samples are 0 or 1, and that is the tolerance's
+  business by rule, not because their dispersion vanishes.
+
+Where a width is declared and one of the last three leaves no floor, the reason
+of a movement that gets reported says which one, so a declared floor that did
+not apply is never silent.
+
+An **aggregate** keeps the range of its samples as its floor: ADR 0050 leaves it
+outside.
 
 An **aggregate** has no samples of its own, so it gets an interval a different
 way: the driver evaluates it once more per sample index — the sample-0 verdict
