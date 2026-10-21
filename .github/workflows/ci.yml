@@ -552,13 +552,20 @@ jobs:
         # to the same files from its own runner. What is left is the edge skew
         # between that runner and this one, which is seconds to minutes.
         #
-        # **On the release commit itself this red is expected and is not this
-        # step's fault.** `docker/Dockerfile` is bumped in the commit the tag
-        # points at, so the push-triggered `ci` runs before the `pypi` job has
-        # uploaded anything. The failure message says which of the two cases it
-        # is; the follow-on `ci` after `publish` is the run that counts. The
-        # step above has already moved any pin the changelog declares
-        # unreleased, so what reaches here is what this build will install.
+        # **On a release in two pull requests the tagged commit does not reach
+        # this step until `publish` has run.** The bump of `docker/Dockerfile`
+        # lands in its own pull request, so the release commit touches nothing
+        # under `docker/` and `image-touched` skips this job on the pull
+        # request, on the `merge_group` run and on the push to `main`. The
+        # image is built on that commit by the follow-on `ci` after `publish`,
+        # and that is the run that counts. Read off the condition and not
+        # measured: a build with no base between the dated heading and
+        # `publish` (the weekly schedule, a dispatch) still meets this red, and
+        # so does a queue group where a pull request touching `docker/` lands
+        # beside the release. The failure message says which of the two cases
+        # it is. The step above has already moved any pin the changelog
+        # declares unreleased, so what reaches here is what this build will
+        # install.
         env:
           TIMEOUT: "240"
           INTERVAL: "15"
