@@ -91,8 +91,11 @@ correct its structural mistakes and are not negotiable.
    *Added 2026-10-18 (ADR 0043, amended).* Standard output carries digline
    alone. What the suite, the application it imports, a target or an
    assertion prints is assigned to standard error, the perimeter of the
-   person who ran the command. Not yet true in the code: today it reaches
-   standard output, first line included.
+   person who ran the command. True in the CLI since 0.32.1. Open on the MCP
+   server, where what the user's code writes late — from a thread of its own,
+   an `atexit` handler or a `__del__` — reaches the protocol stream as a line
+   that is not JSON-RPC, because there descriptor 1 is put back by the SDK as
+   it shuts down and not by digline: declared and not closed (ADR 0043 §8).
    The **artifacts** a suite declares — the prompt is the thing under test — are
    recorded in every run and cross a boundary only under
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
@@ -345,9 +348,14 @@ artifacts that today exists in none of the audited competitors.
   review, no signed commits, no linear history. **A merge commit is the only
   way work lands**, in both repositories: squash and rebase merging are off in
   the repository settings, each `main` ruleset allows the method `merge` alone,
-  and a merged branch is deleted. One method, so that "the merge commit of the
-  release pull request" — where a tag goes (below) — always names the same kind
-  of commit.
+  and a merged branch is deleted. digline-action is the third repository, and
+  it arrives at the same place by a different route: squash and rebase merging
+  are **on** in its settings, and its `main` ruleset allows the method `merge`
+  alone, which is what decides — a targeted branch may only be merged by the
+  allowed type, and a setting that disabled the required method would block
+  the merge instead. Off that branch, squash and rebase are available there.
+  One method, so that "the merge commit of the release pull request" — where a
+  tag goes (below) — always names the same kind of commit.
 
   **It requires a pull request, with zero approvals** — since 2026-09-24.
   Every change already went through one, so the rule adds no step: it turns a
@@ -365,7 +373,11 @@ artifacts that today exists in none of the audited competitors.
   linked to no GitHub account would need one approval more than configured —
   one, here, which nobody can give — cleared only by fixing the attribution at
   the moment of merging. So **any edit to the ruleset through the API sends the
-  key explicitly as `false`**, or the default quietly comes back.
+  key explicitly as `false`**, or the default quietly comes back. It is **on**
+  in digline-action's `main` ruleset, measured 2026-10-21, where the ruleset
+  also requires zero approvals. Nobody ruled it on, and whether it goes off is
+  a decision rather than a cleanup: the rule above would turn it off at the
+  next edit through the API.
 
   Before the rule, the pull request was needed anyway, and for a reason the
   rule does not remove: **nothing else can produce the checks.** `ci.yml` runs
