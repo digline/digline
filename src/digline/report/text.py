@@ -488,9 +488,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.field.floor_standard_errors": "floor width of",
         "rules.moved.loosened": "{field} {name} {before} → {after} (looser)",
         "rules.moved.tightened": "{field} {name} {before} → {after} (stricter)",
-        # No parenthesis, and it is the decision of ADR 0028 §4 rather than a
-        # gap: more samples is a better-founded score and a wider measured
-        # interval at once, and neither word is true of both halves.
+        # No parenthesis, for a row whose movement has no direction: `samples`
+        # on a run-level aggregate, whose floor is outside ADR 0050, and the
+        # floor's width. A case's `samples` takes the parenthesis above, more
+        # samples being stricter. (ADR 0028 §4, as amended 2026-10-15)
         "rules.moved": "{field} {name} {before} → {after}",
         "rules.new": "{name} added",
         "rules.new.new_group": "{name} added, over a group the reference lacked",
@@ -1088,9 +1089,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{name} moved from {before} to {after}, which is a stricter bar "
             "than the reference was approved under."
         ),
-        # No verb, and that is the decision rather than an omission: more
-        # samples is a better-founded score and a wider measured interval at
-        # once, so neither "looser" nor "stricter" is true of it. (ADR 0028 §4)
+        # No verb, for a rule whose movement has no direction: `samples` on a
+        # run-level aggregate, whose floor is outside ADR 0050, and the floor's
+        # width. A case's `samples` takes `.tightened` or `.loosened` above.
+        # (ADR 0028 §4, as amended 2026-10-15)
         "explain.setting.rule.changed": "{name} moved from {before} to {after}.",
         "explain.setting.rule.new.tightened": (
             "{name} is a check this run was held to and the reference was not."

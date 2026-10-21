@@ -437,8 +437,8 @@ def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
 
     The bare `0.60 → 0.50` of the configuration line is not enough here and that
     is the whole point of the record: a number with no verb beside it is what
-    let a lowered bar read like an added test. `samples` is the one row that
-    prints without a verb, deliberately — see `SuiteDelta.direction`.
+    let a lowered bar read like an added test. A row whose movement has no
+    direction prints without one, deliberately — see `SuiteDelta.direction`.
     """
     if delta.rule == AGREEMENT_FIELD:
         # Its own sentence: this row is not a rule that moved, it is the one
@@ -2404,9 +2404,9 @@ def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
 
     The direction gets a column of its own rather than a word inside the middle
     cell, so that a reader scanning the table sees the verbs in a line. An empty
-    cell there is `samples`, and it is empty because no verb is true of it —
-    which the column header's own note says, rather than leaving a blank to be
-    read as an oversight.
+    cell there is a row whose movement has no direction — `samples` on a
+    run-level aggregate, or the floor's width — and it is empty because no verb
+    is true of it, not by oversight. (ADR 0028 §4, as amended 2026-10-15)
     """
     moved = (
         phrase(

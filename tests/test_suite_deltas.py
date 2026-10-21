@@ -7,7 +7,7 @@ documents, never recorded, and reported without ever gating.
 
 The two that matter most are the quiet ones: a **tolerance** raised, which never
 produces a flip and so was invisible to the one sentence that named a moved bar;
-and `samples`, which takes no verb and must not acquire one.
+and `samples`, which takes a verb on a case's check and none on an aggregate.
 """
 
 from __future__ import annotations
@@ -180,23 +180,41 @@ def test_a_check_whose_threshold_and_tolerance_both_moved_gets_two_rows() -> Non
 
 
 # --------------------------------------------------------------------------- #
-# `samples` takes no verb, and this is the test that keeps it that way
+# `samples` takes a verb on a case's check, and none on an aggregate
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(("before_n", "after_n"), [(3, 5), (5, 3)])
-def test_samples_moves_without_a_direction(before_n: int, after_n: int) -> None:
-    """Neither way, and deliberately.
+@pytest.mark.parametrize(
+    ("before_n", "after_n", "direction"), [(3, 5, "tightened"), (5, 3, "loosened")]
+)
+def test_samples_on_a_case_moves_with_a_direction(
+    before_n: int, after_n: int, direction: str
+) -> None:
+    """More samples is stricter, fewer is looser.
 
-    More samples is a better-founded score **and**, because the interval a
-    sampled check records is measured rather than declared, usually a wider
-    noise floor — which `compare()` then forgives more movement inside. The two
-    halves run opposite ways and nothing here can weigh them. A release that
-    gives this a verb is making a claim ADR 0028 §4 examined and refused.
+    The floor is the dispersion of the mean of the baseline's samples, which
+    narrows as K grows, so more samples steadies the score and narrows the floor
+    in the same edit: the two halves ADR 0028 §4 once found unweighable point
+    the same way. (ADR 0028 §4, as amended 2026-10-15)
     """
     now = run(verdicts=(verdict("rubric", samples=after_n),), config_hash="hash-b")
     before = run(verdicts=(verdict("rubric", samples=before_n),))
-    assert rows(now, before) == [("rubric", "samples", "changed", "")]
+    assert rows(now, before) == [("rubric", "samples", "changed", direction)]
+
+
+@pytest.mark.parametrize(("before_n", "after_n"), [(3, 5), (5, 3)])
+def test_samples_on_an_aggregate_moves_without_a_direction(
+    before_n: int, after_n: int
+) -> None:
+    """Neither way: a run-level aggregate's floor is outside ADR 0050.
+
+    The amendment that gives a case's `samples` its verb is framed to the
+    dispersion of the mean of a case's samples, and says nothing of which way an
+    aggregate's floor moves. So the row prints both counts and stops.
+    """
+    now = run(aggregate=(verdict("mean", samples=after_n),), config_hash="hash-b")
+    before = run(aggregate=(verdict("mean", samples=before_n),))
+    assert rows(now, before) == [("mean", "samples", "changed", "")]
 
 
 def test_an_unsampled_check_reads_as_one_sample() -> None:

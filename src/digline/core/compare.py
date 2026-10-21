@@ -226,12 +226,13 @@ class SuiteDelta:
     #:
     #: A threshold lowered, a tolerance raised, a rule removed: **loosened** —
     #: the run is held to less than the reference was approved under. The
-    #: inverses: **tightened**. And `""` for `samples`, which takes no verb: more
-    #: samples is a better-founded score *and*, because the interval a sampled
-    #: check records is measured rather than declared, usually a **wider** noise
-    #: floor — which `compare()` then forgives more movement inside. The two
-    #: halves run opposite ways, nothing here can weigh them, so the row prints
-    #: both counts and stops. (ADR 0028 §4)
+    #: inverses: **tightened**. `samples` on a case's check is a bar too: more
+    #: samples steadies the score and, since the floor is the dispersion of the
+    #: mean of the baseline's samples, narrows the floor in the same edit, so the
+    #: two halves point the same way and more is **tightened**, fewer
+    #: **loosened**. On a run-level aggregate it stays `""`: that floor is
+    #: outside ADR 0050, and nothing says which way it moves. (ADR 0028 §4, as
+    #: amended 2026-10-15)
     direction: Direction = ""
     field: str = ""
     before: float | None = None
@@ -1691,10 +1692,19 @@ def suite_deltas(run: Run, baseline: Run) -> tuple[SuiteDelta, ...]:
 #: How each field moves when it is **loosened** — the bar admitting more than
 #: the reference approved. A threshold falling lets a lower score pass; a
 #: tolerance rising forgives a larger drop before it counts as a regression.
+#: Fewer samples, on a case's check, is a less steady score judged against a
+#: wider floor.
 #:
-#: `samples` is deliberately absent, and `_moved` reads that absence as *no
-#: verb*. See `SuiteDelta.direction`.
-_LOOSENS: dict[str, int] = {"threshold": -1, "tolerance": +1}
+#: `samples` is the one entry read by scope: on a run-level aggregate `_sign`
+#: gives it no verb. See `SuiteDelta.direction`.
+_LOOSENS: dict[str, int] = {"threshold": -1, "tolerance": +1, "samples": -1}
+
+
+def _sign(field: str, scope: Scope) -> int:
+    """Which way `field` loosens, or `0` where moving it takes no verb."""
+    if field == "samples" and scope != "case":
+        return 0
+    return _LOOSENS.get(field, 0)
 
 
 def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
@@ -1727,7 +1737,7 @@ def _moved(key: _RuleKey, here: _Rule, there: _Rule) -> tuple[SuiteDelta, ...]:
             continue
         if after == prior:
             continue
-        sign = _LOOSENS.get(field, 0)
+        sign = _sign(field, key[0])
         direction: Direction = ""
         if sign:
             loosened = (after < prior) if sign < 0 else (after > prior)

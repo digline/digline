@@ -984,7 +984,8 @@ def _rule_line(fact: SettingFact, locale: Locale, *, before: str, after: str) ->
     it as a clause, because the two directions are different sentences in both
     locales and a clause bolted onto one sentence would have to be grammatical
     in both. `""` falls through to the key with no suffix, which is the sentence
-    that names both values and no verb — `samples`, and only `samples`.
+    that names both values and no verb — `samples` on a run-level aggregate, and
+    the floor's width.
     (ADR 0028 §4)
 
     The agreement floor is its own key, because it is the one row here that is
