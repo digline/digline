@@ -33,13 +33,16 @@ What ran
 10 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite changed since the reference, so these numbers compare different rules.
+llm_rubric: 0.0% of 15 judged scores at 0 or 1, against 20.0% of 15 in the reference.
 
 What differed underneath
 prompts/system.txt changed: +1 −0 lines.
+llm_rubric.threshold moved from 0.7 to 0.6, which is a looser bar than the reference was approved under.
+The agreement floor is not recorded in a run, so whether it moved cannot be told from these two.
 
 What moved
-gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. The band this run measured covers the threshold, so which side it landed on is a property of the samples that were drawn.
+gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000.
 opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636.
 ```
 
@@ -143,29 +146,142 @@ produces them, so nothing here replays this block.
 
 ```json
 {
-  "output_version": 2,
-  "scope": "comparison",
+  "baseline_key": "2026-10-21T07-41-16-574186-00-00-8d81ff7740eae5b6",
   "exit_code": 1,
-  "note": "",
-  "run_key": "2026-09-04T13-56-48-910510-00-00-331b1cfd9709f0cd",
-  "baseline_key": "2026-09-04T13-55-47-725244-00-00-331b1cfd9709f0cd",
   "facts": [
-    {"about": "run", "kind": "cases", "count": 5, "state": null},
-    {"about": "setting", "kind": "artifact", "name": "prompts/system.txt",
-     "outcome": "changed", "before": null, "after": null,
-     "withheld": false, "added": 1, "removed": 0},
-    {"about": "setting", "kind": "rule", "name": "llm_rubric.threshold",
-     "outcome": "changed", "before": 0.7, "after": 0.6,
-     "withheld": false, "added": 0, "removed": 0,
-     "direction": "loosened"},
-    {"about": "check", "kind": "regressed", "scope": "case",
-     "case_id": "gift-wrap", "assertion": "llm_rubric",
-     "assertion_id": "llm_rubric:…", "before": 1.0, "after": 0.7,
-     "delta": -0.3, "threshold": 0.7,
-     "noise_min": null, "noise_max": null, "noise_samples": 0,
-     "noise_width": null, "noise_sd": null, "noise_judged": [],
-     "noise_source": "", "denominator_moved": false}
-  ]
+    {
+      "about": "run",
+      "count": 5,
+      "kind": "cases",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 10,
+      "kind": "checks",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "unjudged",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "suspended",
+      "state": null
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "suite_config",
+      "state": true
+    },
+    {
+      "about": "run",
+      "count": 0,
+      "kind": "shape",
+      "shape": {
+        "assertion_id": "4e7ba5d3e226025c",
+        "check": "llm_rubric",
+        "reference": {
+          "claims_unrecorded": 0,
+          "extremes": 3,
+          "sample_means": 0,
+          "scores": 15,
+          "single_claim": 0
+        },
+        "run": {
+          "claims_unrecorded": 0,
+          "extremes": 0,
+          "sample_means": 0,
+          "scores": 15,
+          "single_claim": 0
+        }
+      },
+      "state": null
+    },
+    {
+      "about": "setting",
+      "added": 1,
+      "after": null,
+      "before": null,
+      "kind": "artifact",
+      "name": "prompts/system.txt",
+      "outcome": "changed",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "setting",
+      "added": 0,
+      "after": 0.6,
+      "before": 0.7,
+      "direction": "loosened",
+      "kind": "rule",
+      "name": "llm_rubric.threshold",
+      "outcome": "changed",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "setting",
+      "added": 0,
+      "after": null,
+      "before": null,
+      "kind": "rule",
+      "name": "min_agreement",
+      "outcome": "unknown",
+      "removed": 0,
+      "withheld": false
+    },
+    {
+      "about": "check",
+      "after": 0.7,
+      "assertion": "llm_rubric",
+      "assertion_id": "4e7ba5d3e226025c",
+      "before": 1.0,
+      "case_id": "gift-wrap",
+      "delta": -0.3,
+      "denominator_moved": false,
+      "kind": "regressed",
+      "noise_judged": [],
+      "noise_max": null,
+      "noise_min": null,
+      "noise_samples": 0,
+      "noise_sd": null,
+      "noise_source": "",
+      "noise_width": null,
+      "scope": "case",
+      "threshold": 0.6
+    },
+    {
+      "about": "check",
+      "after": 0.636364,
+      "assertion": "levenshtein",
+      "assertion_id": "9831ae8fdaf2e736",
+      "before": 1.0,
+      "case_id": "opening-hours",
+      "delta": -0.363636,
+      "denominator_moved": false,
+      "kind": "regressed",
+      "noise_judged": [],
+      "noise_max": null,
+      "noise_min": null,
+      "noise_samples": 0,
+      "noise_sd": null,
+      "noise_source": "",
+      "noise_width": null,
+      "scope": "case",
+      "threshold": 0.5
+    }
+  ],
+  "note": "",
+  "output_version": 2,
+  "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60",
+  "scope": "comparison"
 }
 ```
 
