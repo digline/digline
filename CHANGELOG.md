@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.33.0 — unreleased
+## 0.33.0 — 2026-10-21
 
 digline **0.33.0**. **A minor, because a comparison forgives less than it did:**
 a sampled check used to be given a widened `unchanged` zone whether or not
@@ -104,6 +104,33 @@ digline migrate --suite suite.py
   width, and the absent key says *declared none*, never `null`. A 0.32.x
   reader refuses a schema-20 document, and a resume journal does not move.
   `output_version` does not move either.
+
+**The browser walkthrough was not owed.** Nothing in the launch key, the
+hand-over or the promote form changed since 0.32.1, which declared the same
+back to 0.30.0, the last release that ran it. Since `v0.32.1` nothing changed
+under `src/digline/host`, in `cli/view.py` or in `report/pages.py`, and
+`cli/main.py` changed only in the epilog of `--help`. The pages `view` serves
+render a comparison through `report/render.py` and `report/text.py`, which
+changed in what a comparison says about the floor and in none of the controls.
+
+## digline-mcp 0.6.2 — 2026-10-21
+
+Published by `v0.33.0`, with digline 0.33.0. **A patch, because nothing the
+server does changes:** its code is 0.6.1's. What moves is the dependency, now
+`digline>=0.32.0,<0.34`, so a project that holds digline-mcp can take digline
+0.33.0. 0.6.1 caps the core at `<0.33`, and a project that holds it stays on
+0.32 and is not told. The floor stays `digline>=0.32.0`. What `compare` answers
+about the noise floor is the core's, and it changes with digline 0.33.0, above.
+
+## pytest-digline 0.3.1 — 2026-10-21
+
+Published by `v0.33.0`, with digline 0.33.0. **A patch, because nothing the
+plugin does changes:** its code is 0.3.0's. What moves is the dependency, now
+`digline>=0.32.0,<0.34`, so a project that holds pytest-digline can take
+digline 0.33.0. 0.3.0 caps the core at `<0.33`, and a project that holds it
+stays on 0.32 and is not told. The floor stays `digline>=0.32.0`. What a
+session reports about the noise floor is the core's, and it changes with
+digline 0.33.0, above.
 
 ## 0.32.1 — 2026-10-19
 
