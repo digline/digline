@@ -35,8 +35,9 @@ configured yourself.
 When a check uses a model to grade, that grader does not always agree with
 itself. Ask digline to sample and it records how much the score moved on its
 own. Declare `floor_standard_errors` on that check and that measurement becomes
-an interval printed next to its verdict, and a drop inside it is read as
-unchanged; declare nothing and the samples are still recorded, but the tolerance
+a floor: a drop outside it is reported with the interval on its line, and a drop
+inside it is not a regression — the headline counts it, and `explain` prints the
+interval. Declare nothing and the samples are still recorded, but the tolerance
 decides alone.
 
 ```console
