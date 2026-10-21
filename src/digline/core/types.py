@@ -45,8 +45,6 @@ __all__ = [
     "Verdict",
     "at_precision",
     "canonical",
-    "declared_floor",
-    "floor_width_refusal",
     "meets",
     "normalize_output",
     "output_kind",

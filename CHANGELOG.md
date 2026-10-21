@@ -67,6 +67,25 @@ digline migrate --suite suite.py
   it fell. Changing a declared width moves `config_hash`, so a run made under
   the old width can no longer be promoted against the new suite and the report
   says the rules changed; a suite that declares none pays none of that.
+
+  **What the entry above did not name, added after publication (2026-10-21).**
+  Three pieces of public surface shipped without a word here. The keys that
+  carry what the floor was computed from: `noise_width`, `noise_sd` and
+  `noise_judged` on every delta of `compare --json` and on every check fact of
+  `explain --json`, and `noise_source` on the latter, `reference` for the floor
+  a movement was judged against and `run` for the samples a run read alone,
+  which is not a floor, and `""` where there is no interval: a movement judged
+  without a floor, or a check that took no samples. The same surface in
+  Python: those three as fields on `digline.core.AssertionDelta`, as `width`,
+  `sd` and `judged` on `digline.core.Noise`, and `noise_source` on
+  `digline.report.CheckFact`. The changed-rules table gained a fourth `field`,
+  `floor_standard_errors`, and with it a row reading `unknown` with no numbers
+  where one side's cases declare different widths; ADR 0028 §2 and §3 name both
+  from today. And `digline.core.types.__all__` gained `declared_floor` and
+  `floor_width_refusal`, from this release's own bump, which no text named and
+  nothing else in this repository uses; 0.34.0 takes them back out of
+  `__all__`, where a direct import of either still works. (0.33.0 delta-pass,
+  D-1 to D-3)
 - **A floor of zero width is no longer printed as a measured one**
   ([ADR 0006](docs/adr/0006-repeated-samples-and-the-noise-floor.md) §6, #602,
   #635). Where a baseline's samples all agree on its own score, a comparison
