@@ -1,6 +1,6 @@
 # digline
 
-**Regression testing for LLM applications: sample your reference and a score drop is read against how much that score moves on its own. A flip from pass to fail is always a regression.**
+**Regression testing for LLM applications: sample your reference, declare a floor on the checks that need one, and a score drop is read against how much that score moves on its own. A flip from pass to fail is always a regression.**
 
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
@@ -34,8 +34,10 @@ configured yourself.
 
 When a check uses a model to grade, that grader does not always agree with
 itself. Ask digline to sample and it records how much the score moved on its
-own and prints that next to the verdict, so you can see whether a drop is
-bigger than the measurement.
+own. Declare `floor_standard_errors` on that check and that measurement becomes
+an interval printed next to its verdict, and a drop inside it is read as
+unchanged; declare nothing and the samples are still recorded, but the tolerance
+decides alone.
 
 ```console
 $ digline compare --suite suite.py --run latest
@@ -225,12 +227,16 @@ One card each — parameters, typical values, what to watch out for — in
   once — the same input answered differently. `Repeated` grades the same output
   more than once — the judge changing its mind. `min_agreement` becomes
   mandatory as soon as you sample.
-- **A tolerance is declared; a noise floor is measured.** A sampled run records
-  the interval its own samples spanned, and a drop that stays inside the
-  baseline's interval is reported as unchanged rather than as a regression — a
-  tool that cries wolf on its own measurement error teaches people to promote
-  past it. It never rescues a flip, and it never invents an interval it does not
-  have, so you see one once you have promoted a sampled baseline.
+- **A tolerance is declared; a noise floor is declared too.** Where a check
+  declares `floor_standard_errors`, the baseline's judged samples set a floor
+  either side of its score — that width times √2 times their standard deviation
+  over the square root of their number, the √2 because what moves is a
+  difference of two means — and a drop inside it is reported as unchanged rather
+  than as a regression: a tool that cries wolf on its own measurement error
+  teaches people to promote past it. A run aggregate keeps the range its samples
+  spanned instead. It never rescues a flip and never invents an interval it does
+  not have, so you see one once you have promoted a sampled baseline and
+  declared a width.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
