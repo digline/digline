@@ -23,6 +23,9 @@ for the purpose and marked as judgment.
 
 One run key, and the presence of a baseline decides the rest:
 
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
+
 ```console
 $ digline explain --suite suite.py --run latest
 What ran
@@ -36,7 +39,7 @@ What differed underneath
 prompts/system.txt changed: +1 −0 lines.
 
 What moved
-gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. That is outside the interval its reference measured, 1.000000–1.000000 across 3 samples.
+gift-wrap · llm_rubric got worse: 1.000000 to 0.700000, a drop of 0.300000. The band this run measured covers the threshold, so which side it landed on is a property of the samples that were drawn.
 opening-hours · levenshtein got worse: 1.000000 to 0.636364, a drop of 0.363636.
 ```
 
@@ -135,6 +138,9 @@ $ digline explain --suite suite.py --run latest --json
 emits the **fact list the prose is rendered from** — typed facts with case and
 assertion references — and no sentences at all:
 
+The numbers below are an example of the shape. No scenario in this repository
+produces them, so nothing here replays this block.
+
 ```json
 {
   "output_version": 2,
@@ -156,7 +162,9 @@ assertion references — and no sentences at all:
      "case_id": "gift-wrap", "assertion": "llm_rubric",
      "assertion_id": "llm_rubric:…", "before": 1.0, "after": 0.7,
      "delta": -0.3, "threshold": 0.7,
-     "noise_min": 1.0, "noise_max": 1.0, "noise_samples": 3}
+     "noise_min": null, "noise_max": null, "noise_samples": 0,
+     "noise_width": null, "noise_sd": null, "noise_judged": [],
+     "noise_source": "", "denominator_moved": false}
   ]
 }
 ```
