@@ -1027,6 +1027,9 @@ that pull request is the whole argument.
 A case that errors, or one you set aside, is coverage that shrank. It never
 shows up as a failure, which is why it needs its own trigger.
 
+The width is declared here because a floor exists only where a check asks for
+one, the way *The second control* set out.
+
 ```python
 # support.py
 """The suite: who, where, what is checked, on what."""
