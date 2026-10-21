@@ -4572,16 +4572,17 @@ while the bump and the release were one commit. Since they are two pull
 requests, the release commit touches nothing under `docker/`, and
 `image-touched` in `ci.yml` skips it. It builds only where the diff against the
 base touches `docker/`, `ci.yml` or `docker-publish.yml`, or where there is no
-base. Measured on `v0.32.0` (`b2f423b`) and `v0.32.1` (`0e3afe9`): the image job
-was skipped on the `merge_group` run and on the push to `main`, and built green
-on the `workflow_run` `ci` after `publish`. The bump of 0.33.0 was #641, so its
-release commit has the same shape. Read off the condition and not measured: the
+base. Measured on `v0.32.0` (`b2f423b`), `v0.32.1` (`0e3afe9`) and `v0.33.0`
+(`79b38cc`, whose bump was #641): the image job was skipped on the
+`merge_group` run and on the push to `main`, and built green on the
+`workflow_run` `ci` after `publish`. Read off the condition and not measured: the
 red is still there for a build with no base between the dated heading and
 `publish`, such as the weekly schedule or a dispatch, and for a queue group in
 which a pull request that touches `docker/` lands beside the release pull
 request. The comment on the wait step in `ci.yml` carries the old sentence. It
 is corrected after `publish`, because a change to `ci.yml` builds the image on
-the release commit.
+the release commit. *Corrected 2026-10-21: the comment now says what this
+paragraph says.*
 
 **A red `docker-publish` on the release tag no longer means "re-run it".** It
 used to: the job's own wait asked only about `digline`, from the runner, and
