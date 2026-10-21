@@ -313,11 +313,20 @@ honest. The other three settings are things *under test* — how the system was
 configured, which instrument graded, which file was the subject. A rule is the
 bar they were held to, and it carries `direction`: `"loosened"` where this run
 is held to less than the reference was approved under, `"tightened"` where it is
-held to more. The key is **absent** where the movement has no direction, which
-is every `samples` row and is a different statement from *unchanged*
-(ADR 0028 §4). `withheld` is always `false` here: nothing a rule is made of can
-be kept back, which is why this is the one part of the reading that is complete
-at a boundary.
+held to more. The key is **absent** for two different reasons, and neither is
+*unchanged* (ADR 0028 §4). One row moved and has no direction to give: a
+`samples` row on a run-level aggregate, because an aggregate's floor is still
+the range of its own samples and nothing here can weigh them — a case check's
+`samples` does carry a direction, since more samples steadies the score and
+narrows the floor. The others are not known to have moved at all: a threshold, a
+tolerance, a `samples` or a width comes through as `unknown` where one side's
+own cases do not settle on a single value, by disagreeing or, for `samples`, by
+erroring before it was counted. `min_agreement` is always one of those, because
+a run does not record it; its row is there only where the configuration's
+fingerprint moved, and it says that whether the floor changed cannot be read
+from these two documents. `withheld` is always `false` here: nothing a rule is
+made of can be kept back, which is why this is the one part of the reading that
+is complete at a boundary.
 
 `scope` is `"comparison"` or `"run"` and is stated rather than left to be
 inferred: a run whose comparison found nothing and a run with no reference at
