@@ -417,6 +417,36 @@ artifacts that today exists in none of the audited competitors.
     pull request as what closed it, and the issue was not touched by hand. A
     third issue closed that day, #529, was closed by `release-followup.yml`
     and not by a merge, so it is not counted here.
+    *Observed 2026-10-21, and this time on a pull request.* #646 said
+    *"It does not close #644 or #645"*, and the merge closed #644, a
+    Dependabot pull request, two seconds later: in GraphQL its
+    `ClosedEvent.closer` is #646. #645 was not closed by the merge, because
+    `or` stood before it; Dependabot closed it itself 2 minutes 22 seconds
+    after that merge, writing "Looks like pillow is up-to-date now"
+    (`ClosedEvent.closer` is null). The check that missed the keyword was
+    `closingIssuesReferences`, read five seconds after the pull request was
+    opened and not again before the enqueue: **it lists issues only, so a
+    pull request that closes a pull request never appears in it.** Two
+    precedents, one shape: #348 on #332, and #646 on #644.
+    **Two surfaces close, and they are the ones GitHub names.** *Linking a
+    pull request to an issue* says a keyword links "in the pull request's
+    description or in a commit message", and that "Merging the referencing
+    pull request also closes the referenced pull request." A comment is not
+    named there: a `#N` in one is a reference, which *Autolinked references
+    and URLs* turns into a link and a backlink. So the search runs on the
+    body and on every commit message, **before opening and again before
+    enqueuing**: `(close|fix|resolve)[a-z]*`, case ignored, and **every hit
+    is read**, not counted. The closed set is the keywords, not the forms of
+    the number: `close: #644` and `fixes owner/repo#644` are documented
+    forms, a keyword before a full URL is a form the page does not rule on,
+    and a pattern that also demanded `\s+#` misses all three. The safe form,
+    to say a pull request leaves others open, is **"neither of them is
+    closed by this"** — itself a hit, which is why hits are read.
+    **A `#N` in a pull request, an issue or a comment is a reference to this
+    repository.** A Dependabot alert number is written without the `#`
+    (alert 46), or it links to whatever carries that number: #646's body
+    wrote `#46` and `#47` for two alerts and linked two unrelated pull
+    requests.
   - **It depends on `merge_group` in `ci.yml`**, which is the same failure as
     PR #82 in a new place. Without that trigger nothing starts on the queue's
     ref, and the queue waits on checks that never report. The trigger landed
