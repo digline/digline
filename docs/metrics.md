@@ -160,6 +160,10 @@ accuracy           0.500  pass   true_positive, false_positive, true_negative, f
 f1                 0.571  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
 ```
 
+The `llm_rubric` and `faithfulness` rows come from the two judges written
+inline above, not from a model: `JudgeReply(0.8, "civil")` is the 0.800, and
+`ClaimReply(supported=3, total=4, …)` is the 0.750.
+
 Two things to read off that table. `starts_with` and `contains` appear where
 `Affix` and `Repeated` were asked for: the **name is the identity**, `Affix`
 names itself after the end it checks, and `Repeated` keeps the name of the check

@@ -55,6 +55,12 @@ handbook never states — *"Riverbend has offered a fourteen day exchange since
   return-worn-boots · llm_rubric · Went from passing to failing (0.875000 → 0.731000).
 ```
 
+The judge behind that `llm_rubric` is a stand-in too, not a model: `_fake_judge`
+in `suite.py`. It scores 0.25, plus 0.5 times the share of the answer's words
+longer than four characters that the passage contains, plus 0.25 when the answer
+is at most two sentences. `AnthropicJudge` grades only on the live path,
+below.
+
 There is deliberately **no `CostBudget` and no `LatencyBudget` here**. A fake
 model costs nothing and answers in a millisecond, so a ceiling on this path is
 green by construction — which is the vacuously green check digline exists to

@@ -23,6 +23,10 @@ support: recorded rejected for 2026-09-15T09-14-22-104553-00-00-331b1cfd9709f0cd
 commit .digline/northwind/register/support.jsonl — the reason belongs in that commit's message
 ```
 
+The run keys here belong to the fourteen-run store that
+[`digline log`'s page](log.md#using-it) built for itself, and that page says
+which part of that store is drawn from life and which part is built.
+
 It computes the comparison itself, with the same `compare()` and `headline()`
 the gate uses, against the baseline in force when it runs — so the verdict an
 entry records is the verdict the person was looking at, and the digline that
@@ -185,6 +189,8 @@ Dispositions recorded
     2026-09-16T06:50:52.301208+00:00 · rejected: 2026-09-15T09-14-22-104553-00-00-331b1cfd9709f0cd, exit 1 — 2 worse, 0 better, 0 not judged
     2026-09-16T06:51:09.241817+00:00 · accepted: 2026-09-13T09-14-22-104553-00-00-331b1cfd9709f0cd, exit 0 — 0 worse, 0 better, 0 not judged
 ```
+
+The same built store as above, from [`digline log`'s page](log.md#using-it).
 
 Where two consecutive entries name different reference keys, the reading may say
 the reference changed between them, because both entries declare it; where

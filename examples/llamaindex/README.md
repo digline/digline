@@ -97,6 +97,12 @@ it does test — and what a framework upgrade breaks — is that the index still
 builds, the retriever still ranks, the template still renders, the synthesizer
 still returns a string, and the shape the caller depends on still arrives.
 
+**The judge.** On the default path `faithfulness` is graded by
+`_fake_claim_judge` in `suite.py`, not by a model. It splits the answer into
+sentences, leaves out the `Source:` line, and counts a sentence as supported
+when every word of it longer than four characters is on the page.
+`AnthropicClaimJudge` grades only under the switch below.
+
 **The switch.** One line in `suite.py`:
 
 ```python

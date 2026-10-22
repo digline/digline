@@ -33,6 +33,10 @@ how-do-i-return · llm_rubric · 2026-09-04 13:55 0.950000, 2026-09-04 13:56 0.8
 where-is-my-order · llm_rubric · 2026-09-04 13:55 0.950000, 2026-09-04 13:56 0.800000. Observed intervals 0.900000–1.000000 across 3 samples and 0.750000–0.850000 across 3 samples do not overlap.
 ```
 
+No suite on this page produces the block above, and no test replays it. It
+shows the form of the answer: the model and the judge behind its scores are not
+named here.
+
 `latest` resolves on either argument, the same as everywhere else.
 
 The two runs are bound to their labels on the first two lines, and everything

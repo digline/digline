@@ -159,6 +159,10 @@ digline: the judge's own range on these answers is at most 0.100000 across 5 jud
 2026-09-17T09-12-40-…
 ```
 
+No suite on this page produces the lines above, and no test replays them. They
+show the form of the answer: the judge behind `faithfulness`, and the model that
+recorded the answers it judges again, are not named here.
+
 Each judged check — `KIND = "judged"`, read through `Repeated` — asks the judge
 M times per recorded answer, in call order. Checks nothing judges run once, as
 always.

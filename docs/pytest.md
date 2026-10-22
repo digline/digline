@@ -34,6 +34,10 @@ eval/suite.py: 1 check got worse compared with the reference. Every case could
 be judged. 1 case is suspended. The suite is unchanged from the reference.
 ```
 
+No suite on this page produces the session above, and no test replays it. It
+shows the form of the report: the model and the judge behind `alpha`'s
+`llm_rubric` are not named here.
+
 The reasoning is in [ADR 0013](adr/0013-the-pytest-plugin.md).
 
 ## One row per check
