@@ -61,11 +61,13 @@ the checks that held, and the one pair present in all three.
 
 Those two cycles are the loop. Everything else is plumbing.
 
-There are two more scenarios. `structural` flips several cases at once and
+There are three more scenarios. `structural` flips several cases at once and
 escalates on a **single** run — it is never retried, because retrying destroys
 the evidence either way: the regression gets a green run to hide behind, and a
-judge that has moved is never measured. `steady` is the ordinary week, and it
-is what the committed baseline was promoted from.
+judge that has moved is never measured. `outage` is a day the system does not
+answer: every case errors, `digline run` exits 2, and the cycle is a **system
+error**, escalated on a single run. `steady` is the ordinary week, and it is
+what the committed baseline was promoted from.
 
 ## The alert is a document in three layers
 

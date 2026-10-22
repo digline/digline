@@ -235,7 +235,10 @@ def observe(config: Config, *, seed: int, root: Path) -> Observation:
     renders them instead of re-deriving them.
     """
     ran = digline("run", "--suite", config.suite, "--json", seed=seed, root=root)
-    if ran.returncode != EXIT_OK:
+    # `run` exits 2 when it judged nothing, and the run is still written with
+    # its key on stdout: `explain` reads it below and the cycle says system
+    # error. Any other code is a run that did not happen. (ADR 0049 §3)
+    if ran.returncode not in (EXIT_OK, EXIT_UNJUDGED):
         raise SystemExit(f"digline run failed:\n{ran.stderr}")
     written = cast("Mapping[str, Any]", json.loads(ran.stdout))
 

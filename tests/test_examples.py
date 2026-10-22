@@ -1007,6 +1007,7 @@ SCENARIOS = {
     "wobble": ("draw", 2, False),
     "drift": ("drift", 3, True),
     "structural": ("structural", 1, True),
+    "outage": ("system-error", 1, True),
 }
 
 #: The alerts committed under `examples/operator/alerts/`, each with the cycle

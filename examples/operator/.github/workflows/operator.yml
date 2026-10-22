@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: "steady | wobble | drift | structural (the demo's fake system)"
+        description: "steady | wobble | drift | structural | outage (the demo's fake system)"
         default: steady
         type: string
       escalate:
