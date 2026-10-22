@@ -363,6 +363,36 @@ answer without knowing the question.
 tool call) or `Sequence[Message]` (a conversation). An empty sequence is an
 empty conversation, not an error.
 
+### The trajectory a function target reports
+
+`ToolsCalled` and `ToolCalledWith` judge what an agent called, and they read it
+from two keys of `Response.metadata`. `default_mapper` hands that mapping to the
+checks as `metadata["response"]` (`digline.run.driver`). A target that is a
+plain function fills both keys itself:
+
+| key | what it holds | read by |
+|---|---|---|
+| `tools` | the names of the tools called, in order: a list of strings, with `None` at the position of a call that carried no name | `ToolsCalled` |
+| `tool_calls` | the same calls with their arguments, in order: a list of `{"tool": <name>, "arguments": <mapping>}`. `arguments` may also be a JSON string, which is decoded | `ToolCalledWith` |
+
+```python
+def target(case: Case) -> Response:
+    calls = [{"tool": "lookup_order", "arguments": {"id": "A-17"}}]
+    return Response(
+        output="Your order ships tomorrow.",
+        metadata={
+            "tools": [call["tool"] for call in calls],
+            "tool_calls": calls,
+        },
+    )
+```
+
+**Absent is not empty.** Without the key, the check that reads it errors on
+every case: a target that reports nothing is not a model that called nothing.
+`[]` is the model calling nothing. `examples/langgraph/suite.py` fills both keys
+this way. A declarative HTTP target derives the names from `tool_calls_path`
+alone ([`declarative.md`](declarative.md)).
+
 ### `Mapper`
 
 `__call__(response: Response, case: Case) -> EvaluatorInputs`. It is **the
