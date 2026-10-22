@@ -9,7 +9,8 @@ nothing.
 
 Two environment variables steer them, read once at import:
 
-    OPERATOR_SCENARIO      steady | wobble | drift | structural  (default steady)
+    OPERATOR_SCENARIO      steady | wobble | drift | structural | outage
+                           (default steady)
     DIGLINE_OPERATOR_SEED  the run's index in the cycle, 0-based  (default 0)
 
 `steady` at seed 0 is what the committed baseline was promoted from, which is
@@ -26,7 +27,8 @@ from digline.core import JUDGE_OUTPUT_LABEL, ConfigValue, JudgeReply
 from digline.run import Case, Response
 
 #: What the system does today. `steady` is the world the baseline was approved
-#: in; the other three are the events the operator has to tell apart.
+#: in; the others are the events the operator has to tell apart. `outage` is
+#: the one where nothing answers, so nothing is judged.
 SCENARIO = os.environ.get("OPERATOR_SCENARIO", "steady")
 
 #: Which run of the cycle this is: 0 for the first, 1 and 2 for the re-runs.
@@ -104,6 +106,10 @@ class SupportDesk:
     }
 
     def __call__(self, case: Case) -> Response:
+        if SCENARIO == "outage":
+            # Every case errors at the target, so the run judges nothing:
+            # `digline run` exits 2 and the cycle is a system error.
+            raise ConnectionError("the support desk did not answer")
         question = str(case.vars["question"])
         return Response(
             output=_answer(case.id),

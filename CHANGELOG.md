@@ -6,8 +6,19 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.33.1 — unreleased
+## digline — unreleased
 
+- **`digline run` exits `2` when it judged nothing** (#654; ADR 0049 §3,
+  amended). When none of the cases the suite measures was judged, because every
+  one was suspended or every one errored, `run` still writes the run and prints
+  its key, then says on stderr *"None of the cases this suite measures was
+  judged, so this run cannot say whether anything got worse."* and exits `2`. It
+  used to exit `0`. **An exit code changed, so the next version is a minor.**
+  Only this cause reaches `run`: a run with a case that could not be judged
+  beside judged ones, and a first run that lost its scale, still exit `0` from
+  `run`, while `report` and `explain` say `2` about them. A script that treats
+  any non-zero exit of `run` as a failed run now meets `2` on a run that exists;
+  read its key from stdout as before.
 - **`digline migrate` replaces a document instead of overwriting it** (#668).
   It rewrote each run and baseline with a write that empties the file before
   the new content arrives, so an interruption in between, such as a full disk

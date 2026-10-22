@@ -283,6 +283,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
+| digline | #654: `digline run` exits `2` when it judged nothing, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.

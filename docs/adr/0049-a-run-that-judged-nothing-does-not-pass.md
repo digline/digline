@@ -267,6 +267,15 @@ the run alone. `tests/test_run_exit_code.py` holds `run_exit_code` equal to
 Given different declarations, the two could differ, and that would be a
 defect in the front end, not a case of the invariant.
 
+*Amended 2026-10-22 (#654): `digline run` exits `2` too, for this cause and no
+other.* When none of the cases the suite measures was judged, `cmd_run` writes
+the run, prints its key, says `fact.nothing_judged` on stderr, and exits `2`,
+reading `nothing_judged` with the declaration of the suite it loaded. It does
+not adopt `run_exit_code` whole: a run with a case that could not be judged
+beside judged ones, and a first run that lost its scale, still exit `0` from
+`run`, while `report` and `explain` say `2` about the same run. The imbalance is
+deliberate, and `tests/test_run_judged_nothing.py` holds both halves of it.
+
 **Precedence, kept and not decided here.** It is today's behaviour, and this
 record does not change it. A run that judged nothing has no check that could
 have got worse, so `1` cannot arise from its cases. A canary that moved can
@@ -479,6 +488,10 @@ passing; it was reporting wrongly. The move is the one the suite already had:
 judge something, or stop running the suite. The first question the first user
 will ask is how to make it green again, and it is answered better by saying so
 than by avoiding it.
+
+*Amended 2026-10-22 (#654): `digline run` joins this list.* It exits `2` on such
+a run, after writing it and printing its key, and says why on stderr. It is the
+only cause that reaches `run`; see §3's amendment of the same date.
 
 **A suite of canaries and calibration cases only does not turn red** when they
 are judged: when the suite declares no subject case, they are what it measures

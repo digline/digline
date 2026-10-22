@@ -44,6 +44,7 @@ from digline.core import (
     compare,
     diff,
     key_of,
+    nothing_judged,
 )
 from digline.host import (
     LATEST,
@@ -82,6 +83,7 @@ from digline.report import (
     judge_reading,
     log_text,
     module_lines,
+    phrase,
     rule_lines,
     summary_lines,
 )
@@ -345,6 +347,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)
+    # `0` asserts that a measurement was made, and a run that judged none of
+    # the cases its suite measures made none. The run is written and its key
+    # printed all the same: the document is real, the measurement is missing.
+    # **Only this cause**, not `run_exit_code`'s other two: a case that could
+    # not be judged beside judged ones, and a lost scale, still exit `0` here,
+    # while `report` and `explain` say `2` about the same run. (ADR 0049 §3,
+    # amended 2026-10-22; #654)
+    if nothing_judged(measured.run, suite.declared()):
+        say(f"digline: {phrase('en', 'fact.nothing_judged')}", err=True)
+        return EXIT_UNJUDGED
     return EXIT_OK
 
 
