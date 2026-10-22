@@ -6,6 +6,21 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 0.33.1 — unreleased
+
+- **`digline migrate` replaces a document instead of overwriting it** (#668).
+  It rewrote each run and baseline with a write that empties the file before
+  the new content arrives, so an interruption in between, such as a full disk
+  or a killed process, left a run with neither its old content nor its new
+  one. A run has no other copy, because `.digline/.gitignore` excludes
+  `*/runs/`. The damage was always detected and never read as a run: `explain`
+  and `compare` refused the file, and `list` counted it unreadable. Now the new
+  document is written to a temporary file beside the old one and moved into
+  place, as `run` and `promote` already did, so an interruption leaves the
+  original whole. `docs/migrate.md` has promised this since 2026-08-27, and the
+  code did not do it until now. Nothing else moves: no output, no exit code, no
+  stored document, and nothing in `__all__` or `api.md`.
+
 ## 0.33.0 — 2026-10-21
 
 digline **0.33.0**. **A minor, because a comparison forgives less than it did:**

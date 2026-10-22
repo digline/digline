@@ -35,6 +35,7 @@ from digline.core.run import (
     run_from_dict,
     run_to_json,
 )
+from digline.store.file_store import write_atomic
 
 __all__ = [
     "MigrationReport",
@@ -476,7 +477,9 @@ def migrate_file(path: Path, *, dry_run: bool = False) -> int | None:
     # still the old one — recoverable — rather than a new one that is not.
     run = run_from_dict(upgraded)
     if not dry_run:
-        path.write_text(run_to_json(run), encoding="utf-8")
+        # Replaced, never overwritten: `write_text` truncates at open, and a
+        # run has no other copy (`*/runs/` is gitignored). (#668)
+        write_atomic(path, run_to_json(run))
     return version
 
 

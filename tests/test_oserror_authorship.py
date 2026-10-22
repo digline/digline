@@ -37,9 +37,7 @@ from digline.host import (
 )
 from digline.host.authorship import frames_outside, raised_inside_digline
 from digline.store import FileResultStore
-from digline.store.file_store import (
-    _write_atomic,  # pyright: ignore[reportPrivateUsage]
-)
+from digline.store.file_store import write_atomic
 from digline.targets import HttpTarget
 from digline.wire import WITHHELD, refusal_text
 
@@ -218,7 +216,7 @@ def test_a_c_function_digline_calls_was_already_digline_s(tmp_path: Path) -> Non
     directory.mkdir()
     (directory / "f").write_text("x", encoding="utf-8")
     with pytest.raises(OSError) as caught:
-        _write_atomic(directory, "{}")
+        write_atomic(directory, "{}")
     assert written_by_digline(caught.value)
 
 
@@ -230,7 +228,7 @@ def test_a_standard_module_digline_calls_is_digline_s(tmp_path: Path) -> None:
     directory.chmod(0o500)
     try:
         with pytest.raises(PermissionError) as caught:
-            _write_atomic(directory / "x.json", "{}")
+            write_atomic(directory / "x.json", "{}")
     finally:
         directory.chmod(0o755)
     assert written_by_digline(caught.value)
