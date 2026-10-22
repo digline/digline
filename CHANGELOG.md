@@ -20,6 +20,19 @@ notes under them are this file, verbatim.
   original whole. `docs/migrate.md` has promised this since 2026-08-27, and the
   code did not do it until now. Nothing else moves: no output, no exit code, no
   stored document, and nothing in `__all__` or `api.md`.
+- **A sampled check says why a sample could not be judged, even when others
+  were** (#655, from #600). When some samples of a `Repeated` check, a sampled
+  suite or a `--judge-samples` replay were judged and some errored, the reason
+  wrote the word `error` in place of each errored one and dropped what it said.
+  A reader could see that a sample errored and not why. The reason now ends with
+  how many could not be judged and what they said, in the form already used when
+  no sample is judged at all:
+  `mean of 3 samples (0.900000, error, 0.900000); 1 of 3 could not be judged: hit the cap`.
+  When the samples did not agree, the rule now comes before that count:
+  `…; an errored sample counts against agreement, never for it; 1 of 3 could not be judged: hit the cap`.
+  A fold with no errored sample keeps its reason byte for byte. It changes only
+  the text of `reason`, which is payload and crosses no boundary. No schema, no
+  key, no exit code, and no stored document moves.
 
 ## 0.33.0 — 2026-10-21
 
