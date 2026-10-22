@@ -131,15 +131,17 @@ def test_a_run_that_judged_nothing_fails_the_session_and_the_case_stays_skipped(
 ) -> None:
     """The case's row stays `SKIPPED`: §7 changes the session, never a row.
 
-    Only the case's row is asserted. Its check row, `alpha::contains`, comes
-    from the comparison's delta against a baseline where `alpha` was judged,
-    and reads `PASSED` before and after this change; what it should read is
-    not this test's question.
+    Two skips. The case's own row, and its check row, `alpha::contains`, which
+    comes from the comparison's delta against a baseline where `alpha` was
+    judged. That row used to read `PASSED`, and the docstring here said what it
+    should read was not this test's question. Since #574 it is: nothing judged
+    the check in this run, so it is `SKIPPED` with the case's reason
+    (`tests/test_missing_rows.py`), and the session still ends `1`.
     """
     write_suite(pytester.path, suspended=True)
     cycle(promoted, pytester.path, promote=False)
     result = run(pytester, promoted)
-    assert result.parseoutcomes().get("skipped") == 1, result.stdout.str()
+    assert result.parseoutcomes().get("skipped") == 2, result.stdout.str()
     assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
     assert summary_says(result, 2), result.stdout.str()
 
