@@ -109,6 +109,10 @@ INTRODUCED: dict[str, str] = {
     # that carries ADR 0049 §7: a widened table the import cannot see, which is
     # why pytest-digline's floor is owed at the cut, in RELEASING.md's table.
     "phrase": "0.1.0",
+    # 0.6.0 — an aggregate's name read back into its parts (`6ed18ef`,
+    # `v0.6.0~2^2~27`). pytest-digline reads it to tell a slice whose group no
+    # case declares from the remainder (#574).
+    "split_grouped_name": "0.6.0",
     # 0.6.0 — the loader's default attribute and the TOML suffix, exported
     # with the TOML suite form (`c63fd66`, `v0.6.0~2^2~14`). pytest-digline
     # reads them to tell when two specs name one suite, before loading either.

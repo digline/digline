@@ -261,6 +261,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `pytest-digline` | a check the run has no verdict for asks `phrase` for a `fact.row_missing` key, new in the core release that carries #574; against 0.33.0 the call raises `KeyError` | `0.34.0` | release pytest-digline on its own tag, once the core is on PyPI, with the cap raised to `<0.35`; if the core release is not 0.34.0, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -284,6 +285,7 @@ it and deletes it.
 | Package | What it carries | What the number must reflect |
 |---|---|---|
 | digline | #654: `digline run` exits `2` when it judged nothing, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
+| pytest-digline | #574: a check the run has no verdict for is a `SKIPPED` row where it was `PASSED`; it needs the `fact.row_missing` keys of the core release that carries #574 | a minor, ruled 2026-10-22: a row's outcome is something its users rely on (*Choosing the version*). **And its floor on digline goes to the number this cut gives digline**: the `0.34.0` in the table of floors owed at the cut is the expected number, not a decision |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.

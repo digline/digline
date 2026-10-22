@@ -149,6 +149,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.session_not_green": (
             "{suite}: digline exits {code}, so this session does not end green."
         ),
+        # Why a pytest row reads SKIPPED when the baseline judged its check and
+        # the run did not. A suspension carries the reason the suite declares;
+        # these are the other three, the last being whatever none of the named
+        # causes explains. (#574)
+        "fact.row_missing.case": "the suite no longer declares this case",
+        "fact.row_missing.check": "the suite no longer declares this check",
+        "fact.row_missing.unrecorded": (
+            "the stored run has no verdict for this check: run it again, or "
+            "pass --digline-run"
+        ),
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1473,6 +1483,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.session_not_green": (
             "{suite}: digline esce con {code}, quindi questa sessione non "
             "finisce verde."
+        ),
+        "fact.row_missing.case": "la suite non dichiara più questo caso",
+        "fact.row_missing.check": "la suite non dichiara più questo controllo",
+        "fact.row_missing.unrecorded": (
+            "l'esecuzione archiviata non ha un verdetto per questo controllo: "
+            "ripeti l'esecuzione, o passa --digline-run"
         ),
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",

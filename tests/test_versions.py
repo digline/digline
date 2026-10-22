@@ -340,6 +340,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.34.0": (
+            "the core release pytest-digline's floor is owed to in the table "
+            "of floors owed at the cut, for #574's `fact.row_missing` keys: a "
+            "release that does not exist yet, named because the gate reads the "
+            "cell as a version; the cut deletes the row"
+        ),
         "0.32.1": (
             "the release whose index-race status is recorded (the gate, the "
             "counts, the index waits, the check in a clean environment, the "

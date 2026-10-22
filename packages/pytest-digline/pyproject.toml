@@ -77,6 +77,11 @@ dependencies = [
     # a `TypeError`. A core minor may change a signature this plugin calls, so
     # the resolver keeps the core inside the minor this release was run
     # against, and a user stays on a pair that works.
+    #
+    # **Owed at the cut: raise to the core release that carries #574.** A check
+    # the run has no verdict for asks `phrase` for a `fact.row_missing` key,
+    # new in that release; against 0.33.0 the call raises `KeyError`. The cap
+    # rises with it, to the minor above that release.
     "digline>=0.32.0,<0.34",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
