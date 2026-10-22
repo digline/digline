@@ -630,6 +630,8 @@ class Check(pytest.Item):
         super().__init__(**kwargs)  # pyright: ignore[reportUnknownMemberType]
         self.delta = delta
         self.opened = opened
+        #: Why this row is skipped, when it is: set in `setup`. (#574)
+        self.skipped_because = ""
 
     def setup(self) -> None:
         """The unjudged half, and it has to be here.
@@ -645,6 +647,16 @@ class Check(pytest.Item):
         """
         if _failing(self.delta):
             return
+        if self.delta.outcome == "missing":
+            # Judged in the baseline, absent from this run: nothing judged it
+            # here, so it is not a pass. Skipped, with why. (#574)
+            # The suspension's reason is a developer's sentence out of the
+            # suite, and it reaches a terminal: made visible, as for a
+            # suspended case. (0.10.1)
+            from digline.report import visible
+
+            self.skipped_because = visible(_why_missing(self.delta, self.opened.suite))
+            pytest.skip(self.skipped_because)
         if _errored(self.delta.current) or self._lost():
             raise CouldNotJudge(self)
 
@@ -801,6 +813,38 @@ def _failing(delta: AssertionDelta) -> bool:
     return delta.canary and delta.outcome == "improved"
 
 
+def _why_missing(delta: AssertionDelta, suite: Suite) -> str:
+    """Why the baseline has a verdict for this check and the run has none.
+
+    Three causes are recognised, from the suite as it is declared now: the
+    case was suspended (its own reason), the case is no longer in the suite,
+    the check is no longer in the suite. **Everything else is the remainder**,
+    and the remainder is an `else`, not a fourth condition: a cause nobody
+    foresaw gets an honest skip that says the stored run has no verdict,
+    instead of a pass. The usual one is a suite edited after the run it reads,
+    when `--digline-run` was not passed. (#574)
+
+    Every sentence is digline's own, from `digline.report`, as this package's
+    docstring requires; only the suspension's reason is the suite's.
+    """
+    from digline.core import split_grouped_name
+    from digline.report import phrase
+
+    if delta.scope == "case":
+        case = next((c for c in suite.cases if c.id == delta.case_id), None)
+        if case is None:
+            return phrase(LOCALE, "fact.row_missing.case")
+        if case.suspended is not None:
+            return case.suspended
+        if delta.assertion not in {a.name for a in suite.assertions}:
+            return phrase(LOCALE, "fact.row_missing.check")
+    else:
+        aggregate, _group = split_grouped_name(delta.assertion)
+        if aggregate not in {a.name for a in suite.run_assertions}:
+            return phrase(LOCALE, "fact.row_missing.check")
+    return phrase(LOCALE, "fact.row_missing.unrecorded")
+
+
 def _errored(verdict: Verdict | None) -> bool:
     """Whether this check could not be judged.
 
@@ -845,6 +889,11 @@ def pytest_runtest_makereport(
     """
     report = yield
     if not isinstance(item, (Check, Suspended)):
+        return report
+    if isinstance(item, Check) and report.skipped:
+        # A check the run has no verdict for, located at the suite like a
+        # suspended case, for the reason below. (#574)
+        report.longrepr = (str(item.path), 1, item.skipped_because)
         return report
     if isinstance(item, Check) and call.excinfo is not None:
         if isinstance(call.excinfo.value, DiglineOutcome):
