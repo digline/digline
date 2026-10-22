@@ -78,6 +78,7 @@ from digline.report import (
     against_line,
     artifact_lines,
     config_lines,
+    errored_verdicts,
     explain_text,
     headline,
     judge_reading,
@@ -327,6 +328,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         modules_unchecked=loaded.modules_unchecked,
     )
 
+    errored = len(errored_verdicts(measured.run))
     if args.json:
         emit(
             json.dumps(
@@ -336,6 +338,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     resumed=resume is not None,
                     usage=measured.run.usage,
                     notes=notes,
+                    errored_checks=errored,
                 )
             )
         )
@@ -344,6 +347,15 @@ def cmd_run(args: argparse.Namespace) -> int:
         # must not land in the shell variable below. (ADR 0025 §9)
         for line in usage_lines(measured.run.usage):
             say(f"digline: {line}", err=True)
+        # How many checks could not run, said above zero only: `--json`
+        # carries the number always, a person needs it only when it is not
+        # nothing. (#654)
+        if errored:
+            key = "one" if errored == 1 else "many"
+            say(
+                f"digline: {phrase('en', f'fact.errored_checks.{key}', count=errored)}",
+                err=True,
+            )
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)

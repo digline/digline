@@ -58,7 +58,7 @@ from digline.host import (
     utc_now_iso,
 )
 from digline.report import diff as diff_report
-from digline.report import headline
+from digline.report import errored_verdicts, headline
 from digline.run import CallPlan, Suite, suite_notes
 from digline.store import FileResultStore
 from digline.wire import (
@@ -431,6 +431,9 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             measured.plan,
             usage=measured.run.usage,
             notes=suite_notes(loaded_suite),
+            # The count `digline run --json` carries, from the same function,
+            # so the two key sets stay equal. (#654)
+            errored_checks=len(errored_verdicts(measured.run)),
         )
 
     # Registered here rather than through `@server.tool(...)` on each

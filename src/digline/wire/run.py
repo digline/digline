@@ -72,6 +72,7 @@ def run_json(
     usage: RunUsage | None = None,
     replayed: bool = False,
     notes: Sequence[str] = (),
+    errored_checks: int | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -121,6 +122,12 @@ def run_json(
     # recorded none, which is never a run that consumed nothing. (ADR 0025 §9)
     if usage is not None:
         payload["usage"] = _usage_document(usage)
+    # How many checks could not run: `len(errored_verdicts(run))`, the case
+    # checks and the aggregates. `0` is a count, not an absence, so a caller
+    # that counted always passes it; a caller that did not leaves the key out,
+    # rather than this function writing a zero nobody measured. (#654)
+    if errored_checks is not None:
+        payload["errored_checks"] = errored_checks
     return neutralised(payload)
 
 

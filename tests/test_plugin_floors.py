@@ -109,6 +109,10 @@ INTRODUCED: dict[str, str] = {
     # that carries ADR 0049 §7: a widened table the import cannot see, which is
     # why pytest-digline's floor is owed at the cut, in RELEASING.md's table.
     "phrase": "0.1.0",
+    # 0.7.0 — every verdict in `error` in a run, case checks then aggregates
+    # (`7df7b7f`, `v0.7.0~2^2~3`). digline-mcp's `run` tool counts them for
+    # `errored_checks` (#654).
+    "errored_verdicts": "0.7.0",
     # 0.6.0 — an aggregate's name read back into its parts (`6ed18ef`,
     # `v0.6.0~2^2~27`). pytest-digline reads it to tell a slice whose group no
     # case declares from the remainder (#574).

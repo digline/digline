@@ -547,6 +547,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             judge_reading="The judge ranged 0.0 to 1.0.",
             usage=now.usage,
             notes=("no_kind declares no KIND",),
+            errored_checks=2,
         ),
     )
 
