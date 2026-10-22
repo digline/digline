@@ -7,7 +7,10 @@ which:
 
 - the case was suspended after the baseline: the reason the suite declares;
 - the case is no longer in the suite;
-- the check is no longer in the suite.
+- the check is no longer in the suite, a run-level check included;
+- and anything else: the stored run has no verdict for it. This is the
+  remainder, not a fourth condition, so a cause nobody foresaw gets an honest
+  `SKIPPED` instead of a false `PASSED`.
 
 The rows stay, and keep their nodeids: `-k`, `--deselect` and `--lf` name
 them, and a row that vanished would break a CI configuration that named it.
@@ -23,7 +26,7 @@ from _cycle import cycle
 
 SUITE = """
 import json, pathlib
-from digline.core import Contains, Regex
+from digline.core import Contains, Precision, Regex
 from digline.run import Case, Response, Suite
 
 suite = Suite(
@@ -31,6 +34,7 @@ suite = Suite(
     environment="staging",
     name="support",
     assertions=[{assertions}],
+    run_assertions=[{run_assertions}],
     cases=[{cases}],
 )
 
@@ -40,13 +44,21 @@ def target(case: Case) -> Response:
 """
 
 BOTH_CHECKS = 'Contains(needle="Acme"), Regex(pattern="^Acme")'
-BOTH_CASES = 'Case(id="alpha"), Case(id="beta")'
+AGGREGATE = 'Precision(over="contains", threshold="1/2", tolerance=0.0, by_group=True)'
+ALPHA = 'Case(id="alpha", label="positive", group="desk")'
+BETA = 'Case(id="beta", label="positive", group="desk")'
+BOTH_CASES = f"{ALPHA}, {BETA}"
 
 
-def write(directory: Path, *, assertions: str, cases: str) -> Path:
+def write(
+    directory: Path, *, assertions: str, cases: str, run_assertions: str = AGGREGATE
+) -> Path:
     path = directory / "eval" / "suite.py"
     path.parent.mkdir(exist_ok=True)
-    path.write_text(SUITE.format(assertions=assertions, cases=cases), "utf-8")
+    path.write_text(
+        SUITE.format(assertions=assertions, cases=cases, run_assertions=run_assertions),
+        "utf-8",
+    )
     (path.parent / "answers.json").write_text(
         json.dumps({"alpha": "Acme", "beta": "Acme"}), "utf-8"
     )
@@ -81,7 +93,10 @@ def test_a_case_suspended_after_the_baseline_skips_its_checks_with_its_reason(
     write(
         pytester.path,
         assertions=BOTH_CHECKS,
-        cases='Case(id="alpha", suspended="the refund API is down"), Case(id="beta")',
+        cases=(
+            'Case(id="alpha", label="positive", group="desk",'
+            f' suspended="the refund API is down"), {BETA}'
+        ),
     )
     cycle(promoted, pytester.path, promote=False)
     result = rows(pytester, promoted)
@@ -97,7 +112,7 @@ def test_a_case_suspended_after_the_baseline_skips_its_checks_with_its_reason(
 def test_a_case_no_longer_in_the_suite_skips_its_checks_and_says_so(
     pytester: pytest.Pytester, promoted: Path
 ) -> None:
-    write(pytester.path, assertions=BOTH_CHECKS, cases='Case(id="alpha")')
+    write(pytester.path, assertions=BOTH_CHECKS, cases=ALPHA)
     cycle(promoted, pytester.path, promote=False)
     result = rows(pytester, promoted)
     for check in ("contains", "regex"):
@@ -111,7 +126,13 @@ def test_a_case_no_longer_in_the_suite_skips_its_checks_and_says_so(
 def test_a_check_no_longer_in_the_suite_skips_its_rows_and_says_so(
     pytester: pytest.Pytester, promoted: Path
 ) -> None:
-    write(pytester.path, assertions='Contains(needle="Acme")', cases=BOTH_CASES)
+    """A case-level check and a run-level one, both withdrawn."""
+    write(
+        pytester.path,
+        assertions='Contains(needle="Acme")',
+        cases=BOTH_CASES,
+        run_assertions="",
+    )
     cycle(promoted, pytester.path, promote=False)
     result = rows(pytester, promoted)
     for case in ("alpha", "beta"):
@@ -119,4 +140,35 @@ def test_a_check_no_longer_in_the_suite_skips_its_rows_and_says_so(
             result.stdout.str()
         )
     result.stdout.fnmatch_lines(["*alpha::regex*no longer declares this check*"])
+    run_level = "eval/suite.py::<run>::precision[group=desk]"
+    assert outcome_of(result, run_level) == "SKIPPED", result.stdout.str()
+    result.stdout.fnmatch_lines(["*precision*no longer declares this check*"])
     assert outcome_of(result, "eval/suite.py::alpha::contains") == "PASSED"
+
+
+def test_a_check_the_stored_run_lacks_is_skipped_as_the_remainder(
+    pytester: pytest.Pytester, promoted: Path
+) -> None:
+    """None of the three causes: the case is declared and not suspended, the
+    check is declared, and the stored run has no verdict for it. A case was
+    suspended, a run was stored, and the case was taken back; pytest, without
+    `--digline-run`, reads that stored run."""
+    write(
+        pytester.path,
+        assertions=BOTH_CHECKS,
+        cases=(
+            'Case(id="alpha", label="positive", group="desk",'
+            f' suspended="the refund API is down"), {BETA}'
+        ),
+    )
+    cycle(promoted, pytester.path, promote=False)
+    write(pytester.path, assertions=BOTH_CHECKS, cases=BOTH_CASES)
+    result = rows(pytester, promoted)
+    for check in ("contains", "regex"):
+        assert outcome_of(result, f"eval/suite.py::alpha::{check}") == "SKIPPED", (
+            result.stdout.str()
+        )
+    result.stdout.fnmatch_lines(
+        ["*alpha::contains*the stored run has no verdict for this check*"]
+    )
+    assert "the refund API is down" not in result.stdout.str()
