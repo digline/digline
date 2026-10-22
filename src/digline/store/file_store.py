@@ -195,9 +195,12 @@ def _misfiled(
     )
 
 
-def _write_atomic(path: Path, payload: str) -> None:
+def write_atomic(path: Path, payload: str) -> None:
     """Write through a temporary file and `os.replace`, which is atomic on the
-    same filesystem: an interruption never leaves a half-written baseline."""
+    same filesystem: an interruption never leaves a half-written document.
+
+    Public to the store's own modules, not exported: `migrate` rewrites runs
+    and baselines in place and goes through here too (#668)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
     try:
@@ -459,7 +462,7 @@ class FileResultStore:
             suite=_check_name(run.suite, "suite"),
             key=key_of(run.created_at, run.config_hash),
         )
-        _write_atomic(self.run_path(ref), run_to_json(run))
+        write_atomic(self.run_path(ref), run_to_json(run))
         return ref
 
     def list_runs(self, tenant: str, suite: str) -> Sequence[RunRef]:
@@ -689,7 +692,7 @@ class FileResultStore:
         # Stamped from what the caller passed — the store reads no clock.
         # (ADR 0014 §3)
         reference = replace(without_responses(run), promoted_at=promoted_at)
-        _write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
+        write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
 
     def _refuse_a_moved_baseline(self, run: Run, expected: str | None) -> None:
