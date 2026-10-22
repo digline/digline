@@ -50,7 +50,7 @@ replaces is still the one the run was compared against. Two people review
 different runs and promote a few minutes apart, and the second one silently
 overwrites a newer reference. It is a classic lost update, and it is real.
 `FileResultStore.promote_baseline` reads the run, applies its seven conditions,
-and calls `_write_atomic` on `baselines/<suite>.json`. It never reads the file
+and calls `write_atomic` on `baselines/<suite>.json`. It never reads the file
 it is about to replace.
 
 **A wall exists, and it is outside the tool.** The baseline is a file in git,
