@@ -2228,6 +2228,46 @@ for the floor a movement was judged against, `run` for the samples a run read al
 took, which is not a floor, and `""` where there is no interval: a movement judged
 without a floor, or a check that took no samples.
 
+### The same fact in different documents
+
+Four facts take a different form depending on the document that carries them.
+Each form below is the one the code writes today.
+
+- **`modules_unchecked`**, the modules the run found already loaded rather than
+  read from source (ADR 0052):
+  - **the run file:** a list of module names. The key is absent when the run did
+    not record the fact, and `[]` when it recorded none (`digline.core.run`,
+    the encoder of a `Run`).
+  - **`compare --json`:** a count, `0` included, or `null` when the run did not
+    record it (`digline.wire.compare`, from the headline).
+  - **the MCP tools `get_run` and `get_baseline`:** the list, or `null`
+    (`digline.wire.run`, `run_document`).
+  - **`compare`'s terminal output:** one line per name
+    (`digline.report.render`, `module_lines`).
+  - **the HTML report:** a count in a sentence, and a sentence of its own when the
+    run did not record it.
+- **`runs`:**
+  - **`log --json`:** an integer, a number of runs, at the top, in each entry of
+    `spans` and in each entry of `spread` (`digline.wire.log`).
+  - **`diff --json`:** an object with `left` and `right`, each holding the run's
+    `key`, `label`, `created_at`, `environment` and `note`
+    (`digline.wire.diff`).
+  - **the MCP tool `list_runs`:** an array, one object per run
+    (`digline.wire.run`, `runs_json`). `digline list` has no `--json`.
+- **`promoted_at`**, when a reference was approved, where that was not
+  recorded:
+  - **a run file:** the key is absent (`digline.core.run`);
+  - **the MCP tools `get_run` and `get_baseline`:** `""` (`digline.wire.run`);
+  - **`log --json`:** `null` (`digline.wire.log`).
+- **A verdict's check:**
+  - **the run file, `compare --json`'s `deltas`, `diff --json`'s `checks` and
+    `explain --json`'s `facts`:** `assertion`;
+  - **the MCP tools `get_run` and `get_baseline`:** `name`.
+
+`get_run`, `get_baseline` and `list_runs` have no counterpart among the CLI's
+`--json` outputs. [`mcp.md`](mcp.md#what-the-responses-are) has the table of
+what each tool returns.
+
 ## Verdicts and comparison
 
 `Verdict(score, threshold, status, reason, tolerance, *, assertion_id)` with
