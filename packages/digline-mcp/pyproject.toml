@@ -131,6 +131,11 @@ dependencies = [
     # on it: the tool raised `TypeError`. A core minor may change a signature
     # this server calls, so the resolver keeps the core inside the minor this
     # release was run against, and a user stays on a pair that works.
+    #
+    # **Owed at the cut: raise to the core release that carries #654's count.**
+    # The `run` tool passes `errored_checks=` to `run_json`, an argument new in
+    # that release; against 0.33.0 the call raises `TypeError`. Raised at this
+    # package's 0.7.0, with #548 and #678, not at the core's cut.
     "digline>=0.32.0,<0.34",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
