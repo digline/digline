@@ -66,8 +66,14 @@ def write(
 
 
 @pytest.fixture
-def promoted(pytester: pytest.Pytester) -> Path:
-    """Two cases, two checks, all four judged and passing, then promoted."""
+def promoted(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Two cases, two checks, all four judged and passing, then promoted.
+
+    The terminal is made wide, which the pytest subprocess inherits: pytest
+    cuts a skip's reason on the verbose line to the terminal's width, and a
+    test that matched a cut reason would depend on where it runs.
+    """
+    monkeypatch.setenv("COLUMNS", "240")
     path = write(pytester.path, assertions=BOTH_CHECKS, cases=BOTH_CASES)
     cycle(path, pytester.path, promote=True)
     return path
@@ -77,6 +83,20 @@ def rows(pytester: pytest.Pytester, path: Path) -> pytest.RunResult:
     return pytester.runpytest_subprocess(
         "-p", "no:cacheprovider", "--digline-suite", str(path), "-v", "-rs"
     )  # fmt: skip
+
+
+def says(result: pytest.RunResult, nodeid: str, reason: str) -> bool:
+    """The row's verbose line is SKIPPED with this reason, whole, and `-rs`
+    carries it too. The verbose line is what ties the reason to the row: the
+    `-rs` line names the suite's file, not the row."""
+    row = any(
+        line.startswith(f"{nodeid} SKIPPED ({reason})") for line in result.stdout.lines
+    )
+    whole = any(
+        line.startswith("SKIPPED [") and line.endswith(f": {reason}")
+        for line in result.stdout.lines
+    )
+    return row and whole
 
 
 def outcome_of(result: pytest.RunResult, nodeid: str) -> str:
@@ -104,7 +124,9 @@ def test_a_case_suspended_after_the_baseline_skips_its_checks_with_its_reason(
         assert outcome_of(result, f"eval/suite.py::alpha::{check}") == "SKIPPED", (
             result.stdout.str()
         )
-    result.stdout.fnmatch_lines(["*alpha::contains*the refund API is down*"])
+    assert says(result, "eval/suite.py::alpha::contains", "the refund API is down"), (
+        result.stdout.str()
+    )
     # The judged case is untouched.
     assert outcome_of(result, "eval/suite.py::beta::contains") == "PASSED"
 
@@ -119,7 +141,11 @@ def test_a_case_no_longer_in_the_suite_skips_its_checks_and_says_so(
         assert outcome_of(result, f"eval/suite.py::beta::{check}") == "SKIPPED", (
             result.stdout.str()
         )
-    result.stdout.fnmatch_lines(["*beta::contains*no longer declares this case*"])
+    assert says(
+        result,
+        "eval/suite.py::beta::contains",
+        "the suite no longer declares this case",
+    ), result.stdout.str()
     assert outcome_of(result, "eval/suite.py::alpha::contains") == "PASSED"
 
 
@@ -139,10 +165,18 @@ def test_a_check_no_longer_in_the_suite_skips_its_rows_and_says_so(
         assert outcome_of(result, f"eval/suite.py::{case}::regex") == "SKIPPED", (
             result.stdout.str()
         )
-    result.stdout.fnmatch_lines(["*alpha::regex*no longer declares this check*"])
+    assert says(
+        result,
+        "eval/suite.py::alpha::regex",
+        "the suite no longer declares this check",
+    ), result.stdout.str()
     run_level = "eval/suite.py::<run>::precision[group=desk]"
     assert outcome_of(result, run_level) == "SKIPPED", result.stdout.str()
-    result.stdout.fnmatch_lines(["*precision*no longer declares this check*"])
+    assert says(
+        result,
+        run_level,
+        "the suite no longer declares this check",
+    ), result.stdout.str()
     assert outcome_of(result, "eval/suite.py::alpha::contains") == "PASSED"
 
 
@@ -168,7 +202,10 @@ def test_a_check_the_stored_run_lacks_is_skipped_as_the_remainder(
         assert outcome_of(result, f"eval/suite.py::alpha::{check}") == "SKIPPED", (
             result.stdout.str()
         )
-    result.stdout.fnmatch_lines(
-        ["*alpha::contains*the stored run has no verdict for this check*"]
-    )
+    assert says(
+        result,
+        "eval/suite.py::alpha::contains",
+        "the stored run has no verdict for this check: run it again, or pass "
+        "--digline-run",
+    ), result.stdout.str()
     assert "the refund API is down" not in result.stdout.str()
