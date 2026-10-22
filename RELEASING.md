@@ -1047,9 +1047,8 @@ entries there: the `nav` line, `PRODUCT` in `tools/hooks/seo.py`,
 
 0.15.1, 0.15.2 and 0.15.3 added no page between them: 0.15.2 and 0.15.3 amended
 ADR 0012, and an amendment needs no entry because the page already has its
-three. **`docs/adr/0023` is not a gap in the site — it is a number claimed on
-the `capture` branch and not yet on `main`**, which is what the ADR numbering
-does; it becomes this list's next line on the day that branch merges.
+three. `docs/adr/0023` reached `main` with `a4c2aa6` on 2026-09-24, by a route
+other than the `capture` branch, and has its three entries on digline.dev.
 
 This paragraph was dated *0.15.0* while the tree was at 0.15.3, which is the
 rot it warns about two lines below: three releases passed and the sentence
