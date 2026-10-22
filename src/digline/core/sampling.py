@@ -153,18 +153,47 @@ def _all_errored(verdicts: Sequence[Verdict]) -> str:
     once — is exactly the one worth seeing, because the run is not flaky in one
     way, it is failing in two. Most common first, and ties keep the order the
     samples came in, so the sentence is deterministic for a given run.
+
+    The grouping is `_causes`, which the partially judged fold uses too.
+    """
+    return f"no sample could be judged over {len(verdicts)} attempts{_causes(verdicts)}"
+
+
+def _causes(verdicts: Sequence[Verdict]) -> str:
+    """What the errored samples among `verdicts` said, as the tail of a sentence
+    that has just counted them: `": <cause>"` for one cause, the distribution for
+    several, and nothing when none said anything — a dangling colon is not a
+    cause. Counted over *all* the samples, so "1 of 4" reads against the same
+    total as the sentence it closes.
+
+    **One form, wherever an errored sample is reported** (#655). It was
+    `_all_errored`'s alone, and the partially judged fold wrote the bare word
+    `error` and dropped the cause; a second form for the same fact is the defect
+    this function exists to prevent.
     """
     attempts = len(verdicts)
-    summary = f"no sample could be judged over {attempts} attempts"
-    causes = Counter(v.reason.strip() for v in verdicts if v.reason.strip())
+    causes = Counter(
+        v.reason.strip() for v in verdicts if v.score.score is None and v.reason.strip()
+    )
     if not causes:
-        return summary
+        return ""
     if len(causes) == 1:
-        return f"{summary}: {next(iter(causes))}"
+        return f": {next(iter(causes))}"
     spread = "; ".join(
         f"{count} of {attempts}: {cause}" for cause, count in causes.most_common()
     )
-    return f"{summary}, for {len(causes)} different reasons — {spread}"
+    return f", for {len(causes)} different reasons — {spread}"
+
+
+def _could_not_be_judged(verdicts: Sequence[Verdict]) -> str:
+    """The clause that closes a partially judged fold's reason: how many samples
+    could not be judged, then what they said. Free text last, so nothing the
+    samples wrote ever sits inside digline's own sentence. Empty when every
+    sample was judged, so such a fold keeps the reason it always had."""
+    errored = sum(1 for v in verdicts if v.score.score is None)
+    if not errored:
+        return ""
+    return f"; {errored} of {len(verdicts)} could not be judged{_causes(verdicts)}"
 
 
 def _rendered(verdicts: Sequence[Verdict]) -> str:
@@ -195,7 +224,10 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
       judge never outvote the ones that did;
     - with **no** sample judged at all the outcome is `error` too, and the
       reason carries the samples' own cause under the summary — see
-      `_all_errored`. Folding must not cost the reader the diagnosis it folded.
+      `_all_errored`. Folding must not cost the reader the diagnosis it folded;
+    - with **some** samples judged and some errored, the mean's reason and the
+      did-not-agree reason both close with how many could not be judged and what
+      they said, in the same form — see `_causes` (#655).
 
     Metadata carries `samples`, `agreement`, `spread`, `errored_samples` and the
     raw `scores`. All numbers, so all of it crosses a boundary: the software
@@ -248,11 +280,12 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         # Said only when it applies, so a vote with no errored sample keeps the
         # sentence it always had. Where it applies it is the sentence a reader
         # needs: four errors in the scores and "0.20 agree" read as a bug
-        # unless something says which side an error counts on.
+        # unless something says which side an error counts on. The rule comes
+        # before the count, so the samples' own words close the sentence. (#655)
         errored = len(verdicts) - len(scores)
         against = (
-            f"; {errored} of {len(verdicts)} could not be judged, and an errored "
-            "sample counts against agreement, never for it"
+            "; an errored sample counts against agreement, never for it"
+            f"{_could_not_be_judged(verdicts)}"
             if errored
             else ""
         )
@@ -318,7 +351,10 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         threshold=first.threshold,
         tolerance=first.tolerance,
         status="pass" if meets(mean, first.threshold) else "fail",
-        reason=f"mean of {len(verdicts)} samples ({_rendered(verdicts)})",
+        reason=(
+            f"mean of {len(verdicts)} samples ({_rendered(verdicts)})"
+            f"{_could_not_be_judged(verdicts)}"
+        ),
         assertion_id=first.assertion_id,
         floor_standard_errors=first.floor_standard_errors,
     )
