@@ -64,11 +64,10 @@ status that is already not `0` is left as it is. pytest's own summary line at
 the bottom can stay green, because it counts the rows' outcomes and not the
 exit status: read the exit code, and the digline line above it says why.
 
-**What a pytest run does not carry**: the difference between digline's `1` and
-`2`. A pytest run exits `1` for either, because pytest's `2` means interrupted.
-The distinction survives in the report — `F` and `E` are counted
-separately, `-rE` lists the errored rows — and in `--junit-xml`. A job that
-needs `1` versus `2` runs `digline compare`, which is one command away.
+**What a pytest run does not carry**, the difference between digline's `1`
+and `2`, is set out once, on [the pytest page](https://digline.dev/product/pytest/#what-a-pytest-run-does-not-carry).
+A job that needs `1` versus `2` runs `digline compare`, which is one command
+away.
 
 What it does carry is a **refusal**. When digline declines the request
 — no baseline, a document it refuses, a comparison across tenants or across

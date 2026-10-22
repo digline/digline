@@ -1,10 +1,7 @@
 """What survives the translation into pytest, and what does not. (ADR 0013 §7)
 
-The exit codes are digline's contract: `0` proceed, `1` stop and report what got
-worse, `2` stop — the run could not be judged. The plugin does not carry that
-distinction into pytest's exit code. pytest would let it, so the loss is not a
-limit of pytest, and whether the plugin should carry it is open (ADR 0013 §7,
-note of 2026-10-13). This file records the loss as a property rather than
+What a pytest run does not carry is set out once, in `docs/pytest.md`, *What a
+pytest run does not carry*. This file records it as a property rather than
 leaving it to be discovered by somebody building a gate on it.
 """
 
@@ -31,13 +28,9 @@ def test_a_clean_comparison_exits_zero(
 def test_a_regression_and_an_unjudged_run_both_exit_one(
     pytester: pytest.Pytester, baseline: Baseline
 ) -> None:
-    """The distinction digline draws and the plugin does not carry.
-
-    `digline compare` exits `1` for a regression and `2` for a run it could not
-    judge. Here both are `1`, because pytest's process code says only that
-    something was not green. The trichotomy survives in the *report* — `F` and
-    `E` are counted apart, `-rE` lists the errored rows, `--junit-xml` keeps
-    them apart — and a job that needs `1` versus `2` runs `digline compare`.
+    """The distinction digline draws and the plugin does not carry: here both
+    are `1`. Why, and where the distinction survives instead, is
+    `docs/pytest.md`, *What a pytest run does not carry*.
 
     Written as an assertion rather than a comment so that it is a decision
     somebody has to revisit if it ever changes.
