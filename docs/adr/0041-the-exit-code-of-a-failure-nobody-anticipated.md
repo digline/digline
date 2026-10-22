@@ -119,6 +119,11 @@ Taken from the docstrings and the table, not decided here:
   `EXIT_OK` alone.
 - `migrate` exits 0 or 64, and neither is a verdict.
 
+*Annotated 2026-10-22 (#654): "`run`, whose code returns `EXIT_OK` alone" is no
+longer true.* `run` also returns `EXIT_UNJUDGED` when it judged none of the
+cases its suite measures (ADR 0049 §3, amended the same day). It is still not a
+gate: it reads no reference, and no other cause of `2` reaches it.
+
 ## 2. A fifth code: 70, for a failure nobody anticipated
 
 **None of the four codes is true of it.** 1 sends a person after a regression
