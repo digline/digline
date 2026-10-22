@@ -209,3 +209,45 @@ def test_a_check_the_stored_run_lacks_is_skipped_as_the_remainder(
         "--digline-run",
     ), result.stdout.str()
     assert "the refund API is down" not in result.stdout.str()
+
+
+COUNTER = (
+    'Case(id="alpha", label="positive", group="counter"), '
+    'Case(id="beta", label="positive", group="counter")'
+)
+
+
+def test_a_group_no_case_declares_any_more_is_a_check_no_longer_declared(
+    pytester: pytest.Pytester, promoted: Path
+) -> None:
+    """The aggregate is still declared; the group is not, because no case
+    carries it. Its slice is a check the suite no longer declares, and saying
+    "run it again" would be false: a new run would not bring it back."""
+    write(pytester.path, assertions=BOTH_CHECKS, cases=COUNTER)
+    cycle(promoted, pytester.path, promote=False)
+    result = rows(pytester, promoted)
+    assert says(
+        result,
+        "eval/suite.py::<run>::precision[group=desk]",
+        "the suite no longer declares this check",
+    ), result.stdout.str()
+
+
+def test_a_run_level_check_the_stored_run_lacks_is_the_remainder_too(
+    pytester: pytest.Pytester, promoted: Path
+) -> None:
+    """The run-level twin of the remainder, and the test that holds it as an
+    `else`: a fourth condition written for cases alone would let this row pass.
+    The cases moved to another group, a run was stored, and they moved back:
+    the aggregate and the group are both declared, and the stored run has no
+    slice for it."""
+    write(pytester.path, assertions=BOTH_CHECKS, cases=COUNTER)
+    cycle(promoted, pytester.path, promote=False)
+    write(pytester.path, assertions=BOTH_CHECKS, cases=BOTH_CASES)
+    result = rows(pytester, promoted)
+    assert says(
+        result,
+        "eval/suite.py::<run>::precision[group=desk]",
+        "the stored run has no verdict for this check: run it again, or pass "
+        "--digline-run",
+    ), result.stdout.str()
