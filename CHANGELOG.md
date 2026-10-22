@@ -46,6 +46,20 @@ notes under them are this file, verbatim.
   the text of `reason`, which is payload and crosses no boundary. No schema, no
   key, no exit code, and no stored document moves.
 
+## pytest-digline — unreleased
+
+- **A check the run has no verdict for is a `SKIPPED` row, never `PASSED`**
+  (#574). When the baseline judged a check and the run did not, the row used to
+  pass, though nothing judged it. It is skipped now, and says why: the reason a
+  suspended case declares; *"the suite no longer declares this case"*; *"the
+  suite no longer declares this check"*, a run-level check included; or, for
+  anything else, *"the stored run has no verdict for this check: run it again,
+  or pass --digline-run"*. **An output a user reads changed**: a CI that counts
+  `passed` rows, through `-rA` or `--junit-xml`, sees skips where it saw passes.
+  The rows keep their nodeids, so `-k`, `--deselect` and `--lf` still name them,
+  and a session's exit status does not change. The three sentences are
+  digline's, so this needs the core release that carries them.
+
 ## 0.33.0 — 2026-10-21
 
 digline **0.33.0**. **A minor, because a comparison forgives less than it did:**
