@@ -839,8 +839,14 @@ def _why_missing(delta: AssertionDelta, suite: Suite) -> str:
         if delta.assertion not in {a.name for a in suite.assertions}:
             return phrase(LOCALE, "fact.row_missing.check")
     else:
-        aggregate, _group = split_grouped_name(delta.assertion)
-        if aggregate not in {a.name for a in suite.run_assertions}:
+        # A slice is declared when its aggregate is and, for a grouped one,
+        # when some case still carries its group. (ADR 0010 §1: membership is
+        # declared on the cases.)
+        aggregate, group = split_grouped_name(delta.assertion)
+        declared = aggregate in {a.name for a in suite.run_assertions} and (
+            group is None or group in {c.group for c in suite.cases}
+        )
+        if not declared:
             return phrase(LOCALE, "fact.row_missing.check")
     return phrase(LOCALE, "fact.row_missing.unrecorded")
 
