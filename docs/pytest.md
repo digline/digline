@@ -48,6 +48,23 @@ named `<run>::precision`, because they belong to no case.
 
 `-k` and `--last-failed` select them like any other test.
 
+**A row's nodeid, given back to pytest as an argument, selects nothing.**
+Copied from a `FAILED` line and run again, it stops the session with exit `4`,
+pytest's usage error:
+
+```console
+$ pytest --digline-suite suite.py "suite.py::how-do-i-return::contains"
+ERROR: not found: …/suite.py::how-do-i-return::contains
+(no match in any of [<Module suite.py>])
+```
+
+pytest resolves a nodeid argument through its own collection, and the rows are
+not part of it: the plugin adds them afterwards, in
+`pytest_collection_modifyitems`
+(`packages/pytest-digline/src/pytest_digline/plugin.py`). To run one row again,
+name it with `-k`, for instance `-k "how-do-i-return and contains"`, or
+deselect the others with `--deselect`.
+
 ## The four states
 
 | digline | pytest | |
