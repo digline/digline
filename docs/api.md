@@ -363,6 +363,36 @@ answer without knowing the question.
 tool call) or `Sequence[Message]` (a conversation). An empty sequence is an
 empty conversation, not an error.
 
+### The trajectory a function target reports
+
+`ToolsCalled` and `ToolCalledWith` judge what an agent called, and they read it
+from two keys of `Response.metadata`. `default_mapper` hands that mapping to the
+checks as `metadata["response"]` (`digline.run.driver`). A target that is a
+plain function fills both keys itself:
+
+| key | what it holds | read by |
+|---|---|---|
+| `tools` | the names of the tools called, in order: a list of strings, with `None` at the position of a call that carried no name | `ToolsCalled` |
+| `tool_calls` | the same calls with their arguments, in order: a list of `{"tool": <name>, "arguments": <mapping>}`. `arguments` may also be a JSON string, which is decoded | `ToolCalledWith` |
+
+```python
+def target(case: Case) -> Response:
+    calls = [{"tool": "lookup_order", "arguments": {"id": "A-17"}}]
+    return Response(
+        output="Your order ships tomorrow.",
+        metadata={
+            "tools": [call["tool"] for call in calls],
+            "tool_calls": calls,
+        },
+    )
+```
+
+**Absent is not empty.** Without the key, the check that reads it errors on
+every case: a target that reports nothing is not a model that called nothing.
+`[]` is the model calling nothing. `examples/langgraph/suite.py` fills both keys
+this way. A declarative HTTP target derives the names from `tool_calls_path`
+alone ([`declarative.md`](declarative.md)).
+
 ### `Mapper`
 
 `__call__(response: Response, case: Case) -> EvaluatorInputs`. It is **the
@@ -2227,6 +2257,46 @@ standard error is `√2` times one mean's (ADR 0050, decision 1 as amended 2026-
 for the floor a movement was judged against, `run` for the samples a run read alone
 took, which is not a floor, and `""` where there is no interval: a movement judged
 without a floor, or a check that took no samples.
+
+### The same fact in different documents
+
+Four facts take a different form depending on the document that carries them.
+Each form below is the one the code writes today.
+
+- **`modules_unchecked`**, the modules the run found already loaded rather than
+  read from source (ADR 0052):
+  - **the run file:** a list of module names. The key is absent when the run did
+    not record the fact, and `[]` when it recorded none (`digline.core.run`,
+    the encoder of a `Run`).
+  - **`compare --json`:** a count, `0` included, or `null` when the run did not
+    record it (`digline.wire.compare`, from the headline).
+  - **the MCP tools `get_run` and `get_baseline`:** the list, or `null`
+    (`digline.wire.run`, `run_document`).
+  - **`compare`'s terminal output:** one line per name
+    (`digline.report.render`, `module_lines`).
+  - **the HTML report:** a count in a sentence, and a sentence of its own when the
+    run did not record it.
+- **`runs`:**
+  - **`log --json`:** an integer, a number of runs, at the top, in each entry of
+    `spans` and in each entry of `spread` (`digline.wire.log`).
+  - **`diff --json`:** an object with `left` and `right`, each holding the run's
+    `key`, `label`, `created_at`, `environment` and `note`
+    (`digline.wire.diff`).
+  - **the MCP tool `list_runs`:** an array, one object per run
+    (`digline.wire.run`, `runs_json`). `digline list` has no `--json`.
+- **`promoted_at`**, when a reference was approved, where that was not
+  recorded:
+  - **a run file:** the key is absent (`digline.core.run`);
+  - **the MCP tools `get_run` and `get_baseline`:** `""` (`digline.wire.run`);
+  - **`log --json`:** `null` (`digline.wire.log`).
+- **A verdict's check:**
+  - **the run file, `compare --json`'s `deltas`, `diff --json`'s `checks` and
+    `explain --json`'s `facts`:** `assertion`;
+  - **the MCP tools `get_run` and `get_baseline`:** `name`.
+
+`get_run`, `get_baseline` and `list_runs` have no counterpart among the CLI's
+`--json` outputs. [`mcp.md`](mcp.md#what-the-responses-are) has the table of
+what each tool returns.
 
 ## Verdicts and comparison
 

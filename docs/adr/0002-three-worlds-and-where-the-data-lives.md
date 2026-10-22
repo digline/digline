@@ -295,6 +295,11 @@ so does the bridge bullet of *Consequences*, corrected twice on its own account 
 and again 2026-09-27 on pseudonymisation). This was the only one of the three that read as
 settled.*
 
+*Annotated 2026-10-22 (#515): the premise of the paragraph above no longer holds. ADR 0023's
+status reads "accepted 2026-10-06", and the amendment is not coming: it is the last paragraph
+of this section, *Amended 2026-10-06*. The draft of 2026-09-16 is still on `capture`, and the
+last sentence of that amendment names it as what did not land.*
+
 *__Named and not counted, for the reason §8 of this record gives.__ Both notes above say **the
 bridge bullet** where the first draft of each said *the second bullet*. It was second when
 ADR 0023's *Amends* line named it that way, and ADR 0034 inserted a bullet above it at 16:29
@@ -654,6 +659,12 @@ a change to the configuration — visible in `config_hash` and in a pull request
   text that exists, and for this bullet it protected nothing while a fixed-section record went
   on stating a requirement its own successor had already shown could not be met. A record that
   cannot be met should say so in its own voice, which needs no other record's status.*
+
+  *Annotated 2026-10-22 (#515): "The first was **written**: it sits … on the unmerged
+  `capture` branch" is true of the draft of 2026-09-16, which is still there, and no longer of
+  the edit itself. §5's recipe is on `main`, the last paragraph of §5, dated 2026-10-06 and made
+  at ADR 0023's acceptance. The later note on this bullet, *Amended 2026-10-06 by ADR 0023*, is
+  about the regime and `CLAUDE.md`'s `bridge/` line, not about the recipe.*
 
   *__Corrected again 2026-09-27: what replaces the requirement.__ The first note stated the
   problem and left the remedy to ADR 0023, which is still proposed. The remedy does not need
