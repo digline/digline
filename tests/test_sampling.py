@@ -484,17 +484,103 @@ def test_causes_that_differ_are_reported_as_a_distribution() -> None:
     )
 
 
-def test_the_partial_case_is_untouched() -> None:
-    """Some samples were judged, so there is a mean and the fold reports it.
-    Nothing here changed, and the errored sample is counted where it always
-    was."""
+def test_a_partial_mean_names_what_its_errored_sample_said() -> None:
+    """Some samples were judged, so there is a mean and the fold reports it —
+    and, after it, what the sample that could not be judged said, in the form
+    `_all_errored` gives it.
+
+    **This was once deliberately not done.** When `_all_errored` landed
+    (a071ac7, 2026-09-11), this test was named `the_partial_case_is_untouched`
+    and said "Nothing here changed": the partial case was left out of that
+    change on purpose, and kept the bare word `error`. #655 reversed that
+    choice, because the sample that errored beside judged ones is the one most
+    worth explaining, and one such sample reached a promoted baseline (#600)."""
     combined = combine_samples(
         [verdict(0.9), verdict(None, reason="hit the cap"), verdict(0.9)],
         min_agreement=0.5,
     )
     assert combined.status == "pass"
-    assert combined.reason == "mean of 3 samples (0.900000, error, 0.900000)"
+    assert combined.reason == (
+        "mean of 3 samples (0.900000, error, 0.900000); "
+        "1 of 3 could not be judged: hit the cap"
+    )
     assert combined.score.metadata["errored_samples"] == 1
+
+
+def test_a_partial_mean_reports_differing_causes_as_a_distribution() -> None:
+    combined = combine_samples(
+        [
+            verdict(0.9),
+            verdict(None, reason="hit the cap"),
+            verdict(None, reason="was filtered"),
+            verdict(0.9),
+        ],
+        min_agreement=0.5,
+    )
+    assert combined.reason == (
+        "mean of 4 samples (0.900000, error, error, 0.900000); "
+        "2 of 4 could not be judged, for 2 different reasons — "
+        "1 of 4: hit the cap; 1 of 4: was filtered"
+    )
+
+
+def test_a_partial_mean_with_nothing_to_say_keeps_the_count_alone() -> None:
+    """The twin of `_all_errored`'s blank case: the count is still the truth,
+    and a dangling colon is not."""
+    combined = combine_samples(
+        [verdict(0.9), verdict(None, reason="  "), verdict(0.9)], min_agreement=0.5
+    )
+    assert combined.reason == (
+        "mean of 3 samples (0.900000, error, 0.900000); 1 of 3 could not be judged"
+    )
+
+
+def test_a_mean_with_no_errored_sample_keeps_the_reason_it_always_had() -> None:
+    """Byte for byte: the reasons are added only where a sample errored, so
+    every run without one records the sentence it always did."""
+    combined = combine_samples(
+        [verdict(0.9), verdict(0.8), verdict(0.9)], min_agreement=0.5
+    )
+    assert combined.reason == "mean of 3 samples (0.900000, 0.800000, 0.900000)"
+
+
+def test_a_vote_that_did_not_agree_names_what_its_errored_sample_said() -> None:
+    """The rule first, then what happened: the free text closes the sentence,
+    so the cause is in the one form `_all_errored` already uses."""
+    combined = combine_samples(
+        [
+            verdict(1.0, threshold=0.5),
+            verdict(None, threshold=0.5, reason="hit the cap"),
+            verdict(0.0, threshold=0.5),
+        ],
+        min_agreement=0.67,
+    )
+    assert combined.status == "error"
+    assert combined.reason == (
+        "the samples did not agree: 0.33 of them share the majority verdict, "
+        "below the required 0.67 (scores: 1.000000, error, 0.000000); "
+        "an errored sample counts against agreement, never for it; "
+        "1 of 3 could not be judged: hit the cap"
+    )
+
+
+def test_a_vote_that_did_not_agree_reports_differing_causes_as_a_distribution() -> None:
+    combined = combine_samples(
+        [
+            verdict(1.0, threshold=0.5),
+            verdict(None, threshold=0.5, reason="hit the cap"),
+            verdict(None, threshold=0.5, reason="was filtered"),
+            verdict(0.0, threshold=0.5),
+        ],
+        min_agreement=0.75,
+    )
+    assert combined.reason == (
+        "the samples did not agree: 0.25 of them share the majority verdict, "
+        "below the required 0.75 (scores: 1.000000, error, error, 0.000000); "
+        "an errored sample counts against agreement, never for it; "
+        "2 of 4 could not be judged, for 2 different reasons — "
+        "1 of 4: hit the cap; 1 of 4: was filtered"
+    )
 
 
 def test_a_sample_with_nothing_to_say_leaves_the_summary_alone() -> None:
