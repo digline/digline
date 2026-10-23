@@ -47,6 +47,7 @@ from digline.report import (
     artifact_lines,
     diff_lines,
     headline,
+    phrase,
     render_html,
 )
 from digline.run import Case, Response, Suite, execute
@@ -1211,6 +1212,45 @@ def test_a_pinned_file_changed_under_its_own_name_still_drifts() -> None:
     assert comparison.pinned_unreferenced == ()
     assert comparison.pinned_withdrawn == ()
     assert not comparison.pinned_lost
+
+
+def test_the_headline_counts_the_drifted_pins_the_comparison_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The headline's clause and the gate read one property, never two filters.
+
+    `pinned_changed` is where the condition is written; `pinned_drifted` and the
+    clause read it. Replacing the property with an answer the deltas do not give
+    shows whether they do: a headline that filtered `artifact_deltas` again
+    would still count two, and a gate that did would still read drift. (#483)
+    """
+    before = a_pinned_run(
+        (OLD, NEW),
+        **{
+            OLD: Artifact(sha="a" * 64, text="v1"),
+            NEW: Artifact(sha="c" * 64, text="w1"),
+        },
+    )
+    after = a_pinned_run(
+        (OLD, NEW),
+        **{
+            OLD: Artifact(sha="b" * 64, text="v2"),
+            NEW: Artifact(sha="d" * 64, text="w2"),
+        },
+    )
+    comparison, head = judged(after, before)
+    assert sorted(comparison.pinned_changed) == sorted((OLD, NEW))
+    assert phrase("en", "fact.pinned.many", count=2) in head.sentence
+
+    three = ("a/underwriting-1.json", "a/underwriting-2.json", "a/underwriting-3.json")
+    monkeypatch.setattr(Comparison, "pinned_changed", property(lambda self: three))
+    comparison, head = judged(after, before)
+    assert phrase("en", "fact.pinned.many", count=3) in head.sentence, head.sentence
+
+    monkeypatch.setattr(Comparison, "pinned_changed", property(lambda self: ()))
+    comparison, head = judged(after, before)
+    assert not comparison.pinned_drifted
+    assert "declared not to change, and" not in head.sentence, head.sentence
 
 
 def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
