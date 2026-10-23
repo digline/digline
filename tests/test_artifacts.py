@@ -1112,6 +1112,33 @@ def test_a_pin_withdrawn_while_its_file_stays_is_reported() -> None:
     assert not comparison.pinned_lost
 
 
+def test_a_withdrawn_pin_on_a_kept_file_beside_a_new_pin_is_not_lost() -> None:
+    """The case that tells `pinned_gone` from `pinned_withdrawn`. The old file is
+    still recorded and only its pin is gone, beside a new pin with no reference
+    value. Nothing was lost: the file the reference pinned is still here to be
+    read. Only a path the run no longer records can pair with an unreferenced
+    pin, so `pinned_lost` is false, and a condition widened to every withdrawn
+    pin would read it as a rename and exit 2. (ADR 0051 §2, §3; #483)"""
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run(
+        (NEW,),
+        **{
+            OLD: Artifact(sha="a" * 64, text="v1"),
+            NEW: Artifact(sha="b" * 64, text="v2"),
+        },
+    )
+    comparison, head = judged(after, before)
+
+    assert comparison.pinned_withdrawn == (OLD,)
+    assert comparison.pinned_unreferenced == (NEW,)
+    assert comparison.pinned_gone == ()
+    assert not comparison.pinned_lost, (
+        "a pin withdrawn on a file the run still records was read as lost beside "
+        "an unreferenced pin: the file is here, so nothing became anything"
+    )
+    assert exit_code(head) == 0, head.sentence
+
+
 def test_the_declared_cost_removing_one_pinned_file_and_pinning_another() -> None:
     """**The cost ADR 0051 declares, not a defect.** A run that removes pinned
     file X and adds a pin on a new file Y is, from the two documents,
