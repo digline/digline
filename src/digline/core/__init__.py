@@ -87,6 +87,12 @@ from digline.core.diff import (
     Favours,
     diff,
 )
+from digline.core.gate import (
+    CauseOfTwo,
+    causes_of_two,
+    pins_implicated,
+    unjudged_cases,
+)
 from digline.core.naming import (
     DRIVER_MARKERS,
     MISNAMED,
@@ -369,6 +375,10 @@ __all__ = [
     "judged",
     "scale_lost",
     "nothing_judged",
+    "CauseOfTwo",
+    "causes_of_two",
+    "pins_implicated",
+    "unjudged_cases",
     "reconcile",
     "unreconciled",
     "unreconciled_verdict",

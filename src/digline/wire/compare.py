@@ -166,6 +166,9 @@ def compare_json(
     """
     payload: dict[str, object] = {"output_version": OUTPUT_VERSION}
     payload.update(dataclasses.asdict(head))
+    # A list on the wire, as every other array here: `asdict` leaves the
+    # headline's tuple a tuple, and a document is JSON's shapes. (ADR 0053)
+    payload["unjudged_causes"] = list(head.unjudged_causes)
     # The number `AGENTS.md` §6 calls the contract, computed by the one function
     # that knows the precedence — a regression outranks an unjudged case. A
     # caller left to derive it from `worse` and `unjudged` has to know that

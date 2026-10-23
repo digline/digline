@@ -49,6 +49,9 @@ def head(*, worse: bool, unjudged: int) -> Headline:
         counts={},
         reasons_available=True,
         sentence="",
+        # By the rule `headline()` follows: `unjudged` is a cause exactly when
+        # the count is above zero. (ADR 0053)
+        unjudged_causes=("unjudged",) if unjudged else (),
     )
 
 
@@ -71,6 +74,7 @@ def test_a_suspension_alone_never_fails() -> None:
         counts={},
         reasons_available=True,
         sentence="",
+        unjudged_causes=(),
     )
     assert exit_code(quiet) == EXIT_OK
 
@@ -323,6 +327,10 @@ COMPARE_KEYS = {
     "pinned_unreferenced",
     "pinned_withdrawn",
     "pinned_lost",
+    # Joined with ADR 0053, same rule: the causes of exit 2 that hold, by the
+    # names of the keys above. A consumer reading `exit_code` sees no new
+    # number; one reading this sees a drift beside a regression that exits 1.
+    "unjudged_causes",
     # A count from the judged run, or null where it records none. (ADR 0052)
     "modules_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that

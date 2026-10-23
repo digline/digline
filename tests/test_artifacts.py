@@ -15,7 +15,7 @@ import json
 import os
 import re
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from html import unescape
 from pathlib import Path
@@ -1328,6 +1328,16 @@ def test_the_page_counts_the_pins_the_comparison_names(
     assert "not included, so whether" not in shown
 
 
+def returning(causes: tuple[str, ...]) -> Callable[..., tuple[str, ...]]:
+    """A stand-in for `causes_of_two` that answers `causes` whatever it is
+    handed."""
+
+    def answer(*_args: object, **_kwargs: object) -> tuple[str, ...]:
+        return causes
+
+    return answer
+
+
 #: The headline's flags for the causes of 2, by the name each cause has in the
 #: tuple. `unjudged` is not among them: it is a count, not a flag.
 CAUSE_FLAGS = ("scale_lost", "pinned_drifted", "pinned_lost", "nothing_judged")
@@ -1354,14 +1364,14 @@ def test_the_headline_flags_follow_the_causes_of_two(
     assert head.unjudged_causes == ("pinned_drifted",)
     assert exit_code(head) == 2
 
-    monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: CAUSE_FLAGS)
+    monkeypatch.setattr(render, "causes_of_two", returning(CAUSE_FLAGS))
     _comparison, head = judged(before, before)
     assert head.unjudged_causes == CAUSE_FLAGS
     for flag in CAUSE_FLAGS:
         assert getattr(head, flag), f"{flag} did not follow the tuple"
     assert exit_code(head) == 2
 
-    monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: ())
+    monkeypatch.setattr(render, "causes_of_two", returning(()))
     _comparison, head = judged(after, before)
     assert head.unjudged_causes == ()
     for flag in CAUSE_FLAGS:
