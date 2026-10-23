@@ -1280,6 +1280,54 @@ def test_the_headline_counts_the_drifted_pins_the_comparison_names(
     assert "declared not to change, and" not in head.sentence, head.sentence
 
 
+def test_the_page_counts_the_pins_the_comparison_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The page's drifted and unchecked clauses read the comparison, as the
+    headline's does: replacing the paths with an answer the deltas do not give
+    shows which is read. A page that counted `artifact_deltas` again would still
+    say two and nothing, and a count property with a filter of its own would not
+    follow the paths it is the count of. (#483)
+    """
+    before = a_pinned_run(
+        (OLD, NEW),
+        **{
+            OLD: Artifact(sha="a" * 64, text="v1"),
+            NEW: Artifact(sha="c" * 64, text="w1"),
+        },
+    )
+    after = a_pinned_run(
+        (OLD, NEW),
+        **{
+            OLD: Artifact(sha="b" * 64, text="v2"),
+            NEW: Artifact(sha="d" * 64, text="w2"),
+        },
+    )
+
+    def page() -> str:
+        comparison = compare(after, before)
+        return unescape(
+            render_html(comparison, after, before, locale="en", declared=None)
+        )
+
+    drifted_two = phrase("en", "artifacts.pinned.many", count=2)
+    assert drifted_two in page()
+
+    three = ("a/underwriting-1.json", "a/underwriting-2.json", "a/underwriting-3.json")
+    two = ("b/underwriting-1.json", "b/underwriting-2.json")
+    monkeypatch.setattr(Comparison, "pinned_changed", property(lambda self: three))
+    monkeypatch.setattr(Comparison, "pinned_unchecked", property(lambda self: two))
+    shown = page()
+    assert phrase("en", "artifacts.pinned.many", count=3) in shown
+    assert phrase("en", "artifacts.pinned.unchecked.many", count=2) in shown
+
+    monkeypatch.setattr(Comparison, "pinned_changed", property(lambda self: ()))
+    monkeypatch.setattr(Comparison, "pinned_unchecked", property(lambda self: ()))
+    shown = page()
+    assert drifted_two not in shown
+    assert "not included, so whether" not in shown
+
+
 def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
     """No pin, no pin fact: the default every suite that pins nothing reads.
     (ADR 0051, *What does not change*)"""
