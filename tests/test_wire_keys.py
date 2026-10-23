@@ -142,6 +142,9 @@ class Walk:
         default_factory=set[tuple[str, str]]
     )
     shapes: set[str] = dataclasses.field(default_factory=set[str])
+    absent: set[tuple[str, str]] = dataclasses.field(
+        default_factory=set[tuple[str, str]]
+    )
 
     def shape(self, document: object, name: str, at: str) -> None:
         if not isinstance(document, dict):
@@ -156,6 +159,8 @@ class Walk:
             if key not in found:
                 if not spec.optional:
                     self.errors.append(f"{at}.{key}: a key <{name}> requires")
+                else:
+                    self.absent.add((name, key))
                 continue
             self.reached.add((name, key))
             self.value(found[key], spec.types, f"{at}.{key}")
@@ -479,6 +484,11 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "compare",
         compare_json(comparison, head, baseline=before, full=False),
     )
+    yield (
+        "compare_json full without a run",
+        "compare.full",
+        compare_json(comparison, head, baseline=before, full=True),
+    )
 
     # A diff refuses two suites, so its right side is `before`'s suite with
     # `now`'s scores and configuration.
@@ -621,6 +631,25 @@ def test_every_shape_and_every_key_in_the_table_is_reached() -> None:
     )
     assert not unreached_shapes, unreached_shapes
     assert not unreached_keys, unreached_keys
+
+
+def test_every_optional_key_is_left_absent_somewhere() -> None:
+    """The other half of the test above. An optional key every fixture carries
+    has a flag no fixture exercises: declared optional by mistake, it would
+    pass here for ever, and a reader trusting the table would branch on an
+    absence that never comes. Each optional key has to be left out by a builder
+    here at least once. (#654)"""
+    walk = Walk()
+    for builder, shape, document in DOCUMENTS:
+        walk.shape(document, shape, builder)
+    never_absent = sorted(
+        f"{name}.{key}"
+        for name, table in _SHAPES.items()
+        if name in walk.shapes
+        for key, spec in table.items()
+        if spec.optional and (name, key) not in walk.absent
+    )
+    assert not never_absent, never_absent
 
 
 def test_the_base_has_not_moved_under_this_output_version() -> None:
