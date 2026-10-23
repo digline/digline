@@ -101,9 +101,25 @@ def test_clean_descriptions_pass_and_each_package_is_named(tmp_path: Path) -> No
     assert "clean    pytest-digline 0.4.0" in done.stdout
 
 
-def test_seven_wordings_each_from_a_place_that_was_corrected() -> None:
-    assert len(WORDINGS) == 7
-    assert len(set(WORDINGS)) == 7
+#: The seven, written here and not imported, so that the script's list is held
+#: to a set nobody edits by editing the script: a wording dropped or replaced
+#: there is red here. Each is cited, with where it was, in the script.
+GOLDEN = frozenset(
+    {
+        "What pytest cannot carry",
+        "not something a plugin can change",
+        "pytest cannot carry that distinction",
+        "pytest erases",
+        "what pytest's exit code cannot carry",
+        "what pytest's single exit code cannot tell apart",
+        "the runner erases",
+    }
+)
+
+
+def test_the_scripts_wordings_are_the_seven_corrected_ones() -> None:
+    assert len(WORDINGS) == len(set(WORDINGS))
+    assert set(WORDINGS) == GOLDEN
 
 
 @pytest.mark.parametrize("wording", WORDINGS)
