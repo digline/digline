@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
@@ -284,6 +284,25 @@ class BaselineMovedError(Exception):
     it cannot happen**: the refusal names the key it found, and somebody can
     pass that key back without comparing anything. What it stops is the
     replacement nobody noticed.
+    """
+
+
+class UnacceptedPinsError(Exception):
+    """Raised when a promotion would make a pin's movement the reference
+    without anybody having named the paths that moved.
+
+    A pinned file that drifted, or a pin that lost its path, is a cause of
+    exit code 2 (ADR 0029 §6, ADR 0051 §3). Before ADR 0053 the way to accept
+    one was to promote: the next comparison was green, and nothing said that
+    anybody had looked at the file. Now the promotion is refused unless the
+    caller names **exactly** the paths the comparison implicates — one more,
+    one fewer or another is refused too, and the sentence names the set. The
+    authorisation is said where the promotion is said, by whoever printed it,
+    and is not written into the reference.
+
+    **Any cause, not the code**: a regression outranks the causes of 2, so a
+    run that drifted and got worse exits 1, and is refused here all the same.
+    (ADR 0053)
     """
 
 
@@ -628,6 +647,7 @@ class ResultStore(Protocol):
         expected_baseline: str | None,
         declared: Declared | None,
         promoted_at: str,
+        accepting_pins: Collection[str] = frozenset(),
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
 
@@ -684,6 +704,9 @@ class ResultStore(Protocol):
            again first would be sent round twice; and last because it sits
            beside the write, which is as narrow as the window gets without a
            lock (ADR 0031 §2, *Not decided here*).
+           *No longer last since ADR 0053*: 11 follows it, beside the same
+           write, because 11 is asked against the baseline 8 reads. 8 is still
+           the last condition about whether the reference moved.
         9. `CrossingRefusedError` if the run records an artifact under
            `.digline` or `.git`, in any case and at any depth, or keyed
            outside the perimeter — a baseline carries every artifact's text
@@ -701,6 +724,13 @@ class ResultStore(Protocol):
             run document does not carry it, and read off the run a judged
             canary would make a subject suite promotable. `None` is a document
             with no suite behind it (ADR 0049 §3, §5).
+        11. `UnacceptedPinsError`, after 8 and against the baseline 8 read, if
+            a pinned file drifted or a pin lost its path — a cause of 2 by
+            `digline.core.causes_of_two`, **whatever the exit code**, so beside
+            a regression too — and `accepting_pins` is not exactly the paths it
+            implicates; or if `accepting_pins` names a path where nothing is
+            implicated. A movement made the reference must have been named by
+            whoever promoted it (ADR 0053).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
@@ -720,6 +750,13 @@ class ResultStore(Protocol):
           check while reporting a fact one instant old, which is why it is not
           one. `digline.store.refusal_for_a_moved_baseline` writes its sentence;
           the read, and the window around it, are yours.
+        - **11 is yours too, after 8 and against the baseline 8 read**, because
+          the pin causes are relations and that baseline is the only reference
+          the promotion has. Pass it to
+          `digline.store.refusal_for_unaccepted_pins` and raise what it
+          returns; the question and the sentence are both in that function.
+          `tests/test_promotion_conditions.py` holds a backend in this
+          repository to it as it holds one to 8.
 
         **Nothing checks that you did 8**, and this is the honest form of that:
         an obligation stated where an implementer reads it, beside the key
@@ -733,6 +770,14 @@ class ResultStore(Protocol):
         that skips the condition proves nothing about promotions, so a green
         obtained through one is a green about the fake — exactly the case the
         condition exists for. Test it against a store that really writes.
+
+        `accepting_pins` names the pinned paths whose movement this promotion
+        accepts, and must be **exactly** the paths condition 11 finds
+        implicated. Defaulted, unlike the two above, because the default is the
+        prudent answer: accepting nothing refuses every pin cause, which is the
+        safe outcome when a caller did not think about pins. It is not written
+        into the reference; a front end says it where it says the promotion.
+        (ADR 0053)
 
         What is written carries `promoted_at`: `created_at` says when the run was
         measured, and this says when a person signed it off.

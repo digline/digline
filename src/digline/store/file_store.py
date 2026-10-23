@@ -37,7 +37,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -76,6 +76,7 @@ from digline.core.types import Cause
 from digline.store.deletion import refusal_for_a_promoted_run
 from digline.store.promotion import (
     refusal_for_a_moved_baseline,
+    refusal_for_unaccepted_pins,
     refusals_for,
 )
 from digline.store.protocol import (
@@ -659,6 +660,7 @@ class FileResultStore:
         expected_baseline: str | None,
         declared: Declared | None,
         promoted_at: str,
+        accepting_pins: Collection[str] = frozenset(),
     ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant,
         # and a document that declares another suite — conditions 1 and 7, made
@@ -679,7 +681,18 @@ class FileResultStore:
         # lock, so the window ADR 0031 leaves open is still open here — what is
         # narrow is the distance between this read and the rename below.
         # (ADR 0031 §2)
-        self._refuse_a_moved_baseline(run, expected_baseline)
+        current = self._refuse_a_moved_baseline(run, expected_baseline)
+
+        # After 8, against the baseline 8 just read: a pin that drifted or lost
+        # its path is a cause of 2, and is accepted only by naming exactly the
+        # paths it implicates. Here and not in `refusals_for`, because it is a
+        # relation and the reference it is read against exists only here.
+        # (ADR 0053)
+        unaccepted = refusal_for_unaccepted_pins(
+            run, current, accepting_pins, declared=declared
+        )
+        if unaccepted is not None:
+            raise unaccepted
 
         self.ensure_layout(run.tenant)
         # The answers do not go into git. `baselines/` is committed, and a
@@ -695,18 +708,20 @@ class FileResultStore:
         write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
 
-    def _refuse_a_moved_baseline(self, run: Run, expected: str | None) -> None:
+    def _refuse_a_moved_baseline(self, run: Run, expected: str | None) -> Run | None:
         """Read the baseline present and raise condition 8's refusal if it is
-        not the one the caller compared against.
+        not the one the caller compared against. Returns the baseline it read,
+        which condition 11 is asked against (ADR 0053).
 
         The reading is this store's, and so is the window around it; the
         sentence is `refusal_for_a_moved_baseline`'s. What this adds to it is
         the one clause only a file store can write: the path a reader runs
         `git log` against to see what removed a reference.
         """
+        current = self.read_baseline(run.tenant, run.suite)
         moved = refusal_for_a_moved_baseline(
             run,
-            self.read_baseline(run.tenant, run.suite),
+            current,
             expected,
             removed_by=(
                 f"git log -- {self.baseline_path(run.tenant, run.suite)} says which"
@@ -714,6 +729,7 @@ class FileResultStore:
         )
         if moved is not None:
             raise moved
+        return current
 
     # -- the delete ----------------------------------------------------------- #
 

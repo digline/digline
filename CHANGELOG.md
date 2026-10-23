@@ -59,6 +59,34 @@ notes under them are this file, verbatim.
   `pinned_changed`. `pinned_gone` is narrower than `pinned_withdrawn`, which
   also holds a pin taken off a file the run still records. Nothing moves: no
   exit code, no sentence, no output, no stored document.
+- **`digline promote` refuses a drifted or lost pin unless you name it** (#483;
+  ADR 0053). When a pinned file drifted from the baseline the promotion
+  replaces, or a pin lost its path, `promote` used to promote, and the next
+  comparison was green with nothing saying anybody had looked. Now it exits
+  `64` with `UnacceptedPinsError`, names the paths, and prints the command that
+  accepts them: `--accepting-pin PATH`, once per path. That must be exactly
+  the paths implicated. One more, one fewer or another is refused, and a lost
+  pin implicates both its old and its new path. It holds whatever the exit
+  code, so a drift beside a regression, which exits `1`, is refused too.
+  `promote` then says which paths it accepted, and the baseline does not record
+  it. The button of `digline view --allow-promote` cannot accept, so it refuses
+  such a run and names the command. **A promotion that used to exit `0` exits
+  `64`, so the next version is a minor.** `promote_baseline`, `host.promote`
+  and `promote_priced` take `accepting_pins`, defaulted to empty. A caller is
+  unaffected; a `ResultStore` written outside digline needs the parameter.
+- **`compare --json` says which causes of `2` hold** (ADR 0053), as
+  `unjudged_causes`: a list of the names of the keys beside it, `unjudged`,
+  `scale_lost`, `pinned_drifted`, `pinned_lost` and `nothing_judged`. It lists
+  them when a regression makes the code `1` too. An added key, so
+  `OUTPUT_VERSION` does not move. `Headline` gains the same field, and it is
+  mandatory: a `Headline` built by hand must pass it, because `exit_code` reads
+  it.
+- **The causes of `2` are written once, in `digline.core`** (ADR 0053):
+  `causes_of_two`, `pins_implicated` and the type `CauseOfTwo` are new, and
+  `unjudged_cases` moves there from `digline.report`, which still exports it.
+  `exit_code` reads the causes from the headline instead of listing them, and
+  promotion reads them from the same function. No exit code moves for
+  `compare`, `report` or `explain`.
 
 ## digline-mcp — unreleased
 

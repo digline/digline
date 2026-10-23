@@ -17,6 +17,8 @@ measured. (#256)
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from digline.core import Run
 from digline.host.errors import UsageError
 from digline.host.loader import TARGET_ATTR, Loaded, load_target
@@ -55,6 +57,7 @@ def promote(
     target: str | None,
     replacing: str,
     promoted_at: str,
+    accepting_pins: Collection[str] = frozenset(),
 ) -> Run:
     """Promote the run `key` to be the baseline of the loaded suite.
 
@@ -67,6 +70,11 @@ def promote(
     - `replacing` is the reference this promotion replaces, as `compare` printed
       it: a key, or `none` where the suite has no baseline yet (ADR 0031 §1).
     - `promoted_at` is the signature's time, read by the caller: `utc_now_iso()`.
+    - `accepting_pins` names the pinned paths whose drift or loss this promotion
+      accepts: exactly the paths the comparison implicates, or the promotion is
+      refused. Empty accepts nothing, which is the prudent default. It is not
+      recorded in the reference, so a caller that accepts says so where it
+      reports the promotion (ADR 0053).
 
     Returns the reference written, which is what `promote_baseline` returns and
     what a projection starts from (ADR 0034 §2). Every refusal is in `REFUSALS`.
@@ -80,6 +88,7 @@ def promote(
         key,
         replacing=replacing,
         promoted_at=promoted_at,
+        accepting_pins=accepting_pins,
     )
 
 
@@ -91,6 +100,7 @@ def promote_priced(
     *,
     replacing: str,
     promoted_at: str,
+    accepting_pins: Collection[str] = frozenset(),
 ) -> Run:
     """`promote`, for a caller that computed `pricing_for` once already.
 
@@ -113,4 +123,5 @@ def promote_priced(
         expected_baseline=expected_baseline_of(replacing),
         declared=suite.declared(),
         promoted_at=promoted_at,
+        accepting_pins=accepting_pins,
     )

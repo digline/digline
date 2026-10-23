@@ -30,6 +30,7 @@ enough: nothing here has to survive a process ending.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 from digline.core import Declared, Run, key_of
@@ -79,6 +80,7 @@ class MemoryStore:
         expected_baseline: str | None,
         declared: Declared | None,
         promoted_at: str,
+        accepting_pins: Collection[str] = frozenset(),
     ) -> Run:
         raise NotImplementedError(
             "MemoryStore does not promote: condition 8 is not asserted through a "

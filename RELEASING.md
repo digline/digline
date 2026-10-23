@@ -286,6 +286,7 @@ it and deletes it.
 | Package | What it carries | What the number must reflect |
 |---|---|---|
 | digline | #654: `digline run` exits `2` when it judged nothing, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
+| digline | #483 (ADR 0053): `digline promote` exits `64` on a run with a drifted or lost pin unless `--accepting-pin` names its paths, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
 | pytest-digline | #574: a check the run has no verdict for is a `SKIPPED` row where it was `PASSED`; it needs the `fact.row_missing` keys of the core release that carries #574 | a minor, ruled 2026-10-22: a row's outcome is something its users rely on (*Choosing the version*). **And its floor on digline goes to the number this cut gives digline**: the `0.34.0` in the table of floors owed at the cut is the expected number, not a decision |
 
 Empty is the normal state here too. A row left after its package's release is a

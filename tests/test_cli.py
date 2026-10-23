@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import tomllib
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -49,6 +50,9 @@ def head(*, worse: bool, unjudged: int) -> Headline:
         counts={},
         reasons_available=True,
         sentence="",
+        # By the rule `headline()` follows: `unjudged` is a cause exactly when
+        # the count is above zero. (ADR 0053)
+        unjudged_causes=("unjudged",) if unjudged else (),
     )
 
 
@@ -71,8 +75,42 @@ def test_a_suspension_alone_never_fails() -> None:
         counts={},
         reasons_available=True,
         sentence="",
+        unjudged_causes=(),
     )
     assert exit_code(quiet) == EXIT_OK
+
+
+def test_the_exit_code_reads_the_causes_and_not_the_flags() -> None:
+    """`unjudged_causes` is what `exit_code` reads behind a regression; the
+    flags beside it are derived from it in `headline()` and are not read. A
+    headline built by hand with the two disagreeing shows which one is: from
+    `headline()` they always agree, so nothing else can. (ADR 0053)"""
+    flags_only = Headline(
+        worse=False,
+        unjudged=3,
+        suspended=0,
+        config_changed=False,
+        counts={},
+        reasons_available=True,
+        sentence="",
+        unjudged_causes=(),
+        scale_lost=True,
+        pinned_drifted=True,
+        pinned_lost=True,
+        nothing_judged=True,
+    )
+    assert exit_code(flags_only) == EXIT_OK
+    tuple_only = replace(
+        flags_only,
+        unjudged=0,
+        scale_lost=False,
+        pinned_drifted=False,
+        pinned_lost=False,
+        nothing_judged=False,
+        unjudged_causes=("pinned_drifted",),
+    )
+    assert exit_code(tuple_only) == EXIT_UNJUDGED
+    assert exit_code(replace(tuple_only, worse=True)) == EXIT_WORSE
 
 
 # --------------------------------------------------------------------------- #
@@ -323,6 +361,10 @@ COMPARE_KEYS = {
     "pinned_unreferenced",
     "pinned_withdrawn",
     "pinned_lost",
+    # Joined with ADR 0053, same rule: the causes of exit 2 that hold, by the
+    # names of the keys above. A consumer reading `exit_code` sees no new
+    # number; one reading this sees a drift beside a regression that exits 1.
+    "unjudged_causes",
     # A count from the judged run, or null where it records none. (ADR 0052)
     "modules_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that

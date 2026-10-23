@@ -15,7 +15,7 @@ import json
 import os
 import re
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from html import unescape
 from pathlib import Path
@@ -1328,6 +1328,59 @@ def test_the_page_counts_the_pins_the_comparison_names(
     assert "not included, so whether" not in shown
 
 
+def returning(causes: tuple[str, ...]) -> Callable[..., tuple[str, ...]]:
+    """A stand-in for `causes_of_two` that answers `causes` whatever it is
+    handed."""
+
+    def answer(*_args: object, **_kwargs: object) -> tuple[str, ...]:
+        return causes
+
+    return answer
+
+
+#: The headline's flags for the causes of 2, by the name each cause has in the
+#: tuple. `unjudged` is not among them: it is a count, not a flag.
+CAUSE_FLAGS = ("scale_lost", "pinned_drifted", "pinned_lost", "nothing_judged")
+
+
+def test_the_headline_flags_follow_the_causes_of_two(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flags `exit_code` used to enumerate are read off the one tuple, and
+    so is the number.
+
+    `causes_of_two` is where the set is written; promote reads it in the write
+    step, and the headline derives its flags and the list it carries from it.
+    Replacing it with an answer the documents do not give shows whether they
+    do: a flag computed again on its own would keep the documents' answer.
+    Whether `exit_code` reads the tuple or the flags cannot be seen here, since
+    both follow the replacement; `tests/test_cli.py` holds that with a headline
+    built by hand. (#483)
+    """
+    import digline.report.render as render
+
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((OLD,), **{OLD: Artifact(sha="b" * 64, text="v2")})
+    _comparison, head = judged(after, before)
+    assert head.pinned_drifted
+    assert head.unjudged_causes == ("pinned_drifted",)
+    assert exit_code(head) == 2
+
+    monkeypatch.setattr(render, "causes_of_two", returning(CAUSE_FLAGS))
+    _comparison, head = judged(before, before)
+    assert head.unjudged_causes == CAUSE_FLAGS
+    for flag in CAUSE_FLAGS:
+        assert getattr(head, flag), f"{flag} did not follow the tuple"
+    assert exit_code(head) == 2
+
+    monkeypatch.setattr(render, "causes_of_two", returning(()))
+    _comparison, head = judged(after, before)
+    assert head.unjudged_causes == ()
+    for flag in CAUSE_FLAGS:
+        assert not getattr(head, flag), f"{flag} did not follow the tuple"
+    assert exit_code(head) == 0
+
+
 def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
     """No pin, no pin fact: the default every suite that pins nothing reads.
     (ADR 0051, *What does not change*)"""
@@ -1481,3 +1534,37 @@ def test_the_fixture_commit_carries_nothing_that_moves(project: Path) -> None:
     ).stdout.split()
     # 2026-01-01T00:00:00+00:00, as seconds: git spells UTC as `Z` in ISO.
     assert shown == ["1767225600", "1767225600", "N"]
+
+
+#: The same case, not judged: its one check errored.
+ERRORED = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=None),
+            threshold=1.0,
+            status="error",
+            reason="the judge did not answer",
+            assertion_id="contains-1",
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "results", [(JUDGED,), (ERRORED,), (JUDGED, replace(ERRORED, case_id="other"))]
+)
+def test_the_unjudged_count_and_the_tuple_say_the_same_thing(
+    results: tuple[CaseResult, ...],
+) -> None:
+    """`unjudged` stays a count, because the sentence and the wire carry the
+    number. It is not derived from the tuple, so this holds the two together:
+    `unjudged` is among the causes **exactly when** the count is above zero.
+    (#483)"""
+    before = a_pinned_run(())
+    after = replace(before, created_at="2026-08-27T10:00:00+00:00", results=results)
+    _comparison, head = judged(after, before)
+    assert ("unjudged" in head.unjudged_causes) == (head.unjudged > 0), (
+        f"unjudged counts {head.unjudged} and the causes are {head.unjudged_causes}"
+    )
+    assert head.unjudged == sum(result is not JUDGED for result in results)

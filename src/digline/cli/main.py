@@ -772,6 +772,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
         # What the person compared against, as they typed it. (ADR 0031 §1)
         replacing=args.replacing,
         promoted_at=utc_now_iso(),
+        accepting_pins=frozenset(args.accepting_pins),
     )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards. And the tenant first, read off the stored run and
@@ -779,6 +780,14 @@ def cmd_promote(args: argparse.Namespace) -> int:
     # copied between customers promoted over another's reference with exit 0
     # while it named nobody (friction 64).
     say(f"tenant {promoted.tenant!r} · {promoted.suite} baseline set to {key}")
+    # The authorisation is said here and nowhere else: the reference does not
+    # record it, so this line, in whatever log keeps it, is where a reader finds
+    # that a pinned file's movement was accepted and which one. (ADR 0053)
+    if args.accepting_pins:
+        say(
+            "accepted, by --accepting-pin, the movement of the files declared "
+            f"not to change: {', '.join(sorted(set(args.accepting_pins)))}"
+        )
     return EXIT_OK
 
 
@@ -1344,6 +1353,18 @@ def build_parser() -> argparse.ArgumentParser:
         help=REPLACING_HELP,
     )
     prom_p.add_argument("--target", help=TARGET_HELP)
+    prom_p.add_argument(
+        "--accepting-pin",
+        action="append",
+        default=[],
+        metavar="PATH",
+        dest="accepting_pins",
+        help=(
+            "accept the drift or loss of this pinned file, once per path; "
+            "the paths must be exactly the ones the comparison implicates, "
+            "or the promotion is refused and the refusal names them"
+        ),
+    )
     prom_p.set_defaults(func=cmd_promote)
 
     del_p = subparsers.add_parser(

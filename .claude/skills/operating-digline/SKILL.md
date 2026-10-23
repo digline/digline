@@ -182,6 +182,13 @@ measures was judged: every one suspended, errored or absent. A suite of
 canaries and calibration cases only is judged by them. A regression beside any
 of them still returns `1`, and the headline says which.
 
+`compare --json` lists the causes that hold in `unjudged_causes`, by the names
+above, and lists them when a regression makes the code `1` too. A run with
+`pinned_drifted` or `pinned_lost` among them is refused by `promote` until each
+path the refusal names is passed with `--accepting-pin`. Accepting a change to
+a pinned file is a person's decision, by rule 1: put the paths in the evidence,
+and never pass the flag on your own initiative. (ADR 0053)
+
 **Name the digline that produced what you are reading.** Run the CLI through
 the project's environment (`uv run digline …`), never a bare `digline`, which
 is whichever install is first on your shell's `PATH`. A run records the digline

@@ -1,11 +1,12 @@
 # ADR 0051 — A pinned path the judged run no longer records
 
 - Status: accepted 2026-10-18, by Alessandro Prandini, after its code landed
-  in #582. **#483 stays open for its promotion half.** The code of the
-  comparison has landed; the promotion's has not, and *Context* leaves it
-  outside this record (*"`promote` computes no comparison … That is outside
-  this record"*). The sentence below on closing #483 holds for the half that
-  landed.
+  in #582. *Updated 2026-10-23:* **the promotion half arrived with
+  [ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)**, and the pull
+  request that implements it closes #483. The code of both halves is in
+  `main`: the comparison's in #582, the promotion's with ADR 0053. *Context*
+  still says *"`promote` computes no comparison … That is outside this
+  record"*, which was true when it was written, and carries a dated note.
   Proposed 2026-10-16. The decision below was ruled on 2026-10-16,
   on #483, before this record was written. The text is not yet accepted, and
   nothing in it is implemented. #483 stays open: this record answers its
@@ -76,6 +77,11 @@ issue.
 - `promote` computes no comparison. Its refusals are read from the run document
   and from the baseline in force (`src/digline/store/promotion.py`), so a pin
   never blocks a promotion, renamed or not. That is outside this record.
+  *No longer true since 2026-10-23 ([ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)),
+  and kept as written.* `promote` now compares the run with the baseline it
+  replaces, beside the write and after condition 8, and a drifted or lost pin
+  refuses the promotion unless `--accepting-pin` names exactly the paths it
+  implicates. The sentence was true of the code it describes, at `7289fd7`.
 
 **What ADR 0029 considered.** §7's reason for not firing on `new` is the first
 comparison after a pin is added: it *"would go red on arrival, teaching the

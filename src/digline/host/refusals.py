@@ -62,6 +62,7 @@ from digline.store.protocol import (
     RunNotFoundError,
     SuiteMismatchError,
     TenantMismatchError,
+    UnacceptedPinsError,
     UncalibratedRunError,
 )
 from digline.targets.pricing import UnknownModelError
@@ -103,6 +104,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     KeylessRunError,
     NotAReferenceError,
     BaselineMovedError,
+    UnacceptedPinsError,
     PromotedRunError,
     PathRefusedError,
     RunNotFoundError,

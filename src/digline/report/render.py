@@ -22,6 +22,7 @@ from digline.core import (
     ArtifactDelta,
     AssertionDelta,
     CaseResult,
+    CauseOfTwo,
     Comparison,
     ConfigDelta,
     ConfigValue,
@@ -38,15 +39,16 @@ from digline.core import (
     Verdict,
     budget_exceedances,
     case_count,
+    causes_of_two,
     checked_denominator,
     considered_cases,
     directions,
     is_token,
     key_of,
     misnamed,
-    nothing_judged,
     on_the_line,
     scale_lost,
+    unjudged_cases,
     unreconciled,
 )
 from digline.report.text import Locale, phrase, strings
@@ -175,6 +177,14 @@ class Headline:
     counts: Mapping[Outcome, int]
     reasons_available: bool
     sentence: str
+    #: Every cause of exit code 2 that holds, by the name of the field that
+    #: reports it: `unjudged`, `scale_lost`, `pinned_drifted`, `pinned_lost`,
+    #: `nothing_judged`. What `exit_code()` reads, behind a regression or a
+    #: moved canary, and the same tuple promotion refuses on. The flags above
+    #: and below are derived from it in `headline()`. **Mandatory**, because no
+    #: default is safe: an empty one would let a headline built by hand with
+    #: `unjudged=3` exit 0. (ADR 0053)
+    unjudged_causes: tuple[CauseOfTwo, ...]
     artifacts_changed: bool = False
     #: The system that answered was configured differently — model, temperature,
     #: token cap, region, endpoint. The sixth fact, and the one that separates
@@ -557,23 +567,6 @@ def fmt_score(value: float) -> str:
     return f"{value:.6f}"
 
 
-def unjudged_cases(run: Run) -> int:
-    """How many cases this run could not judge.
-
-    Counted from the run and from nothing else, which is what makes it usable
-    without a reference: a case the suite could not judge is a fact about the
-    harness, true whether or not there is anything to compare against. It is
-    what `digline report` exits on when there is no baseline.
-
-    Cases, not verdicts, because that is what every sentence built on it says.
-    """
-    return sum(
-        1
-        for case in run.results
-        if any(verdict.status == "error" for verdict in case.verdicts)
-    )
-
-
 def suspended_cases(run: Run) -> int:
     """How many cases somebody set aside.
 
@@ -774,6 +767,13 @@ def headline(
     # reported as `new`, and reading the tally would let the report announce
     # that every case could be judged while three of them could not.
     unjudged = unjudged_cases(run)
+    # The causes of 2, from the one function promotion reads them with too.
+    # Every flag below that is a cause is read off this tuple and computed
+    # nowhere else, so the headline and a promotion cannot disagree about which
+    # causes hold. `unjudged` stays the count above, because the sentence and
+    # the wire carry the number; a test holds the two to each other.
+    # (ADR 0053)
+    causes = causes_of_two(run, comparison, declared=declared)
 
     if regressed == 0:
         worse_text = phrase(locale, "fact.worse.none")
@@ -786,7 +786,7 @@ def headline(
 
     # Read against the suite's declaration, never the run alone: a run that
     # carries none of its subject cases still judged none of them. (ADR 0049 §3)
-    judged_nothing = nothing_judged(run, declared)
+    judged_nothing = "nothing_judged" in causes
     nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
 
     # Silent at zero, like the artifact clause and for the same reason: a
@@ -1010,23 +1010,24 @@ def headline(
         counts=counts,
         reasons_available=not (run.redacted or baseline.redacted),
         artifacts_changed=bool(changed_artifacts),
-        pinned_drifted=comparison.pinned_drifted,
+        pinned_drifted="pinned_drifted" in causes,
         nothing_judged=judged_nothing,
         pinned_unchecked=unchecked_count,
         pinned_unreferenced=unreferenced_count,
         pinned_withdrawn=withdrawn_count,
-        pinned_lost=comparison.pinned_lost,
+        pinned_lost="pinned_lost" in causes,
         modules_unchecked=modules_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
         target_echoed=echoed is not None,
         rejudged=run.rejudged_from is not None,
         canary_moved=comparison.canary_moved,
-        scale_lost=bool(lost),
+        scale_lost="scale_lost" in causes,
         denominator_moved=incomparable,
         unreconciled=len(gaps),
         reference_unreconciled=len(reference_gaps),
         misnamed=len(refused),
+        unjudged_causes=causes,
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers

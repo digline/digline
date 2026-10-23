@@ -12,8 +12,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, get_args
 
-from digline.core import Declared, Outcome, Run, nothing_judged, scale_lost
-from digline.report import Headline, unjudged_cases
+from digline.core import Declared, Outcome, Run, causes_of_two
+from digline.report import Headline
 from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
 __all__ = [
@@ -314,11 +314,14 @@ def exit_code(head: Headline) -> int:
     declares. `0` asserts that something was measured, and there it was not.
     (ADR 0049 §1, §3, §6)
 
-    `2` has five causes and this body is the enumeration of them — the one place
-    an enumeration is safe, because it is the source rather than a description of
-    somebody else's set. `EXIT_UNJUDGED` keeps the name of the first; renaming an
-    exported constant to settle a naming debt would break consumers to improve a
-    docstring.
+    `2` has five causes, and since ADR 0053 they are not enumerated here:
+    `head.unjudged_causes` is the tuple `digline.core.causes_of_two` returned,
+    the function promotion reads them with too, so the number and the refusal
+    cannot disagree about which causes hold. Until then this body was the
+    enumeration, and said it was the one place an enumeration was safe; a
+    second reader made it unsafe. `EXIT_UNJUDGED` keeps the name of the first
+    cause; renaming an exported constant to settle a naming debt would break
+    consumers to improve a docstring.
 
     What is **not** read here: `head.pinned_unchecked`. A pin nobody could check
     is a fact about this comparison's competence rather than about the world, and
@@ -334,13 +337,7 @@ def exit_code(head: Headline) -> int:
         # headline can say what happened without saying something untrue about
         # it. (ADR 0016 §5)
         return EXIT_WORSE
-    if (
-        head.unjudged
-        or head.scale_lost
-        or head.pinned_drifted
-        or head.pinned_lost
-        or head.nothing_judged
-    ):
+    if head.unjudged_causes:
         # A lost scale is not an errored verdict — the score is real, and it is
         # the evidence — but the numbers beside it are not measurements, which
         # is what 2 already means. It comes after 1 by choice rather than by
@@ -395,7 +392,8 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
     with itself, which is the comparison with no relation in it, both given the
     same declaration.
     """
-    if unjudged_cases(run) or scale_lost(run) or nothing_judged(run, declared):
+    # No comparison, so the two pin causes cannot hold: they are relations.
+    if causes_of_two(run, None, declared=declared):
         return EXIT_UNJUDGED
     return EXIT_OK
 
@@ -1113,6 +1111,14 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("fact.check", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
     _AddedKey("fact.check", "noise_judged", _k(_arr("number")), "ADR 0050"),
     _AddedKey("fact.check", "noise_source", _STR, "ADR 0050"),
+    # Every cause of exit 2 that holds, each named as the boolean or count
+    # beside it on the same document: `unjudged`, `scale_lost`,
+    # `pinned_drifted`, `pinned_lost`, `nothing_judged`. What `exit_code` reads,
+    # and what a promotion refuses on, so a pipeline can tell a run that exits 1
+    # with a drifted pin beside the regression from one that only regressed.
+    # Moves no number; an added key, no bump. (ADR 0053)
+    _AddedKey("compare", "unjudged_causes", _STRINGS, "ADR 0053"),
+    _AddedKey("compare.full", "unjudged_causes", _STRINGS, "ADR 0053"),
 )
 
 
