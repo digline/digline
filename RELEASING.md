@@ -1574,8 +1574,11 @@ bearing and neither is obvious:
 whole for that step to read.
 
 *Ruled 2026-10-18.* **Between the `testpypi` job and the `pypi` gate, the core
-being released is run against every plugin PyPI serves. That check is owed at
-that point of `publish.yml`, and today it does not exist.** In a clean
+being released is run against every plugin PyPI serves. That check is the step
+*The core against every plugin PyPI serves* of the `testpypi` job, which runs
+`.github/plugins_against_core.py`.** *Corrected 2026-10-23, when that step was
+added:* it said *"That check is owed at that point of `publish.yml`, and today
+it does not exist"*, which was true until then. In a clean
 environment: the core as TestPyPI serves it, which is the wheel the `pypi` job
 will publish, and each plugin at the newest version PyPI serves. It holds for a
 tag of the core: a tag of plugins alone puts no core on TestPyPI, so there is
@@ -1587,6 +1590,15 @@ it. `tests/test_plugin_floors.py` looks the other way, from the plugin in the
 tree to the core it needs, and the plugin in the tree is not the one users
 have.
 
+*Ruled 2026-10-23.* **Each plugin ends in one of three words, and only one is
+red.** *works*: in the range it declares, and it works beside this core.
+*excluded*: its newest served version caps digline below this core, which is
+the cap doing its job and not a break; the summary says that this release owes
+it a release, by the rule *The plugins, after this release* in *Before the tag:
+moving the number*. *broken*: in its range, and it does not install or does not
+work beside this core. Only *broken* fails `testpypi`, so `pypi` does not
+start.
+
 The plugins are tried in two ways, and each is declared:
 - **pytest-digline and digline-mcp as their users run them**: a pytest session
   that names a suite, and every tool of the MCP server.
@@ -1595,8 +1607,17 @@ The plugins are tried in two ways, and each is declared:
   points, with no network and no key.** The break this check looks for is a
   signature, not a credential.
 
-0.32.0 was released without this check, and both served plugins that call the
-comparison broke on it. 0.32.0 made `declared` a mandatory argument of
+0.32.0 was released before this check was ruled, and both served plugins that
+call the comparison broke on it. *Corrected 2026-10-23:* it said *"0.32.0 was
+released without this check"*, which is true and reads as a debt it is not:
+digline 0.32.0's wheel reached PyPI at 09:05:03Z on 2026-10-18, and the ruling
+reached `main` with #605 at 12:49:35Z the same day. The releases that did go
+out without it, after the ruling, are digline 0.32.1 (wheel on PyPI 2026-10-19
+at 07:55:45Z) and digline 0.33.0 (2026-10-21 at 13:37:47Z), and on 0.33.0's tag
+digline-mcp 0.6.2 and pytest-digline 0.3.1 (13:37:49Z and 13:37:51Z), which
+have no tag of their own. Each time is the wheel's `upload_time_iso_8601` on
+PyPI's JSON page for that version, and #605's is its `mergedAt`; its merge
+commit, `6b3b200`, carries 12:44:30Z, when the queue built it. 0.32.0 made `declared` a mandatory argument of
 `headline`. The changelog declared the break for *"a program that calls
 digline's functions"*, and two of those programs were ours, each declaring
 `digline>=0.31.0` with nothing above it:
