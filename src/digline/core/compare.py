@@ -438,7 +438,26 @@ class Comparison:
         question a redacted comparison cannot answer, and it is counted rather
         than guessed. (ADR 0029 §7, §8)
         """
-        return any(d.pinned and d.outcome == "changed" for d in self.artifact_deltas)
+        return bool(self.pinned_changed)
+
+    @property
+    def pinned_changed(self) -> tuple[str, ...]:
+        """The pinned paths known to have moved, by path: the rows that make
+        `pinned_drifted` true, and nothing else.
+
+        The one place the condition is written. `pinned_drifted` and the
+        headline's clause read it here, so a second filter over
+        `artifact_deltas` cannot drift from the fact the gate reads. (#483)
+        """
+        return tuple(
+            d.path for d in self.artifact_deltas if d.pinned and d.outcome == "changed"
+        )
+
+    @property
+    def pinned_changed_count(self) -> int:
+        """How many, for `pinned_unchecked_count`'s reason: a renderer reaches
+        for the count, and a path can describe a customer."""
+        return len(self.pinned_changed)
 
     @property
     def pinned_unchecked(self) -> tuple[str, ...]:
@@ -530,11 +549,24 @@ class Comparison:
         answers `unknown` before `new` or `missing`, so a redacted comparison
         never reaches this. (ADR 0051 §3)
         """
-        gone = any(
-            d.reference_pinned and not d.pinned and d.outcome == "missing"
+        return bool(self.pinned_gone) and bool(self.pinned_unreferenced)
+
+    @property
+    def pinned_gone(self) -> tuple[str, ...]:
+        """The paths the reference pinned that the judged run neither pins nor
+        records, by path: the first half of `pinned_lost`.
+
+        **Not `pinned_withdrawn`**, which is wider: it also holds a path the run
+        still records and no longer pins, which ADR 0051 §2 reports and which
+        moves nothing. This is the `missing` row alone, the one that can pair
+        with an unreferenced pin and leave nobody able to say whether it was a
+        rename. (ADR 0051 §3; #483)
+        """
+        return tuple(
+            d.path
             for d in self.artifact_deltas
+            if d.reference_pinned and not d.pinned and d.outcome == "missing"
         )
-        return gone and bool(self.pinned_unreferenced)
 
     @property
     def target_config_changed(self) -> bool:

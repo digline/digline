@@ -863,16 +863,16 @@ def headline(
     # tally says how many files moved, these say whether one of them was a file
     # somebody said must not. Both silent when the suite pins nothing, like every
     # other clause here.
-    drifted = [
-        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "changed"
-    ]
+    # Read off the comparison, never filtered again here: the clause and the
+    # gate are one fact. (#483)
+    drifted = comparison.pinned_changed_count
     unchecked_count = comparison.pinned_unchecked_count
     pinned_text = ""
     if drifted:
         pinned_text = phrase(
             locale,
-            f"fact.pinned.{'one' if len(drifted) == 1 else 'many'}",
-            count=len(drifted),
+            f"fact.pinned.{'one' if drifted == 1 else 'many'}",
+            count=drifted,
         )
     # Its own clause rather than a branch of the one above: *a pin drifted* and
     # *a pin could not be checked* can both be true of one comparison, and a
