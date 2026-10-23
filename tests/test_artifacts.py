@@ -1351,19 +1351,19 @@ def test_the_headline_flags_follow_the_causes_of_two(
     after = a_pinned_run((OLD,), **{OLD: Artifact(sha="b" * 64, text="v2")})
     _comparison, head = judged(after, before)
     assert head.pinned_drifted
-    assert head.could_not_judge == ("pinned_drifted",)
+    assert head.unjudged_causes == ("pinned_drifted",)
     assert exit_code(head) == 2
 
     monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: CAUSE_FLAGS)
     _comparison, head = judged(before, before)
-    assert head.could_not_judge == CAUSE_FLAGS
+    assert head.unjudged_causes == CAUSE_FLAGS
     for flag in CAUSE_FLAGS:
         assert getattr(head, flag), f"{flag} did not follow the tuple"
     assert exit_code(head) == 2
 
     monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: ())
     _comparison, head = judged(after, before)
-    assert head.could_not_judge == ()
+    assert head.unjudged_causes == ()
     for flag in CAUSE_FLAGS:
         assert not getattr(head, flag), f"{flag} did not follow the tuple"
     assert exit_code(head) == 0
@@ -1522,3 +1522,37 @@ def test_the_fixture_commit_carries_nothing_that_moves(project: Path) -> None:
     ).stdout.split()
     # 2026-01-01T00:00:00+00:00, as seconds: git spells UTC as `Z` in ISO.
     assert shown == ["1767225600", "1767225600", "N"]
+
+
+#: The same case, not judged: its one check errored.
+ERRORED = CaseResult(
+    "judged",
+    (
+        Verdict(
+            score=Score(name="contains", score=None),
+            threshold=1.0,
+            status="error",
+            reason="the judge did not answer",
+            assertion_id="contains-1",
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "results", [(JUDGED,), (ERRORED,), (JUDGED, replace(ERRORED, case_id="other"))]
+)
+def test_the_unjudged_count_and_the_tuple_say_the_same_thing(
+    results: tuple[CaseResult, ...],
+) -> None:
+    """`unjudged` stays a count, because the sentence and the wire carry the
+    number. It is not derived from the tuple, so this holds the two together:
+    `unjudged` is among the causes **exactly when** the count is above zero.
+    (#483)"""
+    before = a_pinned_run(())
+    after = replace(before, created_at="2026-08-27T10:00:00+00:00", results=results)
+    _comparison, head = judged(after, before)
+    assert ("unjudged" in head.unjudged_causes) == (head.unjudged > 0), (
+        f"unjudged counts {head.unjudged} and the causes are {head.unjudged_causes}"
+    )
+    assert head.unjudged == sum(result is not JUDGED for result in results)
