@@ -529,6 +529,10 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
         raise UsageError(Quoted.of(exc, "", named=False)) from exc
 
     ref = store.write_run(run)
+    # A re-judge writes a run of its own into `runs/`, so it says what `run`
+    # says, after the write for the same reason. (#523)
+    for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
+        say(f"digline: {note}", err=True)
     # The measurement is reported by the command that took it, beside the line
     # that announced its cost — never on its own and never without the
     # calibration result. (ADR 0024 §5.4)

@@ -95,8 +95,9 @@ notes under them are this file, verbatim.
   and `name-table/`, and says on stderr, for each one git would not ignore,
   what `git add` would commit and the line to add. Git decides, so a rule kept
   elsewhere or written another way counts; where git cannot answer, nothing is
-  said. Never a refusal, and no exit code changes. New in `digline.host`:
-  `unignored` and `unignored_notes`.
+  said. `digline rejudge`, which writes a run of its own, says the same. Never
+  a refusal, and no exit code changes. New in `digline.host`: `unignored` and
+  `unignored_notes`.
 - **`digline run` says whether a pending journal's process is still running**
   (#478). Each leg's header records the process id and the host that opened
   it, and the note about a run started and never written now says whether the

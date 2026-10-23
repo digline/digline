@@ -123,9 +123,9 @@ question somebody would otherwise have to ask:
   *Annotated 2026-10-23, with #523:* the generated `.gitignore` is written
   only where none exists, so one the user already had can lack `*/runs/`, and
   then a journal can reach a commit; since #478 it names the host it ran on.
-  `digline run`, `pytest --digline-run` and the MCP server's `run` now ask
-  `git check-ignore` after each run they write and say so where git would
-  commit the directory. It is said, never refused.
+  `digline run`, `digline rejudge`, `pytest --digline-run` and the MCP
+  server's `run` now ask `git check-ignore` after each run they write, and say
+  so where git would commit the directory. It is said, never refused.
 - It is **never migrated**. `run_paths()` globs `*.json` in the suite directory;
   a `.jsonl` inside `.pending/` is neither matched nor wanted. The journal
   carries its own `JOURNAL_VERSION`, independent of `SCHEMA_VERSION`, because it

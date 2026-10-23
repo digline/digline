@@ -119,3 +119,33 @@ def test_the_first_run_of_a_fresh_repository_says_nothing(tmp_path: Path) -> Non
     done = cli(root, "run", "--suite", "suite_qa.py")
     assert done.returncode == 0, done.stderr
     assert "git does not ignore" not in done.stderr
+
+
+def test_rejudge_says_it_too(tmp_path: Path) -> None:
+    """A re-judge writes a run of its own into `runs/`, unredacted like any
+    other, so it says what `run` says."""
+    from tests.test_suite_notes import SUITE_PY
+
+    root = repository(tmp_path)
+    (root / "suite_noted.py").write_text(SUITE_PY, encoding="utf-8")
+    source = cli(root, "run", "--suite", "suite_noted.py")
+    assert source.returncode == 0, source.stderr
+    assert "git does not ignore" not in source.stderr
+    own_gitignore(root, "my-own-entry\n")
+    done = cli(
+        root, "rejudge", "--suite", "suite_noted.py", "--run", source.stdout.strip()
+    )
+    assert done.returncode == 0, done.stderr
+    assert "digline: git does not ignore .digline/acme-bank/runs/" in done.stderr
+    assert "digline: git does not ignore .digline/acme-bank/name-table/" in done.stderr
+
+
+def test_rejudge_with_the_generated_rules_says_nothing(tmp_path: Path) -> None:
+    from tests.test_suite_notes import SUITE_PY
+
+    root = repository(tmp_path)
+    (root / "suite_noted.py").write_text(SUITE_PY, encoding="utf-8")
+    source = cli(root, "run", "--suite", "suite_noted.py").stdout.strip()
+    done = cli(root, "rejudge", "--suite", "suite_noted.py", "--run", source)
+    assert done.returncode == 0, done.stderr
+    assert "git does not ignore" not in done.stderr

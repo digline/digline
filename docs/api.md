@@ -1663,7 +1663,8 @@ says so.** `.digline/.gitignore` is written only where none exists, so one you
 already had may lack `*/runs/` — and a run file is written unredacted, and a
 journal names the host it ran on — or `*/name-table/`. After every run it
 writes, `digline run` asks `git check-ignore` about the tenant's `runs/` and
-`name-table/` and prints a line on stderr for each git would not ignore;
+`name-table/` and prints a line on stderr for each git would not ignore, and so
+does `digline rejudge`, which writes a run of its own;
 `pytest --digline-run` prints the same lines, and the MCP server writes them to
 its log. Git decides, so a rule kept at the repository's root or written
 another way counts. Where git cannot answer — no repository, no git — nothing
