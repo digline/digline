@@ -164,6 +164,14 @@ missing, and it costs a run. When the note names a baseline newer than the run,
 and what you report is that the run is older than its reference, not that
 something regressed. An empty note does not mean nothing is missing.
 
+A note is answered, not silenced. When digline reports something — a
+regression, an unjudged case, an unchecked module — change what it reported,
+not what made it report it. **Do not move a tolerance, declare a KIND
+unchecked, or drop a case to make a note go away.** If the note is wrong, say
+so where the suite declares it, with the reason, and leave its subject in
+place. If the gate itself is wrong, change the gate in a commit of its own,
+with its reason, never in the same change that makes a note disappear.
+
 `1` now has two causes and the headline says which: a check got worse, or a
 canary moved. They are separate fields — `worse` and `canary_moved` — because a
 canary that *improved* is a changed model too, and calling that "worse" would be

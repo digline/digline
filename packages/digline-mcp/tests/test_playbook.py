@@ -55,6 +55,10 @@ CARRIES: dict[str, tuple[str, ...]] = {
     "run": (
         "say the figure out loud in your recommendation",
         "Decide the number of re-runs before running them",
+        # #504: a note `run` returns is silenced by moving its gate, and this
+        # is the sentence against it, verbatim from AGENTS.md rule 6.
+        "Do not move a tolerance, declare a KIND unchecked, or drop a case to "
+        "make a note go away.",
     ),
 }
 

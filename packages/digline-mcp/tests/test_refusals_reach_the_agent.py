@@ -193,16 +193,25 @@ def test_a_suite_whose_own_code_raises_is_refused_with_its_location(
     assert "raised RuntimeError: a bug in the suite" in printed.stderr
 
 
-def test_what_digline_raises_while_a_suite_loads_still_crashes(repo: Path) -> None:
+def test_what_digline_raises_while_a_suite_loads_is_digline_s_failure(
+    repo: Path,
+) -> None:
     """What 27bc37e protected, where it still applies: the innermost frame is
     digline's, so it is a failure nobody anticipated, and it is not dressed as
-    a sentence about the suite (ADR 0011 §10, ADR 0041 §4 rule 2)."""
+    a sentence about the suite (ADR 0011 §10, ADR 0041 §4 rule 2). Since #507
+    the agent is told so — digline's failure, its type and its line — and not
+    the `KeyError`'s message, which quotes the key it was asked for: here a
+    word the suite chose. (ADR 0043 §3, amended)"""
     (repo / "suite_digline.py").write_text(
         "from digline.report import phrase\nphrase('en', 'no.such')\n",
         encoding="utf-8",
     )
-    _message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_digline.py"))
-    assert kind is UnexpectedToolError, kind.__name__
+    message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_digline.py"))
+    assert kind is not UnexpectedToolError, message
+    assert "digline failed, and nobody anticipated it: KeyError at " in message
+    assert "KeyError at digline/report/text.py:" in message
+    assert "the suite" not in message.split(":", 1)[1].split(".")[0]
+    assert "no.such" not in message
 
 
 def test_a_refusal_digline_writes_while_a_suite_loads_reaches_the_agent(
