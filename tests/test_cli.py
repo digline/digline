@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import tomllib
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -77,6 +78,39 @@ def test_a_suspension_alone_never_fails() -> None:
         unjudged_causes=(),
     )
     assert exit_code(quiet) == EXIT_OK
+
+
+def test_the_exit_code_reads_the_causes_and_not_the_flags() -> None:
+    """`unjudged_causes` is what `exit_code` reads behind a regression; the
+    flags beside it are derived from it in `headline()` and are not read. A
+    headline built by hand with the two disagreeing shows which one is: from
+    `headline()` they always agree, so nothing else can. (ADR 0053)"""
+    flags_only = Headline(
+        worse=False,
+        unjudged=3,
+        suspended=0,
+        config_changed=False,
+        counts={},
+        reasons_available=True,
+        sentence="",
+        unjudged_causes=(),
+        scale_lost=True,
+        pinned_drifted=True,
+        pinned_lost=True,
+        nothing_judged=True,
+    )
+    assert exit_code(flags_only) == EXIT_OK
+    tuple_only = replace(
+        flags_only,
+        unjudged=0,
+        scale_lost=False,
+        pinned_drifted=False,
+        pinned_lost=False,
+        nothing_judged=False,
+        unjudged_causes=("pinned_drifted",),
+    )
+    assert exit_code(tuple_only) == EXIT_UNJUDGED
+    assert exit_code(replace(tuple_only, worse=True)) == EXIT_WORSE
 
 
 # --------------------------------------------------------------------------- #

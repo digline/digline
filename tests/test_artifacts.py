@@ -1352,8 +1352,10 @@ def test_the_headline_flags_follow_the_causes_of_two(
     `causes_of_two` is where the set is written; promote reads it in the write
     step, and the headline derives its flags and the list it carries from it.
     Replacing it with an answer the documents do not give shows whether they
-    do: a flag computed again on its own would keep the documents' answer, and
-    `exit_code` reading the flags rather than the tuple would too. (#483)
+    do: a flag computed again on its own would keep the documents' answer.
+    Whether `exit_code` reads the tuple or the flags cannot be seen here, since
+    both follow the replacement; `tests/test_cli.py` holds that with a headline
+    built by hand. (#483)
     """
     import digline.report.render as render
 
