@@ -9,11 +9,26 @@ one file, where it can be seen.
 
 from __future__ import annotations
 
+import os
+import socket
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
-__all__ = ["DIRTY_SUFFIX", "git_commit", "utc_now_iso"]
+from digline.store.file_store import STORE_DIRNAME
+
+__all__ = [
+    "DIRTY_SUFFIX",
+    "ProcessState",
+    "git_commit",
+    "process_state",
+    "this_process",
+    "unignored",
+    "unignored_notes",
+    "utc_now_iso",
+]
 
 DIRTY_SUFFIX = "-dirty"
 
@@ -63,3 +78,88 @@ def git_commit(root: Path) -> str | None:
         return None
     status = _git(root, "status", "--porcelain")
     return f"{sha}{DIRTY_SUFFIX}" if status else sha
+
+
+#: What a journal's process is doing, as far as this process can tell.
+ProcessState = Literal["running", "ended", "elsewhere", "unknown"]
+
+
+def this_process() -> tuple[int, str]:
+    """This process's id and this host's name, for a journal's header. (#478)"""
+    return os.getpid(), socket.gethostname()
+
+
+def process_state(pid: int | None, host: str) -> ProcessState:
+    """Whether the process a journal recorded is still running.
+
+    Only on this host, and only where a signal 0 can ask: `elsewhere` for a
+    journal opened on another host, `unknown` for one that records no process or
+    on a system that cannot ask. **`running` says a process with that id is
+    running**, which is the digline that opened the leg unless the id was
+    reused; the invitation says it that way. (#478)
+    """
+    if pid is None or not host or sys.platform == "win32":
+        # On Windows `os.kill` with a signal it does not know ends the process.
+        return "unknown"
+    if host != socket.gethostname():
+        return "elsewhere"
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return "ended"
+    except PermissionError:
+        return "running"  # it exists, and belongs to another user
+    except OSError:
+        return "unknown"
+    return "running"
+
+
+#: The rules the generated `.digline/.gitignore` writes, each with the
+#: directory it keeps out of git. (#523)
+_IGNORED = {"*/runs/": "runs", "*/name-table/": "name-table"}
+
+
+def unignored(root: Path, tenant: str) -> tuple[str, ...]:
+    """The rules of the generated `.gitignore` that git does not apply to this
+    tenant's directories, in its order. Empty where git cannot answer.
+
+    Git is asked, not the file read: `git check-ignore` applies every rule git
+    reads, wherever and however it is written. Asked of a path under each
+    directory, which need not exist. Exit 0 is ignored and 1 is not; anything
+    else — no repository, no git — is no answer, and nothing is said. (#523)
+    """
+    missing: list[str] = []
+    for rule, directory in _IGNORED.items():
+        probe = f"{STORE_DIRNAME}/{tenant}/{directory}/__digline_probe__"
+        try:
+            done = subprocess.run(
+                ["git", "-C", str(root), "check-ignore", "-q", probe],
+                capture_output=True,
+                check=False,
+            )
+        except OSError:
+            return ()
+        if done.returncode == 1:
+            missing.append(rule)
+        elif done.returncode != 0:
+            return ()
+    return tuple(missing)
+
+
+def unignored_notes(tenant: str, missing: tuple[str, ...]) -> tuple[str, ...]:
+    """One sentence for each rule `unignored` found missing. The same words on
+    every front end that writes a run. (#523)"""
+    said = {
+        "*/runs/": (
+            f"git does not ignore {STORE_DIRNAME}/{tenant}/runs/, so `git add` "
+            "would commit run files, which are written unredacted, and the "
+            "journals of runs in flight, which name the host they ran on. Add "
+            f"`*/runs/` to {STORE_DIRNAME}/.gitignore"
+        ),
+        "*/name-table/": (
+            f"git does not ignore {STORE_DIRNAME}/{tenant}/name-table/, so `git "
+            "add` would commit the name table, the re-identification key, which "
+            f"is never committed. Add `*/name-table/` to {STORE_DIRNAME}/.gitignore"
+        ),
+    }
+    return tuple(said[rule] for rule in missing)

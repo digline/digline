@@ -74,6 +74,14 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
+    # 0.34.0, the number the cut is expected to give the core release that
+    # carries #523 — not yet a release. Whether git would commit a tenant's
+    # run directory or its name table, and the sentence for each. digline-mcp
+    # logs them after its `run` tool writes, and pytest-digline prints them
+    # after `--digline-run` writes; both floors are owed at the cut already,
+    # in RELEASING.md's table, and these ride with them.
+    "unignored": "0.34.0",
+    "unignored_notes": "0.34.0",
     # 0.31.0 — what every front end that runs a suite says about it before the
     # first call, composed once (#396, ADR 0024 §6.4). digline-mcp's floor
     # reached it in digline-mcp 0.5.0, and pytest-digline's in pytest-digline

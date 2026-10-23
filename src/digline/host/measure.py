@@ -16,6 +16,7 @@ from typing import Protocol
 
 from digline import __version__
 from digline.core import Artifact, CallTotals, CaseResult, Run, SystemConfig
+from digline.host.environment import this_process
 from digline.run import (
     CallPlan,
     Mapper,
@@ -137,6 +138,11 @@ def prepare(
         target_config=target_config(target),
         judge_config=judge_config(suite),
     )
+    # Which process opens this leg, and on which host: what tells a journal
+    # whose process is still running from one that was killed. Read here, where
+    # the world is read, and outside `differences`. (#478)
+    pid, host = this_process()
+    header = replace(header, pid=pid, host=host)
     if resume is None:
         return Prepared(header=header, plan=planned_calls(suite))
 
