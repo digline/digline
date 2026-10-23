@@ -157,6 +157,7 @@ jobs:
         with:
           name: dist
           path: dist/
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       - id: select
         name: Keep only what the index does not have
@@ -203,6 +204,28 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           python .github/gate_summary.py install TestPyPI \
             /tmp/imports.txt /tmp/run-stderr.txt
+
+      - name: The core against every plugin PyPI serves
+        # Ruled 2026-10-18 (RELEASING.md, *What CI proves about each index*):
+        # the core as TestPyPI serves it, beside each plugin at the newest
+        # version PyPI serves, each in a clean environment and tried the way
+        # its users try it. A user who upgrades the core gets that pair and
+        # nothing else tests it.
+        #
+        # Three words per plugin, in the summary the reviewer reads before the
+        # click. `excluded` — the plugin's cap keeps it below this core — is a
+        # debt this release owes, not a red. Only `broken`, a plugin in its
+        # range that fails beside this core, fails this job, so `pypi` does not
+        # start. The script's docstring says how each plugin is tried.
+        #
+        # Workspace tags only: a tag of plugins alone puts no new core on
+        # TestPyPI, so there is no core to try them against.
+        if: startsWith(github.ref_name, 'v')
+        env:
+          SUMMARY_TITLE: The core against every plugin PyPI serves
+        run: |
+          uv run --no-project --with packaging==26.3 \
+            python .github/plugins_against_core.py check
 
       - id: preview
         name: What PyPI would take, read before the gate
@@ -275,6 +298,23 @@ jobs:
           # `dist/` is what the tag built.
           python .github/dist_manifest.py /tmp/manifest
           python .github/await_index.py --manifest /tmp/manifest/pins.txt
+
+      - name: No corrected wording is served as a description
+        # PyPI renders each README as the package's description, fixed with the
+        # version. This reads that page for every package in `dist/` and is red
+        # if it serves a wording already found false and corrected (#553).
+        # Every tag, plugin tags included: pytest-digline's README is where the
+        # last one was, and it ships on a tag of its own. After the upload, so
+        # a red here says the version is spent and the next release fixes it.
+        #
+        # Its own wait, ten minutes like the one above: the JSON page answered
+        # 404 behind `/simple/` on v0.22.0 and v0.23.0, and the step above
+        # waits on `/simple/`. Exit 2 is *not judged*, and a re-run is the
+        # remedy.
+        env:
+          TIMEOUT: "600"
+          INTERVAL: "10"
+        run: python .github/served_descriptions.py
 
       - name: Install from the index and run the quickstart
         # The twin of the TestPyPI step above, and the only thing that proves

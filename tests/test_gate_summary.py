@@ -194,7 +194,7 @@ def test_every_count_the_reviewer_reads_is_written_before_the_gate() -> None:
         for step in steps("testpypi")
         if isinstance(env := step.get("env"), dict) and "SUMMARY_TITLE" in env
     ]
-    assert len(titled) == 2
+    assert len(titled) == 3
 
 
 @pytest.mark.parametrize("job", ["build", "testpypi"])
