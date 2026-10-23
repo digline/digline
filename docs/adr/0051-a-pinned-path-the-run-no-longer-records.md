@@ -1,7 +1,11 @@
 # ADR 0051 — A pinned path the judged run no longer records
 
 - Status: accepted 2026-10-18, by Alessandro Prandini, after its code landed
-  in #582. **#483 stays open for its promotion half.** The code of the
+  in #582. *Updated 2026-10-23:* **the promotion half arrived with
+  [ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)**, and the pull
+  request that implements it closes #483. The rest of this paragraph was
+  written while the promotion's half had not landed, and is kept as written.
+  **#483 stays open for its promotion half.** The code of the
   comparison has landed; the promotion's has not, and *Context* leaves it
   outside this record (*"`promote` computes no comparison … That is outside
   this record"*). The sentence below on closing #483 holds for the half that
