@@ -591,6 +591,13 @@ tolerance = 0.05
         encoding="utf-8",
     )
     # No key, and nothing to reach if a factory tried: building calls nothing.
+    # No AWS profile either, so the machine this runs on decides nothing: a
+    # developer's `~/.aws/config` gave a region the runner does not have, and
+    # the test passed on one and not the other. The region is then declared,
+    # because Bedrock refuses to build without one and every user gives one;
+    # it is configuration, not a credential. `AWS_DEFAULT_REGION` and not
+    # `AWS_REGION`: botocore 1.43.114, locked here, read the second as no
+    # region at all.
     env = {
         k: v
         for k, v in os.environ.items()
@@ -600,6 +607,9 @@ tolerance = 0.05
         "HTTPS_PROXY": "http://127.0.0.1:9",
         "HTTP_PROXY": "http://127.0.0.1:9",
         "AWS_EC2_METADATA_DISABLED": "true",
+        "AWS_CONFIG_FILE": os.devnull,
+        "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
+        "AWS_DEFAULT_REGION": "us-east-1",
     }
     done = subprocess.run(
         [

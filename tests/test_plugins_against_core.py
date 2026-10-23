@@ -89,7 +89,13 @@ def test_a_session_names_the_suite_both_ways(tmp_path: Path) -> None:
 def test_each_provider_is_built_by_the_core_with_no_key(
     tmp_path: Path, provider: str
 ) -> None:
-    done = exercise(tmp_path, f"provider:{provider}", f"digline-{provider}")
+    """With an empty home, as on a runner: a developer's `~/.aws/config` once
+    gave Bedrock a region the runner did not have, green here and red there."""
+    home = tmp_path / "home"
+    home.mkdir()
+    done = exercise(
+        tmp_path, f"provider:{provider}", f"digline-{provider}", HOME=str(home)
+    )
     assert done.returncode == 0, done.stdout + done.stderr
     assert "target, judge and claim judge built by the core" in done.stdout
 
