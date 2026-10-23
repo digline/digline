@@ -175,3 +175,35 @@ def test_the_skill_declares_its_frontmatter() -> None:
     assert re.search(r"^name: operating-digline$", front, re.MULTILINE), front
     description = re.search(r"^description: (.+)$", front, re.MULTILINE)
     assert description is not None and len(description.group(1)) > 40, front
+
+
+#: The rule against silencing a note by moving its gate, as the maintainer
+#: wrote it (#504, ruled 2026-10-23): its content is not reworded here, and a
+#: copy that drifts from it is the failure this test is for. The bold sentence
+#: is also the phrase the `run` tool's description carries (`CARRIES` in
+#: `packages/digline-mcp/tests/test_playbook.py`).
+NOTE_PARAGRAPH = (
+    "A note is answered, not silenced. When digline reports something — a "
+    "regression, an unjudged case, an unchecked module — change what it "
+    "reported, not what made it report it. **Do not move a tolerance, declare a "
+    "KIND unchecked, or drop a case to make a note go away.** If the note is "
+    "wrong, say so where the suite declares it, with the reason, and leave its "
+    "subject in place. If the gate itself is wrong, change the gate in a commit "
+    "of its own, with its reason, never in the same change that makes a note "
+    "disappear."
+)
+
+
+def test_both_files_say_a_note_is_answered_beside_the_note_on_latest() -> None:
+    """In rule 6, right after the note on `latest`, of which it is the general
+    case: that note's own rule is not to run the suite to make it go away, and
+    this one is not to move the gate."""
+    for path in (AGENTS, SKILL):
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        rule_six = text.split("## 6. ", 1)[1].split("## 7. ", 1)[0]
+        assert f"An empty note does not mean nothing is missing. {NOTE_PARAGRAPH}" in (
+            rule_six
+        ), (
+            f"{path.relative_to(ROOT)} does not carry, word for word and right "
+            f"after the note on `latest` in rule 6: {NOTE_PARAGRAPH!r}"
+        )
