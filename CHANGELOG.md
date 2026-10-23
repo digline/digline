@@ -93,6 +93,20 @@ notes under them are this file, verbatim.
 - **The `run` tool carries `errored_checks`** (#654), the count `digline run
   --json` carries, from the same function. It needs the core release that
   carries the count, so this release's floor is owed at the cut.
+- **A failure nobody anticipated says whose it was** (#507). It used to reach
+  a client as the SDK's *"Error executing tool <name>"*, the same text for a
+  failure of digline and a bug in this server. It now says whose code raised
+  it (digline, this server, or other code the server ran), its type and its
+  `file:line`, and that the traceback is in the server's log, on its standard
+  error. **It never says the message**, even from digline's own code: a
+  `KeyError` there has the key it was asked for as its message, and that is a
+  datum. The server's own refusals and digline's are unchanged. (ADR 0011 §10
+  and ADR 0043 §3, amended)
+- **The `run` tool's description says a note is answered, not silenced**
+  (#504): *"Do not move a tolerance, declare a KIND unchecked, or drop a case
+  to make a note go away."* It is the general case of the note on `latest`,
+  and it is in `AGENTS.md` rule 6 and in both copies of the skill, word for
+  word.
 
 ## pytest-digline — unreleased
 

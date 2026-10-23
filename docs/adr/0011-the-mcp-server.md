@@ -50,6 +50,9 @@
   §12's rejected alternative and the paragraph in §7 that weighed it; only the
   tag the work rode is different. `Requires: digline 0.6.0` still holds — the
   dependency is on what 0.6.0 contains, and it now contains it on the same day
+- Amended: 2026-10-23, with #507, in §10. A failure nobody anticipated is
+  caught and said in the server's own words: whose it was, its type and its
+  line, never its message
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §8 (a baseline is an approved reference) and the
   payload/verdict boundary that fixed decision 9 states;
@@ -934,6 +937,17 @@ What was confirmed by running it:
   translation also reads the frame. A message digline did not write reaches
   the agent as its type, its location and the command that prints it, and
   never as its text. [ADR 0043](0043-a-message-digline-did-not-write.md) §1–§3.
+
+  *Amended 2026-10-23, with #507.* *"Nothing else is caught"* no longer holds.
+  Everything else is caught, and said as a failure nobody anticipated, never
+  dressed as a refusal or a verdict. The sentence gives whose code raised it,
+  its type and its `file:line`, and points to the server's log; it never gives
+  the message ([ADR 0043](0043-a-message-digline-did-not-write.md) §3, amended
+  the same day). What the rule protected stands: a client still tells a
+  refusal it can act on from a failure it should report, and now it also
+  learns whose failure it was. The SDK's own text for it, *Error executing
+  tool <name>*, was the same for both, which was #507. The server's own
+  refusals pass through as they did.
 
 ## §11 — `test_plugin_floors.py`, amended
 

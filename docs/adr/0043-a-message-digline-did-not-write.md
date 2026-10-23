@@ -48,6 +48,10 @@
   half waits for digline-mcp 0.6.1, on its own tag. *Shipped 2026-10-19:*
   the server's half is in digline-mcp 0.6.1, whose tag contains #609's merge;
   what the user's code writes late is still open (§8)
+- Amended: 2026-10-23, with #507, in §3: a restriction, not a clarification.
+  A failure nobody anticipated is now said on the MCP server in the server's
+  own words, and never with its message, even where §1 would call the message
+  digline's
 - Amends: [ADR 0041](0041-the-exit-code-of-a-failure-nobody-anticipated.md)
   §4.1, in rule 1, rule 3 and the paragraph on tests, and §4.3, in the
   sentence a `SystemExit` is refused with;
@@ -364,6 +368,19 @@ user's data*, and *digline ships it*, are two statements.
 by type, as before, and then by §1. A refusal raised outside digline's code
 that reaches it with no wrap, such as M4's `preflight`, is rendered as a
 wrapped one is, with its type and location and without its message.
+
+*__Amended 2026-10-23, with #507.__* §3 lets a message cross when §1 says
+digline wrote it, and for a refusal it still does. **For a failure nobody
+anticipated the server keeps a narrower rule.** It says whose code raised it,
+read from the innermost frame: digline, the server itself, or other code it
+ran. It says its type and its `file:line`, and sends the reader to the
+server's log, where the traceback is. **It never says the message, even when
+§1 would call it digline's.** A `KeyError` in digline's own code has for its
+message the key it was asked for, and that key is a datum: the frame says who
+raised an exception, not what its message quotes. This restricts §3; it does
+not clarify it. Until #507 such a failure was not translated at all, and it
+reached the agent as the SDK's *Error executing tool <name>*, the same text
+for a failure of digline and for a bug in the server.
 
 ### 4. The class, enumerated
 
