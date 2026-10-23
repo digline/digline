@@ -261,8 +261,8 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | the `run` tool passes `errored_checks=` to `run_json`, new in the core release that carries #654's count; against 0.33.0 the call raises `TypeError` | `0.34.0` | raise it at digline-mcp's own 0.7.0, with #548 and #678, once that core is on PyPI, to the number that core release gets, with the cap above it; this cut does not tag digline-mcp |
-| `pytest-digline` | a check the run has no verdict for asks `phrase` for a `fact.row_missing` key, new in the core release that carries #574; against 0.33.0 the call raises `KeyError` | `0.34.0` | release pytest-digline on its own tag, once the core is on PyPI, with the cap raised to `<0.35`; if the core release is not 0.34.0, raise to the one it is |
+| `digline-mcp` | the `run` tool passes `errored_checks=` to `run_json`, new in the core release that carries #654's count; against 0.33.0 the call raises `TypeError`. And the `run` tool imports `unignored` and `unignored_notes` from `digline.host`, new with #523; against 0.33.0 the import raises `ImportError` | `0.34.0` | raise it at digline-mcp's own 0.7.0, with #548 and #678, once that core is on PyPI, to the number that core release gets, with the cap above it; this cut does not tag digline-mcp |
+| `pytest-digline` | a check the run has no verdict for asks `phrase` for a `fact.row_missing` key, new in the core release that carries #574; against 0.33.0 the call raises `KeyError`. And `--digline-run` imports `unignored` and `unignored_notes` from `digline.host`, new with #523; against 0.33.0 the import raises `ImportError` | `0.34.0` | release pytest-digline on its own tag, once the core is on PyPI, with the cap raised to `<0.35`; if the core release is not 0.34.0, raise to the one it is |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

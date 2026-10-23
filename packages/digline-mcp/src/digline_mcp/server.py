@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import logging
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -55,6 +56,8 @@ from digline.host import (
     read_run,
     resolve_key,
     suite_runs,
+    unignored,
+    unignored_notes,
     utc_now_iso,
 )
 from digline.report import diff as diff_report
@@ -88,6 +91,10 @@ __version__ = _distribution_version("digline-mcp")
 #: Every reading tool declares it. A hint and not enforcement — the enforcement
 #: is the absence of `promote` — but a client that surfaces these shows the user
 #: the same shape this package describes.
+#: This server's log, on its standard error: the person who started the server
+#: reads it, and an agent never does. `errors.py` writes to the same one.
+_LOG = logging.getLogger("digline_mcp")
+
 READS = ToolAnnotations(
     read_only_hint=True, destructive_hint=False, open_world_hint=False
 )
@@ -419,6 +426,14 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             # written for. (decision 2)
             modules_unchecked=open_.loaded.modules_unchecked,
         )
+        # In this server's log, which the person who started it reads, and not
+        # in the answer: whether a directory is committed is the operator's
+        # business, not a fact about the run. After the write, as the CLI asks
+        # it, so the first run's generated rules exist. (#523)
+        for note in unignored_notes(
+            loaded_suite.tenant, unignored(perimeter, loaded_suite.tenant)
+        ):
+            _LOG.warning("digline: %s", note)
         # `usage=` as the CLI passes it: what the run consumed is one fact, and
         # a caller must not have to know which front end it asked. The parity
         # test in this package is what noticed it was missing. (ADR 0011 §6)

@@ -1212,6 +1212,7 @@ class FileResultStore:
         stopping at it — `Listing`'s rule, for the same reason.
         """
         header: JournalHeader | None = None
+        newest: JournalHeader | None = None
         done: dict[str, CaseResult] = {}
         causes: dict[str, str] = {}
         spent = CallTotals()
@@ -1257,6 +1258,9 @@ class FileResultStore:
                                 "Upgrade digline to finish this run, or start "
                                 "it again"
                             )
+                        # The newest leg's process, read past every leg: the
+                        # one that may still be running. (#478)
+                        newest = parsed
                         if header is None:
                             header = parsed
                         elif parsed.differences(header):
@@ -1317,6 +1321,8 @@ class FileResultStore:
             },
             observed_target=observed_target,
             observed_judge=observed_judge,
+            pid=newest.pid if newest is not None else None,
+            host=newest.host if newest is not None else "",
             finished=_exists(
                 self.run_path(RunRef(tenant=tenant, suite=suite, key=key))
             ),
@@ -1612,6 +1618,8 @@ def _header_to_dict(header: JournalHeader) -> dict[str, object]:
         "pinned": sorted(header.pinned),
         "target_config": config_to_dict(header.target_config),
         "judge_config": config_to_dict(header.judge_config),
+        "pid": header.pid,
+        "host": header.host,
     }
 
 
@@ -1650,7 +1658,19 @@ def _header_from_dict(raw: Mapping[str, object]) -> JournalHeader:
         # Declared, not converted: `int()` read "3" and 3.9 as format 3. (#350)
         journal_version=declared_integer(raw, "journal_version"),
         leg=declared_integer(raw, "leg"),
+        # Read when present and of its kind, and absent otherwise: a journal an
+        # older digline wrote records neither, and is still finished. (#478)
+        pid=_recorded_pid(raw.get("pid")),
+        host=host if isinstance(host := raw.get("host"), str) else "",
     )
+
+
+def _recorded_pid(value: object) -> int | None:
+    """A header's `pid`, or `None` for one that records none or not an integer:
+    `True` is an `int` to Python and is not a process. (#478)"""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
 
 
 def _line(payload: Mapping[str, object]) -> str:

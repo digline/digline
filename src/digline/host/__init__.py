@@ -24,7 +24,16 @@ target stays allowed.
 
 from digline.host.artifacts import read_artifacts, read_pinned
 from digline.host.authorship import to_withhold, written_by_digline
-from digline.host.environment import DIRTY_SUFFIX, git_commit, utc_now_iso
+from digline.host.environment import (
+    DIRTY_SUFFIX,
+    ProcessState,
+    git_commit,
+    process_state,
+    this_process,
+    unignored,
+    unignored_notes,
+    utc_now_iso,
+)
 from digline.host.errors import UsageError
 from digline.host.listing import SuiteRuns, left_out, left_out_parts, suite_runs
 from digline.host.loader import (
@@ -112,4 +121,9 @@ __all__ = [
     "seed_observed",
     "suite_runs",
     "utc_now_iso",
+    "unignored",
+    "unignored_notes",
+    "this_process",
+    "process_state",
+    "ProcessState",
 ]

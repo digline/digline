@@ -518,6 +518,8 @@ def _measure(
         load_target,
         read_artifacts,
         read_pinned,
+        unignored,
+        unignored_notes,
         utc_now_iso,
     )
     from digline.report import visible
@@ -555,6 +557,11 @@ def _measure(
         modules_unchecked=loaded.modules_unchecked,
     )
     store.write_run(run)
+    # After the write, as `digline run` asks it, so a fresh repository's first
+    # run has written the generated rules: whoever runs the suite only from
+    # pytest commits the repository too. (#523)
+    for note in unignored_notes(suite.tenant, unignored(root, suite.tenant)):
+        print(f"digline: {visible(note)}", file=sys.stderr)
 
 
 def _attribute_of(spec: str) -> str | None:

@@ -888,6 +888,14 @@ class JournalHeader:
     judge_config: SystemConfig = field(default_factory=SystemConfig)
     journal_version: int = JOURNAL_VERSION
     leg: int = 1
+    #: The process that opened this leg, and the host it ran on: what tells a
+    #: journal whose process is still running from one whose process was
+    #: killed. Diagnostic only, and never a fact the run asserts, so
+    #: `differences` below does not read them: every leg is opened by another
+    #: process. Absent from a journal an older digline wrote, which is still
+    #: read; `JOURNAL_VERSION` does not move for them. (#478)
+    pid: int | None = None
+    host: str = ""
 
     def differences(self, other: JournalHeader) -> tuple[str, ...]:
         """Which asserted facts differ from `other`'s, in the order read.
@@ -967,6 +975,13 @@ class Pending:
     #: The run file already exists: the process was killed after `write_run` and
     #: before the delete. Not resumable and not evidence of anything.
     finished: bool = False
+    #: The process and host of the **newest** leg, as its header recorded them.
+    #: Not `header`'s, which is the first leg's: after a resume, the first leg's
+    #: process is the one that was killed, and the one that may still be running
+    #: opened the last leg. `None` and empty for a journal that records neither.
+    #: (#478)
+    pid: int | None = None
+    host: str = ""
 
 
 class Journal(Protocol):

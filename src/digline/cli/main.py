@@ -63,6 +63,7 @@ from digline.host import (
     need_baseline,
     prepare,
     pricing_for,
+    process_state,
     promote,
     read_artifacts,
     read_pinned,
@@ -72,6 +73,8 @@ from digline.host import (
     reported,
     resolve_key,
     suite_runs,
+    unignored,
+    unignored_notes,
     utc_now_iso,
 )
 from digline.report import (
@@ -328,6 +331,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         modules_unchecked=loaded.modules_unchecked,
     )
 
+    # After the run is written, so the generated rules exist by then: the
+    # first run in a fresh repository writes them and says nothing. (#523)
+    for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
+        say(f"digline: {note}", err=True)
+
     errored = len(errored_verdicts(measured.run))
     if args.json:
         emit(
@@ -387,6 +395,30 @@ def _retry_note(retrying: Mapping[str, str]) -> str:
     return f"{len(retrying)} errored case(s): {named}"
 
 
+def _whose(item: Pending) -> str:
+    """What the process that opened the journal's newest leg is doing, as far
+    as this one can tell. An invitation either way: nothing is refused, and no
+    lock is taken (ADR 0017 §5). (#478)"""
+    state = process_state(item.pid, item.host)
+    if state == "running":
+        return (
+            f"Its process, pid {item.pid} on this host, is still running, unless "
+            "another process has taken that pid since: if it is the digline that "
+            "started the run, resuming now pays for its cases twice."
+        )
+    if state == "ended":
+        return f"Its process, pid {item.pid} on this host, has ended."
+    if state == "elsewhere":
+        return (
+            f"It was started on {item.host}, so whether its process is still "
+            "running cannot be told from here."
+        )
+    return (
+        "Its journal records no process, so whether one is still running "
+        "cannot be told."
+    )
+
+
 def _resume(
     store: SupportsJournal, suite: Suite, requested: str | None
 ) -> Pending | None:
@@ -417,8 +449,8 @@ def _resume(
         for item in live:
             say(
                 f"note: run {item.key} was started and never written "
-                f"({len(item.done)} case(s) journalled). Finish it with "
-                f"`digline run --suite … --resume {item.key}`",
+                f"({len(item.done)} case(s) journalled). {_whose(item)} "
+                f"Finish it with `digline run --suite … --resume {item.key}`",
                 err=True,
             )
         return None
@@ -497,6 +529,10 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
         raise UsageError(Quoted.of(exc, "", named=False)) from exc
 
     ref = store.write_run(run)
+    # A re-judge writes a run of its own into `runs/`, so it says what `run`
+    # says, after the write for the same reason. (#523)
+    for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
+        say(f"digline: {note}", err=True)
     # The measurement is reported by the command that took it, beside the line
     # that announced its cost — never on its own and never without the
     # calibration result. (ADR 0024 §5.4)
