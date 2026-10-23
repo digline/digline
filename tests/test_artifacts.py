@@ -1328,6 +1328,47 @@ def test_the_page_counts_the_pins_the_comparison_names(
     assert "not included, so whether" not in shown
 
 
+#: The headline's flags for the causes of 2, by the name each cause has in the
+#: tuple. `unjudged` is not among them: it is a count, not a flag.
+CAUSE_FLAGS = ("scale_lost", "pinned_drifted", "pinned_lost", "nothing_judged")
+
+
+def test_the_headline_flags_follow_the_causes_of_two(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flags `exit_code` used to enumerate are read off the one tuple, and
+    so is the number.
+
+    `causes_of_two` is where the set is written; promote reads it in the write
+    step, and the headline derives its flags and the list it carries from it.
+    Replacing it with an answer the documents do not give shows whether they
+    do: a flag computed again on its own would keep the documents' answer, and
+    `exit_code` reading the flags rather than the tuple would too. (#483)
+    """
+    import digline.report.render as render
+
+    before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
+    after = a_pinned_run((OLD,), **{OLD: Artifact(sha="b" * 64, text="v2")})
+    _comparison, head = judged(after, before)
+    assert head.pinned_drifted
+    assert head.could_not_judge == ("pinned_drifted",)
+    assert exit_code(head) == 2
+
+    monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: CAUSE_FLAGS)
+    _comparison, head = judged(before, before)
+    assert head.could_not_judge == CAUSE_FLAGS
+    for flag in CAUSE_FLAGS:
+        assert getattr(head, flag), f"{flag} did not follow the tuple"
+    assert exit_code(head) == 2
+
+    monkeypatch.setattr(render, "causes_of_two", lambda *a, **k: ())
+    _comparison, head = judged(after, before)
+    assert head.could_not_judge == ()
+    for flag in CAUSE_FLAGS:
+        assert not getattr(head, flag), f"{flag} did not follow the tuple"
+    assert exit_code(head) == 0
+
+
 def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
     """No pin, no pin fact: the default every suite that pins nothing reads.
     (ADR 0051, *What does not change*)"""
