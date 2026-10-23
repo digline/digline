@@ -1576,8 +1576,8 @@ whole for that step to read.
 *Ruled 2026-10-18.* **Between the `testpypi` job and the `pypi` gate, the core
 being released is run against every plugin PyPI serves. That check is the step
 *The core against every plugin PyPI serves* of the `testpypi` job, which runs
-`.github/plugins_against_core.py`.** *Corrected 2026-10-23, when that step was
-added:* it said *"That check is owed at that point of `publish.yml`, and today
+`.github/plugins_against_core.py`.** *Corrected 2026-10-23, when #687 added that
+step:* it said *"That check is owed at that point of `publish.yml`, and today
 it does not exist"*, which was true until then. In a clean
 environment: the core as TestPyPI serves it, which is the wheel the `pypi` job
 will publish, and each plugin at the newest version PyPI serves. It holds for a
