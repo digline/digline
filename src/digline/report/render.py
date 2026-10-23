@@ -2194,24 +2194,22 @@ def _artifacts(comparison: Comparison, locale: Locale) -> str:
     # The pin clauses, added to the note in both branches below. A path is
     # deliberately never named here: the withheld branch drops the whole table
     # because a list of paths describes a customer, and a clause that named one
-    # would put back exactly what that branch removes. Counts only.
-    drifted = [
-        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "changed"
-    ]
+    # would put back exactly what that branch removes. Counts only, and read
+    # off the comparison like the three below, never filtered again here: the
+    # page and the gate are one fact. (#483)
+    drifted = comparison.pinned_changed_count
     if drifted:
         note += " " + phrase(
             locale,
-            f"artifacts.pinned.{'one' if len(drifted) == 1 else 'many'}",
-            count=len(drifted),
+            f"artifacts.pinned.{'one' if drifted == 1 else 'many'}",
+            count=drifted,
         )
-    unchecked = [
-        d for d in comparison.artifact_deltas if d.pinned and d.outcome == "unknown"
-    ]
+    unchecked = comparison.pinned_unchecked_count
     if unchecked:
         note += " " + phrase(
             locale,
-            f"artifacts.pinned.unchecked.{'one' if len(unchecked) == 1 else 'many'}",
-            count=len(unchecked),
+            f"artifacts.pinned.unchecked.{'one' if unchecked == 1 else 'many'}",
+            count=unchecked,
         )
     # The three of ADR 0051, in the order the headline gives them and by the
     # same rule: counts, never a path. §8 named the document beside the sentence
