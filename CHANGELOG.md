@@ -51,6 +51,14 @@ notes under them are this file, verbatim.
   case's checks and the run's aggregates alike. An added key, so
   `OUTPUT_VERSION` does not move. The first half of #654 made `run` exit `2`
   when it judged nothing; this is the other half, the sentence.
+- **`Comparison` names the paths behind its two pin facts** (#483). Three
+  additions: `pinned_changed`, the pinned paths whose outcome is `changed`;
+  `pinned_changed_count`, how many; and `pinned_gone`, the paths the reference
+  pinned that the judged run neither pins nor records. `pinned_drifted` and
+  `pinned_lost` are now read from them, and the headline's clause counts
+  `pinned_changed`. `pinned_gone` is narrower than `pinned_withdrawn`, which
+  also holds a pin taken off a file the run still records. Nothing moves: no
+  exit code, no sentence, no output, no stored document.
 
 ## digline-mcp — unreleased
 
