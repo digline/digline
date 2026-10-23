@@ -19,6 +19,17 @@ Nothing else is caught. An unexpected exception should stay an unexpected
 exception: dressing one as a tool result hides a bug behind a sentence.
 (ADR 0011 §10)
 
+*Changed with #507.* Everything else is now caught, and said as what it is:
+a failure nobody anticipated, never a refusal. The SDK's own text for it,
+"Error executing tool <name>", was the same for a failure of digline and a
+bug in this server, so a client could not tell whose it was. The sentence
+names whose code raised it, read from the innermost frame, its type and its
+`file:line`, and sends the reader to this server's log, where the traceback
+is written. **Never its message**, even when the frame is digline's: a
+`KeyError` in our own code has a datum for a message. That is narrower than
+ADR 0043 §3, which lets digline's own message cross, and §3 is amended to
+say so. (ADR 0011 §10 and ADR 0043 §3, amended 2026-10-23)
+
 **And a message that travels is a rendered document.** Every refusal leaving
 here goes through `json_visible`, because a refusal's text is not all digline's
 own words: it quotes tenants, suite names, provider ids and — since 0.18.0 —
@@ -46,6 +57,8 @@ the location. (#451, ADR 0043 §1, amended)
 
 from __future__ import annotations
 
+import logging
+import traceback
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
@@ -53,6 +66,7 @@ from typing import NoReturn
 
 from mcp.server.mcpserver.exceptions import ToolError
 
+import digline
 from digline.core import (
     json_visible,
 )
@@ -83,6 +97,15 @@ TRANSLATED: tuple[type[Exception], ...] = REFUSALS
 #: name a plugin. (ADR 0043 §2, amended with #452)
 _HERE = Path(__file__).resolve().parent
 
+#: digline's code, for whose failure an unexpected exception was. The same
+#: directory `digline.host` reads for who wrote a message. (ADR 0043 §1)
+_DIGLINE = Path(digline.__file__).resolve().parent
+
+#: Where the traceback of a failure nobody anticipated is written: this
+#: server's log, on its standard error, which the person who started the
+#: server reads. The sentence an agent gets sends it there.
+_LOG = logging.getLogger("digline_mcp")
+
 
 # PEP 695 syntax (Python 3.12+): `[**P, R]` declares the type parameters inline
 # instead of the older module-level `ParamSpec`/`TypeVar` pair. `**P` is the
@@ -103,6 +126,10 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             return fn(*args, **kwargs)
         except (*TRANSLATED, OSError) as exc:
             raise ToolError(json_visible(_for_the_agent(exc))) from exc
+        # This server's own refusals (`refuse`), already in the one shape that
+        # reaches an agent: through as they are, and before the catch-all.
+        except ToolError:
+            raise
         # Code the tool ran asked to end the process. Uncaught, it passed
         # through the SDK's worker thread: the call never answered, the server
         # ended at the next request, and the agent read an EOF. The tool stops,
@@ -112,8 +139,42 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             if refused is None:
                 raise
             raise ToolError(json_visible(_for_the_agent(refused))) from exc
+        # Anything else is a failure nobody anticipated (ADR 0041 §4 rule 2):
+        # said as one, in this server's words, with the traceback in the log
+        # and never the message in the answer. (#507)
+        except Exception as exc:
+            _LOG.exception("a tool failed, and nobody anticipated it")
+            raise ToolError(json_visible(unanticipated(exc))) from exc
 
     return wrapper
+
+
+def unanticipated(exc: BaseException) -> str:
+    """Whose code raised `exc`, its type and its `file:line`, and where the
+    traceback is. Never its message. (#507; ADR 0043 §3, amended)"""
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return (
+            f"something failed, and nobody anticipated it: {type(exc).__name__}, "
+            "raised from no frame. It is not a verdict on the suite and not a "
+            "refusal of the request: report it. Its message is not shown here; "
+            "the traceback is in this server's log, on its standard error."
+        )
+    inner = frames[-1]
+    at = Path(inner.filename).resolve()
+    if at.is_relative_to(_HERE):
+        whose = "digline-mcp, this server, failed"
+    elif at.is_relative_to(_DIGLINE):
+        whose = "digline failed"
+    else:
+        whose = "code this server ran failed"
+    return (
+        f"{whose}, and nobody anticipated it: {type(exc).__name__} at "
+        f"{inner.filename}:{inner.lineno}. It is not a verdict on the suite and "
+        "not a refusal of the request: report it. Its message is not shown here, "
+        "because an exception's message can quote the data it was handling; the "
+        "traceback is in this server's log, on its standard error."
+    )
 
 
 def _for_the_agent(refusal: BaseException) -> str:
