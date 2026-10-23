@@ -88,16 +88,20 @@ ELSEWHERE = str(Path(__file__).resolve().parent / "_raised_by_a_test.py")
 
 
 @pytest.mark.parametrize(
-    ("filename", "whose"),
+    ("filename", "whose", "where"),
     [
-        (INSIDE_DIGLINE, "digline failed"),
-        (INSIDE_THE_SERVER, "digline-mcp, this server, failed"),
-        (ELSEWHERE, "code this server ran failed"),
+        (INSIDE_DIGLINE, "digline failed", "digline/_raised_by_a_test.py"),
+        (
+            INSIDE_THE_SERVER,
+            "digline-mcp, this server, failed",
+            "digline_mcp/_raised_by_a_test.py",
+        ),
+        (ELSEWHERE, "code this server ran failed", ELSEWHERE),
     ],
     ids=["digline", "the server", "other code"],
 )
 def test_an_unexpected_exception_says_whose_it_was_and_never_its_message(
-    filename: str, whose: str
+    filename: str, whose: str, where: str
 ) -> None:
     """A failure nobody anticipated is said in this server's own words: whose
     code raised it, read from the innermost frame, its type and its
@@ -115,7 +119,11 @@ def test_an_unexpected_exception_says_whose_it_was_and_never_its_message(
     said = str(caught.value)
     assert type(caught.value) is ToolError
     assert said.startswith(f"{whose}, and nobody anticipated it: KeyError at "), said
-    assert f"{filename}:1." in said, said
+    # Relative to the package for digline's code and the server's: where it is
+    # installed is the reader's machine, not the failure. Code in no package,
+    # such as the user's, keeps the path its frame was compiled under, as the
+    # refusals of ADR 0043 show it.
+    assert f"KeyError at {where}:1. " in said, said
     assert "the traceback is in this server's log" in said, said
     assert DATA not in said, said
 

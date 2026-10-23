@@ -209,7 +209,7 @@ def test_what_digline_raises_while_a_suite_loads_is_digline_s_failure(
     message, kind = refusal(repo, "list_runs", suite=str(repo / "suite_digline.py"))
     assert kind is not UnexpectedToolError, message
     assert "digline failed, and nobody anticipated it: KeyError at " in message
-    assert "/digline/report/text.py:" in message
+    assert "KeyError at digline/report/text.py:" in message
     assert "the suite" not in message.split(":", 1)[1].split(".")[0]
     assert "no.such" not in message
 

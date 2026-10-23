@@ -58,6 +58,7 @@ the location. (#451, ADR 0043 §1, amended)
 from __future__ import annotations
 
 import logging
+import sysconfig
 import traceback
 from collections.abc import Callable
 from functools import wraps
@@ -105,6 +106,18 @@ _DIGLINE = Path(digline.__file__).resolve().parent
 #: server's log, on its standard error, which the person who started the
 #: server reads. The sentence an agent gets sends it there.
 _LOG = logging.getLogger("digline_mcp")
+
+#: Where a location is read from, for code that lives in a package: this
+#: server's, digline's, and the installed libraries'. A path is said relative
+#: to one of these, because where a package is installed is the reader's
+#: machine and not the failure. Code in none of them, such as the user's,
+#: keeps the path its frame was compiled under, as the refusals of ADR 0043
+#: show it.
+_PACKAGE_ROOTS = (
+    _HERE.parent,
+    _DIGLINE.parent,
+    *{Path(sysconfig.get_paths()[key]).resolve() for key in ("purelib", "platlib")},
+)
 
 
 # PEP 695 syntax (Python 3.12+): `[**P, R]` declares the type parameters inline
@@ -170,10 +183,10 @@ def unanticipated(exc: BaseException) -> str:
         whose = "code this server ran failed"
     return (
         f"{whose}, and nobody anticipated it: {type(exc).__name__} at "
-        f"{inner.filename}:{inner.lineno}. It is not a verdict on the suite and "
-        "not a refusal of the request: report it. Its message is not shown here, "
-        "because an exception's message can quote the data it was handling; the "
-        "traceback is in this server's log, on its standard error."
+        f"{_where(at, inner.filename)}:{inner.lineno}. It is not a verdict on the "
+        "suite and not a refusal of the request: report it. Its message is not "
+        "shown here, because an exception's message can quote the data it was "
+        "handling; the traceback is in this server's log, on its standard error."
     )
 
 
@@ -191,3 +204,12 @@ def refuse(message: str) -> NoReturn:
     caller to interpolate a suite name into one will not come back here to ask.
     """
     raise ToolError(json_visible(message))
+
+
+def _where(at: Path, written: str) -> str:
+    """`at` relative to the package root it lies under, or `written` as the
+    frame had it when it lies under none."""
+    for root in _PACKAGE_ROOTS:
+        if at.is_relative_to(root):
+            return at.relative_to(root).as_posix()
+    return written
