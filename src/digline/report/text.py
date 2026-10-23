@@ -159,6 +159,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "the stored run has no verdict for this check: run it again, or "
             "pass --digline-run"
         ),
+        # What `digline run` says on stderr when checks could not run: the
+        # count of `errored_verdicts`, case checks and aggregates. Said only
+        # above zero; `run --json` carries the number always. (#654)
+        "fact.errored_checks.one": "1 check could not run.",
+        "fact.errored_checks.many": "{count} checks could not run.",
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1489,6 +1494,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.row_missing.unrecorded": (
             "l'esecuzione archiviata non ha un verdetto per questo controllo: "
             "ripeti l'esecuzione, o passa --digline-run"
+        ),
+        "fact.errored_checks.one": "1 controllo non ha potuto essere eseguito.",
+        "fact.errored_checks.many": (
+            "{count} controlli non hanno potuto essere eseguiti."
         ),
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
