@@ -442,6 +442,26 @@ def exercise_pytest(app: pathlib.Path) -> None:
         print(f"{said}: exit 0")
 
 
+SUITE = {"suite": "suite.py"}
+
+
+def tool_arguments(tool: str, keys: Sequence[str]) -> dict[str, Any]:
+    """What each tool is called with; `run` is called apart, with its count.
+
+    A tool the server lists and this does not know is red, not skipped: the
+    roster is the server's, so a new tool is tried or says why it is not."""
+    match tool:
+        case "list_runs" | "get_run" | "get_baseline" | "log" | "compare" | "explain":
+            return SUITE
+        case "diff":
+            return {**SUITE, "run1": keys[0], "run2": keys[1]}
+        case _:
+            raise SystemExit(
+                f"the server lists a tool `{tool}` this script has no arguments "
+                "for: say in plugins_against_core.py how to call it"
+            )
+
+
 def exercise_mcp(app: pathlib.Path) -> None:
     """Every tool the server lists, over stdio, with two runs and a baseline
     in the store so that each one has something to answer about."""
@@ -450,22 +470,8 @@ def exercise_mcp(app: pathlib.Path) -> None:
 
     _promoted(app)
     _digline(app, "run", "--suite", "suite.py")
-    suite = {"suite": "suite.py"}
+    suite = SUITE
     keys: list[str] = []
-
-    def arguments(tool: str) -> dict[str, Any]:
-        match tool:
-            case (
-                "list_runs" | "get_run" | "get_baseline" | "log" | "compare" | "explain"
-            ):
-                return suite
-            case "diff":
-                return {**suite, "run1": keys[0], "run2": keys[1]}
-            case _:
-                raise SystemExit(
-                    f"the server lists a tool `{tool}` this script has no arguments "
-                    "for: say in plugins_against_core.py how to call it"
-                )
 
     def text(result: Any) -> str:
         return "".join(getattr(c, "text", "") for c in result.content)
@@ -508,7 +514,9 @@ def exercise_mcp(app: pathlib.Path) -> None:
                             "run", {**suite, "acknowledge_calls": int(count.group(1))}
                         )
                     else:
-                        result = await session.call_tool(tool, arguments(tool))
+                        result = await session.call_tool(
+                            tool, tool_arguments(tool, keys)
+                        )
                     if result.is_error:
                         raise SystemExit(f"{tool}: {text(result)}")
                     print(f"{tool}: answered")
