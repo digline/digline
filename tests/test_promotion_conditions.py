@@ -39,7 +39,11 @@ import digline
 from digline.core import Run
 from digline.store import FileResultStore, RunRef
 from digline.store.deletion import refusal_for_a_promoted_run
-from digline.store.promotion import refusal_for_a_moved_baseline, refusals_for
+from digline.store.promotion import (
+    refusal_for_a_moved_baseline,
+    refusal_for_unaccepted_pins,
+    refusals_for,
+)
 
 #: A run for the two fixtures below to pass. They are read as source and never
 #: executed, but they are type-checked like everything else here, so the call
@@ -55,6 +59,10 @@ _ANY_RUN = Run(
 #: The name a class must reach to have met condition 8, and the name of the
 #: function that writes its sentence.
 CONDITION_8 = refusal_for_a_moved_baseline.__name__
+
+#: Condition 11, which is condition 8's shape: asked against the baseline the
+#: backend reads beside its write, returned rather than raised. (ADR 0053)
+CONDITION_11 = refusal_for_unaccepted_pins.__name__
 
 #: The function that answers the conditions that follow from the document, for
 #: the same reason.
@@ -219,6 +227,23 @@ def test_every_store_that_promotes_raises_condition_8() -> None:
         "Read the baseline inside whatever makes your write atomic, pass it to "
         f"{CONDITION_8}, and raise what it gives you; see "
         "ResultStore.promote_baseline."
+    )
+
+
+def test_every_store_that_promotes_raises_condition_11() -> None:
+    """Condition 8's walk, for the condition that follows it beside the same
+    write: a backend that never raises what `refusal_for_unaccepted_pins`
+    returns makes a pin's drift the reference with nobody having named it, and
+    nothing in its signature says so. (ADR 0053)"""
+    missing = sorted(
+        name
+        for name, cls in _promoting_classes().items()
+        if not (_reaches(cls, CONDITION_11) and _raises(cls, CONDITION_11))
+    )
+    assert not missing, (
+        f"{', '.join(missing)} implements promote_baseline without raising what "
+        f"{CONDITION_11} returns. Pass it the baseline you read for condition 8 "
+        "and raise what it gives you; see ResultStore.promote_baseline."
     )
 
 

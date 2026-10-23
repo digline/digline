@@ -48,7 +48,10 @@ import typing
 from pathlib import Path
 
 from digline.store import PromotionRefusal, ResultStore
-from digline.store.promotion import refusal_for_a_moved_baseline
+from digline.store.promotion import (
+    refusal_for_a_moved_baseline,
+    refusal_for_unaccepted_pins,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 ADR_0002 = ROOT / "docs" / "adr" / "0002-three-worlds-and-where-the-data-lives.md"
@@ -84,7 +87,8 @@ def protocol_list() -> list[tuple[int, str]]:
 
 def types_the_code_declares() -> set[str]:
     """The refusal types the code collects: `PromotionRefusal`'s members, and
-    what `refusal_for_a_moved_baseline` returns other than `None`.
+    what `refusal_for_a_moved_baseline` and `refusal_for_unaccepted_pins`
+    return other than `None`.
 
     `__value__` is what a `type X = ...` statement binds: the union itself,
     which `typing.get_args` takes apart. The return annotation is read through
@@ -94,7 +98,10 @@ def types_the_code_declares() -> set[str]:
     members: tuple[type, ...] = typing.get_args(PromotionRefusal.__value__)
     returned = typing.get_type_hints(refusal_for_a_moved_baseline)["return"]
     moved: tuple[type, ...] = typing.get_args(returned)
-    return {t.__name__ for t in (*members, *moved) if t is not type(None)}
+    # And condition 11's, which has 8's shape and sits beside it. (ADR 0053)
+    pins = typing.get_type_hints(refusal_for_unaccepted_pins)["return"]
+    unaccepted: tuple[type, ...] = typing.get_args(pins)
+    return {t.__name__ for t in (*members, *moved, *unaccepted) if t is not type(None)}
 
 
 def test_the_two_lists_are_found() -> None:

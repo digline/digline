@@ -484,6 +484,13 @@ list. What the test cannot see is stated in its own docstring.*
    *Added by [ADR 0031](0031-the-reference-promote-replaces.md), accepted 2026-09-24
    and shipped in 0.20.0: §1 for the key the person supplies, §4 for the type. Like 6,
    it did not come back to add itself here. Brought here on 2026-10-05 (#437).*
+   *Not last since 2026-10-23 ([ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)).
+   "Checked **last**" above, and "each backend checks it beside its own write, last" in
+   the paragraph on where each is enforced, are kept as written. 11 now follows 8 beside
+   the same write, because 11 is asked against the baseline 8 reads. Both reasons for
+   placing 8 last still hold against everything above it: every refusal about the run
+   alone comes before it, and it sits beside the write. 8 is the last condition about
+   whether the reference moved, and no longer the last condition.*
 9. **`CrossingRefusedError`** — the run records an artifact under `.digline` or `.git`,
    in any case and at any depth, or one keyed outside the perimeter. A baseline carries
    every artifact's full text into `baselines/`, which is versioned, so promotion is an
@@ -501,6 +508,17 @@ list. What the test cannot see is stated in its own docstring.*
    it names each case that counts with its state, suspended, could not be judged or
    absent, and carries 3's remedy for the ones that could not be judged.
    *Added by ADR 0049 §5, and brought here by the change that implements it.*
+11. **`UnacceptedPinsError`** — a pinned file drifted, or a pin lost its path, against
+   the baseline this promotion replaces, and the person promoting did not name exactly
+   the paths that implicates: one path more, one fewer or another is refused too, and
+   the refusal names the set. **Any cause of 2, not the exit code 2**: a regression
+   outranks the causes of 2, so a run that drifted and got worse exits 1 and is refused
+   all the same. Checked beside the write, **after 8** and against the baseline 8
+   reads, because the pin causes are relations and that baseline is the only reference
+   a promotion has. The other three causes of 2 are 3, 5 and 10, answered from the run
+   alone.
+   *Added by [ADR 0053](0053-promote-refuses-a-pin-nobody-named.md), and brought here
+   by the change that implements it.*
 
 *Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run that judged
 nothing as ADR 0049 §3 defines it, whether or not the suite declares an

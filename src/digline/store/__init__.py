@@ -19,6 +19,7 @@ from digline.store.migrate import (
 from digline.store.promotion import (
     PromotionRefusal,
     refusal_for_a_moved_baseline,
+    refusal_for_unaccepted_pins,
     refusals_for,
 )
 from digline.store.protocol import (
@@ -54,6 +55,7 @@ from digline.store.protocol import (
     SupportsJournal,
     SupportsRegister,
     TenantMismatchError,
+    UnacceptedPinsError,
     UncalibratedRunError,
 )
 
@@ -98,10 +100,12 @@ __all__ = [
     "SuiteMismatchError",
     "NotAReferenceError",
     "BaselineMovedError",
+    "UnacceptedPinsError",
     "TenantMismatchError",
     "journal_key",
     "refusal_for_a_moved_baseline",
     "refusal_for_a_promoted_run",
+    "refusal_for_unaccepted_pins",
     "refusals_for",
     "migrate_file",
     "migrate_paths",

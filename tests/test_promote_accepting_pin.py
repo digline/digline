@@ -14,6 +14,7 @@ unaccepted for that.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -75,9 +76,9 @@ FAILED = CaseResult(
 def a_run(
     created_at: str,
     pinned: tuple[str, ...],
+    artifacts: Mapping[str, Artifact],
     *,
     results: tuple[CaseResult, ...] = (PASSED,),
-    **artifacts: Artifact,
 ) -> Run:
     return Run(
         tenant="acme",
@@ -133,9 +134,9 @@ def current_key(store: FileResultStore) -> str:
 def drifted(store: FileResultStore) -> tuple[RunRef, RunRef]:
     """OLD pinned on both sides, and its text moved: `pinned_drifted`."""
     reference = with_a_reference(
-        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), **{OLD: v("v1")})
+        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), {OLD: v("v1")})
     )
-    run = store.write_run(a_run("2026-01-01T11:00:00+00:00", (OLD,), **{OLD: v("v2")}))
+    run = store.write_run(a_run("2026-01-01T11:00:00+00:00", (OLD,), {OLD: v("v2")}))
     return reference, run
 
 
@@ -143,9 +144,9 @@ def lost(store: FileResultStore) -> tuple[RunRef, RunRef]:
     """OLD pinned and gone, NEW pinned with no reference: `pinned_lost`, and
     the paths it implicates are both of them. (ADR 0051 §3)"""
     reference = with_a_reference(
-        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), **{OLD: v("v1")})
+        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), {OLD: v("v1")})
     )
-    run = store.write_run(a_run("2026-01-01T11:00:00+00:00", (NEW,), **{NEW: v("v2")}))
+    run = store.write_run(a_run("2026-01-01T11:00:00+00:00", (NEW,), {NEW: v("v2")}))
     return reference, run
 
 
@@ -253,9 +254,7 @@ def test_a_wrong_path_in_place_of_the_right_one_is_refused(tmp_path: Path) -> No
 def test_the_first_promotion_of_a_pinning_run_is_unchanged(tmp_path: Path) -> None:
     """`--replacing none`: no reference, no comparison, no pin cause."""
     store = FileResultStore(tmp_path)
-    first = store.write_run(
-        a_run("2026-01-01T10:00:00+00:00", (OLD,), **{OLD: v("v1")})
-    )
+    first = store.write_run(a_run("2026-01-01T10:00:00+00:00", (OLD,), {OLD: v("v1")}))
     promote(store, first, None)
     assert current_key(store) == first.key
 
@@ -273,10 +272,10 @@ def test_a_drift_beside_a_regression_is_refused_though_it_exits_one(
     the drift through with the regression."""
     store = FileResultStore(tmp_path)
     reference = with_a_reference(
-        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), **{OLD: v("v1")})
+        store, a_run("2026-01-01T10:00:00+00:00", (OLD,), {OLD: v("v1")})
     )
     worse = a_run(
-        "2026-01-01T11:00:00+00:00", (OLD,), results=(FAILED,), **{OLD: v("v2")}
+        "2026-01-01T11:00:00+00:00", (OLD,), {OLD: v("v2")}, results=(FAILED,)
     )
     run = store.write_run(worse)
 
@@ -301,9 +300,7 @@ def test_a_moved_baseline_is_refused_before_the_pin_is_read(tmp_path: Path) -> N
     that is no longer the one compared against would name paths nobody saw."""
     store = FileResultStore(tmp_path)
     reference, run = drifted(store)
-    theirs = store.write_run(
-        a_run("2026-01-01T12:00:00+00:00", (OLD,), **{OLD: v("v1")})
-    )
+    theirs = store.write_run(a_run("2026-01-01T12:00:00+00:00", (OLD,), {OLD: v("v1")}))
     promote(store, theirs, reference.key)
     with pytest.raises(REFUSALS) as refused:
         promote(store, run, reference.key)

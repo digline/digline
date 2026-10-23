@@ -15,6 +15,10 @@ answer three different questions:
 3. **The write.** Condition 8 asks whether the baseline present *now* is still
    the one the run was compared against. That is a question about the store at
    this instant, and it belongs to each backend, beside its own write.
+   Condition 11 follows it there, because it is asked of the run **against
+   that baseline**: whether a pin is a cause of 2 that nobody named
+   (`refusal_for_unaccepted_pins`). The other causes of 2 are 3, 5 and 10,
+   which answer from the run alone and stay in `refusals_for`. (ADR 0053)
 
 **Why 8 is not in `refusals_for`, since a single call would have been tidier.**
 Taking the current baseline's key as a parameter would mean somebody had
@@ -36,8 +40,13 @@ core, and are imported from there.
 
 from __future__ import annotations
 
+import shlex
+from collections.abc import Collection
+
 from digline.core.calibration import scale_lost
+from digline.core.compare import compare
 from digline.core.declared import Declared, cases_that_count, nothing_judged
+from digline.core.gate import causes_of_two, pins_implicated
 from digline.core.reconcile import unreconciled
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
@@ -46,12 +55,14 @@ from digline.store.protocol import (
     ErroredRunError,
     NothingJudgedError,
     ReplayedRunError,
+    UnacceptedPinsError,
     UncalibratedRunError,
 )
 
 __all__ = [
     "PromotionRefusal",
     "refusal_for_a_moved_baseline",
+    "refusal_for_unaccepted_pins",
     "refusals_for",
 ]
 
@@ -309,3 +320,98 @@ def refusal_for_a_moved_baseline(
         f"{found}{when}. Promoting it would replace a reference nobody "
         f"compared it against. {compare}"
     )
+
+
+def refusal_for_unaccepted_pins(
+    run: Run,
+    current: Run | None,
+    accepting: Collection[str],
+    *,
+    declared: Declared | None,
+) -> UnacceptedPinsError | None:
+    """Condition 11's question and its sentence. `None` when the paths
+    `accepting` names are exactly the paths the pin causes implicate, which is
+    nothing when no pin cause holds. (ADR 0053)
+
+    `current` is the baseline **you** read for condition 8, inside whatever
+    makes your write atomic: the pin causes are relations, and the reference
+    they are read against is the one this promotion replaces. `None` is a
+    first promotion, where no relation exists and no pin cause can hold.
+
+    **Any cause, not the code.** The causes are `causes_of_two`'s, the tuple
+    `exit_code` reads behind a regression; this never asks whether the code is
+    2, so a run that drifted and got worse is refused like one that only
+    drifted. Only the pin causes are asked here: the other three answer from
+    the run alone and are conditions 3, 5 and 10, in `refusals_for`.
+
+    **Exactly the set**: a path more is an authorisation for a file that did
+    not move, a path fewer leaves a movement nobody named, and both halves of
+    a lost pin are one fact, since nothing says whether one file became the
+    other. The sentence names the set either way.
+    """
+    comparison = None if current is None else compare(run, current)
+    causes = causes_of_two(run, comparison, declared=declared)
+    implicated = (
+        pins_implicated(comparison)
+        if "pinned_drifted" in causes or "pinned_lost" in causes
+        else ()
+    )
+    accepted = frozenset(accepting)
+    if accepted == frozenset(implicated):
+        return None
+
+    key = key_of(run.created_at, run.config_hash)
+    found = (
+        "none" if current is None else key_of(current.created_at, current.config_hash)
+    )
+    if not implicated:
+        return UnacceptedPinsError(
+            f"run {key} was not promoted: --accepting-pin named "
+            f"{_paths(accepted)}, and against baseline {found} no file declared "
+            "not to change moved or lost its path. An authorisation names what "
+            "moved; promote without it"
+        )
+
+    assert comparison is not None  # a pin cause needs a reference
+    what: list[str] = []
+    if comparison.pinned_changed:
+        what.append(
+            f"{_paths(comparison.pinned_changed)} declared not to change moved "
+            f"since baseline {found}"
+        )
+    if "pinned_lost" in causes:
+        what.append(
+            f"{_paths(comparison.pinned_gone)} declared not to change in baseline "
+            f"{found} is gone, and {_paths(comparison.pinned_unreferenced)} "
+            "declared not to change here has no reference, so whether one "
+            "became the other was not judged"
+        )
+    named = ""
+    if accepted:
+        extra = sorted(accepted - set(implicated))
+        missing = sorted(set(implicated) - accepted)
+        named = f" --accepting-pin named {_paths(accepted)}"
+        if extra:
+            named += f"; {_paths(extra)} is not among the paths implicated"
+        if missing:
+            named += f"; {_paths(missing)} is implicated and was not named"
+        named += "."
+    command = " ".join(
+        [
+            "digline promote",
+            f"--run {shlex.quote(key)}",
+            f"--replacing {shlex.quote(found)}",
+            *(f"--accepting-pin {shlex.quote(path)}" for path in implicated),
+        ]
+    )
+    return UnacceptedPinsError(
+        f"run {key} was not promoted: {'; and '.join(what)}.{named} Promoting it "
+        "would make that movement the reference with nobody having named it. "
+        f"Compare it — digline compare --run {key} — and if the change was "
+        f"meant, accept it from the command line by naming each path: {command}"
+    )
+
+
+def _paths(paths: Collection[str]) -> str:
+    """Paths for a sentence, sorted so the same set reads the same way."""
+    return ", ".join(sorted(paths))
