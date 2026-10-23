@@ -743,6 +743,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.20.0": "the index-race status for v0.20.0 — its runner and in-build "
         "waits, the three image tags on one digest, and the six locks read back "
         "on the first try. Measurements of that tag, like 0.19.2's beside them",
+        "0.6.2": (
+            "digline-mcp's version shipped on v0.33.0's tag without a tag of its "
+            "own, named among the releases that went out without the check of "
+            "the core against the served plugins: history"
+        ),
+        "0.3.1": (
+            "pytest-digline's version shipped on v0.33.0's tag without a tag of "
+            "its own, named beside digline-mcp 0.6.2 for the same reason: history"
+        ),
     },
     "docs/explain.md": {
         "0.15.0": "told as history now that 0.15.3 is the tree's version: "
