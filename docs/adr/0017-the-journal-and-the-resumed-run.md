@@ -13,6 +13,10 @@
   two cases, not one: the journal whose run already exists, and a journal a
   person deleted through `delete_run`. Nothing else removes a journal that
   might still be finished
+- Amended: 2026-10-23, with #478 and #523, in §2 and §5. Each leg records
+  the process and the host that opened it, and `run` says whether that
+  process is running; a `.digline/.gitignore` the user already had is now
+  checked with git, not assumed
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) (the
   perimeter is a directory, and the payload stays where it is born);
   [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -116,6 +120,12 @@ question somebody would otherwise have to ask:
 - It lives **under `runs/`**, so the generated `.gitignore` already covers it:
   `*/runs/` ignores the directory and everything beneath it. No new ignore rule,
   and no possibility of a journal reaching a commit.
+  *Annotated 2026-10-23, with #523:* the generated `.gitignore` is written
+  only where none exists, so one the user already had can lack `*/runs/`, and
+  then a journal can reach a commit; since #478 it names the host it ran on.
+  `digline run`, `pytest --digline-run` and the MCP server's `run` now ask
+  `git check-ignore` after each run they write and say so where git would
+  commit the directory. It is said, never refused.
 - It is **never migrated**. `run_paths()` globs `*.json` in the suite directory;
   a `.jsonl` inside `.pending/` is neither matched nor wanted. The journal
   carries its own `JOURNAL_VERSION`, independent of `SCHEMA_VERSION`, because it
@@ -266,6 +276,16 @@ concurrency story: a second process resuming the same run loses the race and is
 refused by name. **No lock file** — a lock is the wrong instrument here, because
 the process this ADR exists for is one that was *killed*, and a stale lock left
 by a killed process would block the very resume it was meant to protect.
+
+*Annotated 2026-10-23, with #478.* *"A second process resuming the same run
+loses the race"* holds for two resumes that pick the same leg number. It does
+not hold for a resume of a run whose process is still running: the resume
+takes the next leg, and both processes pay for the cases neither has
+finished. No lock is added, for the reason above. Each leg's header now
+records the process id and the host that opened it, outside the facts
+`differences` compares, and a plain `run` says whether the newest leg's
+process is still running, has ended, or cannot be told from here. The
+invitation to `--resume` stays an invitation.
 
 ### 6. When a resume is refused, and why the list has that shape
 

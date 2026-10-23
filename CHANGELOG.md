@@ -88,8 +88,32 @@ notes under them are this file, verbatim.
   promotion reads them from the same function. No exit code moves for
   `compare`, `report` or `explain`.
 
+- **`digline run` says when git would commit the run directory** (#523). The
+  `.gitignore` digline writes in `.digline/` is written only where none exists,
+  and one you already had may lack `*/runs/` or `*/name-table/`. After each run
+  it writes, `digline run` asks `git check-ignore` about the tenant's `runs/`
+  and `name-table/`, and says on stderr, for each one git would not ignore,
+  what `git add` would commit and the line to add. Git decides, so a rule kept
+  elsewhere or written another way counts; where git cannot answer, nothing is
+  said. Never a refusal, and no exit code changes. New in `digline.host`:
+  `unignored` and `unignored_notes`.
+- **`digline run` says whether a pending journal's process is still running**
+  (#478). Each leg's header records the process id and the host that opened
+  it, and the note about a run started and never written now says whether the
+  newest leg's process is still running, has ended, or cannot be told from
+  here. Resuming is still allowed: the note is there so you do not resume a run
+  another process is still paying for. Neither field is compared on resume,
+  and `JOURNAL_VERSION` does not move: a journal an older digline left is
+  still finished. New in `digline.host`: `this_process`, `process_state` and
+  `ProcessState`; `JournalHeader` and `Pending` gain `pid` and `host`.
+
 ## digline-mcp — unreleased
 
+- **The `run` tool's log says when git would commit the run directory**
+  (#523). After the run is written, each of the tenant's `runs/` and
+  `name-table/` that git would not ignore is a warning in the server's log, on
+  its standard error, and not in the answer. Needs the core release that
+  carries `unignored`.
 - **The `run` tool carries `errored_checks`** (#654), the count `digline run
   --json` carries, from the same function. It needs the core release that
   carries the count, so this release's floor is owed at the cut.
@@ -110,6 +134,9 @@ notes under them are this file, verbatim.
 
 ## pytest-digline — unreleased
 
+- **`--digline-run` says when git would commit the run directory** (#523), in
+  the same words as `digline run`, on the session's standard error, after the
+  run is written. Needs the core release that carries `unignored`.
 - **A check the run has no verdict for is a `SKIPPED` row, never `PASSED`**
   (#574). When the baseline judged a check and the run did not, the row used to
   pass, though nothing judged it. It is skipped now, and says why: the reason a

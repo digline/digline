@@ -1533,7 +1533,8 @@ digline now keeps a **journal** beside the run while it goes:
 
 One record per **case**, written and `fsync`ed before the next case starts, in
 the same directory the runs live in and therefore covered by the same
-`.gitignore`. It holds exactly what the finished run file would hold and nothing
+`.gitignore`; where git does not ignore that directory, `digline run` says so
+(below). It holds exactly what the finished run file would hold and nothing
 more — a suite that does not record its answers does not journal them either —
 and it is **deleted the moment the run file exists**. A completed run looks
 exactly as it did before.
@@ -1549,6 +1550,16 @@ digline: tenant 'northwind' · 112 of 144 cases × 5 samples = 560 calls to the 
 With no key it takes the most recent unfinished run; `--resume KEY` names one.
 A plain `digline run` never resumes, and says on stderr that a journal is
 pending so the calls in it are not abandoned by accident.
+
+**It also says whether that journal's process is still running.** Each leg's
+header records the process id and the host that opened it, and the note reads
+the newest leg's: the process is *still running* (unless another process has
+taken that id since), *has ended*, or *cannot be told from here*, because the
+journal was opened on another host or by a digline that did not record it.
+Neither field is a fact the run asserts, so no resume is refused over them, and
+a running process is not a refusal either: nothing locks a journal, and the
+note is there so you do not resume a run another process is still paying for
+(ADR 0017 §5).
 
 **A resumed run is not marked as one, because there is nothing to mark.** It
 carries the `created_at` of the run it finishes, writes the file that run was
@@ -1646,6 +1657,17 @@ the path. It creates nothing, does not resolve links, and reads nothing.
   `*/name-table/`. **A `.gitignore` generated before this rule existed does not
   have that line, and digline never rewrites one that is already there**:
   add `*/name-table/` to it by hand before the table is written.
+
+**Where git would commit either directory, the front end that wrote the run
+says so.** `.digline/.gitignore` is written only where none exists, so one you
+already had may lack `*/runs/` — and a run file is written unredacted, and a
+journal names the host it ran on — or `*/name-table/`. After every run it
+writes, `digline run` asks `git check-ignore` about the tenant's `runs/` and
+`name-table/` and prints a line on stderr for each git would not ignore;
+`pytest --digline-run` prints the same lines, and the MCP server writes them to
+its log. Git decides, so a rule kept at the repository's root or written
+another way counts. Where git cannot answer — no repository, no git — nothing
+is said. It is never a refusal, and the exit code does not change.
 
 What is inside the directory, its format, its lock and its retention are the
 owning process's. `tenant_dir` is not documented and stays internal: the
