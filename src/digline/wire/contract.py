@@ -1061,11 +1061,11 @@ _ADDED: tuple[_AddedKey, ...] = (
     # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
     _AddedKey("run", "notes", _STRINGS, "#396; ADR 0024 §6.4"),
     # How many checks could not run, case checks and aggregates alike:
-    # `len(errored_verdicts(run))`. `run --json` and MCP's `run` always carry
-    # it, `0` included; optional because a caller of `run_json` that did not
-    # count leaves it out rather than claim a zero. A new number, so an added
-    # key and no bump. (#654)
-    _AddedKey("run", "errored_checks", _k("integer", optional=True), "#654"),
+    # `len(errored_verdicts(run))`. Required: `run --json`, `rejudge --json` and
+    # MCP's `run` all carry it, `0` included, because a key present on some of
+    # `run_json`'s documents and absent on others makes every reader branch on
+    # the absence. A new number, so an added key and no bump. (#654)
+    _AddedKey("run", "errored_checks", _INT, "#654"),
     # A run in which none of the cases that count was judged, read against the
     # suite's declaration: a new cause of exit 2, which a consumer reading
     # `exit_code` already honours, by the rule `pinned_drifted` arrived under.

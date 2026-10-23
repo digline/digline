@@ -536,7 +536,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
 
     ref = RunRef(tenant="acme", suite="qa", key=keys[1])
     plan = CallPlan(cases=4, samples=1, tenant="acme", reused=1)
-    yield "run_json", "run", run_json(ref, plan)
+    yield "run_json", "run", run_json(ref, plan, errored_checks=0)
     yield (
         "run_json judged",
         "run",

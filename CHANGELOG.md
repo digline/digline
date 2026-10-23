@@ -46,8 +46,8 @@ notes under them are this file, verbatim.
   the text of `reason`, which is payload and crosses no boundary. No schema, no
   key, no exit code, and no stored document moves.
 - **`digline run` says how many checks could not run** (#654). On stderr, when
-  any could not, *"2 checks could not run."*; in `run --json`, always, as
-  `errored_checks`, `0` included. The count is every verdict in `error`, a
+  any could not, *"2 checks could not run."*; in `run --json` and
+  `rejudge --json`, always, as `errored_checks`, `0` included. The count is every verdict in `error`, a
   case's checks and the run's aggregates alike. An added key, so
   `OUTPUT_VERSION` does not move. The first half of #654 made `run` exit `2`
   when it judged nothing; this is the other half, the sentence.

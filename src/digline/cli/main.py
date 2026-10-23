@@ -506,7 +506,14 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     if args.json:
         emit(
             json.dumps(
-                run_json(ref, plan, judge_reading=reading, replayed=True, notes=notes)
+                run_json(
+                    ref,
+                    plan,
+                    judge_reading=reading,
+                    replayed=True,
+                    notes=notes,
+                    errored_checks=len(errored_verdicts(run)),
+                )
             )
         )
     else:
