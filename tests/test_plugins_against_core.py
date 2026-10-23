@@ -234,13 +234,42 @@ def test_the_summary_names_the_debt_and_where_it_is_ruled() -> None:
             "pytest-digline", "broken", "0.3.1", "<0.35", "failed its exercise"
         ),
     ]
-    text = script.summary("0.34.0", outcomes)
+    text = script.summary("Plugins", "0.34.0", outcomes)
     assert (
         "| `digline-mcp` | 0.6.2 | `<0.34,>=0.32.0` | **excluded**: "
         "excluded by its cap, so this release owes it a release" in text
     )
     assert '"The plugins, after this release"' in text
     assert "**works**" in text and "**broken**" in text
+    assert text.startswith("### Plugins\n")
+
+
+@pytest.mark.parametrize(("title", "written"), [("Plugins", True), ("", False)])
+def test_the_table_reaches_the_summary_under_the_steps_title(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, title: str, written: bool
+) -> None:
+    """Under `SUMMARY_TITLE`, as `select_unpublished.py` does, and only then;
+    `broken` is the one outcome that fails the step."""
+    outcomes = [
+        script.Outcome("digline-mcp", "excluded", "0.6.2", "<0.34", "excluded"),
+        script.Outcome("pytest-digline", "broken", "0.3.1", "<0.35", "failed"),
+    ]
+
+    def roster(dist: Path) -> tuple[str, list[str]]:
+        return "0.34.0", ["digline-mcp"]
+
+    def check(dist: Path, work: Path) -> list[script.Outcome]:
+        return outcomes
+
+    monkeypatch.setattr(script, "roster", roster)
+    monkeypatch.setattr(script, "check", check)
+    page = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(page))
+    monkeypatch.setenv("SUMMARY_TITLE", title)
+    assert script.main_check() == 1
+    assert page.exists() is written
+    if written:
+        assert page.read_text().startswith("### Plugins\n")
 
 
 def test_a_dist_with_no_plugin_is_refused_rather_than_passed(tmp_path: Path) -> None:

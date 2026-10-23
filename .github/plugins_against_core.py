@@ -348,9 +348,12 @@ def check(dist: pathlib.Path, work: pathlib.Path) -> list[Outcome]:
     return outcomes
 
 
-def summary(core: str, outcomes: Sequence[Outcome]) -> str:
+def summary(title: str, core: str, outcomes: Sequence[Outcome]) -> str:
     lines = [
-        f"### digline {core} against the plugins PyPI serves",
+        f"### {title}",
+        "",
+        f"digline {core} as TestPyPI serves it, beside the newest version PyPI "
+        "serves of each plugin.",
         "",
         "| Plugin | Newest on PyPI | Its range on digline | Outcome |",
         "|---|---|---|---|",
@@ -369,10 +372,16 @@ def main_check() -> int:
     core, _ = roster(dist)
     with tempfile.TemporaryDirectory() as tmp:
         outcomes = check(dist, pathlib.Path(tmp))
-    section = summary(core, outcomes)
+    # As `select_unpublished.py` does: the title comes from the step, which is
+    # how `tests/test_gate_summary.py` counts what the reviewer reads before
+    # the click. Without one the table is printed to the log only.
+    title = os.environ.get("SUMMARY_TITLE", "")
+    section = summary(
+        title or "The core against every plugin PyPI serves", core, outcomes
+    )
     print(section)
     path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if path:
+    if title and path:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(section + "\n")
     broken = [o for o in outcomes if o.word == "broken"]

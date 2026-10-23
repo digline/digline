@@ -221,6 +221,8 @@ jobs:
         # Workspace tags only: a tag of plugins alone puts no new core on
         # TestPyPI, so there is no core to try them against.
         if: startsWith(github.ref_name, 'v')
+        env:
+          SUMMARY_TITLE: The core against every plugin PyPI serves
         run: |
           uv run --no-project --with packaging==26.3 \
             python .github/plugins_against_core.py check
