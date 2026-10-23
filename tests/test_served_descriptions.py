@@ -25,6 +25,7 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / ".github" / "served_descriptions.py"
@@ -174,3 +175,30 @@ def test_a_dist_with_no_wheel_is_refused_rather_than_passed(tmp_path: Path) -> N
     done = run(tmp_path, INDEX="http://127.0.0.1:9")
     assert done.returncode == 1
     assert "would pass by reading nothing" in done.stderr
+
+
+# --- where it runs: publish.yml -------------------------------------------------
+
+
+def test_the_step_runs_in_pypi_after_its_wait_on_every_tag() -> None:
+    """In `pypi`, which runs on every tag: pytest-digline's README, where the
+    last corrected wording was, ships on a tag of its own, and `github-release`
+    runs on workspace tags only."""
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "publish.yml").read_text()
+    )
+    job = workflow["jobs"]["pypi"]
+    assert "if" not in job
+    steps = list(job["steps"])
+    (check,) = [
+        i
+        for i, s in enumerate(steps)
+        if "served_descriptions.py" in str(s.get("run", ""))
+    ]
+    (wait,) = [
+        i for i, s in enumerate(steps) if "await_index.py" in str(s.get("run", ""))
+    ]
+    assert check > wait
+    assert "if" not in steps[check]
+    assert steps[check]["env"] == {"TIMEOUT": "600", "INTERVAL": "10"}
+    assert "if" in workflow["jobs"]["github-release"]

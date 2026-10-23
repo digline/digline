@@ -31,6 +31,7 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / ".github" / "plugins_against_core.py"
@@ -256,3 +257,52 @@ def test_the_roster_is_dist_less_the_core(tmp_path: Path) -> None:
     ):
         (tmp_path / wheel).write_bytes(b"")
     assert script.roster(tmp_path) == ("0.34.0", ["digline-mcp", "pytest-digline"])
+
+
+# --- where it runs: publish.yml -------------------------------------------------
+
+
+def steps_of_testpypi() -> list[dict[str, object]]:
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "publish.yml").read_text()
+    )
+    return list(workflow["jobs"]["testpypi"]["steps"])
+
+
+def position(steps: list[dict[str, object]], needle: str) -> int:
+    (found,) = [i for i, s in enumerate(steps) if needle in str(s.get("run", ""))]
+    return found
+
+
+def test_the_step_runs_in_testpypi_after_the_install_and_before_the_gate() -> None:
+    """In `testpypi`, which `pypi` waits on: a red here stops the upload, and
+    its summary is on the page the reviewer clicks from. After the install,
+    which is what put this core on TestPyPI for it to install."""
+    steps = steps_of_testpypi()
+    check = position(steps, "plugins_against_core.py check")
+    assert check > position(steps, "gate_summary.py install TestPyPI")
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "publish.yml").read_text()
+    )
+    assert workflow["jobs"]["pypi"]["needs"] == "testpypi"
+    assert "packaging==" in str(steps[check]["run"])
+    uv = [i for i, s in enumerate(steps) if "setup-uv" in str(s.get("uses", ""))]
+    assert uv and uv[0] < check
+
+
+@pytest.mark.parametrize(
+    ("tag", "runs"),
+    [
+        ("v0.34.0", True),
+        ("pytest-digline-v0.4.0", False),
+        ("digline-mcp-v0.7.0", False),
+        ("digline-anthropic-v0.6.2", False),
+    ],
+)
+def test_the_step_runs_on_workspace_tags_only(tag: str, runs: bool) -> None:
+    """A tag of plugins alone puts no new core on TestPyPI. The condition is
+    read as GitHub evaluates `startsWith`; the `False` rows are the control."""
+    steps = steps_of_testpypi()
+    condition = steps[position(steps, "plugins_against_core.py check")]["if"]
+    assert condition == "startsWith(github.ref_name, 'v')"
+    assert tag.startswith("v") is runs
