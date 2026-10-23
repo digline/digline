@@ -3,13 +3,10 @@
 - Status: accepted 2026-10-18, by Alessandro Prandini, after its code landed
   in #582. *Updated 2026-10-23:* **the promotion half arrived with
   [ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)**, and the pull
-  request that implements it closes #483. The rest of this paragraph was
-  written while the promotion's half had not landed, and is kept as written.
-  **#483 stays open for its promotion half.** The code of the
-  comparison has landed; the promotion's has not, and *Context* leaves it
-  outside this record (*"`promote` computes no comparison … That is outside
-  this record"*). The sentence below on closing #483 holds for the half that
-  landed.
+  request that implements it closes #483. The code of both halves is in
+  `main`: the comparison's in #582, the promotion's with ADR 0053. *Context*
+  still says *"`promote` computes no comparison … That is outside this
+  record"*, which was true when it was written, and carries a dated note.
   Proposed 2026-10-16. The decision below was ruled on 2026-10-16,
   on #483, before this record was written. The text is not yet accepted, and
   nothing in it is implemented. #483 stays open: this record answers its
