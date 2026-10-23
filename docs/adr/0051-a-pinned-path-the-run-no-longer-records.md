@@ -76,6 +76,11 @@ issue.
 - `promote` computes no comparison. Its refusals are read from the run document
   and from the baseline in force (`src/digline/store/promotion.py`), so a pin
   never blocks a promotion, renamed or not. That is outside this record.
+  *No longer true since 2026-10-23 ([ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)),
+  and kept as written.* `promote` now compares the run with the baseline it
+  replaces, beside the write and after condition 8, and a drifted or lost pin
+  refuses the promotion unless `--accepting-pin` names exactly the paths it
+  implicates. The sentence was true of the code it describes, at `7289fd7`.
 
 **What ADR 0029 considered.** §7's reason for not firing on `new` is the first
 comparison after a pin is added: it *"would go red on arrival, teaching the

@@ -472,6 +472,15 @@ available only to suites written in Python would be a control the declarative
 users cannot have, and there is no reason here of the kind that keeps `pricing`
 out.
 
+*Added 2026-10-23 ([ADR 0053](0053-promote-refuses-a-pin-nobody-named.md)): one
+thing this section does not list now moves, and it is promotion.* A drifted
+pin, and since ADR 0051 a lost one, refuses `promote` unless `--accepting-pin`
+names exactly the paths it implicates. That holds whatever the exit code, so a
+drift beside a regression is refused too. Before, a drift was accepted by
+promoting, and nothing said so. The register still gains nothing, and
+`OUTPUT_VERSION` still stays 2: `compare --json` gains one added key,
+`unjudged_causes`. The section above is kept as written.
+
 ## Consequences
 
 The feature costs a schema bump, which is a ritual with a release in the middle

@@ -672,7 +672,10 @@ def _actions_cell(
     `promote_baseline`'s own — configuration before errors — so the page can
     never announce a different reason from the one the call would give. The
     refusal in the store stays: it is the second line, not the first way the
-    rule is met.
+    rule is met. *Not for a pin, since ADR 0053*: a drifted or lost pin is read
+    against the reference, which this row does not compare with, so the button
+    is drawn and the store's refusal is the first line. It names the command
+    line and the paths to accept.
 
     **The three markers survive `allow_promote=False` and nothing replaces the
     button.** They answer *why not this run*, which is still a true and useful
