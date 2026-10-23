@@ -526,10 +526,14 @@ def exercise_mcp(app: pathlib.Path) -> None:
     except BaseExceptionGroup as group:
         # The SDK's task group wraps what `go` raised; the sentence is the
         # first exit inside it, and anything else is shown whole.
+        # The groups nest, one per task group the client opens.
         exits = group.subgroup(SystemExit)
         if exits is None:
             raise
-        raise exits.exceptions[0] from None
+        first: BaseException = exits
+        while isinstance(first, BaseExceptionGroup):
+            first = first.exceptions[0]
+        raise first from None
 
 
 def exercise_provider(app: pathlib.Path, provider: str) -> None:
