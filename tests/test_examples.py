@@ -378,6 +378,86 @@ STANDALONE_PARAMS = [
 ]
 
 
+def _quickstart_toml(tmp_path: Path, label: str) -> Path:
+    """A copy of the one example that needs a service, as the fixture makes it."""
+    workdir = tmp_path / label
+    shutil.copytree(
+        ROOT / "examples" / "quickstart-toml",
+        workdir,
+        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
+    )
+    return workdir
+
+
+def _url_port(workdir: Path) -> int:
+    """The port the copy's `suite.toml` sends its cases to."""
+    text = (workdir / "suite.toml").read_text(encoding="utf-8")
+    url = str(tomllib.loads(text)["target"]["url"])
+    found = re.fullmatch(r"http://127\.0\.0\.1:(\d+)/answer", url)
+    assert found, url
+    return int(found.group(1))
+
+
+def test_two_entries_into_application_get_different_ports(tmp_path: Path) -> None:
+    """Why `quickstart-toml` carries no `xdist_group`: two copies held open at
+    once, as two workers would, each get a port of their own, each copy's
+    `suite.toml` names its own, and both stubs answer."""
+    first = _quickstart_toml(tmp_path, "first")
+    second = _quickstart_toml(tmp_path, "second")
+    with (
+        application(first, "quickstart-toml") as one,
+        application(second, "quickstart-toml") as two,
+    ):
+        assert one is not None
+        assert two is not None
+        assert one != two
+        assert _url_port(first) == one
+        assert _url_port(second) == two
+        assert _answers(one)
+        assert _answers(two)
+
+
+def test_the_example_as_written_still_names_8730() -> None:
+    """The port is rewritten in the copy, never in the example a reader runs."""
+    assert _url_port(ROOT / "examples" / "quickstart-toml") == 8730
+
+
+def test_a_port_held_before_the_stub_starts_is_refused(tmp_path: Path) -> None:
+    """A process these tests did not start holds the port before ours is
+    launched: refused by name, and before anything runs against it. This is
+    what happened on 2026-10-18 and 2026-10-19 (#624), with 8730."""
+    workdir = _quickstart_toml(tmp_path, "held")
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", 0))
+        holder.listen()
+        port = int(holder.getsockname()[1])
+        with (
+            pytest.raises(pytest.fail.Exception, match="answered before"),
+            application(workdir, "quickstart-toml", port=port),
+        ):
+            pass
+
+
+def test_a_port_taken_between_the_check_and_the_bind_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The case the first check cannot see: the port looked free, and another
+    process holds it by the time ours binds. Ours then dies with *Address
+    already in use*, and the other one answers on the port. Refused because
+    ours never said it was listening, whatever answers there."""
+    workdir = _quickstart_toml(tmp_path, "taken")
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", 0))
+        holder.listen()
+        port = int(holder.getsockname()[1])
+        monkeypatch.setattr(sys.modules[__name__], "_answers", lambda port: False)
+        with (
+            pytest.raises(pytest.fail.Exception, match="did not say it listens"),
+            application(workdir, "quickstart-toml", port=port),
+        ):
+            pass
+
+
 @pytest.fixture(params=STANDALONE_PARAMS)
 def standalone(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[Path]:
     """A copy, without its baseline: the cycle has to work from nothing."""
