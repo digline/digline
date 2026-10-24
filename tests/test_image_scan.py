@@ -50,7 +50,7 @@ def _sarif(digest: str = DIGEST, results: int = 2) -> Any:
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "Trivy", "rules": []}},
+                "tool": {"driver": {"name": "Trivy", "rules": list[Any]()}},
                 "results": [
                     {
                         "ruleId": f"CVE-2011-{3374 + i}",

@@ -1,0 +1,162 @@
+name: dependency-audit
+
+# What the locks resolve to, read against the advisories every week — without
+# waiting for an alert.
+#
+# Dependabot's version updates move only what a manifest declares, and its
+# security updates are off for this repository: a transitive package moves only
+# when somebody reads its alert and runs `uv lock --upgrade-package`. This reads
+# the root `uv.lock` and every `examples/*/uv.lock` with osv-scanner, subtracts
+# what `.github/accepted_advisories.toml` accepts, and writes what is left into
+# one issue.
+#
+# **Reconciliation, not notification**, on `release-followup.yml`'s precedent:
+# one open issue, labelled `dependency-audit`. A failing run rewrites it while
+# it is open and opens it when it is not; a passing run closes it with a
+# comment; a run that could not read something leaves it as it was. The job is
+# red as well, last: the red is for whoever is watching, the issue for whoever
+# is not.
+#
+# The package names and versions in the locks go to osv.dev, which is the
+# scan. They are this public repository's locks, never anything of a user's,
+# the same exception to fixed decision 5 that `scorecard.yml` states.
+on:
+  schedule:
+    # Monday, 08:00 UTC: after `ci.yml` at 07:00, `scorecard.yml` at 07:20 and
+    # `codeql.yml` at 07:40, and before `image-scan.yml` at 08:20.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read the locks against the advisories
+    runs-on: ubuntu-latest
+    permissions:
+      # Enumerated because a job-level block replaces the top-level one, and
+      # every entry here is spent by a named step below:
+      contents: read # checkout
+      issues: write # open, rewrite and close the one issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing below pushes, and `gh` authenticates through GH_TOKEN.
+          persist-credentials: false
+
+      # A release binary, at a version written here and checked against the
+      # sha256 its release publishes, read on 2026-10-24 from
+      # `osv-scanner_SHA256SUMS`. The same rule as a `uses:` at a commit: what
+      # runs is what was read, and moving it is a commit.
+      - name: Install osv-scanner
+        env:
+          OSV_SCANNER_VERSION: "2.7.0"
+          OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+        run: |
+          curl --fail --silent --show-error --location --output osv-scanner \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum --check --strict
+          chmod +x osv-scanner
+          ./osv-scanner --version
+
+      # `--all-packages` lists every lock it read, with or without a finding,
+      # which is how the report tells a lock with nothing in it from a lock that
+      # was never read. Exit 1 is "found something" and is a reading; any other
+      # non-zero exit is not, and the report says it was not judged.
+      - name: Scan the locks
+        id: scan
+        run: |
+          set +e
+          args=(--lockfile=uv.lock)
+          for lock in examples/*/uv.lock; do
+            args+=("--lockfile=$lock")
+          done
+          ./osv-scanner scan source "${args[@]}" --all-packages --format json > osv.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: What is found, less what is accepted
+        env:
+          OSV_EXIT: ${{ steps.scan.outputs.exit }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          python3 .github/dependency_audit.py report --osv osv.json \
+            --osv-exit "$OSV_EXIT" --commit "$COMMIT" --out report.json
+          python3 -c 'import json; print(json.load(open("report.json"))["body"])' \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # A listing that fails is not an empty list: nothing is opened, rewritten
+      # or closed, and the step goes red. An empty one is believed, except where
+      # an absence makes this step write: before opening an issue the list is
+      # asked again, because an empty answer there opens a duplicate.
+      # (`release-followup.yml`, and RELEASING.md, Status, v0.22.0.)
+      - name: The one issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 -c 'import json; open("body.md","w").write(json.load(open("report.json"))["body"])'
+          title="$(python3 -c 'import json; print(json.load(open("report.json"))["title"])')"
+          gh label create dependency-audit --color B60205 \
+            --description "An advisory in a lock that nobody has accepted" \
+            --force > /dev/null 2>&1 || true
+          read_issues() {
+            gh issue list --label dependency-audit --state open --limit 50 \
+              --json number,title > open.json
+          }
+          if ! read_issues; then
+            echo "::error::the open dependency-audit issues could not be listed; nothing was opened, rewritten or closed"
+            exit 1
+          fi
+          action="$(python3 .github/dependency_audit.py decide --issues open.json --report report.json)"
+          if [ "$action" = "create" ]; then
+            for try in 1 2 3; do
+              sleep 5
+              if ! read_issues; then
+                echo "::error::the open dependency-audit issues could not be listed a second time; no issue was opened"
+                exit 1
+              fi
+              action="$(python3 .github/dependency_audit.py decide --issues open.json --report report.json)"
+              [ "$action" = "create" ] || break
+            done
+          fi
+          case "$action" in
+            leave)
+              echo "::warning::a lock could not be read; the issue is left as it was"
+              ;;
+            nothing)
+              echo "nothing open, nothing to close"
+              ;;
+            close\ *)
+              number="${action#close }"
+              gh issue comment "$number" --body-file body.md
+              gh issue close "$number" \
+                --comment "Nothing in the locks that is not accepted; closed by dependency-audit.yml."
+              echo "closed #$number"
+              ;;
+            edit\ *)
+              number="${action#edit }"
+              gh issue edit "$number" --title "$title" --body-file body.md
+              echo "rewrote #$number"
+              ;;
+            create)
+              gh issue create --label dependency-audit --title "$title" --body-file body.md
+              echo "opened an issue, after four listings showed none"
+              ;;
+            *)
+              echo "::error::dependency_audit.py decided '$action', which this step does not know"
+              exit 1
+              ;;
+          esac
+
+      - name: Fail if an advisory nobody accepted is in a lock
+        run: |
+          ok="$(python3 -c 'import json; d=json.load(open("report.json")); print(d["ok"] and not d["undecided"])')"
+          if [ "$ok" != "True" ]; then
+            echo "::error::$(python3 -c 'import json; print(json.load(open("report.json"))["title"])') — see the issue labelled dependency-audit"
+            exit 1
+          fi

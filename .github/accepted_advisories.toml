@@ -1,0 +1,31 @@
+# The advisories accepted in a lock: what the weekly dependency audit
+# subtracts from osv-scanner's findings (`.github/dependency_audit.py`).
+#
+# One row per advisory, per lock: an acceptance covers the lock it names and no
+# other, the way Dependabot opens one alert per manifest. Four fields, all
+# required, and no other:
+#
+# - `ghsa`, the advisory's GHSA identifier;
+# - `manifest`, the lock's path from the repository's root;
+# - `date`, a TOML date: the day the acceptance was decided;
+# - `reason`, why it is accepted, in one sentence.
+#
+# Every row is declared in SECURITY.md's *Advisories against a dependency*, and
+# every advisory that section names is a row here:
+# `tests/test_accepted_advisories.py` fails on either half. A row nothing
+# matches any more is listed in the audit's issue as one that can go.
+
+# nltk, through llama-index-core, in the root lock's `dev` group and in the
+# example's own lock. The date is Dependabot's dismissal of alerts 1 and 2,
+# 2026-10-08T07:41Z, reason `not_used`.
+[[advisory]]
+ghsa = "GHSA-8mgp-746c-j5xp"
+manifest = "uv.lock"
+date = 2026-10-08
+reason = "Not reached by anything we ship."
+
+[[advisory]]
+ghsa = "GHSA-8mgp-746c-j5xp"
+manifest = "examples/llamaindex/uv.lock"
+date = 2026-10-08
+reason = "Not reached by anything we ship."
