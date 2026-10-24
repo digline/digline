@@ -14,13 +14,41 @@ from digline.core import (
     ConfigDelta,
     Run,
     SuiteDelta,
+    Verdict,
     key_of,
 )
 from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
 from digline.wire.text import neutralised
 
-__all__ = ["compare_json", "config_json", "delta_json", "rule_json"]
+__all__ = [
+    "before_interval_json",
+    "compare_json",
+    "config_json",
+    "delta_json",
+    "rule_json",
+]
+
+
+def before_interval_json(before: Verdict | None) -> dict[str, object] | None:
+    """The range the reference's own samples spanned, in the shape `diff`
+    writes an interval in, or `null` where the reference holds no samples for
+    the check: one sample, or no verdict at all.
+
+    The scale of a movement, and **not** its floor. It rides on a flip too,
+    where `noise_*` stays absent because nothing was judged against an
+    interval (ADR 0006 §6, amended for #1). Computed here from the reference's
+    verdict, so `AssertionDelta` never holds it, no branch of `compare()` reads
+    it, and the report, which reads the delta, never prints it.
+    """
+    if before is None or not before.score.sampled:
+        return None
+    score = before.score
+    return {
+        "min": score.sample_min,
+        "max": score.sample_max,
+        "samples": len(score.samples),
+    }
 
 
 def delta_json(delta: AssertionDelta) -> dict[str, object]:
@@ -64,6 +92,10 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         "noise_width": delta.noise_width,
         "noise_sd": delta.noise_sd,
         "noise_judged": list(delta.noise_judged),
+        # The range the reference's samples spanned, on every row and a flip's
+        # included: the scale of the movement, beside the verdict and never
+        # inside it. An added key. (#1; ADR 0006 §6, amended)
+        "before_interval": before_interval_json(delta.baseline),
         # Which row produced the exit code, when the headline says a canary
         # moved. A pipeline that reads only the number sees no change in kind;
         # one that wants to point at the check has the field. (ADR 0016 §8)

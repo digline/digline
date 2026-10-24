@@ -1111,6 +1111,14 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("fact.check", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
     _AddedKey("fact.check", "noise_judged", _k(_arr("number")), "ADR 0050"),
     _AddedKey("fact.check", "noise_source", _STR, "ADR 0050"),
+    # The range the reference's own samples spanned, on a comparison's row and
+    # on explain's check, under one name and in `diff`'s `interval` shape:
+    # `null` where the reference holds no samples for the check. It rides on a
+    # flip too, where `noise_*` stays absent: the scale of the movement, never
+    # the floor it was judged against, and no verdict reads it. (#1; ADR 0006
+    # §6, amended)
+    _AddedKey("delta", "before_interval", _k(_Obj("interval"), "null"), "#1"),
+    _AddedKey("fact.check", "before_interval", _k(_Obj("interval"), "null"), "#1"),
     # Every cause of exit 2 that holds, each named as the boolean or count
     # beside it on the same document: `unjudged`, `scale_lost`,
     # `pinned_drifted`, `pinned_lost`, `nothing_judged`. What `exit_code` reads,
