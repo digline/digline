@@ -8,6 +8,22 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **A sample that never voted is said where a person looks** (#656, from #598).
+  A sampled check can meet its `min_agreement` with a sample that could not be
+  judged, and its floor then rests on the judged ones alone. Two places now say
+  so:
+  - `digline promote` prints one more line per such check, after the line that
+    names the baseline: the case, the check, and *"4 of 5 samples were judged,
+    so the reference rests on fewer samples than the suite asked for"*. It does
+    not refuse: `min_agreement` is the suite author's declaration of how many
+    samples are enough;
+  - the floor's sentence, in `compare`'s reason, in the report and in
+    `explain`, in English and Italian, names the count asked for beside the
+    judged one: *"over 4 judged samples of the 5 asked for"*. Where every
+    sample was judged it reads as before, word for word.
+
+  Nothing of it reaches `--json`. A run where every sample was judged prints
+  exactly what it printed before, at `promote` and everywhere else.
 - **`compare --json` and `explain --json` say how far the reference's samples
   spread, on a flip too** (#1; ADR 0006 §6, noted). Each delta and each check
   carries `before_interval`: the range the reference's own samples spanned, as
