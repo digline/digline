@@ -296,6 +296,11 @@ class AssertionDelta:
     #: How many samples the interval was measured over, for the sentence the
     #: report prints: "0.85–0.95 across 5 samples".
     noise_samples: int = 0
+    #: How many samples the reference's suite asked for, where its record says
+    #: so: more than `noise_samples` when a sample never voted. The report and
+    #: `explain` name it beside the judged count; the wire does not carry it.
+    #: (#656)
+    noise_asked: int | None = None
     #: What a floor from the mean was computed from — the declared width, the
     #: standard deviation and the judged samples — so whatever prints it prints
     #: them. `None`, `None` and `()` on a range and where there is no floor.
@@ -786,6 +791,11 @@ class Noise:
     width: float | None = None
     sd: float | None = None
     judged: tuple[float, ...] = ()
+    #: How many samples the suite asked for, as the reference's record says it
+    #: (`metadata["samples"]`), or `None` where it does not say. Where it is
+    #: more than `count`, a sample never voted and the floor rests on fewer than
+    #: were asked for, and the sentence says so (#656).
+    asked: int | None = None
 
     @property
     def known(self) -> bool:
@@ -834,10 +844,15 @@ class Noise:
             # 0050, the fourth item)
             values = ", ".join(f"{value:g}" for value in self.judged)
             mean_se, movement_se = self.standard_errors()
+            # Two forms: the count asked for only where it differs, so the
+            # ordinary case reads as it always has. (#656)
+            judged = f"{self.count} judged samples"
+            if self.asked is not None and self.asked != self.count:
+                judged += f" of the {self.asked} asked for"
             return (
                 f"{self.low:.6f}-{self.high:.6f}, {self.width:g} standard errors "
                 f"of the movement either side of the baseline's score: standard "
-                f"deviation {self.sd:.6f} over {self.count} judged samples "
+                f"deviation {self.sd:.6f} over {judged} "
                 f"({values}), a standard error of the mean of {mean_se:.6f}, and "
                 f"√2 times that, {movement_se:.6f}, for the movement"
             )
@@ -1123,6 +1138,21 @@ def _noise(verdict: Verdict) -> Noise:
     return Noise(score.sample_min, score.sample_max, len(score.samples))
 
 
+def asked_samples(verdict: Verdict) -> int | None:
+    """How many samples the suite asked for, as the verdict's record says it.
+
+    `metadata["samples"]`, which the fold writes as every sample asked for,
+    judged or not, and never the judged values' count: that one is
+    `len(score.samples)`, and reading it here would make a missing sample
+    invisible in exactly the sentence that is meant to name it. `None` where
+    the record says nothing, which is an unsampled check. (#656)
+    """
+    asked = verdict.score.metadata.get("samples")
+    if isinstance(asked, int) and not isinstance(asked, bool):
+        return asked
+    return None
+
+
 def _floor(now: Verdict, before: Verdict) -> tuple[Noise, str]:
     """A case's floor, and the clause that says why there is none.
 
@@ -1193,6 +1223,7 @@ def _floor(now: Verdict, before: Verdict) -> tuple[Noise, str]:
             width=width,
             sd=spread,
             judged=judged,
+            asked=asked_samples(before),
         ),
         "",
     )
@@ -1493,6 +1524,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_width=floor.width,
                 noise_sd=floor.sd,
                 noise_judged=floor.judged,
+                noise_asked=floor.asked,
                 canary=case_id in canaries,
                 calibration=case_id in calibrated,
             )

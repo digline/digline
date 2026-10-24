@@ -52,7 +52,12 @@ from digline.host.measure import (
     prepare,
     seed_observed,
 )
-from digline.host.promotion import pricing_for, promote, promote_priced
+from digline.host.promotion import (
+    pricing_for,
+    promote,
+    promote_priced,
+    promotion_notes,
+)
 from digline.host.reading import (
     Explained,
     Reported,
@@ -110,6 +115,7 @@ __all__ = [
     "pricing_for",
     "promote",
     "promote_priced",
+    "promotion_notes",
     "need_baseline",
     "read_artifacts",
     "read_pinned",

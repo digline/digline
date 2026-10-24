@@ -20,14 +20,51 @@ from __future__ import annotations
 from collections.abc import Collection
 
 from digline.core import Run
+from digline.core.compare import asked_samples
 from digline.host.errors import UsageError
 from digline.host.loader import TARGET_ATTR, Loaded, load_target
 from digline.host.resolve import LATEST
 from digline.host.resolve import replacing as expected_baseline_of
+from digline.report.text import phrase
 from digline.run import Suite, price_digest_of
 from digline.store import ResultStore, RunRef
 
-__all__ = ["pricing_for", "promote", "promote_priced"]
+__all__ = ["pricing_for", "promote", "promote_priced", "promotion_notes"]
+
+
+def promotion_notes(run: Run) -> tuple[str, ...]:
+    """What a person promoting `run` is owed beside the line that names it.
+
+    One sentence per check that met its agreement with a sample that never
+    voted: the case, the check, and how many of the samples asked for were
+    judged. The floor of that check rests on the judged ones alone, and the
+    person signing the reference is told before anything is compared against
+    it. Not a refusal: `min_agreement` is the suite author's declaration of how
+    many samples are enough, and a check that met it is the verdict its author
+    asked for (#656, *Decided*). A check that errored outright is refused by
+    the store before this is reached.
+
+    Composed here and not in `store/`, which refuses and does not narrate. In
+    English, like every other line `promote` prints.
+    """
+    notes: list[str] = []
+    for case in run.results:
+        for verdict in case.verdicts:
+            asked = asked_samples(verdict)
+            errored = verdict.score.metadata.get("errored_samples")
+            if asked is None or not isinstance(errored, int) or errored <= 0:
+                continue
+            notes.append(
+                phrase(
+                    "en",
+                    "promote.unjudged_samples",
+                    case=case.case_id,
+                    check=verdict.score.name,
+                    judged=asked - errored,
+                    asked=asked,
+                )
+            )
+    return tuple(notes)
 
 
 def pricing_for(loaded: Loaded, target: str | None, suite_spec: str) -> str:

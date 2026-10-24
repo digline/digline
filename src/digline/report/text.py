@@ -659,6 +659,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "judged samples ({values}), a standard error of the mean of "
             "{mean_se}, and √2 times that, {movement_se}, for the movement"
         ),
+        # The same, where a sample the suite asked for never voted: the count
+        # asked for beside the judged one, so the floor says what it rests on.
+        # (#656)
+        "noise.mean.asked": (
+            "{low}–{high}, {width} standard errors of the movement either side "
+            "of the reference's score: standard deviation {sd} over {count} "
+            "judged samples of the {asked} asked for ({values}), a standard "
+            "error of the mean of {mean_se}, and √2 times that, {movement_se}, "
+            "for the movement"
+        ),
+        # What `promote` says, one line per check, where a check met its
+        # agreement with a sample that never voted. It does not refuse:
+        # `min_agreement` is the suite author's declaration of how many samples
+        # are enough. (#656)
+        "promote.unjudged_samples": (
+            "{case} · {check}: {judged} of {asked} samples were judged, so the "
+            "reference rests on fewer samples than the suite asked for"
+        ),
         "detail.within_noise": (
             "Score moved from {before} to {now} — inside the range of the "
             "reference's individual samples ({noise}); not counted as a "
@@ -1924,6 +1942,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "punteggio del riferimento: deviazione standard {sd} su {count} "
             "campioni giudicati ({values}), un errore standard della media di "
             "{mean_se}, e √2 volte quello, {movement_se}, per il movimento"
+        ),
+        "noise.mean.asked": (
+            "{low}–{high}, {width} errori standard del movimento attorno al "
+            "punteggio del riferimento: deviazione standard {sd} su {count} "
+            "campioni giudicati dei {asked} chiesti ({values}), un errore "
+            "standard della media di {mean_se}, e √2 volte quello, "
+            "{movement_se}, per il movimento"
+        ),
+        "promote.unjudged_samples": (
+            "{case} · {check}: giudicati {judged} campioni su {asked}, quindi il "
+            "riferimento poggia su meno campioni di quelli che la suite ha chiesto"
         ),
         "detail.within_noise": (
             "Il punteggio si è spostato da {before} a {now} — dentro "
