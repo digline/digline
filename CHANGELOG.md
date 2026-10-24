@@ -159,6 +159,17 @@ notes under them are this file, verbatim.
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
 
+## digline-bedrock — unreleased
+
+- **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It
+  told a user to set `AWS_REGION`, which botocore does not read for the region:
+  set on its own it gives none, and the same sentence came back. With no
+  profile and no instance metadata, `AWS_DEFAULT_REGION` gave a region and
+  `AWS_REGION` alone did not, measured at boto3 and botocore 1.35.0, the oldest
+  this plugin admits, and at 1.43.114. The sentence is still a `ValueError`
+  raised when the target or the judge is built, and still names `region=` and
+  `client=`; only the variable changed. Needs no core release.
+
 ## 0.33.0 — 2026-10-21
 
 digline **0.33.0**. **A minor, because a comparison forgives less than it did:**
