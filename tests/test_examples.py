@@ -1500,6 +1500,53 @@ def operator_module(name: str) -> ModuleType:
     return module
 
 
+#: One check fact of `explain --json`, as the dossier reads it. `noise_samples`
+#: is 0, which is what a flip carries: the count beside an interval comes from
+#: `before_interval`, never from the floor.
+def _moved_fact(**overrides: Any) -> dict[str, Any]:
+    fact: dict[str, Any] = {
+        "kind": "regressed",
+        "noise_min": None,
+        "noise_max": None,
+        "noise_samples": 0,
+        "before_interval": {"min": 0.87, "max": 0.93, "samples": 3},
+    }
+    fact.update(overrides)
+    return fact
+
+
+def test_the_dossier_writes_the_range_the_baseline_samples_spanned() -> None:
+    """The column is the scale of the movement, `before_interval` (#1), with
+    the count taken from it: on a flip `noise_samples` is 0."""
+    interval = operator_module("dossier")._interval  # noqa: SLF001
+    assert interval(_moved_fact()) == "0.8700–0.9300 across 3 samples"
+
+
+def test_the_dossier_says_the_baseline_was_not_sampled() -> None:
+    """`null` is the baseline holding one sample for the check, and that is
+    what it says, on a regression too. Since ADR 0050 a regression with no
+    interval is not a flip: a check that declares no width carries none either,
+    so the word "flip" is not the dossier's to infer here."""
+    interval = operator_module("dossier")._interval  # noqa: SLF001
+    for kind in ("regressed", "unchanged", "improved"):
+        said = interval(_moved_fact(kind=kind, before_interval=None))
+        assert said == "no interval: the baseline was not sampled", said
+        assert "flip" not in said
+
+
+def test_the_dossier_says_the_digline_that_made_the_cycle_does_not_report_it() -> None:
+    """A cycle made by a digline whose `explain --json` has no
+    `before_interval`, which is every release before #1. Not the same sentence
+    as an unsampled baseline: one is a fact about the baseline, the other a
+    fact about the tool that read it."""
+    interval = operator_module("dossier")._interval  # noqa: SLF001
+    fact = _moved_fact()
+    del fact["before_interval"]
+    said = interval(fact)
+    assert said == "no interval: the digline that made this cycle does not report it"
+    assert said != interval(_moved_fact(before_interval=None))
+
+
 def a_cycle(
     verdict: str,
     *,
