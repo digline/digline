@@ -218,7 +218,11 @@ declared dependencies, resolved on their own machine. So an advisory against a
 dependency is answered here by what ships, not by what was counted. Either
 count can move with no commit here, the day an advisory is published. The scan
 says which advisories are open today; this section says which of them we
-declared, and why.
+declared, and why. Each one declared here is a row of
+`.github/accepted_advisories.toml`, which the weekly dependency audit subtracts
+from what osv-scanner finds in the locks, and
+`tests/test_accepted_advisories.py` fails when either names an advisory the
+other does not.
 
 - **nltk, [GHSA-8mgp-746c-j5xp](https://osv.dev/GHSA-8mgp-746c-j5xp): open,
   with no fix upstream, and not shipped.** The advisory covers every nltk

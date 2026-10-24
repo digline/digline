@@ -1,0 +1,142 @@
+name: image-scan
+
+# The published image, read against the advisories every week: the base
+# image's OS packages and the Python distributions installed in it.
+#
+# `docker-publish.yml` builds `ghcr.io/digline/digline` and runs the quickstart
+# inside it; nothing there asks what the image is made of. A base image ages
+# between releases, so this is a schedule against `latest` and not a step of
+# the release. The findings go to Code scanning as SARIF, where *Before the
+# tag: the alert list* in RELEASING.md reads them with every other alert.
+#
+# `latest` moves, so it is resolved to a digest once, at the start, and both
+# platforms of that digest are scanned. Every result says, in its message,
+# which image it was found in (`.github/image_scan.py`), and the run's summary
+# says it too.
+#
+# Each platform is scanned twice, the second from what the first left in
+# trivy's cache (1.4 s locally on 2026-10-24). The SARIF is made with
+# `--ignore-unfixed`, so Code scanning carries what somebody can act on: a
+# finding with a fixed version. The summary is read from an unfiltered JSON
+# report and says everything found — the total, by severity, how many have a
+# fix — so what the filter leaves out is still counted where it can be read.
+# No threshold, and no severity makes this job red.
+#
+# The image's package list goes nowhere: trivy downloads its database and
+# matches locally. The pull is of this repository's public image.
+on:
+  schedule:
+    # Monday, 08:20 UTC: after `ci.yml` at 07:00, `scorecard.yml` at 07:20,
+    # `codeql.yml` at 07:40 and `dependency-audit.yml` at 08:00.
+    - cron: "20 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: image-scan
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Read the published image against the advisories
+    runs-on: ubuntu-latest
+    permissions:
+      # Enumerated because a job-level block replaces the top-level one, and
+      # every entry here is spent by a named step below:
+      contents: read # checkout
+      security-events: write # the SARIF uploads, at the end
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing below pushes or authenticates through git.
+          persist-credentials: false
+
+      # A release tarball, at a version written here and checked against the
+      # sha256 its release publishes, read on 2026-10-24 from
+      # `trivy_0.76.1_checksums.txt`. The same rule as a `uses:` at a commit:
+      # what runs is what was read, and moving it is a commit.
+      #
+      # **Dependabot does not move this.** Its `github-actions` ecosystem reads
+      # `uses:` lines, and a version in an `env:` is not one, so nothing opens
+      # a pull request when trivy releases. Moving it is by hand: the version,
+      # and the sha256 read again from that release's checksums file.
+      # `dependency-audit.yml` installs osv-scanner the same way, with the same
+      # gap.
+      - name: Install trivy
+        env:
+          TRIVY_VERSION: "0.76.1"
+          TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+        run: |
+          curl --fail --silent --show-error --location --output trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum --check --strict
+          tar -xzf trivy.tar.gz trivy
+          ./trivy --version
+
+      - name: Resolve latest to a digest, once
+        id: image
+        run: |
+          digest="$(docker buildx imagetools inspect ghcr.io/digline/digline:latest \
+            --format '{{json .Manifest}}' | python3 .github/image_scan.py resolve)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "### ghcr.io/digline/digline:latest is $digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Count everything in linux/amd64
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/amd64 \
+            --scanners vuln --pkg-types os,library --format json \
+            --output trivy-amd64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Scan linux/amd64 for what has a fixed version
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/amd64 \
+            --scanners vuln --pkg-types os,library --ignore-unfixed --format sarif \
+            --output trivy-amd64.sarif "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Name the image in every linux/amd64 result, and count
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 .github/image_scan.py name --sarif trivy-amd64.sarif \
+            --json trivy-amd64.json --out named-amd64.sarif \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/amd64
+
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: named-amd64.sarif
+          category: image-scan/linux/amd64
+
+      - name: Count everything in linux/arm64
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/arm64 \
+            --scanners vuln --pkg-types os,library --format json \
+            --output trivy-arm64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Scan linux/arm64 for what has a fixed version
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/arm64 \
+            --scanners vuln --pkg-types os,library --ignore-unfixed --format sarif \
+            --output trivy-arm64.sarif "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Name the image in every linux/arm64 result, and count
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 .github/image_scan.py name --sarif trivy-arm64.sarif \
+            --json trivy-arm64.json --out named-arm64.sarif \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/arm64
+
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: named-arm64.sarif
+          category: image-scan/linux/arm64

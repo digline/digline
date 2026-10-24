@@ -812,6 +812,18 @@ regeneration after the tag will move it (*After the tag*, step 3, *Dependabot
 moves only what a manifest declares*).
 An entry with `fixed: none` stays open with its reason written on it.
 
+Two scheduled workflows feed these lists, every Monday. `image-scan.yml` scans
+the published image's `latest` with trivy and uploads what it finds to Code
+scanning, so its alerts are in the first list under the tool `Trivy`, each
+naming the digest it was found in. `dependency-audit.yml` reads every lock with
+osv-scanner and keeps one issue open, labelled `dependency-audit`, while a lock
+holds an advisory that `.github/accepted_advisories.toml` does not accept. An
+open one is judged here, like an alert:
+
+```sh
+gh issue list -R digline/digline --label dependency-audit --state open
+```
+
 ## Before the tag: the site
 
 The gates above check this repository. This one checks the **other** one, and it
