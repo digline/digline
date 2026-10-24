@@ -123,9 +123,9 @@ def build_client(region: str | None) -> Any:
     """A `bedrock-runtime` client, region from the argument or from the chain.
 
     `region_name=None` lets botocore resolve it the way it resolves everything
-    else — `AWS_REGION`, the profile, the instance metadata. When it cannot,
-    botocore raises at construction, and that is turned into a sentence naming
-    the argument that fixes it.
+    else — `AWS_DEFAULT_REGION`, the profile, the instance metadata. When it
+    cannot, botocore raises at construction, and that is turned into a sentence
+    naming the argument that fixes it.
     """
     # boto3 ships no type information — the same upstream limitation the
     # jsonschema call site in the core carries, and the same remedy: name it
@@ -147,9 +147,9 @@ def build_client(region: str | None) -> Any:
     except NoRegionError as exc:
         raise ValueError(
             "no AWS region: the environment, the profile and the instance "
-            "metadata gave none. Pass `region=` to the target, set AWS_REGION, "
-            "or pass a `client=` that already has one — the region is not a "
-            "detail here, it is what the price list is chosen by"
+            "metadata gave none. Pass `region=` to the target, set "
+            "AWS_DEFAULT_REGION, or pass a `client=` that already has one — the "
+            "region is not a detail here, it is what the price list is chosen by"
         ) from exc
 
 
