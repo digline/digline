@@ -15,6 +15,7 @@ so `AssertionDelta` and the report never see it, and it changes no verdict.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any, cast
 
 from digline.core import CaseResult, Run, Score, Verdict, combine_samples, compare
@@ -177,6 +178,22 @@ def test_the_report_prints_no_interval_on_a_flip() -> None:
     assert (delta.noise_min, delta.noise_max, delta.noise_samples) == (None, None, 0)
     for locale in ("en", "it"):
         page = render_html(comparison, now, before, locale=locale, declared=None)
+        assert "across 5 samples" not in page
+        assert "su 5 campioni" not in page
+
+
+def test_the_report_prints_no_interval_on_a_flip_even_if_a_delta_carried_one() -> None:
+    """The second guard, on its own. `render.py` words a flip before it reads
+    any interval, so a flipped delta that did carry one, built here by hand
+    because `compare()` never builds it, still reaches the page without it.
+    With the test above, each of the two guards is pinned alone."""
+    now, before = _run(_folded(*FLIP_NOW)), _run(_folded(*FLIP_BEFORE))
+    comparison = compare(now, before)
+    (delta,) = comparison.deltas
+    carried = replace(delta, noise_min=0.0, noise_max=1.0, noise_samples=5)
+    forged = replace(comparison, deltas=(carried,))
+    for locale in ("en", "it"):
+        page = render_html(forged, now, before, locale=locale, declared=None)
         assert "across 5 samples" not in page
         assert "su 5 campioni" not in page
 
