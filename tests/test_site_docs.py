@@ -55,7 +55,7 @@ def _copied_by_sync_docs(script: str) -> set[str]:
         match.group(1) for match in re.finditer(r'for \w+ in "\$src"/(\S+?);', script)
     }
     # `cp -R "$src/docs/."` copies the directory's content: the path is docs/.
-    return {path[:-1] if path.endswith("/.") else path for path in quoted} | {
+    return {path[:-2] if path.endswith("/.") else path for path in quoted} | {
         path for path in looped
     }
 
