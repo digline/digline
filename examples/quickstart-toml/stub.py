@@ -18,12 +18,15 @@ test is genuinely somebody else's process. In CI that is two lines, and
 from __future__ import annotations
 
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-#: Fixed, because `suite.toml` names it. A data file has nowhere to put an
+#: 8730, because `suite.toml` names it. A data file has nowhere to put an
 #: ephemeral port, and that is the trade: the URL is written down, once, where
-#: a reader can see it.
-PORT = 8730
+#: a reader can see it. `STUB_PORT` moves it, for digline's own tests, which
+#: run a copy of this example with the port rewritten in that copy's
+#: `suite.toml`, so that two runs never share one.
+PORT = int(os.environ.get("STUB_PORT", "8730"))
 
 #: What the assistant replies. Deterministic, so the example is too.
 ANSWERS = {

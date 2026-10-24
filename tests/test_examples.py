@@ -16,7 +16,7 @@ import shutil
 import socket
 import subprocess
 import sys
-import time
+import threading
 import tomllib
 from collections.abc import Generator, Iterator, Sequence
 from contextlib import contextmanager
@@ -280,10 +280,11 @@ def test_every_declared_exclusion_is_real_and_is_actually_excluded() -> None:
 
 
 #: The examples whose application has to be started from **outside** the suite,
-#: with the port it listens on. There is exactly one, and the reason is the
-#: point of it: a suite that is data cannot import a module, so it cannot start
-#: a server the way `external-app/suite.py` does. The application under test is
-#: somebody else's process — which is what is true in production anyway.
+#: with the port the example's own files name. There is exactly one, and the
+#: reason is the point of it: a suite that is data cannot import a module, so it
+#: cannot start a server the way `external-app/suite.py` does. The application
+#: under test is somebody else's process — which is what is true in production
+#: anyway.
 NEEDS_A_SERVICE = {"quickstart-toml": 8730}
 
 
@@ -298,84 +299,200 @@ def _answers(port: int) -> bool:
         return probe.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _free_port() -> int:
+    """A port nothing listens on at this moment, as the system hands it out."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
 def _port_held(name: str, port: int) -> str:
     return (
-        f"{name}: port {port} is held by a process these tests did not start — "
-        f"most likely another tree's stub.py. Ours cannot bind it, and every "
-        f"test here would run against that one instead. Find who holds it "
+        f"{name}: port {port} answered before this test started its stub.py, so "
+        f"a process these tests did not start holds it, and every test here "
+        f"would run against that one instead. Find who holds it "
         f"(`lsof -nP -iTCP:{port} -sTCP:LISTEN`) and stop it only if it is "
         f"yours, by PID and never by port (CONTRIBUTING.md)."
     )
 
 
+def _port_lost(name: str, port: int, said: str) -> str:
+    return (
+        f"{name}: the stub.py this test started did not say it listens on port "
+        f"{port} (it said {said!r}). Another process took the port between the "
+        f"check and the bind, and whatever answers there is not ours. Find who "
+        f"holds it (`lsof -nP -iTCP:{port} -sTCP:LISTEN`)."
+    )
+
+
+def _rewrite_port(workdir: Path, name: str, written: int, port: int) -> None:
+    """Point the copy's `suite.toml` at `port`. The example keeps its own."""
+    path = workdir / "suite.toml"
+    text = path.read_text(encoding="utf-8")
+    url = f'url = "http://127.0.0.1:{written}/answer"'
+    if text.count(url) != 1:
+        pytest.fail(f"{name}: suite.toml does not name {url} exactly once")
+    path.write_text(
+        text.replace(url, f'url = "http://127.0.0.1:{port}/answer"'), encoding="utf-8"
+    )
+
+
+def _first_line(process: subprocess.Popen[str], seconds: float) -> str:
+    """What the stub prints first, or "" if it says nothing in time."""
+    said: list[str] = []
+    stdout = process.stdout
+    assert stdout is not None
+    reader = threading.Thread(target=lambda: said.append(stdout.readline()))
+    reader.start()
+    reader.join(seconds)
+    return said[0].strip() if said else ""
+
+
 @contextmanager
-def application(workdir: Path, name: str) -> Generator[None]:
-    """Run `stub.py` for as long as the block lasts, if this example needs it.
+def application(
+    workdir: Path, name: str, *, port: int | None = None
+) -> Generator[int | None]:
+    """Run `stub.py` for as long as the block lasts, if this example needs it,
+    and yield the port it listens on.
 
-    **Only a stub these tests started may answer.** `stub.py` listens on a
-    fixed port, and a second one started while another holds it exits at once
-    with *Address already in use* — on a stderr sent to DEVNULL, so nothing
-    would say so, and the probe below would find the other stub and the tests
-    run against it. Measured on 2026-09-29: exit 1 within a second. So the port
-    is refused if it answers before ours starts, and ours must still be alive
-    once the port answers. The first check is the one that catches the common
-    case: the probe can reach the other stub before ours has tried to bind,
-    when `poll()` still says it is running. The second catches one that took
-    the port in between.
+    **A port of its own, every time.** The port is one the system hands out
+    free, passed to `stub.py` as `STUB_PORT` and written into the copy's
+    `suite.toml`. The example as a reader runs it keeps 8730 in both files. So
+    two entries never meet: not two workers of this suite, which is why the
+    tests that take this fixture carry no `xdist_group`, and not a run of this
+    suite and a stub somebody left on 8730, the case that happened on
+    2026-10-18 and 2026-10-19 (#624).
 
-    **The longer road, measured and not taken:** a port chosen per run, so two
-    runs never meet. Keeping the example as written costs two files — `stub.py`
-    reads the port from the environment with 8730 as the default, and this
-    function rewrites `url` in the copied `suite.toml` — and its README stays
-    true. Having it in the format instead, a `suite.toml` that reads the port
-    itself, is an amendment to ADR 0007: digline reads no environment variable
-    anywhere, and `stub.py` records the trade the other way round, the URL
-    written down where a reader sees it. Not taken because a collision between
-    two runs of this suite has never been observed, and the silent failure
-    this refuses was measured.
+    **Only a stub these tests started may answer**, and a process outside the
+    suite is refused at either moment it can be holding the port:
+    - **before ours starts.** The port answers already, so somebody else is on
+      it: refused by name, and nothing is launched;
+    - **between the check and the bind.** Ours then exits with *Address already
+      in use* on a stderr nobody reads (measured on 2026-09-29: exit 1 within a
+      second), and the other process answers on the port. So a port that
+      answers proves nothing. What is waited for is ours saying it listens:
+      `stub.py` prints the line after its server is bound, and `-u` sends it
+      at once. Anything else is refused.
+
+    `port` is for the tests of this function, which hold a port on purpose.
     """
-    port = NEEDS_A_SERVICE.get(name)
-    if port is None:
-        yield
+    written = NEEDS_A_SERVICE.get(name)
+    if written is None:
+        yield None
         return
+    port = _free_port() if port is None else port
+    _rewrite_port(workdir, name, written, port)
     if _answers(port):
         pytest.fail(_port_held(name, port))
     process = subprocess.Popen(  # noqa: S603 - our own stub, in our own tree
-        [sys.executable, "stub.py"],
+        [sys.executable, "-u", "stub.py"],
         cwd=workdir,
-        stdout=subprocess.DEVNULL,
+        env={**os.environ, "STUB_PORT": str(port)},
+        stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
+        text=True,
     )
     try:
-        for _ in range(100):
-            if process.poll() is not None:
-                pytest.fail(_port_held(name, port))
-            if _answers(port):
-                break
-            time.sleep(0.05)
-        else:  # pragma: no cover - only on a machine that cannot bind
-            pytest.fail(f"{name}: stub.py never listened on {port}")
-        if process.poll() is not None:
-            pytest.fail(_port_held(name, port))
-        yield
+        said = _first_line(process, 10)
+        if said != f"stub listening on http://127.0.0.1:{port}/answer":
+            pytest.fail(_port_lost(name, port, said))
+        yield port
     finally:
         process.terminate()
         process.wait(timeout=10)
+        if process.stdout is not None:
+            process.stdout.close()
 
 
-#: An example that needs a service needs its port, and CI runs this file across
-#: four workers (`-n 4`). Two tests take this fixture, so without a group both
-#: copies of `stub.py` can start at once on different workers, and the second is
-#: refused by `application`. Measured on 2026-09-29, with that refusal in the
-#: tree: one error in seven parallel runs, on `quickstart-toml`. The group keeps
-#: every test holding one port on one worker, which runs them one after the
-#: other, and `--dist loadgroup` is what makes xdist read it.
-STANDALONE_PARAMS = [
-    pytest.param(name, marks=pytest.mark.xdist_group(f"port-{NEEDS_A_SERVICE[name]}"))
-    if name in NEEDS_A_SERVICE
-    else name
-    for name in STANDALONE
-]
+#: No `xdist_group`, though `quickstart-toml` starts a service: each entry into
+#: `application` takes a port of its own, so its two tests may run on two
+#: workers at once. Until #624 they shared 8730 and had to share a worker, after
+#: one error in seven parallel runs measured on 2026-09-29.
+STANDALONE_PARAMS = list(STANDALONE)
+
+
+def _quickstart_toml(tmp_path: Path, label: str) -> Path:
+    """A copy of the one example that needs a service, as the fixture makes it."""
+    workdir = tmp_path / label
+    shutil.copytree(
+        ROOT / "examples" / "quickstart-toml",
+        workdir,
+        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
+    )
+    return workdir
+
+
+def _url_port(workdir: Path) -> int:
+    """The port the copy's `suite.toml` sends its cases to."""
+    text = (workdir / "suite.toml").read_text(encoding="utf-8")
+    url = str(tomllib.loads(text)["target"]["url"])
+    found = re.fullmatch(r"http://127\.0\.0\.1:(\d+)/answer", url)
+    assert found, url
+    return int(found.group(1))
+
+
+def test_two_entries_into_application_get_different_ports(tmp_path: Path) -> None:
+    """Why `quickstart-toml` carries no `xdist_group`: two copies held open at
+    once, as two workers would, each get a port of their own, each copy's
+    `suite.toml` names its own, and both stubs answer."""
+    first = _quickstart_toml(tmp_path, "first")
+    second = _quickstart_toml(tmp_path, "second")
+    with (
+        application(first, "quickstart-toml") as one,
+        application(second, "quickstart-toml") as two,
+    ):
+        assert one is not None
+        assert two is not None
+        assert one != two
+        assert _url_port(first) == one
+        assert _url_port(second) == two
+        assert _answers(one)
+        assert _answers(two)
+
+
+def test_the_example_as_written_still_names_8730() -> None:
+    """The port is rewritten in the copy, never in the example a reader runs."""
+    assert _url_port(ROOT / "examples" / "quickstart-toml") == 8730
+
+
+def test_a_port_held_before_the_stub_starts_is_refused(tmp_path: Path) -> None:
+    """A process these tests did not start holds the port before ours is
+    launched: refused by name, and before anything runs against it. This is
+    what happened on 2026-10-18 and 2026-10-19 (#624), with 8730."""
+    workdir = _quickstart_toml(tmp_path, "held")
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", 0))
+        holder.listen()
+        port = int(holder.getsockname()[1])
+        with (
+            pytest.raises(pytest.fail.Exception, match="answered before"),
+            application(workdir, "quickstart-toml", port=port),
+        ):
+            pass
+
+
+def test_a_port_taken_between_the_check_and_the_bind_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The case the first check cannot see: the port looked free, and another
+    process holds it by the time ours binds. Ours then dies with *Address
+    already in use*, and the other one answers on the port. Refused because
+    ours never said it was listening, whatever answers there."""
+    workdir = _quickstart_toml(tmp_path, "taken")
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", 0))
+        holder.listen()
+        port = int(holder.getsockname()[1])
+
+        def looks_free(port: int) -> bool:
+            return False
+
+        monkeypatch.setattr(sys.modules[__name__], "_answers", looks_free)
+        with (
+            pytest.raises(pytest.fail.Exception, match="did not say it listens"),
+            application(workdir, "quickstart-toml", port=port),
+        ):
+            pass
 
 
 @pytest.fixture(params=STANDALONE_PARAMS)

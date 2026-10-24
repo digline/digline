@@ -166,7 +166,9 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   - A stub started by a script, or as an agent's background task, hands you
     the script's or the task's handle, or nothing — not the stub's PID.
   - **A second stub on the same port dies at once.** `stub.py` listens on
-    8730, fixed. Started while another tree's stub holds it, yours exits with
+    8730 by default, the port the example's `suite.toml` names; digline's own
+    tests pass a port of their own for each entry, with `STUB_PORT`. Started
+    on a port another tree's stub holds, yours exits with
     `Address already in use` on a stderr nobody reads — measured on
     2026-09-29, exit 1 within a second. `$!` then names a dead process,
     `kill "$STUB"` does nothing, and your tests talk to the other session's
