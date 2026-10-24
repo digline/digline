@@ -406,6 +406,40 @@ def test_what_ci_does_not_run_names_real_checks_ci_does_not_run() -> None:
 FOLLOWUP = ROOT / ".github" / "workflows" / "release-followup.yml"
 
 
+#: `pipefail` set by `set`, in any spelling of its flags: `set -o pipefail`,
+#: `set -euo pipefail`, `set -e -o pipefail`. The option is what is asked for,
+#: not one way of writing it: until #521 this read the string `set -o pipefail`
+#: alone, and a step written `set -euo pipefail` was refused for a pipeline it
+#: protected.
+PIPEFAIL = re.compile(r"\bset\s+(?:-[A-Za-z]+\s+)*-[A-Za-z]*o\s+pipefail\b")
+
+
+def _tee_without_pipefail(workflow: str) -> list[str]:
+    """The first line of every step that pipes into `tee` without `pipefail`."""
+    return [
+        block.splitlines()[0]
+        for block in workflow.split("- name: ")
+        if "| tee" in block and not PIPEFAIL.search(block)
+    ]
+
+
+_TEE_STEP = """      - name: a step
+        run: |
+          {setting}
+          uv run python check.py | tee -a "$GITHUB_STEP_SUMMARY"
+"""
+
+
+@pytest.mark.parametrize("setting", ["set -o pipefail", "set -euo pipefail"])
+def test_pipefail_is_recognised_in_either_spelling(setting: str) -> None:
+    assert _tee_without_pipefail(_TEE_STEP.format(setting=setting)) == []
+
+
+@pytest.mark.parametrize("setting", ["", "set -eu", "set -euo nounset"])
+def test_a_pipe_into_tee_without_pipefail_is_refused(setting: str) -> None:
+    assert _tee_without_pipefail(_TEE_STEP.format(setting=setting)) == ["a step"]
+
+
 def test_no_workflow_step_pipes_a_verdict_into_tee_without_pipefail() -> None:
     """A pipeline's exit status is its **last** command's, and `tee` succeeds.
 
@@ -421,9 +455,10 @@ def test_no_workflow_step_pipes_a_verdict_into_tee_without_pipefail() -> None:
     """
     offenders: list[str] = []
     for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        for block in path.read_text(encoding="utf-8").split("- name: "):
-            if "| tee" in block and "set -o pipefail" not in block:
-                offenders.append(f"{path.name}: {block.splitlines()[0]}")
+        offenders += [
+            f"{path.name}: {step}"
+            for step in _tee_without_pipefail(path.read_text(encoding="utf-8"))
+        ]
     assert not offenders, (
         "these steps pipe into `tee`, so their exit status is tee's and a "
         "failure inside them is silently green. Add `set -o pipefail`:\n  "
