@@ -131,20 +131,29 @@ def _moved(run: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 
 
 def _interval(fact: Mapping[str, Any]) -> str:
-    """The measured floor this check moved against, or why there is none.
+    """How far the baseline's own samples spread for this check, or why that
+    is not known.
 
-    On a **flip** — passing to failing — the comparison reports no interval at
-    all: a flip is a regression whatever the noise said, so the floor is never
-    consulted and never carried. Said out loud rather than left as an empty
-    column, because the reader is entitled to know the difference between "the
-    interval was wide" and "there is no interval here".
+    `before_interval` is the range the baseline's samples spanned, and digline
+    reports it on every row, a flip's included (#1): it is the scale of the
+    movement, beside the verdict, and it never decides one. It is **not** the
+    noise floor, and the count comes from it, never from `noise_samples`, which
+    is 0 on a flip.
+
+    Three ways to have no number, and the dossier says which, because they are
+    three different facts:
+    - `null`: the baseline took one sample of this check, so there is no range;
+    - no key at all: the digline that made this cycle does not report it;
+    - and not "it is a flip". Since ADR 0050 a regression that did not flip,
+      on a check that declares no noise width, has no floor either, so an
+      absent floor says nothing about whether the check flipped.
     """
-    low, high = fact["noise_min"], fact["noise_max"]
-    if low is None or high is None:
-        if fact["kind"] == "regressed":
-            return "no interval (a flip is a regression whatever the noise said)"
-        return "no interval"
-    return f"{low:.4f}–{high:.4f} across {fact['noise_samples']} samples"
+    if "before_interval" not in fact:
+        return "no interval: the digline that made this cycle does not report it"
+    span = fact["before_interval"]
+    if span is None:
+        return "no interval: the baseline was not sampled"
+    return f"{span['min']:.4f}–{span['max']:.4f} across {span['samples']} samples"
 
 
 def _fact(cycle: Mapping[str, Any]) -> list[str]:
@@ -392,7 +401,7 @@ def _dossier(
             continue
         lines += [
             "",
-            "| case | check | outcome | before | after | measured floor |",
+            "| case | check | outcome | before | after | baseline samples spanned |",
             "| ---- | ----- | ------- | -----: | ----: | -------------- |",
         ]
         for fact in moved:

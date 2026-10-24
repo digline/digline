@@ -33,17 +33,17 @@ Spend: 6 calls to the target across 2 run(s), against a declared cycle budget of
 
 **Run `2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
-| case | check | outcome | before | after | measured floor |
+| case | check | outcome | before | after | baseline samples spanned |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
-| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval (a flip is a regression whatever the noise said) |
+| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval: the digline that made this cycle does not report it |
 
 **Run `2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
 
-| case | check | outcome | before | after | measured floor |
+| case | check | outcome | before | after | baseline samples spanned |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
-| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
-| `is-it-waterproof` | `llm_rubric` | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples |
-| `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples |
+| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | no interval: the digline that made this cycle does not report it |
+| `is-it-waterproof` | `llm_rubric` | unchanged | 0.9104 | 0.9055 | no interval: the digline that made this cycle does not report it |
+| `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | no interval: the digline that made this cycle does not report it |
 
 No regression was present in every run of this cycle.
 
