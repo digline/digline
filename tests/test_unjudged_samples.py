@@ -160,6 +160,14 @@ def test_explain_names_both_counts() -> None:
     assert "over 4 judged samples of the 5 asked for (" in said
 
 
+def test_explain_reads_as_today_when_every_sample_voted() -> None:
+    _, now, reference = _delta(ALL_JUDGED)
+    reading = facts(now, compare(now, reference))
+    said = "\n".join(explain_text(reading, locale="en"))
+    assert "over 5 judged samples (" in said
+    assert "asked for" not in said
+
+
 def test_nothing_reaches_the_wire() -> None:
     _, now, reference = _delta(ONE_MISSING)
     comparison = compare(now, reference)
