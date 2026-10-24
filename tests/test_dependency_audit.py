@@ -269,8 +269,10 @@ def _accepted_file(root: Path, text: str = "") -> Path:
 
 @pytest.mark.parametrize("code", ["2", "127", "128"])
 def test_a_scanner_that_failed_is_not_judged(tmp_path: Path, code: str) -> None:
+    """Even with a document that would read as clean: the exit code decides."""
     root = _root(tmp_path)
-    (root / "osv.json").write_text("", encoding="utf-8")
+    clean = _osv(root, {lock: [_clean()] for lock in LOCKS})
+    (root / "osv.json").write_text(json.dumps(clean), encoding="utf-8")
     done = _run(
         "report",
         "--osv",
