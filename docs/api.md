@@ -2281,6 +2281,17 @@ for the floor a movement was judged against, `run` for the samples a run read al
 took, which is not a floor, and `""` where there is no interval: a movement judged
 without a floor, or a check that took no samples.
 
+Each delta also carries `before_interval`, and so does each check of `explain --json`,
+under the same name: the range the reference's own samples spanned, as
+`{"min", "max", "samples"}` — the shape `diff --json` writes an interval in — or
+`null` where the reference holds no samples for the check, either because it took one
+sample or because it has no verdict for it. On `explain --json` it is `null` as well
+where the reference holds the same check twice on one case and their samples spanned
+different ranges, because a check fact carries no order to pair them by. It is on a
+flip too, where `noise_min`, `noise_max` and `noise_samples` stay absent: it is the
+scale of the movement, **never** the floor it was judged against, and no verdict reads
+it (ADR 0006 §6, noted 2026-10-24; #1). An added key, so `output_version` does not move.
+
 ### The same fact in different documents
 
 Four facts take a different form depending on the document that carries them.
