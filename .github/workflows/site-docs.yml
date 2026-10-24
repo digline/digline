@@ -1,0 +1,93 @@
+name: site-docs
+
+# Tell digline.dev when this repository's documentation moved on `main`.
+#
+# The site builds its documentation from the tip of this repository's `main`,
+# and until #521 nothing told it to rebuild between two of its own pushes or two
+# releases of digline: an ADR accepted here read `proposed` on the site for two
+# days. This posts a `digline-docs` dispatch after each push to `main` that
+# touched something the site copies, and the site's `docs.yml` builds from the
+# tip of `main` and deploys.
+#
+# **A workflow of its own, not a job in `ci.yml`.** `ci.yml` cancels an older
+# run on `main` when a newer one starts, and 6 of its last 100 push runs there
+# were cancelled. A dispatch cancelled that way is a change that never reaches
+# the site, because the next push's diff does not include it.
+#
+# **A push to `main` and nothing else.** A queue entry is not on `main` yet, and
+# the site would build the `main` before it. A queue merge reaches `main` as a
+# push, which is the only way `main` moves here.
+#
+# Nothing here is a required check, and nothing in this repository waits for
+# the site: a red on either side blocks nothing on the other.
+on:
+  push:
+    branches: [main]
+
+# One at a time, and never cancelled: each push's dispatch is sent.
+concurrency:
+  group: site-docs
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  touched:
+    name: Does this change what the site reads?
+    # On the model of `ci.yml`'s image-touched: the diff written to the log,
+    # and the answer an output, rather than `on: paths:`, which decides in a
+    # place nobody can read.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout
+    outputs:
+      dispatch: ${{ steps.check.outputs.dispatch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The diff needs both ends of the push.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # What the site reads is `.github/site_reads.py`'s list, held to the
+      # site's `tools/sync-docs.sh` by `tests/test_site_docs.py`.
+      - name: The diff, and whether the site reads any of it
+        id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          set -eu
+          set -o pipefail
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            answer="$(python3 .github/site_reads.py --no-base | tee /dev/stderr | tail -1)"
+          else
+            git diff --name-only "$BEFORE" "$HEAD"
+            answer="$(git diff --name-only "$BEFORE" "$HEAD" \
+              | python3 .github/site_reads.py | tee /dev/stderr | tail -1)"
+          fi
+          echo "$answer" >> "$GITHUB_OUTPUT"
+
+  dispatch:
+    name: Tell the site the documentation moved
+    needs: touched
+    if: needs.touched.outputs.dispatch == 'true'
+    runs-on: ubuntu-latest
+    # The job's own token holds nothing: the one credential is the PAT below,
+    # read on the step that spends it, as `publish.yml`'s `site` job does.
+    permissions: {}
+    steps:
+      # Red when it fails, and never quietly green: a dispatch that did not
+      # reach the site is the silence #521 is about. The PAT expires on
+      # 2027-09-01 (RELEASING.md, *The secrets*), and the day it does, this is
+      # where it shows.
+      - name: Tell the site digline's documentation moved
+        env:
+          GH_TOKEN: ${{ secrets.DIGLINE_DEV_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=DIGLINE_DEV_DISPATCH_TOKEN is not set::The site was not told the documentation moved. Add the repository secret DIGLINE_DEV_DISPATCH_TOKEN — a fine-grained PAT on digline/digline.dev only, Contents: read and write — then re-run this job. See RELEASING.md, 'The secrets'."
+            exit 1
+          fi
+          gh api repos/digline/digline.dev/dispatches --method POST \
+            -f event_type=digline-docs

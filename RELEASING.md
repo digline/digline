@@ -1518,7 +1518,7 @@ A repository secret on `digline/digline`.
 | | |
 |---|---|
 | What | fine-grained PAT, **Contents: read and write on `digline/digline.dev` only** — nothing else, no other repository |
-| Why | the `site` job posts a `repository_dispatch` to the site's repository, and a workflow's own `github.token` is scoped to *this* one |
+| Why | two jobs post a `repository_dispatch` to the site's repository: `publish.yml`'s `site`, on a release, and `site-docs.yml`'s `dispatch`, after a push to `main` that touched what the site reads (#521). A workflow's own `github.token` is scoped to *this* one |
 | Where | Settings → Secrets and variables → Actions, and it is read on the step, not the job |
 | Created | 2026-08-31 |
 | Expires | **2027-09-01**, the 366-day maximum. They always expire: record the date here on every rotation — a year from now this row is the only warning you get |
@@ -1526,6 +1526,14 @@ A repository secret on `digline/digline`.
 It fails at the **end** of a release, after PyPI, and a failure there needs no
 re-tag: the packages are published, and only the site is behind. Add or renew
 the secret and re-run the failed job.
+
+**It is read on `main` too, and that is where an expired token shows first.**
+`site-docs.yml` reads it after every push to `main` that touched `docs/`,
+`CHANGELOG.md`, `ROADMAP.md`, `docker/README.md` or an example's README, which
+is most merges. Its step goes red rather than skipping when the secret is
+missing or refused, so the day the token expires the next such merge is red,
+usually long before a release. Renew the secret and re-run that `site-docs`
+job: the site then builds from `main`'s tip, which carries every change since.
 
 **A re-run replays the workflow file from the tag's commit, not from `main`.**
 So a fix merged into `main` does not reach a re-run of an older release — for that
