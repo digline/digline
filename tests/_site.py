@@ -108,8 +108,9 @@ def require_site_config() -> Path:
             "broken rather than a machine without the site on it."
         )
     pytest.skip(
-        f"skipped, not passed: nothing here has checked that this page has a "
-        f"line in digline.dev's nav, because {absence}. Clone "
+        f"skipped, not passed: nothing here has checked what this test holds "
+        f"digline.dev to — a page's line in its nav, or the paths its "
+        f"sync-docs.sh copies — because {absence}. Clone "
         "digline/digline.dev beside this repository, or point "
         "DIGLINE_SITE_CONFIG at its mkdocs.yml; ci.yml's `docs` job does the "
         f"first and sets {SITE_REQUIRED}, where this skip is an error instead."

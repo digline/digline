@@ -236,7 +236,9 @@ jobs:
         working-directory: _site
         run: tools/check-sitemap.py site
 
-      # The three nav gates, in the one place they may not skip.
+      # The three nav gates, in the one place they may not skip, and the test
+      # that holds `.github/site_reads.py` to the paths the site's sync-docs.sh
+      # copies (#521), which reads the site the same way.
       #
       # `tests/_site.py` skips them wherever digline.dev is not on disk — the
       # `gates` job included, which clones no site — and a skip at the bottom of
@@ -263,6 +265,7 @@ jobs:
           tests/test_docs_pages.py::test_every_docs_page_is_in_the_site_nav
           tests/test_adr.py::test_every_adr_has_a_page_in_the_site_nav
           tests/test_examples.py::test_every_example_has_a_page_in_the_site_nav
+          tests/test_site_docs.py::test_the_paths_are_the_ones_sync_docs_copies
 
       # The negative half, on this build rather than in a selftest. A gate that
       # cannot fail has verified nothing, and this one's entire value is that it
