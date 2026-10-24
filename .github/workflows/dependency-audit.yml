@@ -53,6 +53,13 @@ jobs:
       # sha256 its release publishes, read on 2026-10-24 from
       # `osv-scanner_SHA256SUMS`. The same rule as a `uses:` at a commit: what
       # runs is what was read, and moving it is a commit.
+      #
+      # **Dependabot does not move this.** Its `github-actions` ecosystem reads
+      # `uses:` lines, and a version in an `env:` is not one, so nothing opens
+      # a pull request when osv-scanner releases. Moving it is by hand: the
+      # version, and the sha256 read again from that release's
+      # `osv-scanner_SHA256SUMS`. `image-scan.yml` installs trivy the same way,
+      # with the same gap.
       - name: Install osv-scanner
         env:
           OSV_SCANNER_VERSION: "2.7.0"

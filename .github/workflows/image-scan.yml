@@ -14,6 +14,14 @@ name: image-scan
 # which image it was found in (`.github/image_scan.py`), and the run's summary
 # says it too.
 #
+# Each platform is scanned twice, the second from what the first left in
+# trivy's cache (1.4 s locally on 2026-10-24). The SARIF is made with
+# `--ignore-unfixed`, so Code scanning carries what somebody can act on: a
+# finding with a fixed version. The summary is read from an unfiltered JSON
+# report and says everything found — the total, by severity, how many have a
+# fix — so what the filter leaves out is still counted where it can be read.
+# No threshold, and no severity makes this job red.
+#
 # The image's package list goes nowhere: trivy downloads its database and
 # matches locally. The pull is of this repository's public image.
 on:
@@ -49,6 +57,13 @@ jobs:
       # sha256 its release publishes, read on 2026-10-24 from
       # `trivy_0.76.1_checksums.txt`. The same rule as a `uses:` at a commit:
       # what runs is what was read, and moving it is a commit.
+      #
+      # **Dependabot does not move this.** Its `github-actions` ecosystem reads
+      # `uses:` lines, and a version in an `env:` is not one, so nothing opens
+      # a pull request when trivy releases. Moving it is by hand: the version,
+      # and the sha256 read again from that release's checksums file.
+      # `dependency-audit.yml` installs osv-scanner the same way, with the same
+      # gap.
       - name: Install trivy
         env:
           TRIVY_VERSION: "0.76.1"
@@ -68,42 +83,58 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "### ghcr.io/digline/digline:latest is $digest" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Scan linux/amd64
+      - name: Count everything in linux/amd64
         env:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/amd64 \
-            --scanners vuln --pkg-types os,library --format sarif \
+            --scanners vuln --pkg-types os,library --format json \
+            --output trivy-amd64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Scan linux/amd64 for what has a fixed version
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/amd64 \
+            --scanners vuln --pkg-types os,library --ignore-unfixed --format sarif \
             --output trivy-amd64.sarif "ghcr.io/digline/digline@${DIGEST}"
 
-      - name: Name the image in every linux/amd64 result
+      - name: Name the image in every linux/amd64 result, and count
         env:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           python3 .github/image_scan.py name --sarif trivy-amd64.sarif \
-            --out named-amd64.sarif --image ghcr.io/digline/digline \
-            --digest "$DIGEST" --platform linux/amd64
+            --json trivy-amd64.json --out named-amd64.sarif \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/amd64
 
       - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: named-amd64.sarif
           category: image-scan/linux/amd64
 
-      - name: Scan linux/arm64
+      - name: Count everything in linux/arm64
         env:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/arm64 \
-            --scanners vuln --pkg-types os,library --format sarif \
+            --scanners vuln --pkg-types os,library --format json \
+            --output trivy-arm64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      - name: Scan linux/arm64 for what has a fixed version
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          ./trivy image --image-src remote --platform linux/arm64 \
+            --scanners vuln --pkg-types os,library --ignore-unfixed --format sarif \
             --output trivy-arm64.sarif "ghcr.io/digline/digline@${DIGEST}"
 
-      - name: Name the image in every linux/arm64 result
+      - name: Name the image in every linux/arm64 result, and count
         env:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           python3 .github/image_scan.py name --sarif trivy-arm64.sarif \
-            --out named-arm64.sarif --image ghcr.io/digline/digline \
-            --digest "$DIGEST" --platform linux/arm64
+            --json trivy-arm64.json --out named-arm64.sarif \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/arm64
 
       - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
