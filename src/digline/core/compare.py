@@ -1380,7 +1380,9 @@ def compare(run: Run, baseline: Run) -> Comparison:
             # that the score is *inside* it. `0.8 -> 0.4` across a threshold of
             # 0.5, on a check whose baseline votes ran 0.0 to 1.0, is exactly
             # that shape: reported, and inside. The delta carries what decided
-            # it, and nothing that did not.
+            # it, and nothing that did not. The wire puts the range of the
+            # reference's samples beside it as `before_interval` (#1), read off
+            # the reference's verdict: the scale of the movement, not this.
             outcome: Outcome = "regressed" if before.status == "pass" else "improved"
             # Read in whichever direction the denominator moved: a reference
             # that counted *fewer* cases is the same incomparability as one that

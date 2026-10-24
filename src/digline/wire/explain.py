@@ -19,20 +19,26 @@ catch on this surface.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import assert_never
 
-from digline.core import Run, key_of
+from digline.core import Run, index_verdicts, key_of
 from digline.report.explain import CheckFact, Fact, SettingFact, TallyFact
-from digline.wire.compare import shape_json
+from digline.wire.compare import before_interval_json, shape_json
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
 __all__ = ["explain_json", "fact_json"]
 
 
-def fact_json(fact: Fact) -> dict[str, object]:
+def fact_json(
+    fact: Fact, *, before_interval: Mapping[str, object] | None = None
+) -> dict[str, object]:
     """One fact, as a program reads it.
+
+    `before_interval` is the range the reference's samples spanned for a
+    check, which a fact does not carry: `explain_json` reads it off the
+    reference and hands it in. `null` where it is not passed.
 
     `about` before `kind`, and both are emitted: the three shapes have kinds of
     their own and two of them share the word `within_noise`, so a consumer
@@ -67,6 +73,11 @@ def fact_json(fact: Fact) -> dict[str, object]:
                 "noise_sd": fact.noise.sd,
                 "noise_judged": list(fact.noise.judged),
                 "noise_source": fact.noise_source,
+                # The range the reference's samples spanned, as on
+                # `delta_json` and under the same name. An added key. (#1)
+                "before_interval": (
+                    None if before_interval is None else dict(before_interval)
+                ),
                 # An added key, beside the kind rather than inside it: `kind`
                 # keeps the six values a consumer already matches on, and a
                 # check whose two sides counted different cases is now
@@ -142,6 +153,7 @@ def explain_json(
     the `"comparison"` scope. Each is absent where its document was not passed,
     which is a caller written before them. Added keys. (#448)
     """
+    spans = _reference_spans(baseline)
     payload: dict[str, object] = {
         "output_version": OUTPUT_VERSION,
         "scope": scope,
@@ -149,7 +161,10 @@ def explain_json(
         # `compare --json`: over MCP there is no process to exit, and the two
         # surfaces must not answer differently. (ADR 0011 §4)
         "exit_code": exit_code,
-        "facts": [fact_json(fact) for fact in reading],
+        "facts": [
+            fact_json(fact, before_interval=_before_interval(fact, spans))
+            for fact in reading
+        ],
         "note": note,
     }
     if run is not None:
@@ -157,3 +172,36 @@ def explain_json(
     if baseline is not None:
         payload["baseline_key"] = key_of(baseline.created_at, baseline.config_hash)
     return neutralised(payload)
+
+
+type _Spans = Mapping[tuple[str, str, str], Sequence[dict[str, object] | None]]
+
+
+def _reference_spans(baseline: Run | None) -> _Spans:
+    """Every check of the reference, by scope, case and identity, with the
+    range its samples spanned. A list, because one case can hold the same
+    check twice."""
+    spans: dict[tuple[str, str, str], list[dict[str, object] | None]] = {}
+    if baseline is None:
+        return spans
+    for (scope, case_id, identity, _), verdict in index_verdicts(baseline).items():
+        spans.setdefault((scope, case_id, identity), []).append(
+            before_interval_json(verdict)
+        )
+    return spans
+
+
+def _before_interval(fact: Fact, spans: _Spans) -> dict[str, object] | None:
+    """The reference's range for one check fact, or `None`.
+
+    `compare()` pairs two verdicts of the same check on one case by their
+    order, and a fact carries no order. Where the reference's verdicts of such
+    twins spanned the same range that range is the answer; where they differ
+    the reading cannot say which is which, and says neither.
+    """
+    if not isinstance(fact, CheckFact):
+        return None
+    found = spans.get((fact.scope, fact.case_id, fact.assertion_id), ())
+    if not found or any(span != found[0] for span in found):
+        return None
+    return found[0]

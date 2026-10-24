@@ -25,6 +25,10 @@
   [ADR 0050](0050-the-noise-floor-compares-a-range-with-means.md) reverses it:
   the first two reasons are answered there, and the third becomes a
   requirement on what prints the floor
+- Amended: 2026-10-24 — §6 gains a dated note and is kept as written. The wire
+  carries `before_interval` on every row, a flip's included: the range the
+  reference's samples spanned, which is not the floor and never changes a
+  verdict (#1)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -236,6 +240,22 @@ across a threshold of 0.5, on a check whose baseline votes ran 0.0 to 1.0, is
 exactly that shape — reported, and inside. `within_noise` is `false` on a flip
 because it is false, and `noise_min` and `noise_max` are absent because nobody
 measured this one against them.
+
+*Noted 2026-10-24 (#1), the paragraph above kept as written.* **What the wire
+carries beside a flip is not this interval, and it never changes the verdict.**
+`compare --json` and `explain --json` carry `before_interval` on every row, a
+flip's included: the range the reference's own samples spanned, as
+`{"min", "max", "samples"}`, or `null` where the reference holds no samples for
+the check. It answers the argument above rather than overruling it. The floor
+still does not reach a flip: rule 3 decides it, nothing is judged against an
+interval, `within_noise` stays `false`, and `noise_min`, `noise_max` and
+`noise_samples` stay absent. `before_interval` is computed on the wire from the
+reference's verdict, so it is not on `AssertionDelta`, no branch of `compare()`
+reads it, and the report, which reads the delta, prints no interval on a flip.
+What it gives a program, and the operator's dossier first of all, is the scale
+of the movement beside the verdict, which the verdict does not carry: "the score
+fell to 0.53" and "the score fell to 0.53, from a check whose samples had
+spanned 0.87–0.93" are the same verdict.
 
 **An interval of zero width is not a noise floor.** A check whose baseline
 samples were unanimous — five out of five, which is the ordinary case for a case

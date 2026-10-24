@@ -8,6 +8,15 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`compare --json` and `explain --json` say how far the reference's samples
+  spread, on a flip too** (#1; ADR 0006 §6, noted). Each delta and each check
+  carries `before_interval`: the range the reference's own samples spanned, as
+  `{"min", "max", "samples"}`, or `null` where the reference holds no samples
+  for the check. A
+  flip still carries no `noise_min`, `noise_max` or `noise_samples`, because
+  nothing was judged against an interval, and the report still prints none on a
+  flip. The new key is the scale of the movement and changes no verdict and no
+  exit code. An added key, so `output_version` stays `2`.
 - **`digline run` exits `2` when it judged nothing** (#654; ADR 0049 §3,
   amended). When none of the cases the suite measures was judged, because every
   one was suspended or every one errored, `run` still writes the run and prints

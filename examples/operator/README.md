@@ -43,11 +43,17 @@ verdict is **draw**, and nobody is woken. `alerts/draw.md` is that document,
 captured; its second layer is the argument in four lines:
 
     Run …080351 (seed 0, exit 1)
-    | is-it-waterproof  | llm_rubric | regressed | 0.9104 | 0.5279 | no interval
+    | is-it-waterproof  | llm_rubric | regressed | 0.9104 | 0.5279
     Run …290015 (seed 1, exit 0)
-    | how-do-i-return   | llm_rubric | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples
-    | is-it-waterproof  | llm_rubric | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples
-    | where-is-my-order | llm_rubric | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples
+    | how-do-i-return   | llm_rubric | unchanged | 0.8947 | 0.8961
+    | is-it-waterproof  | llm_rubric | unchanged | 0.9104 | 0.9055
+    | where-is-my-order | llm_rubric | unchanged | 0.8913 | 0.9005
+
+The last column of that table, cut here, is how far the baseline's own samples
+spread for each check: `before_interval`, which `digline explain --json`
+reports on every row, a flip's included. The cycles committed under `alerts/`
+were made by a digline that does not report it, so every row of theirs says so,
+until they are made again with one that does.
 
 Now the same thing, except it keeps happening:
 
@@ -56,8 +62,9 @@ Now the same thing, except it keeps happening:
 Three runs, the same case and the same check red in every one, and the
 stopping rule exhausted. The verdict is **drift**, and this one escalates.
 `alerts/drift.md` is that document. It is not a summary of the red run: it is
-the run keys, the exit codes, the three comparisons, the measured intervals of
-the checks that held, and the one pair present in all three.
+the run keys, the exit codes, the three comparisons, how far the baseline's
+samples spread for each check that moved, and the one pair present in all
+three.
 
 Those two cycles are the loop. Everything else is plumbing.
 
