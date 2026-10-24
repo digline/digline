@@ -296,7 +296,7 @@ def test_a_real_judge_scores_and_is_priced() -> None:
 def test_cache_tokens_say_which_convention_converse_follows() -> None:
     """**The measurement.** Run with `-s`: it prints the five numbers.
 
-        AWS_PROFILE=<profile> AWS_REGION=eu-west-1 DIGLINE_LIVE=1 \\
+        AWS_PROFILE=<profile> AWS_DEFAULT_REGION=eu-west-1 DIGLINE_LIVE=1 \\
           uv run pytest -m live packages/digline-bedrock -k cache_tokens -s
 
     Two calls with the same long system prompt and an explicit `cachePoint`: the

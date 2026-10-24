@@ -5,10 +5,12 @@ holding the files it names. A quickstart that does not import, or that names an
 argument the constructor stopped having, fails this file rather than the first
 person who copies it.
 
-`AWS_REGION` is set for the duration, because the first example's whole claim is
-that the region comes from the chain. Nothing else is needed: building a client
-reaches no network and asks for no credentials, which is what makes a page of
-constructions runnable in CI with no AWS account behind it.
+`AWS_DEFAULT_REGION` is set for the duration, because the first example's whole
+claim is that the region comes from the chain, and that is the variable botocore
+reads for it: `AWS_REGION` on its own gives no region (#688). Nothing else is
+needed: building a client reaches no network and asks for no credentials, which
+is what makes a page of constructions runnable in CI with no AWS account behind
+it.
 """
 
 from __future__ import annotations
@@ -36,7 +38,6 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     prompts = suite / "prompts"
     prompts.mkdir(parents=True)
     (prompts / "answer.md").write_text("Answer this: {question}\n", encoding="utf-8")
-    monkeypatch.setenv("AWS_REGION", "eu-west-1")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
     # Run from a directory that is not the suite's, the one `__file__` names,
     # so a block that passes a bare relative path reads against a directory
