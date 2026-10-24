@@ -1675,9 +1675,14 @@ def _noise_interval(delta: AssertionDelta, locale: Locale) -> str:
         mean_se, movement_se = Noise(
             sd=delta.noise_sd, count=delta.noise_samples
         ).standard_errors()
+        # The count asked for only where it differs from the judged one (#656).
+        asked = delta.noise_asked
         return phrase(
             locale,
-            "noise.mean",
+            "noise.mean"
+            if asked is None or asked == delta.noise_samples
+            else "noise.mean.asked",
+            asked=asked,
             low=fmt_score(delta.noise_min),
             high=fmt_score(delta.noise_max),
             width=f"{delta.noise_width:g}",

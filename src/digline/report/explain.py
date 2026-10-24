@@ -620,6 +620,7 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
             width=delta.noise_width,
             sd=delta.noise_sd,
             judged=delta.noise_judged,
+            asked=delta.noise_asked,
         ),
         noise_source="reference" if delta.noise_min is not None else "",
         # Read off *this run's* verdict, not the delta's interval: the noise
@@ -1174,9 +1175,13 @@ def _interval(noise: Noise, locale: Locale) -> str:
     assert noise.low is not None and noise.high is not None
     if noise.width is not None and noise.sd is not None:
         mean_se, movement_se = noise.standard_errors()
+        # As the report words it: the count asked for only where it differs.
         return phrase(
             locale,
-            "noise.mean",
+            "noise.mean"
+            if noise.asked is None or noise.asked == noise.count
+            else "noise.mean.asked",
+            asked=noise.asked,
             low=fmt_score(noise.low),
             high=fmt_score(noise.high),
             width=f"{noise.width:g}",

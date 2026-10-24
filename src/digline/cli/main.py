@@ -65,6 +65,7 @@ from digline.host import (
     pricing_for,
     process_state,
     promote,
+    promotion_notes,
     read_artifacts,
     read_pinned,
     read_run,
@@ -816,6 +817,10 @@ def cmd_promote(args: argparse.Namespace) -> int:
     # copied between customers promoted over another's reference with exit 0
     # while it named nobody (friction 64).
     say(f"tenant {promoted.tenant!r} · {promoted.suite} baseline set to {key}")
+    # A check that met its agreement with a sample that never voted: said here,
+    # where the reference is signed, and nowhere it would refuse. (#656)
+    for note in promotion_notes(promoted):
+        say(note)
     # The authorisation is said here and nowhere else: the reference does not
     # record it, so this line, in whatever log keeps it, is where a reader finds
     # that a pinned file's movement was accepted and which one. (ADR 0053)
