@@ -14,7 +14,7 @@ name: scorecard
 #
 # This is the one workflow here that is *about* the workflows: most of what it
 # grades — token permissions, pinning, who may push to `main` — lives in the
-# other four files and in the repository's settings, not in this one.
+# other eight files and in the repository's settings, not in this one.
 on:
   # A change to who may push to `main` changes the answer to one of the checks,
   # so it re-runs when that changes rather than waiting for Monday.
