@@ -119,7 +119,7 @@ def test_the_count_asked_for_is_the_record_s_not_the_judged_one() -> None:
     never appears, and the sentence is back to hiding the missing sample."""
     _, _, reference = _delta(ONE_MISSING)
     (verdict,) = reference.results[0].verdicts
-    assert verdict.metadata["samples"] == 5
+    assert verdict.score.metadata["samples"] == 5
     assert len(verdict.score.samples) == 4
 
 
