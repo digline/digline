@@ -1703,6 +1703,17 @@ except REFUSALS as refused:
     print(refused)  # a sentence written for a reader
 ```
 
+`promote` also takes `accepting_pins`, the paths whose movement this promotion
+accepts, and it is empty by default, which is the case the example shows. With
+the default, a promotion is refused when a pin cause holds against the
+reference it replaces: a pinned file that drifted, or a pin the reference held
+that lost its path beside a pinned file with no reference. The refusal is
+`UnacceptedPinsError`, which `REFUSALS` catches, and its sentence names the
+paths. To promote anyway, name them in `accepting_pins`, exactly the paths the
+causes implicate, no more and no fewer; on the command line that is
+`--accepting-pin`, once per path
+([ADR 0053](adr/0053-promote-refuses-a-pin-nobody-named.md)).
+
 ### Reading: `read_run` and `read_baseline`
 
 - **`FileResultStore.read_run(ref)`** returns the `Run` stored under a
@@ -2107,10 +2118,13 @@ that is not a verdict on the suite.
   measures was judged, `head.nothing_judged` is true and the code is `2`. A
   suite of canaries and calibration cases only is judged by them. The
   headline's `locale` does not change the number
-  ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md)).
+  ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md)). Which of
+  the five causes of `2` hold is `unjudged_causes` on `compare --json`, in the
+  order this reads them, and there even when a regression makes the code `1`
+  ([ADR 0053](adr/0053-promote-refuses-a-pin-nobody-named.md)).
 - **`run_exit_code(run)` is the same rule with nothing to compare against.**
-  It never returns `1`, because *worse*, a moved canary and a drifted pin are
-  relations. What is left is `2` for an unjudged case or a lost scale, read
+  It never returns `1`, because *worse*, a moved canary, a drifted pin and a
+  lost pin are relations. What is left is `2` for an unjudged case or a lost scale, read
   from the run alone, or for a run that judged nothing, read against
   `declared`.
   - **It is held to `exit_code` by a test**: for any run, given the same
