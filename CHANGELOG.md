@@ -8,6 +8,18 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **A projected document is held to ADR 0034 §4's classes by a test, as §16
+  said it would be** (#710). Until now nothing held them: `_check_projected`
+  checks by name, and a string field added to a case and kept by `redact()`
+  reached a projection with a person's name in it, refused by nothing.
+  `tests/test_projection_gate.py` walks the projected document and fails on a
+  string at a path in none of the three classes, and walks the model so that a
+  string field with no place in a projection is red even while it is empty.
+  It covers strings less three exclusions, each with its reason: numbers, which
+  §4 leaves undecided; the keys of a verdict's metadata (#711); and
+  `Run.modules_unchecked`, which crosses a projection in clear (#712). ADR 0034
+  and `CLAUDE.md` now say what is held and what is not. Nothing in digline's
+  behaviour moves.
 - **`output_version` is `3`** (#669). In 0.33.0, under `output_version: 2`,
   `noise_min`, `noise_max` and `noise_samples` on a case row and `within_noise`,
   the count and the boolean, changed what they mean (ADR 0050), and the version
