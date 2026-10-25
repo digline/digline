@@ -15,7 +15,15 @@ from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from digline import __version__
-from digline.core import Artifact, CallTotals, CaseResult, Run, SystemConfig
+from digline.core import (
+    Artifact,
+    CallTotals,
+    CaseResult,
+    DocumentRefusedError,
+    Run,
+    SystemConfig,
+)
+from digline.core.run import SCHEMA_VERSION
 from digline.host.environment import this_process
 from digline.run import (
     CallPlan,
@@ -33,10 +41,13 @@ from digline.run import (
 from digline.store import (
     JournalHeader,
     JournalRefusedError,
+    NotAReferenceError,
     Pending,
     ResultStore,
     RunRef,
+    SuiteMismatchError,
     SupportsJournal,
+    TenantMismatchError,
 )
 from digline.targets import HasObserved
 
@@ -46,6 +57,7 @@ __all__ = [
     "Prepared",
     "measure",
     "prepare",
+    "refuse_unreadable_baseline",
     "seed_observed",
 ]
 
@@ -255,6 +267,80 @@ def _seed(holder: object, observed: SystemConfig) -> None:
         holder.observed.resume(observed.values)
 
 
+def refuse_unreadable_baseline(
+    store: ResultStore, suite: Suite, *, accepting_schema: int | None = None
+) -> None:
+    """Refuse to spend where the comparison the spending is for cannot be read.
+
+    A baseline at a schema this digline does not read makes every `compare`
+    of this suite exit 64, so a run made now is paid for and cannot be
+    compared. `run` and `rejudge` call this before their first call to a
+    target or a judge, and `pytest-digline` before `--digline-run`. (#621)
+
+    **Only the schema is read here, and that is a choice.** `read_baseline`
+    also refuses a file that is not JSON, a baseline of another tenant or suite
+    and a projection nobody promoted. Those stay with `compare`: anticipating
+    them would make spending depend on the whole shape of the baseline, which
+    is `compare`'s work. The schema refusal is told apart by
+    `DocumentRefusedError.declared_schema`, since a broken file raises the
+    same class.
+
+    **No baseline is no refusal.** A first run has nothing to be compared with.
+
+    **Both directions, and the advice differs** (ADR 0014 §5). A newer baseline
+    asks for a newer digline, and `migrate` would be the wrong advice there: it
+    never moves a document backwards. An older one asks for `migrate`.
+
+    `accepting_schema` runs anyway when it names exactly the schema the
+    baseline declares, as `--accepting-pin` accepts exactly the paths a
+    promotion implicates. Naming another schema, or one where nothing is
+    unreadable, is refused: an acceptance of nothing is a mistake, not a no-op.
+    """
+    try:
+        store.read_baseline(suite.tenant, suite.name)
+    except DocumentRefusedError as exc:
+        # `None` for a broken file, which is left to `compare`. See above.
+        declared, unreadable = exc.declared_schema, exc
+    except (TenantMismatchError, SuiteMismatchError, NotAReferenceError):
+        # `compare`'s, by the same choice: the read raises them after the
+        # schema has already been read and found readable.
+        declared, unreadable = None, None
+    else:
+        declared, unreadable = None, None
+
+    flag = "--accepting-baseline-schema"
+    if accepting_schema is not None:
+        if declared is None:
+            raise DocumentRefusedError(
+                f"{flag} {accepting_schema} names schema {accepting_schema}, and "
+                f"the baseline of suite {suite.name!r} for tenant {suite.tenant!r} "
+                "is not at a schema this digline cannot read: there is nothing to "
+                "accept"
+            )
+        if accepting_schema != declared:
+            raise DocumentRefusedError(
+                f"{flag} {accepting_schema} names schema {accepting_schema}, and "
+                f"the baseline declares schema {declared}",
+                declared_schema=declared,
+            )
+        return
+    if declared is None:
+        return
+    remedy = (
+        "Upgrade digline to one that reads it"
+        if declared > SCHEMA_VERSION
+        else "Run `digline migrate` to bring it up to date"
+    )
+    raise DocumentRefusedError(
+        f"the baseline of suite {suite.name!r} for tenant {suite.tenant!r} is at "
+        f"schema {declared}, and this digline reads schema {SCHEMA_VERSION}, so "
+        "a run now would be paid for and could not be compared. Nothing was "
+        f"called. {remedy}, or accept it by name with `{flag} {declared}` on "
+        "`digline run` or `digline rejudge`",
+        declared_schema=declared,
+    ) from unreadable
+
+
 def measure(
     suite: Suite,
     target: Target,
@@ -266,13 +352,19 @@ def measure(
     pinned: Sequence[str] = (),
     modules_unchecked: Sequence[str] | None = None,
     mapper: Mapper = default_mapper,
+    accepting_baseline_schema: int | None = None,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
 
     The journal is deleted only once the run file exists, and by `complete()`,
     which is named for what it means: a journal removed for any other reason is
     paid work thrown away.
+
+    First, before anything is called: a baseline at a schema this digline
+    cannot read is refused unless `accepting_baseline_schema` names it — see
+    `refuse_unreadable_baseline`. (#621)
     """
+    refuse_unreadable_baseline(store, suite, accepting_schema=accepting_baseline_schema)
     if prepared.resume is not None:
         seed_observed(suite, target, prepared.resume)
     journal = store.open_journal(prepared.header)

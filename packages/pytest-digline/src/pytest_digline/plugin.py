@@ -464,7 +464,13 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
 
 def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     from digline.core import compare
-    from digline.host import load_suite, need_baseline, read_run, resolve_key
+    from digline.host import (
+        load_suite,
+        need_baseline,
+        read_run,
+        refuse_unreadable_baseline,
+        resolve_key,
+    )
     from digline.report import config_changes, headline, scale_lost
     from digline.store import FileResultStore
     from digline.wire import exit_code
@@ -474,6 +480,12 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
     store = FileResultStore(str(root))
 
     if run_first:
+        # Before the first call, and with no way to accept: this session
+        # compares right after, so a run against a baseline it cannot read
+        # would be paid for and refused a moment later by `need_baseline`.
+        # The refusal is the same 4 either way; the spending is what moves.
+        # (#621)
+        refuse_unreadable_baseline(store, suite)
         _measure(suite, loaded, spec, path, store, root=root)
 
     resolved = resolve_key(store, suite, "latest")
