@@ -26,8 +26,24 @@ The **patch** number is for everything that leaves existing suites, scripts and
 stored documents working unchanged: fixes, documentation, CI, and additions — a
 new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 
-Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
-last tag and `main`, not from memory. The public names are the three levels
+**A bump of `OUTPUT_VERSION` is a minor.** *Ruled 2026-10-25 (#669).* It is not
+added to the minor's list by analogy: it is derived from the patch's rule. The
+patch is for what leaves existing scripts working unchanged, and
+`OUTPUT_VERSION` exists to tell a script that something it reads has changed
+what it means. A release that bumps it has, by construction, not left them
+unchanged.
+
+**The rule of 2026-10-12 covers any value, not only a number.** *Extended
+2026-10-25 (#669).* A value whose meaning changes while its key and its type
+stay the same is a bump of `OUTPUT_VERSION`: a number, a count or a boolean.
+`within_noise` is the case that showed it: in 0.33.0 the boolean went from
+*covered by the interval the samples spanned* to *covered by the declared
+floor*, and a consumer branches on it. A word in a vocabulary is still outside
+the rule, as `docs/api.md` says. The rule lives in `src/digline/wire/contract.py`
+and is extended there too.
+
+Check it by diffing the public names, the CLI, `SCHEMA_VERSION` and
+`OUTPUT_VERSION` between the last tag and `main`, not from memory. The public names are the three levels
 below.
 
 **Since 2026-10-25, a public name is read in three levels.** Ruled that day.
@@ -343,6 +359,7 @@ it and deletes it.
 | digline | #654: `digline run` exits `2` when it judged nothing, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
 | digline | #483 (ADR 0053): `digline promote` exits `64` on a run with a drifted or lost pin unless `--accepting-pin` names its paths, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
 | digline | #621: `digline run` and `digline rejudge` exit `64` before spending when the baseline is at a schema this digline cannot read, unless `--accepting-baseline-schema` names it, where they spent, wrote the run and exited as on any other input | a minor: *"an exit code changed"* (*Choosing the version*) |
+| digline | #669: `output_version` is `3`, where it was `2` | a minor: *"A bump of `OUTPUT_VERSION` is a minor"* (*Choosing the version*) |
 | pytest-digline | #574: a check the run has no verdict for is a `SKIPPED` row where it was `PASSED`; it needs the `fact.row_missing` keys of the core release that carries #574 | a minor, ruled 2026-10-22: a row's outcome is something its users rely on (*Choosing the version*). **And its floor on digline goes to the number this cut gives digline**: the `0.34.0` in the table of floors owed at the cut is the expected number, not a decision |
 
 Empty is the normal state here too. A row left after its package's release is a
@@ -4166,6 +4183,12 @@ two are not an inconsistency to reconcile.
   program imports a name. Diff `_ADDED` in `src/digline/wire/contract.py`
   between the two tags: since #312 every key added without a bump of
   `OUTPUT_VERSION` is an entry there, with the issue or ADR that added it.
+  **When `OUTPUT_VERSION` moved between the two tags, diff `_BASE` instead.**
+  *Ruled 2026-10-25 (#669).* The bump folds `_ADDED` and `_ADDED_WORDS` into
+  `_BASE` and empties them, so a diff of `_ADDED` would miss every key added
+  in the cycle before the fold. `errored_checks` (#654) is the case that
+  showed it: added in the cycle of 0.34.0 and folded at the bump to 3, it
+  would not appear in the delta-pass over 0.34.0 by a diff of `_ADDED`.
   Diff `_ADDED_WORDS` beside it: since #402 a word added to a map's closed key
   vocabulary, such as a cause in `spread_absence`, is an entry there. And
   `tests/test_wire_keys.py` refuses a document that carries a key the table
@@ -4213,6 +4236,10 @@ them:
   becomes another word, a number that changes meaning, bytes inside a string,
   and a type on a branch no fixture reaches. `contract.py` names the four
   beside the table (#312).
+  *Added 2026-10-25 (#669).* That a value changed meaning is not a fourth item
+  of the list above, on purpose. The three items find new surface by a diff
+  between two tags, and a change of meaning shows in no diff: it is a question
+  the author asks while writing the change, and `CONTRIBUTING.md` asks it.
 
 **What holds that record, said here because it is weaker than the first.** An
 `__all__` is code, so a new name cannot be exported without appearing in it.

@@ -288,7 +288,7 @@ produces them, so nothing here replays this block.
     }
   ],
   "note": "",
-  "output_version": 2,
+  "output_version": 3,
   "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60",
   "scope": "comparison"
 }

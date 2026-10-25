@@ -695,7 +695,19 @@ def _vocabulary(
 def test_an_added_word_is_new_and_named_once() -> None:
     """`_ADDED_WORDS`' counterpart of the test above. A word `_BASE` already
     had would be a change wearing an addition's name. A word the derived table
-    lacks would be an entry that added nothing. (#402)"""
+    lacks would be an entry that added nothing. (#402)
+
+    **With the table empty this passes by construction, and that is right.** A
+    bump folds every added word back into `_BASE` (#669), so after each bump
+    the table is empty until the first word is added under the new version. A
+    guard that the table is not empty would fail after every bump, and nothing
+    would be wrong.
+
+    `test_every_acceptance_flag_has_its_rule_in_both_files` in
+    `test_agents.py` looks like the opposite and is not. There the list is read
+    off the command line, which always declares at least `--accepting-pin`, so
+    an empty list means the reader is broken, and that test refuses one. Here
+    an empty list is a state the procedure produces on purpose."""
     seen: set[tuple[str, str, str]] = set()
     for entry in _ADDED_WORDS:
         where = (entry.shape, entry.key, entry.word)

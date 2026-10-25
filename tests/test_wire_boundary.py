@@ -392,11 +392,15 @@ def test_a_run_with_no_instrument_flags_says_so_plainly() -> None:
 def test_the_added_keys_did_not_move_the_output_version() -> None:
     """The rule and its application, read in one place: an added key breaks no
     consumer, and that is the rule this change is under — unlike the bump to 2,
-    which rewrote bytes inside values a consumer already read."""
+    which rewrote bytes inside values a consumer already read.
+
+    The version is 3 since #669, and not because of these keys: they were
+    added under 2 and folded into version 3's base. The bump is for numbers and
+    a boolean that changed meaning in 0.33.0 under 2."""
     from digline.wire import OUTPUT_VERSION
 
-    assert OUTPUT_VERSION == 2
-    assert run_document(instrumented(), Disclosure())["output_version"] == 2
+    assert OUTPUT_VERSION == 3
+    assert run_document(instrumented(), Disclosure())["output_version"] == 3
 
 
 def test_the_instrument_flags_carry_none_of_the_customers_data() -> None:

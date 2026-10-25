@@ -150,7 +150,7 @@ a key typed by hand. Two arguments, so there can be two notes.
     "interval_pairs": 2, "left_exceeds": 2, "right_exceeds": 0, "total": 2
   },
   "judges": [],
-  "output_version": 2,
+  "output_version": 3,
   "systems_differ": true,
   "suite": "support",
   "tenant": "northwind"
