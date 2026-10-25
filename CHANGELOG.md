@@ -8,6 +8,18 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`docs/api.md` names the lost pin among what `run_exit_code` cannot see, and
+  documents `accepting_pins` and `unjudged_causes`.** Its bullet on
+  `run_exit_code` said the function never returns `1` because *worse*, a moved
+  canary and a drifted pin are relations, and left out the lost pin, which is a
+  relation too (ADR 0051 §3): it now names all four. *Reading and promoting from
+  a program* says what `promote`'s `accepting_pins` is for, empty by default and
+  `--accepting-pin` on the command line, and the section on exit codes points
+  at `unjudged_causes`, the key on `compare --json` that says which causes of
+  `2` hold. And *a public name*, which decides when the minor moves, is now read
+  in three levels: a name `docs/api.md` lists, a name a plugin uses, and the
+  rest of an `__all__` (`RELEASING.md`, *Choosing the version*). Nothing in the
+  code moves.
 - **A sample that never voted is said where a person looks** (#656, from #598).
   A sampled check can meet its `min_agreement` with a sample that could not be
   judged, and its floor then rests on the judged ones alone. Two places now say
