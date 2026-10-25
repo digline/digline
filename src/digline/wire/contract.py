@@ -241,6 +241,31 @@ __all__ = [
 #:    the comparison was made against, derived from that document, and the one
 #:    `promote --replacing` has to name. It moves no exit code.
 #:
+#: 3: **the first bump for a change of meaning, and it leaves the version
+#:    before it ambiguous.** In 0.33.0, under `output_version: 2`, three numbers
+#:    and a boolean changed what they mean (ADR 0050): `noise_min` and
+#:    `noise_max` on a case row became the baseline's score ± `width · √2 · sd
+#:    / √K` rather than the range of its samples, `noise_samples` became `0` for
+#:    any check with no floor, and `within_noise`, the count and the boolean,
+#:    went from *covered by the interval the samples spanned* to *covered by the
+#:    declared floor*. No key and no type moved, so this table could not see it,
+#:    and the rule of 2026-10-12 said it was a bump. It was not applied. (#669)
+#:
+#:    **Version 2 means two things, and nothing in a document tells them
+#:    apart.** A version-2 document produced by a digline before 0.33.0 and one
+#:    produced by 0.33.0 carry the same `output_version` and the same keys, and
+#:    their numbers mean different things. `digline_version`, where a document
+#:    carries one, names the digline that **wrote the run**, not the one that
+#:    produced the comparison: that is the digline installed when `compare`
+#:    ran, and no `--json` output records it. A consumer holding a version-2
+#:    document can tell the two apart only from outside it, by knowing which
+#:    digline it ran. That is the cost of the bump 0.33.0 did not make, and this
+#:    one does not undo it.
+#:
+#:    The bump changes no key and no type. It folds `_ADDED` and `_ADDED_WORDS`
+#:    into `_BASE`: the 34 keys and the one word added under 2 are in version
+#:    3's base, each beside the provenance its entry carried.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -273,7 +298,7 @@ __all__ = [
 #: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
 #: a key, the record is an entry in `_ADDED` at the end of this module, and a
 #: test refuses the key until it is there. A paragraph here may still say why.
-OUTPUT_VERSION = 2
+OUTPUT_VERSION = 3
 
 EXIT_OK = 0
 EXIT_WORSE = 1

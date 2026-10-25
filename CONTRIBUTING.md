@@ -209,6 +209,15 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   any other.
 - **Decisions in `CLAUDE.md` marked fixed need an ADR in `docs/adr/` first**,
   not a pull request that quietly works around them.
+- **When a change moves what digline computes, ask whether a value on the wire
+  now means something else.** A number, a count or a boolean whose key and type
+  stay the same and whose meaning moves is a bump of `OUTPUT_VERSION`, by the
+  rule in `src/digline/wire/contract.py` (2026-10-12, extended 2026-10-25), and
+  the bump is a minor (`RELEASING.md`, *Choosing the version*). **No test holds
+  this question**, as `wire/contract.py` says twice: the key table sees keys and
+  types, never meanings, and the delta-pass's diffs do not see it either. So it
+  is asked here, by whoever writes the change. 0.33.0 changed three numbers and
+  `within_noise` under `output_version: 2`, and nothing went red (#669).
 - **When you amend a record, sweep for its premise with the line breaks
   folded.** Prose here wraps at about 79 columns, so a sentence worth amending
   is usually two lines, and `grep "the whole sentence"` finds none of the places

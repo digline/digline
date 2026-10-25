@@ -2248,7 +2248,7 @@ half of the classification's bookkeeping and stays internal.
 ## What `--json` promises
 
 `digline compare --json` and `digline run --json` print an object whose first
-key is `output_version`, currently `2`. It is bumped when the shape changes and
+key is `output_version`, currently `3`. It is bumped when the shape changes and
 is **not** `SCHEMA_VERSION`: that one versions documents already on disk and
 comes with migrations, because a run file written last month must still be
 readable. This one versions what a pipeline parses on stdout today, where
@@ -2260,8 +2260,23 @@ change.
 **Since 2026-10-12, a change in what a number means is a bump too**, even when
 its key and its type stay the same: a consumer that reads the number would
 otherwise go on parsing it and be wrong in silence, with the version unchanged.
-The version does not cover a word in a vocabulary changing, such as an outcome
-or a kind a consumer matches on: the value is still a string.
+**Since 2026-10-25 that covers any value, not only a number**: a count or a
+boolean whose meaning moves is a bump as well. The version does not cover a
+word in a vocabulary changing, such as an outcome or a kind a consumer matches
+on: the value is still a string.
+
+**Version 3 is the first bump for a change of meaning, and it leaves version 2
+ambiguous** (#669). In 0.33.0, under `output_version: 2`, `noise_min`,
+`noise_max` and `noise_samples` on a case row and `within_noise`, the count and
+the boolean, changed what they mean: the floor became the baseline's score ±
+`width · √2 · sd / √K`, and it applies only where a check declares a width
+(ADR 0050). So version 2 means two things, and nothing in a document tells them
+apart. `digline_version`, where a document carries one, names the digline that
+wrote the run, not the one that produced the comparison: that is the digline
+installed when `compare` ran, and no `--json` output records it. A consumer
+holding a version-2 document can tell the two apart only by knowing which
+digline it ran. That is a cost, and version 3 does not undo it. Version 3 itself
+changes no key and no type.
 
 **Version 2 is the first bump, and the first change that is not an added key.**
 Every earlier addition was something a consumer could ignore while parsing the

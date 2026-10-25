@@ -8,6 +8,25 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`output_version` is `3`** (#669). In 0.33.0, under `output_version: 2`,
+  `noise_min`, `noise_max` and `noise_samples` on a case row and `within_noise`,
+  the count and the boolean, changed what they mean (ADR 0050), and the version
+  did not move. It moves now. Version 3 changes no key and no type.
+  - **Version 2 is ambiguous, and that is a cost.** A version-2 document from
+    before 0.33.0 and one from 0.33.0 read the same and mean different things.
+    Nothing in the document tells them apart: `digline_version` names the
+    digline that wrote the run, not the one that ran `compare`. A consumer can
+    tell only by knowing which digline it ran. `docs/api.md`, *What `--json`
+    promises*, says so, and so does the record in `wire/contract.py`.
+  - **The rule is extended**: a value that changes meaning with its key and type
+    unchanged is a bump, a count or a boolean as well as a number.
+  - **The contract's table is folded**: the 34 keys and the one word added under
+    version 2 are in version 3's base, each beside its provenance, and the
+    delta-pass diffs `_BASE` when the version moved between two tags.
+
+  **A minor**, under the rule this release adds to *Choosing the version*: *"A
+  bump of `OUTPUT_VERSION` is a minor"*. It is the first release that applies
+  to itself the rule it introduces.
 - **`digline run` and `digline rejudge` refuse before spending when the
   baseline is at a schema this digline cannot read** (#621). Until now `run`
   called the target, wrote a run at its own schema beside the baseline, and
