@@ -46,6 +46,11 @@ digline **0.34.0**.
   document does not carry; the word is digline's own and crosses, a projection
   included, where it is checked for its form. `shape` is the target's alone:
   nothing checks what a mapper returns. `ErrorKind` is new in `digline.core`.
+  Where the reason is not included, the report and the pages `digline view`
+  serves now say the kind after *"Not included in this report."*, in English
+  and Italian: that the code asking the system under test, or the code reading
+  its answer, raised an error, or that it returned something that is not an
+  answer.
 - **Three added keys, so `output_version` does not move**: `every_call_seen`
   and `every_cost_known` on each line of `usage` (`run --json` and the MCP
   tools `run`, `get_run` and `get_baseline`), `null` where not recorded, and

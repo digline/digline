@@ -725,6 +725,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "the largest sits at the cap."
         ),
         "reason.unavailable": "Not included in this report.",
+        # Said after `reason.unavailable` on an errored case, where the reason
+        # that says what failed was removed: digline's own word for the kind of
+        # error, which crosses where the sentence does not. (#425)
+        "reason.error_kind.raised": (
+            "The case could not be measured: the code that asks the system "
+            "under test, or the code that reads its answer, raised an error."
+        ),
+        "reason.error_kind.shape": (
+            "The case could not be measured: the code that asks the system "
+            "under test returned something that is not an answer."
+        ),
         "diff.title": "Two runs compared — {suite}",
         "diff.column.run": "Run",
         "diff.column.check": "Check",
@@ -2005,6 +2016,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{cap}; la maggiore si ferma sul tetto."
         ),
         "reason.unavailable": "Non inclusa in questo rapporto.",
+        "reason.error_kind.raised": (
+            "Il caso non ha potuto essere misurato: il codice che interroga il "
+            "sistema in prova, o quello che ne legge la risposta, ha sollevato "
+            "un errore."
+        ),
+        "reason.error_kind.shape": (
+            "Il caso non ha potuto essere misurato: il codice che interroga il "
+            "sistema in prova ha restituito qualcosa che non è una risposta."
+        ),
         "diff.title": "Due esecuzioni a confronto — {suite}",
         "diff.column.run": "Esecuzione",
         "diff.column.check": "Controllo",

@@ -30,7 +30,9 @@ from digline.core import (
     JudgeReply,
     LlmRubric,
     Run,
+    compare,
     project,
+    project_served,
     redact,
 )
 from digline.core.run import (
@@ -41,6 +43,7 @@ from digline.core.run import (
     run_from_json,
     run_to_dict,
 )
+from digline.report import Locale, render_html, render_run_html
 from digline.run import Calibration, Case, Response, Suite, execute
 from digline.store.migrate import upgrade_document
 from digline.wire import run_document
@@ -239,3 +242,59 @@ def test_migrating_a_schema_20_case_writes_no_kind() -> None:
     assert upgraded == current
     assert run_from_json(json.dumps(upgraded)).results[0].error_kind is None
     assert run_from_dict(upgraded).results[0].error_kind is None
+
+
+# --------------------------------------------------------------------------- #
+# The word is seen where the reason was removed: the report and the served page
+# --------------------------------------------------------------------------- #
+
+_WORDS = {
+    "en": {
+        "raised": "raised an error",
+        "shape": "returned something that is not an answer",
+    },
+    "it": {
+        "raised": "ha sollevato un errore",
+        "shape": "ha restituito qualcosa che non è una risposta",
+    },
+}
+
+
+def _pages(locale: Locale) -> dict[str, str]:
+    """Each surface a reader without the reason meets, for a run whose c1
+    raised and whose c2 returned the wrong shape, against a clean baseline."""
+
+    def target(case: Case) -> Response:
+        if case.id == "c1":
+            raise RuntimeError("Rossi's account is locked")
+        if case.id == "c2":
+            return "yes"  # pyright: ignore[reportReturnType]
+        return Response(output="yes", cost_usd=0.01)
+
+    declared = suite(Case(id="c1"), Case(id="c2"), Case(id="c3"))
+    run, _ = measured(declared, target)
+    baseline, _ = measured(declared, answering)
+    hidden, before = redact(run), redact(baseline)
+    served = project_served(run, Table())
+    return {
+        "report of a run": render_run_html(hidden, locale=locale),
+        "report of a comparison": render_html(
+            compare(hidden, before), hidden, before, locale=locale, declared=None
+        ),
+        "served page": render_run_html(served, locale=locale),
+    }
+
+
+@pytest.mark.parametrize("locale", ["en", "it"])
+def test_the_word_is_said_where_the_reason_was_removed(locale: Locale) -> None:
+    for surface, page in _pages(locale).items():
+        for kind, words in _WORDS[locale].items():
+            assert words in page, f"{surface} does not say {kind} in {locale}"
+        assert "Rossi" not in page, f"{surface} carries the removed reason"
+
+
+def test_a_case_that_did_not_error_gets_no_word() -> None:
+    run, _ = measured(suite(), answering)
+    page = render_run_html(redact(run), locale="en")
+    for words in _WORDS["en"].values():
+        assert words not in page
