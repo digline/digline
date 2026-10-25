@@ -20,7 +20,11 @@ a person's name in it, and nothing refused it.
   projection or why it never gets there. It catches a field that exists, and
   it does so when the field is empty: the serializer writes a string only when
   it has one, so a new field with an empty default never reaches the document,
-  and the first half alone could not see it by construction.
+  and the first half alone could not see it by construction. A closed
+  vocabulary, a `Literal` of strings whether a type alias names it or not, is a
+  string type too: until #563 the walk read only `str`, so `Verdict.status` and
+  three fields of a recorded answer were outside it, and a new word on a case
+  would have been as well.
 
 **What this does not cover, three exclusions with three reasons**, so that
 nobody reads the gate as §4's whole guarantee. §4 read literally stays wider
@@ -59,6 +63,7 @@ _TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9:.]+)?(?:Z|[+-][0-9:]+
 _VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+\S*")
 _RUN_KEY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9-]*Z?)?-[0-9a-f]{16}")
 _STATUS = frozenset({"pass", "fail", "error"})
+_ERROR_KINDS = frozenset({"raised", "shape"})
 
 
 def _form(pattern: re.Pattern[str]) -> Check:
@@ -88,6 +93,7 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.results[].verdicts[].assertion_id": ("a", _form(_DIGEST)),
     "$.results[].verdicts[].status": ("a", _STATUS.__contains__),
     "$.results[].calibration.assertion_id": ("a", _form(_DIGEST)),
+    "$.results[].error_kind": ("a", _ERROR_KINDS.__contains__),
     "$.aggregate[].assertion_id": ("a", _form(_DIGEST)),
     "$.aggregate[].status": ("a", _STATUS.__contains__),
     "$.tenant": ("b", _anything),
@@ -134,8 +140,12 @@ FIELDS: dict[str, str] = {
     "CalibrationBand.assertion_id": "$.results[].calibration.assertion_id",
     "CaseResult.case_id": "$.results[].case_id",
     "CaseResult.suspended": _REDACTED + "; the fact travels as a boolean",
+    "CaseResult.error_kind": "$.results[].error_kind",
     "RecordedResponse.output": _REDACTED + "; the count travels",
     "RecordedResponse.input": _REDACTED + "; the count travels",
+    "RecordedResponse.kind": _REDACTED + "; a withheld answer carries no kind",
+    "RecordedToolCall.status": _REDACTED + " with its response",
+    "RecordedToolCall.result_absence": _REDACTED + " with its response",
     "RecordedToolCall.tool": _REDACTED + " with its response",
     "RecordedToolCall.arguments": _REDACTED + " with its response",
     "RecordedToolCall.result": _REDACTED + " with its response",
@@ -160,14 +170,17 @@ FIELDS: dict[str, str] = {
     "SystemConfig.identities": "$.target_config.identities[]",
     "Verdict.reason": _REDACTED + "; a redacted document omits it",
     "Verdict.assertion_id": "$.results[].verdicts[].assertion_id",
+    "Verdict.status": "$.results[].verdicts[].status",
 }
 
 
 def _projected() -> dict[str, object]:
     """The projection of `test_projection`'s fixture, with the optional strings
     it leaves empty filled in, so their paths are walked too."""
+    base = promoted()
     run = replace(
-        promoted(),
+        base,
+        results=(replace(base.results[0], error_kind="raised"), *base.results[1:]),
         digline_version="0.33.0",
         git_commit="0123456789abcdef0123456789abcdef01234567",
         resumed_at=("2026-09-30T11:00:00+00:00",),
@@ -216,12 +229,19 @@ def test_every_string_a_projection_carries_is_classified() -> None:
 
 def _string_fields(root: type) -> set[str]:
     def has_str(t: object) -> bool:
+        if isinstance(t, typing.TypeAliasType):
+            return has_str(t.__value__)
+        if typing.get_origin(t) is typing.Literal:
+            return any(isinstance(a, str) for a in typing.get_args(t))
         return t is str or any(has_str(a) for a in typing.get_args(t))
 
     found: set[str] = set()
     seen: set[type] = set()
 
     def visit(t: object) -> None:
+        if isinstance(t, typing.TypeAliasType):
+            visit(t.__value__)
+            return
         if isinstance(t, type) and dataclasses.is_dataclass(t) and t not in seen:
             seen.add(t)
             hints = typing.get_type_hints(t)
