@@ -600,6 +600,17 @@ a person's name in it. What the gate does **not** hold, each for its own reason:
   where the artifact and pinned paths it names as that perimeter are tokens
   (#712).
 
+*Noted 2026-10-25 (#425, #563); §4 and the note above are kept as written.*
+**`CaseResult.error_kind` is class (a)**: `raised` or `shape`, digline's own
+word for the kind of error that errored a case, about the target's or the
+mapper's code and never about the data. It crosses a projection in clear and
+`_check_projected` checks it for its form. It is the first field added after
+the gate, and it went through it: taken out of the gate's tables, it turns the
+gate red. **And the note above said more than the gate held.** Its model half
+read a field as a string only when its type was `str`, so a closed vocabulary,
+a `Literal` of strings, was outside it: `Verdict.status` and three fields of a
+recorded answer were, and `error_kind` would have been. It reads them now.
+
 ### 5. What becomes a token, and why a token
 
 **Six strings are irreducibly not digline's**, and all six are class (c): the

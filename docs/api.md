@@ -509,6 +509,8 @@ a run that consumed nothing.
 | `counted` | of those, how many reported their usage |
 | `tokens` | the `Usage` counts, summed over the counted calls |
 | `spent_usd` | what the line cost |
+| `every_call_seen` | `False` where a call was made and is on no line, `None` where not recorded |
+| `every_cost_known` | `False` where a call on the line had no known cost, `None` where not recorded |
 
 `counted` below `calls` means the total covers **part** of the run — a target
 that reports no counts, or a leg somebody resumed by hand without figures — and
@@ -517,6 +519,28 @@ and `--json` carries `partial` as a field so nothing has to derive it.
 
 The totals cross a boundary; the per-call counts on a recorded response do not
 (ADR 0025 §8).
+
+**Two markers say whether a line is the whole bill, since schema 21** (#563).
+`calls` counts the calls on the line and says nothing of the ones that are not:
+
+- **`every_call_seen` is `False`** where digline knows a call was made and it
+  is on no line: a target call or a judge call that raised. Its cost is
+  unknown, so it stays off `calls` and `spent_usd`, and this says so. It is
+  **`None`** where digline cannot know whether a call was made: a judged check
+  whose judge is not one `judge_totals` can read, such as a judge written as a
+  function, or a `Billable` judge that keeps no `raised_calls`.
+- **`every_cost_known` is `False`** where a call is on the line and its cost is
+  not known: a `Response` whose `cost_usd` is `None`, and a target that
+  returned something that is not a `Response`. Such a call adds nothing to
+  `spent_usd`.
+
+In a sum, `False` wins over `None` and `None` over `True`, across cases,
+judges and the legs of a resumed run. `None` is also what a document written
+before schema 21 reads as, and what `CallTotals()` built by hand says: a line
+nobody recorded claims nothing. `NO_CALLS` is the line of no call at all,
+complete on both. In the run file a marker that is `None` is absent; on the
+wire it is `null`; and the terminal's line adds *not every call seen* or *cost
+not known for every call* only where a marker is `False`.
 
 **`thinking_tokens` is a breakdown, not a fifth quantity.** A model that reasons
 before it answers is billed for tokens nobody reads, and since schema 15 `Usage`
@@ -2335,6 +2359,17 @@ flip too, where `noise_min`, `noise_max` and `noise_samples` stay absent: it is 
 scale of the movement, **never** the floor it was judged against, and no verdict reads
 it (ADR 0006 §6, noted 2026-10-24; #1). An added key, so `output_version` does not move.
 
+Three more keys are added, so `output_version` does not move for them either.
+Each line of `usage`, wherever an output carries one (`run --json`, and the MCP
+tools `run`, `get_run` and `get_baseline`), carries
+`every_call_seen` and `every_cost_known`, `true`, `false` or `null` where not
+recorded ([`Run.usage`](#runusage-and-what-a-line-means); #563). Each case of
+`get_run` and `get_baseline` carries `error_kind`: `raised` where the target or the mapper raised, `shape` where the
+target returned something that is not a `Response`, and `null` where the case did
+not error there or the run was written before schema 21 (#425). The sentence that
+says what failed is the reason, which does not cross; the word does. `shape` is
+the target's alone, because nothing checks what a mapper returns.
+
 ### The same fact in different documents
 
 Four facts take a different form depending on the document that carries them.
@@ -2609,8 +2644,8 @@ token, every artifact is withheld, the run carries no metadata, and no verdict
 carries string metadata. The strings it leaves in clear, because digline
 writes them, are checked for their form: a verdict's and a band's
 `assertion_id` and `config_hash` are digests, `digline_version` a version,
-`rejudged_from` a run key, and `created_at`, `promoted_at` and `resumed_at`
-times. The keys of a verdict's metadata are not checked:
+`rejudged_from` a run key, `created_at`, `promoted_at` and `resumed_at`
+times, and a case's `error_kind` one of `raised` and `shape`. The keys of a verdict's metadata are not checked:
 they are in none of ADR 0034 §4's classes yet. **The refusal of run metadata
 decides nothing about numbers.** Redaction with no `Disclosure` already removed
 every entry, numbers included, so a projection never has any. ADR 0034 §4

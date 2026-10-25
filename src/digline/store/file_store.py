@@ -51,8 +51,8 @@ from digline.core.register import (
     RegisterEntry,
 )
 from digline.core.run import (
+    NO_CALLS,
     SCHEMA_VERSION,
-    CallTotals,
     CaseProgress,
     CaseResult,
     DocumentRefusedError,
@@ -1215,7 +1215,10 @@ class FileResultStore:
         newest: JournalHeader | None = None
         done: dict[str, CaseResult] = {}
         causes: dict[str, str] = {}
-        spent = CallTotals()
+        # The line of no call, so the fold's completeness is the legs': a leg
+        # written before 21 carries no marker and makes it *not recorded*,
+        # unless a leg already said a call was missed. (#563)
+        spent = NO_CALLS
         observed_target = SystemConfig()
         observed_judge = SystemConfig()
 

@@ -8,6 +8,52 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **Schema 21, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
+  20 → 21 for three fields. The step writes nothing for any of them: a
+  document written before this release recorded none, and the absent key says
+  *not recorded*, never `null`. A 0.33.x reader refuses a schema-21 document.
+  `JOURNAL_VERSION` does not move: a journal line from either side of the bump
+  is missing a key, never misread, and that is its rule, as it was for `pid`
+  and `host`. **A minor**, under *Choosing the version*: *"a schema change that
+  needs `migrate`"*.
+- **A line of the bill says whether it is the whole bill** (#563). `calls` and
+  `spent_usd` counted the calls on the line and said nothing about the ones
+  that were not: a target call or a judge call that raised was on no line, and
+  a reply with no `cost_usd` added zero. Each line of `Run.usage` now carries
+  two markers, each `true`, `false` or *not recorded*:
+  - **`every_call_seen`** is `false` where a call was made and is on no line,
+    because it raised. It is *not recorded* where digline cannot know whether
+    a call was made: a judged check whose judge is not one it can read, such
+    as a judge written as a function. `JudgeBase` gains `raised_calls`, which
+    is how a judge's line knows;
+  - **`every_cost_known`** is `false` where a call is on the line and its cost
+    is not known: a `Response` with `cost_usd=None`, and a reply that is not a
+    `Response`.
+
+  In a sum `false` wins over *not recorded*, and *not recorded* over `true`.
+  `digline run` adds *not every call seen* or *cost not known for every call*
+  to its bill line on stderr where a marker is `false`, and prints the line even
+  when every call raised, which it skipped before. `CallTotals.plus` takes
+  `spent_usd=None` for an unknown cost, and `NO_CALLS`, the line of no call, is
+  new in `digline.core`. `CallTotals()` built by hand claims nothing: its
+  markers are *not recorded*.
+- **A case says what kind of error errored it** (#425). `CaseResult.error_kind`
+  is `raised` where the target or the mapper raised and `shape` where the
+  target returned something that is not a `Response`, and `None` on any other
+  case. The sentence that says it is the reason, which a redacted or projected
+  document does not carry; the word is digline's own and crosses, a projection
+  included, where it is checked for its form. `shape` is the target's alone:
+  nothing checks what a mapper returns. `ErrorKind` is new in `digline.core`.
+- **Three added keys, so `output_version` does not move**: `every_call_seen`
+  and `every_cost_known` on each line of `usage` (`run --json` and the MCP
+  tools `run`, `get_run` and `get_baseline`), `null` where not recorded, and
+  `error_kind` on each case of `get_run` and `get_baseline`, `null` on a case
+  that did not error there.
+- **The projection gate reads a closed vocabulary as a string** (#710's test).
+  It read a field as a string only when its type was `str`, so a `Literal` of
+  strings was outside its model half: `Verdict.status` and three fields of a
+  recorded answer were, and `error_kind` would have been. Nothing in digline's
+  behaviour moves.
 - **A projected document is held to ADR 0034 §4's classes by a test, as §16
   said it would be** (#710). Until now nothing held them: `_check_projected`
   checks by name, and a string field added to a case and kept by `redact()`

@@ -15,7 +15,9 @@ The 20 -> 21 step writes nothing, and absent is `None`.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
+from typing import cast
 
 import pytest
 
@@ -80,6 +82,11 @@ def shapeless(case: Case) -> Response:
 
 def raising_mapper(response: Response, case: Case) -> EvaluatorInputs:
     raise KeyError("context")
+
+
+def cases_of(document: Mapping[str, object]) -> list[dict[str, object]]:
+    """A document's cases, typed for a test that reads or edits them."""
+    return cast(list[dict[str, object]], document["results"])
 
 
 def measured(
@@ -192,10 +199,10 @@ def test_redaction_keeps_the_kind() -> None:
 
 def test_the_wire_carries_the_kind_on_every_case() -> None:
     run, _ = measured(suite(Case(id="c1"), Case(id="c2")), raising)
-    cases = run_document(run, Disclosure())["results"]
-    assert [case["error_kind"] for case in cases] == ["raised", "raised"]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
+    cases = cases_of(run_document(run, Disclosure()))
+    assert [case["error_kind"] for case in cases] == ["raised", "raised"]
     clean, _ = measured(suite(), answering)
-    assert run_document(clean, Disclosure())["results"][0]["error_kind"] is None  # pyright: ignore[reportIndexIssue]
+    assert cases_of(run_document(clean, Disclosure()))[0]["error_kind"] is None
 
 
 # --------------------------------------------------------------------------- #
@@ -226,8 +233,8 @@ def test_migrating_a_schema_20_case_writes_no_kind() -> None:
     assert SCHEMA_VERSION == 21
     run, _ = measured(suite(), raising)
     current = run_to_dict(run)
-    for case in current["results"]:  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
-        case.pop("error_kind")  # pyright: ignore[reportUnknownMemberType]
+    for case in cases_of(current):
+        case.pop("error_kind")
     upgraded = upgrade_document({**current, "schema_version": 20})
     assert upgraded == current
     assert run_from_json(json.dumps(upgraded)).results[0].error_kind is None

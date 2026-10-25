@@ -751,8 +751,10 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     # 17 -> 18 writes `projected: false`, which this document already holds.
     # 18 -> 19 writes nothing: an absent `modules_unchecked` is *not
     # recorded* (ADR 0052). 19 -> 20 writes nothing either: an absent
-    # `floor_standard_errors` is *declared none* (ADR 0050).
-    assert SCHEMA_VERSION == 20
+    # `floor_standard_errors` is *declared none* (ADR 0050). 20 -> 21 writes
+    # nothing either: absent markers on a line of the bill and an absent
+    # `error_kind` are *not recorded* (#563, #425).
+    assert SCHEMA_VERSION == 21
     assert upgrade_document(at_eleven) == current
 
 

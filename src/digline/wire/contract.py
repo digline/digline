@@ -1222,7 +1222,19 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
 #: a consumer can see, and the rule for that is a bump. Empty at the bump to 3
 #: (#669), which folded the 34 keys added under 2 into `_BASE`, each beside the
 #: provenance its entry carried.
-_ADDED: tuple[_AddedKey, ...] = ()
+_ADDED: tuple[_AddedKey, ...] = (
+    # Whether a line of the bill saw every call and knew the cost of each:
+    # `false` where a call raised and is on no line, or was seen and not
+    # priced; `null` where not recorded, a run written before schema 21 or a
+    # judge digline cannot read. A consumer that summed `spent_usd` as the
+    # whole bill can now tell when it is not. (#563)
+    _AddedKey("usage.line", "every_call_seen", _k("boolean", "null"), "#563"),
+    _AddedKey("usage.line", "every_cost_known", _k("boolean", "null"), "#563"),
+    # Of what kind a case's error was, `raised` or `shape`, or `null` where the
+    # case did not error at the target or the mapper, or the run was written
+    # before schema 21. The reason that says it does not cross. (#425)
+    _AddedKey("run_document.case", "error_kind", _k("string", "null"), "#425"),
+)
 
 
 def _derive(

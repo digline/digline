@@ -356,7 +356,8 @@ def test_a_toml_suite_declares_it_as_a_key(tmp_path: Path) -> None:
 
 
 def test_migrating_a_schema_19_document_writes_nothing() -> None:
-    assert SCHEMA_VERSION == 20
+    # 20 -> 21 writes nothing either (#563, #425), so the claim stands at 21.
+    assert SCHEMA_VERSION == 21
     current = json.loads(run_to_json(make_run([judged(Contains(needle="hello"))])))
     at_nineteen = {**current, "schema_version": 19}
     upgraded = upgrade_document(at_nineteen)

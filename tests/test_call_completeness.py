@@ -21,9 +21,10 @@ The 20 -> 21 step writes nothing, and absent is `None`.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, cast
 
 import pytest
 
@@ -50,7 +51,8 @@ from digline.core.run import (
     run_to_dict,
 )
 from digline.host import measure, prepare
-from digline.run import Case, Response, Suite, execute, judge_totals
+from digline.run import Case, Response, Suite, execute
+from digline.run.driver import judge_totals
 from digline.store import FileResultStore
 from digline.store.migrate import upgrade_document
 from digline.targets.judge import ScoreJudge
@@ -139,6 +141,11 @@ class FlakyJudge(ScoreJudge):
         if self.asked in self.raise_on:
             raise RuntimeError("the judge's endpoint went away")
         return json.dumps({"score": 1.0, "reason": "fine"}), Usage(10, 5)
+
+
+def lines(document: Mapping[str, object]) -> dict[str, dict[str, object]]:
+    """The two lines of a document's bill, typed for a test that edits them."""
+    return cast(dict[str, dict[str, object]], document["usage"])
 
 
 def usage_of(run: Run) -> RunUsage:
@@ -422,14 +429,14 @@ def test_a_journal_line_before_21_makes_the_legs_not_recorded(
 def test_the_markers_round_trip_and_absent_is_not_recorded() -> None:
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     raw = run_to_dict(run)
-    target = raw["usage"]["target"]  # pyright: ignore[reportIndexIssue]
-    assert target["every_call_seen"] is False  # pyright: ignore[reportIndexIssue]
-    assert target["every_cost_known"] is True  # pyright: ignore[reportIndexIssue]
+    target = lines(raw)["target"]
+    assert target["every_call_seen"] is False
+    assert target["every_cost_known"] is True
     assert run_from_dict(raw).usage == run.usage
 
-    for line in raw["usage"].values():  # pyright: ignore[reportAttributeAccessIssue]
-        line.pop("every_call_seen")  # pyright: ignore[reportUnknownMemberType]
-        line.pop("every_cost_known")  # pyright: ignore[reportUnknownMemberType]
+    for line in lines(raw).values():
+        line.pop("every_call_seen")
+        line.pop("every_cost_known")
     read = run_from_dict(raw).usage
     assert read is not None
     assert read.target.every_call_seen is None
@@ -438,25 +445,25 @@ def test_the_markers_round_trip_and_absent_is_not_recorded() -> None:
 
 def test_a_marker_not_recorded_is_written_absent_never_null() -> None:
     run = execute(suite(rubric(plain_judge)), Answering(), created_at=CREATED)
-    judge = run_to_dict(run)["usage"]["judge"]  # pyright: ignore[reportIndexIssue]
+    judge = lines(run_to_dict(run))["judge"]
     assert "every_call_seen" not in judge
     assert "every_cost_known" not in judge
 
 
 def test_an_explicit_null_marker_is_refused() -> None:
     raw = run_to_dict(execute(suite(), Answering(), created_at=CREATED))
-    raw["usage"]["target"]["every_call_seen"] = None  # pyright: ignore[reportIndexIssue]
+    lines(raw)["target"]["every_call_seen"] = None
     with pytest.raises(ValueError, match="every_call_seen"):
         run_from_dict(raw)
 
 
 def test_the_wire_carries_both_markers_on_each_line() -> None:
     run = execute(suite(rubric(plain_judge)), RaisingOn("c1"), created_at=CREATED)
-    usage = run_document(run, Disclosure())["usage"]
-    assert usage["target"]["every_call_seen"] is False  # pyright: ignore[reportIndexIssue]
-    assert usage["target"]["every_cost_known"] is True  # pyright: ignore[reportIndexIssue]
-    assert usage["judge"]["every_call_seen"] is None  # pyright: ignore[reportIndexIssue]
-    assert usage["judge"]["every_cost_known"] is None  # pyright: ignore[reportIndexIssue]
+    usage = lines(run_document(run, Disclosure()))
+    assert usage["target"]["every_call_seen"] is False
+    assert usage["target"]["every_cost_known"] is True
+    assert usage["judge"]["every_call_seen"] is None
+    assert usage["judge"]["every_cost_known"] is None
 
 
 def test_the_terminal_says_a_call_was_not_seen() -> None:
@@ -488,12 +495,20 @@ def test_the_terminal_says_nothing_of_a_complete_line() -> None:
 def test_migrating_a_schema_20_line_writes_no_marker() -> None:
     assert SCHEMA_VERSION == 21
     current = run_to_dict(execute(suite(), Answering(), created_at=CREATED))
-    for line in current["usage"].values():  # pyright: ignore[reportAttributeAccessIssue]
-        line.pop("every_call_seen")  # pyright: ignore[reportUnknownMemberType]
-        line.pop("every_cost_known")  # pyright: ignore[reportUnknownMemberType]
+    for line in lines(current).values():
+        line.pop("every_call_seen")
+        line.pop("every_cost_known")
     upgraded = upgrade_document({**current, "schema_version": 20})
     assert upgraded == current
     usage = run_from_json(json.dumps(upgraded)).usage
     assert usage is not None
     assert usage.target.every_call_seen is None
     assert usage.target.every_cost_known is None
+
+
+def test_the_terminal_says_it_when_every_call_raised() -> None:
+    """Nothing is on the line, and that is when the clause matters most."""
+    run = execute(suite(), RaisingOn("c1", "c2"), created_at=CREATED)
+    (line,) = usage_lines(run.usage)
+    assert line.startswith("target: 0 calls")
+    assert "not every call seen" in line

@@ -18,6 +18,7 @@ from typing import Protocol, cast, runtime_checkable
 from digline import __version__
 from digline.core import (
     MAX_RECORDED_CHARS,
+    NO_CALLS,
     Artifact,
     Assertion,
     AssertionShapeError,
@@ -320,12 +321,20 @@ def judge_totals(suite: Suite) -> CallTotals:
     A judge that cannot say what it spent is passed over entirely: it raises no
     `calls`, so it never widens the gap between `calls` and `counted` with a
     number nobody measured.
+
+    **But it is not passed over in silence** (#563). A judged check holding a
+    judge this sum cannot read leaves both markers *not recorded*: digline
+    does not know whether that judge made a call, so neither `True` nor
+    `False` is something it established. A judge it can read says whether
+    every call was seen by its count of the calls that raised, and one that
+    keeps no such count is *not recorded* too. In the sum `False` wins over
+    `None`, and `None` over `True`.
     """
     seen: dict[int, Billable] = {}
     for judge in judges(suite.assertions):
         if isinstance(judge, Billable):
             seen.setdefault(id(judge), judge)
-    total = CallTotals()
+    total = NO_CALLS
     for judge in seen.values():
         # Through `CallTotals.__add__` rather than field by field, so a judge
         # that has made no call stays neutral in the fold instead of unreporting
@@ -335,8 +344,62 @@ def judge_totals(suite: Suite) -> CallTotals:
             counted=judge.calls,
             tokens=judge.tokens,
             spent_usd=judge.spent_usd,
+            every_call_seen=_saw_every_call(judge),
+            # A judge that can say what it spent priced every call it counted:
+            # a call it could not price raised, and is the marker above.
+            every_cost_known=True,
         )
+    if _judged_unread(suite.assertions, set(seen)):
+        total = total + CallTotals()
     return total
+
+
+def _saw_every_call(judge: Billable) -> bool | None:
+    """Whether none of the judge's calls raised, read off `raised_calls`, which
+    `JudgeBase` keeps. Read with a default rather than added to `Billable`, so
+    a judge written by hand still satisfies the protocol; one that keeps no
+    such count is *not recorded*, since a call of its that raised would be on
+    no line and nothing here could know. (#563)"""
+    raised = getattr(judge, "raised_calls", None)
+    if not isinstance(raised, int) or isinstance(raised, bool):
+        return None
+    return raised == 0
+
+
+def _judged_unread(assertions: Sequence[object], read: set[int]) -> bool:
+    """Whether a judged check holds a judge `judge_totals` did not read.
+
+    A judge is whatever a judged check holds that can be called: `LlmRubric`
+    and `Faithfulness` hold one field of that kind and nothing else callable,
+    and the field's name is not fixed, which is `judges()`'s reason for walking
+    fields. A judge written as a function has no `config`, so `judges()` never
+    lists it, and that is the case this exists for. Wrappers are followed the
+    way `judges()` follows them. (#563)
+    """
+    stack = list(assertions)
+    visited: set[int] = set()
+    while stack:
+        current = stack.pop()
+        if (
+            id(current) in visited
+            or not is_dataclass(current)
+            or isinstance(current, type)
+        ):
+            continue
+        visited.add(id(current))
+        judged = getattr(type(current), "KIND", None) == "judged"
+        for declared in fields(current):
+            value = getattr(current, declared.name, None)
+            if is_dataclass(value) and not isinstance(value, type):
+                stack.append(value)
+            if (
+                judged
+                and callable(value)
+                and not isinstance(value, type)
+                and id(value) not in read
+            ):
+                return True
+    return False
 
 
 def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
@@ -347,6 +410,11 @@ def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
     counts cannot go backwards — every field is monotone — so a negative here
     would mean a judge that reset itself, and `CallTotals` refuses it at
     construction rather than recording a negative bill.
+
+    The markers are not subtracted, because they are not counts. A reading
+    that already said a call was missed cannot tell this run's misses from an
+    earlier run's on the same judge, so the share is *not recorded* there;
+    otherwise it is what the later reading says. (#563)
     """
     return CallTotals(
         calls=after.calls - before.calls,
@@ -373,6 +441,12 @@ def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
             ),
         ),
         spent_usd=after.spent_usd - before.spent_usd,
+        every_call_seen=(
+            None if before.every_call_seen is False else after.every_call_seen
+        ),
+        every_cost_known=(
+            None if before.every_cost_known is False else after.every_cost_known
+        ),
     )
 
 
@@ -599,7 +673,12 @@ def _run_case(
     rule `JudgeBase._ask` already follows for the judge: its cost is unknown,
     and counting it at zero would be the undercount that reads as good news.
     A call that returned and whose *mapping* then failed is on it, because the
-    target answered and was paid. (ADR 0025 §3)
+    target answered and was paid. (ADR 0025 §3) The line does say a call is
+    missing: `every_call_seen` is false on it (#563).
+
+    The case carries what kind of error it was, `error_kind`, beside the cause
+    this returns: `raised` where the target or the mapper raised, `shape` where
+    the target returned something that is not a `Response`. (#425)
     """
     if case.suspended is not None:
         # The skip belongs to the driver, not to the core: an assertion is never
@@ -614,15 +693,16 @@ def _run_case(
             ),
             "",
             # A case nobody called consumed nothing, and that is a measurement
-            # rather than an absence: the zero is right here.
-            CallTotals(),
+            # rather than an absence: the zero is right here, and so is the
+            # completeness of a line that missed no call.
+            NO_CALLS,
         )
     if case.calibration is not None:
         return _calibrate(
             suite, mapper, case, case.calibration, judge_samples, declared
         )
 
-    line = CallTotals()
+    line = NO_CALLS
     samples: list[EvaluatorInputs] = []
     # Collected beside the mapped inputs rather than derived from them: what a
     # re-judge replays is what the *target* answered, and `EvaluatorInputs` is
@@ -649,9 +729,13 @@ def _run_case(
                         suite, f"target raised {type(exc).__name__}: {exc}"
                     ),
                     canary=case.canary,
+                    error_kind="raised",
                 ),
                 "target",
-                line,
+                # The call was made and is not on the line, and the line says
+                # so: a bill that is silent about a missed call reads as whole.
+                # (#563)
+                replace(line, every_call_seen=False),
             )
 
         if not isinstance(response, Response):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -673,12 +757,14 @@ def _run_case(
                         "Wrap what it answers in Response(output=...)",
                     ),
                     canary=case.canary,
+                    error_kind="shape",
                 ),
                 "target",
-                # The call was made, and reported no counts.
-                line.plus(tokens=None, spent_usd=0.0),
+                # The call was made, and reported no counts and no cost: it is
+                # on the line, and its cost is not known. (#563)
+                line.plus(tokens=None, spent_usd=None),
             )
-        line = line.plus(tokens=response.usage, spent_usd=response.cost_usd or 0.0)
+        line = line.plus(tokens=response.usage, spent_usd=response.cost_usd)
         if suite.record_responses:
             answers.append(recorded(response))
 
@@ -692,6 +778,9 @@ def _run_case(
                         suite, f"mapper raised {type(exc).__name__}: {exc}"
                     ),
                     canary=case.canary,
+                    # Never `shape`: nothing checks what a mapper returns, so
+                    # raising is the one way it errors a case (`ErrorKind`).
+                    error_kind="raised",
                 ),
                 "mapper",
                 line,
@@ -770,9 +859,10 @@ def _calibrate(
                         ),
                     ),
                     calibration=band,
+                    error_kind="raised",
                 ),
                 "mapper",
-                CallTotals(),
+                NO_CALLS,
             )
     verdict = _graded(suite, check, samples, judge_samples, declared)
     return (
@@ -781,7 +871,7 @@ def _calibrate(
         # The target is not called here, so the target line gets a zero. What
         # the *judge* spent grading this case is on the judge line, where it
         # belongs: a calibration case is paid for, just not by the target.
-        CallTotals(),
+        NO_CALLS,
     )
 
 
@@ -1178,7 +1268,7 @@ def execute(
     # this leg's. A case reused from `done` adds nothing of its own here: its
     # calls are already inside `spent`, and counting them again out of its
     # recorded answers would bill them twice. (ADR 0025 §11)
-    billed = spent or CallTotals()
+    billed = spent or NO_CALLS
     for case in suite.cases:
         if case.id in reuse:
             results.append(reuse[case.id])
@@ -1283,7 +1373,7 @@ def execute(
             # that measured, and restating it here would bill this run for
             # another's calls. The per-case figure still feeds `CostBudget`,
             # which is what made it ride the record. (ADR 0025 §3)
-            target=CallTotals() if _replaying(target) else billed,
+            target=NO_CALLS if _replaying(target) else billed,
             judge=_judge_share(judging_before, judge_totals(suite)),
         ),
     )

@@ -43,12 +43,21 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
 
     `None` — a document that recorded no bill — produces no lines at all rather
     than a row of zeros, which would be a claim it never made.
+
+    **The two incompleteness clauses follow the same rule**: said where a
+    marker is false, and nothing where it is true or not recorded. *Not every
+    call seen* is a call that raised and is on no line; *cost not known for
+    every call* is a call on the line whose cost nobody stated. Either says the
+    figure beside it is less than the whole bill. (#563)
     """
     if usage is None:
         return []
     lines: list[str] = []
     for side, line in (("target", usage.target), ("judge", usage.judge)):
-        if not line.calls:
+        # A line with no call is skipped unless a call is missing from it: a
+        # run whose every target call raised has nothing on the line, and
+        # that is the one where saying so matters most. (#563)
+        if not line.calls and line.every_call_seen is not False:
             continue
         counts = (
             f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
@@ -56,9 +65,18 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
             else "no counts reported"
         )
         partial = f" (counted {line.counted} of {line.calls})" if line.partial else ""
+        missing = [
+            clause
+            for clause, marker in (
+                ("not every call seen", line.every_call_seen),
+                ("cost not known for every call", line.every_cost_known),
+            )
+            if marker is False
+        ]
+        incomplete = f"; {', '.join(missing)}" if missing else ""
         lines.append(
             f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}, "
-            f"{counts}, {line.spent_usd:.6f} USD{partial}"
+            f"{counts}, {line.spent_usd:.6f} USD{partial}{incomplete}"
         )
     return lines
 
@@ -398,6 +416,10 @@ def run_document(
                             "high": case.calibration.high,
                         }
                     ),
+                    # Of what kind the case's error was, `raised` or `shape`,
+                    # or `null`: the reason that says it does not cross, and
+                    # this word is digline's own. (#425)
+                    "error_kind": case.error_kind,
                     "verdicts": [
                         _verdict_document(v, disclosure) for v in case.verdicts
                     ],
@@ -492,6 +514,11 @@ def _usage_document(usage: RunUsage) -> dict[str, object]:
             # own third state, and never a zero. (ADR 0026 §3)
             "thinking_tokens": line.tokens.thinking_tokens,
             "spent_usd": line.spent_usd,
+            # Whether the line is the whole bill: `false` where a call raised
+            # and is on no line, or was seen and not priced; `null` where it
+            # was not recorded. (#563)
+            "every_call_seen": line.every_call_seen,
+            "every_cost_known": line.every_cost_known,
         }
         for side, line in (("target", usage.target), ("judge", usage.judge))
     }
