@@ -61,7 +61,7 @@ ADR_ROWS = {
         "floor that protects the mean from resting on too few judged samples",
     ),
     "4/5": (
-        "strong consensus",
+        "four of the five samples agree, errored samples counted among the five",
         "on a genuine 3–2 split, and wherever errored samples leave fewer than "
         "four in agreement",
     ),
@@ -75,7 +75,7 @@ GUIDE_ROWS = {
         "samples",
     ),
     "4/5": (
-        "strong consensus",
+        "four of the five you asked for agree",
         "on a genuine 3–2 split, and wherever samples that could not judge "
         "leave fewer than four agreeing",
     ),
@@ -84,8 +84,8 @@ GUIDE_ROWS = {
 DOCSTRING_ROWS = {
     "3/5": "three of the five agree, errored samples counted; binds only when "
     "errors leave fewer than three agreeing (the floor that protects the mean)",
-    "4/5": "strong consensus; binds on a genuine 3-2 split, and wherever errors "
-    "leave fewer than four agreeing",
+    "4/5": "four of the five agree, errored samples counted; binds on a genuine "
+    "3-2 split, and wherever errors leave fewer than four agreeing",
     "5/5": "unanimity; binds on any split and on any errored sample",
 }
 
@@ -114,8 +114,12 @@ def _folded(p: int, f: int, e: int, floor: str) -> Verdict:
     return combine_samples(samples, min_agreement=minimum)
 
 
-#: Every composition of five samples but the one where none was judged, which
-#: is a path of its own that runs before agreement is consulted (ADR 0006 §12).
+#: Every composition of five samples but one: 0 `pass`, 0 `fail`, 5 errored.
+#: There `combine_samples` returns `error` before agreement is computed, from
+#: its first check that any score exists, with the samples' own causes under
+#: the summary (`_all_errored`, ADR 0006 §12). That outcome is the same at every
+#: floor, so no row of the table decides it, and a predicate asked about it
+#: would be asked about something the floor never reaches.
 COMPOSITIONS = [
     (p, f, SAMPLES - p - f)
     for p in range(SAMPLES + 1)

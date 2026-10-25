@@ -360,7 +360,7 @@ it. So at five samples:
 | `min_agreement` | what it asks | where it binds |
 | --- | --- | --- |
 | `3/5` | three of the five you asked for agree | only when samples that could not judge leave fewer than three agreeing — the floor that protects the mean from resting on too few judged samples |
-| `4/5` | strong consensus | on a genuine 3–2 split, and wherever samples that could not judge leave fewer than four agreeing |
+| `4/5` | four of the five you asked for agree | on a genuine 3–2 split, and wherever samples that could not judge leave fewer than four agreeing |
 | `5/5` | unanimity | on any split, and on any errored sample |
 
 A vote of five always has a side of at least three, so `3/5` never refuses a

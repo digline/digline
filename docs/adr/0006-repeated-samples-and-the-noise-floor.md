@@ -461,7 +461,7 @@ one knowing what it can and cannot catch. At five samples, under §12:
 | `min_agreement` | what it asks | where it binds |
 | --- | --- | --- |
 | `3/5` | three of the five samples agree, errored samples counted among the five | only when errored samples leave fewer than three in agreement — the floor that protects the mean from resting on too few judged samples |
-| `4/5` | strong consensus | on a genuine 3–2 split, and wherever errored samples leave fewer than four in agreement |
+| `4/5` | four of the five samples agree, errored samples counted among the five | on a genuine 3–2 split, and wherever errored samples leave fewer than four in agreement |
 | `5/5` | unanimity | on any split, and on any errored sample |
 
 *Corrected 2026-10-25 (#703).* Two rows of this table did not say what §12

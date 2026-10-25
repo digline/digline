@@ -61,8 +61,9 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
         3/5  three of the five agree, errored samples counted; binds only when
              errors leave fewer than three agreeing (the floor that protects
              the mean)
-        4/5  strong consensus; binds on a genuine 3-2 split, and wherever errors
-             leave fewer than four agreeing
+        4/5  four of the five agree, errored samples counted; binds on a
+             genuine 3-2 split, and wherever errors leave fewer than four
+             agreeing
         5/5  unanimity; binds on any split and on any errored sample
 
     The smallest majority never refuses a fully judged vote, because two sides
