@@ -22,7 +22,7 @@ from digline.core import CaseResult, Run, Score, Verdict, combine_samples, compa
 from digline.report import headline, render_html
 from digline.report.explain import facts
 from digline.wire import compare_json
-from digline.wire.contract import _ADDED  # pyright: ignore[reportPrivateUsage]
+from digline.wire.contract import _SHAPES  # pyright: ignore[reportPrivateUsage]
 from digline.wire.explain import explain_json
 
 CREATED = "2026-01-01T00:00:00+00:00"
@@ -201,8 +201,9 @@ def test_the_report_prints_no_interval_on_a_flip_even_if_a_delta_carried_one() -
 # --- the contract -----------------------------------------------------------
 
 
-def test_both_keys_are_added_keys_with_one_shape() -> None:
-    added = {(entry.shape, entry.key): entry for entry in _ADDED}
-    on_delta = added[("delta", "before_interval")]
-    on_check = added[("fact.check", "before_interval")]
-    assert on_delta.value == on_check.value
+def test_both_keys_are_in_the_contract_with_one_shape() -> None:
+    """Added under `OUTPUT_VERSION = 2`, and folded into the base at the bump
+    to 3 (#669), so the contract as it stands is where they are read."""
+    assert (
+        _SHAPES["delta"]["before_interval"] == _SHAPES["fact.check"]["before_interval"]
+    )

@@ -44,7 +44,7 @@ from digline.wire import (
     exit_code,
     run_exit_code,
 )
-from digline.wire.contract import _ADDED  # pyright: ignore[reportPrivateUsage]
+from digline.wire.contract import _SHAPES  # pyright: ignore[reportPrivateUsage]
 
 CFG = "hash-a"
 EARLIER = "2026-01-01T10:00:00+00:00"
@@ -480,11 +480,11 @@ def test_the_headline_and_the_wire_carry_the_fact(
     assert wire["nothing_judged"] is expected
 
 
-def test_the_key_is_recorded_as_added() -> None:
-    assert {(a.shape, a.key) for a in _ADDED} >= {
-        ("compare", "nothing_judged"),
-        ("compare.full", "nothing_judged"),
-    }
+def test_the_key_is_in_the_contract() -> None:
+    """Added under `OUTPUT_VERSION = 2`, and folded into the base at the bump
+    to 3 (#669), so the contract as it stands is where it is read."""
+    assert "nothing_judged" in _SHAPES["compare"]
+    assert "nothing_judged" in _SHAPES["compare.full"]
 
 
 @pytest.mark.parametrize("locale", LOCALES)
