@@ -8,6 +8,17 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **The table of what each `min_agreement` floor can catch says what the gate
+  computes** (#703). Agreement divides the larger judged side by every sample
+  asked for, errored ones included (ADR 0006 §12), and the table's `3/5` row
+  said *"any majority of the judged samples"*: two `pass`, one `fail` and two
+  errored has that majority, and `3/5` binds on it. The row now reads *three of
+  the five agree*, binding only when errored samples leave fewer than three in
+  agreement. The `4/5` row named the 3–2 split and stopped there; it binds too
+  where errored samples leave fewer than four. Both are corrected in ADR 0006
+  §13, in `docs/guide.md` and in `as_agreement`'s docstring, and a test now holds
+  each row, in all three places, to `combine_samples` on every vote of five
+  with a judged sample. Nothing in the gate moves.
 - **`docs/api.md` names the lost pin among what `run_exit_code` cannot see, and
   documents `accepting_pins` and `unjudged_causes`.** Its bullet on
   `run_exit_code` said the function never returns `1` because *worse*, a moved
