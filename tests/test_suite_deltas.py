@@ -706,5 +706,7 @@ RULE_TITLES = {
 def test_the_record_titles_its_first_two_rules_as_the_code_reads_them() -> None:
     text = ADR_0028.read_text(encoding="utf-8")
     section = text[text.index("### 3. Four rules") : text.index("And one this needs")]
-    titles = dict(re.findall(r"^(\d)\. \*\*(.+?)\*\*", section, re.M))
+    # Folded first: a title the file wraps over two lines is still one title.
+    folded = " ".join(section.split())
+    titles = dict(re.findall(r"(?:^| )(\d)\. \*\*(.+?)\*\*", folded))
     assert {n: titles.get(n) for n in RULE_TITLES} == RULE_TITLES

@@ -8,6 +8,23 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **A run whose every case was suspended no longer reads as every check
+  removed** (#671; ADR 0028 §3, corrected). Against a reference that judged its
+  cases, each check the suite still declared came back as a rule `missing` and
+  `loosened`, beside `config_changed: false`. A side with no case verdict now
+  gives no row about the cases, whether or not the suite was also edited. The
+  aggregates are compared as before, and removing the last one is still a rule
+  removed. What moves, for that input only:
+  - `compare --json full`: those `suite_deltas` rows are gone;
+  - `explain --json`: so are the `setting` facts of kind `rule` for them;
+  - the MCP server's `compare` tool, which returns the same object.
+
+  And where one side did not record a rule's field, the terminal's rules line
+  and the report's table now say so, `contains.samples not recorded on both
+  sides`, where they printed `samples of contains 2 → —`, a declaration moved
+  to nothing under a sentence saying the suite was unchanged. That row was
+  already `unknown` on the wire and in `explain`, and it stays so.
+  `Comparison.loosened_rules` no longer claims to be what the headline names.
 - **The table of what each `min_agreement` floor can catch says what the gate
   computes** (#703). Agreement divides the larger judged side by every sample
   asked for, errored ones included (ADR 0006 §12), and the table's `3/5` row

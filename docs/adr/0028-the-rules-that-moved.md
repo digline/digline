@@ -16,6 +16,10 @@
   and §3 gains where its `unknown` row comes from, both kept as written. The
   verb the 2026-10-15 note deferred is printed: the code landed in #496's
   second phase
+- Amended: 2026-10-25 — §3's first two rules are corrected in place, with a
+  dated note quoting what they replace. Rule 1 is read per scope: a side with
+  no case verdict gives no row about the cases, and the run scope is unchanged.
+  Rule 2's title names the field its reason was always about (#671)
 - Opens: **nothing.** No schema bump, and not a passenger on one. The run
   document gains no field. §1 is why it does not need to: everything
   `config_hash` fingerprints is already written down, bar one value, and §5
@@ -204,10 +208,12 @@ the day it is written.
 `config_deltas`' three rules exist to keep it from reporting a change nobody
 established. They govern here unchanged:
 
-1. **Neither side recorded anything → say nothing.** A run whose every case is
-   suspended carries no verdict anywhere, and the answer is `()`, never *every
-   rule was removed*.
-2. **One side recorded nothing → `unknown`, never `new` or `missing`.** In
+1. **A side with no case verdict → no row about the cases.** A run whose every
+   case is suspended carries no case verdict, and the cases get no row, never
+   *every rule was removed*. Its aggregates still carry verdicts, and they are
+   compared as before.
+2. **A field one side's verdicts did not record → `unknown`, never `new` or
+   `missing`.** In
    practice unreachable, for §1's third fact, and the rule is written down
    anyway: the day somebody adds an optional field to a verdict, this is the
    rule that stops its absence in a year-old baseline from rendering as an
@@ -224,6 +230,35 @@ And one this needs that `config_deltas` does not:
    `agreement` is in the metadata of every folded verdict. The *floor* it was
    judged against is not. Deriving one from the other would be the guess wearing
    the clothes of a finding that rule 3 exists to forbid. See §5.
+
+*Corrected 2026-10-25 (#671).* Rules 1 and 2 are corrected in place, and their
+reasons are kept. Three things read otherwise:
+
+- **Rule 1's title** read *"Neither side recorded anything → say nothing."* Its
+  example is one side, a run whose every case is suspended against a reference
+  that judged its cases. The code followed the title, saying nothing only where
+  both sides were empty, and the example's input gave every check of the
+  reference as `missing`.
+- **Rule 1's example** read *"A run whose every case is suspended carries no
+  verdict anywhere, and the answer is `()`"*. That was false the day it was
+  written, for a suite with aggregates: the driver records one verdict per
+  aggregate the suite declares, suspended cases or not. `suite.run_assertions`
+  is in the first commit, `ae4a2af` of 2026-08-26; this record and
+  `suite_deltas` are `79bdf8f` of 2026-09-21; and at `79bdf8f` the driver
+  already built that verdict for every run assertion, with no condition.
+- **Rule 2's title** read *"One side recorded nothing → `unknown`, never `new`
+  or `missing`."* Its reason is a field: an optional field added to a verdict,
+  absent in a year-old baseline. It never covered a side, or a scope, with no
+  verdict at all, and that is the reason rule 1 decides the case.
+
+**The run scope does not change, and that is deliberate.** Only the cases can
+be emptied without the suite changing, by suspending them. A run always carries
+one verdict per aggregate its suite declares, so an empty run scope means the
+suite declares none, and `missing` is true there: removing the last aggregate
+is a bar removed, which is what this record exists to show.
+`tests/test_suite_deltas.py` holds both directions, a fully suspended run
+beside an aggregate and the last aggregate removed, and holds the two titles to
+the conditions the code reads.
 
 **A case is not a rule.** The derivation is keyed on assertion identity and
 unioned across the cases, so adding a case, removing one or suspending one

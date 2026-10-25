@@ -442,6 +442,11 @@ def rule_lines(comparison: Comparison, *, locale: Locale) -> Sequence[str]:
     return (f"{phrase(locale, 'rules.terminal')} · {', '.join(parts)}",)
 
 
+def _with_field(delta: SuiteDelta) -> str:
+    """`contains.samples`: the rule and the field, composed as `explain` does."""
+    return f"{delta.rule}.{delta.field}"
+
+
 def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
     """One rule in the terminal's grammar, with the direction in a suffix.
 
@@ -455,6 +460,11 @@ def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
         # member of `config_hash` no document records. "not recorded on both
         # sides" would read as a rule half the runs forgot. (ADR 0028 §5)
         return phrase(locale, "rules.unnameable")
+    if delta.outcome == "unknown" and delta.field:
+        # Before the `field` branch, which would print an unknown value in the
+        # grammar of a change: `samples of contains 2 → —`. The name carries
+        # the field, as `explain` composes it. (#671)
+        return phrase(locale, "rules.unknown", name=_with_field(delta))
     if not delta.field:
         key = f"rules.{delta.outcome}"
         if delta.expansion:
@@ -2411,7 +2421,19 @@ def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
     cell there is a row whose movement has no direction — `samples` on a
     run-level aggregate — and it is empty because no verb is true of it, not by
     oversight. (ADR 0028 §4, as amended 2026-10-15)
+
+    An `unknown` row with a field is read before the field, as the terminal's
+    line is: the rule cell carries the field, and the middle cell says it was
+    not recorded rather than drawing an arrow to nothing. (#671)
     """
+    if delta.outcome == "unknown" and delta.field:
+        return (
+            "<tr>"
+            f"<td><code>{escape(_with_field(delta))}</code></td>"
+            f"<td>{escape(phrase(locale, 'rules.cell.unknown'))}</td>"
+            "<td></td>"
+            "</tr>"
+        )
     moved = (
         phrase(
             locale,
