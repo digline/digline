@@ -8,6 +8,31 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`digline run` and `digline rejudge` refuse before spending when the
+  baseline is at a schema this digline cannot read** (#621). Until now `run`
+  called the target, wrote a run at its own schema beside the baseline, and
+  exited `0`, `1` or `2`; `rejudge` called the judge the same way. Only
+  afterwards did `compare` exit `64` on the baseline, so the run was paid for
+  and the comparison it was made for could not be read. Both now exit `64`
+  before the first call, and say which way to go: a newer baseline asks for a
+  newer digline, an older one for `digline migrate` (ADR 0014 §5).
+  - **`--accepting-baseline-schema N`** runs anyway, on either command, when
+    `N` is exactly the schema the refusal names; another number, or one where
+    nothing is unreadable, is refused. The acceptance is said on standard
+    error once the run is written.
+  - **Only the schema is read before spending.** A baseline that is not JSON,
+    or belongs to another tenant or suite, is still refused by `compare` and
+    not by `run`: anticipating those would make spending depend on the whole
+    shape of the baseline. `DocumentRefusedError` gains `declared_schema`,
+    which is how the two are told apart.
+  - **No baseline is no refusal**: a first run has nothing to be compared with.
+  - **The MCP server's `run` tool refuses the same way** through the core, and
+    has no way to accept: it takes no such argument. Accepting is done from
+    the command line.
+
+  **A minor**, under *Choosing the version*: *"an exit code changed"*, since
+  on this input `run` and `rejudge` exited as on any other and now exit `64`,
+  and a new option.
 - **A run whose every case was suspended no longer reads as every check
   removed** (#671; ADR 0028 §3, corrected). Against a reference that judged its
   cases, each check the suite still declared came back as a rule `missing` and
@@ -200,6 +225,13 @@ notes under them are this file, verbatim.
 
 ## pytest-digline — unreleased
 
+- **`--digline-run` refuses before spending when the baseline is at a schema
+  this digline cannot read** (#621). The session already ended with `4` in
+  that store, refused by the comparison after the run had been paid for; it
+  ends with the same `4` now, before the first call. Its exit status does not
+  change, and there is no option to run anyway: the session compares right
+  after, so a run against that baseline could not be used. Needs the core
+  release that carries `refuse_unreadable_baseline`.
 - **`--digline-run` says when git would commit the run directory** (#523), in
   the same words as `digline run`, on the session's standard error, after the
   run is written. Needs the core release that carries `unignored`.

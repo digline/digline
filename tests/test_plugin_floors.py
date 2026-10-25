@@ -82,6 +82,9 @@ INTRODUCED: dict[str, str] = {
     # in RELEASING.md's table, and these ride with them.
     "unignored": "0.34.0",
     "unignored_notes": "0.34.0",
+    # 0.34.0 as well, for #621: pytest-digline refuses with it before
+    # `--digline-run` spends, on a floor already owed at that cut.
+    "refuse_unreadable_baseline": "0.34.0",
     # 0.31.0 — what every front end that runs a suite says about it before the
     # first call, composed once (#396, ADR 0024 §6.4). digline-mcp's floor
     # reached it in digline-mcp 0.5.0, and pytest-digline's in pytest-digline

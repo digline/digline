@@ -70,6 +70,7 @@ from digline.host import (
     read_pinned,
     read_run,
     record,
+    refuse_unreadable_baseline,
     refused_exit,
     reported,
     resolve_key,
@@ -257,6 +258,19 @@ def _pricing(args: argparse.Namespace, loaded: Loaded) -> str:
     return pricing_for(loaded, args.target, args.suite)
 
 
+def _say_accepted_schema(schema: int | None) -> None:
+    """Said once the command has spent, as `--accepting-pin` is said once the
+    promotion is written: an acceptance that reached here matched the schema
+    exactly, or the command was refused before it. (#621)"""
+    if schema is not None:
+        say(
+            f"digline: accepted, by --accepting-baseline-schema, a baseline at "
+            f"schema {schema} this digline cannot read: this run cannot be "
+            "compared with it until one digline reads both",
+            err=True,
+        )
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     # The clock and git are read here and nowhere else, then passed down as
     # plain values so everything below stays reproducible.
@@ -330,7 +344,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         artifacts=artifacts,
         pinned=pinned,
         modules_unchecked=loaded.modules_unchecked,
+        accepting_baseline_schema=args.accepting_baseline_schema,
     )
+    _say_accepted_schema(args.accepting_baseline_schema)
 
     # After the run is written, so the generated rules exist by then: the
     # first run in a fresh repository writes them and says nothing. (#523)
@@ -498,6 +514,10 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     suite, loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
     source = read_run(store, suite, key)
+    # Before the first judge is paid, as `measure` does for `run`. (#621)
+    refuse_unreadable_baseline(
+        store, suite, accepting_schema=args.accepting_baseline_schema
+    )
     _warn_if_ahead(source)
 
     judge_samples = args.judge_samples or 0
@@ -530,6 +550,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
         raise UsageError(Quoted.of(exc, "", named=False)) from exc
 
     ref = store.write_run(run)
+    _say_accepted_schema(args.accepting_baseline_schema)
     # A re-judge writes a run of its own into `runs/`, so it says what `run`
     # says, after the write for the same reason. (#523)
     for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
@@ -1265,6 +1286,24 @@ def build_parser() -> argparse.ArgumentParser:
             "--env", help="verify the suite's environment; never overrides"
         )
 
+    def accepting_baseline_schema(sub: argparse.ArgumentParser) -> None:
+        # On the two commands that spend: `run` calls the target and `rejudge`
+        # the judge. The shape is `--accepting-pin`'s: a named number that must
+        # match the one the refusal prints, defaulting to accepting nothing.
+        # (#621)
+        sub.add_argument(
+            "--accepting-baseline-schema",
+            type=int,
+            default=None,
+            metavar="N",
+            dest="accepting_baseline_schema",
+            help=(
+                "spend although the baseline is at schema N, which this digline "
+                "cannot read, so the run cannot be compared until it can; N "
+                "must be the schema the refusal names, or the command is refused"
+            ),
+        )
+
     def document_locale(sub: argparse.ArgumentParser) -> None:
         # Mandatory for a *document*: its language has a recipient, and that is
         # not settled by omission.
@@ -1303,6 +1342,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="with --resume: keep journalled errors instead of retrying them",
     )
+    accepting_baseline_schema(run_p)
     run_p.set_defaults(func=cmd_run)
 
     rej_p = subparsers.add_parser(
@@ -1330,6 +1370,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="repeatable; recorded in Run.metadata, payload unless disclosed",
     )
     rej_p.add_argument("--json", action="store_true")
+    accepting_baseline_schema(rej_p)
     rej_p.set_defaults(func=cmd_rejudge)
 
     cmp_p = subparsers.add_parser("compare", help="compare a run with the baseline")

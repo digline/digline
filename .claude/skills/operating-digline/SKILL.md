@@ -197,6 +197,12 @@ path the refusal names is passed with `--accepting-pin`. Accepting a change to
 a pinned file is a person's decision, by rule 1: put the paths in the evidence,
 and never pass the flag on your own initiative. (ADR 0053)
 
+A `run` or a `rejudge` whose baseline is at a schema this digline cannot read
+is refused before it spends, until the schema the refusal names is passed with
+`--accepting-baseline-schema`. Accepting a run that cannot be compared is a
+person's decision, by rule 1: put the schema in the evidence, and never pass
+the flag on your own initiative. (#621)
+
 **Name the digline that produced what you are reading.** Run the CLI through
 the project's environment (`uv run digline …`), never a bare `digline`, which
 is whichever install is first on your shell's `PATH`. A run records the digline

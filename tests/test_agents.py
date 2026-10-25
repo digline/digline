@@ -13,8 +13,10 @@ because the two are read in different situations and the introductions say so.
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
+from typing import cast
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -206,4 +208,58 @@ def test_both_files_say_a_note_is_answered_beside_the_note_on_latest() -> None:
         ), (
             f"{path.relative_to(ROOT)} does not carry, word for word and right "
             f"after the note on `latest` in rule 6: {NOTE_PARAGRAPH!r}"
+        )
+
+
+#: What makes a paragraph the rule for an acceptance flag: the words the rule
+#: for `--accepting-pin` used first, and every later one reuses.
+ACCEPTANCE_RULE = "never pass the flag on your own initiative"
+
+
+def _accepting_options() -> set[str]:
+    """Every `--accepting-*` option the command line declares, on any command."""
+    from digline.cli import build_parser
+
+    parser = build_parser()
+    found: set[str] = set()
+    for action in parser._actions:  # pyright: ignore[reportPrivateUsage]
+        choices: object = getattr(action, "choices", None)
+        if not isinstance(choices, dict):
+            continue
+        # The subcommands' parsers, keyed by name: argparse types `choices`
+        # loosely, and this is the one action that holds parsers.
+        commands = cast(dict[str, argparse.ArgumentParser], choices)
+        for sub in commands.values():
+            for option in sub._actions:  # pyright: ignore[reportPrivateUsage]
+                found.update(
+                    s for s in option.option_strings if s.startswith("--accepting-")
+                )
+    return found
+
+
+def test_every_acceptance_flag_has_its_rule_in_both_files() -> None:
+    """An `--accepting-*` option lets a command go through a refusal a person
+    is meant to rule on, so each one is named in a paragraph saying an agent
+    never passes it on its own initiative, in `AGENTS.md` and in the skill.
+
+    Read off the parser rather than listed here, so that the next such flag
+    cannot ship without its rule: a list kept beside the parser would go stale
+    in exactly the release that added one. (#621)
+    """
+    options = _accepting_options()
+    assert {"--accepting-pin", "--accepting-baseline-schema"} <= options, options
+    for path in (AGENTS, SKILL):
+        paragraphs = [
+            " ".join(block.split())
+            for block in path.read_text(encoding="utf-8").split("\n\n")
+        ]
+        ruled = {
+            option
+            for option in options
+            for paragraph in paragraphs
+            if ACCEPTANCE_RULE in paragraph and f"`{option}`" in paragraph
+        }
+        assert ruled == options, (
+            f"{path.relative_to(ROOT)} has no paragraph saying "
+            f"{ACCEPTANCE_RULE!r} for {sorted(options - ruled)}"
         )

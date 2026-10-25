@@ -286,7 +286,7 @@ without the MCP server or the hook, taken from `main` rather than a release.
 
 | Command | |
 |---|---|
-| `digline run` | execute the suite, write the run, print its key. A run killed part way through is finished with `--resume`, which re-pays for the cases nobody has an answer to and nothing else — [`docs/api.md`](docs/api.md#the-run-that-was-killed) |
+| `digline run` | execute the suite, write the run, print its key — refused before the first call if the baseline is at a schema this digline cannot read and `--accepting-baseline-schema` does not name it. A run killed part way through is finished with `--resume`, which re-pays for the cases nobody has an answer to and nothing else — [`docs/api.md`](docs/api.md#the-run-that-was-killed) |
 | `digline compare` | headline plus the lines that got worse; `--json`, `--json full` for CI |
 | `digline diff` | what differs between two runs, neither of them a baseline — for "should I switch?" rather than "did it get worse?". Always exits 0: it is a report, not a verdict — [`docs/diff.md`](docs/diff.md) |
 | `digline promote` | make a run the baseline — refused if the tenant differs, the configuration changed, any check errored, the baseline moved since the comparison (`--replacing` names the one it replaces), or a pinned file drifted or lost its path and `--accepting-pin` does not name exactly those paths |
@@ -294,7 +294,7 @@ without the MCP server or the hook, taken from `main` rather than a release.
 | `digline report` | self-contained HTML for readers who do not read code; `--locale` mandatory, `--redacted` keeps the verdicts and drops the payload. With no baseline yet it renders the run on its own and says so, so the first run is readable before anything is promoted |
 | `digline explain` | the same facts read back at length, in prose: what ran, what moved, against which measured interval, what differed underneath. Compares when there is a baseline and reads the run alone when there is not. `--json` emits the fact list the prose is rendered from. It states, and never advises — [`docs/explain.md`](docs/explain.md) |
 | `digline log` | which model answered, read down the stored runs: what each side sent, what the provider said answered, the rolls between them, and every run that recorded nothing named for what it is. A roll is declared by the record, never deduced from scores. Never a gate: it exits 0 whatever it finds — [`docs/log.md`](docs/log.md) |
-| `digline rejudge` | judge a stored run's recorded answers again — a changed judge, rubric or threshold, over the same answers, at no cost to the target. The run it writes declares where the answers came from and cannot be promoted — [`docs/rejudge.md`](docs/rejudge.md) |
+| `digline rejudge` | judge a stored run's recorded answers again — a changed judge, rubric or threshold, over the same answers, at no cost to the target; refused before the first judge is paid, as `run` is, on a baseline this digline cannot read. The run it writes declares where the answers came from and cannot be promoted — [`docs/rejudge.md`](docs/rejudge.md) |
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |

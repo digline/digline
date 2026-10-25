@@ -50,6 +50,7 @@ from digline.host.measure import (
     Prepared,
     measure,
     prepare,
+    refuse_unreadable_baseline,
     seed_observed,
 )
 from digline.host.promotion import (
@@ -106,6 +107,7 @@ __all__ = [
     "instant",
     "load_suite",
     "refused_exit",
+    "refuse_unreadable_baseline",
     "to_withhold",
     "written_by_digline",
     "load_target",

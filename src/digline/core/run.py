@@ -273,7 +273,19 @@ class DocumentRefusedError(ValueError):
     same release. Adding bare `ValueError` to that list is not the alternative:
     it would hand an agent the internals of genuine bugs, which is exactly what
     the list exists to keep back.
+
+    **`declared_schema` says which refusal this is, where the type cannot.** A
+    document at a schema this digline does not read and a document that is
+    not JSON raise the same class, and they ask for different things: the
+    first for another digline or `migrate`, the second for the file. It holds
+    the schema the document declares when that is why it was refused, and
+    `None` otherwise, so a caller tells the two apart by reading a field rather
+    than a sentence. `run` and `rejudge` read it before they spend. (#621)
     """
+
+    def __init__(self, *args: object, declared_schema: int | None = None) -> None:
+        super().__init__(*args)
+        self.declared_schema = declared_schema
 
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did
@@ -3134,8 +3146,11 @@ def _json_type(value: object) -> str:
 def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
     version = declared_version(raw)
     if version != SCHEMA_VERSION:
-        raise ValueError(
-            f"schema_version {version} is not supported (expected {SCHEMA_VERSION})"
+        # Typed here rather than converted by `run_from_dict`, so that the
+        # schema it was refused for travels with it. (#621)
+        raise DocumentRefusedError(
+            f"schema_version {version} is not supported (expected {SCHEMA_VERSION})",
+            declared_schema=version,
         )
     results = cast(Sequence[Mapping[str, Any]], raw.get("results") or ())
     # Read as declared, before anything else is read: the reader acts on

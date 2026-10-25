@@ -1613,6 +1613,20 @@ one; `measure()` opens the journal, runs, writes and deletes it. Underneath,
 `execute()` gained `done=` — results it must not call for — and `on_case=`, a
 callback per finished case. The driver still knows nothing about the store.
 
+`measure()` also takes `accepting_baseline_schema`, and it is `None` by
+default, which is the case the example shows. With the default, before anything
+is called, a run is refused when the suite's baseline is at a schema this
+digline cannot read: a run made against it would be paid for and could not be
+compared. The refusal is `DocumentRefusedError`, which `REFUSALS` catches; its
+`declared_schema` is the schema the baseline declares, and its sentence names
+it, with `digline migrate` for an older baseline and a newer digline for a
+newer one. A baseline that is not JSON, or that belongs to another tenant or
+suite, is left to `compare`, and no baseline is no refusal. To run anyway, pass
+that schema in `accepting_baseline_schema`, exactly; on the command line that is
+`--accepting-baseline-schema N`, on `run` and on `rejudge`.
+`refuse_unreadable_baseline(store, suite, accepting_schema=None)` is the same
+check on its own, for a script that writes runs without `measure()` (#621).
+
 The reasoning in full is
 [ADR 0017](adr/0017-the-journal-and-the-resumed-run.md).
 
