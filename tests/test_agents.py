@@ -13,8 +13,10 @@ because the two are read in different situations and the introductions say so.
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
+from typing import cast
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -221,10 +223,13 @@ def _accepting_options() -> set[str]:
     parser = build_parser()
     found: set[str] = set()
     for action in parser._actions:  # pyright: ignore[reportPrivateUsage]
-        choices = getattr(action, "choices", None)
+        choices: object = getattr(action, "choices", None)
         if not isinstance(choices, dict):
             continue
-        for sub in choices.values():
+        # The subcommands' parsers, keyed by name: argparse types `choices`
+        # loosely, and this is the one action that holds parsers.
+        commands = cast(dict[str, argparse.ArgumentParser], choices)
+        for sub in commands.values():
             for option in sub._actions:  # pyright: ignore[reportPrivateUsage]
                 found.update(
                     s for s in option.option_strings if s.startswith("--accepting-")
