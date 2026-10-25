@@ -71,7 +71,8 @@ dependencies = [
     # not name a release that does not exist yet.
     #
     # And a cap, the first on the core: `<0.33`, raised to `<0.34` with the
-    # core's 0.33.0, the minor its tests now run against. 0.32.0 made `declared` a
+    # core's 0.33.0 and to `<0.35` with 0.34.0, the minor its tests now run
+    # against. 0.32.0 made `declared` a
     # mandatory argument of `headline`, and 0.2.4, which declared
     # `digline>=0.31.0` and nothing above it, stopped every session on it with
     # a `TypeError`. A core minor may change a signature this plugin calls, so
@@ -82,7 +83,7 @@ dependencies = [
     # the run has no verdict for asks `phrase` for a `fact.row_missing` key,
     # new in that release; against 0.33.0 the call raises `KeyError`. The cap
     # rises with it, to the minor above that release.
-    "digline>=0.32.0,<0.34",
+    "digline>=0.32.0,<0.35",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user

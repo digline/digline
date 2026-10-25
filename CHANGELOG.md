@@ -6,7 +6,9 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 0.34.0 — unreleased
+
+digline **0.34.0**.
 
 - **Schema 21, and one command: `digline migrate`.** `SCHEMA_VERSION` moves
   20 → 21 for three fields. The step writes nothing for any of them: a

@@ -283,6 +283,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "audited its own output",
     },
     "src/digline/wire/contract.py": {
+        "0.33.0": (
+            "the release whose numbers and `within_noise` changed meaning under "
+            "`output_version: 2` without a bump (ADR 0050, #669), named in "
+            "version 3's record and in the rule it extended: history"
+        ),
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "
             "what this file now does, told as history. There were two passes "
@@ -340,18 +345,22 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.34.0": (
-            "the core release pytest-digline's floor is owed to in the table "
-            "of floors owed at the cut, for #574's `fact.row_missing` keys: a "
-            "release that does not exist yet, named because the gate reads the "
-            "cell as a version; the cut deletes the row"
+        "0.33.0": (
+            "the release whose `within_noise` changed meaning under "
+            "`output_version: 2` (#669); the core the owed floors' calls raise "
+            "against, in the table of floors owed at the cut; the release whose "
+            "home recapture moved the start page's count and whose site pull "
+            "request #214 was held; the wheel whose publish time is recorded "
+            "beside 0.32.1's; and the tag `79b38cc` the image job and the home "
+            "check were measured on: history, told as such now that 0.34.0 is "
+            "the tree's version"
         ),
         "0.32.1": (
             "the release whose index-race status is recorded (the gate, the "
             "counts, the index waits, the check in a clean environment, the "
             "smoke build's wait, the image read from the registry, the "
             "delta-pass and the seven locks), beside digline-mcp 0.6.1's: "
-            "history, told as such now that 0.33.0 is the tree's version"
+            "history, told as such now that 0.34.0 is the tree's version"
         ),
         "0.32.0": (
             "the release whose index-race status is recorded (the gate approved "
@@ -359,7 +368,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "one digest and the image read from the registry afterwards), the "
             "three deviations noted while cutting it, the release that shipped "
             "without running the served plugins, and its delta-pass: history, "
-            "told as such now that 0.33.0 is the tree's version"
+            "told as such now that 0.34.0 is the tree's version"
         ),
         "0.31.0": (
             "the release whose index-race status is recorded (the smoke build's "
@@ -368,7 +377,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "seven locks), the floor pytest-digline 0.2.4 and digline-mcp 0.5.0 "
             "were owed to in their own entries and declared on PyPI, which the "
             "note on the plugins PyPI serves quotes: history, told as such now "
-            "that 0.33.0 is the tree's version"
+            "that 0.34.0 is the tree's version"
         ),
         "0.9.0": (
             "the digline image `digline/digline-action@v1` still defaulted to "
@@ -406,7 +415,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "cancelled and re-run, the tag message, the counts, the installed "
             "versions, the tags on one digest and the seven locks), and the "
             "release whose floors digline-mcp and pytest-digline once owed: "
-            "history, told as such now that 0.33.0 is the tree's version"
+            "history, told as such now that 0.34.0 is the tree's version"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -421,7 +430,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
             "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.33.0 is the tree's version"
+            "told as such now that 0.34.0 is the tree's version"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
@@ -814,6 +823,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "hand-computed median meets the same denominator",
     },
     "docs/api.md": {
+        "0.33.0": "'In 0.33.0, under `output_version: 2`' — the release whose "
+        "numbers and `within_noise` changed meaning without a bump (#669), "
+        "told as history in the record of version 3",
         "0.28.0": "'one way, `key_of`, since 0.28.0' — the release the store "
         "began answering a run's key one way (ADR 0040), told as history",
         "0.16.0": "'Since 0.16.0 the run does carry it' — the release the "
@@ -826,6 +838,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "`load_suite` and its neighbours out of `digline.cli` into "
         "`digline.host`, said as history. Hidden from the sweep until the "
         "trailing-period hole in VERSION was closed",
+    },
+    "CONTRIBUTING.md": {
+        "0.33.0": (
+            "the release that changed three numbers and `within_noise` under "
+            "`output_version: 2` while nothing went red (#669): the case the "
+            "question about meaning exists for, told as history"
+        ),
     },
     "SECURITY.md": {
         "0.29.0": (

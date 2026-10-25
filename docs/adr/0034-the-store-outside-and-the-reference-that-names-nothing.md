@@ -40,9 +40,10 @@
   accepted, as *Amends* said, and landed in the pull request after it: ADR 0002
   §6 and its *Consequences*, ADR 0005 §9, and `CLAUDE.md`'s decisions 2 and 9
 - Shipped: 0.25.0 — the projection (§2, §5, and §8's `projected`
-  verified at construction), and not §4's classification gate or
-  §16's serializer walk, §9's refusal or regime for a projected
-  reference, or §14's delete (#237)
+  verified at construction), and not §9's refusal or regime for a projected
+  reference, or §14's delete (#237). §4's classification gate and §16's
+  serializer walk shipped in 0.34.0, for strings less the three exclusions
+  §4's note of 2026-10-25 names (#710)
 - Date: 2026-09-27
 - Amended: 2026-09-27 — **two of this record's own readiness claims, corrected
   where they are made and kept above their corrections.** §16's fifth bullet
