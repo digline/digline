@@ -38,9 +38,8 @@ The rule above says *a public name*, and the repository answered two ways:
 **The levels are read in order, and the first that answers wins**, because the
 first two overlap: `FileResultStore` is listed in `docs/api.md` and imported by
 a plugin, and it is the first level's. **None of the three has a perimeter of
-packages.** The first has `docs/api.md`'s, which documents seven: `digline.core`,
-`digline.run`, `digline.report`, `digline.store`, `digline.host`, `digline.wire`
-and `digline.targets`. The second has the cap's, and the third is the rest.
+packages.** The first has `docs/api.md`'s, the second has the cap's, and the
+third is the rest. *On 2026-10-25, `docs/api.md` documented seven packages.*
 1. **A name `docs/api.md` lists**, in whatever package. Removing or renaming it
    moves the minor. The list decides and not the package. Two precedents read
    it, and they contradict each other. 0.25.1 applied the list, removing
