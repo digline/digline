@@ -90,6 +90,11 @@
   sent to the software house. This is the ruling of 2026-09-29 reaching the
   public text: it read the condition by its reason when ADR 0035's ledger met
   it. It rules nothing new, and ADR 0022 §6's amendment already had this form
+- Amended: 2026-10-25 — §4 and §16 gain dated notes and are kept as written.
+  The test §16 names did not exist, and now does: it covers strings less three
+  exclusions, numbers, a verdict's metadata keys (#711) and
+  `Run.modules_unchecked` (#712), so §4 read literally stays wider than what is
+  held (#710)
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no migration — nothing is
   implemented. At implementation §8 is a field in the run document and
@@ -576,6 +581,24 @@ prerequisite: §9 records what the provider said answered, beside the hash and
 never inside it, and once an unclassified field is refused that recording needs
 one sentence about what survives this boundary. Naming the amendment here and
 making it at acceptance is deliberate — the enumeration does not wait on it.
+
+*Noted 2026-10-25 (#710); §4 is kept as written.* **The gate exists from this
+date, and it covers strings, less three exclusions. §4 read literally stays
+wider than what is held.** `tests/test_projection_gate.py` walks the projected
+document and refuses a string, a value or a map key, at a path in none of the
+three classes, and walks the model so that a string field with no place in a
+projection is red even while it is empty. Until then nothing held this
+section: `_check_projected` checks by name and passes what it does not name, and
+a string field added to a case and kept by `redact()` reached a projection with
+a person's name in it. What the gate does **not** hold, each for its own reason:
+- **numbers**, the axis this section's correction of 2026-09-28 leaves
+  undecided;
+- **the keys of a verdict's metadata**, which an assertion digline did not
+  write can key with its data (#711);
+- **`Run.modules_unchecked`**, whose names `redact()` keeps for a reason ADR
+  0052 gives about the perimeter, and which does not hold in a projection,
+  where the artifact and pinned paths it names as that perimeter are tokens
+  (#712).
 
 ### 5. What becomes a token, and why a token
 
@@ -1120,6 +1143,15 @@ file.
 - **A test that walks the serializer and fails on a field in none of §4's three
   classes.** It must fail on `main` before the projection exists, or it is a
   test of nothing.
+  *Noted 2026-10-25 (#710); the bullet above is kept as written.* **It was
+  not written until 2026-10-25**, and the projection had existed since
+  2026-09-30 (`1982a8c`), so its own criterion could not be met. It is
+  `tests/test_projection_gate.py`, and it is believed by mutation instead: a
+  string field on `CaseResult` that `redact()` keeps turns it red empty, by
+  name, and again with a value, at its path; and a class taken off a field it
+  classifies turns it red. It covers strings less three exclusions, which
+  §4's note of the same date names. Until it existed, `CLAUDE.md`'s fixed
+  decision 9 stated a guarantee nothing held.
 - **A test that a document declaring itself projected and carrying a string
   outside the enumeration is refused at construction** — §8's flag verified,
   not believed, on the `redacted` precedent.

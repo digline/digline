@@ -109,7 +109,13 @@ correct its structural mistakes and are not negotiable.
    the list above. The `case_id`, a verdict's name, a group label, a
    calibration band's check word, artifact paths and reported configuration
    keys and values become **tokens**, resolved only where the store is. Every
-   field is classified, and an unclassified one is refused. The document
+   string is classified, and an unclassified string is refused by
+   `tests/test_projection_gate.py`, with three exclusions declared there:
+   numbers (ADR 0034 §4, as corrected 2026-09-28), a verdict's metadata keys
+   (#711) and `Run.modules_unchecked` (#712). *Corrected 2026-10-25 (#710):*
+   this said every field was classified and an unclassified one refused, and
+   no test held it. ADR 0034 §4 read literally stays wider than what is held.
+   The document
    declares the regime it was produced under, and that is verified, not
    believed. It is a narrowing, declared: nothing that *may* cross is forced to.
    The digests stay as they are. A green means *no string*, not *no content*,
