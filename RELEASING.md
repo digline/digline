@@ -29,6 +29,32 @@ new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
+**Since 2026-10-25, a public name is read in three levels.** Ruled that day.
+The rule above says *a public name* and does not say which, and the repository
+answered two ways: `docs/api.md` says *"anything not listed here is internal and
+may change"*, and *New public surface*, below, counts *"the names in an
+`__all__`"*. `digline.host.__all__` held 52 names that day and `docs/api.md`
+listed 13.
+1. **A name `docs/api.md` lists.** Removing or renaming it moves the minor, as
+   the rule above says.
+2. **A name a plugin imports**, which is in an `__all__` and dated in
+   `INTRODUCED` in `tests/test_plugin_floors.py`, whether or not `docs/api.md`
+   lists it. Removing or renaming it moves the minor too. The reason is the
+   cap: each plugin declares `digline<X.Y`, and that bound protects the
+   plugin's users only through a minor. A patch is inside the cap, so pip
+   installs it under the plugin, and a patch that renamed a name the plugin
+   imports would break the import on the user's machine with nothing here red.
+   **No test enforces the consequence on the version**, as with the rule of
+   2026-10-12 on a number that changes meaning (`src/digline/wire/contract.py`),
+   so review applies it. What a test holds is the list the rule reads:
+   `test_every_dated_name_is_in_the_all_of_the_module_it_comes_from` fails when
+   a dated name a plugin imports leaves the `__all__` of the module it comes
+   from.
+3. **Any other name in an `__all__`**: internal, as `docs/api.md` says of what
+   it does not list, and it may change in a patch. `digline.store.utc_now_iso`,
+   removed in 0.25.1, is this level and was right to be a patch: `docs/api.md`
+   never listed it under `digline.store`, and no plugin imported it.
+
 **Then read both tables the pull requests left for this cut, before writing the
 number.** *Owed to the next version*, below, holds what each package's number
 must reflect, row by row; *Owed at the cut*, below, holds the plugin floors this
