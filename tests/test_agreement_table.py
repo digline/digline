@@ -46,8 +46,9 @@ PREDICATES: dict[str, Binds] = {
     "3/5": lambda p, f, e: e > 0 and max(p, f) < 3,
     # "on a genuine 3-2 split, and wherever errored samples leave fewer than
     # four in agreement"
-    "4/5": lambda p, f, e: (e == 0 and sorted((p, f)) == [2, 3])
-    or (e > 0 and max(p, f) < 4),
+    "4/5": lambda p, f, e: (
+        (e == 0 and sorted((p, f)) == [2, 3]) or (e > 0 and max(p, f) < 4)
+    ),
     # "on any split, and on any errored sample"
     "5/5": lambda p, f, e: (p > 0 and f > 0) or e > 0,
 }
