@@ -409,6 +409,58 @@ def test_a_dated_name_still_exists_in_the_public_surface(plugin: Path) -> None:
         )
 
 
+def imports_from_digline(plugin: Path) -> set[tuple[str, str]]:
+    """Every `(module, name)` the plugin's sources take out of `digline`."""
+    pairs: set[tuple[str, str]] = set()
+    for source in sorted((plugin / "src").rglob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+                "digline."
+            ):
+                pairs.update((node.module or "", alias.name) for alias in node.names)
+    return pairs
+
+
+@pytest.mark.parametrize("plugin", plugins(), ids=lambda p: p.name)
+def test_every_dated_name_is_in_the_all_of_the_module_it_comes_from(
+    plugin: Path,
+) -> None:
+    """A name a plugin imports is public, whether or not `docs/api.md` lists
+    it, and `RELEASING.md` says so (*Choosing the version*, the second level,
+    2026-10-25): renaming it moves the minor, because the plugin's cap protects
+    its users only through a minor. That rule is applied by review. What this
+    holds is the list it reads: every dated name a plugin imports is in the
+    `__all__` of the module it is imported from.
+
+    `test_a_dated_name_still_exists_in_the_public_surface` above cannot see
+    this. It asks `hasattr`, and a name taken out of an `__all__` with its
+    definition left in place still answers it.
+    """
+    import importlib
+
+    missing = sorted(
+        f"{module}.{name}"
+        for module, name in imports_from_digline(plugin)
+        if name in INTRODUCED
+        and name not in getattr(importlib.import_module(module), "__all__", ())
+    )
+    assert not missing, (
+        f"{plugin.name} imports these, they are dated in INTRODUCED, and they "
+        f"are in no `__all__` of the module they come from: {missing}. A name a "
+        "plugin imports is public surface (RELEASING.md, Choosing the version): "
+        "put it back in `__all__`, or move the plugin off it first."
+    )
+
+
+def test_the_import_reader_finds_the_module_of_each_name() -> None:
+    """The control for the test above: a plugin's imports are read with their
+    module, so the check is made against the right `__all__`."""
+    pairs = imports_from_digline(PACKAGES / "digline-mcp")
+    assert ("digline.host", "unignored_notes") in pairs
+    assert ("digline.wire", "explain_json") in pairs
+
+
 #: Where `RELEASING.md` lists the floors owed to the next cut, between these two
 #: sentences. Both are required: a reworded heading must fail here, not leave
 #: the check below reading an empty section and passing.
