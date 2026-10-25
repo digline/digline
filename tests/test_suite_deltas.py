@@ -12,7 +12,9 @@ and `samples`, which takes a verb on a case's check and none on an aggregate.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -112,10 +114,18 @@ def test_an_unchanged_suite_produces_no_rows() -> None:
 
 
 def test_neither_side_recorded_a_rule_is_not_every_rule_removed() -> None:
-    """Rule 1, inherited from `config_deltas`: absent is not a change."""
+    """Rule 1, inherited from `config_deltas`: absent is not a change.
+
+    The control is two sides that both carry case verdicts, where a rule really
+    left. Until #671 the control here was an empty side against a full one, and
+    it asserted rows: that is the defect, a side with no case verdict read as
+    every rule removed, held in place by its own test.
+    """
     empty = run(cases=("s1",))
     assert suite_deltas(empty, empty) == ()
-    assert suite_deltas(empty, run(verdicts=(verdict("contains"),))) != ()
+    kept = run(verdicts=(verdict("contains"),), config_hash="hash-b")
+    both = run(verdicts=(verdict("contains"), verdict("regex")))
+    assert rows(kept, both) == [("regex", "", "missing", "loosened")]
 
 
 # --------------------------------------------------------------------------- #
@@ -577,3 +587,124 @@ def test_the_report_carries_the_rules_section() -> None:
     html = render_html(compare(now, before), now, before, locale="en", declared=None)
     assert "What the rules were" in html
     assert "looser" in html
+
+
+# --------------------------------------------------------------------------- #
+# A side with no case verdict (#671; ADR 0028 §3, rule 1 as corrected)
+# --------------------------------------------------------------------------- #
+
+
+def _suspended(of: Run, *, config_hash: str) -> Run:
+    """`of` with every case suspended, so its cases carry no verdict at all."""
+    return replace(
+        of,
+        config_hash=config_hash,
+        results=tuple(
+            CaseResult(case.case_id, (), suspended="set aside") for case in of.results
+        ),
+    )
+
+
+AGGREGATE = (verdict("recall", assertion_id="id-recall"),)
+
+
+@pytest.mark.parametrize("config_hash", ["hash-a", "hash-b"])
+def test_every_case_suspended_is_not_every_check_removed(config_hash: str) -> None:
+    """The issue's third form: the suite still declares both checks.
+
+    Run with the fingerprint unchanged and with it moved, because the hash is
+    a second proof and not the condition: a suite edited *and* fully suspended
+    still has no case verdict on that side to compare.
+    """
+    before = run(
+        verdicts=(verdict("contains"), verdict("llm_rubric")), cases=("c1", "c2")
+    )
+    now = _suspended(before, config_hash=config_hash)
+    assert rows(now, before) == []
+    assert rows(before, now) == []
+
+
+def test_every_case_suspended_beside_an_aggregate_is_no_case_row() -> None:
+    """The aggregate still carries a verdict on the suspended side, so a side
+    with *no rule at all* is the wrong condition: the cases are what is empty."""
+    before = run(
+        verdicts=(verdict("contains"), verdict("llm_rubric")),
+        aggregate=AGGREGATE,
+        cases=("c1", "c2"),
+    )
+    now = _suspended(before, config_hash="hash-b")
+    assert rows(now, before) == []
+    assert rows(before, now) == []
+
+
+def test_removing_the_last_aggregate_is_still_a_rule_removed() -> None:
+    """The other direction. A run always carries one verdict per aggregate its
+    suite declares, so an empty run scope is the suite's choice and `missing`
+    is true there. A repair that also emptied the run scope would hide it."""
+    before = run(verdicts=(verdict("contains"),), aggregate=AGGREGATE)
+    now = run(verdicts=(verdict("contains"),), config_hash="hash-b")
+    assert rows(now, before) == [("recall", "", "missing", "loosened")]
+    suspended = _suspended(now, config_hash="hash-b")
+    assert rows(suspended, before) == [("recall", "", "missing", "loosened")]
+
+
+def _unknown_samples() -> tuple[Run, Run]:
+    """The issue's first form: a field neither side established, so `unknown`."""
+    errored = verdict("contains", score=None, status="error")
+    now = run(verdicts=(errored,))
+    before = run(verdicts=(verdict("contains", samples=2),))
+    assert rows(now, before) == [("contains", "samples", "unknown", "")]
+    return now, before
+
+
+@pytest.mark.parametrize("locale", ["en", "it"])
+def test_the_terminal_says_an_unknown_field_is_not_recorded(locale: str) -> None:
+    """`samples of contains 2 → —` read as a declaration that moved to nothing,
+    under a sentence saying the suite is unchanged."""
+    now, before = _unknown_samples()
+    (line,) = rule_lines(compare(now, before), locale=locale)  # type: ignore[arg-type]
+    assert "→" not in line
+    expected = {
+        "en": "contains.samples not recorded on both sides",
+        "it": "contains.samples non registrata su entrambi i lati",
+    }
+    assert expected[locale] in line
+
+
+@pytest.mark.parametrize("locale", ["en", "it"])
+def test_the_report_says_an_unknown_field_is_not_recorded(locale: str) -> None:
+    """The HTML table's own branch on `field`, which the terminal's does not
+    share: one test for each, or one of them is green by not being looked at."""
+    from digline.report import render_html
+
+    now, before = _unknown_samples()
+    html = render_html(compare(now, before), now, before, locale=locale, declared=None)  # type: ignore[arg-type]
+    cell = {
+        "en": "not recorded on both sides",
+        "it": "non registrata su entrambi i lati",
+    }[locale]
+    assert f"<td><code>contains.samples</code></td><td>{cell}</td>" in html
+    assert "2 → —" not in html
+
+
+ADR_0028 = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "adr"
+    / "0028-the-rules-that-moved.md"
+)
+
+#: The titles of §3's first two rules, as approved with #671. The tests above
+#: hold the conditions; this holds the words that state them.
+RULE_TITLES = {
+    "1": "A side with no case verdict → no row about the cases.",
+    "2": "A field one side's verdicts did not record → `unknown`, never `new` or "
+    "`missing`.",
+}
+
+
+def test_the_record_titles_its_first_two_rules_as_the_code_reads_them() -> None:
+    text = ADR_0028.read_text(encoding="utf-8")
+    section = text[text.index("### 3. Four rules") : text.index("And one this needs")]
+    titles = dict(re.findall(r"^(\d)\. \*\*(.+?)\*\*", section, re.M))
+    assert {n: titles.get(n) for n in RULE_TITLES} == RULE_TITLES
