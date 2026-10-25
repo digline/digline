@@ -29,6 +29,10 @@
   carries `before_interval` on every row, a flip's included: the range the
   reference's samples spanned, which is not the floor and never changes a
   verdict (#1)
+- Amended: 2026-10-25 — §13's table is corrected in place, with a dated note
+  quoting the rows it replaces. The `3/5` row described a majority of the judged
+  samples, and the `4/5` row stopped short of where it binds; both now say what
+  §12 computes (#703)
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §3 (three states, and a flipped
   outcome is never noise), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
   §2 (the payload stays where it is born, the verdict travels),
@@ -456,9 +460,24 @@ one knowing what it can and cannot catch. At five samples, under §12:
 
 | `min_agreement` | what it asks | where it binds |
 | --- | --- | --- |
-| `3/5` | any majority of the judged samples | only when an errored sample splits the vote — the floor that protects the mean from resting on too few judged samples |
-| `4/5` | strong consensus | on a genuine 3–2 split |
+| `3/5` | three of the five samples agree, errored samples counted among the five | only when errored samples leave fewer than three in agreement — the floor that protects the mean from resting on too few judged samples |
+| `4/5` | strong consensus | on a genuine 3–2 split, and wherever errored samples leave fewer than four in agreement |
 | `5/5` | unanimity | on any split, and on any errored sample |
+
+*Corrected 2026-10-25 (#703).* Two rows of this table did not say what §12
+computes, and are corrected in place. Agreement divides the larger judged side by
+**all** the samples, so a floor counts the agreeing samples out of the five
+asked for. The rows read:
+
+- `3/5`: *"any majority of the judged samples"*, *"only when an errored sample
+  splits the vote"*. Two `pass`, one `fail` and two errored has a majority of the
+  judged samples, and `3/5` binds on it. Two `pass` and three errored is not a
+  split vote, and `3/5` binds on it too.
+- `4/5`: *"on a genuine 3–2 split"*. True, and short of where it binds: three
+  agreeing beside one or two errored samples is `error` at `4/5` as well.
+
+`tests/test_agreement_table.py` now holds each row to the gate, in this table,
+in the guide's and in `as_agreement`'s docstring.
 
 The first row is the one that surprises. A pass/fail vote of five always has a
 side of at least three, so `3/5` never refuses a vote in which every sample was

@@ -58,9 +58,11 @@ def as_agreement(value: Ratio, *, samples: int, field: str) -> float:
     one can catch. Only a judged verdict counts toward agreement, and an errored
     sample counts against it (ADR 0006 §12). At five samples:
 
-        3/5  any majority of the judged samples; binds only when an errored
-             sample splits the vote (the floor that protects the mean)
-        4/5  strong consensus; binds on a genuine 3-2 split
+        3/5  three of the five agree, errored samples counted; binds only when
+             errors leave fewer than three agreeing (the floor that protects
+             the mean)
+        4/5  strong consensus; binds on a genuine 3-2 split, and wherever errors
+             leave fewer than four agreeing
         5/5  unanimity; binds on any split and on any errored sample
 
     The smallest majority never refuses a fully judged vote, because two sides
