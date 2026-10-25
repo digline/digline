@@ -1394,7 +1394,7 @@ def test_nothing_pinned_on_either_side_reports_none_of_the_three() -> None:
     assert not comparison.pinned_lost
 
 
-def test_compare_json_carries_the_three_facts_at_output_version_two() -> None:
+def test_compare_json_carries_the_three_facts_as_added_keys() -> None:
     """Three added keys, and no bump: an added key does not break a consumer,
     and what changes here is behaviour, not format. (ADR 0051, *Its price*)"""
     before = a_pinned_run((OLD,), **{OLD: Artifact(sha="a" * 64, text="v1")})
@@ -1402,7 +1402,7 @@ def test_compare_json_carries_the_three_facts_at_output_version_two() -> None:
     comparison, head = judged(after, before)
     payload = compare_json(comparison, head, baseline=before, full=False, run=after)
 
-    assert payload["output_version"] == 2
+    assert payload["output_version"] == 3
     missing = {"pinned_unreferenced", "pinned_withdrawn", "pinned_lost"} - set(payload)
     assert not missing, f"compare --json does not carry {sorted(missing)}"
     assert (
