@@ -27,7 +27,8 @@ stored documents working unchanged: fixes, documentation, CI, and additions — 
 new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 
 Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
-last tag and `main`, not from memory.
+last tag and `main`, not from memory. The public names are the three levels
+below.
 
 **Since 2026-10-25, a public name is read in three levels.** Ruled that day.
 The rule above says *a public name*, and the repository answered two ways:
@@ -41,24 +42,44 @@ packages.** The first has `docs/api.md`'s, which documents seven: `digline.core`
 `digline.run`, `digline.report`, `digline.store`, `digline.host`, `digline.wire`
 and `digline.targets`. The second has the cap's, and the third is the rest.
 1. **A name `docs/api.md` lists**, in whatever package. Removing or renaming it
-   moves the minor. The list decides and not the package, as 0.25.1 already
-   read it when it removed `digline.store.utc_now_iso` in a patch: *"It was
-   never in the public API (`docs/api.md` lists `utc_now_iso` under
-   `digline.host` only)"*.
-2. **A name `docs/api.md` does not list, and a plugin imports**: in an
-   `__all__`, and dated in `INTRODUCED` in `tests/test_plugin_floors.py`.
-   Removing or renaming it moves the minor too. The reason is the cap: each
-   plugin declares `digline<X.Y`, and that bound protects the plugin's users
-   only through a minor. A patch is inside the cap, so pip installs it under
-   the plugin whatever module holds the name, and a patch that renamed a name
-   the plugin imports would break the import on the user's machine with nothing
-   here red. **No test enforces the consequence on the version**, as with the
-   rule of 2026-10-12 on a number that changes meaning
-   (`src/digline/wire/contract.py`), so review applies it. What a test holds is
-   the list the rule reads:
-   `test_every_dated_name_is_in_the_all_of_the_module_it_comes_from` fails when
-   a dated name a plugin imports leaves the `__all__` of the module it comes
-   from.
+   moves the minor. The list decides and not the package. Two precedents read
+   it, and they contradict each other. 0.25.1 applied the list, removing
+   `digline.store.utc_now_iso` in a patch: *"It was never in the public API
+   (`docs/api.md` lists `utc_now_iso` under `digline.host` only)"*. 0.21.2
+   applied the package, removing `FileResultStore.key_for` in a patch: *"The
+   removal is a patch under this project's own rule — `digline.store` is not one
+   of the four modules whose public names make a minor"*. The levels govern,
+   and 0.21.2 is not a precedent to follow but the evidence that the reading by
+   package was wrong: its own entry says *"One such caller was already
+   published: `digline-mcp` 0.4.1, which this release breaks"*.
+2. **A name `docs/api.md` does not list, and a plugin uses**: a name it
+   imports, or a method or an attribute it calls on something digline gives
+   it. Removing or renaming it moves the minor too. Calls are in because of
+   `FileResultStore.key_for` in 0.21.2: not listed, not an import, and it broke
+   `digline-mcp` 0.4.1, which called `store.key_for(baseline)`. The reason is the
+   cap: each plugin declares `digline<X.Y`, and that bound protects the
+   plugin's users only through a minor. A patch is inside the cap, so pip
+   installs it under the plugin whatever module holds the name, and a patch
+   that renamed what the plugin uses would break it on the user's machine with
+   nothing here red. **No test enforces the consequence on the version**, as
+   with the rule of 2026-10-12 on a number that changes meaning
+   (`src/digline/wire/contract.py`), so review applies it. Which mechanism
+   covers which half:
+   - **the imports**: `INTRODUCED` in `tests/test_plugin_floors.py` dates them,
+     and `test_every_dated_name_is_in_the_all_of_the_module_it_comes_from`
+     keeps that list aligned, failing when a dated name a plugin imports
+     leaves the `__all__` of the module it comes from. It holds the list, not
+     the version;
+   - **the calls**: there is no list. What would catch a broken call before
+     publication is `.github/plugins_against_core.py`, in `publish.yml`'s
+     `testpypi` job on a `v*` tag, before the `pypi` job starts. It installs
+     the core TestPyPI serves beside the newest version PyPI serves of each
+     plugin whose range admits it, and tries each the way its users do: every
+     `digline-mcp` tool once, `run` included, a `pytest-digline` session with
+     and without `--digline-run`, and each provider built through the core. A
+     call broken on a path that reaches is red, and `pypi` does not start. A
+     call on a path it does not reach is caught by nothing, and review applies
+     the rule.
 3. **Any other name in an `__all__`**: internal, as `docs/api.md` says of what
    it does not list, and it may change in a patch. `digline.store.utc_now_iso`,
    removed in 0.25.1, is this level and was right to be a patch: `docs/api.md`
@@ -4134,6 +4155,10 @@ apply to it as to any field. What it does not earn is a second pass over what
 the earlier pass already read: that is the work it was born of.
 
 **New public surface is three kinds of thing, and all three are listed.**
+*Public surface* here is every `__all__`, wider than the three levels of
+*Choosing the version*, on purpose: this list is what the pass reads, and the
+levels are what a version is chosen by. The levels do not change it, and the
+two are not an inconsistency to reconcile.
 - **The names in an `__all__`.** Diff every `__all__` between the last tag and
   the tree being tagged. Do not count them from memory: on 0.25.1 a count
   given from memory said five, and there were four.
