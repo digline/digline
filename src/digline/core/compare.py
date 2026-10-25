@@ -638,10 +638,12 @@ class Comparison:
     def loosened_rules(self) -> Sequence[SuiteDelta]:
         """The rules this run is held to less strictly than the reference was.
 
-        What the headline names, and it is named on its own rather than netted
-        against the tightenings. There is no *tightened on balance*: the
-        quantity does not exist, and computing one would let three cosmetic
-        tightenings bury the edit that matters. (ADR 0028 §4)
+        Named on their own rather than netted against the tightenings. There is
+        no *tightened on balance*: the quantity does not exist, and computing
+        one would let three cosmetic tightenings bury the edit that matters.
+        (ADR 0028 §4) The headline does not name them: the terminal's rules
+        line and the report's table put them first, each sorting on
+        `SuiteDelta.loosened` itself.
         """
         return tuple(d for d in self.suite_deltas if d.loosened)
 
@@ -1682,13 +1684,15 @@ def suite_deltas(run: Run, baseline: Run) -> tuple[SuiteDelta, ...]:
     It inherits `config_deltas`' three rules against reporting a change nobody
     established, and adds a fourth:
 
-    1. **Neither side recorded any rule** — which takes a run whose every case
-       is suspended — and the answer is `()`. Absent is not *every rule was
-       removed*.
-    2. **One side recorded nothing**: `unknown`, never `new` or `missing`. In
-       practice unreachable, for the mandatory fields above; kept because the
-       day a field here becomes optional is the day its absence in an old
-       baseline would otherwise render as an edit.
+    1. **A side with no case verdict** — which takes a run whose every case is
+       suspended — gives no row about the cases. Absent is not *every rule was
+       removed*. Only the cases: a run carries one verdict per aggregate its
+       suite declares, suspended or not, so an empty run scope is the suite's
+       choice and `missing` is true there. (#671)
+    2. **A field one side's verdicts did not record**: `unknown`, never `new`
+       or `missing`. In practice unreachable, for the mandatory fields above;
+       kept because the day a field here becomes optional is the day its
+       absence in an old baseline would otherwise render as an edit.
     3. **A value not established on both sides** is `unknown` rather than
        guessed. The one that arises is the sample count of a rule whose verdicts
        all errored before the fold: an errored verdict may carry no metadata at
@@ -1719,9 +1723,17 @@ def suite_deltas(run: Run, baseline: Run) -> tuple[SuiteDelta, ...]:
     if not now and not before:
         return ()
 
+    # Rule 1, per scope: where either side judged no case, the cases are left
+    # out of the pairing, so the other side's checks cannot read as removed or
+    # as added. The agreement row below still reads both sides whole, because
+    # it is about the fingerprint and not about a case.
+    paired_now, paired_before = now, before
+    if not _has_case_rule(now) or not _has_case_rule(before):
+        paired_now, paired_before = _run_scope(now), _run_scope(before)
+
     deltas: list[SuiteDelta] = []
-    for key in sorted(now.keys() | before.keys()):
-        here, there = now.get(key), before.get(key)
+    for key in sorted(paired_now.keys() | paired_before.keys()):
+        here, there = paired_now.get(key), paired_before.get(key)
         if there is None:
             assert here is not None
             deltas.append(
@@ -1943,6 +1955,16 @@ def _agreement_row(
             outcome="unknown",
         ),
     )
+
+
+def _has_case_rule(rules: dict[_RuleKey, _Rule]) -> bool:
+    """Whether a side judged any case, which is what rule 1 asks."""
+    return any(scope == "case" for scope, _, _ in rules)
+
+
+def _run_scope(rules: dict[_RuleKey, _Rule]) -> dict[_RuleKey, _Rule]:
+    """A side's aggregate rules alone, for a comparison the cases cannot enter."""
+    return {key: rule for key, rule in rules.items() if key[0] == "run"}
 
 
 def _rules(run: Run) -> dict[_RuleKey, _Rule]:
