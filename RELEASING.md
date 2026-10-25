@@ -7,8 +7,8 @@ once.
 ## Choosing the version
 
 Before 1.0, the **minor** number moves when something a user relies on stops
-working as it did: a public name removed or renamed in `digline.core`,
-`digline.run`, `digline.host` or `digline.wire`, a CLI subcommand or option
+working as it did: a public name removed or renamed, in any package, as the
+three levels below read *a public name*, a CLI subcommand or option
 removed or changed in meaning, an exit code changed, or a schema change that
 needs `migrate` or a re-promote. 0.12.0 was a minor for this reason.
 
@@ -30,23 +30,32 @@ Check it by diffing the public names, the CLI and `SCHEMA_VERSION` between the
 last tag and `main`, not from memory.
 
 **Since 2026-10-25, a public name is read in three levels.** Ruled that day.
-The rule above says *a public name* and does not say which, and the repository
-answered two ways: `docs/api.md` says *"anything not listed here is internal and
-may change"*, and *New public surface*, below, counts *"the names in an
-`__all__`"*. `digline.host.__all__` held 52 names that day and `docs/api.md`
-listed 13.
-1. **A name `docs/api.md` lists.** Removing or renaming it moves the minor, as
-   the rule above says.
-2. **A name a plugin imports**, which is in an `__all__` and dated in
-   `INTRODUCED` in `tests/test_plugin_floors.py`, whether or not `docs/api.md`
-   lists it. Removing or renaming it moves the minor too. The reason is the
-   cap: each plugin declares `digline<X.Y`, and that bound protects the
-   plugin's users only through a minor. A patch is inside the cap, so pip
-   installs it under the plugin, and a patch that renamed a name the plugin
-   imports would break the import on the user's machine with nothing here red.
-   **No test enforces the consequence on the version**, as with the rule of
-   2026-10-12 on a number that changes meaning (`src/digline/wire/contract.py`),
-   so review applies it. What a test holds is the list the rule reads:
+The rule above says *a public name*, and the repository answered two ways:
+`docs/api.md` says *"anything not listed here is internal and may change"*, and
+*New public surface*, below, counts *"the names in an `__all__`"*.
+`digline.host.__all__` held 52 names that day and `docs/api.md` listed 13.
+**The levels are read in order, and the first that answers wins**, because the
+first two overlap: `FileResultStore` is listed in `docs/api.md` and imported by
+a plugin, and it is the first level's. **None of the three has a perimeter of
+packages.** The first has `docs/api.md`'s, which documents seven: `digline.core`,
+`digline.run`, `digline.report`, `digline.store`, `digline.host`, `digline.wire`
+and `digline.targets`. The second has the cap's, and the third is the rest.
+1. **A name `docs/api.md` lists**, in whatever package. Removing or renaming it
+   moves the minor. The list decides and not the package, as 0.25.1 already
+   read it when it removed `digline.store.utc_now_iso` in a patch: *"It was
+   never in the public API (`docs/api.md` lists `utc_now_iso` under
+   `digline.host` only)"*.
+2. **A name `docs/api.md` does not list, and a plugin imports**: in an
+   `__all__`, and dated in `INTRODUCED` in `tests/test_plugin_floors.py`.
+   Removing or renaming it moves the minor too. The reason is the cap: each
+   plugin declares `digline<X.Y`, and that bound protects the plugin's users
+   only through a minor. A patch is inside the cap, so pip installs it under
+   the plugin whatever module holds the name, and a patch that renamed a name
+   the plugin imports would break the import on the user's machine with nothing
+   here red. **No test enforces the consequence on the version**, as with the
+   rule of 2026-10-12 on a number that changes meaning
+   (`src/digline/wire/contract.py`), so review applies it. What a test holds is
+   the list the rule reads:
    `test_every_dated_name_is_in_the_all_of_the_module_it_comes_from` fails when
    a dated name a plugin imports leaves the `__all__` of the module it comes
    from.
