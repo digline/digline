@@ -421,14 +421,15 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 # key left this table's test green and failed four of `digline-mcp`'s.
 #
 # **Two parts, so that an addition and a change cannot look alike.** `_BASE` is
-# the shape as it stood when this table was written, under `OUTPUT_VERSION = 2`,
-# and it does not move: `_BASE_DIGEST` holds its digest beside the version, and
-# the test fails when the two disagree. `_ADDED` is where every key added since
-# goes, one entry each, and `_SHAPES` is derived from the two. So:
+# the shape as it stood at the current `OUTPUT_VERSION`'s bump, and it does not
+# move under that version: `_BASE_DIGEST` holds its digest beside the version,
+# and the test fails when the two disagree. `_ADDED` is where every key added
+# since goes, one entry each, and `_SHAPES` is derived from the two. So:
 #
-# - **adding a key** is one entry in `_ADDED`, naming why. That is what
-#   `OUTPUT_VERSION = 2`'s rule allows without a bump, and a release diffs
-#   `_ADDED` between two tags to list what it added (`RELEASING.md`);
+# - **adding a key** is one entry in `_ADDED`, naming why. That is what the
+#   current version's rule allows without a bump, and a release diffs `_ADDED`
+#   between two tags to list what it added, or `_BASE` when the version moved
+#   between them (`RELEASING.md`);
 # - **adding a word to a map's closed key vocabulary** is one entry in
 #   `_ADDED_WORDS`, naming why, under the same rule. A consumer meets a key in a
 #   map it did not know, which is what it meets when a key is added to an
@@ -437,7 +438,10 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 # - **renaming or removing a key, or changing what type a value may take**, is
 #   an edit to `_BASE` or to an existing `_ADDED` entry. A consumer parsing the
 #   old shape breaks, so it is a bump of `OUTPUT_VERSION`: fold `_ADDED` into
-#   `_BASE`, empty `_ADDED`, and pin the new digest beside the new version;
+#   `_BASE`, empty `_ADDED`, and pin the new digest beside the new version.
+#   `_ADDED_WORDS` folds too, back into `_BASE`'s vocabulary, because a word
+#   is a key to a consumer and `_BASE`'s digest spells the vocabulary: left
+#   out, the new base would claim a word it had as one added after it (#669);
 # - **changing what a number means**, with its key and its type unchanged, is a
 #   bump of `OUTPUT_VERSION` too, from 2026-10-12 on. Ruled that day. A
 #   consumer that reads the number would otherwise go on parsing it and be
@@ -445,6 +449,12 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #   before, the `denominator_moved` entries in the record above, stay as
 #   written. **No test enforces this one**: the table cannot see a number
 #   change meaning, which is on the list just below, so review applies it.
+#   *Extended 2026-10-25 (#669):* not only a number. Any value whose meaning
+#   changes while its key and its type stay the same is a bump: a number, a
+#   count or a boolean. `within_noise` showed it, a boolean a consumer branches
+#   on, which went from *covered by the interval the samples spanned* to
+#   *covered by the declared floor* in 0.33.0. A word in a vocabulary is still
+#   outside it, as the next paragraph says.
 #
 # **What this does not catch, stated where the claim is made.** A value from a
 # vocabulary a consumer matches on, such as an outcome or a kind, moving to
@@ -552,16 +562,11 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 2`.
-#: Appended to, never edited, like `_ADDED`.
-_ADDED_WORDS: tuple[_AddedWord, ...] = (
-    _AddedWord(
-        "log",
-        "spread_absence",
-        "projected",
-        "#402; ADR 0024 §7.5, amended 2026-10-03",
-    ),
-)
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 3`.
+#: Appended to, never edited, like `_ADDED`. Empty at the bump to 3 (#669),
+#: which folded the one word added under 2, `projected` on `log.spread_absence`,
+#: back into `_BASE`'s vocabulary.
+_ADDED_WORDS: tuple[_AddedWord, ...] = ()
 
 
 def _as_written(shape: str, key: str, vocabulary: Iterable[str]) -> frozenset[str]:
@@ -620,6 +625,55 @@ _HEADLINE: Mapping[str, _Key] = {
     "misnamed": _INT,
     "exit_code": _INT,
     "baseline_key": _STR,
+    # What resolving a run stepped over, `Resolved.note`, which until then only
+    # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
+    # the run it names is by construction one that cannot be read here, and a
+    # key in a field of its own invites the `get_run` that fails. Empty when
+    # nothing was stepped over, and always for a key typed by hand. On
+    # `run_document` it is optional because `get_baseline` resolves nothing.
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: #433.
+    "note": _STR,
+    # The run a document was read from, by its key, derived from the run as
+    # `baseline_key` is from the reference: with `latest` the caller typed a
+    # word, and a second call to learn the key can resolve a different run.
+    # `explain` also names its reference, where its scope is `"comparison"`.
+    # Optional because a builder's caller written before them passes no run;
+    # every front end here passes one. MCP's `explain` already splices `key`
+    # beside its document, so there it carries the run twice until a bump.
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: #448.
+    "run_key": _k("string", optional=True),
+    # A run in which none of the cases that count was judged, read against the
+    # suite's declaration: a new cause of exit 2, which a consumer reading
+    # `exit_code` already honours, by the rule `pinned_drifted` arrived under.
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0049 §4.
+    "nothing_judged": _BOOL,
+    # A pinned path with no reference value and a pin the reference held and
+    # the judged run does not: two counts that move no number, for the reason
+    # `pinned_unchecked` is a count. And the two together, a new cause of exit
+    # 2 that a consumer reading `exit_code` already honours. No bump: the keys
+    # are added, and what changes is behaviour — a comparison that exited 0 on
+    # that case now exits 2 — which no version of the format can say.
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0051 §1.
+    "pinned_unreferenced": _INT,
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0051 §2.
+    "pinned_withdrawn": _INT,
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0051 §3.
+    "pinned_lost": _BOOL,
+    # The modules the judged run found already loaded elsewhere: a count on the
+    # comparison, the names on the run. `null` on both is *not recorded*, a run
+    # written before the field or built by a caller that loaded nothing, and
+    # never zero. Moves no number, so no consumer reading `exit_code` reads it
+    # differently. (ADR 0052, decisions 2 and 3)
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0052.
+    "modules_unchecked": _k("integer", "null"),
+    # Every cause of exit 2 that holds, each named as the boolean or count
+    # beside it on the same document: `unjudged`, `scale_lost`,
+    # `pinned_drifted`, `pinned_lost`, `nothing_judged`. What `exit_code` reads,
+    # and what a promotion refuses on, so a pipeline can tell a run that exits 1
+    # with a drifted pin beside the regression from one that only regressed.
+    # Moves no number; an added key, no bump. (ADR 0053)
+    # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0053.
+    "unjudged_causes": _STRINGS,
 }
 
 _DIFF: Mapping[str, _Key] = {
@@ -643,9 +697,12 @@ _VERDICT: Mapping[str, _Key] = {
     "tolerance": _NUM,
 }
 
-#: The shape of every document as it stood on 2026-10-02, when this table was
-#: written. **It does not move** under `OUTPUT_VERSION = 2`: an added key goes
-#: in `_ADDED`, and anything else here is a bump.
+#: The shape of every document under `OUTPUT_VERSION = 3`. Written on
+#: 2026-10-02 as version 2's base, and folded at the bump to 3 (#669): every key
+#: and word added under 2 is in it now, each beside the provenance its entry in
+#: `_ADDED` or `_ADDED_WORDS` carried. **It does not move** under
+#: `OUTPUT_VERSION = 3`: an added key goes in `_ADDED`, and anything else here
+#: is a bump.
 _BASE: Mapping[str, Mapping[str, _Key]] = {
     # `compare --json`, and the MCP `compare` tool. (compare.py)
     "compare": _HEADLINE,
@@ -672,6 +729,30 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "canary": _BOOL,
         "calibration": _BOOL,
         "denominator_moved": _BOOL,
+        # What a floor from the mean was computed from, on a comparison's row and on
+        # explain's check: the declared width, the judged samples' standard
+        # deviation, and the samples. The floor is `width * sqrt(2) * sd /
+        # sqrt(noise_samples)` either side of the baseline's score: the sqrt(2) is
+        # the movement's, a difference of two means (ADR 0050, decision 1 as
+        # amended 2026-10-21), and a reader rebuilding the interval without it gets
+        # one too narrow. `null`, `null` and `[]` on a range and where there is no
+        # floor. On explain, whose interval it is: `reference` for the
+        # floor a movement was judged against, `run` for the samples a run read
+        # alone took, which is not a floor. (ADR 0050, the fourth item)
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_width": _NUM_OR_NULL,
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_sd": _NUM_OR_NULL,
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_judged": _k(_arr("number")),
+        # The range the reference's own samples spanned, on a comparison's row and
+        # on explain's check, under one name and in `diff`'s `interval` shape:
+        # `null` where the reference holds no samples for the check. It rides on a
+        # flip too, where `noise_*` stays absent: the scale of the movement, never
+        # the floor it was judged against, and no verdict reads it. (#1; ADR 0006
+        # §6, amended)
+        # Added under `OUTPUT_VERSION = 2`: #1.
+        "before_interval": _k(_Obj("interval"), "null"),
     },
     "shape": {
         "check": _STR,
@@ -717,6 +798,14 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "label": _STR,
         "created_at": _STR,
         "environment": _STR,
+        # What resolving a run stepped over, `Resolved.note`, which until then only
+        # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
+        # the run it names is by construction one that cannot be read here, and a
+        # key in a field of its own invites the `get_run` that fails. Empty when
+        # nothing was stepped over, and always for a key typed by hand. On
+        # `run_document` it is optional because `get_baseline` resolves nothing.
+        # Added under `OUTPUT_VERSION = 2`: #433.
+        "note": _STR,
     },
     "diff.counts": {
         "total": _INT,
@@ -755,6 +844,25 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "scope": _STR,
         "exit_code": _INT,
         "facts": _k(_arr(_OneOf(("fact.check", "fact.setting", "fact.tally")))),
+        # What resolving a run stepped over, `Resolved.note`, which until then only
+        # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
+        # the run it names is by construction one that cannot be read here, and a
+        # key in a field of its own invites the `get_run` that fails. Empty when
+        # nothing was stepped over, and always for a key typed by hand. On
+        # `run_document` it is optional because `get_baseline` resolves nothing.
+        # Added under `OUTPUT_VERSION = 2`: #433.
+        "note": _STR,
+        # The run a document was read from, by its key, derived from the run as
+        # `baseline_key` is from the reference: with `latest` the caller typed a
+        # word, and a second call to learn the key can resolve a different run.
+        # `explain` also names its reference, where its scope is `"comparison"`.
+        # Optional because a builder's caller written before them passes no run;
+        # every front end here passes one. MCP's `explain` already splices `key`
+        # beside its document, so there it carries the run twice until a bump.
+        # Added under `OUTPUT_VERSION = 2`: #448.
+        "run_key": _k("string", optional=True),
+        # Added under `OUTPUT_VERSION = 2`: #448.
+        "baseline_key": _k("string", optional=True),
     },
     "fact.check": {
         "about": _STR,
@@ -771,6 +879,32 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "noise_max": _NUM_OR_NULL,
         "noise_samples": _INT,
         "denominator_moved": _BOOL,
+        # What a floor from the mean was computed from, on a comparison's row and on
+        # explain's check: the declared width, the judged samples' standard
+        # deviation, and the samples. The floor is `width * sqrt(2) * sd /
+        # sqrt(noise_samples)` either side of the baseline's score: the sqrt(2) is
+        # the movement's, a difference of two means (ADR 0050, decision 1 as
+        # amended 2026-10-21), and a reader rebuilding the interval without it gets
+        # one too narrow. `null`, `null` and `[]` on a range and where there is no
+        # floor. On explain, whose interval it is: `reference` for the
+        # floor a movement was judged against, `run` for the samples a run read
+        # alone took, which is not a floor. (ADR 0050, the fourth item)
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_width": _NUM_OR_NULL,
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_sd": _NUM_OR_NULL,
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_judged": _k(_arr("number")),
+        # Added under `OUTPUT_VERSION = 2`: ADR 0050.
+        "noise_source": _STR,
+        # The range the reference's own samples spanned, on a comparison's row and
+        # on explain's check, under one name and in `diff`'s `interval` shape:
+        # `null` where the reference holds no samples for the check. It rides on a
+        # flip too, where `noise_*` stays absent: the scale of the movement, never
+        # the floor it was judged against, and no verdict reads it. (#1; ADR 0006
+        # §6, amended)
+        # Added under `OUTPUT_VERSION = 2`: #1.
+        "before_interval": _k(_Obj("interval"), "null"),
     },
     "fact.setting": {
         "about": _STR,
@@ -804,6 +938,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "spans": _k(_arr(_Obj("log.span"))),
         "rolls": _k(_arr(_Obj("log.roll"))),
         "spread": _k(_arr(_Obj("log.spread"))),
+        # The word `projected` in this vocabulary was added under
+        # `OUTPUT_VERSION = 2`: #402; ADR 0024 §7.5, amended 2026-10-03.
         "spread_absence": _k(
             _map(
                 "integer",
@@ -925,6 +1061,20 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "reused": _INT,
         "judge_reading": _k("string", optional=True),
         "usage": _k(_Obj("usage"), optional=True),
+        # What `digline run` and `digline rejudge` print on stderr before the first
+        # call, `suite_notes(suite)`: a check whose class declares no `KIND`, a
+        # tolerance that switches its check off. Sentences, as `runs.note` is. Always
+        # present, so an empty list is a suite that was read, not a digline that
+        # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
+        # Added under `OUTPUT_VERSION = 2`: #396; ADR 0024 §6.4.
+        "notes": _STRINGS,
+        # How many checks could not run, case checks and aggregates alike:
+        # `len(errored_verdicts(run))`. Required: `run --json`, `rejudge --json` and
+        # MCP's `run` all carry it, `0` included, because a key present on some of
+        # `run_json`'s documents and absent on others makes every reader branch on
+        # the absence. A new number, so an added key and no bump. (#654)
+        # Added under `OUTPUT_VERSION = 2`: #654.
+        "errored_checks": _INT,
     },
     # The MCP `list_runs` tool. `list` prints no JSON. (run.py)
     "runs": {
@@ -940,6 +1090,12 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "unreadable": _INT,
         "refused": _INT,
         "baseline_unreadable": _BOOL,
+        # MCP's `list_runs`: the files the scan left out because their name is not
+        # their run's key. A count, beside `unreadable` and `refused`. Not on
+        # `log --json`, which has `refused` for a run the store refuses: that gap
+        # is declared in ADR 0040 §6, not overlooked.
+        # Added under `OUTPUT_VERSION = 2`: #332, #429; ADR 0040 §5.
+        "misfiled": _INT,
     },
     "runs.row": {
         "key": _STR,
@@ -975,6 +1131,21 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # Keyed by a name the suite disclosed; the values are the suite's.
         "metadata": _k(_map("any")),
         "disclosure": _k(_Obj("disclosure")),
+        # What resolving a run stepped over, `Resolved.note`, which until then only
+        # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
+        # the run it names is by construction one that cannot be read here, and a
+        # key in a field of its own invites the `get_run` that fails. Empty when
+        # nothing was stepped over, and always for a key typed by hand. On
+        # `run_document` it is optional because `get_baseline` resolves nothing.
+        # Added under `OUTPUT_VERSION = 2`: #433.
+        "note": _k("string", optional=True),
+        # The modules the judged run found already loaded elsewhere: a count on the
+        # comparison, the names on the run. `null` on both is *not recorded*, a run
+        # written before the field or built by a caller that loaded nothing, and
+        # never zero. Moves no number, so no consumer reading `exit_code` reads it
+        # differently. (ADR 0052, decisions 2 and 3)
+        # Added under `OUTPUT_VERSION = 2`: ADR 0052.
+        "modules_unchecked": _k(_arr("string"), "null"),
     },
     "run_document.case": {
         "case_id": _STR,
@@ -1021,113 +1192,12 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     },
 }
 
-#: Every key added under `OUTPUT_VERSION = 2` since `_BASE` was written, one
+#: Every key added under `OUTPUT_VERSION = 3` since its `_BASE` was pinned, one
 #: entry each. Appended to, never edited: changing an entry's types is a change
-#: a consumer can see, and the rule for that is a bump.
-_ADDED: tuple[_AddedKey, ...] = (
-    # MCP's `list_runs`: the files the scan left out because their name is not
-    # their run's key. A count, beside `unreadable` and `refused`. Not on
-    # `log --json`, which has `refused` for a run the store refuses: that gap
-    # is declared in ADR 0040 §6, not overlooked.
-    _AddedKey("runs", "misfiled", _INT, "#332, #429; ADR 0040 §5"),
-    # What resolving a run stepped over, `Resolved.note`, which until then only
-    # the CLI said, on stderr. A sentence and not its facts, as `runs.note` is:
-    # the run it names is by construction one that cannot be read here, and a
-    # key in a field of its own invites the `get_run` that fails. Empty when
-    # nothing was stepped over, and always for a key typed by hand. On
-    # `run_document` it is optional because `get_baseline` resolves nothing.
-    _AddedKey("compare", "note", _STR, "#433"),
-    _AddedKey("compare.full", "note", _STR, "#433"),
-    _AddedKey("diff.run", "note", _STR, "#433"),
-    _AddedKey("explain", "note", _STR, "#433"),
-    _AddedKey("run_document", "note", _k("string", optional=True), "#433"),
-    # The run a document was read from, by its key, derived from the run as
-    # `baseline_key` is from the reference: with `latest` the caller typed a
-    # word, and a second call to learn the key can resolve a different run.
-    # `explain` also names its reference, where its scope is `"comparison"`.
-    # Optional because a builder's caller written before them passes no run;
-    # every front end here passes one. MCP's `explain` already splices `key`
-    # beside its document, so there it carries the run twice until a bump.
-    _AddedKey("compare", "run_key", _k("string", optional=True), "#448"),
-    _AddedKey("compare.full", "run_key", _k("string", optional=True), "#448"),
-    _AddedKey("explain", "run_key", _k("string", optional=True), "#448"),
-    _AddedKey("explain", "baseline_key", _k("string", optional=True), "#448"),
-    # What `digline run` and `digline rejudge` print on stderr before the first
-    # call, `suite_notes(suite)`: a check whose class declares no `KIND`, a
-    # tolerance that switches its check off. Sentences, as `runs.note` is. Always
-    # present, so an empty list is a suite that was read, not a digline that
-    # did not look. `run --json`, `rejudge --json` and MCP's `run` alike.
-    _AddedKey("run", "notes", _STRINGS, "#396; ADR 0024 §6.4"),
-    # How many checks could not run, case checks and aggregates alike:
-    # `len(errored_verdicts(run))`. Required: `run --json`, `rejudge --json` and
-    # MCP's `run` all carry it, `0` included, because a key present on some of
-    # `run_json`'s documents and absent on others makes every reader branch on
-    # the absence. A new number, so an added key and no bump. (#654)
-    _AddedKey("run", "errored_checks", _INT, "#654"),
-    # A run in which none of the cases that count was judged, read against the
-    # suite's declaration: a new cause of exit 2, which a consumer reading
-    # `exit_code` already honours, by the rule `pinned_drifted` arrived under.
-    _AddedKey("compare", "nothing_judged", _BOOL, "ADR 0049 §4"),
-    _AddedKey("compare.full", "nothing_judged", _BOOL, "ADR 0049 §4"),
-    # A pinned path with no reference value and a pin the reference held and
-    # the judged run does not: two counts that move no number, for the reason
-    # `pinned_unchecked` is a count. And the two together, a new cause of exit
-    # 2 that a consumer reading `exit_code` already honours. No bump: the keys
-    # are added, and what changes is behaviour — a comparison that exited 0 on
-    # that case now exits 2 — which no version of the format can say.
-    _AddedKey("compare", "pinned_unreferenced", _INT, "ADR 0051 §1"),
-    _AddedKey("compare.full", "pinned_unreferenced", _INT, "ADR 0051 §1"),
-    _AddedKey("compare", "pinned_withdrawn", _INT, "ADR 0051 §2"),
-    _AddedKey("compare.full", "pinned_withdrawn", _INT, "ADR 0051 §2"),
-    _AddedKey("compare", "pinned_lost", _BOOL, "ADR 0051 §3"),
-    _AddedKey("compare.full", "pinned_lost", _BOOL, "ADR 0051 §3"),
-    # The modules the judged run found already loaded elsewhere: a count on the
-    # comparison, the names on the run. `null` on both is *not recorded*, a run
-    # written before the field or built by a caller that loaded nothing, and
-    # never zero. Moves no number, so no consumer reading `exit_code` reads it
-    # differently. (ADR 0052, decisions 2 and 3)
-    _AddedKey("compare", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
-    _AddedKey("compare.full", "modules_unchecked", _k("integer", "null"), "ADR 0052"),
-    _AddedKey(
-        "run_document",
-        "modules_unchecked",
-        _k(_arr("string"), "null"),
-        "ADR 0052",
-    ),
-    # What a floor from the mean was computed from, on a comparison's row and on
-    # explain's check: the declared width, the judged samples' standard
-    # deviation, and the samples. The floor is `width * sqrt(2) * sd /
-    # sqrt(noise_samples)` either side of the baseline's score: the sqrt(2) is
-    # the movement's, a difference of two means (ADR 0050, decision 1 as
-    # amended 2026-10-21), and a reader rebuilding the interval without it gets
-    # one too narrow. `null`, `null` and `[]` on a range and where there is no
-    # floor. On explain, whose interval it is: `reference` for the
-    # floor a movement was judged against, `run` for the samples a run read
-    # alone took, which is not a floor. (ADR 0050, the fourth item)
-    _AddedKey("delta", "noise_width", _NUM_OR_NULL, "ADR 0050"),
-    _AddedKey("delta", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
-    _AddedKey("delta", "noise_judged", _k(_arr("number")), "ADR 0050"),
-    _AddedKey("fact.check", "noise_width", _NUM_OR_NULL, "ADR 0050"),
-    _AddedKey("fact.check", "noise_sd", _NUM_OR_NULL, "ADR 0050"),
-    _AddedKey("fact.check", "noise_judged", _k(_arr("number")), "ADR 0050"),
-    _AddedKey("fact.check", "noise_source", _STR, "ADR 0050"),
-    # The range the reference's own samples spanned, on a comparison's row and
-    # on explain's check, under one name and in `diff`'s `interval` shape:
-    # `null` where the reference holds no samples for the check. It rides on a
-    # flip too, where `noise_*` stays absent: the scale of the movement, never
-    # the floor it was judged against, and no verdict reads it. (#1; ADR 0006
-    # §6, amended)
-    _AddedKey("delta", "before_interval", _k(_Obj("interval"), "null"), "#1"),
-    _AddedKey("fact.check", "before_interval", _k(_Obj("interval"), "null"), "#1"),
-    # Every cause of exit 2 that holds, each named as the boolean or count
-    # beside it on the same document: `unjudged`, `scale_lost`,
-    # `pinned_drifted`, `pinned_lost`, `nothing_judged`. What `exit_code` reads,
-    # and what a promotion refuses on, so a pipeline can tell a run that exits 1
-    # with a drifted pin beside the regression from one that only regressed.
-    # Moves no number; an added key, no bump. (ADR 0053)
-    _AddedKey("compare", "unjudged_causes", _STRINGS, "ADR 0053"),
-    _AddedKey("compare.full", "unjudged_causes", _STRINGS, "ADR 0053"),
-)
+#: a consumer can see, and the rule for that is a bump. Empty at the bump to 3
+#: (#669), which folded the 34 keys added under 2 into `_BASE`, each beside the
+#: provenance its entry carried.
+_ADDED: tuple[_AddedKey, ...] = ()
 
 
 def _derive(
@@ -1197,6 +1267,6 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: both: a `_BASE` that moved under the same version is a rename, a removal or
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
-    2,
-    "6d8ccb58a32a164b0c99fcbc5bfd411c99f0184b5bfd4d27bf9a5f11bbf05835",
+    3,
+    "215eebb4b9299c42e8403a01342f53d402f5a8baf68ded2faf2b88802803050c",
 )
