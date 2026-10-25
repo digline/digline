@@ -473,8 +473,10 @@ asked for. The rows read:
   splits the vote"*. Two `pass`, one `fail` and two errored has a majority of the
   judged samples, and `3/5` binds on it. Two `pass` and three errored is not a
   split vote, and `3/5` binds on it too.
-- `4/5`: *"on a genuine 3–2 split"*. True, and short of where it binds: three
-  agreeing beside one or two errored samples is `error` at `4/5` as well.
+- `4/5`: *"strong consensus"*, *"on a genuine 3–2 split"*. The first named no
+  count, where the `3/5` row now names one. The second is true, and short of
+  where it binds: three agreeing beside one or two errored samples is `error` at
+  `4/5` as well.
 
 `tests/test_agreement_table.py` now holds each row to the gate, in this table,
 in the guide's and in `as_agreement`'s docstring.
