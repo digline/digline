@@ -1,10 +1,12 @@
 # ADR 0053 — A promotion refuses a pin nobody named
 
-- Status: proposed 2026-10-23. The decision below was ruled on 2026-10-22 and
+- Status: accepted 2026-10-25, by Alessandro Prandini, after its code landed
+  in #686 (`5f37e508`, 2026-10-23).
+  Proposed 2026-10-23. The decision below was ruled on 2026-10-22 and
   narrowed on 2026-10-23 by Alessandro Prandini, on #483's promotion half,
   before this record was written. It is written with the code that implements
   it, in the same pull request
-- Shipped: unreleased
+- Shipped: 0.34.0
 - Date: 2026-10-23
 - Opens: **nothing in the schema.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`.
   `compare --json` gains one key, `unjudged_causes`, recorded in
