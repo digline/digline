@@ -11,6 +11,7 @@ import pytest
 
 from digline import __version__
 from digline.core import (
+    NO_CALLS,
     CallTotals,
     CaseResult,
     Contains,
@@ -111,9 +112,17 @@ def test_a_suite_at_one_sample_produces_the_bytes_it_produced_before() -> None:
         # being kept is that it still is.
         digline_version=__version__,
         # Two calls at 0.01 each, and no counts: this target reports a cost
-        # and no tokens, which is exactly the `counted < calls` case.
+        # and no tokens, which is exactly the `counted < calls` case. Every
+        # call seen and priced, and no judge: both lines complete (#563).
         usage=RunUsage(
-            target=CallTotals(calls=len(suite.cases), counted=0, spent_usd=0.02)
+            target=CallTotals(
+                calls=len(suite.cases),
+                counted=0,
+                spent_usd=0.02,
+                every_call_seen=True,
+                every_cost_known=True,
+            ),
+            judge=NO_CALLS,
         ),
         results=tuple(
             CaseResult(

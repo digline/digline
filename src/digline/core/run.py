@@ -13,7 +13,7 @@ import math
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
@@ -28,6 +28,7 @@ from digline.core.types import (
     Cause,
     ConfigValue,
     Disclosure,
+    ErrorKind,
     Message,
     Output,
     OutputKind,
@@ -57,6 +58,7 @@ __all__ = [
     "key_of",
     "Artifact",
     "CallTotals",
+    "NO_CALLS",
     "CaseResult",
     "RecordedResponse",
     "RecordedToolCall",
@@ -254,7 +256,14 @@ __all__ = [
 #    not have declared one. Checked against ADR 0014 §1 in ADR 0050's
 #    passenger table: inside `config_hash`, but only where declared, so a
 #    suite that declares none hashes exactly as before. (ADR 0050)
-SCHEMA_VERSION = 20
+#
+# 21: three passengers, additive, and the step writes nothing for any of them.
+#    `every_call_seen` and `every_cost_known` on each line of the bill (#563),
+#    and `error_kind` on a case (#425). Each is written only where recorded;
+#    absent is *not recorded*, never `null`, because a document before 21
+#    recorded none of the three. Outside `config_hash`: each is something a
+#    run measured, not something the suite declared (ADR 0014 §1).
+SCHEMA_VERSION = 21
 
 
 class DocumentRefusedError(ValueError):
@@ -1109,6 +1118,14 @@ class CaseResult:
     #: has to land inside the band. The answer itself is never here — it is
     #: payload and it is already in the committed cases file. (ADR 0024 §4)
     calibration: CalibrationBand | None = None
+    #: Of what kind the error was, where the target or the mapper errored this
+    #: case: `raised`, or `shape` for a target that returned something that is
+    #: not a `Response`. `None` on every other case, and on a document written
+    #: before schema 21, which did not record it. Where it failed is the
+    #: journal's `cause`; this is the document's, and it is digline's own word,
+    #: so it crosses every boundary the case does, a projection included.
+    #: `shape` is the target's alone (`ErrorKind`). (#425)
+    error_kind: ErrorKind | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -1155,12 +1172,35 @@ class CallTotals:
     `spent_usd` is on the line rather than left to be summed, because the sum
     is only available where responses were recorded — that is, not on the
     ordinary run, which is exactly the one whose cost gets asked about.
+
+    **Two markers say whether the line is the whole bill, and `counted` does
+    not** (#563). `calls` is true of the calls it counts, and silent about the
+    ones it does not see:
+
+    - `every_call_seen` is `False` where digline **knows** a call was made and
+      is not on the line: a call that raised, the target's or a judge's. Its
+      cost is unknown, and counting it at zero would be the undercount that
+      reads as good news, so it stays off `calls` and this says so. It is
+      `None` where digline does not know whether a call was made at all: a
+      judge that is not `Billable` keeps no count digline can read, and `False`
+      there would claim a miss nothing established.
+    - `every_cost_known` is `False` where a call was seen and its cost was not:
+      a reply whose `cost_usd` is `None`, and a reply of the wrong shape. Such a
+      call adds nothing to `spent_usd`, which is what it does not know.
+
+    `None` on either is *not recorded*, and it is the default, so a line built
+    by hand claims nothing: `CallTotals(calls=n)` is how a caller that kept no
+    figures says so. `NO_CALLS` is the line of no call at all, complete on
+    both, and is what a fold starts from. In a sum `False` wins over `None`,
+    and `None` over `True`.
     """
 
     calls: int = 0
     counted: int = 0
     tokens: Usage = NO_USAGE
     spent_usd: float = 0.0
+    every_call_seen: bool | None = None
+    every_cost_known: bool | None = None
 
     def __post_init__(self) -> None:
         if self.calls < 0 or self.counted < 0:
@@ -1236,22 +1276,57 @@ class CallTotals:
             counted=self.counted + other.counted,
             tokens=self._folded(other.tokens, counted=other.counted),
             spent_usd=self.spent_usd + other.spent_usd,
+            every_call_seen=_least_complete(
+                self.every_call_seen, other.every_call_seen
+            ),
+            every_cost_known=_least_complete(
+                self.every_cost_known, other.every_cost_known
+            ),
         )
 
-    def plus(self, *, tokens: Usage | None, spent_usd: float) -> CallTotals:
-        """This line with one more call on it.
+    def plus(self, *, tokens: Usage | None, spent_usd: float | None) -> CallTotals:
+        """This line with one more call on it, a call that was seen.
 
         `tokens=None` is a call that reported no counts: it raises `calls` and
         leaves `counted` where it was, which is the whole mechanism behind
         `partial`. The money is added either way — a call that could be priced
         was paid for whether or not its counts arrived.
+
+        `spent_usd=None` is a call whose cost is not known: it adds nothing to
+        `spent_usd` and makes `every_cost_known` false. A zero would be a price
+        nobody stated. (#563)
         """
         return CallTotals(
             calls=self.calls + 1,
             counted=self.counted + (0 if tokens is None else 1),
             tokens=self.tokens if tokens is None else self._folded(tokens, counted=1),
-            spent_usd=self.spent_usd + spent_usd,
+            spent_usd=self.spent_usd + (spent_usd or 0.0),
+            every_call_seen=self.every_call_seen,
+            every_cost_known=_least_complete(
+                self.every_cost_known, spent_usd is not None
+            ),
         )
+
+
+def _least_complete(left: bool | None, right: bool | None) -> bool | None:
+    """Two completeness markers summed: `False` over `None` over `True`.
+
+    One call missing makes the whole line incomplete, whatever else is
+    unknown, and one line nobody recorded makes the sum unrecorded unless
+    something already says it is incomplete. (#563)
+    """
+    if left is False or right is False:
+        return False
+    if left is None or right is None:
+        return None
+    return True
+
+
+#: The line of no call at all: zero, and complete on both markers, because no
+#: call was missed and no cost is unknown. A fold starts here, and it is
+#: neutral in a sum. `CallTotals()` is not that: its markers are *not
+#: recorded*. (#563)
+NO_CALLS = CallTotals(every_call_seen=True, every_cost_known=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1605,7 +1680,9 @@ def _check_projected(run: Run) -> None:
     `config_hash` are digests, `digline_version` a version, `rejudged_from` a
     run key, and `created_at`, `promoted_at` and `resumed_at` times. Without it,
     a name in any of them was read, and written out again. (Delta-pass over
-    0.25.0, F-4)
+    0.25.0, F-4) A case's `error_kind` is one of digline's words for an error,
+    the first field added after the test that holds this function's classes
+    (#425, #710).
 
     **Two things this does not decide, and says so here.** Numbers: ADR 0034
     §4 leaves them the one axis its enumeration does not decide, so a number is
@@ -1698,6 +1775,12 @@ def _check_projected(run: Run) -> None:
     for case in run.results:
         token("a case id", case.case_id)
         where = f"of a case {case.case_id!r}"
+        formed(
+            f"the error kind {where}",
+            case.error_kind or "",
+            "one of digline's words for an error",
+            (case.error_kind or "") in _ERROR_KINDS,
+        )
         for v in case.verdicts:
             verdict(v, where, grouped=False)
         if case.calibration is not None:
@@ -2063,6 +2146,11 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # document that lost them would report an exit code its own
                 # contents could not account for. (ADR 0024 §9, §4.7)
                 calibration=case.calibration,
+                # Carried: digline's own word for what failed, about the
+                # target's or the mapper's code and never about the data. The
+                # sentence that says it is the reason, which stays behind.
+                # (#425)
+                error_kind=case.error_kind,
             )
             for case in run.results
         ),
@@ -2491,6 +2579,10 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
             "low": _num(case.calibration.low),
             "high": _num(case.calibration.high),
         }
+    # Written only when present: absent is a case that did not error at the
+    # target or the mapper, and a document before 21. (#425)
+    if case.error_kind is not None:
+        payload["error_kind"] = case.error_kind
     return payload
 
 
@@ -2581,6 +2673,12 @@ def totals_to_dict(totals: CallTotals) -> dict[str, object]:
     }
     if totals.counted:
         payload["tokens"] = usage_to_dict(totals.tokens)
+    # Written only where recorded: absent is *not recorded*, never `null`, and
+    # is what a document before 21 holds. (#563)
+    if totals.every_call_seen is not None:
+        payload["every_call_seen"] = totals.every_call_seen
+    if totals.every_cost_known is not None:
+        payload["every_cost_known"] = totals.every_cost_known
     return payload
 
 
@@ -2598,7 +2696,16 @@ def totals_from_dict(raw: object, where: str) -> CallTotals:
             if "spent_usd" not in line
             else declared_number(line, "spent_usd", where)
         ),
+        every_call_seen=_optional_marker(line, "every_call_seen", where),
+        every_cost_known=_optional_marker(line, "every_cost_known", where),
     )
+
+
+def _optional_marker(raw: Mapping[str, Any], field: str, where: str) -> bool | None:
+    """`None` when the line does not carry `field`, which is *not recorded*;
+    otherwise `declared_boolean`'s rule, so a `null` is refused: every writer
+    omits the key instead. (#563)"""
+    return None if field not in raw else declared_boolean(raw, field, where)
 
 
 def _run_usage_to_dict(usage: RunUsage) -> dict[str, object]:
@@ -2916,7 +3023,26 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
         ),
         canary=_optional_flag(raw, "canary", where),
         calibration=_calibration_from_dict(raw.get("calibration")),
+        error_kind=_error_kind_from(raw, where),
     )
+
+
+#: Read off the type, so the words are written once, in `ErrorKind`.
+_ERROR_KINDS: frozenset[str] = frozenset(get_args(ErrorKind.__value__))
+
+
+def _error_kind_from(raw: Mapping[str, Any], where: str) -> ErrorKind | None:
+    """`None` when the document does not carry it; otherwise one of digline's
+    two words, and anything else is refused, `null` included, because no
+    digline writes one. (#425)"""
+    if "error_kind" not in raw:
+        return None
+    word = raw["error_kind"]
+    if word not in _ERROR_KINDS:
+        raise DocumentRefusedError(
+            f"{where}: 'error_kind' is not one of {', '.join(sorted(_ERROR_KINDS))}"
+        )
+    return cast(ErrorKind, word)
 
 
 def _calibration_from_dict(raw: object) -> CalibrationBand | None:

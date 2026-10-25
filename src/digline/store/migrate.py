@@ -371,6 +371,26 @@ def _add_schema_twenty(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty_one(raw: dict[str, Any]) -> dict[str, Any]:
+    """20 -> 21. Three passengers, and the step writes nothing for any of them.
+
+    - `every_call_seen` on each line of the bill: a document before 21
+      recorded no completeness of its calls. Absent is how not recorded is
+      written: `true` would claim every call was seen, which nothing
+      established, and `false` would claim one was missed, which nothing
+      established either. (#563)
+    - `every_cost_known` on each line of the bill: a document before 21 could
+      not say whether its spend covered every call it saw, and a reply digline
+      could not price either errored its case or counted as zero. Absent is
+      not recorded, for the same reason. (#563)
+    - `error_kind` on a case: a document before 21 says where an errored case
+      failed and not of what kind. Reading the kind back out of its reason
+      would be the guess ADR 0014 §1's second condition refuses, so absent is
+      not recorded. (#425)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -390,6 +410,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     17: _add_schema_eighteen,
     18: _add_schema_nineteen,
     19: _add_schema_twenty,
+    20: _add_schema_twenty_one,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

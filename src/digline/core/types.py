@@ -24,6 +24,7 @@ __all__ = [
     "STORAGE_STEP",
     "Cause",
     "CheckKind",
+    "ErrorKind",
     "ClaimReply",
     "ConfigValue",
     "Disclosure",
@@ -122,6 +123,19 @@ type OutputKind = Literal["text", "structured", "conversation"]
 #: resumes running learns that this failure is not the target's weather. digline
 #: never selects on it: what to re-pay for is the user's decision (ADR 0017 §9).
 type Cause = Literal["", "target", "mapper", "assertion"]
+
+#: Of what kind a case's error was, beside where (#425). `raised`: the target
+#: or the mapper raised. `shape`: the target returned something that is not a
+#: `Response`. Unlike `Cause` it is on the run document, as
+#: `CaseResult.error_kind`, because a reader who does not receive the reason
+#: still needs to know whether to look at an endpoint or at the code.
+#:
+#: **`shape` is the target's alone, and that is a perimeter, not an
+#: accident.** The driver checks the type of what a target returns and nothing
+#: else: a mapper's return is not checked, so a mapper errors a case only by
+#: raising, and its word is `raised`. A check of the mapper's return added
+#: later decides its own word here, rather than borrowing `shape` in silence.
+type ErrorKind = Literal["raised", "shape"]
 
 #: How a model's turn ended, in one vocabulary across every provider.
 #:

@@ -14,7 +14,7 @@ formats. What is here is this reader's own direction.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import ClassVar, cast
 
@@ -22,6 +22,7 @@ import pytest
 from tests._helpers import stamp_journal_format
 
 from digline.core import (
+    NO_CALLS,
     NO_USAGE,
     TEXT_ONLY,
     AssertionBase,
@@ -98,10 +99,15 @@ def test_a_run_states_its_own_bill() -> None:
     run = execute(suite(), Counting(), created_at=CREATED)
     assert run.usage is not None
     assert run.usage.target == CallTotals(
-        calls=3, counted=3, tokens=Usage(30, 15), spent_usd=0.03
+        calls=3,
+        counted=3,
+        tokens=Usage(30, 15),
+        spent_usd=0.03,
+        every_call_seen=True,
+        every_cost_known=True,
     )
     # No judge was asked, and a zero is what that is — not an absence.
-    assert run.usage.judge == CallTotals()
+    assert run.usage.judge == NO_CALLS
 
 
 def test_counted_says_how_much_of_the_bill_was_counted() -> None:
@@ -135,7 +141,8 @@ def test_a_call_that_raised_is_on_no_line() -> None:
 
     run = execute(suite(cases=1), Raising(), created_at=CREATED)
     assert run.usage is not None
-    assert run.usage.target == CallTotals()
+    # On no line, and the line says one is missing (#563).
+    assert run.usage.target == replace(NO_CALLS, every_call_seen=False)
     assert [v.status for v in run.results[0].verdicts] == ["error"]
 
 
@@ -345,8 +352,10 @@ def test_the_step_to_fourteen_writes_nothing() -> None:
     # 17 -> 18 writes `projected: false`, which this document already holds.
     # 18 -> 19 writes nothing: an absent `modules_unchecked` is *not
     # recorded* (ADR 0052). 19 -> 20 writes nothing either: an absent
-    # `floor_standard_errors` is *declared none* (ADR 0050).
-    assert SCHEMA_VERSION == 20
+    # `floor_standard_errors` is *declared none* (ADR 0050). 20 -> 21 writes
+    # nothing either: absent markers on a line of the bill and an absent
+    # `error_kind` are *not recorded* (#563, #425).
+    assert SCHEMA_VERSION == 21
     assert upgrade_document({**current, "schema_version": 13}) == current
 
 
@@ -547,7 +556,12 @@ def test_the_journal_keeps_the_bill_without_recording_any_answer(
     assert not pending.refusal, pending.refusal
     assert not any(case.responses for case in pending.done.values())
     assert pending.spent == CallTotals(
-        calls=2, counted=2, tokens=Usage(20, 10), spent_usd=0.02
+        calls=2,
+        counted=2,
+        tokens=Usage(20, 10),
+        spent_usd=0.02,
+        every_call_seen=True,
+        every_cost_known=True,
     )
 
 

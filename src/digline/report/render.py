@@ -28,6 +28,7 @@ from digline.core import (
     ConfigValue,
     Declared,
     Denominator,
+    ErrorKind,
     Noise,
     Outcome,
     Run,
@@ -1893,10 +1894,29 @@ def summary_lines(
     return tuple(lines)
 
 
-def _reason(delta: AssertionDelta, locale: Locale, *, available: bool) -> str:
+def _withheld_reason(locale: Locale, error_kind: ErrorKind | None) -> str:
+    """What stands where a reason was removed: that it is not included, and,
+    on a case that errored at the target or the mapper, of what kind the error
+    was. The kind is digline's own word and crosses where the sentence does
+    not, so a reader of a redacted or served page still learns whether to look
+    at an endpoint or at the code that calls it. (#425)"""
+    unavailable = phrase(locale, "reason.unavailable")
+    if error_kind is None:
+        return unavailable
+    return f"{unavailable} {phrase(locale, f'reason.error_kind.{error_kind}')}"
+
+
+def _reason(
+    delta: AssertionDelta,
+    locale: Locale,
+    *,
+    available: bool,
+    error_kind: ErrorKind | None = None,
+) -> str:
     """The judge's own words, when this report is allowed to carry them."""
     if not available:
-        return phrase(locale, "reason.unavailable")
+        errored = delta.current is not None and delta.current.status == "error"
+        return _withheld_reason(locale, error_kind if errored else None)
     source = delta.current if delta.current is not None else delta.baseline
     return "" if source is None else source.reason
 
@@ -1962,9 +1982,14 @@ section.artifacts summary { font-weight: 400; }
 
 
 def _row(
-    delta: AssertionDelta, locale: Locale, *, reasons: bool, coincides: str = ""
+    delta: AssertionDelta,
+    locale: Locale,
+    *,
+    reasons: bool,
+    coincides: str = "",
+    error_kind: ErrorKind | None = None,
 ) -> str:
-    reason = _reason(delta, locale, available=reasons)
+    reason = _reason(delta, locale, available=reasons, error_kind=error_kind)
     return (
         "<tr>"
         f"<td><code>{escape(delta.case_id)}</code></td>"
@@ -2041,12 +2066,26 @@ def _section(
             and not d.denominator_moved
             and (not d.calibration or _errored_now(d))
         ]
+        # Read from the run, which is where a case says of what kind it errored:
+        # a delta carries verdicts and not the case they sat on. (#425)
+        kinds: dict[str, ErrorKind | None] = {
+            c.case_id: c.error_kind for c in run.results
+        }
         body = (
             empty
             if not rows
             else _table(
                 ("column.case", "column.check", "column.detail", "column.reason"),
-                [_row(d, locale, reasons=reasons, coincides=coincides) for d in rows],
+                [
+                    _row(
+                        d,
+                        locale,
+                        reasons=reasons,
+                        coincides=coincides,
+                        error_kind=kinds.get(d.case_id) if d.scope == "case" else None,
+                    )
+                    for d in rows
+                ],
                 locale,
             )
         )
@@ -2804,11 +2843,18 @@ def _run_configs(run: Run, locale: Locale) -> str:
 
 
 def _run_verdict_row(
-    case_id: str, verdict: Verdict, locale: Locale, *, reasons: bool
+    case: CaseResult, verdict: Verdict, locale: Locale, *, reasons: bool
 ) -> str:
+    case_id = case.case_id
     score = verdict.score.score
     result = phrase(locale, "detail.errored") if score is None else fmt_score(score)
-    why = verdict.reason if reasons else phrase(locale, "reason.unavailable")
+    why = (
+        verdict.reason
+        if reasons
+        else _withheld_reason(
+            locale, case.error_kind if verdict.status == "error" else None
+        )
+    )
     return (
         "<tr>"
         f"<td><code>{escape(case_id)}</code></td>"
@@ -2846,7 +2892,7 @@ def _run_section(
         count = len(cases)
     else:
         rows = [
-            _run_verdict_row(case.case_id, verdict, locale, reasons=reasons)
+            _run_verdict_row(case, verdict, locale, reasons=reasons)
             for case in run.results
             for verdict in case.verdicts
             if verdict.status == status

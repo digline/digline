@@ -332,8 +332,8 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | the `run` tool passes `errored_checks=` to `run_json`, new in the core release that carries #654's count; against 0.33.0 the call raises `TypeError`. And the `run` tool imports `unignored` and `unignored_notes` from `digline.host`, new with #523; against 0.33.0 the import raises `ImportError` | `0.34.0` | raise it at digline-mcp's own 0.7.0, with #548 and #678, once that core is on PyPI, to the number that core release gets, with the cap above it; this cut does not tag digline-mcp |
-| `pytest-digline` | a check the run has no verdict for asks `phrase` for a `fact.row_missing` key, new in the core release that carries #574; against 0.33.0 the call raises `KeyError`. And `--digline-run` imports `unignored` and `unignored_notes` from `digline.host`, new with #523, and `refuse_unreadable_baseline`, new with #621; against 0.33.0 the import raises `ImportError` | `0.34.0` | release pytest-digline on its own tag, once the core is on PyPI, with the cap raised to `<0.35`; if the core release is not 0.34.0, raise to the one it is |
+| `digline-mcp` | the `run` tool passes `errored_checks=` to `run_json`, new in the core release that carries #654's count; against 0.33.0 the call raises `TypeError`. And the `run` tool imports `unignored` and `unignored_notes` from `digline.host`, new with #523; against 0.33.0 the import raises `ImportError` | `0.34.0` | **owed after the 0.34.0 cut, which does not raise it** (ruled 2026-10-25): raise it at digline-mcp's own 0.7.0, with #548 and #678, once 0.34.0 is on PyPI. The cap is already `<0.35`, raised in the bump; this cut does not tag digline-mcp |
+| `pytest-digline` | a check the run has no verdict for asks `phrase` for a `fact.row_missing` key, new in the core release that carries #574; against 0.33.0 the call raises `KeyError`. And `--digline-run` imports `unignored` and `unignored_notes` from `digline.host`, new with #523, and `refuse_unreadable_baseline`, new with #621; against 0.33.0 the import raises `ImportError` | `0.34.0` | **owed after the 0.34.0 cut, which does not raise it** (ruled 2026-10-25): raise it when pytest-digline is released on its own tag, once 0.34.0 is on PyPI. The cap is already `<0.35`, raised in the bump |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -356,11 +356,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline | #654: `digline run` exits `2` when it judged nothing, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
-| digline | #483 (ADR 0053): `digline promote` exits `64` on a run with a drifted or lost pin unless `--accepting-pin` names its paths, where it exited `0` | a minor: *"an exit code changed"* (*Choosing the version*) |
-| digline | #621: `digline run` and `digline rejudge` exit `64` before spending when the baseline is at a schema this digline cannot read, unless `--accepting-baseline-schema` names it, where they spent, wrote the run and exited as on any other input | a minor: *"an exit code changed"* (*Choosing the version*) |
-| digline | #669: `output_version` is `3`, where it was `2` | a minor: *"A bump of `OUTPUT_VERSION` is a minor"* (*Choosing the version*) |
-| pytest-digline | #574: a check the run has no verdict for is a `SKIPPED` row where it was `PASSED`; it needs the `fact.row_missing` keys of the core release that carries #574 | a minor, ruled 2026-10-22: a row's outcome is something its users rely on (*Choosing the version*). **And its floor on digline goes to the number this cut gives digline**: the `0.34.0` in the table of floors owed at the cut is the expected number, not a decision |
+| pytest-digline | #574: a check the run has no verdict for is a `SKIPPED` row where it was `PASSED`; it needs the `fact.row_missing` keys of the core release that carries #574 | a minor, ruled 2026-10-22: a row's outcome is something its users rely on (*Choosing the version*). **And its floor on digline goes to the number this cut gives digline**: `0.34.0`, in the table of floors owed at the cut |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.

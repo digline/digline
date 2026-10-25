@@ -21,6 +21,7 @@ from typing import ClassVar, cast
 import pytest
 
 from digline.core import (
+    NO_CALLS,
     NO_USAGE,
     TEXT_ONLY,
     AssertionBase,
@@ -232,8 +233,10 @@ def test_the_step_to_fifteen_writes_nothing() -> None:
     # 17 -> 18 writes `projected: false`, which this document already holds.
     # 18 -> 19 writes nothing: an absent `modules_unchecked` is *not
     # recorded* (ADR 0052). 19 -> 20 writes nothing either: an absent
-    # `floor_standard_errors` is *declared none* (ADR 0050).
-    assert SCHEMA_VERSION == 20
+    # `floor_standard_errors` is *declared none* (ADR 0050). 20 -> 21 writes
+    # nothing either: absent markers on a line of the bill and an absent
+    # `error_kind` are *not recorded* (#563, #425).
+    assert SCHEMA_VERSION == 21
     assert upgrade_document({**current, "schema_version": 14}) == current
 
 
@@ -445,6 +448,7 @@ def test_a_judge_that_reports_no_split_leaves_the_line_unreported() -> None:
 def test_a_suite_with_no_judge_has_an_empty_line_and_not_a_zero_split() -> None:
     run = execute(suite(), Thinking(split=3), created_at=CREATED)
     assert run.usage is not None
-    assert run.usage.judge == CallTotals()
+    # The line of no call: complete, and not the default's *not recorded*.
+    assert run.usage.judge == NO_CALLS
     assert run.usage.judge.tokens.thinking_tokens is None
     assert run.usage.target.tokens.thinking_tokens == 6

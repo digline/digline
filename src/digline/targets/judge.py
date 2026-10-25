@@ -259,6 +259,11 @@ class JudgeBase(ABC):
         self.calls = 0
         self.spent_usd = 0.0
         self.latency_ms = 0.0
+        #: The calls that raised, which `calls` leaves out by the rule below.
+        #: Monotone like the rest. Counted so a run's judge line can say a call
+        #: is missing from it: left out and unsaid, it is the undercount that
+        #: reads as good news by another road. (#563)
+        self.raised_calls = 0
         #: What this judge has consumed, by the same rule as `spent_usd`:
         #: monotone for the life of the object, never reset, and a caller
         #: wanting a per-run figure reads twice and subtracts — which is what
@@ -279,12 +284,19 @@ class JudgeBase(ABC):
         """One judging call: timed, priced, counted, parsed.
 
         A call that raises is *not* counted. Its cost is unknown, and counting
-        it at zero would be the undercount that reads as good news.
+        it at zero would be the undercount that reads as good news. It is
+        counted in `raised_calls` instead, so the line can say it is missing.
         """
         started = perf_counter()
-        # Read through `as_completion`: a plugin may still return the pair, and
-        # always may (ADR 0004 §6).
-        reply = as_completion(self._complete(self.system, prompt))
+        try:
+            # Read through `as_completion`: a plugin may still return the pair,
+            # and always may (ADR 0004 §6).
+            reply = as_completion(self._complete(self.system, prompt))
+        except BaseException:
+            # Every exception, an interrupt included: the call left, and it is
+            # on no line. Re-raised unchanged. (#563)
+            self.raised_calls += 1
+            raise
         elapsed_ms = (perf_counter() - started) * 1000.0
         self.calls += 1
         self.latency_ms += elapsed_ms
