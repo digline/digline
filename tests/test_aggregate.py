@@ -19,6 +19,7 @@ from digline.core import (
     Accuracy,
     CaseOutcome,
     Contains,
+    Matrix,
     Precision,
     Ratio,
     Recall,
@@ -653,6 +654,26 @@ def test_graded_keeps_the_true_score_over_judged_cases() -> None:
     assert v.status == "pass"
     assert v.score.score == 0.5
     assert v.reason == "mean over 2 scores"
+
+
+@dataclass(frozen=True)
+class Unbuilt(MeanScore):
+    """The same mean, handing `_graded` a matrix built from no outcome, which
+    `docs/api.md` allows: `build_matrix` is there *if you need it*."""
+
+    name: str = "unbuilt"
+
+    def __call__(self, outcomes: Sequence[CaseOutcome]) -> Verdict:
+        return self._graded(1.0, "mean of a list it did not count", Matrix())
+
+
+def test_graded_handed_a_matrix_of_nothing_keeps_grading() -> None:
+    """A matrix that counted nothing says nothing about a denominator: the
+    refusal reads where the outcomes went, and this one names none. Refusing
+    it would turn every verdict of such an aggregate into `error`."""
+    v = Unbuilt(over=AGREES, threshold="1/2", tolerance="1/6")([])
+    assert v.status == "pass"
+    assert v.score.score == 1.0
 
 
 def _mixed(*, parked: bool) -> Suite:
