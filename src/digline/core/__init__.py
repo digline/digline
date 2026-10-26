@@ -92,6 +92,7 @@ from digline.core.gate import (
     causes_of_two,
     pins_implicated,
     unjudged_cases,
+    unpaired,
 )
 from digline.core.naming import (
     DRIVER_MARKERS,
@@ -383,6 +384,7 @@ __all__ = [
     "causes_of_two",
     "pins_implicated",
     "unjudged_cases",
+    "unpaired",
     "reconcile",
     "unreconciled",
     "unreconciled_verdict",

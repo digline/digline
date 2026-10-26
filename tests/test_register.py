@@ -158,6 +158,9 @@ def test_the_entry_is_a_set_of_counts_and_keys(repo: Path) -> None:
         # Written where the headline declared it, and absent on a line from
         # before ADR 0049, where it reads as not declared. (ADR 0049 §4)
         "nothing_judged",
+        # The same rule, from #642: a line from before it reads as not
+        # declared, never 0.
+        "unpaired",
     }
     text = register_file(repo).read_text(encoding="utf-8")
     # A case id, and the judge's words, are in the run and never in the entry.

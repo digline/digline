@@ -17,8 +17,11 @@ answer three different questions:
    this instant, and it belongs to each backend, beside its own write.
    Condition 11 follows it there, because it is asked of the run **against
    that baseline**: whether a pin is a cause of 2 that nobody named
-   (`refusal_for_unaccepted_pins`). The other causes of 2 are 3, 5 and 10,
+   (`refusal_for_unaccepted_pins`). Three other causes of 2 are 3, 5 and 10,
    which answer from the run alone and stay in `refusals_for`. (ADR 0053)
+   The sixth, `unpaired`, is no condition at all: it holds on exactly the
+   re-baseline a person makes after redefining a check, which is the way out
+   of it. (#642)
 
 **Why 8 is not in `refusals_for`, since a single call would have been tidier.**
 Taking the current baseline's key as a parameter would mean somebody had
@@ -341,8 +344,15 @@ def refusal_for_unaccepted_pins(
     **Any cause, not the code.** The causes are `causes_of_two`'s, the tuple
     `exit_code` reads behind a regression; this never asks whether the code is
     2, so a run that drifted and got worse is refused like one that only
-    drifted. Only the pin causes are asked here: the other three answer from
-    the run alone and are conditions 3, 5 and 10, in `refusals_for`.
+    drifted. Only the pin causes are asked here: three of the other four answer
+    from the run alone and are conditions 3, 5 and 10, in `refusals_for`.
+
+    **`unpaired` is not asked, here or anywhere a promotion looks.** It is a
+    relation like the pin causes, read from this very pair, and on this pair it
+    holds exactly when a check was redefined under its name since the reference
+    — the change the promotion is there to accept. Refused, the re-baseline that
+    clears it could never be made. `tests/test_unpaired.py` holds that it is
+    not. (#642)
 
     **Exactly the set**: a path more is an authorisation for a file that did
     not move, a path fewer leaves a movement nobody named, and both halves of
