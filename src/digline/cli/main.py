@@ -1131,7 +1131,15 @@ def cmd_report(args: argparse.Namespace) -> int:
     )
     _warn_if_ahead(result.run, result.baseline)
     if args.out:
-        Path(args.out).write_text(result.document, encoding="utf-8")
+        # A verdict about an argument, not a crash: the option and its path,
+        # the errno's text, no class name, as `toml_suite` says of a cases file
+        # it could not read. (#672)
+        try:
+            Path(args.out).write_text(result.document, encoding="utf-8")
+        except OSError as exc:
+            raise UsageError(
+                Quoted.of(exc, f"--out {args.out}: could not be written: ", named=False)
+            ) from exc
     else:
         emit(result.document)
     return result.exit_code

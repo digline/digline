@@ -290,11 +290,23 @@ class DocumentRefusedError(ValueError):
     the schema the document declares when that is why it was refused, and
     `None` otherwise, so a caller tells the two apart by reading a field rather
     than a sentence. `run` and `rejudge` read it before they spend. (#621)
+
+    **`role` says which document it was, for the same reason**: `run` or
+    `baseline` where a store read it as one, `None` where nobody said. A
+    baseline that is not JSON and a run that is not JSON raise the same class
+    and the same sentence, and a person meeting one had two files to look in.
+    (#672)
     """
 
-    def __init__(self, *args: object, declared_schema: int | None = None) -> None:
+    def __init__(
+        self,
+        *args: object,
+        declared_schema: int | None = None,
+        role: str | None = None,
+    ) -> None:
         super().__init__(*args)
         self.declared_schema = declared_schema
+        self.role = role
 
 
 #: What a recorded tool call writes under `tool_absence` when the reporter did

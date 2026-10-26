@@ -240,6 +240,40 @@ def _document_text(path: Path) -> str:
         ) from None
 
 
+def _read_as(role: str, path: Path) -> Run:
+    """The document at `path`, refused with its role and its path in front.
+
+    `compare`, `explain`, `register` and `report` printed *"schema_version 21
+    is not supported (expected 20)"*, which names neither the file nor whether
+    it was the run or the baseline (#672). The refusal keeps its own words
+    behind that, its `declared_schema`, and a quoted message as a quoted
+    message (ADR 0043 §2). Where the schema is why, it ends with the advice in
+    the direction the schema differs, as `Listing.advice()` and
+    `refuse_unreadable_baseline` give it (ADR 0014 §5).
+    """
+    try:
+        return run_from_json(_document_text(path))
+    except DocumentRefusedError as exc:
+        declared = exc.declared_schema
+        before = f"the {role} at {path} could not be read: "
+        after = ""
+        if declared is not None:
+            after = (
+                ". Upgrade digline to one that reads it"
+                if declared > SCHEMA_VERSION
+                else ". Run `digline migrate` to bring it up to date"
+            )
+        said = exc.args[0] if exc.args else ""
+        argument: object = (
+            replace(said, before=before + said.before, after=said.after + after)
+            if isinstance(said, Quoted)
+            else f"{before}{said}{after}"
+        )
+        raise DocumentRefusedError(
+            argument, declared_schema=declared, role=role
+        ) from exc
+
+
 def _exists(path: Path) -> bool:
     """`path.exists()`, except that "could not look" is a refusal, not `False`.
 
@@ -587,7 +621,7 @@ class FileResultStore:
         if not _exists(path):
             raise RunNotFoundError(f"run not found: {path}")
         path = self._inside(path, "run")
-        run = run_from_json(_document_text(path))
+        run = _read_as("run", path)
         if run.tenant != ref.tenant:
             raise TenantMismatchError(
                 f"the run stored at {path} declares tenant {run.tenant!r} but "
@@ -630,7 +664,7 @@ class FileResultStore:
         if not _exists(path):
             return None
         path = self._inside(path, "baseline")
-        run = run_from_json(_document_text(path))
+        run = _read_as("baseline", path)
         if run.tenant != tenant:
             raise TenantMismatchError(
                 f"the baseline at {path} declares tenant {run.tenant!r} but was "
