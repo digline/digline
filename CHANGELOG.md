@@ -327,6 +327,13 @@ notes under them are this file, verbatim.
 
   Nothing in digline's behaviour moves, so this is a patch.
 
+- **Docs: ADR 0054, *The names a server lets out*, proposed** (#548). It
+  records a decision about digline-mcp: a declaration, required at start and
+  with no default, of whether the names in a store may leave in clear. It has
+  two values: `clear`, or `project`, under which the server's responses and
+  its refusals carry tokens where they carry names today. Nothing in it is
+  implemented, and this entry names no release for it.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.
