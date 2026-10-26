@@ -23,8 +23,8 @@ from digline.core import (
     Precision,
     Ratio,
     Recall,
-    RunAssertionBase,
     Run,
+    RunAssertionBase,
     Score,
     Verdict,
     compare,
@@ -32,8 +32,8 @@ from digline.core import (
     run_from_json,
     run_to_json,
 )
-from digline.report import headline, render_html, summary_lines
 from digline.core.aggregate import build_matrix
+from digline.report import headline, render_html, summary_lines
 from digline.run import Case, Response, Suite, execute
 from digline.wire import EXIT_OK, exit_code, run_exit_code
 
