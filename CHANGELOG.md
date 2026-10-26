@@ -282,6 +282,21 @@ digline **0.34.0**.
   still finished. New in `digline.host`: `this_process`, `process_state` and
   `ProcessState`; `JournalHeader` and `Pending` gain `pid` and `host`.
 
+### Seen working in a browser — the walkthrough, owed and run
+
+- **The walkthrough ran on 2026-10-26, before the tag, by Alessandro**, on
+  `main` at `479eff8f`. **It was owed:** the refusal ADR 0053 added can be
+  reached from the *Make baseline* button of `digline view --allow-promote`,
+  and it is a state the page could not show before. That is the case of the
+  walkthrough of 2026-10-07, not of 0.31.0's, where `view` changed in two
+  answers only. **That state was reached during the run**, not only the
+  ordinary path: the *Make baseline* button met ADR 0053's refusal. In his
+  words, he followed the documented script from start to finish, all its
+  steps went, and so did the refusal on the *Make baseline* button. The script
+  is *The walkthrough for `digline view --allow-promote` (ADR 0033 §8)*, in
+  `RELEASING.md` under *Before the tag: a control a person meets first in a
+  browser*.
+
 ## digline-mcp — unreleased
 
 - **The `run` tool's log says when git would commit the run directory**
