@@ -2,15 +2,18 @@
 
 Thanks for looking. A few things worth knowing before you open a pull request.
 
-- **From outside the project, the way in is an issue before code.** An ADR
-  that reads `proposed` is not an invitation to implement it. It records
+- From outside the project, the way in is an issue before code. What is
+  welcome is a measurement: a case that reproduces, a sentence of ours that is
+  false, a number that does not add up. Those land fast.
+
+  An ADR that reads `proposed` is not an invitation to implement it. It records
   something the project has decided to think about, not a specification waiting
-  for code, and some of what it leaves open on purpose are release decisions.
-  The order in which a change lands is written elsewhere, in the record's own
-  status and `Opens:` line and in `RELEASING.md`, and an implementation that
-  arrives before that order reaches it cannot be merged, even when it is right.
-  #591 implemented ADR 0050 while the record read `proposed` and said nothing
-  in it was implemented; it was closed for that, not for its code (#632).
+  for code, and part of what it deliberately leaves open are release decisions.
+  The order in which a change lands is written in the record's own `Status` and
+  `Opens:` lines and in `RELEASING.md`; an implementation that arrives before
+  that order reaches it cannot be merged, even when the code is right. #591
+  implemented ADR 0050 while the record still read `proposed` and said nothing
+  in it was implemented: it was closed for that, not for its code.
 
 - **Run the gates**, from the repository root:
 
