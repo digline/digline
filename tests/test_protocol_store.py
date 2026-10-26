@@ -59,6 +59,7 @@ from digline.core import (
     key_of,
 )
 from digline.host import (
+    Loaded,
     UsageError,
     explained,
     need_baseline,
@@ -263,7 +264,7 @@ def held_by_pyright_alone(root: Path) -> None:
     """Never called. pyright checks these two calls; nothing runs them, so the
     signatures are held and the bodies are not exercised through the fake."""
     serve(SUITE_OBJ, MemoryStore())
-    _measure(SUITE_OBJ, None, "suite.py", root, MemoryStore(), root=root)
+    _measure(SUITE_OBJ, Loaded(SUITE_OBJ), "suite.py", root, MemoryStore(), root=root)
 
 
 def test_the_file_store_still_satisfies_every_retyped_site() -> None:
