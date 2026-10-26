@@ -90,6 +90,7 @@ def entry_for(
             judge_config_changed=head.judge_config_changed,
             rejudged=head.rejudged,
             nothing_judged=head.nothing_judged,
+            unpaired=head.unpaired,
         ),
         exit_code=exit_code(head),
     )

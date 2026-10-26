@@ -59,6 +59,12 @@ class RecordedOutcome:
     #: such key, and its absence says the digline that wrote it did not record
     #: the fact, not that something was judged. (ADR 0049 §4)
     nothing_judged: bool | None = None
+    #: How many checks the comparison could not pair with their reference.
+    #: **`None` is *not declared*, never `0`**, for `nothing_judged`'s reason: a
+    #: line written before #642 carries no such key, and its absence says the
+    #: digline that wrote it did not record the fact, not that every check was
+    #: paired. (ADR 0049 §4, #642)
+    unpaired: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

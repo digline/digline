@@ -121,6 +121,33 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nothing got worse compared with the reference.",
         "fact.worse.one": "1 check got worse compared with the reference.",
         "fact.worse.many": "{count} checks got worse compared with the reference.",
+        # Straight after the `worse` clauses, on `fact.denominator_moved`'s
+        # precedent: these checks were not compared, so the count above is not
+        # about them. Each pair names both sides with their scores, because
+        # nowhere else does a fall between them show, and the clause ends on
+        # what two documents cannot say. A cause of exit 2. (#642)
+        "fact.unpaired.one": (
+            "1 check was not compared, because the reference and this run "
+            "hold a different check under its name: {pairs}. Whether it was "
+            "changed or replaced, the two documents cannot say."
+        ),
+        "fact.unpaired.many": (
+            "{count} checks were not compared, because the reference and this "
+            "run hold a different check under each name: {pairs}. Whether each "
+            "was changed or replaced, the two documents cannot say."
+        ),
+        "fact.unpaired.pair": (
+            "{case} · {check}, {before} in the reference and {after} here"
+        ),
+        "fact.unpaired.moved": ", {field} {before} → {after}",
+        "fact.unpaired.field.threshold": "threshold",
+        "fact.unpaired.field.tolerance": "tolerance",
+        "fact.unpaired.state.pass": "passing at {score}",
+        "fact.unpaired.state.fail": "failing at {score}",
+        "fact.unpaired.state.error": "in error at {score}",
+        "fact.unpaired.state.pass.unscored": "passing with no score",
+        "fact.unpaired.state.fail.unscored": "failing with no score",
+        "fact.unpaired.state.error.unscored": "in error with no score",
         # Straight after the `worse` clauses, because it qualifies them: a
         # gate measured over a different number of cases was not compared at
         # all, so "Nothing got worse" is an answer about the checks that
@@ -707,6 +734,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.threshold_moved": (
             " The bar moved from {before_threshold} to {now_threshold}, so this is "
             "a change of rule rather than of behaviour."
+        ),
+        # Where the score moved beyond the check's tolerance as well, the sentence
+        # above would say the behaviour did not change, and it did: both are
+        # named, and neither is said to exclude the other. (#642)
+        "detail.threshold_moved.score_moved": (
+            " The bar moved from {before_threshold} to {now_threshold}, and the "
+            "score moved beyond the check's tolerance too, so both the rule and "
+            "the behaviour changed."
         ),
         "detail.new": "Checked here, not present in the reference.",
         "detail.new.errored": ("New here, and the check could not run."),
@@ -1500,6 +1535,30 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.worse.none": "Nulla è peggiorato rispetto al riferimento.",
         "fact.worse.one": "1 controllo è peggiorato rispetto al riferimento.",
         "fact.worse.many": "{count} controlli sono peggiorati rispetto al riferimento.",
+        "fact.unpaired.one": (
+            "1 controllo non è stato confrontato, perché il riferimento e questa "
+            "esecuzione hanno un controllo diverso sotto il suo nome: {pairs}. "
+            "Se sia stato modificato o sostituito, i due documenti non possono "
+            "dirlo."
+        ),
+        "fact.unpaired.many": (
+            "{count} controlli non sono stati confrontati, perché il riferimento "
+            "e questa esecuzione hanno un controllo diverso sotto ciascun nome: "
+            "{pairs}. Se ciascuno sia stato modificato o sostituito, i due "
+            "documenti non possono dirlo."
+        ),
+        "fact.unpaired.pair": (
+            "{case} · {check}, {before} nel riferimento e {after} qui"
+        ),
+        "fact.unpaired.moved": ", {field} {before} → {after}",
+        "fact.unpaired.field.threshold": "soglia",
+        "fact.unpaired.field.tolerance": "tolleranza",
+        "fact.unpaired.state.pass": "superato a {score}",
+        "fact.unpaired.state.fail": "non superato a {score}",
+        "fact.unpaired.state.error": "in errore a {score}",
+        "fact.unpaired.state.pass.unscored": "superato senza punteggio",
+        "fact.unpaired.state.fail.unscored": "non superato senza punteggio",
+        "fact.unpaired.state.error.unscored": "in errore senza punteggio",
         "fact.denominator_moved.one": (
             "1 controllo di run è stato misurato su un numero di casi diverso "
             "dal riferimento: non è un confronto."
@@ -1996,6 +2055,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.threshold_moved": (
             " La soglia si è spostata da {before_threshold} a {now_threshold}, "
             "quindi è un cambio di regola e non di comportamento."
+        ),
+        "detail.threshold_moved.score_moved": (
+            " La soglia si è spostata da {before_threshold} a {now_threshold}, e "
+            "anche il punteggio si è mosso oltre la tolleranza del controllo, "
+            "quindi sono cambiati sia la regola sia il comportamento."
         ),
         "detail.new": "Controllato qui, assente nel riferimento.",
         "detail.new.errored": (

@@ -50,7 +50,9 @@ from digline.core import (
     on_the_line,
     scale_lost,
     unjudged_cases,
+    unpaired,
     unreconciled,
+    within,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -180,7 +182,7 @@ class Headline:
     sentence: str
     #: Every cause of exit code 2 that holds, by the name of the field that
     #: reports it: `unjudged`, `scale_lost`, `pinned_drifted`, `pinned_lost`,
-    #: `nothing_judged`. What `exit_code()` reads, behind a regression or a
+    #: `nothing_judged`, `unpaired`. What `exit_code()` reads, behind a regression or a
     #: moved canary, and the same tuple promotion refuses on. The flags above
     #: and below are derived from it in `headline()`. **Mandatory**, because no
     #: default is safe: an empty one would let a headline built by hand with
@@ -251,6 +253,13 @@ class Headline:
     #: two readings, a rename and a removal, cannot be told apart, and in one of
     #: them a guarantee was lost. (ADR 0051 §3)
     pinned_lost: bool = False
+    #: How many checks the comparison could not pair with their reference: a
+    #: `missing` and a `new` on the same case, in the same scope and under the
+    #: same name. Read by `exit_code()`, which returns 2 — neither side was
+    #: counted, so *nothing got worse* was not said about them, and a fall
+    #: between the two is visible only in the sentence that names them. Whether
+    #: each check was edited or replaced, the two documents cannot say. (#642)
+    unpaired: int = 0
     #: How many modules the judged run found already loaded from elsewhere, or
     #: `None` where the judged run did not record it. Read from the judged run
     #: alone, and moves no number. (ADR 0052, decision 3)
@@ -756,6 +765,65 @@ def errored_verdicts(run: Run) -> tuple[ErroredVerdict, ...]:
     return tuple(found)
 
 
+def _unpaired_text(
+    pairs: Sequence[tuple[AssertionDelta, AssertionDelta]], locale: Locale
+) -> str:
+    """The clause for the checks `compare()` could not pair, or empty.
+
+    Each pair says where it is, what each side scored and whether it passed,
+    and which of the bar's two values differ between the two verdicts: the
+    facts both documents hold. It ends on what they do not, whether the check
+    was edited or replaced, because a clause that guessed would be the
+    fabricated cause the rules table refuses. (#642)
+    """
+    if not pairs:
+        return ""
+    described: list[str] = []
+    for before, after in pairs:
+        assert before.baseline is not None and after.current is not None
+        where = (
+            before.case_id if before.scope == "case" else phrase(locale, "scope.run")
+        )
+        text = phrase(
+            locale,
+            "fact.unpaired.pair",
+            case=where,
+            check=before.assertion,
+            before=_unpaired_state(before.baseline, locale),
+            after=_unpaired_state(after.current, locale),
+        )
+        for field, was, now in (
+            ("threshold", before.baseline.threshold, after.current.threshold),
+            ("tolerance", before.baseline.tolerance, after.current.tolerance),
+        ):
+            if was != now:
+                text += phrase(
+                    locale,
+                    "fact.unpaired.moved",
+                    field=phrase(locale, f"fact.unpaired.field.{field}"),
+                    before=fmt_score(was),
+                    after=fmt_score(now),
+                )
+        described.append(text)
+    return phrase(
+        locale,
+        f"fact.unpaired.{'one' if len(pairs) == 1 else 'many'}",
+        count=len(pairs),
+        pairs="; ".join(described),
+    )
+
+
+def _unpaired_state(verdict: Verdict, locale: Locale) -> str:
+    """`passing at 0.750000`: a side's outcome with the score it was read on."""
+    if verdict.score.score is None:
+        return phrase(locale, f"fact.unpaired.state.{verdict.status}.unscored")
+    return phrase(
+        locale,
+        f"fact.unpaired.state.{verdict.status}",
+        score=fmt_score(verdict.score.score),
+    )
+
+
 def headline(
     comparison: Comparison,
     run: Run,
@@ -792,6 +860,11 @@ def headline(
         worse_text = phrase(locale, "fact.worse.one")
     else:
         worse_text = phrase(locale, "fact.worse.many", count=regressed)
+
+    # Read off the causes like every flag that is one, so the clause, the count
+    # and the code cannot disagree about whether a check went unpaired.
+    pairs = unpaired(comparison) if "unpaired" in causes else ()
+    unpaired_text = _unpaired_text(pairs, locale)
 
     suspended = suspended_cases(run)
 
@@ -1027,6 +1100,7 @@ def headline(
         pinned_unreferenced=unreferenced_count,
         pinned_withdrawn=withdrawn_count,
         pinned_lost="pinned_lost" in causes,
+        unpaired=len(pairs),
         modules_unchecked=modules_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
@@ -1065,6 +1139,12 @@ def headline(
                 # ADR 0049 exists to stop. (§1, §3)
                 nothing_text,
                 worse_text,
+                # Straight after the count it qualifies, on
+                # `fact.denominator_moved`'s precedent and for its reason:
+                # "Nothing got worse." is about the checks that were compared,
+                # and these were not. Each pair with both sides' scores, because
+                # this clause is the only place a fall between them shows. (#642)
+                unpaired_text,
                 # Before the noise clause and for a stronger version of its
                 # reason: noise says a movement was too small to count, this
                 # says there was no movement to measure — the two sides counted
@@ -1536,9 +1616,16 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
         )
         text = phrase(locale, key, before=was, now=is_now)
         if now.threshold != before.threshold:
+            # "Rather than of behaviour" is true only where the score held, read
+            # by the rule `compare()` reads a movement with: within the check's
+            # tolerance. Beyond it, the rule and the behaviour both changed, and
+            # the sentence says both. (#642)
+            held = within(abs(now.score.score - before.score.score), now.tolerance)
             text += phrase(
                 locale,
-                "detail.threshold_moved",
+                "detail.threshold_moved"
+                if held
+                else "detail.threshold_moved.score_moved",
                 before_threshold=fmt_score(before.threshold),
                 now_threshold=fmt_score(now.threshold),
             )
