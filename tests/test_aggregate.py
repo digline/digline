@@ -17,7 +17,9 @@ import pytest
 from digline.core import (
     F1,
     Accuracy,
+    AssertionDelta,
     CaseOutcome,
+    Comparison,
     Contains,
     Matrix,
     Precision,
@@ -34,8 +36,8 @@ from digline.core import (
 )
 from digline.core.aggregate import build_matrix
 from digline.report import headline, render_html, summary_lines
-from digline.run import Case, Response, Suite, execute
 from digline.report.text import LOCALES, Locale, phrase
+from digline.run import Case, Response, Suite, Target, execute
 from digline.wire import EXIT_OK, EXIT_WORSE, exit_code, run_exit_code
 
 BASE_AT = "2026-01-01T00:00:00+00:00"
@@ -756,7 +758,11 @@ def _suite(*, threshold: float | str, park: str | None) -> Suite:
     )
 
 
-def _whole(threshold: float | str, park: str | None, answer=_answer):  # noqa: ANN001, ANN202
+def _whole(
+    threshold: float | str,
+    park: str | None,
+    answer: Target = _answer,
+) -> tuple[Run, Run, Comparison, AssertionDelta]:
     """The reference with every case judged, the run with one class set aside,
     and the delta of the whole-run `mean_score` between them."""
     reference = execute(
@@ -766,6 +772,12 @@ def _whole(threshold: float | str, park: str | None, answer=_answer):  # noqa: A
     comparison = compare(run, reference)
     (delta,) = [d for d in comparison.deltas if d.assertion == "mean_score"]
     return reference, run, comparison, delta
+
+
+def _sides(delta: AssertionDelta) -> tuple[Verdict, Verdict]:
+    """The two verdicts of a run-level delta, which has both."""
+    assert delta.baseline is not None and delta.current is not None
+    return delta.baseline, delta.current
 
 
 def _section(document: str, locale: Locale, key: str) -> str:
@@ -786,7 +798,8 @@ def test_a_rise_over_a_moved_denominator_is_not_an_improvement(locale: Locale) -
     it leaves `What got better` for `What was not compared`, and the exit code
     is the `0` it was."""
     reference, run, comparison, delta = _whole("1/2", "parked")
-    assert (delta.baseline.score.score, delta.current.score.score) == (0.5, 1.0)
+    before, now = _sides(delta)
+    assert (before.score.score, now.score.score) == (0.5, 1.0)
     assert delta.denominator_moved
     assert "measured over 2 cases against 4 in the reference" in delta.reason
     declared = _suite(threshold="1/2", park="parked").declared()
@@ -803,7 +816,8 @@ def test_a_fall_over_a_moved_denominator_is_still_counted() -> None:
     aside, and at a threshold of 0 the mean falls from `0.5` to `0.0` with both
     sides passing. It stays counted, and the run exits 1, as it did."""
     reference, run, comparison, delta = _whole(0.0, "kept")
-    assert (delta.baseline.status, delta.current.status) == ("pass", "pass")
+    before, now = _sides(delta)
+    assert (before.status, now.status) == ("pass", "pass")
     assert delta.outcome == "regressed"
     assert not delta.denominator_moved
     declared = _suite(threshold=0.0, park="kept").declared()
@@ -814,7 +828,8 @@ def test_a_fall_over_a_moved_denominator_is_still_counted() -> None:
 def test_a_flip_down_over_a_moved_denominator_stays_a_regression() -> None:
     """`pass` to `fail`, by the asymmetry ADR 0012 §3 already declares."""
     reference, run, comparison, delta = _whole("1/2", "kept")
-    assert (delta.baseline.status, delta.current.status) == ("pass", "fail")
+    before, now = _sides(delta)
+    assert (before.status, now.status) == ("pass", "fail")
     assert delta.outcome == "regressed"
     assert not delta.denominator_moved
     declared = _suite(threshold="1/2", park="kept").declared()
@@ -834,7 +849,8 @@ def test_a_rise_over_the_same_cases_is_still_an_improvement() -> None:
     run = execute(suite, _answer_all, created_at=LATER_AT)
     comparison = compare(run, reference)
     (delta,) = [d for d in comparison.deltas if d.assertion == "mean_score"]
-    assert (delta.baseline.score.score, delta.current.score.score) == (0.5, 1.0)
+    before, now = _sides(delta)
+    assert (before.score.score, now.score.score) == (0.5, 1.0)
     assert delta.outcome == "improved"
     assert not delta.denominator_moved
 
