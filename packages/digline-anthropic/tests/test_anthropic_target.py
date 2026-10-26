@@ -119,13 +119,12 @@ def a_target(prompt: Path, **kwargs: Any) -> tuple[AnthropicTarget, FakeClient]:
 
 
 def test_the_request_carries_what_was_declared_and_nothing_else(prompt: Path) -> None:
-    target, client = a_target(prompt, temperature=0.2)
+    target, client = a_target(prompt)
     target(Case(id="it", vars={"country": "Italy"}))
 
     (request,) = client.messages.requests
     assert request["model"] == "claude-sonnet-5"
     assert request["max_tokens"] == 1024
-    assert request["temperature"] == 0.2
     assert request["messages"] == [
         {"role": "user", "content": "What is the capital of Italy?\n"}
     ]
@@ -139,6 +138,21 @@ def test_an_unset_temperature_is_not_sent(prompt: Path) -> None:
     assert "temperature" not in client.messages.requests[0]
 
 
+@pytest.mark.parametrize("temperature", [0.0, 0.2, 1.0])
+def test_a_temperature_is_refused_with_its_reason(
+    prompt: Path, temperature: float
+) -> None:
+    """Anthropic's API version 2026-10-21 answers a request carrying
+    `temperature` with a 400, even at its default, and the SDK has had no such
+    argument since 1.0.0. Passed on, it raised `TypeError` from inside the SDK
+    at the first call; dropped, it would be a setting the user wrote that
+    reaches nothing. So it is refused where it is written, with the reason."""
+    with pytest.raises(ValueError, match="temperature") as refused:
+        a_target(prompt, temperature=temperature)
+    assert "1.0.0" in str(refused.value)
+    assert "2026-10-21" in str(refused.value)
+
+
 def test_the_config_is_what_was_sent_and_nothing_else(prompt: Path) -> None:
     """What the run records about the system that answered (ADR 0005 §1).
 
@@ -146,12 +160,11 @@ def test_the_config_is_what_was_sent_and_nothing_else(prompt: Path) -> None:
     them, and a configuration naming a parameter nobody passed would be a record
     of a run that did not happen.
     """
-    target, _client = a_target(prompt, temperature=0.2)
+    target, _client = a_target(prompt)
     assert dict(target.config) == {
         "provider": "anthropic",
         "model": "claude-sonnet-5",
         "max_tokens": 1024,
-        "temperature": 0.2,
     }
 
 

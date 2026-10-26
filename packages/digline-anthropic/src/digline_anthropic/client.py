@@ -32,6 +32,7 @@ __all__ = [
     "build_client",
     "geo_multiplier",
     "priced_where_served",
+    "refuse_temperature",
     "text_of",
     "tool_calls_of",
     "tools_of",
@@ -129,6 +130,29 @@ def priced_where_served(pricing: Pricing, take: Callable[[], float]) -> Pricing:
     """`pricing`, with each call's cost multiplied by what `take` returns."""
     return _WhereServed(
         per_model=pricing.per_model, declared=pricing.declared, take=take
+    )
+
+
+def refuse_temperature(owner: str, temperature: float | None) -> None:
+    """Refuse a `temperature`, by name and with the reason.
+
+    Anthropic's API version 2026-10-21, which the SDK sends from 2.0.0, answers
+    a request carrying `temperature`, `top_p` or `top_k` with a 400 on every
+    model, even at the default ("Migrating to API version 2026-10-21", read
+    2026-10-26). The SDK went first: `Messages.create` has had no such argument
+    since 1.0.0, so passing it on raised `TypeError` from inside the SDK at the
+    first call. Dropping it instead would be a setting the user wrote that
+    reaches nothing, which is worse than either. So it is refused where it is
+    written, and `None`, the default, sends nothing as before.
+    """
+    if temperature is None:
+        return
+    raise ValueError(
+        f"{owner} does not take `temperature` (got {temperature!r}): "
+        "Anthropic's API version 2026-10-21 refuses it with a 400 on every "
+        "model, even at its default, and the `anthropic` SDK has not accepted "
+        "it since 1.0.0, so it would reach no model. Leave it out: the "
+        "request samples at the API's default"
     )
 
 

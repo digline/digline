@@ -421,9 +421,11 @@ target = AnthropicTarget(
     system_file=Path(__file__).parent / "prompts/system.md",
     model="claude-sonnet-5",
     max_tokens=1024,
-    temperature=0.0,
 )
 ```
+
+**No `temperature`.** `AnthropicTarget` refuses one, by name: Anthropic's API no
+longer accepts it, and the `anthropic` SDK has not since 1.0.0.
 
 **Why `Path(__file__).parent`.** A prompt file is read where the target is
 built, and a relative path is read against the working directory, as `open()`

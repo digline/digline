@@ -20,6 +20,7 @@ from digline_anthropic.client import (
     completion_of,
     geo_multiplier,
     priced_where_served,
+    refuse_temperature,
 )
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
@@ -61,12 +62,10 @@ class _AnthropicJudge(JudgeBase):
         pricing: Pricing = ANTHROPIC_PRICING,
         client: Any = None,
     ) -> None:
-        super().__init__(
-            model,
-            max_tokens=max_tokens,
-            pricing=pricing,
-            temperature=temperature,
-        )
+        # Kept in the signature only to be refused with its reason: see
+        # `refuse_temperature`.
+        refuse_temperature(type(self).__name__, temperature)
+        super().__init__(model, max_tokens=max_tokens, pricing=pricing)
         self.prefill = prefill
         self._injected = client
         #: Where the call in flight was served, as a price multiplier: set by
@@ -99,8 +98,6 @@ class _AnthropicJudge(JudgeBase):
             "system": system,
             "messages": messages,
         }
-        if self.temperature is not None:
-            request["temperature"] = self.temperature
 
         raw = self._client().messages.create(**request)
         # As in `AnthropicTarget._complete`: read first, handed over last.
