@@ -594,10 +594,10 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 3`.
-#: Appended to, never edited, like `_ADDED`. Empty at the bump to 3 (#669),
-#: which folded the one word added under 2, `projected` on `log.spread_absence`,
-#: back into `_BASE`'s vocabulary.
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 3`, with
+#: the issue or ADR that added it. Appended to, never edited, like `_ADDED`. The
+#: word added under 2, `projected` on `log.spread_absence`, is in `_BASE`'s
+#: vocabulary (#669).
 _ADDED_WORDS: tuple[_AddedWord, ...] = ()
 
 
@@ -1227,10 +1227,10 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
 }
 
 #: Every key added under `OUTPUT_VERSION = 3` since its `_BASE` was pinned, one
-#: entry each. Appended to, never edited: changing an entry's types is a change
-#: a consumer can see, and the rule for that is a bump. Empty at the bump to 3
-#: (#669), which folded the 34 keys added under 2 into `_BASE`, each beside the
-#: provenance its entry carried.
+#: entry each, with the issue or ADR that added it. Appended to, never edited:
+#: changing an entry's types is a change a consumer can see, and the rule for
+#: that is a bump. The keys added under 2 are in `_BASE`, each beside the
+#: provenance its entry carried (#669).
 _ADDED: tuple[_AddedKey, ...] = (
     # Whether a line of the bill saw every call and knew the cost of each:
     # `false` where a call raised and is on no line, or was seen and not
