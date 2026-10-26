@@ -380,14 +380,15 @@ type = "provider"
 provider = "anthropic/claude-haiku-4-5"
 prompt_file = "prompt.md"
 max_tokens = 500
-temperature = 0.0
 ```
 
 `provider` is the coordinate. Everything else is a parameter **that plugin**
-names — `prompt_file`, `system`, `system_file`, `temperature`, `max_tokens`,
-`prefill` and its peers; a misspelling is refused with what the plugin does
-accept. `model` is not among them: it is the coordinate's second half, and
-writing it twice would give one fact two places to be wrong.
+names — `prompt_file`, `system`, `system_file`, `max_tokens`, `prefill` and its
+peers; a misspelling is refused with what the plugin does accept. `model` is
+not among them: it is the coordinate's second half, and writing it twice would
+give one fact two places to be wrong. The anthropic plugin refuses `temperature`
+by name: Anthropic's API no longer accepts it, and the `anthropic` SDK has not
+since 1.0.0.
 
 `client` is not configuration either — it is where a test injects a stand-in,
 and a data file has nothing to put there.

@@ -137,15 +137,17 @@ def test_an_unset_temperature_is_not_sent(client: FakeClient) -> None:
 @pytest.mark.parametrize("judge", [AnthropicJudge, AnthropicClaimJudge])
 @pytest.mark.parametrize("temperature", [0.0, 0.2])
 def test_a_temperature_is_refused_with_its_reason(
-    client: FakeClient, judge: type[AnthropicJudge | AnthropicClaimJudge], temperature: float
+    client: FakeClient,
+    judge: type[AnthropicJudge | AnthropicClaimJudge],
+    temperature: float,
 ) -> None:
     """Both judges, for `AnthropicTarget`'s reason: the API version the SDK
     sends refuses `temperature` even at its default, and the SDK has had no
-    such argument since 1.15.0. A judge at a lower temperature is advice the
+    such argument since 1.0.0. A judge at a lower temperature is advice the
     documentation gives elsewhere; it is not one this provider can take."""
     with pytest.raises(ValueError, match="temperature") as refused:
         judge(model="claude-haiku-4-5", client=client, temperature=temperature)
-    assert "1.15.0" in str(refused.value)
+    assert "1.0.0" in str(refused.value)
     assert "2026-10-21" in str(refused.value)
 
 

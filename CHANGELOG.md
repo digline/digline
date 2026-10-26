@@ -514,6 +514,24 @@ each package.
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
 
+## digline-anthropic — unreleased
+
+- **`temperature` is refused, by name and with the reason.** `AnthropicTarget`,
+  `AnthropicJudge` and `AnthropicClaimJudge` took it and sent it. The
+  `anthropic` SDK has had no such argument since 1.0.0 (0.125.0 is the last
+  that takes it, read from each wheel's `Messages.create`), so from 1.0.0 on,
+  2.3.0 included, which is what a clean install resolves on 2026-10-26, the
+  first call raised `TypeError` from inside the SDK. And Anthropic's API
+  version 2026-10-21, which the SDK sends from 2.0.0, answers a request
+  carrying it with a 400 on every model, even at its default.
+  Dropping it would have been a setting the user wrote that reaches nothing, so
+  building a target or a judge with one now raises `ValueError` naming both
+  reasons. Left unset, nothing is sent, as before, and the run's configuration
+  no longer has a `temperature` key to record. `docs/api.md` and
+  `docs/declarative.md` showed it in their first provider example and no longer
+  do. **On an SDK older than 1.0.0 it was sent and worked, so the next version
+  is a minor.** Needs no core release.
+
 ## digline-bedrock — unreleased
 
 - **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It

@@ -144,12 +144,12 @@ def test_a_temperature_is_refused_with_its_reason(
 ) -> None:
     """Anthropic's API version 2026-10-21 answers a request carrying
     `temperature` with a 400, even at its default, and the SDK has had no such
-    argument since 1.15.0. Passed on, it raised `TypeError` from inside the SDK
+    argument since 1.0.0. Passed on, it raised `TypeError` from inside the SDK
     at the first call; dropped, it would be a setting the user wrote that
     reaches nothing. So it is refused where it is written, with the reason."""
     with pytest.raises(ValueError, match="temperature") as refused:
         a_target(prompt, temperature=temperature)
-    assert "1.15.0" in str(refused.value)
+    assert "1.0.0" in str(refused.value)
     assert "2026-10-21" in str(refused.value)
 
 

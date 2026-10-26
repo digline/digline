@@ -24,6 +24,7 @@ from digline_anthropic.client import (
     completion_of,
     geo_multiplier,
     priced_where_served,
+    refuse_temperature,
 )
 from digline_anthropic.pricing import ANTHROPIC_PRICING
 
@@ -42,7 +43,7 @@ class AnthropicTarget(ProviderTarget):
 
     Both files are recorded in every run, so a baseline carries the prompt that
     produced it (ADR 0003), and so does the configuration that produced it —
-    model, token cap and temperature (ADR 0005).
+    model and token cap (ADR 0005).
     """
 
     provider = "anthropic"
@@ -69,8 +70,10 @@ class AnthropicTarget(ProviderTarget):
         )
         if max_tokens < 1:
             raise ValueError("AnthropicTarget.max_tokens must be at least 1")
+        # Kept in the signature only to be refused with its reason: see
+        # `refuse_temperature`.
+        refuse_temperature("AnthropicTarget", temperature)
         self.max_tokens = max_tokens
-        self.temperature = temperature
         #: Text put in the assistant's mouth before it answers — `"{"` is the
         #: usual one, and it is how you get JSON out of a model without asking
         #: it nicely. Prepended to what comes back, because the reply *is* the
@@ -91,14 +94,14 @@ class AnthropicTarget(ProviderTarget):
     def config(self) -> Mapping[str, ConfigValue]:
         """What this target sends, and only that.
 
-        No `top_p`, no `top_k`, no `seed`: this target does not send them, and a
-        configuration that named a parameter nobody passed would be a record of
-        a run that did not happen. `prefill` is left out for the reason in ADR
-        0005 §Not decided here.
+        No `temperature`, no `top_p`, no `top_k`, no `seed`: this target does not
+        send them, and a configuration that named a parameter nobody passed
+        would be a record of a run that did not happen. `prefill` is left out
+        for the reason in ADR 0005 §Not decided here.
         """
         return {
             **super().config,
-            **sent(max_tokens=self.max_tokens, temperature=self.temperature),
+            **sent(max_tokens=self.max_tokens),
         }
 
     def _client(self) -> Any:
@@ -118,8 +121,6 @@ class AnthropicTarget(ProviderTarget):
         }
         if system is not None:
             request["system"] = system
-        if self.temperature is not None:
-            request["temperature"] = self.temperature
 
         raw = self._client().messages.create(**request)
         # Read before `completion_of`, so a geography with no rate is refused

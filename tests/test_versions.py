@@ -822,6 +822,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "hand-computed median meets the same denominator",
     },
     "docs/api.md": {
+        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
+        "`Messages.create` first has no `temperature` (0.125.0 is the last "
+        "that takes it), read from each wheel on 2026-10-26. The reason the "
+        "anthropic plugin refuses `temperature`",
         "0.33.0": "'In 0.33.0, under `output_version: 2`' — the release whose "
         "numbers and `within_noise` changed meaning without a bump (#669), "
         "told as history in the record of version 3",
@@ -1223,6 +1227,18 @@ RECORDED: dict[str, dict[str, str]] = {
         "1.5.0": "not a digline version either: the `anthropic` this workspace "
         "pins, where the container exists and is `None` on a reply that "
         "reported no split. The other half of the same measurement",
+        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
+        "`Messages.create` first has no `temperature` (0.125.0 is the last "
+        "that takes it), read from each wheel on 2026-10-26. The reason the "
+        "anthropic plugin refuses `temperature`",
+        "2.0.0": "not a digline version: the first `anthropic` SDK release that "
+        "sends API version 2026-10-21, which refuses `temperature` with a 400",
+    },
+    "docs/declarative.md": {
+        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
+        "`Messages.create` first has no `temperature` (0.125.0 is the last "
+        "that takes it), read from each wheel on 2026-10-26. The reason the "
+        "anthropic plugin refuses `temperature`",
     },
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
         "0.25.1": "the delta-pass over 0.25.1 is the pass the refusal "
