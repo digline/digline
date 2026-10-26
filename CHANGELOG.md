@@ -243,7 +243,14 @@ digline **0.34.0**.
   flip still carries no `noise_min`, `noise_max` or `noise_samples`, because
   nothing was judged against an interval, and the report still prints none on a
   flip. The new key is the scale of the movement and changes no verdict and no
-  exit code. An added key, so `output_version` stays `2`.
+  exit code. An added key, which moves no version of its own. This release's
+  `output_version` is `3`, for the reason under *`output_version` is `3`*
+  above.
+
+  *Corrected 2026-10-26, by the delta-pass over 0.34.0.* The sentence above is
+  corrected in place. It read *"An added key, so `output_version` stays
+  `2`."* It was written in the cycle, before the bump to 3, and at 0.34.0 the
+  version is `3`.
 - **`digline run` exits `2` when it judged nothing** (#654; ADR 0049 §3,
   amended). When none of the cases the suite measures was judged, because every
   one was suspended or every one errored, `run` still writes the run and prints
@@ -343,6 +350,16 @@ digline **0.34.0**.
   and `JOURNAL_VERSION` does not move: a journal an older digline left is
   still finished. New in `digline.host`: `this_process`, `process_state` and
   `ProcessState`; `JournalHeader` and `Pending` gain `pid` and `host`.
+- **`declared_floor` and `floor_width_refusal` are out of
+  `digline.core.types.__all__`.** Both joined it with 0.33.0's bump. No text
+  named them, and nothing in this repository outside `digline.core` and
+  `digline.run` uses them. `digline.core` never re-exported them. A direct
+  import of either still works; `from digline.core.types import *` no longer
+  brings them.
+
+  *Added 2026-10-26, by the delta-pass over 0.34.0.* 0.33.0's entry announced
+  this removal in its note of 2026-10-21, and this entry, the release that made
+  it, did not name it.
 
 ### Seen working in a browser — the walkthrough, owed and run
 
