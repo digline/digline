@@ -29,7 +29,7 @@ notes under them are this file, verbatim.
     nothing needed leaving out. A step of its own now makes it on
     every tag, and it begins with the word `classified`: an output no step
     wrote is the empty string, and the install check stops on it rather than
-    read it as nothing to exclude.
+    reading it as nothing to exclude.
   - **A conflict between the pins no longer advises a re-run.** It stops at the
     first `ResolutionImpossible` and says a re-run gives the same red. The
     advice stays where it can work: a version the index does not serve yet.

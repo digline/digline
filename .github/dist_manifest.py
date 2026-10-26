@@ -132,9 +132,8 @@ def main(argv: list[str]) -> int:
             )
         # Versions only: a "Re-run all jobs" after the upload classifies again
         # while PyPI serves this tag's version, and this cannot tell them apart.
-        # Not repaired: a re-run of the failed jobs keeps the first
-        # classification, and what that case leaves out cannot be installed
-        # beside this core anyway, since its own cap excludes it.
+        # Not repaired: what that case leaves out cannot be installed beside
+        # this core anyway, since its own cap excludes it.
         if found[name] != version:
             print(
                 f"kept {name} {found[name]}: the classification excluded the "
