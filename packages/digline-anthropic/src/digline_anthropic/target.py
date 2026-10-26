@@ -18,12 +18,11 @@ from pathlib import Path
 from typing import Any
 
 from digline.core import ConfigValue
-from digline.run import Case, Response
 from digline.targets import Completion, Pricing, ProviderTarget, sent
 from digline_anthropic.client import (
     build_client,
     completion_of,
-    geo_rate,
+    geo_multiplier,
     priced_where_served,
     refuse_temperature,
 )
@@ -85,31 +84,11 @@ class AnthropicTarget(ProviderTarget):
         #: Where the call in flight was served, as a price multiplier: set by
         #: `_complete`, taken once by the price list. See `priced_where_served`.
         self._geo = 1.0
-        #: Whether the call in flight was served where this price list has no
-        #: rate: then its cost is not known, and `__call__` hands it over with
-        #: none. Set by `_complete`, read once by `__call__`. (#569)
-        self._unpriced = False
         self.pricing = priced_where_served(self.pricing, self._take_geo)
 
     def _take_geo(self) -> float:
         taken, self._geo = self._geo, 1.0
         return taken
-
-    def __call__(self, case: Case) -> Response:
-        """The core's call, with no cost where the reply was served in a
-        geography this price list has no rate for.
-
-        Answered and paid for, so judged: its counts are what the provider
-        reported, and the run's line reads a cost not known rather than a call
-        not seen. It raised `UnknownModelError` before, after the answer was in
-        hand, and the case went to `error` for a problem of accounting. (#569)
-        """
-        self._unpriced = False
-        response = super().__call__(case)
-        if self._unpriced:
-            self._unpriced = False
-            return replace(response, cost_usd=None)
-        return response
 
     @property
     def config(self) -> Mapping[str, ConfigValue]:
@@ -144,13 +123,12 @@ class AnthropicTarget(ProviderTarget):
             request["system"] = system
 
         raw = self._client().messages.create(**request)
-        # Read before `completion_of`, and handed over only after it, so a reply
-        # refused for another reason leaves nothing behind. A geography with no
-        # rate is a cost not known, not a refusal. (#569)
-        geo = geo_rate(raw)
+        # Read before `completion_of`, so a geography with no rate is refused
+        # before anything else is read off the reply; handed over only after
+        # it, so a reply refused for another reason leaves nothing behind.
+        geo = geo_multiplier(raw)
         reply = completion_of(raw)
-        self._unpriced = geo is None
-        self._geo = 1.0 if geo is None else geo
+        self._geo = geo
         if self.prefill is None:
             return reply
         # The reply *is* the prefill plus the completion, and a parser handed

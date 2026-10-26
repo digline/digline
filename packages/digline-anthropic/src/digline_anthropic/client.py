@@ -31,7 +31,6 @@ __all__ = [
     "completion_of",
     "build_client",
     "geo_multiplier",
-    "geo_rate",
     "priced_where_served",
     "refuse_temperature",
     "text_of",
@@ -74,19 +73,6 @@ FINISH: dict[str, Finish] = {
 #: a model it applies to. `None` is a reply that did not say, which is every
 #: reply from an SDK or a model without the field. (#392)
 GEO_MULTIPLIERS: Mapping[str | None, float] = {None: 1.0, "global": 1.0, "us": 1.1}
-
-
-def geo_rate(reply: Any) -> float | None:
-    """The multiplier for where this reply's inference ran, or `None` where
-    this price list has no rate for that geography.
-
-    `None` is a cost not known, and a target hands the reply over with its
-    counts and no cost: the call was answered and paid for, and failing its
-    case for a problem of accounting is what #569 found. The judge still
-    refuses through `geo_multiplier`, below.
-    """
-    geo = getattr(getattr(reply, "usage", None), "inference_geo", None)
-    return GEO_MULTIPLIERS.get(geo)
 
 
 def geo_multiplier(reply: Any) -> float:
