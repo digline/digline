@@ -307,8 +307,18 @@ class RunAssertionBase:
         # over raw scores reaches this exit directly, and a mean over no score
         # is whatever its author's code says it is, `1.0` included. What it
         # counts is every case that reached it judged, with a label or without
-        # one. (#735)
-        if matrix.considered + matrix.unlabelled_excluded == 0:
+        # one. The refusal reads where the outcomes went, so it needs the matrix
+        # `build_matrix` built from them: one that counted nothing at all, a
+        # `Matrix()` handed in by an aggregate that never built one, names no
+        # outcome and says nothing about a denominator, and grades as before.
+        # (#735)
+        excluded = (
+            matrix.suspended_excluded
+            + matrix.errored_excluded
+            + matrix.canary_excluded
+            + matrix.calibration_excluded
+        )
+        if matrix.considered + matrix.unlabelled_excluded == 0 and excluded:
             return self._error(
                 f"nothing to measure: {self.name} has an empty denominator "
                 f"({self._excluded(matrix)})",
