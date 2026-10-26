@@ -7,6 +7,7 @@ access: one OS user reads every tenant (fixed decision 8).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ from digline.core import (
     config_hash,
     key_of,
 )
+from digline.core.run import SCHEMA_VERSION, DocumentRefusedError
 from digline.store import (
     ConfigMismatchError,
     ErroredRunError,
@@ -460,3 +462,74 @@ def test_storage_is_local_to_the_project(tmp_path: Path) -> None:
         declared=None,
     )
     assert FileResultStore(two).read_baseline("acme", "test-suite") is None
+
+
+# --------------------------------------------------------------------------- #
+# A refused document says which file, and whether it is the run or the
+# baseline (#672)
+# --------------------------------------------------------------------------- #
+
+
+def _promoted(root: Path) -> tuple[FileResultStore, Path, Path]:
+    """A store holding one run promoted to baseline: the run's file and the
+    baseline's, to break one of them."""
+    store = FileResultStore(root)
+    ref = store.write_run(run())
+    store.promote_baseline(
+        ref,
+        "hash-a",
+        expected_baseline=None,
+        promoted_at="2026-01-02T09:00:00+00:00",
+        declared=None,
+    )
+    return store, store.run_path(ref), store.baseline_path("acme", "test-suite")
+
+
+def _restamp(path: Path, schema: int) -> None:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["schema_version"] = schema
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+
+def test_a_newer_baseline_is_named_as_the_baseline_with_its_path(
+    tmp_path: Path,
+) -> None:
+    """`compare`, `explain`, `register` and `report` printed *"schema_version
+    21 is not supported (expected 20)"*, naming neither the file nor its role.
+    It names both, and the advice in the direction the schema differs."""
+    store, _run, baseline = _promoted(tmp_path)
+    _restamp(baseline, SCHEMA_VERSION + 1)
+    with pytest.raises(DocumentRefusedError) as refused:
+        store.read_baseline("acme", "test-suite")
+    message = str(refused.value)
+    assert f"the baseline at {baseline}" in message
+    assert "upgrade digline" in message.lower()
+    assert "digline migrate" not in message
+    assert refused.value.role == "baseline"
+    assert refused.value.declared_schema == SCHEMA_VERSION + 1
+
+
+def test_a_broken_run_is_named_as_the_run_with_its_path(tmp_path: Path) -> None:
+    store, path, _baseline = _promoted(tmp_path)
+    path.write_text("{ not json", encoding="utf-8")
+    ref = RunRef("acme", "test-suite", path.stem)
+    with pytest.raises(DocumentRefusedError) as refused:
+        store.read_run(ref)
+    assert f"the run at {path}" in str(refused.value)
+    assert refused.value.role == "run"
+    assert refused.value.declared_schema is None
+
+
+def test_a_broken_baseline_stays_apart_from_a_newer_one_and_from_a_run(
+    tmp_path: Path,
+) -> None:
+    """The control: the same exception, told apart by its fields. A broken
+    baseline declares no schema, unlike a newer one, and says `baseline`,
+    unlike a broken run."""
+    store, _run, baseline = _promoted(tmp_path)
+    baseline.write_text("{ not json", encoding="utf-8")
+    with pytest.raises(DocumentRefusedError) as refused:
+        store.read_baseline("acme", "test-suite")
+    assert refused.value.role == "baseline"
+    assert refused.value.declared_schema is None
+    assert f"the baseline at {baseline}" in str(refused.value)

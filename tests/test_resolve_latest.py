@@ -11,14 +11,17 @@ widening the note is a decision somebody takes, not a drift.
 
 from __future__ import annotations
 
+import json
 from dataclasses import fields, replace
 from pathlib import Path
 
+import pytest
 from tests.test_store import run
 
 from digline.core import Contains, RegisterEntry, Run, key_of
 from digline.core.register import RecordedOutcome
-from digline.host import resolve_key
+from digline.core.run import SCHEMA_VERSION
+from digline.host import UsageError, resolve_key
 from digline.run import Case, Suite
 from digline.store import FileResultStore, RunRef
 
@@ -148,3 +151,43 @@ def test_an_unreadable_baseline_is_named_and_latest_still_resolves(
 
     assert resolved.key == key(newer)
     assert "the baseline could not be read" in resolved.note
+
+
+# --------------------------------------------------------------------------- #
+# No readable run: the advice in the direction the schema differs (#670)
+# --------------------------------------------------------------------------- #
+
+
+def _only_run_at(root: Path, schema: int) -> FileResultStore:
+    """A store whose one run declares `schema`, so `latest` finds nothing it
+    can read."""
+    store = FileResultStore(root)
+    document = replace(run(), created_at=T1)
+    store.write_run(document)
+    path = store.run_path(RunRef(tenant="acme", suite="test-suite", key=key(document)))
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["schema_version"] = schema
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    return store
+
+
+def test_a_store_newer_than_the_reader_is_told_to_upgrade(tmp_path: Path) -> None:
+    """`compare --run latest` told a reader holding newer documents to run
+    `digline migrate`, which refuses them. `Listing.advice()` already chooses
+    by direction; the refusal now says what it says."""
+    store = _only_run_at(tmp_path, SCHEMA_VERSION + 1)
+    with pytest.raises(UsageError) as refused:
+        resolve_key(store, SUITE, "latest")
+    message = str(refused.value).lower()
+    assert "upgrade digline to read them" in message
+    assert "digline migrate" not in message
+
+
+def test_a_store_older_than_the_reader_is_still_told_to_migrate(tmp_path: Path) -> None:
+    """The control: the direction the old sentence was right about."""
+    store = _only_run_at(tmp_path, SCHEMA_VERSION - 1)
+    with pytest.raises(UsageError) as refused:
+        resolve_key(store, SUITE, "latest")
+    message = str(refused.value)
+    assert "run `digline migrate` to bring them up to date" in message.lower()
+    assert "upgrade digline" not in message

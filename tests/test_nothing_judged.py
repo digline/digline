@@ -579,6 +579,24 @@ def test_explain_of_a_run_that_judged_something_still_says_it(locale: Locale) ->
     assert phrase(locale, "explain.tally.unjudged.none") in lines
 
 
+@pytest.mark.parametrize("locale", LOCALES)
+def test_a_calibration_case_beside_suspensions_is_not_a_comparison(
+    locale: Locale,
+) -> None:
+    """#672's example: two suspended cases and a calibration case. The
+    calibration delta is compared, and it counts for nothing, as
+    `Comparison.counts` already says: it places the judge, not the system. So
+    *Nothing got worse* is not said of this run either."""
+    reference = run(subject("s1"), subject("s2"), calibration(), created_at=EARLIER)
+    now = run(suspended("s1"), suspended("s2"), calibration())
+    head = headline(
+        compare(now, reference), now, reference, locale=locale, declared=SUBJECT
+    )
+    assert head.nothing_judged
+    assert phrase(locale, "fact.worse.none") not in head.sentence
+    assert phrase(locale, "fact.unjudged.none") not in head.sentence
+
+
 # --------------------------------------------------------------------------- #
 # 11. The register (§4)
 # --------------------------------------------------------------------------- #

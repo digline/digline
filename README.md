@@ -168,9 +168,14 @@ $ echo $?
 1
 ```
 
-The exit code is the answer: `0` fine, `1` got worse, `2` could not be judged.
+The exit code is the answer: `0` fine, `1` got worse, `2` the numbers are not
+what they look like. A case that could not be judged is one cause of `2` among
+several, and [`docs/api.md`](docs/api.md), *The exit code*, lists them all.
 None of the three is a failure of digline: a wrapper that treats a non-zero
-exit as a crash is reading a verdict as an error.
+exit as a crash is reading a verdict as an error. Two more are not verdicts.
+`64` is the command refusing what it was asked: a missing baseline, a document
+it cannot read, an `--out` it cannot write, a suite that exits while it loads.
+`70` is a failure nobody anticipated.
 Everything lands in `.digline/<tenant>/` — `baselines/` committed, `runs/`
 git-ignored through a `.gitignore` digline writes for you, and says so when one
 you already had leaves `runs/` out.

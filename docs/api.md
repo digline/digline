@@ -1785,7 +1785,11 @@ causes implicate, no more and no fewer; on the command line that is
   that leads out of the store, `TenantMismatchError` or `SuiteMismatchError`
   when the document names another tenant or suite than the address it was
   read through, and `DocumentRefusedError` for a document this version cannot
-  read.
+  read. That refusal begins *"the run at <path> could not be read:"*, ends a
+  schema refusal with the advice in its direction, `digline migrate` for an
+  older document and a newer digline for a newer one, and says which document
+  it was in `role`, `"run"` or `"baseline"`, beside `declared_schema`, which
+  holds the schema when that is why and `None` otherwise (#672).
 - **`FileResultStore.read_baseline(tenant, suite)`** returns the baseline, or
   `None` when the suite has none yet in that perimeter. The first round is not
   an error. It refuses the way `read_run` does, and one way more:

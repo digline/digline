@@ -659,6 +659,32 @@ def test_report_writes_a_document_and_keeps_the_exit_code(repo: Path) -> None:
     assert "È peggiorato? Sì" in document
 
 
+def test_an_out_that_cannot_be_written_is_named_as_the_out(repo: Path) -> None:
+    """#672: `--out` into a directory that does not exist printed
+    *"FileNotFoundError: [Errno 2] …"*, a class name and a crash's shape. It is
+    a verdict about an argument, and says so: the option, the path, the
+    errno's text, exit 64, nothing on standard output."""
+    key = run_key(repo)
+    missing = repo / "missing" / "dir" / "r.html"
+    done = cli(
+        repo,
+        "report",
+        "--suite",
+        "suite_qa.py",
+        "--run",
+        key,
+        "--locale",
+        "en",
+        "--out",
+        str(missing),
+    )
+    assert done.returncode == 64
+    assert done.stdout == ""
+    assert f"--out {missing}" in done.stderr
+    assert "No such file or directory" in done.stderr
+    assert "FileNotFoundError" not in done.stderr
+
+
 def test_report_redacted_removes_the_judge_words(repo: Path) -> None:
     key = run_key(repo)
     cli(

@@ -867,8 +867,12 @@ def headline(
     # check. And a run that judged a case but compared no check, because each
     # was redefined, keeps it qualified by the clause after it, which names the
     # pairs (#642). A regression is always counted.
+    # A calibration delta is compared and counts for nothing, as
+    # `Comparison.counts` says: it places the judge, not the system, so it is
+    # not a check this sentence is about. (#672)
     compared = any(
-        d.outcome in ("regressed", "improved", "unchanged") for d in comparison.deltas
+        d.outcome in ("regressed", "improved", "unchanged") and not d.calibration
+        for d in comparison.deltas
     )
     if regressed == 0 and judged_nothing and not compared:
         worse_text = ""
