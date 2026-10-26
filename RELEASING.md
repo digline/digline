@@ -2015,6 +2015,106 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v0.34.0 — the race happened inside the multi-arch build: on arm64 the
+  wait read the new page, and pip, eleven seconds later, the old one. Row one
+  of the table, per-server luck, confirmed.** `publish` (`40290068678`)
+  failed on attempt 1, in the `PyPI` job's install check, after a successful
+  upload (#717), so `github-release` and the site jobs were skipped.
+  `docker-publish` (`40290068669`) failed on attempt 1 and passed on attempt
+  2, where only the failed job was re-run. `tools/tag_names.py "digline
+  0.34.0"` ran on #715's merge commit, `2fa8366`, which was `origin/main`,
+  immediately before the tag: one package, named. Every plugin's version was
+  already served, so none rode the tag.
+  - **The gate was not seen waiting, and its record was not read by this
+    session.** The session's 20-second poll found the `PyPI` job only once it
+    had finished: it started at 08:09:55Z, nine seconds after `TestPyPI` ended.
+    `release-followup` reads the run's approvals as `approved` (#716). The
+    approvals endpoint itself was not read here, so neither the approver nor
+    the deployment's times are recorded.
+  - **Counts**: 12 `twine check` `PASSED`. TestPyPI's selection, and PyPI's
+    read before the gate, gave 2 `publish` and 10 `skip`, the two being
+    digline 0.34.0's wheel and sdist. `imported 6`, and the quickstart's 3
+    calls, after TestPyPI. After PyPI they were not reached.
+  - **The index**: the uploads began at 08:10:13Z (wheel) and 08:10:14Z
+    (sdist), and the `pypi` job's wait saw digline 0.34.0 `after 10s`. The
+    install check that follows then failed ten times of ten with
+    `ResolutionImpossible`. That was not the index: digline-mcp 0.6.2 and
+    pytest-digline 0.3.1 publish `digline<0.34,>=0.32.0`, so no index can
+    install the manifest. #717 has the reading. `plugins_against_core.py`, in
+    the `TestPyPI` job, had already classified both as excluded by their cap.
+  - **The signatures and the release, by hand.** The skipped `github-release`
+    job's two steps were run from the tag:
+    - `.github/changelog_entry.py 0.34.0` on the tag's `CHANGELOG.md`, then
+      `gh release create v0.34.0 --verify-tag --title "digline 0.34.0"`;
+    - `release_bundles.py` with the run's `dist` artifact, which wrote 2
+      bundles and skipped 10 files by the ref their certificates name;
+    - `sigstore verify github --ref refs/tags/v0.34.0`, which exited 0 for
+      both.
+
+    The published notes are byte-identical to the extracted entry, and both
+    `.sigstore.json` are on the release.
+  - **The index race, both builds, and the capture's pair for the core's pin
+    (step 6).**
+    - **The smoke build waited 211 seconds at the runner.** Seven reads from
+      08:07:23.0Z to 08:10:23.6Z saw serial 42544177 with no 0.34.0, and the
+      eighth, at 08:10:53.6Z, saw serial 42751266 with it. Inside the build
+      (`#9`) the wait saw it `after 0s`. The pair agreed: `side=wait` at
+      08:11:07.5Z and `side=pip` at 08:11:08.8Z both read serial 42751266,
+      etag `MEAauHIvFiDS009hNBW5dw`, through the same shield
+      (`cache-iad-khef600030-IAD`), with a different last hop. That is row
+      three, two servers and one object.
+    - **The multi-arch build, attempt 1, arm64 (`#15`): the pair disagreed.**
+      `side=wait` at 08:13:15.5Z read serial 42751266, etag
+      `MEAauHIvFiDS009hNBW5dw`, `served=yes`, first and last hop
+      `cache-iad-khef600030-IAD` and `cache-dfw-kdfw8210061-DFW`. `side=pip`
+      at 08:13:26.8Z, 11.3 seconds later, read serial 42544177, etag
+      `Y+hHvDLBfP7p62bBFhay9A`, first and last hop `cache-iad-khef600052-IAD`
+      and `cache-chi-kmdw8640056-CHI`. Both the
+      `via` and the serial differ, and pip's is the older object: row one.
+      pip then answered *"No matching distribution found for
+      digline==0.34.0"*. The in-build wait had said `served` `after 0s`, so
+      the wait held and pip still reached a server that had not caught up.
+    - **Attempt 2, arm64 (`#15`): the pair agreed.** `side=wait` at
+      08:17:51.5Z and `side=pip` at 08:18:02.4Z both read serial 42751266,
+      the same etag, through the same `via`. The leg installed
+      `digline-0.34.0`.
+    - **The amd64 leg was `CACHED`** in both attempts, every step after the
+      base, so its log proves nothing about what that leg installed.
+  - **The artifact was read instead**, from the registry's API after the
+    build. `ghcr.io/digline/digline:0.34.0` is index
+    `sha256:4aba540b14cb6272de24942138315aa936bdf1456822fb5ab8c016281658cb60`:
+    - linux/amd64
+      `sha256:95c1c7bc72318ef1caf18e572d6e08ad917f2b987f3e1996742aac7e3c83bef9`
+      and linux/arm64
+      `sha256:06d7a870550cdcee326d22996441d667cbc48f746caad9dd197b8857d817cf43`;
+    - both configs carry `org.opencontainers.image.version` `0.34.0` and
+      revision `2fa8366`, and their history's install step ran with
+      `DIGLINE_VERSION=0.34.0`.
+
+    **Narrower than v0.32.1's reading**: the `.dist-info` in the layers was
+    not opened. `0.34.0`, `0.34` and `latest` resolve to that one index, read
+    by `release-followup` (#716).
+  - **The examples**: the `workflow_run` `ci` after `publish`
+    (`40291159501`) ran the legs on the tag's commit. Six were red, each on
+    `digline==0.33.0` from its lock against a schema-21 baseline: the
+    expected shape of *The example legs*. The seven locks moved to 0.34.0 with
+    `--upgrade-package digline` in #718, and the digline package alone moved
+    in each. The dispatch against `main`, `40294355400`, had eleven legs green,
+    each on digline 0.34.0. Its push `ci`, `40294338419`, reads `cancelled`, as
+    step 3 says it will. `operator` resolved digline-mcp 0.5.0 beside it
+    (#719).
+  - **Not done at the tag.** Step 5, the example reports, and step 7,
+    digline-action's default image, which `release-followup` reads as 0.33.0
+    on its `main` and `v1` (#716). The releases this minor owes digline-mcp
+    and pytest-digline, and their floors in *Owed at the cut*, are still owed.
+    The delta-pass was not run.
+
+  **The next tag must show** the pair for every pin again, and whether row one
+  comes back. This is the first time it disagreed after the in-build wait
+  said `served`, so a wait at one server does not hold pip at another. It must
+  also show the counts after PyPI, which the install check stopped short of
+  here, and the gate read from the approvals endpoint.
+
 - **digline-mcp-v0.6.1 — a named tag after the core, one package, the
   server's half of ADR 0043 §8's amendment.** `publish` (`39224246309`) passed
   on attempt 1. `github-release` and the site jobs were skipped, as on any
