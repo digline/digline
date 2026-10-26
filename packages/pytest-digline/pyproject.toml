@@ -1,6 +1,6 @@
 [project]
 name = "pytest-digline"
-version = "0.3.1"
+version = "0.4.0"
 description = "Gate a pytest run on a digline comparison: one row per check, against the baseline committed in your repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -79,11 +79,15 @@ dependencies = [
     # the resolver keeps the core inside the minor this release was run
     # against, and a user stays on a pair that works.
     #
-    # **Owed at the cut: raise to the core release that carries #574.** A check
-    # the run has no verdict for asks `phrase` for a `fact.row_missing` key,
-    # new in that release; against 0.33.0 the call raises `KeyError`. The cap
-    # rises with it, to the minor above that release.
-    "digline>=0.32.0,<0.35",
+    # 0.34.0, an eighth time, by name: a check the run has no verdict for asks
+    # `phrase` for a `fact.row_missing` key (#574), and `--digline-run` imports
+    # `unignored` and `unignored_notes` (#523) and `refuse_unreadable_baseline`
+    # (#621) from `digline.host`. All four first ship in 0.34.0; against 0.33.0
+    # the call raises `KeyError` and the imports `ImportError`. It was owed at
+    # the cut and raised in this package's own release, after the core was on
+    # PyPI, because a floor may not name a release that does not exist yet. The
+    # cap stays `<0.35`, the minor above it.
+    "digline>=0.34.0,<0.35",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user
