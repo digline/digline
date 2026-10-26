@@ -115,6 +115,32 @@ notes under them are this file, verbatim.
   recorded, such as a readable judge beside one written as a function, ends
   *"not recorded in full"*. A judge that keeps its bill prints it as before.
   The run file and `--json` do not change.
+- **A custom aggregate no longer passes over no score** (#735).
+  `RunAssertionBase._graded` now refuses an empty denominator as `_ratio`
+  does, in the same words: `error`, *"nothing to measure: … has an empty
+  denominator (0 counted, 2 suspended, 0 could not be judged)"*. It refuses
+  where no case was counted and the matrix names where the outcomes went. A
+  `Matrix()` built from no outcome names none, and is graded as before.
+
+  **How it was measured.** The aggregate was written from `docs/api.md`, *A
+  custom aggregate* and *Per class: `by_group`*. It averages raw scores, sets
+  `requires_label` to `False`, exits through `_graded`, and takes `1.0` as the
+  mean of no score. Two classes: `kept`, which answers right, and `parked`,
+  which answers wrong. The path was `digline run`, `digline promote …
+  --replacing none`, `suspended=` on the cases of `parked`, then `digline run`
+  and `digline compare`.
+  - **Before**, `mean_score[group=parked]` went from `fail` `0.0` to `pass`
+    `1.0`, *"mean over 0 scores"*. The report listed it under *What got
+    better*: *"Went from failing to passing (0.000000 → 1.000000). 0 of 2 cases
+    counted; 2 suspended."* `run` and `compare` exited `0`, and `promote`
+    accepted the run as the reference.
+  - **Now** it is `error`, the report lists it under *What could not be
+    judged*, and it is no longer under *What got better*. **The exit code does
+    not change**: `run` and `compare` still exit `0`, because an aggregate in
+    `error` changes no exit code (`docs/api.md`, *Per class*).
+
+  `docs/api.md` now says what both exits do with an empty denominator. It said
+  it of `_ratio` alone.
 
 ## 0.34.0 — 2026-10-26
 

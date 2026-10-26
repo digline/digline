@@ -1448,14 +1448,24 @@ and promotable. `MaxWords` above works without it, and is announced.
 what accepts `"2/3"` where the field says `Ratio` — and implements
 `__call__(outcomes: Sequence[CaseOutcome]) -> Verdict`. The exits are
 `_error(reason, matrix)`, `_graded(value, reason, matrix)` and `_ratio(num, den,
-label, matrix)`, which is the one needed almost always: it handles the empty
-denominator as `error` and puts the exclusions next to the number without you
-having to remember.
+label, matrix)`, which is the one needed almost always: it puts the exclusions
+next to the number without you having to remember.
 
-`build_matrix(outcomes)` builds the confusion matrix if you need it; a metric
-that does not count a matrix — one over raw scores instead of outcomes —
-overrides `requires_label` with `False`, and `Suite` stops demanding a `label`
-on every case.
+**Both `_ratio` and `_graded` refuse an empty denominator, in the same words**:
+`error`, *"nothing to measure: … has an empty denominator (0 counted, 2
+suspended, 0 could not be judged)"*, and never a grade. `_ratio` reads it off
+its own denominator. `_graded` reads it off the matrix: no case counted, with a
+label or without one, while the matrix names where the outcomes went, suspended,
+errored, a canary or a calibration case. That needs the matrix
+`build_matrix(outcomes)` builds. A `Matrix()` that counted nothing names no
+outcome, says nothing about a denominator, and is graded as before. Up to and
+including 0.34.0 `_graded` refused nothing, so a mean over no score passed at
+whatever the aggregate's code said, `1.0` included.
+
+`build_matrix(outcomes)` builds the confusion matrix; a metric that does not
+count one — one over raw scores instead of outcomes — still hands it to
+`_graded`, overrides `requires_label` with `False`, and `Suite` stops demanding
+a `label` on every case.
 
 ## The judge
 
