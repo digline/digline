@@ -662,3 +662,75 @@ def test_the_producer_and_the_consumer_read_one_marker() -> None:
     manifest = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(manifest)
     assert script.CLASSIFIED == manifest.CLASSIFIED == "classified"
+
+
+# --- owed: the reading release-followup's seventh question judges (#731) ---------
+
+
+def _workspace(tmp_path: Path, *names: str) -> Path:
+    packages = tmp_path / "packages"
+    for name in names:
+        (packages / name).mkdir(parents=True)
+        (packages / name / "pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "0.1.0"\n', encoding="utf-8"
+        )
+    return packages
+
+
+def test_owed_reads_each_workspace_plugin_against_the_newest_core(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Every package under `packages/`, asked of PyPI the way `check` asks:
+    `served`, then `admits` for the core and for a core no release carries,
+    which the follow-up reads as its control. A plugin PyPI does not serve owes
+    nothing and reads `None`."""
+    packages = _workspace(tmp_path, "digline-mcp", "pytest-digline", "digline-new")
+    ranges = {
+        "digline-mcp": script.Served("digline-mcp", "0.6.2", "<0.34,>=0.32.0"),
+        "pytest-digline": script.Served("pytest-digline", "0.4.0", "<0.35,>=0.34.0"),
+    }
+    monkeypatch.setattr(script, "served", ranges.get)
+    assert script.owed("0.34.0", packages) == {
+        "core": "0.34.0",
+        "plugins": {
+            "digline-mcp": {
+                "version": "0.6.2",
+                "requires": "<0.34,>=0.32.0",
+                "admits": False,
+                "admits_impossible": False,
+            },
+            "digline-new": None,
+            "pytest-digline": {
+                "version": "0.4.0",
+                "requires": "<0.35,>=0.34.0",
+                "admits": True,
+                "admits_impossible": False,
+            },
+        },
+    }
+
+
+def test_owed_writes_unread_for_a_plugin_pypi_never_answered(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The third word, as everywhere in the follow-up: a read that never
+    answered is not a plugin that owes nothing."""
+    packages = _workspace(tmp_path, "digline-mcp")
+
+    def silent(name: str) -> script.Served | None:
+        raise script.NotJudged(f"{name} did not answer")
+
+    monkeypatch.setattr(script, "served", silent)
+    assert script.owed("0.34.0", packages)["plugins"] == {"digline-mcp": "unread"}
+
+
+def test_owed_reads_the_real_workspace_names() -> None:
+    """The real tree: the names `owed` would ask PyPI for are the five plugins'
+    `[project].name`, read from their `pyproject.toml`, not a list kept here."""
+    assert script.workspace_plugins(ROOT / "packages") == [
+        "digline-anthropic",
+        "digline-bedrock",
+        "digline-mcp",
+        "digline-openai",
+        "pytest-digline",
+    ]

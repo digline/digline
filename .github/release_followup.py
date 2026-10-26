@@ -1,4 +1,4 @@
-"""The six things a machine can ask about a release once the tag is out.
+"""The seven things a machine can ask about a release once the tag is out.
 
 `RELEASING.md` has a checklist headed *After the tag: what to watch, and what to
 ignore*, and until this file existed **nothing in the repository knew whether
@@ -13,8 +13,8 @@ The shape of the gap is worth naming, because it explains why the answer is a
 separate workflow rather than another test: **before the tag the subject is the
 tree, and a test can read it; after the tag the subject is the world** — an
 index, a registry, a run's approval record — and the gates of this repository do
-not look there. So these six run where the world can be asked, and they are the
-six that have an answer a machine can check:
+not look there. So these seven run where the world can be asked, and they are
+the seven that have an answer a machine can check:
 
 1. **the example locks** name the version that was released;
 2. the `publish` run's **reviewer gate** recorded an `approved`;
@@ -24,7 +24,11 @@ six that have an answer a machine can check:
    `@v1` resolves to a commit that does too;
 6. the **example reports** inside step 5's perimeter were rendered after the
    tag. Added after 0.33.0's step 5 was skipped and nothing noticed: its nine
-   reports were last rendered against 0.32.1, and 0.34.0 found them there.
+   reports were last rendered against 0.32.1, and 0.34.0 found them there;
+7. every **plugin PyPI serves** admits the release: a served version whose cap
+   on digline stops below it is a plugin release the core release owes, and
+   the question stays red until it is out. Added after 0.34.0's two owed
+   releases were held only by rows somebody wrote (#731).
 
 **What is deliberately not here.** The delta-pass, its report in `private/` and
 the GHSA draft have no check and must not get one: a gate on a file's existence
@@ -65,7 +69,10 @@ from pathlib import Path
 from typing import cast
 
 __all__ = [
+    "SCOPE",
     "Finding",
+    "plugins_finding",
+    "versions_to_ask",
     "approvals_finding",
     "keep_record",
     "report_commits",
@@ -99,6 +106,11 @@ STATUS_HEADING = "### Status: what each path has proven"
 #: A version no release will ever carry, used as the impossible expectation the
 #: negative halves are measured against.
 IMPOSSIBLE = "0.0.0"
+
+#: What every issue title this workflow writes begins with, before the version:
+#: `report` writes it and `versions_to_ask` reads it, so the two cannot spell it
+#: differently.
+SCOPE = "Release follow-up for v"
 
 #: What the workflow writes in place of a reading it could not get: the publish
 #: run was not listed, or an endpoint did not answer, after every retry. **An
@@ -754,6 +766,158 @@ def action_finding(
     )
 
 
+def _workspace_plugins(root: Path) -> list[str]:
+    """The `[project].name` of every package under `packages/`, read here and
+    not taken from the reading it is checked against."""
+    import tomllib
+
+    return sorted(
+        tomllib.loads(path.read_text(encoding="utf-8"))["project"]["name"]
+        for path in (root / "packages").glob("*/pyproject.toml")
+    )
+
+
+def plugins_finding(data: object, root: Path, *, current: bool = True) -> Finding:
+    """Post-tag question 7: the plugin releases this core release owes (#731).
+
+    `data` is what `plugins_against_core.py owed` wrote: the core asked about,
+    and for each plugin the newest version PyPI serves, its range on digline,
+    and whether that range admits the core and `IMPOSSIBLE`. `None` is a
+    plugin PyPI does not serve, which owes nothing; `"unread"` is a read that
+    never answered, which is not judged.
+
+    **Owed by the cap, and only that.** A served version whose range stops
+    below the core cannot be installed beside it, so the core release owes that
+    plugin a release, and this is red by name until it is out. A release owed by
+    a correction is on the tracker and no machine computes it.
+
+    Two controls. No served range may admit `IMPOSSIBLE`: one that does admits
+    anything, and its answer proves nothing. And the plugins read must be the
+    ones under `packages/`: a reading that skipped one would be green about it.
+
+    Only about the newest release, like the locks: a superseded release's core
+    is not the one a plugin's cap is measured against today.
+    """
+    step = "the plugin releases owed"
+    if not current:
+        return Finding(
+            step=step,
+            ok=True,
+            held=True,
+            applicable=False,
+            said=(
+                "not applicable: a plugin's cap is measured against the newest "
+                "release, not a superseded one"
+            ),
+            control_said="not asked",
+            title="",
+        )
+    if data == UNREAD:
+        # The workflow writes the third word when the reading itself failed:
+        # nothing was asked of PyPI, which is not a reading that skipped every
+        # plugin.
+        return Finding(
+            step=step,
+            ok=False,
+            held=True,
+            answered=False,
+            said="the plugins PyPI serves could not be read — not judged",
+            control_said="not asked",
+            title="the plugin releases owed could not be read",
+        )
+    table = data if isinstance(data, dict) else {}
+    core = str(table.get("core", ""))
+    plugins = table.get("plugins")
+    plugins = plugins if isinstance(plugins, dict) else {}
+    missing = [name for name in _workspace_plugins(root) if name not in plugins]
+    unread = sorted(name for name, entry in plugins.items() if entry == "unread")
+    readings = {
+        name: entry for name, entry in plugins.items() if isinstance(entry, dict)
+    }
+    anything = sorted(
+        name for name, entry in readings.items() if entry.get("admits_impossible")
+    )
+    if missing:
+        control_said = (
+            f"but the reading did not ask about {', '.join(missing)}, so it would "
+            "be green about them"
+        )
+    elif anything:
+        control_said = (
+            f"but {', '.join(anything)} admits digline {IMPOSSIBLE}, so its range "
+            "admits anything"
+        )
+    else:
+        control_said = f"and no served range admits digline {IMPOSSIBLE}"
+    held = not missing and not anything
+    owing = sorted(
+        (name, str(entry.get("version")), str(entry.get("requires")))
+        for name, entry in readings.items()
+        if not entry.get("admits")
+    )
+    title = (
+        f"{owing[0][0]} {owing[0][1]} caps the core below v{core}, and the "
+        "release it owes is not out"
+        if owing
+        else f"a plugin release owed to v{core} is not out"
+    )
+    if len(owing) > 1:
+        title += f", and {len(owing) - 1} more"
+    if unread:
+        return Finding(
+            step=step,
+            ok=False,
+            held=held,
+            answered=False,
+            said=f"PyPI did not answer for {', '.join(unread)} — not judged",
+            control_said=control_said,
+            title=title,
+        )
+    if owing:
+        said = "; ".join(
+            f"{name} {version} caps the core below v{core} ({requires}): the "
+            "release it owes is not out"
+            for name, version, requires in owing
+        )
+    else:
+        said = f"every plugin PyPI serves admits digline {core}"
+    return Finding(
+        step=step,
+        ok=not owing,
+        held=held,
+        said=said,
+        control_said=control_said,
+        title=title,
+    )
+
+
+def versions_to_ask(asked: str, titles: Sequence[str]) -> list[str]:
+    """The version a run was started for, then every release whose follow-up
+    issue is still open, oldest first (#634).
+
+    A follow-up issue is closed only by a run that asks about its release. A run
+    asked about the tree's version only, so once the next bump landed nothing
+    asked about the previous release again, and its issue could only be closed
+    by hand. Asked again, it closes when its two questions that do not move,
+    the approval and the Status block, are answered; the others say *not
+    applicable* about a superseded release.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    found: set[str] = set()
+    for title in titles:
+        if not title.startswith(SCOPE):
+            continue
+        version = title[len(SCOPE) :].split(":", 1)[0]
+        try:
+            Version(version)
+        except InvalidVersion:
+            continue
+        if version != asked:
+            found.add(version)
+    return [asked, *sorted(found, key=Version)]
+
+
 def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
     """The issue an unsound run earns: a title naming the step, and a body that
     is the whole reading rather than a link to it."""
@@ -764,7 +928,7 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
         if finding.applicable and finding.ok and not finding.held
     ]
     lines = [
-        f"The six checks `RELEASING.md` calls *After the tag* ran against "
+        f"The seven checks `RELEASING.md` calls *After the tag* ran against "
         f"**v{version}**. Each is asked twice: once for the answer, and once for "
         f"something that must be false — a check that cannot fail has verified "
         f"nothing.",
@@ -786,18 +950,13 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
     ]
 
     if broken:
-        title = (
-            f"Release follow-up for v{version}: "
-            f"a check that cannot fail ({broken[0].step})"
-        )
+        title = f"{SCOPE}{version}: a check that cannot fail ({broken[0].step})"
     elif unsound:
         first = unsound[0].title
         more = f", and {len(unsound) - 1} more" if len(unsound) > 1 else ""
-        title = f"Release follow-up for v{version}: {first}{more}"
+        title = f"{SCOPE}{version}: {first}{more}"
     else:
-        title = (
-            f"Release follow-up for v{version}: everything the runbook asks for is done"
-        )
+        title = f"{SCOPE}{version}: everything the runbook asks for is done"
 
     return {
         "ok": not unsound,
@@ -810,7 +969,7 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
         # the title is built, so the workflow greps for a string it was given
         # rather than one it reinvents — two spellings of a title is how an
         # issue about one release comes to be closed by a run about another.
-        "scope": f"Release follow-up for v{version}:",
+        "scope": f"{SCOPE}{version}:",
         "title": title,
         "body": "\n".join(lines),
         "steps": [
@@ -827,6 +986,17 @@ def _load(path: str | None) -> object:
 
 
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["versions"]:
+        # `versions ASKED OPEN_JSON`: the versions a run asks about, as JSON,
+        # from `gh issue list --json title`'s answer. (#634)
+        asked, listing = argv[1], _load(argv[2])
+        titles = [
+            str(issue.get("title", ""))
+            for issue in (listing if isinstance(listing, list) else [])
+            if isinstance(issue, dict)
+        ]
+        print(json.dumps(versions_to_ask(asked, titles)))
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
     parser.add_argument(
@@ -879,6 +1049,15 @@ def main(argv: list[str]) -> int:
             "instead of passing over step 5"
         ),
     )
+    parser.add_argument(
+        "--plugins",
+        required=True,
+        help=(
+            "what `plugins_against_core.py owed` wrote about the workspace's "
+            "plugins. Required, so that a workflow which stops fetching it fails "
+            "here instead of passing over question 7"
+        ),
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
 
@@ -919,6 +1098,7 @@ def main(argv: list[str]) -> int:
             args.version,
             current=current,
         ),
+        plugins_finding(_load(args.plugins), root, current=current),
     ]
     written = report(findings, args.version)
     Path(args.out).write_text(json.dumps(written, indent=2), encoding="utf-8")
