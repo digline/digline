@@ -29,6 +29,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+from typing import cast
 
 import pytest
 import yaml
@@ -406,7 +407,7 @@ def test_the_testpypi_job_exports_the_classification() -> None:
 
 
 def pypi_step(needle: str) -> dict[str, object]:
-    steps = list(jobs()["pypi"]["steps"])  # pyright: ignore[reportArgumentType]
+    steps = cast("list[dict[str, object]]", jobs()["pypi"]["steps"])
     return steps[position(steps, needle)]
 
 
