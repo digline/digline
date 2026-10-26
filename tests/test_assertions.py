@@ -1106,6 +1106,26 @@ def test_a_target_that_reports_no_trajectory_errors_rather_than_judging() -> Non
     assert "not knowable" in v.reason
 
 
+def test_the_refusal_names_the_key_a_function_target_fills() -> None:
+    """#626: a function target that reported `tool_calls` and no `tools` was
+    told that *only a provider target* could be judged on its trajectory,
+    which `examples/langgraph`, a plain function, disproves. The refusal names
+    what is missing, the `tools` key, and how a function supplies it."""
+    v = ToolsCalled(expected=["search"])(
+        trajectory(tool_calls=[{"tool": "search", "arguments": {}}])
+    )
+    assert v.status == "error"
+    assert "only a provider" not in v.reason
+    assert "`tools`" in v.reason
+    assert "Response(metadata=" in v.reason
+
+
+def test_a_function_target_that_fills_the_key_is_judged() -> None:
+    """The control: the same function with the key is judged, not refused."""
+    v = ToolsCalled(expected=["search"])(trajectory(tools=["search"]))
+    assert v.status == "pass"
+
+
 def test_an_empty_trajectory_is_judged_and_a_missing_one_is_not() -> None:
     """The pair that makes the distinction worth carrying: same assertion, same
     expectation, two different statuses."""
