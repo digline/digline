@@ -859,11 +859,18 @@ def headline(
     judged_nothing = "nothing_judged" in causes
     nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
 
-    # A run that judged nothing compared nothing, so *Nothing got worse.* is not
-    # said of it: beside the sentence above it read as a third fact contradicting
-    # the first. A regression, if a check outside the subject cases has one, is
-    # still counted. (#576)
-    if regressed == 0 and judged_nothing:
+    # *Nothing got worse.* is about the checks that were compared. It is not said
+    # where no case was judged and no check was compared: a run whose every case
+    # was suspended or errored, where beside *None of the cases … was judged* it
+    # read as a third fact contradicting the first (#576). Two neighbours keep
+    # it. A run-level check compared over such a run makes it true of that
+    # check. And a run that judged a case but compared no check, because each
+    # was redefined, keeps it qualified by the clause after it, which names the
+    # pairs (#642). A regression is always counted.
+    compared = any(
+        d.outcome in ("regressed", "improved", "unchanged") for d in comparison.deltas
+    )
+    if regressed == 0 and judged_nothing and not compared:
         worse_text = ""
     elif regressed == 0:
         worse_text = phrase(locale, "fact.worse.none")
