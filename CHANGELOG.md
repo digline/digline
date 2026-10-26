@@ -23,8 +23,10 @@ notes under them are this file, verbatim.
   - **The classification is made on every tag, and one never made stops the
     check** (#731). It came from the step that runs on `v*` tags only, so on a
     plugin tag the PyPI job was handed an empty output and installed the whole
-    manifest; on `pytest-digline-v0.4.0` and `digline-mcp-v0.6.3` that passed
-    only because nothing needed leaving out. A step of its own now makes it on
+    manifest. On `pytest-digline-v0.4.0` that went red with
+    `ResolutionImpossible` over digline-mcp 0.6.2, which the TestPyPI job had
+    left out two jobs before; on `digline-mcp-v0.6.3` it passed only because
+    nothing needed leaving out. A step of its own now makes it on
     every tag, and it begins with the word `classified`: an output no step
     wrote is the empty string, and the install check stops on it rather than
     read it as nothing to exclude.
