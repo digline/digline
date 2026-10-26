@@ -183,23 +183,27 @@ section moves with it.
 ## Not decided here
 
 - **The refusals whose names cannot be carried in fields where they are
-  raised.** Enumerated at `12bf942a` over every construction of a class in
-  `REFUSALS` under `src/` and `packages/*/src`, raised where it is built or
-  returned to be raised, less `digline.cli` and pytest-digline, which are not
-  this server's, and over the server's own `refuse` calls. A refusal whose
-  sentence is composed at its raise from values in scope can carry those values
-  as fields. One that quotes another digline refusal holds that refusal's
-  object, in `Quoted.cause` or in the `from` chain, and can carry its fields
-  on. One that quotes an exception digline did not write already keeps that
-  message from the agent (ADR 0043). One is in none of the three:
+  raised: none that this server raises.** Enumerated at `12bf942a` over every
+  construction of a class in `REFUSALS` under `src/` and `packages/*/src`,
+  raised where it is built or returned to be raised, less `digline.cli` and
+  pytest-digline, which are not this server's, and over the server's own
+  `refuse` calls. A refusal whose sentence is composed at its raise from values
+  in scope can carry those values as fields. One that quotes another digline
+  refusal holds that refusal's object, in `Quoted.cause` or in the `from`
+  chain, and can carry its fields on. One that quotes an exception digline did
+  not write already keeps that message from the agent (ADR 0043). One is in
+  none of the three, and this server does not raise it:
   - **`JournalRefusedError`, raised from `Pending.refusal` in
     `digline/host/measure.py`.** The sentence is composed in the store, by
     `FileResultStore`'s survey of a run's journal, and reaches the raise as a
-    `str` on `Pending`, a value of the `ResultStore` protocol. It quotes the
-    run key, a record kind read from the journal file, and in two places the
-    text of another exception. At the raise there is only the string. Carrying
-    its names in fields is a change to a protocol value, not to a raise, and
-    this record does not make it.
+    `str` on `Pending`, a value of the `ResultStore` protocol. At the raise
+    there is only the string. **It is raised only on a resume, and this server
+    never resumes:** its `run` tool calls `measure` with `resume=None`, and no
+    tool can make it anything else (ADR 0017 §11, `digline_mcp/server.py`). So
+    the sentence reaches the command line, the perimeter of the person who ran
+    it (ADR 0043), and no response of this server. What is not decided is what
+    it would become if a resume were ever added here: carrying its names in
+    fields is then a change to a protocol value, not to a raise.
 
   What the enumeration does not cover: a refusal raised by a suite or by the
   application it imports, which is ADR 0043's and never reaches the agent with
