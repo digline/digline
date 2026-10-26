@@ -40,10 +40,12 @@ def test_a_key_added_removed_and_retyped_are_each_named() -> None:
         "run.key: string",
         "run_document.case.case_id: string | null",
     ]
+    # In name order, as the tool prints: `run.sentence` sorts before
+    # `run_document...`, `.` before `_`.
     assert tool.diff(then, now) == [
         "added    run.errored_checks: integer",
-        "changed  run_document.case.case_id: string -> string | null",
         "removed  run.sentence: string",
+        "changed  run_document.case.case_id: string -> string | null",
     ]
 
 
@@ -67,3 +69,17 @@ def test_a_reference_against_itself_is_empty() -> None:
     lines = tool.contract_at("HEAD", ROOT)
     assert len(lines) > 100, "the contract read is too small to be the contract"
     assert tool.diff(lines, tool.contract_at("HEAD", ROOT)) == []
+
+
+def test_what_it_reads_is_the_derived_contract_and_not_a_table() -> None:
+    """The point of the tool: it reads `_lines(_SHAPES)`, the contract as it
+    stands, and not `_BASE`, `_ADDED` or `_ADDED_WORDS`, which are how the
+    contract is assembled. A reading of any one table would differ from this
+    as soon as the other two hold a key, and under `OUTPUT_VERSION = 3` they do.
+    (#709)"""
+    from digline.wire.contract import (
+        _SHAPES,  # pyright: ignore[reportPrivateUsage]
+        _lines,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    assert tool.contract_at("HEAD", ROOT) == _lines(_SHAPES)

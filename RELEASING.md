@@ -4294,14 +4294,18 @@ two are not an inconsistency to reconcile.
   given from memory said five, and there were four.
 - **The keys of the JSON contract**, which a pipeline parses as surely as a
   program imports a name. Diff **the derived contract**, `_lines(_SHAPES)` in
-  `src/digline/wire/contract.py`, imported in **both** trees, the way the
-  fields are below:
+  `src/digline/wire/contract.py`, imported in **both** trees.
+  `tools/contract_diff.py` does it (#709): it extracts each reference with
+  `git archive`, reads the contract in each with a separate interpreter, and
+  prints one line per key added, removed or changed, nothing when nothing
+  moved:
 
   ```sh
-  uv run python -c 'from digline.wire import contract as c; print("\n".join(c._lines(c._SHAPES)))' > /tmp/now.keys
-  # the same in the worktree at v<last>, into /tmp/then.keys
-  diff /tmp/then.keys /tmp/now.keys
+  uv run python tools/contract_diff.py v<last> HEAD
   ```
+
+  Over v0.33.0 and v0.34.0 it prints the eight keys that release added and
+  nothing else; a reference against itself prints nothing.
 
   `_SHAPES` is `_BASE` with every `_ADDED` entry and every `_ADDED_WORDS` word
   applied. It prints one line per key, with its types and a map's closed
