@@ -1251,10 +1251,15 @@ class ToolsCalled(AssertionBase):
             # Failing would report a finding nobody established; passing would
             # do the same in the direction of good news. So: the third outcome,
             # which is what ADR 0001 has it for.
+            # It said *only a provider target* could be judged on its
+            # trajectory, which a function filling the key disproves. It names
+            # the key, and how a function supplies it. (#626)
             return self._error(
                 "this target reports no tool calls, so what the model called is "
-                "not knowable: only a provider target on a provider that reports "
-                "them can be judged on its trajectory"
+                "not knowable: the trajectory is read from a list of names under "
+                "`tools` in the response's metadata, which a provider target "
+                "fills where its provider reports them and a function target "
+                'fills itself, with Response(metadata={"tools": [...]})'
             )
         if not isinstance(found, list | tuple):
             return self._error(
