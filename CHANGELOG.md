@@ -635,6 +635,19 @@ digline **0.34.0**.
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
 
+## digline-mcp — unreleased
+
+- **`run` refuses an unreadable baseline before it asks for the count, and
+  takes `accepting_baseline_schema`** (#707). A baseline at a schema this
+  digline cannot read made `run` ask an agent to type back a count of calls,
+  and only then say the calls would not be made. The refusal now comes first,
+  and names the parameter and the schema by number. `accepting_baseline_schema`
+  goes through it as `--accepting-baseline-schema` does on `digline run`, the
+  number expiring by itself, and naming another schema is refused. The rule that
+  an agent never passes an acceptance on its own initiative now covers the
+  parameter, in `AGENTS.md`, the skill and the tool's description. No exit code
+  and no name moves: a patch.
+
 ## digline-mcp 0.6.3 — 2026-10-26
 
 Published by its own tag, `digline-mcp-v0.6.3`, after digline 0.34.0 was on
@@ -687,6 +700,15 @@ in, which is a correction of a sentence and not a change to a tool.
   both scores. That core is the minor above 0.34, so this reaches a session
   only through the release of this plugin whose cap admits it: 0.4.0's `<0.35`
   does not.
+
+- **The test module that drove a run is not counted in `modules_unchecked`**
+  (#623; ADR 0052, amended). Under `--digline-run`, a test module beside the
+  suite that imports the application was recorded as unchecked:
+  `['app', 'test_app_first']`. pytest imported it when it collected it, so by
+  provenance it was in the count, but it is the run's caller and not something
+  the run called. The modules pytest collected as tests are now left out, and
+  the application module a test imported is still counted. Outside pytest
+  nothing changes. No exit code and no name moves: a patch.
 
 ## pytest-digline 0.4.0 — 2026-10-26
 

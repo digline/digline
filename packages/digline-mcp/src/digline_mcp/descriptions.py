@@ -134,6 +134,12 @@ not a verdict, and an empty list means the suite was read and had none. A note
 is answered, not silenced. **Do not move a tolerance, declare a KIND
 unchecked, or drop a case to make a note go away.**
 
+A baseline this digline cannot read is refused before the count is asked: a
+run now could not be compared with it. `accepting_baseline_schema` goes through
+that refusal, by the schema number it names. Accepting it is the person's
+decision: put the schema in front of them, and never pass the parameter on your
+own initiative.
+
 Before proposing a hunt that means several runs, multiply that line by the
 number of runs and say the figure out loud in your recommendation. Five runs
 over a hundred-call suite is five hundred model calls, and that is a decision

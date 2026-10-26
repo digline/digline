@@ -514,3 +514,21 @@ def test_the_field_stays_out_of_config_hash() -> None:
         "two runs of one configuration differ in config_hash because they "
         "differ in modules_unchecked: the field entered the run's identity"
     )
+
+
+@pytest.mark.usefixtures("process_state")
+def test_outside_pytest_a_module_already_loaded_is_counted_as_before(
+    tmp_path: Path,
+) -> None:
+    """#623's control: the caller is left out only by the front end that knows
+    it. `load_suite` counts by provenance alone, so a module of the suite's
+    directory that something else imported first is counted, as it was."""
+    suite = a_suite(tmp_path, "solo", extra="import helper")
+    (suite.parent / "helper.py").write_text("VALUE = 1\n", encoding="utf-8")
+    sys.path.insert(0, str(suite.parent))
+    try:
+        importlib.import_module("helper")
+    finally:
+        sys.path.remove(str(suite.parent))
+    _value, loaded = load_suite(str(suite))
+    assert "helper" in loaded.modules_unchecked

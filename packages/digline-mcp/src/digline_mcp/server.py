@@ -39,6 +39,7 @@ from mcp.types import ToolAnnotations
 from digline.core import Run, key_of
 from digline.core import compare as compare_runs
 from digline.core import diff as diff_runs
+from digline.core.run import DocumentRefusedError
 from digline.host import (
     Loaded,
     Resolved,
@@ -54,6 +55,7 @@ from digline.host import (
     read_artifacts,
     read_pinned,
     read_run,
+    refuse_unreadable_baseline,
     resolve_key,
     suite_runs,
     unignored,
@@ -364,7 +366,11 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         )
 
     @translated
-    def run(suite: str, acknowledge_calls: int | None = None) -> dict[str, Any]:
+    def run(
+        suite: str,
+        acknowledge_calls: int | None = None,
+        accepting_baseline_schema: int | None = None,
+    ) -> dict[str, Any]:
         # One `opened` for the whole tool: the plan below needs the suite and
         # the target needs the module, and they come from the same load.
         open_ = opened(suite)
@@ -403,6 +409,25 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # every refusal `prepare` carries lives on the resume branch, so it
         # cannot raise `JournalRefusedError` here, and `errors.TRANSLATED` needs
         # nothing added for it.
+        # Before the plan and before the count: a run whose comparison cannot
+        # be read is refused before an agent is asked to type back a number of
+        # calls that will not be made. The way through is the schema by number,
+        # which expires by itself, and over this server it is this tool's
+        # parameter; the core's sentence names the command line's flag, so the
+        # parameter is named after it. (#707; ADR 0014 §5)
+        try:
+            refuse_unreadable_baseline(
+                store, loaded_suite, accepting_schema=accepting_baseline_schema
+            )
+        except DocumentRefusedError as exc:
+            if exc.declared_schema is None or accepting_baseline_schema is not None:
+                raise
+            refuse(
+                f"{exc}. Over this server the same acceptance is "
+                f"accepting_baseline_schema={exc.declared_schema} on this tool, "
+                "and it is the person's decision, never yours to take on your "
+                "own initiative"
+            )
         prepared = prepare(
             loaded_suite,
             target,
@@ -425,6 +450,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             # The process this server is, long-lived, is the case ADR 0052 was
             # written for. (decision 2)
             modules_unchecked=open_.loaded.modules_unchecked,
+            accepting_baseline_schema=accepting_baseline_schema,
         )
         # In this server's log, which the person who started it reads, and not
         # in the answer: whether a directory is committed is the operator's

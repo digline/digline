@@ -209,8 +209,17 @@ def pytest_collection_modifyitems(
     renamed: dict[str, list[str]] = {}
     specs = _specs(config)
     _refuse_the_same_suite_twice(specs)
+    # The modules pytest collected as tests drove the run: they are its caller,
+    # not something it called, so a suite's count leaves them out. Read before
+    # this hook adds a row, so only pytest's own items are asked. (ADR 0052,
+    # decision 2, amended 2026-10-26; #623)
+    callers = frozenset(
+        module.__name__
+        for item in items
+        if (module := getattr(item, "module", None)) is not None
+    )
     for spec in specs:
-        opened = _open(spec, config)
+        opened = _open(spec, config, callers=callers)
         node = _suite_node(session, spec, opened, renamed)
         items.extend(node.collect())
         config.stash[SUITES].append((node.nodeid, opened))
@@ -402,7 +411,9 @@ class _Opened:
     note: str = ""
 
 
-def _open(spec: str, config: pytest.Config) -> _Opened:
+def _open(
+    spec: str, config: pytest.Config, *, callers: frozenset[str] = frozenset()
+) -> _Opened:
     """Load, run if asked, compare. Every refusal on the way is a usage error.
 
     `UsageError` becomes `pytest.UsageError`, which stops the session with
@@ -435,7 +446,12 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
 
     root = Path(config.getoption("digline_root") or config.rootpath)
     try:
-        return _opened(spec, root, run_first=bool(config.getoption("digline_run")))
+        return _opened(
+            spec,
+            root,
+            run_first=bool(config.getoption("digline_run")),
+            callers=callers,
+        )
     except UsageError as exc:
         raise pytest.UsageError(visible(f"digline: {exc}")) from exc
     except (*REFUSALS, OSError) as exc:
@@ -462,7 +478,13 @@ def _open(spec: str, config: pytest.Config) -> _Opened:
         )
 
 
-def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
+def _opened(
+    spec: str,
+    root: Path,
+    *,
+    run_first: bool,
+    callers: frozenset[str] = frozenset(),
+) -> _Opened:
     from digline.core import compare
     from digline.host import (
         load_suite,
@@ -486,7 +508,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
         # The refusal is the same 4 either way; the spending is what moves.
         # (#621)
         refuse_unreadable_baseline(store, suite)
-        _measure(suite, loaded, spec, path, store, root=root)
+        _measure(suite, loaded, spec, path, store, root=root, callers=callers)
 
     resolved = resolve_key(store, suite, "latest")
     run = read_run(store, suite, resolved.key)
@@ -514,6 +536,7 @@ def _measure(
     store: ResultStore,
     *,
     root: Path,
+    callers: frozenset[str] = frozenset(),
 ) -> None:
     """`--digline-run`: the run, and the count said out loud before it.
 
@@ -566,7 +589,10 @@ def _measure(
         pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
         # A test module importing the application the suite imports is the
         # normal arrangement here, and the run says so. (ADR 0052, decision 2)
-        modules_unchecked=loaded.modules_unchecked,
+        # The test modules themselves are the caller and are left out (#623).
+        modules_unchecked=tuple(
+            n for n in loaded.modules_unchecked if n not in callers
+        ),
     )
     store.write_run(run)
     # After the write, as `digline run` asks it, so a fresh repository's first

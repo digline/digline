@@ -206,9 +206,11 @@ check; whether to make that promotion is still a person's decision.
 
 A `run` or a `rejudge` whose baseline is at a schema this digline cannot read
 is refused before it spends, until the schema the refusal names is passed with
-`--accepting-baseline-schema`. Accepting a run that cannot be compared is a
+`--accepting-baseline-schema`, or over digline-mcp with
+`accepting_baseline_schema` on its `run` tool, where the refusal now comes
+before the count of calls. Accepting a run that cannot be compared is a
 person's decision, by rule 1: put the schema in the evidence, and never pass
-the flag on your own initiative. (#621)
+the flag on your own initiative; the same holds for the parameter. (#621, #707)
 
 **Name the digline that produced what you are reading.** Run the CLI through
 the project's environment (`uv run digline …`), never a bare `digline`, which
