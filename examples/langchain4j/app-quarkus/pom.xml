@@ -15,7 +15,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
-    <quarkus.platform.version>3.40.1</quarkus.platform.version>
+    <quarkus.platform.version>3.40.1.1</quarkus.platform.version>
     <quarkus-langchain4j.version>1.14.2</quarkus-langchain4j.version>
   </properties>
 
@@ -23,12 +23,12 @@
     <dependencies>
       <!-- Jackson's own BOM, ahead of what this Quarkus manages, and
            declared before quarkus-bom so it wins: of two imported BOMs, the
-           first one declared wins. quarkus-bom 3.40.1 manages Jackson at
+           first one declared wins. quarkus-bom 3.40.1.1 manages Jackson at
            2.21.7; with this pin, dependency:tree resolves jackson-databind
-           and jackson-core to 2.22.3 (measured 2026-10-07).
+           and jackson-core to 2.22.4 (measured 2026-10-26).
            Two advisories published 2026-09-30 (GHSA-cxp5-3px4-pw24,
            GHSA-wv8q-qhhj-9h54) were fixed in jackson-databind 2.22.3. Without
-           this pin the 3.40.1 BOM would fix them too, but by moving back from
+           this pin the 3.40.1.1 BOM would fix them too, but by moving back from
            the 2.22 line to 2.21.7, a minor line backwards for a patch.
            **Why the whole BOM and not one artifact.** On 2026-09-30 this
            pinned jackson-databind alone. On 2026-10-01 two advisories arrived
@@ -38,13 +38,16 @@
            have them. A pin on one artifact covers one advisory; the BOM covers
            the class, every Jackson artifact moving together.
            They reached this repository through Scorecard alone. GitHub's
-           dependency graph reads only this pom's direct dependencies, which
-           name no Jackson artifact, so Dependabot raised nothing. This pin
-           goes away when quarkus-bom's own managed version passes it. -->
+           dependency graph read only this pom's direct dependencies, which
+           then named no Jackson artifact, so Dependabot raised nothing. This
+           pin names jackson-bom directly, so the graph now sees it and
+           Dependabot raises it: #724 was that raise (2026-10-26). This pin
+           goes away when quarkus-bom's own managed version passes it, and at
+           3.40.1.1 it does not: 2.21.7 against the pin's 2.22.4. -->
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
-        <version>2.22.3</version>
+        <version>2.22.4</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
