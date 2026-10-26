@@ -52,6 +52,7 @@ from digline.core import (
     unjudged_cases,
     unpaired,
     unreconciled,
+    within,
 )
 from digline.report.text import Locale, phrase, strings
 
@@ -1615,9 +1616,16 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
         )
         text = phrase(locale, key, before=was, now=is_now)
         if now.threshold != before.threshold:
+            # "Rather than of behaviour" is true only where the score held, read
+            # by the rule `compare()` reads a movement with: within the check's
+            # tolerance. Beyond it, the rule and the behaviour both changed, and
+            # the sentence says both. (#642)
+            held = within(abs(now.score.score - before.score.score), now.tolerance)
             text += phrase(
                 locale,
-                "detail.threshold_moved",
+                "detail.threshold_moved"
+                if held
+                else "detail.threshold_moved.score_moved",
                 before_threshold=fmt_score(before.threshold),
                 now_threshold=fmt_score(now.threshold),
             )

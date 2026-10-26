@@ -735,6 +735,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             " The bar moved from {before_threshold} to {now_threshold}, so this is "
             "a change of rule rather than of behaviour."
         ),
+        # Where the score moved beyond the check's tolerance as well, the sentence
+        # above would say the behaviour did not change, and it did: both are
+        # named, and neither is said to exclude the other. (#642)
+        "detail.threshold_moved.score_moved": (
+            " The bar moved from {before_threshold} to {now_threshold}, and the "
+            "score moved beyond the check's tolerance too, so both the rule and "
+            "the behaviour changed."
+        ),
         "detail.new": "Checked here, not present in the reference.",
         "detail.new.errored": ("New here, and the check could not run."),
         "detail.missing": "Present in the reference, not checked here.",
@@ -2047,6 +2055,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.threshold_moved": (
             " La soglia si è spostata da {before_threshold} a {now_threshold}, "
             "quindi è un cambio di regola e non di comportamento."
+        ),
+        "detail.threshold_moved.score_moved": (
+            " La soglia si è spostata da {before_threshold} a {now_threshold}, e "
+            "anche il punteggio si è mosso oltre la tolleranza del controllo, "
+            "quindi sono cambiati sia la regola sia il comportamento."
         ),
         "detail.new": "Controllato qui, assente nel riferimento.",
         "detail.new.errored": (
