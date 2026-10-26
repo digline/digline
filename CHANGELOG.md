@@ -375,6 +375,16 @@ digline **0.34.0**.
   The rows keep their nodeids, so `-k`, `--deselect` and `--lf` still name them,
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
+- **A session ends `1` where a check could not be paired with its reference**
+  (#642). With the core release that carries the cause `unpaired`, a
+  comparison holding a `missing` and a `new` on the same case under the same
+  name exits `2`, and a session whose suite digline does not call green ends
+  `1`, as it does for every other cause. It ended `0`. **The exit status a
+  session ends with changed, so the next version is a minor**, though the
+  plugin's code does not change. The rows do not change: the `missing` side is
+  still a `SKIPPED` row and the `new` side a row of its own, and the suite's
+  sentence in the session's summary says which checks were not compared, with
+  both scores.
 
 ## digline-bedrock — unreleased
 
