@@ -760,7 +760,9 @@ def _suspensions(run: Run) -> list[Fact]:
 
 
 def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
-    """The reading, in sentences. One line per fact, in the list's order.
+    """The reading, in sentences. One line per fact, in the list's order, but
+    for the unjudged tally of a run that judged no case, which says nothing
+    rather than something false of it (#576).
 
     A pure function of the fact list and of nothing else — that is what makes
     "the prose is a render of the list" a property rather than a promise
@@ -785,7 +787,11 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
     # every other number here rather than off the run.
     counts = {fact.kind: fact.count for fact in tallies}
     lines: list[str] = [phrase(locale, "explain.heading.tally")]
-    lines.extend(_tally_line(fact, locale, counts) for fact in tallies)
+    # A tally line can be empty: one that would say something false of this run
+    # says nothing instead. (#576)
+    lines.extend(
+        line for fact in tallies if (line := _tally_line(fact, locale, counts))
+    )
 
     lines.append("")
     lines.append(phrase(locale, f"explain.heading.settings.{where}"))
@@ -806,6 +812,14 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
 def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
     match fact.kind:
         case "unjudged":
+            # *Every case could be judged.* means no case ended unjudged, and a
+            # run whose every case was suspended, or that holds none, meets that
+            # while judging nothing; the Italian says *every case was judged*,
+            # which is false there. So it is said only where a case was judged.
+            # The suspensions, on their own line, say why. (#576)
+            judged = counts.get("cases", 0) - counts.get("suspended", 0) - fact.count
+            if fact.count == 0 and judged <= 0:
+                return ""
             return unjudged_sentence(
                 counts.get("cases", 0),
                 fact.count,
