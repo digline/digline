@@ -8,6 +8,8 @@ cases while individual cases moved by three votes.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,7 @@ from digline.core import (
     Precision,
     Ratio,
     Recall,
+    RunAssertionBase,
     Run,
     Score,
     Verdict,
@@ -29,7 +32,9 @@ from digline.core import (
     run_to_json,
 )
 from digline.report import headline, render_html, summary_lines
+from digline.core.aggregate import build_matrix
 from digline.run import Case, Response, Suite, execute
+from digline.wire import EXIT_OK, exit_code, run_exit_code
 
 BASE_AT = "2026-01-01T00:00:00+00:00"
 LATER_AT = "2026-01-02T00:00:00+00:00"
@@ -567,3 +572,132 @@ def test_the_boundary_holds_for_every_aggregate() -> None:
         verdict = metric(cases)
         assert verdict.score.score == 0.666667, metric.name
         assert verdict.status == "pass", metric.name
+
+
+# --------------------------------------------------------------------------- #
+# A custom aggregate's empty denominator (#735)
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class MeanScore(RunAssertionBase):
+    """An aggregate written from `docs/api.md`, *A custom aggregate*: over raw
+    scores, so it needs no label, and it exits through `_graded`. Its mean over
+    no score is `1.0`, a vacuous figure `_graded` must not pass on."""
+
+    over: str
+    threshold: Ratio
+    tolerance: Ratio
+    name: str = "mean_score"
+    by_group: bool = False
+    group: str | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        self._normalize()
+
+    @property
+    def requires_label(self) -> bool:
+        return False
+
+    def __call__(self, outcomes: Sequence[CaseOutcome]) -> Verdict:
+        scores = [
+            o.verdict.score.score
+            for o in outcomes
+            if o.verdict is not None and o.verdict.score.score is not None
+        ]
+        mean = sum(scores) / len(scores) if scores else 1.0
+        return self._graded(
+            mean, f"mean over {len(scores)} scores", build_matrix(outcomes)
+        )
+
+
+def mean_score() -> MeanScore:
+    return MeanScore(over=AGREES, threshold="1/2", tolerance="1/6")
+
+
+def test_graded_refuses_an_empty_denominator_as_ratio_does() -> None:
+    """Every case suspended: the mean is over nothing, and `_graded` says so in
+    `_ratio`'s words, `precision` and `mean_score` differing only by name."""
+    parked = [
+        outcome("a", "positive", agreed=None),
+        outcome("b", "negative", agreed=None),
+    ]
+    v = mean_score()(parked)
+    assert v.status == "error"
+    assert v.score.score is None
+    assert v.reason == (
+        "nothing to measure: mean_score has an empty denominator "
+        "(0 counted, 2 suspended, 0 could not be judged)"
+    )
+    ratio = Precision(over=AGREES, threshold=0.65, tolerance=0.05)(parked)
+    assert v.reason.replace("mean_score", "precision") == ratio.reason
+
+
+def test_graded_refuses_a_denominator_every_case_of_which_errored() -> None:
+    v = mean_score()([errored("a", "positive"), errored("b", "negative")])
+    assert v.status == "error"
+    assert v.reason == (
+        "nothing to measure: mean_score has an empty denominator "
+        "(0 counted, 0 suspended, 2 could not be judged)"
+    )
+
+
+def test_graded_keeps_the_true_score_over_judged_cases() -> None:
+    """The control: two judged cases with no label, one agreeing, give their
+    mean, which is a real figure."""
+    judged = [
+        CaseOutcome("a", None, outcome("a", "positive", agreed=True).verdict),
+        CaseOutcome("b", None, outcome("b", "negative", agreed=False).verdict),
+    ]
+    v = mean_score()(judged)
+    assert v.status == "pass"
+    assert v.score.score == 0.5
+    assert v.reason == "mean over 2 scores"
+
+
+def _mixed(*, parked: bool) -> Suite:
+    """Some cases judged, and a class whose cases are all suspended."""
+    return Suite(
+        tenant="acme",
+        environment="staging",
+        name="mixed",
+        assertions=[Contains(needle="MATCH", name=AGREES)],
+        run_assertions=[
+            MeanScore(over=AGREES, threshold="1/2", tolerance="1/6", by_group=True)
+        ],
+        cases=[
+            Case(id="a1", group="kept"),
+            Case(id="a2", group="kept"),
+            Case(id="b1", group="parked", suspended="under review" if parked else None),
+            Case(id="b2", group="parked", suspended="under review" if parked else None),
+        ],
+    )
+
+
+def _answer(case: Case) -> Response:
+    return Response(output="MISS" if case.group == "parked" else "MATCH")
+
+
+def test_a_class_set_aside_is_an_error_and_moves_no_exit_code() -> None:
+    """The measured case: the class answers wrong, so judged its mean is `0.0`;
+    every case of it suspended, it used to pass at `1.0` over no score. Now it
+    is `error`, and the exit code is what it was: an aggregate that errors
+    changes none (`docs/api.md`, *Per class*)."""
+    reference = execute(_mixed(parked=False), _answer, created_at=BASE_AT)
+    run = execute(_mixed(parked=True), _answer, created_at=LATER_AT)
+    by_name = {v.score.name: v for v in run.aggregate}
+    parked = by_name["mean_score[group=parked]"]
+    assert parked.status == "error"
+    assert "empty denominator" in parked.reason
+    assert by_name["mean_score[group=kept]"].score.score == 1.0
+    reference_parked = {v.score.name: v for v in reference.aggregate}[
+        "mean_score[group=parked]"
+    ]
+    assert (reference_parked.status, reference_parked.score.score) == ("fail", 0.0)
+
+    declared = _mixed(parked=True).declared()
+    assert run_exit_code(run, declared=declared) == EXIT_OK
+    head = headline(
+        compare(run, reference), run, reference, locale="en", declared=declared
+    )
+    assert exit_code(head) == EXIT_OK
