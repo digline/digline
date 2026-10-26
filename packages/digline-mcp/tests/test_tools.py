@@ -567,3 +567,61 @@ def test_log_reads_a_projected_baseline_and_matches_the_cli(tmp_path: Path) -> N
 
     assert answered["reference"]["target"]["absence"] == "projected"
     assert answered == json.loads(shown.stdout)
+
+
+# --------------------------------------------------------------------------- #
+# A baseline this digline cannot read: refused before the count (#707)
+# --------------------------------------------------------------------------- #
+
+
+def _baseline_ahead(root: Path) -> int:
+    """Raise the promoted baseline's schema past this digline's, and return it."""
+    (path,) = sorted((root / ".digline").glob("*/baselines/*.json"))
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["schema_version"] = SCHEMA_VERSION + 1
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    return SCHEMA_VERSION + 1
+
+
+def test_an_unreadable_baseline_is_refused_before_the_count_is_asked(
+    promoted: Path,
+) -> None:
+    """The refusal came after the acknowledgement: an agent typed back a count
+    of calls and was only then told they would not be made. It now comes
+    first, and it names the parameter and the number."""
+    ahead = _baseline_ahead(promoted)
+    before = sorted((promoted / ".digline").rglob("*.json"))
+    message = refusal(promoted, "run", suite=str(promoted / "suite_qa.py"))
+    assert f"schema {ahead}" in message
+    assert f"accepting_baseline_schema={ahead}" in message
+    assert "acknowledge_calls=" not in message
+    assert sorted((promoted / ".digline").rglob("*.json")) == before
+
+
+def test_accepting_the_schema_by_number_then_asks_for_the_count(
+    promoted: Path,
+) -> None:
+    """Accepted by name, the run is planned as any other, and the count is
+    still the agent's to type back."""
+    ahead = _baseline_ahead(promoted)
+    message = refusal(
+        promoted,
+        "run",
+        suite=str(promoted / "suite_qa.py"),
+        accepting_baseline_schema=ahead,
+    )
+    assert "acknowledge_calls=2" in message
+
+
+def test_accepting_another_schema_is_refused(promoted: Path) -> None:
+    """The number names the schema the refusal names, and no other: an
+    acceptance of something that is not there is a mistake, not a no-op."""
+    ahead = _baseline_ahead(promoted)
+    message = refusal(
+        promoted,
+        "run",
+        suite=str(promoted / "suite_qa.py"),
+        accepting_baseline_schema=ahead + 1,
+        acknowledge_calls=2,
+    )
+    assert f"declares schema {ahead}" in message

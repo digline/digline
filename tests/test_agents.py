@@ -263,3 +263,49 @@ def test_every_acceptance_flag_has_its_rule_in_both_files() -> None:
             f"{path.relative_to(ROOT)} has no paragraph saying "
             f"{ACCEPTANCE_RULE!r} for {sorted(options - ruled)}"
         )
+
+
+def _accepting_parameters() -> set[str]:
+    """Every `accepting_*` parameter a digline-mcp tool declares, read off the
+    server's own tool schemas."""
+    import tempfile
+
+    import anyio
+    from digline_mcp.server import build_server
+
+    async def tools() -> set[str]:
+        server = build_server(tempfile.mkdtemp(), None, None)
+        found: set[str] = set()
+        for tool in await server.list_tools():
+            properties = cast(
+                dict[str, object], tool.input_schema.get("properties", {})
+            )
+            found.update(name for name in properties if name.startswith("accepting_"))
+        return found
+
+    return anyio.run(tools)
+
+
+def test_every_acceptance_parameter_has_its_rule_in_both_files() -> None:
+    """Over MCP the caller is an agent, so a tool parameter that goes through a
+    refusal a person rules on is under the same rule as its flag: named in a
+    paragraph saying an agent never passes it on its own initiative, in both
+    files. Read off the server's schemas, for the reason the flags are read off
+    the parser. (#707)"""
+    parameters = _accepting_parameters()
+    assert {"accepting_baseline_schema"} <= parameters, parameters
+    for path in (AGENTS, SKILL):
+        paragraphs = [
+            " ".join(block.split())
+            for block in path.read_text(encoding="utf-8").split("\n\n")
+        ]
+        ruled = {
+            parameter
+            for parameter in parameters
+            for paragraph in paragraphs
+            if ACCEPTANCE_RULE in paragraph and f"`{parameter}`" in paragraph
+        }
+        assert ruled == parameters, (
+            f"{path.relative_to(ROOT)} has no paragraph saying "
+            f"{ACCEPTANCE_RULE!r} for {sorted(parameters - ruled)}"
+        )
