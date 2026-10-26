@@ -257,6 +257,33 @@ artifacts that today exists in none of the audited competitors.
   answers a different question, passes silently and looks exactly like a pass.
   And a fact about anything that can change goes into a public text only if it
   was read for the sentence that states it, not earlier in the session.
+
+  **Three ways a verdict was not the one read**, each observed on 2026-10-26:
+  - **`git grep -E` has no `\s` and no `\b`** in this repository, and a
+    pattern with either matches nothing, silently, so *nothing imports X* is
+    reported over a tree where something does. Five times that day by the
+    maintainer's count, among them the imports of `langchain_core` in
+    `examples/` and of the SDKs in the plugins. Write `[[:space:]]`, drop `\b`,
+    and give every search whose answer is zero a positive control in the same
+    command: a string known to be there.
+  - **In a chain, know which command's status you are reading.** A
+    `merge-tree` reported `exit 1` that was the redirect's failure after it,
+    on a path that did not exist, and a pipe into `head` reports `head`'s. Run
+    the command whose verdict matters on its own, or read its status before
+    the next one.
+  - **A `workflow_dispatch` of `ci.yml` on a branch turns *The site still
+    builds from these docs* red**, whatever the branch holds: `sync-docs.sh`
+    refuses a checkout ahead of `origin/main`. Run 40332689482, on a
+    Dependabot branch, is the instance. It is a known red of the technique,
+    and the same job on the pull request's own run is the one to read.
+- **When a public sentence dictated to a session disagrees with what the
+  session measured, the measurement wins, and the session says so.** The
+  sentence goes out as measured, and the disagreement is reported beside it,
+  never left for the reader to find. *Observed 2026-10-26:* a comment on #651
+  was dictated to say that rewiring a judge would report a configuration
+  change; measured, a baseline that recorded no judge configuration answers
+  `unknown`, which is not a change, and what moves is the check's identity.
+  The comment says the second.
 - Every decision touching the "fixed" section requires an ADR in docs/adr/
   before the code.
 - Small commits, message in English, imperative.

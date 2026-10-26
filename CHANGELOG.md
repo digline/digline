@@ -181,8 +181,10 @@ notes under them are this file, verbatim.
   present at zero is a measurement and stays zero. No key of the documents
   changes and `OUTPUT_VERSION` does not move: a call's own usage rides the
   recorded answer, which `digline.wire` does not carry, and the marker already
-  took `false`. **A record a plugin builds may now carry `None`, so the next
-  version is a minor**, as #738's `_graded` refusal makes it.
+  took `false`. Widening a field of a record touches no name, option, exit
+  code or schema, so by *Choosing the version* it is a patch: the next version
+  is a minor for #642's exit code, not for this. *Corrected 2026-10-26:* this
+  said the widening made the next version a minor, and that #738 did too.
   - **The plugins' half is owed after this core is on PyPI.** Each provider
     plugin has to read each count through a helper that answers `None` where
     the field is absent, and hand over `Completion(usage=None)`. Its floor
@@ -250,8 +252,35 @@ notes under them are this file, verbatim.
   knows no list of kinds. It keeps one, and its dated note says so: a new kind
   is written in the core, and digline-ward, which stores a kind as text, does
   not change. No `OUTPUT_VERSION` or `SCHEMA_VERSION` moves: the field is
-  still a list of strings. **What a projected document carries changed for a
-  reader of one, and the next version is already a minor.**
+  still a list of strings. It touches no name, option, exit code or schema, so
+  by *Choosing the version* it is a patch, and the next version is a minor for
+  #642's exit code.
+
+- **The release follow-up asks which plugin releases a core release owes, and
+  asks every release whose follow-up is still open** (#731, #634).
+  `release-followup` has a seventh question. Every plugin under `packages/` is
+  read from PyPI with the `served` and `admits` the publish job reads by
+  (`plugins_against_core.py owed`), and a served version whose cap on digline
+  stops below the newest release is red by name until the release it owes is
+  out. 0.34.0's two were held only by rows in *Owed at the cut*. Its control is
+  a core no release carries, which no served range may admit, and a reading
+  that skipped a plugin of the workspace is a check that cannot fail. It asks
+  about a plugin's cap, not about an example's pins. And a run now asks about
+  the version it was started for and about every release named by an open
+  follow-up issue, one matrix leg each. A superseded release keeps the two
+  questions that do not move, and its issue closes when they are answered:
+  until now it could be closed only by hand. Nothing in digline's behaviour
+  moves: this is the release process, and a patch.
+  - `CONTRIBUTING.md` says that a `proposed` ADR is not an invitation to
+    implement it, and that from outside the project the way in is an issue
+    before code (#632).
+  - `docs/api.md` says what the identity's taking a judge by its type costs:
+    replacing a judge written as a function with one that is a class turns
+    every verdict of its checks into `missing` and `new` against a baseline
+    taken with the function.
+  - *Choosing the version* says the enumeration governs and the opening
+    sentence summarises it; a change to what a report says, touching no name,
+    option, exit code or schema, is a patch, with #738 and #740 its instances.
 
 ## 0.34.0 — 2026-10-26
 

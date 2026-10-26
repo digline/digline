@@ -26,6 +26,17 @@ The **patch** number is for everything that leaves existing suites, scripts and
 stored documents working unchanged: fixes, documentation, CI, and additions — a
 new public name, subcommand or option — as 0.10.1, 0.12.1 and 0.13.3 did.
 
+**The enumeration governs, and the opening sentence summarises it.** *Ruled
+2026-10-26.* *Something a user relies on stops working as it did* names what
+the list after it names, and does not add a case of its own: a minor is a
+public name removed or renamed, a CLI subcommand or option removed or changed
+in meaning, an exit code changed, a schema change that needs `migrate` or a
+re-promote, or a bump of `OUTPUT_VERSION`. A change to what a report or a
+sentence **says**, touching none of these, is a patch. Two instances, both
+merged on 2026-10-26 and ruled patches: #738, a custom aggregate's `_graded`
+refusing an empty denominator as `_ratio` does, and #740, a rise over a moved
+denominator withdrawn from the improvements.
+
 **A bump of `OUTPUT_VERSION` is a minor.** *Ruled 2026-10-25 (#669).* It is not
 added to the minor's list by analogy: it is derived from the patch's rule. The
 patch is for what leaves existing scripts working unchanged, and
@@ -4760,17 +4771,24 @@ names.
    this is skipped, and went red twice before anybody read it; it detects, it
    does not do.
 
-**Six of these now have a machine asking, and one place the answer lands.**
+**Seven questions now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
-asks the six questions of this list that have an answer a machine can check:
+asks the seven questions about a release that have an answer a machine can
+check:
 the example locks name the released version (step 3), the `publish` run's
 approvals record an `approved` (step 1), the three image tags resolve to one
 digest (step 2's other half), the Status block names the release (step 4),
 the example reports inside step 5's perimeter were rendered after the tag
 (step 5), and `digline-action`'s `action.yml` defaults to the released image
-both on `main` and on `v1` (step 7). Step 5 joined on 2026-10-26: 0.33.0's
-was skipped and nothing noticed, and 0.34.0 found the nine reports still
-rendered against 0.32.1. Each is asked twice — once for the answer and
+both on `main` and on `v1` (step 7), and every plugin PyPI serves admits the
+release. Step 5 joined on 2026-10-26: 0.33.0's was skipped and nothing
+noticed, and 0.34.0 found the nine reports still rendered against 0.32.1. The
+plugins joined the same day (#731): a served version whose cap on digline
+stops below the release is a plugin release the core release owes, and 0.34.0's
+two were held only by rows in *Owed at the cut*. That question is red by name
+until the owed release is out, read by `plugins_against_core.py owed` with the
+`served` and `admits` the publish job reads by. It asks about a plugin's cap,
+not about an example's pins on a plugin. Each is asked twice — once for the answer and
 once for something that must be false — because most of them fail open by
 construction, and a check that cannot fail has verified nothing.
 
@@ -4786,13 +4804,18 @@ and the run that finds that release's follow-up done closes it. Per release
 rather than per repository, which is a correction rather than a preference: with
 one issue for the whole repository, a green run about 0.15.3 closed an issue
 naming 0.15.2 — a step nobody had done, marked done by a run that never looked
-at it. An issue about another release is left open and named in the run's
-notices, because a follow-up still outstanding is itself worth seeing.
+at it. **And every release with an open follow-up is asked again** (#634,
+2026-10-26): a run asks about the version it was started for and about every
+release named by an open `release-followup` issue, one matrix leg each. Until
+then an issue about another release was left open and only named in the run's
+notices, so a superseded release's issue could be closed by nothing but a
+person, and closing it as *superseded* while what it reported was still true
+would have been a false close.
 
-**Four of the six are asked only about the newest release**, and this is what
-keeps such an issue from being immortal. The example locks, the `<minor>` and
-`latest` image tags, `digline-action`'s default image and the example reports
-are the *current state of a moving thing*: asked about a superseded release
+**Five of the seven are asked only about the newest release**, and this is
+what keeps such an issue from being immortal. The example locks, the `<minor>`
+and `latest` image tags, `digline-action`'s default image, the example reports
+and the plugins PyPI serves are the *current state of a moving thing*: asked about a superseded release
 they report that the locks name something else, that `latest` points
 elsewhere, that the action defaults to a newer image and that the reports were
 rendered after a later tag — which is what they are supposed to do, so the

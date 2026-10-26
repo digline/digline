@@ -316,6 +316,8 @@ def _main_args(tmp_path: Path, *extra: str) -> list[str]:
         str(action_file(tmp_path, "0.15.3")),
         "--after-tag",
         str(tmp_path / "after-tag.txt"),
+        "--plugins",
+        str(plugins_file(tmp_path, "0.15.3")),
         "--out",
         str(tmp_path / "report.json"),
         *extra,
@@ -712,6 +714,8 @@ def test_main_writes_the_report_and_exits_nonzero_on_a_skipped_step(
             str(action_file(tmp_path, "0.15.3")),
             "--after-tag",
             str(rendered(tmp_path)),
+            "--plugins",
+            str(plugins_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -750,6 +754,8 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
             str(action_file(tmp_path, "0.15.3")),
             "--after-tag",
             str(rendered(tmp_path)),
+            "--plugins",
+            str(plugins_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -946,6 +952,8 @@ def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
         str(action_file(tmp_path, "0.15.3")),
         "--after-tag",
         str(rendered(tmp_path)),
+        "--plugins",
+        str(plugins_file(tmp_path, "0.15.3")),
         "--out",
         str(out),
     ]
@@ -1045,6 +1053,7 @@ def test_main_reads_the_unread_word_from_the_file_the_workflow_writes(
             "--digests", str(digests),
             "--action", str(action_file(tmp_path, "0.22.0")),
             "--after-tag", str(rendered(tmp_path)),
+            "--plugins", str(plugins_file(tmp_path, "0.22.0")),
             "--out", str(out),
         ]
     )  # fmt: skip
@@ -1213,3 +1222,232 @@ def test_every_report_in_the_perimeter_carries_a_commit_to_read() -> None:
     read = followup.report_commits(ROOT)
     assert read, "no committed report outside step 5's perimeter"
     assert all(commit is not None for commit in read.values()), read
+
+
+# --------------------------------------------------------------------------- #
+# The seventh question: the plugin releases the core release owes (#731)
+# --------------------------------------------------------------------------- #
+
+
+def served(
+    version: str, requires: str, *, admits: bool, admits_impossible: bool = False
+) -> dict[str, object]:
+    return {
+        "version": version,
+        "requires": requires,
+        "admits": admits,
+        "admits_impossible": admits_impossible,
+    }
+
+
+def workspace(tmp_path: Path, *names: str) -> Path:
+    for name in names:
+        (tmp_path / "packages" / name).mkdir(parents=True, exist_ok=True)
+        (tmp_path / "packages" / name / "pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "0.1.0"\n', encoding="utf-8"
+        )
+    return tmp_path
+
+
+def plugins_file(tmp_path: Path, core: str) -> Path:
+    workspace(tmp_path, "digline-mcp")
+    path = tmp_path / "plugins.json"
+    path.write_text(
+        json.dumps(
+            {
+                "core": core,
+                "plugins": {
+                    "digline-mcp": served("0.6.3", ">=0.34,<0.35", admits=True)
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_every_served_plugin_admitting_the_core_passes(tmp_path: Path) -> None:
+    root = workspace(tmp_path, "digline-mcp", "pytest-digline")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {
+                "digline-mcp": served("0.6.3", "<0.35,>=0.34.0", admits=True),
+                "pytest-digline": served("0.4.0", "<0.35,>=0.34.0", admits=True),
+            },
+        },
+        root,
+    )
+    assert (found.ok, found.held, found.sound) == (True, True, True)
+
+
+def test_a_served_plugin_whose_cap_excludes_the_core_is_a_release_owed(
+    tmp_path: Path,
+) -> None:
+    """0.34.0's own morning: digline-mcp 0.6.2 capped the core below 0.34, and
+    the release that raised it was owed by the cap and held only by a row
+    somebody wrote. Red, by name, until the release is out."""
+    root = workspace(tmp_path, "digline-mcp", "pytest-digline")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {
+                "digline-mcp": served("0.6.2", "<0.34,>=0.32.0", admits=False),
+                "pytest-digline": served("0.4.0", "<0.35,>=0.34.0", admits=True),
+            },
+        },
+        root,
+    )
+    assert (found.ok, found.held) == (False, True)
+    assert "digline-mcp 0.6.2" in found.said and "<0.34,>=0.32.0" in found.said
+    assert "digline-mcp" in found.title and "0.34.0" in found.title
+
+
+def test_a_plugin_pypi_does_not_serve_owes_nothing(tmp_path: Path) -> None:
+    root = workspace(tmp_path, "digline-mcp", "digline-new")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {
+                "digline-mcp": served("0.6.3", "<0.35,>=0.34.0", admits=True),
+                "digline-new": None,
+            },
+        },
+        root,
+    )
+    assert found.sound
+
+
+def test_an_unread_plugin_is_not_judged(tmp_path: Path) -> None:
+    root = workspace(tmp_path, "digline-mcp")
+    found = followup.plugins_finding(
+        {"core": "0.34.0", "plugins": {"digline-mcp": "unread"}}, root
+    )
+    assert not found.answered and not found.sound
+
+
+def test_a_reading_that_failed_whole_is_not_judged(tmp_path: Path) -> None:
+    """The workflow writes `"unread"` when the reading itself failed: not
+    judged, and not a reading that skipped every plugin."""
+    found = followup.plugins_finding(
+        followup.UNREAD, workspace(tmp_path, "digline-mcp")
+    )
+    assert not found.answered and found.held
+
+
+def test_the_plugins_control_fails_when_a_range_admits_any_core(
+    tmp_path: Path,
+) -> None:
+    """The negative half: no served range may admit a core no release carries.
+    One that does admits anything, and its `admits` proves nothing."""
+    root = workspace(tmp_path, "digline-mcp")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {
+                "digline-mcp": served("0.6.3", "", admits=True, admits_impossible=True)
+            },
+        },
+        root,
+    )
+    assert found.ok and not found.held
+
+
+def test_a_reading_that_skipped_a_workspace_plugin_is_a_check_that_cannot_fail(
+    tmp_path: Path,
+) -> None:
+    """A fetch that never asked about a plugin would read green about it, so
+    the names read must be the names under `packages/`."""
+    root = workspace(tmp_path, "digline-mcp", "pytest-digline")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {"digline-mcp": served("0.6.3", ">=0.34,<0.35", admits=True)},
+        },
+        root,
+    )
+    assert not found.held
+    assert "pytest-digline" in found.control_said
+
+
+def test_the_plugins_are_not_asked_about_a_superseded_release(tmp_path: Path) -> None:
+    root = workspace(tmp_path, "digline-mcp")
+    found = followup.plugins_finding(
+        {
+            "core": "0.34.0",
+            "plugins": {"digline-mcp": served("0.6.2", "<0.34", admits=False)},
+        },
+        root,
+        current=False,
+    )
+    assert not found.applicable and found.sound
+
+
+def test_main_refuses_to_run_without_the_plugins(tmp_path: Path) -> None:
+    """Required, so that a workflow which stops fetching them fails rather than
+    passing over the seventh question."""
+    args = _main_args(tmp_path)
+    at = args.index("--plugins")
+    del args[at : at + 2]
+    with pytest.raises(SystemExit):
+        followup.main(args)
+
+
+def test_the_workflow_reads_the_plugins_and_passes_them() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "release-followup.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "plugins_against_core.py owed" in workflow
+    assert "--plugins plugins.json" in workflow
+
+
+# --------------------------------------------------------------------------- #
+# Every release with an open follow-up is asked again (#634)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_versions_asked_are_the_trees_and_every_open_follow_ups() -> None:
+    """A run asks about the version it was started for, and about every release
+    whose follow-up is still open, so a superseded release's issue is closed by
+    a run that read it and never by a run that stopped asking. (#634)"""
+    titles = [
+        "Release follow-up for v0.33.0: the Status block does not mention v0.33.0",
+        "Release follow-up for v0.32.1: digline/digline-action@v1 does not default",
+        "Release follow-up for v0.34.0: the example locks still name 0.33.0",
+        "Something else entirely",
+    ]
+    assert followup.versions_to_ask("0.34.0", titles) == ["0.34.0", "0.32.1", "0.33.0"]
+
+
+def test_a_run_with_no_other_follow_up_asks_one_version() -> None:
+    assert followup.versions_to_ask("0.34.0", []) == ["0.34.0"]
+
+
+def test_the_scope_the_versions_are_read_from_is_the_reports_own() -> None:
+    """The prefix `versions_to_ask` reads is the one `report` writes, so the two
+    cannot spell it differently."""
+    scope = followup.report([sound("x")], "0.33.0")["scope"]
+    assert followup.versions_to_ask("0.34.0", [f"{scope} anything"]) == [
+        "0.34.0",
+        "0.33.0",
+    ]
+
+
+def test_the_workflow_asks_every_version_in_a_matrix() -> None:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "release-followup.yml").read_text()
+    )
+    jobs = workflow["jobs"]
+    listing = "\n".join(str(s.get("run", "")) for s in jobs["versions"]["steps"])
+    assert "--label release-followup --state open" in listing
+    assert "release_followup.py versions" in listing
+    ask = jobs["ask"]
+    assert ask["needs"] == "versions"
+    assert ask["strategy"]["fail-fast"] is False
+    assert ask["strategy"]["matrix"]["version"] == (
+        "${{ fromJSON(needs.versions.outputs.versions) }}"
+    )
+    version_step = next(s for s in ask["steps"] if s.get("id") == "version")
+    assert 'version="${{ matrix.version }}"' in version_step["run"]

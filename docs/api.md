@@ -1406,6 +1406,16 @@ class MaxWords(AssertionBase):
 *how* you judge, not *what* you check, so raising a threshold leaves the
 verdicts paired and the comparison says so.
 
+**A judge is in the identity by its type, not its value.** Two functions are
+one judge to it, and so are two `AnthropicJudge`s on different models; a model
+moved is the run's configuration, which `compare` reads. **Replacing a judge
+written as a function with a judge that is a class changes the identity of
+every check that holds it**, so against a baseline taken with the function each
+of its verdicts is `missing` and the new run's `new`, until the baseline is
+promoted again. Measured on digline 0.34.0: one `LlmRubric` with a plain
+function and with `AnthropicJudge(model="claude-haiku-4-5")` gives two
+identities, and with two different functions gives one.
+
 **`KIND` is optional on a check of your own.** Every check `digline.core` ships
 declares what kind of check it is, as a class variable:
 

@@ -2,6 +2,19 @@
 
 Thanks for looking. A few things worth knowing before you open a pull request.
 
+- From outside the project, the way in is an issue before code. What is
+  welcome is a measurement: a case that reproduces, a sentence of ours that is
+  false, a number that does not add up. Those land fast.
+
+  An ADR that reads `proposed` is not an invitation to implement it. It records
+  something the project has decided to think about, not a specification waiting
+  for code, and part of what it deliberately leaves open are release decisions.
+  The order in which a change lands is written in the record's own `Status` and
+  `Opens:` lines and in `RELEASING.md`; an implementation that arrives before
+  that order reaches it cannot be merged, even when the code is right. #591
+  implemented ADR 0050 while the record still read `proposed` and said nothing
+  in it was implemented: it was closed for that, not for its code.
+
 - **Run the gates**, from the repository root:
 
   ```sh
@@ -129,7 +142,10 @@ Thanks for looking. A few things worth knowing before you open a pull request.
 
   So: **mutate in your own worktree, restore before you push, and never leave a
   mutated tree to go and do something else.** Restore from a copy rather than
-  `git checkout -- <file>`, which takes uncommitted work with it. If you report
+  `git checkout -- <file>`, which takes uncommitted work with it. *Observed
+  2026-10-26:* a restore by `git checkout` after a mutation took a session's
+  uncommitted change to `client.py` with it, and the change was written again
+  and its mutations run again from a copy. If you report
   a red you caused deliberately, say in the same sentence that you caused it.
   And from the other side: **a red on a guard somebody is currently building is
   a worktree question before it is a defect** — run `git worktree list` and look
