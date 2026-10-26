@@ -1388,6 +1388,8 @@ def _entry_to_dict(entry: RegisterEntry) -> dict[str, object]:
                 if outcome.nothing_judged is None
                 else {"nothing_judged": outcome.nothing_judged}
             ),
+            # The same rule, for the count #642 added.
+            **({} if outcome.unpaired is None else {"unpaired": outcome.unpaired}),
         },
         "exit_code": entry.exit_code,
     }
@@ -1530,6 +1532,14 @@ def _declared_flag(fields: Mapping[str, object], key: str, section: str) -> bool
     return _flag(fields, key, section)
 
 
+def _declared_whole(fields: Mapping[str, object], key: str, section: str) -> int | None:
+    """A count a line may not carry: `None` where it is absent, *not declared*,
+    on `_declared_flag`'s rule. Never `0` for an absent key. (#642)"""
+    if key not in fields:
+        return None
+    return _whole(fields, key, section)
+
+
 def _whole(fields: Mapping[str, object], key: str, section: str = "") -> int:
     value = fields.get(key, _MISSING)
     # `bool` is an `int` in Python, and `true` is not a count.
@@ -1576,6 +1586,7 @@ def _entry_from_dict(raw: Mapping[str, object]) -> RegisterEntry:
             **{name: _whole(outcome, name, "outcome") for name in _OUTCOME_FIELDS},
             **{name: _flag(outcome, name, "outcome") for name in _OUTCOME_FLAGS},
             nothing_judged=_declared_flag(outcome, "nothing_judged", "outcome"),
+            unpaired=_declared_whole(outcome, "unpaired", "outcome"),
         ),
         exit_code=_whole(raw, "exit_code"),
     )

@@ -339,7 +339,7 @@ def exit_code(head: Headline) -> int:
     declares. `0` asserts that something was measured, and there it was not.
     (ADR 0049 §1, §3, §6)
 
-    `2` has five causes, and since ADR 0053 they are not enumerated here:
+    `2` has six causes, and since ADR 0053 they are not enumerated here:
     `head.unjudged_causes` is the tuple `digline.core.causes_of_two` returned,
     the function promotion reads them with too, so the number and the refusal
     cannot disagree about which causes hold. Until then this body was the
@@ -354,6 +354,13 @@ def exit_code(head: Headline) -> int:
     layer declines to assert one layer down — the same reason a drifted pin
     returns 2 and not 1. It is on the headline, in the sentence and on the wire,
     and it moves nothing. (ADR 0029 §6, §8)
+
+    `head.unpaired` looks like the same kind of fact and is read, for the reason
+    a lost pin is: a check the comparison could not pair is a `new` beside a
+    `missing` under one name, and nothing in either document says whether one
+    became the other. Left at `0`, a fall between the two was a green: 0.75
+    passing in the reference, 0.65 passing under a lowered bar, *Nothing got
+    worse*. (#642)
     """
     if head.worse or head.canary_moved:
         # Two facts, one number. A canary that moved says the model behind the
@@ -1234,6 +1241,14 @@ _ADDED: tuple[_AddedKey, ...] = (
     # case did not error at the target or the mapper, or the run was written
     # before schema 21. The reason that says it does not cross. (#425)
     _AddedKey("run_document.case", "error_kind", _k("string", "null"), "#425"),
+    # How many checks the comparison could not pair with their reference: a
+    # `missing` and a `new` on the same case, scope and name. A new cause of exit
+    # 2, named `unpaired` in `unjudged_causes`, which a consumer reading
+    # `exit_code` already honours, by the rule `nothing_judged` arrived under.
+    # What changes is behaviour, a comparison that exited 0 on that case now
+    # exits 2, which no version of the format can say. (#642)
+    _AddedKey("compare", "unpaired", _INT, "#642"),
+    _AddedKey("compare.full", "unpaired", _INT, "#642"),
 )
 
 
