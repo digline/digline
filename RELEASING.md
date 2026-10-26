@@ -4370,6 +4370,17 @@ them:
   between two tags, and a change of meaning shows in no diff: it is a question
   the author asks while writing the change, and `CONTRIBUTING.md` asks it.
 
+*Added 2026-10-26, by the delta-pass over 0.34.0, the list above kept as
+written.* **A property of a listed dataclass** was a third gap, and the list
+did not name it. A property is read like a field, and none of the three diffs
+saw one: `public_fields.py` read `dataclasses.fields` alone. `Comparison`
+gained three in 0.34.0, `pinned_changed`, `pinned_changed_count` and
+`pinned_gone`, and the pass found them only because the changelog entry named
+them. From today the tool reads them, `functools.cached_property` included.
+Each is listed as `@name` beside the fields, and the diff says `property
+added` or `property removed`. So this one is closed rather than added to the
+list.
+
 **What holds that record, said here because it is weaker than the first.** An
 `__all__` is code, so a new name cannot be exported without appearing in it.
 The record in `contract.py` is prose that whoever adds a key writes by hand,
