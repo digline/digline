@@ -332,7 +332,6 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | the `run` tool passes `errored_checks=` to `run_json`, new in the core release that carries #654's count; against 0.33.0 the call raises `TypeError`. And the `run` tool imports `unignored` and `unignored_notes` from `digline.host`, new with #523; against 0.33.0 the import raises `ImportError` | `0.34.0` | **owed after the 0.34.0 cut, which does not raise it** (ruled 2026-10-25): raise it at digline-mcp's own 0.7.0, with #548 and #678, once 0.34.0 is on PyPI. The cap is already `<0.35`, raised in the bump; this cut does not tag digline-mcp |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

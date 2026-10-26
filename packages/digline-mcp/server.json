@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "packages/digline-mcp"
   },
-  "version": "0.6.2",
+  "version": "0.6.3",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "digline-mcp",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "transport": {
         "type": "stdio"
       },

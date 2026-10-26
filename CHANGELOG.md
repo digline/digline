@@ -359,8 +359,21 @@ digline **0.34.0**.
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
 
-## digline-mcp — unreleased
+## digline-mcp 0.6.3 — 2026-10-26
 
+Published by its own tag, `digline-mcp-v0.6.3`, after digline 0.34.0 was on
+PyPI. **A patch, because nothing that worked stops working:** two additions,
+a description's text, and the words an unanticipated failure reaches the agent
+in, which is a correction of a sentence and not a change to a tool.
+
+- **The dependency is `digline>=0.34.0,<0.35`.** The floor: the `run` tool
+  passes `errored_checks=` to `run_json` and imports `unignored` and
+  `unignored_notes` from `digline.host`, all new in 0.34.0; against 0.33.0
+  the call raises `TypeError` and the import `ImportError`. The cap stays
+  `<0.35`. 0.6.2 caps the core at `<0.34`, so a project that holds it stays on
+  digline 0.33, and a project that takes digline 0.34.0 resolves the newest
+  digline-mcp with no cap at all, 0.5.0, whose `compare` does not answer on
+  it. This release is the one that stands beside 0.34.0.
 - **The `run` tool's log says when git would commit the run directory**
   (#523). After the run is written, each of the tenant's `runs/` and
   `name-table/` that git would not ignore is a warning in the server's log, on
@@ -368,7 +381,7 @@ digline **0.34.0**.
   carries `unignored`.
 - **The `run` tool carries `errored_checks`** (#654), the count `digline run
   --json` carries, from the same function. It needs the core release that
-  carries the count, so this release's floor is owed at the cut.
+  carries the count, 0.34.0, which is this release's floor.
 - **A failure nobody anticipated says whose it was** (#507). It used to reach
   a client as the SDK's *"Error executing tool <name>"*, the same text for a
   failure of digline and a bug in this server. It now says whose code raised
