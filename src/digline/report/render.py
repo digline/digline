@@ -879,7 +879,6 @@ def headline(
 
     suspended = suspended_cases(run)
 
-
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
     # the clause that matters gets skipped with it.

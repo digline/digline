@@ -523,9 +523,7 @@ def test_a_document_with_no_bill_prints_no_line() -> None:
 
 
 def test_a_side_that_made_no_calls_prints_no_line() -> None:
-    lines = usage_lines(
-        RunUsage(target=recorded_line(1, 1), judge=NO_CALLS)
-    )
+    lines = usage_lines(RunUsage(target=recorded_line(1, 1), judge=NO_CALLS))
     assert len(lines) == 1 and lines[0].startswith("target:")
 
 

@@ -513,7 +513,9 @@ def test_a_bill_with_an_unread_judge_beside_it_says_it_is_not_whole() -> None:
     """A readable judge beside one written as a function: the figure is what
     the readable one spent, and the line says that it is not the whole."""
     run = execute(
-        suite(rubric(FlakyJudge()), rubric(plain_judge)), Answering(), created_at=CREATED
+        suite(rubric(FlakyJudge()), rubric(plain_judge)),
+        Answering(),
+        created_at=CREATED,
     )
     _, judge_line = usage_lines(run.usage)
     assert "USD" in judge_line
