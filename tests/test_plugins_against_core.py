@@ -363,7 +363,8 @@ def jobs() -> dict[str, dict[str, object]]:
 def classifying_step() -> dict[str, object]:
     """The step whose output the `testpypi` job hands to `pypi`, found through
     the job's `outputs` rather than by its name."""
-    exported = str(jobs()["testpypi"]["outputs"]["excluded"])
+    outputs = cast("dict[str, str]", jobs()["testpypi"]["outputs"])
+    exported = outputs["excluded"]
     found = re.fullmatch(r"\$\{\{ steps\.([a-z_-]+)\.outputs\.excluded \}\}", exported)
     assert found, exported
     (step,) = [s for s in steps_of_testpypi() if s.get("id") == found.group(1)]
@@ -421,7 +422,8 @@ def test_the_install_check_leaves_out_what_testpypi_classified() -> None:
         install["run"]
     )
     wait = pypi_step("await_index.py --manifest")
-    assert "--excluding" not in str(wait["run"])
+    assert "--classification" not in str(wait["run"])
+    assert "EXCLUDED" not in str(wait["run"])
 
 
 def test_a_conflict_between_the_pins_is_not_told_to_re_run() -> None:
@@ -502,7 +504,11 @@ def test_the_classification_is_marked_so_an_empty_one_is_never_read_as_none(
     }
     monkeypatch.setattr(script, "served", excluding.get)
     assert script.classification(tmp_path) == "classified digline-mcp==0.6.2"
-    monkeypatch.setattr(script, "served", lambda name: None)
+
+    def nothing(name: str) -> None:
+        return None
+
+    monkeypatch.setattr(script, "served", nothing)
     assert script.classification(tmp_path) == "classified"
 
 
