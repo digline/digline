@@ -493,14 +493,27 @@ def test_a_negative_count_is_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
+def recorded_line(calls: int, counted: int, tokens: Usage = NO_USAGE) -> CallTotals:
+    """A line with both markers recorded, as the driver writes every line it
+    measured. A line built without them claims nothing, and the terminal says
+    it is not recorded (#569), which is not what the two tests below are about."""
+    return replace(NO_CALLS, calls=calls, counted=counted, tokens=tokens)
+
+
 def test_the_parenthesis_appears_only_when_the_total_is_partial() -> None:
     whole = usage_lines(
-        RunUsage(target=CallTotals(calls=2, counted=2, tokens=Usage(10, 5)))
+        RunUsage(
+            target=recorded_line(2, 2, Usage(10, 5)),
+            judge=NO_CALLS,
+        )
     )
     assert whole == ["target: 2 calls, 10 in / 5 out, 0.000000 USD"]
 
     partial = usage_lines(
-        RunUsage(target=CallTotals(calls=2, counted=1, tokens=Usage(10, 5)))
+        RunUsage(
+            target=recorded_line(2, 1, Usage(10, 5)),
+            judge=NO_CALLS,
+        )
     )
     assert partial == ["target: 2 calls, 10 in / 5 out, 0.000000 USD (counted 1 of 2)"]
 
@@ -510,7 +523,9 @@ def test_a_document_with_no_bill_prints_no_line() -> None:
 
 
 def test_a_side_that_made_no_calls_prints_no_line() -> None:
-    lines = usage_lines(RunUsage(target=CallTotals(calls=1, counted=1)))
+    lines = usage_lines(
+        RunUsage(target=recorded_line(1, 1), judge=NO_CALLS)
+    )
     assert len(lines) == 1 and lines[0].startswith("target:")
 
 

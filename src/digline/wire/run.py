@@ -49,15 +49,28 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
     call seen* is a call that raised and is on no line; *cost not known for
     every call* is a call on the line whose cost nobody stated. Either says the
     figure beside it is less than the whole bill. (#563)
+
+    **A marker not recorded is said too, on the same line.** It is what a
+    judge digline cannot read gives, a judge written as a function: its calls
+    were made and none of them is on the line. A line with no call and that
+    marker reads *not recorded*, with no figure, because `0.000000 USD` would
+    say the judging cost nothing; a line with calls ends *not recorded in
+    full*, because its figure is only what digline could read. A line built
+    by hand claims nothing, so it reads the same. (#569)
     """
     if usage is None:
         return []
     lines: list[str] = []
     for side, line in (("target", usage.target), ("judge", usage.judge)):
-        # A line with no call is skipped unless a call is missing from it: a
+        # A line with no call is skipped only when it is known to be whole: a
         # run whose every target call raised has nothing on the line, and
-        # that is the one where saying so matters most. (#563)
-        if not line.calls and line.every_call_seen is not False:
+        # that is the one where saying so matters most (#563); a judge nobody
+        # can read has nothing on it either, and is not a judge that cost
+        # nothing (#569).
+        if not line.calls and line.every_call_seen is True:
+            continue
+        if not line.calls and line.every_call_seen is None:
+            lines.append(f"{side}: not recorded")
             continue
         counts = (
             f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
@@ -73,6 +86,8 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
             )
             if marker is False
         ]
+        if None in (line.every_call_seen, line.every_cost_known):
+            missing.append("not recorded in full")
         incomplete = f"; {', '.join(missing)}" if missing else ""
         lines.append(
             f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}, "
