@@ -143,6 +143,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
+    # What the plugins step below classified as excluded by its own cap, as
+    # `name==version`, for the install check in `pypi` to leave out and name
+    # (#717). Empty when nothing was, and on a plugin tag, where the step
+    # does not run.
+    outputs:
+      excluded: ${{ steps.plugins.outputs.excluded }}
     permissions:
       # A job-level `permissions:` **replaces** the top-level block, it does not
       # add to it. `id-token: write` on its own therefore left `contents` at
@@ -176,16 +182,27 @@ jobs:
       - name: Install from the index and run the quickstart
         run: |
           # The roster is `dist/`, not a list somebody has to remember to
-          # edit. Unversioned here: TestPyPI resolves against a different set
-          # of uploads, so a pin would fail for a reason that says nothing
-          # about this release.
-          python .github/dist_manifest.py /tmp/manifest
+          # edit. **Pinned, less what the plugins step below will call
+          # excluded** (#717). It was unversioned, on the reasoning that
+          # TestPyPI holds a different set of uploads and a pin would fail for
+          # a reason that says nothing about this release. With PyPI as the
+          # extra index a pin finds a version either index holds, and the
+          # unversioned roster failed the other way, in silence: on v0.34.0
+          # pip went down to digline-mcp 0.5.0, and this step proved the core
+          # beside a plugin two minors old. A plugin whose own cap stops below
+          # this core cannot be installed beside it, so it is left out, and
+          # `dist_manifest.py` names it. Asked of the same script the plugins
+          # step runs, before it, since this step comes first in the job.
+          excluded="$(uv run --no-project --with packaging==26.3 \
+            python .github/plugins_against_core.py excluded)"
+          python .github/dist_manifest.py /tmp/manifest --excluding $excluded
+          echo "TestPyPI, then PyPI, must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in 1 2 3 4 5; do
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              -r /tmp/manifest/names.txt && break
+              -r /tmp/manifest/pins.txt && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
@@ -205,7 +222,8 @@ jobs:
           python .github/gate_summary.py install TestPyPI \
             /tmp/imports.txt /tmp/run-stderr.txt
 
-      - name: The core against every plugin PyPI serves
+      - id: plugins
+        name: The core against every plugin PyPI serves
         # Ruled 2026-10-18 (RELEASING.md, *What CI proves about each index*):
         # the core as TestPyPI serves it, beside each plugin at the newest
         # version PyPI serves, each in a clean environment and tried the way
@@ -335,18 +353,43 @@ jobs:
         #   examples job hit that morning, where six of eight legs installed
         #   0.7.0 and went green. `select_unpublished.py` copies rather than
         #   moves, so `dist/` is still whole here.
+        #
+        # **Less the plugins `testpypi` classified as excluded by their own
+        # cap** (#717). On a minor that raises the caps, a plugin PyPI already
+        # serves still caps the core below this release, so the whole manifest
+        # cannot resolve on any index: on v0.34.0 this step went red ten times
+        # out of ten with `ResolutionImpossible`, over digline-mcp 0.6.2 and
+        # pytest-digline 0.3.1, which `plugins_against_core.py` had already
+        # called excluded. The classification is handed over, not recomputed,
+        # and `dist_manifest.py` names each one it leaves out and why. A
+        # version this tag publishes is never left out.
+        env:
+          EXCLUDED: ${{ needs.testpypi.outputs.excluded }}
         run: |
           # Same roster as the TestPyPI step, and the same script refuses to
           # write one from an empty `dist/` — a check that can pass by finding
           # nothing is the vacuously green assertion decision 3 refuses.
-          python .github/dist_manifest.py /tmp/manifest
+          # `$EXCLUDED` unquoted on purpose: it is `name==version` words, one
+          # argument each, and empty is no argument at all.
+          python .github/dist_manifest.py /tmp/manifest --excluding $EXCLUDED
           echo "the index must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in $(seq 1 10); do
             # A requirements file rather than a word-split variable: the pins
             # are one per line, so nothing here depends on how the shell
             # splits, and `-r` is what pip documents for a list this shape.
-            /tmp/from-index/bin/pip install --quiet --no-cache-dir -r /tmp/manifest/pins.txt && break
+            if /tmp/from-index/bin/pip install --quiet --no-cache-dir -r /tmp/manifest/pins.txt > /tmp/pip.txt 2>&1; then
+              cat /tmp/pip.txt; break
+            fi
+            cat /tmp/pip.txt
+            # A conflict between the pins' own requirements is not the index
+            # catching up: every read gives the same answer, so this stops at
+            # the first and does not advise the re-run below, which here could
+            # only give the same red (#717).
+            if grep -q 'ResolutionImpossible' /tmp/pip.txt; then
+              echo "::error title=The pins of this tag conflict with each other::$(tr '\n' ' ' < /tmp/manifest/pins.txt)— pip cannot install them together, and a re-run gives the same red: their declared requirements disagree, which no index changes. The upload itself succeeded, so this does NOT need a re-tag. Read pip's message above for the requirement that conflicts. A plugin whose own cap excludes this core is left out when testpypi classified it excluded, so one that conflicts here was not: read that job's table. See RELEASING.md, 'What CI proves about each index'."
+              exit 1
+            fi
             if [ "$attempt" = 10 ]; then
               echo "::error title=PyPI does not serve what this tag uploaded::$(tr '\n' ' ' < /tmp/manifest/pins.txt)— still unresolvable after ten tries over two and a half minutes. The upload itself succeeded, so this does NOT need a re-tag: re-run this job. If it fails again the index and the upload disagree, and that is worth reading before the next release. See RELEASING.md, 'What CI proves about each index'."
               exit 1

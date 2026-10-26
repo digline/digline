@@ -46,6 +46,10 @@ Subcommands:
 
     check     plugins_against_core.py check            (in the job, from the
               workspace root with `dist/` in it)
+    excluded  plugins_against_core.py excluded         (the same, and only the
+              classification: `name==version` of each plugin excluded by its
+              own cap, installing nothing. Read by the install step before
+              `check`, so it leaves out what `check` will call excluded.)
     exercise  <python> plugins_against_core.py exercise KIND NAME DIR
               (run by `check` with each plugin's own interpreter)
 
@@ -348,6 +352,26 @@ def check(dist: pathlib.Path, work: pathlib.Path) -> list[Outcome]:
     return outcomes
 
 
+def excluded(dist: pathlib.Path) -> list[str]:
+    """`name==version` of every plugin `check` classifies as excluded, asked the
+    same way — `served` and `admits` — and nothing else: nothing is installed.
+
+    For the install step that runs before `check` in the same job (#717). It
+    installed the roster unversioned, and on v0.34.0 pip went down to
+    digline-mcp 0.5.0 without a word, so the step proved this core beside a
+    plugin two minors old. Pinned, the manifest leaves out what this returns,
+    and the two steps cannot disagree on a rule, only on an index that moved
+    between two reads.
+    """
+    core, plugins = roster(dist)
+    found: list[str] = []
+    for name in plugins:
+        plugin = served(name)
+        if plugin is not None and not admits(plugin.requires, core):
+            found.append(f"{name}=={plugin.version}")
+    return found
+
+
 def summary(title: str, core: str, outcomes: Sequence[Outcome]) -> str:
     lines = [
         f"### {title}",
@@ -384,6 +408,19 @@ def main_check() -> int:
     if title and path:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(section + "\n")
+    # The `pypi` job's install check is handed what this step classified as
+    # excluded, rather than deciding again on its own (#717): one reading, in
+    # one place. `name==version`, because what is excluded is the served
+    # version read here, and a newer version of the same plugin that this tag
+    # publishes must not be left out with it. Written even when empty, so an
+    # absent output is a step that did not run, never a step that found none.
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        excluded = " ".join(
+            f"{o.name}=={o.version}" for o in outcomes if o.word == "excluded"
+        )
+        with open(output, "a", encoding="utf-8") as handle:
+            handle.write(f"excluded={excluded}\n")
     broken = [o for o in outcomes if o.word == "broken"]
     for o in broken:
         print(
@@ -656,7 +693,19 @@ if __name__ == "__main__":
                     file=sys.stderr,
                 )
                 sys.exit(2)
+        case ["excluded"]:
+            try:
+                print(" ".join(excluded(pathlib.Path("dist"))))
+            except NotJudged as exc:
+                print(
+                    f"::error title=Plugins against the core not judged::{exc}",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
         case ["exercise", kind, name, app]:
             sys.exit(main_exercise(kind, name, pathlib.Path(app)))
         case _:
-            sys.exit("usage: plugins_against_core.py check | exercise KIND NAME DIR")
+            sys.exit(
+                "usage: plugins_against_core.py check | excluded "
+                "| exercise KIND NAME DIR"
+            )

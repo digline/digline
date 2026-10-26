@@ -4701,14 +4701,17 @@ names.
    this is skipped, and went red twice before anybody read it; it detects, it
    does not do.
 
-**Five of these now have a machine asking, and one place the answer lands.**
+**Six of these now have a machine asking, and one place the answer lands.**
 `release-followup.yml` runs after `publish` and on every push to `main`, and
-asks the five questions of this list that have an answer a machine can check:
+asks the six questions of this list that have an answer a machine can check:
 the example locks name the released version (step 3), the `publish` run's
 approvals record an `approved` (step 1), the three image tags resolve to one
 digest (step 2's other half), the Status block names the release (step 4),
-and `digline-action`'s `action.yml` defaults to the released image both on
-`main` and on `v1` (step 7). Each is asked twice — once for the answer and
+the example reports inside step 5's perimeter were rendered after the tag
+(step 5), and `digline-action`'s `action.yml` defaults to the released image
+both on `main` and on `v1` (step 7). Step 5 joined on 2026-10-26: 0.33.0's
+was skipped and nothing noticed, and 0.34.0 found the nine reports still
+rendered against 0.32.1. Each is asked twice — once for the answer and
 once for something that must be false — because most of them fail open by
 construction, and a check that cannot fail has verified nothing.
 
@@ -4727,11 +4730,13 @@ naming 0.15.2 — a step nobody had done, marked done by a run that never looked
 at it. An issue about another release is left open and named in the run's
 notices, because a follow-up still outstanding is itself worth seeing.
 
-**Two of the four are asked only about the newest release**, and this is what
-keeps such an issue from being immortal. The example locks and the `<minor>` and
-`latest` image tags are the *current state of a moving thing*: asked about a
-superseded release they report that the locks name something else and that
-`latest` points elsewhere — which is what they are supposed to do, so the
+**Four of the six are asked only about the newest release**, and this is what
+keeps such an issue from being immortal. The example locks, the `<minor>` and
+`latest` image tags, `digline-action`'s default image and the example reports
+are the *current state of a moving thing*: asked about a superseded release
+they report that the locks name something else, that `latest` points
+elsewhere, that the action defaults to a newer image and that the reports were
+rendered after a later tag — which is what they are supposed to do, so the
 failure would be describing the repair. They answer **not applicable** there.
 The other two keep their meaning for ever, because their subject is a record of
 what happened at that release: the approvals of its publish run, and its
@@ -4760,7 +4765,11 @@ holds it. Step 4 is the same: the job checks that the block names the release,
 never that what it says is true. **Step 6 is the same again, and one half of it
 is the most mechanical thing on this list** — whether the `index-capture` lines
 are in the log at all is a `grep`, and nobody has written it; what the pair
-*means* is a reading and could not be written. All three stay yours. What the
+*means* is a reading and could not be written. All three stay yours. Step 5's
+question is narrower than the step too: it checks that each report in the
+perimeter records a commit made after the tag, never that the render moved
+anything or that the perimeter is right, so a curated report or `prompt-first`
+is left out by the rules the step writes down, not by a reading. What the
 job removes is the possibility of a step being *forgotten*, which is a different
 thing from it being done well.
 

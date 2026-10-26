@@ -290,6 +290,10 @@ def test_what_one_run_keeps_the_next_one_reads() -> None:
 
 def _main_args(tmp_path: Path, *extra: str) -> list[str]:
     all_locks(tmp_path, "0.15.3")
+    for example in ("langgraph", "rag"):
+        report_html(tmp_path, example, RENDERED)
+    after_file = tmp_path / "after-tag.txt"
+    after_file.write_text(f"{RENDERED}\n", encoding="utf-8")
     (tmp_path / "RELEASING.md").write_text(
         BLOCK.format(version="0.15.3"), encoding="utf-8"
     )
@@ -310,6 +314,8 @@ def _main_args(tmp_path: Path, *extra: str) -> list[str]:
         str(tmp_path / "digests.json"),
         "--action",
         str(action_file(tmp_path, "0.15.3")),
+        "--after-tag",
+        str(tmp_path / "after-tag.txt"),
         "--out",
         str(tmp_path / "report.json"),
         *extra,
@@ -704,6 +710,8 @@ def test_main_writes_the_report_and_exits_nonzero_on_a_skipped_step(
             str(tmp_path / "digests.json"),
             "--action",
             str(action_file(tmp_path, "0.15.3")),
+            "--after-tag",
+            str(rendered(tmp_path)),
             "--out",
             str(out),
         ]
@@ -740,6 +748,8 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
             str(tmp_path / "digests.json"),
             "--action",
             str(action_file(tmp_path, "0.15.3")),
+            "--after-tag",
+            str(rendered(tmp_path)),
             "--out",
             str(out),
         ]
@@ -934,6 +944,8 @@ def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
         str(tmp_path / "digests.json"),
         "--action",
         str(action_file(tmp_path, "0.15.3")),
+        "--after-tag",
+        str(rendered(tmp_path)),
         "--out",
         str(out),
     ]
@@ -1032,6 +1044,7 @@ def test_main_reads_the_unread_word_from_the_file_the_workflow_writes(
             "--approvals-control", str(tmp_path / "control.json"),
             "--digests", str(digests),
             "--action", str(action_file(tmp_path, "0.22.0")),
+            "--after-tag", str(rendered(tmp_path)),
             "--out", str(out),
         ]
     )  # fmt: skip
@@ -1063,3 +1076,140 @@ def test_the_issue_step_asks_again_before_it_opens_an_issue() -> None:
     )
     assert step.index("gh issue create") > loop
     assert step.count("gh issue create") == 1
+
+
+# --------------------------------------------------------------------------- #
+# 5. The example reports
+# --------------------------------------------------------------------------- #
+
+#: A commit made after the tag, and one made before it.
+RENDERED = "2" * 40
+STALE = "1" * 40
+
+
+def rendered(root: Path) -> Path:
+    """Two reports rendered after the tag, and the file listing that commit."""
+    for example in ("langgraph", "rag"):
+        report_html(root, example, RENDERED)
+    after = root / "after-tag.txt"
+    after.write_text(f"{RENDERED}\n", encoding="utf-8")
+    return after
+
+
+def report_html(root: Path, example: str, commit: str) -> None:
+    """A committed report, carrying the commit of the run that produced it in
+    the place digline writes it."""
+    path = root / "examples" / example
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "report.html").write_text(
+        f"<dl><dt>Code version</dt><dd>{commit}</dd></dl>", encoding="utf-8"
+    )
+
+
+def reports(root: Path, **commits: str) -> Path:
+    for example, commit in commits.items():
+        report_html(root, example.replace("_", "-"), commit)
+    return root
+
+
+def test_reports_rendered_after_the_tag_pass(tmp_path: Path) -> None:
+    root = reports(tmp_path, langgraph=RENDERED, rag=RENDERED)
+    finding = followup.reports_finding(root, "0.34.0", frozenset({RENDERED}))
+    assert finding.sound
+    assert "2 reports" in finding.said and "v0.34.0" in finding.said
+
+
+def test_a_report_left_at_a_commit_before_the_tag_is_caught_by_name(
+    tmp_path: Path,
+) -> None:
+    """The mutation the check exists for: one report rendered before the tag."""
+    root = reports(tmp_path, langgraph=RENDERED, rag=STALE)
+    finding = followup.reports_finding(root, "0.34.0", frozenset({RENDERED}))
+    assert not finding.ok and not finding.sound
+    assert "rag (1111111)" in finding.said
+    assert "langgraph" not in finding.said.split(":", 1)[1]
+    assert finding.title == "the example reports predate v0.34.0"
+
+
+def test_the_perimeter_leaves_out_a_curated_report_and_prompt_first(
+    tmp_path: Path,
+) -> None:
+    """Step 5's own perimeter, written rather than assumed: a report whose
+    commit ends in `-dirty` is curated by signature, and `prompt-first` is held
+    by judgement because it is a live measurement. Both stay old and pass."""
+    root = reports(
+        tmp_path,
+        langgraph=RENDERED,
+        classifier=f"{STALE}-dirty",
+        prompt_first=STALE,
+    )
+    finding = followup.reports_finding(root, "0.34.0", frozenset({RENDERED}))
+    assert finding.sound
+    assert "classifier" in finding.said and "prompt-first" in finding.said
+
+
+def test_a_tree_with_no_report_in_the_perimeter_does_not_pass(tmp_path: Path) -> None:
+    root = reports(tmp_path, prompt_first=STALE)
+    finding = followup.reports_finding(root, "0.34.0", frozenset({RENDERED}))
+    assert finding.ok and not finding.held and not finding.sound
+
+
+def test_a_report_with_no_commit_to_read_is_not_a_report_read(tmp_path: Path) -> None:
+    root = reports(tmp_path, langgraph=RENDERED)
+    (root / "examples" / "rag").mkdir(parents=True)
+    (root / "examples" / "rag" / "report.html").write_text("<p>no</p>", "utf-8")
+    finding = followup.reports_finding(root, "0.34.0", frozenset({RENDERED}))
+    assert not finding.held
+    assert "rag" in finding.control_said
+
+
+def test_the_reports_are_a_question_about_the_newest_release_only(
+    tmp_path: Path,
+) -> None:
+    root = reports(tmp_path, rag=STALE)
+    finding = followup.reports_finding(
+        root, "0.33.0", frozenset({RENDERED}), current=False
+    )
+    assert not finding.applicable and finding.sound
+
+
+def test_commits_after_the_tag_that_were_not_read_are_not_judged(
+    tmp_path: Path,
+) -> None:
+    root = reports(tmp_path, rag=RENDERED)
+    finding = followup.reports_finding(root, "0.34.0", None)
+    assert not finding.answered and not finding.sound
+
+
+def test_main_reads_the_commits_after_the_tag_from_a_file(tmp_path: Path) -> None:
+    (tmp_path / "approvals.json").write_text(json.dumps(APPROVED), encoding="utf-8")
+    args = _main_args(tmp_path, "--publish-run", "1", "--attempt", "1")
+    assert followup.main(args) == 0
+    (tmp_path / "examples" / "rag" / "report.html").write_text(
+        f"<dl><dt>Code version</dt><dd>{STALE}</dd></dl>", encoding="utf-8"
+    )
+    assert followup.main(args) == 1
+    written = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert written["title"] == (
+        "Release follow-up for v0.15.3: the example reports predate v0.15.3"
+    )
+
+
+def test_the_workflow_lists_the_commits_after_the_tag_and_passes_them() -> None:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "release-followup.yml").read_text()
+    )
+    steps = workflow["jobs"]["ask"]["steps"]
+    text = "\n".join(str(step.get("run", "")) for step in steps)
+    assert 'git rev-list "v${VERSION}..HEAD" > after-tag.txt' in text
+    assert "--after-tag after-tag.txt" in text
+
+
+def test_every_report_in_the_perimeter_carries_a_commit_to_read() -> None:
+    """The real tree: step 5's question reads nothing if digline stops writing
+    the commit where the check looks for it."""
+    read = followup.report_commits(ROOT)
+    assert read, "no committed report outside step 5's perimeter"
+    assert all(commit is not None for commit in read.values()), read

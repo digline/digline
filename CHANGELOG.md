@@ -8,6 +8,38 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **The release workflow verifies what it says it verifies** (#717). Two
+  install checks in `publish.yml` installed something other than what they
+  claimed to prove, and one After-the-tag step had no check at all. Nothing in
+  digline's behaviour moves; this is the release process.
+  - **The PyPI job's install check leaves out what the TestPyPI job classified
+    as excluded by its own cap, and names it.** It installed the whole
+    manifest, and on a minor that raises the plugins' caps it could not pass:
+    on v0.34.0 it went red ten times out of ten over digline-mcp 0.6.2 and
+    pytest-digline 0.3.1, which `plugins_against_core.py` had already called
+    excluded two jobs before. The classification now travels as the TestPyPI
+    job's output, and `dist_manifest.py --excluding` names each package it
+    leaves out and why. A version the tag itself publishes is never left out.
+  - **A conflict between the pins no longer advises a re-run.** It stops at the
+    first `ResolutionImpossible` and says a re-run gives the same red. The
+    advice stays where it can work: a version the index does not serve yet.
+  - **The TestPyPI install is pinned.** It installed the roster unversioned, so
+    on v0.34.0 pip went down to digline-mcp 0.5.0 in silence, and the step
+    proved the core beside a plugin two minors old. It now installs the same
+    pins, less the same exclusion, said the same way.
+  - **`release-followup` asks a sixth question, step 5's:** whether every
+    committed example report outside the step's perimeter was rendered after
+    the tag. 0.33.0's step 5 was skipped and nothing noticed; 0.34.0 found the
+    nine reports still rendered against 0.32.1. A curated `-dirty` report and
+    `prompt-first` are left out, and every answer says so.
+  - **Every example's `.digline/.gitignore` ignores `*/name-table/`.** Each
+    kept `*/runs/` only, so every run of an example said that `git add` would
+    commit the name table, and the example taught the gesture that does it.
+    #523, closed, is the general case; these were eleven instances of it.
+
+  The last two were found on the way, and neither went through an issue first:
+  each repair was shorter than the issue would have been.
+
 - **A check the comparison could not pair is a cause of `2`** (#642). `compare`
   pairs a verdict with its reference on the assertion's identity, and a
   `Repeated` check's identity holds its `inner`'s threshold and tolerance. So a
