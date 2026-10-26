@@ -301,6 +301,19 @@ class RunAssertionBase:
         # gate into a traceback. Both sides need it: the threshold arrives from
         # `as_ratio` unrounded too, so "2/3" hits the same edge from the other
         # direction. (friction 34)
+        #
+        # **An empty denominator is refused here as `_ratio` refuses it**, in the
+        # same words. `_ratio` checks its own before it gets here; an aggregate
+        # over raw scores reaches this exit directly, and a mean over no score
+        # is whatever its author's code says it is, `1.0` included. What it
+        # counts is every case that reached it judged, with a label or without
+        # one. (#735)
+        if matrix.considered + matrix.unlabelled_excluded == 0:
+            return self._error(
+                f"nothing to measure: {self.name} has an empty denominator "
+                f"({self._excluded(matrix)})",
+                matrix,
+            )
         value = at_precision(value)
         return Verdict(
             score=Score(name=self.name, score=value, metadata=matrix.as_metadata()),
