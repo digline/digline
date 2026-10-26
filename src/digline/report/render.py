@@ -860,7 +860,10 @@ def headline(
     else:
         worse_text = phrase(locale, "fact.worse.many", count=regressed)
 
-    unpaired_text = _unpaired_text(unpaired(comparison), locale)
+    # Read off the causes like every flag that is one, so the clause, the count
+    # and the code cannot disagree about whether a check went unpaired.
+    pairs = unpaired(comparison) if "unpaired" in causes else ()
+    unpaired_text = _unpaired_text(pairs, locale)
 
     suspended = suspended_cases(run)
 
@@ -1096,7 +1099,7 @@ def headline(
         pinned_unreferenced=unreferenced_count,
         pinned_withdrawn=withdrawn_count,
         pinned_lost="pinned_lost" in causes,
-        unpaired=len(unpaired(comparison)) if "unpaired" in causes else 0,
+        unpaired=len(pairs),
         modules_unchecked=modules_count,
         target_config_changed=comparison.target_config_changed,
         judge_config_changed=comparison.judge_config_changed,
