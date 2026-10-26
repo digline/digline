@@ -327,6 +327,15 @@ notes under them are this file, verbatim.
 
   Nothing in digline's behaviour moves, so this is a patch.
 
+- **The delta-pass diffs the whole JSON contract with one command** (#709).
+  `tools/contract_diff.py THEN [NOW]` reads, in each reference's tree, the
+  contract `_lines(_SHAPES)` derives, and prints each key added, removed or
+  retyped. It reads none of the three tables the contract is assembled from,
+  so a fold of `_ADDED` into `_BASE` between the two references changes
+  nothing it prints. Over v0.33.0 and v0.34.0 it prints the eight keys that
+  release added and nothing else. `RELEASING.md` names it in place of the
+  commands it gave. Nothing in digline's behaviour moves, so this is a patch.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.
