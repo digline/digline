@@ -1112,7 +1112,7 @@ def test_the_refusal_names_the_key_a_function_target_fills() -> None:
     which `examples/langgraph`, a plain function, disproves. The refusal names
     what is missing, the `tools` key, and how a function supplies it."""
     v = ToolsCalled(expected=["search"])(
-        trajectory(tool_calls=[{"tool": "search", "arguments": {}}])
+        trajectory(tool_calls=[{"tool": "search", "arguments": {"q": "x"}}])
     )
     assert v.status == "error"
     assert "only a provider" not in v.reason
