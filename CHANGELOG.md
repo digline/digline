@@ -684,15 +684,6 @@ each package.
   `docs/declarative.md` showed it in their first provider example and no longer
   do. **On an SDK older than 1.0.0 it was sent and worked, so the next version
   is a minor.** Needs no core release.
-- **A reply from a geography with no rate is a cost not known, and its case is
-  judged** (#569). `AnthropicTarget` raised `UnknownModelError` after the
-  call was answered and paid for, so every check of the case went to `error`
-  for a problem of accounting, and a run of such cases exited `2`. The response
-  is now handed over with the counts the provider reported and no cost, which
-  the run's line reads as a cost not known (`every_cost_known: false`), and
-  the case is judged. A geography with a rate is priced as before. A judging
-  call in such a geography is still refused. **A run that exited `2` on this
-  now exits as its checks say, so the next version is a minor.**
 - **A judge with a model that thinks before it answers needs a larger
   `max_tokens`, and the README says so where a judge is configured** (#599).
   The default stays at 400. A model that thinks spends its thinking out of the
