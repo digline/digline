@@ -495,6 +495,53 @@ def test_the_headline_says_it_in_every_locale(locale: Locale) -> None:
     assert phrase(locale, "fact.nothing_judged") in head.sentence
 
 
+#: Every subject case errored: nothing judged, and every case unjudged.
+ERRORED = run(subject("s1", "error"), subject("s2", "error"))
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_a_run_of_suspensions_says_only_what_is_true(locale: Locale) -> None:
+    """#576. Every case suspended, so nothing was compared and nothing could
+    fail to be judged: *Nothing got worse.* and *Every case could be judged.*
+    said beside *None of the cases … was judged* read as three facts that
+    contradict, and the Italian *Tutti i casi sono stati giudicati.* is false
+    outright. What stays is the fact and its reason, the suspensions."""
+    head = headline(
+        compare(NOTHING, GOOD), NOTHING, GOOD, locale=locale, declared=SUBJECT
+    )
+    assert phrase(locale, "fact.nothing_judged") in head.sentence
+    assert phrase(locale, "fact.suspended.many", count=2) in head.sentence
+    assert phrase(locale, "fact.worse.none") not in head.sentence
+    assert phrase(locale, "fact.unjudged.none") not in head.sentence
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_a_run_of_errors_says_why_and_not_that_every_case_could_be_judged(
+    locale: Locale,
+) -> None:
+    """The control for the test above: here the cases are unjudged, so the
+    count says why, and *Every case could be judged.* was never going to be
+    said. *Nothing got worse.* goes for the same reason as above."""
+    head = headline(
+        compare(ERRORED, GOOD), ERRORED, GOOD, locale=locale, declared=SUBJECT
+    )
+    assert head.nothing_judged
+    assert phrase(locale, "fact.nothing_judged") in head.sentence
+    assert phrase(locale, "fact.unjudged.none") not in head.sentence
+    assert phrase(locale, "fact.worse.none") not in head.sentence
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_a_run_that_judged_something_keeps_both_sentences(locale: Locale) -> None:
+    """The other control: the silence is for a run that judged nothing, and
+    one judged case beside a suspension keeps the sentences it always had."""
+    head = headline(
+        compare(SOMETHING, GOOD), SOMETHING, GOOD, locale=locale, declared=SUBJECT
+    )
+    assert phrase(locale, "fact.worse.none") in head.sentence
+    assert phrase(locale, "fact.unjudged.none") in head.sentence
+
+
 # --------------------------------------------------------------------------- #
 # 11. The register (§4)
 # --------------------------------------------------------------------------- #
