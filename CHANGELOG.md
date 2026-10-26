@@ -86,8 +86,12 @@ notes under them are this file, verbatim.
   nothing was judged. What stays is the fact and its reason: the suspensions
   (*"3 cases are suspended."*), or, where every case errored, the count of
   cases that could not be judged. A check that got worse is still counted. It
-  is the sentence `compare`, `report` and pytest-digline's summary print. No
-  exit code moves.
+  is the sentence `compare`, `report` and pytest-digline's summary print.
+  **`explain` said the same thing by a road of its own**, in its tally: *"No
+  check ran. Every case could be judged."*, and in Italian *"Ogni caso è stato
+  valutato."*. That line is now left out of a reading of a run that judged no
+  case, read alone or against a reference, and the line after it names the
+  suspensions. No exit code moves.
 - **The bill on stderr says when a judge's line is not recorded** (#569). A
   judge written as a function makes its calls where digline cannot count them,
   and its line, with no call on it, printed nothing at all. It now reads
