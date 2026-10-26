@@ -318,6 +318,25 @@ three shapes:
   what an incomparable movement already prints, in both locales and on all four
   surfaces, because a second wording for one fact is a second fact to reconcile.
 
+  *Amended 2026-10-26, the section above kept as written.* **A moved
+  denominator may withdraw a claim of improvement, never a claim of getting
+  worse**, for the cases an aggregate counted without a label.
+  - **What was missing.** The predicate read `considered`, the matrix's four
+    cells. An aggregate over raw scores, written as `docs/api.md` describes it,
+    needs no label and files every case it counted under
+    `unlabelled_excluded`, so its `considered` is `0` on both sides and its
+    denominator never moved.
+  - **The case.** Set aside the class that fails, and such a mean rose from
+    `0.5` to `1.0` under *"What got better"*.
+  - **What it reads now.** It counts `considered` plus `unlabelled_excluded`.
+    A score that rises over a different number of cases leaves the counts like
+    every other incomparability, with the same clause and the same section. A
+    score that falls stays counted, and a run where it does exits 1 as before.
+  - **The incoherence this leaves, declared.** An aggregate without labels is
+    now stricter than one with labels: for the second, the rule of the
+    delta-pass over 0.15.1 above still reads both directions, and a fall over a
+    moved denominator is not counted. That is not changed here.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,
