@@ -292,13 +292,17 @@ notes under them are this file, verbatim.
     requests are in nltk's `v3.10.4` and not in `v3.10.3`; their code was not
     read. `SECURITY.md` and `RELEASING.md` no longer say there is nothing to
     move to, and the two accepted rows stay until the weekly audit lists them
-    as no longer found.
+    as no longer found. `tests/test_accepted_advisories.py` holds each lock to
+    the version `SECURITY.md` says it moved to: a lock taken back below it is
+    red, and one above it passes.
   - `docs/declarative.md`'s refusal of `treshold` and `docs/migrate.md`'s note
     on a file left out for its name open with the command that prints them,
     and show what it prints today: the refusal goes to standard error after
     `digline: `, and the note counts the files it left out.
-    `tests/test_console_blocks.py` holds every `console` block under `docs/` to
-    a `$ ` line, with one declared exception in `docs/log.md`.
+    `docs/log.md`'s *Run-to-run spread* excerpt opens with `digline log` and
+    says, before it, that no scenario in the repository produces its numbers,
+    as `docs/explain.md` does. `tests/test_console_blocks.py` holds every
+    `console` block under `docs/` to a `$ ` line, with no exception.
   - `examples/operator`'s two cycles were made again with this tree's digline,
     with no key: the default path's target and judge are stand-ins, and the
     judgment layer did not run. Every row of the three alerts now carries how

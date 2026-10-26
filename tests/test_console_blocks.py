@@ -7,9 +7,12 @@ messages digline no longer prints in those words, and one of the two was
 missing the `digline: ` its command writes before a refusal (#649).
 
 The form is the one the pages already use, `docs/migrate.md`'s first block
-among them: the command on a `$ ` line, then what it printed. The pages a test
-replays (`tests/_docs.py`) are held to more than this; this holds every page
-under `docs/` to this much.
+among them: the command on a `$ ` line, then what it printed. A block whose
+numbers no scenario in the repository produces keeps its `$ ` line too, and
+says so in a sentence before it, as `docs/explain.md` does: a declaration in
+the page, never an exception in this file, which nobody reading the page sees.
+The pages a test replays (`tests/_docs.py`) are held to more than this; this
+holds every page under `docs/` to this much.
 """
 
 from __future__ import annotations
@@ -20,16 +23,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 _BLOCK = re.compile(r"^```console\n(.*?)^```", re.S | re.M)
-
-#: Blocks known to open with output, by page and the first line they show,
-#: each with where it is owed. Not a list to grow: a block added without its
-#: command is red, and this table is for the ones a decision left as they are.
-WITHOUT_A_COMMAND: dict[tuple[str, str], str] = {
-    (
-        "docs/log.md",
-        "Run-to-run spread",
-    ): "#649, group 4: an excerpt of `digline log`, over a store built for the page",
-}
 
 
 def _blocks_without_a_command() -> list[tuple[str, int, str]]:
@@ -46,21 +39,12 @@ def _blocks_without_a_command() -> list[tuple[str, int, str]]:
 
 def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
     unexplained = [
-        f"{page}:{line}: {first!r}"
-        for page, line, first in _blocks_without_a_command()
-        if (page, first) not in WITHOUT_A_COMMAND
+        f"{page}:{line}: {first!r}" for page, line, first in _blocks_without_a_command()
     ]
     assert not unexplained, (
         "a `console` block that shows output with no `$ ` line before it does "
         "not say which command printed it:\n  " + "\n  ".join(unexplained)
     )
-
-
-def test_every_exception_is_still_a_block_without_a_command() -> None:
-    """An exception whose block was given its command is a row to delete."""
-    seen = {(page, first) for page, _, first in _blocks_without_a_command()}
-    stale = [key for key in WITHOUT_A_COMMAND if key not in seen]
-    assert not stale, stale
 
 
 def test_the_walk_finds_console_blocks_at_all() -> None:
