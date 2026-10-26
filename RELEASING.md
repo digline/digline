@@ -836,14 +836,6 @@ the tag:
   with it, in a pull request on digline.dev for `docs/start.md` and
   `docs/{de,es,it}/start.md`. (On 0.33.0 it goes from three to two, because the
   `steady` scenario's cost no longer rises for a reason.)
-- **For 0.33.0 only:** `digline/digline.dev#214`, held. Its `Build` went green
-  at 10:04:04Z on 2026-10-21, against a digline `main` from before #653
-  (merged 10:47:23Z), which changed the home's `steady` scenario. That green
-  describes another tree, so it is built again before the merge. It
-  carries `home.roadmap.shipped_text`, `home.problem.with_reference_items.noise`
-  and a dated note on the post *The more samples I took, the less my noise floor
-  could see*. Merge it with the tag, not before: the home describes the released
-  product. Delete this item once it is merged.
 
 ## Before the tag: the alert list
 
