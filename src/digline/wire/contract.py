@@ -700,9 +700,11 @@ _HEADLINE: Mapping[str, _Key] = {
     "modules_unchecked": _k("integer", "null"),
     # Every cause of exit 2 that holds, each named as the boolean or count
     # beside it on the same document: `unjudged`, `scale_lost`,
-    # `pinned_drifted`, `pinned_lost`, `nothing_judged`. What `exit_code` reads,
-    # and what a promotion refuses on, so a pipeline can tell a run that exits 1
-    # with a drifted pin beside the regression from one that only regressed.
+    # `pinned_drifted`, `pinned_lost`, `nothing_judged`, `unpaired`. What
+    # `exit_code` reads, and what a promotion refuses on, all but `unpaired`, so
+    # a pipeline can tell a run that exits 1 with a drifted pin beside the
+    # regression from one that only regressed. `tests/test_cause_vocabulary.py`
+    # holds every word `causes_of_two` can return to a key of this shape. (#642)
     # Moves no number; an added key, no bump. (ADR 0053)
     # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0053.
     "unjudged_causes": _STRINGS,
