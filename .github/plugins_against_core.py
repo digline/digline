@@ -384,6 +384,19 @@ def main_check() -> int:
     if title and path:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(section + "\n")
+    # The `pypi` job's install check is handed what this step classified as
+    # excluded, rather than deciding again on its own (#717): one reading, in
+    # one place. `name==version`, because what is excluded is the served
+    # version read here, and a newer version of the same plugin that this tag
+    # publishes must not be left out with it. Written even when empty, so an
+    # absent output is a step that did not run, never a step that found none.
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        excluded = " ".join(
+            f"{o.name}=={o.version}" for o in outcomes if o.word == "excluded"
+        )
+        with open(output, "a", encoding="utf-8") as handle:
+            handle.write(f"excluded={excluded}\n")
     broken = [o for o in outcomes if o.word == "broken"]
     for o in broken:
         print(

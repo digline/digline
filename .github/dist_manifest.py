@@ -24,6 +24,26 @@ lagging index quietly resolving the *previous* release and passing anyway.
 `names.txt` is unversioned on purpose: TestPyPI resolves against a different
 set of uploads, and pinning there would fail for a reason that says nothing
 about this release.
+
+**`--excluding name==version …` leaves packages out of all three files, and
+says which and why** (#717). It is the `pypi` job's install check that passes
+it, with what `plugins_against_core.py` classified in `testpypi` as excluded by
+its own cap: a plugin PyPI already serves whose range on digline stops below
+this core. Installed beside this core it cannot resolve on any index, and
+before this option every minor that raised the plugins' caps turned the check
+red ten times out of ten. Leaving it out is a reading, not a skip, so each one
+is named in the log with the reason, and three exclusions are refused rather
+than applied:
+
+- the core, which this check exists to install;
+- a name `dist/` does not hold, which says the two readings disagree;
+- a name without a version: an exclusion is of the served version that was
+  classified.
+
+**A version this tag publishes is never left out.** The classification reads
+the newest version PyPI served before the upload. When `dist/` holds a newer
+one, this tag publishes it and nothing has verified it yet, so it stays in the
+manifest and the log says so.
 """
 
 import pathlib
@@ -41,9 +61,16 @@ def name_and_version(wheel: pathlib.Path) -> tuple[str, str]:
     return name.replace("_", "-").lower(), version
 
 
+def _refuse(sentence: str) -> int:
+    print(
+        f"::error title=An exclusion that cannot be right::{sentence}", file=sys.stderr
+    )
+    return 1
+
+
 def main(argv: list[str]) -> int:
     out = pathlib.Path(argv[1] if len(argv) > 1 else "manifest")
-    out.mkdir(parents=True, exist_ok=True)
+    excluding = argv[3:] if len(argv) > 2 and argv[2] == "--excluding" else []
 
     found = dict(
         sorted(name_and_version(w) for w in pathlib.Path("dist").glob("*.whl"))
@@ -60,6 +87,41 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
+    for exclusion in excluding:
+        name, _, version = exclusion.partition("==")
+        if not version:
+            return _refuse(
+                f"{exclusion} is not name==version: an exclusion is of the served "
+                "version plugins_against_core.py classified"
+            )
+        if name == "digline":
+            return _refuse(
+                f"{exclusion} names the core, which this check exists to install"
+            )
+        if name not in found:
+            return _refuse(
+                f"{exclusion} is not in dist/, so the classification and the "
+                "roster this tag built disagree"
+            )
+        if found[name] != version:
+            print(
+                f"kept {name} {found[name]}: the classification excluded the "
+                f"served {version}, and this tag publishes {found[name]}, which "
+                "nothing has verified yet"
+            )
+            continue
+        del found[name]
+        print(
+            f"left out {name} {version}: excluded by its own cap, which stops "
+            "below this core, as plugins_against_core.py classified it in the "
+            "testpypi job. This release owes it a release"
+        )
+        print(
+            f"::notice title=Left out of the install check::{name} {version} is "
+            "excluded by its own cap (plugins_against_core.py)"
+        )
+
+    out.mkdir(parents=True, exist_ok=True)
     (out / "pins.txt").write_text(
         "".join(f"{n}=={v}\n" for n, v in found.items()), encoding="utf-8"
     )

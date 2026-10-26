@@ -413,7 +413,7 @@ def pypi_step(needle: str) -> dict[str, object]:
 def test_the_install_check_leaves_out_what_testpypi_classified() -> None:
     """And only the install check: the wait before it holds the index to
     every file this tag built, the excluded included."""
-    install = pypi_step("pins.txt && break")
+    install = pypi_step("dist_manifest.py /tmp/manifest --excluding")
     assert install["env"] == {"EXCLUDED": "${{ needs.testpypi.outputs.excluded }}"}
     assert "dist_manifest.py /tmp/manifest --excluding $EXCLUDED" in str(install["run"])
     wait = pypi_step("await_index.py --manifest")
@@ -424,7 +424,7 @@ def test_a_conflict_between_the_pins_is_not_told_to_re_run() -> None:
     """A conflict between declared requirements is the same on every read, so
     the step stops at the first one and says a re-run gives the same red. The
     advice to re-run stays where it can work: a version not yet served."""
-    run = str(pypi_step("pins.txt && break")["run"])
+    run = str(pypi_step("dist_manifest.py /tmp/manifest --excluding")["run"])
     conflict = run.index("ResolutionImpossible")
     stop = run.index("exit 1", conflict)
     branch = run[conflict:stop]
