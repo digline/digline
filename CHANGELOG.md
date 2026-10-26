@@ -252,6 +252,22 @@ notes under them are this file, verbatim.
   not change. No `OUTPUT_VERSION` or `SCHEMA_VERSION` moves: the field is
   still a list of strings. **What a projected document carries changed for a
   reader of one, and the next version is already a minor.**
+- **The pre-run bill counts each calibration case's judge calls by the check
+  it calibrates** (#565). It multiplied once for every calibration case, so a
+  check repeated three times was announced at *"judged 3 times"* where it makes
+  9 judge calls, and two cases calibrating different checks got a number true
+  of neither. It is now the sum, over the cases, of each case's samples times
+  the multiplier of its check, and where a judged check digline did not write
+  may call its judge more than once per evaluation the bill says *"judged at
+  least N times"*. One case on a check that is not repeated reads as before.
+- **`ToolCalledWith` names the key a function target fills.** Its refusal said
+  only that a target which reports its trajectory can be judged on it, which
+  is true and short of the key. It now names `tool_calls`, each call's shape
+  and how a function supplies it, as `ToolsCalled`'s does since #626.
+- **`docs/api.md` names every cause of exit code `2`**, `unpaired` (#642)
+  included, which shipped beside the other five and was missing from the row.
+  Each is named by the key `unjudged_causes` carries, and a test holds the row
+  to `CauseOfTwo`.
 
 ## 0.34.0 — 2026-10-26
 
@@ -668,6 +684,22 @@ each package.
   `docs/declarative.md` showed it in their first provider example and no longer
   do. **On an SDK older than 1.0.0 it was sent and worked, so the next version
   is a minor.** Needs no core release.
+- **A reply from a geography with no rate is a cost not known, and its case is
+  judged** (#569). `AnthropicTarget` raised `UnknownModelError` after the
+  call was answered and paid for, so every check of the case went to `error`
+  for a problem of accounting, and a run of such cases exited `2`. The response
+  is now handed over with the counts the provider reported and no cost, which
+  the run's line reads as a cost not known (`every_cost_known: false`), and
+  the case is judged. A geography with a rate is priced as before. A judging
+  call in such a geography is still refused. **A run that exited `2` on this
+  now exits as its checks say, so the next version is a minor.**
+- **A judge with a model that thinks before it answers needs a larger
+  `max_tokens`, and the README says so where a judge is configured** (#599).
+  The default stays at 400. A model that thinks spends its thinking out of the
+  same allowance, and when it fills it every judging call is cut before the
+  first character. The README names the default, how to raise it on
+  `AnthropicJudge` and `AnthropicClaimJudge`, and that a TOML suite's judge by
+  coordinates cannot be given another value, so it moves into a `suite.py`.
 
 ## digline-bedrock — unreleased
 
