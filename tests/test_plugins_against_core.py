@@ -382,11 +382,74 @@ def runs_on(condition: object, tag: str) -> bool:
     raise AssertionError(f"a condition this test cannot read: {condition!r}")
 
 
-def test_the_testpypi_job_exports_the_classification() -> None:
-    step = classifying_step()
-    assert "plugins_against_core.py excluded" in str(step["run"])
-    assert 'excluded="$(' in str(step["run"])
-    assert "GITHUB_OUTPUT" in str(step["run"])
+def run_classifying_step(
+    tmp_path: Path, printed: str, status: int
+) -> tuple[subprocess.CompletedProcess[str], str, str]:
+    """The step's own script, run the way Actions runs a `run:` block, with a
+    `uv` on the path that stands for the classification: it records how it was
+    called, prints `printed` and exits with `status`. Returns the step's
+    outcome, what it wrote to `GITHUB_OUTPUT`, and the call."""
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    calls = tmp_path / "calls"
+    uv = bin_ / "uv"
+    uv.write_text(
+        f'#!/bin/sh\necho "$*" > "{calls}"\necho "{printed}"\nexit {status}\n',
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    output = tmp_path / "output"
+    output.write_text("", encoding="utf-8")
+    # `bash -e -o pipefail` is the shell Actions runs a `run:` block in.
+    done = subprocess.run(
+        [
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-e",
+            "-o",
+            "pipefail",
+            "-c",
+            str(classifying_step()["run"]),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            "PATH": f"{bin_}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+        },
+    )
+    return done, output.read_text(encoding="utf-8"), calls.read_text(encoding="utf-8")
+
+
+def test_the_testpypi_job_exports_the_classification(tmp_path: Path) -> None:
+    """The output both install checks read is written, under the name the job
+    exports, with what the classification printed. A test that looked for the
+    word `GITHUB_OUTPUT` in the step passed a write under another key and a
+    write of nothing, and either reaches `pypi` as an output no step wrote.
+    (#731)"""
+    done, written, call = run_classifying_step(
+        tmp_path, "classified digline-mcp==0.6.2", 0
+    )
+    assert done.returncode == 0, done.stderr
+    assert call.split()[-3:] == [
+        "python",
+        ".github/plugins_against_core.py",
+        "excluded",
+    ]
+    assert written == "excluded=classified digline-mcp==0.6.2\n"
+
+
+def test_a_classification_that_fails_fails_its_step_and_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """The assignment, not a substitution inside `echo`, carries the status
+    out: a classification that failed stops the job before either install
+    check, rather than handing on what it printed before failing."""
+    done, written, _ = run_classifying_step(tmp_path, "classified", 1)
+    assert done.returncode != 0
+    assert written == ""
 
 
 @pytest.mark.parametrize(
@@ -424,6 +487,85 @@ def test_the_install_check_leaves_out_what_testpypi_classified() -> None:
     wait = pypi_step("await_index.py --manifest")
     assert "--classification" not in str(wait["run"])
     assert "EXCLUDED" not in str(wait["run"])
+
+
+def test_pypi_keeps_a_version_this_tag_publishes_that_testpypi_saw_excluded(
+    tmp_path: Path,
+) -> None:
+    """`testpypi` classifies against what PyPI served before this tag's upload,
+    so the `pypi` job reads a classification one publication old: its own. The
+    version this tag publishes is told apart from the excluded one by `dist/`,
+    which `pypi` must still hold whole after choosing what to upload. This is
+    `pytest-digline-v0.4.0`'s case: the classification excluded the served
+    0.3.1, and the tag publishes 0.4.0. The `pypi` job's own selection and
+    install lines are run, in order, against an index that serves what PyPI
+    served before the upload."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    for stem in ("digline-0.34.0", "digline_mcp-0.6.2", "pytest_digline-0.4.0"):
+        (dist / f"{stem}-py3-none-any.whl").write_bytes(b"")
+        (dist / f"{stem}.tar.gz").write_bytes(b"")
+    (tmp_path / ".github").symlink_to(ROOT / ".github")
+    served = {
+        f"/pypi/{n}/{v}/json": (200, b"{}")
+        for n, v in (
+            ("digline", "0.34.0"),
+            ("digline-mcp", "0.6.2"),
+            ("pytest-digline", "0.3.1"),
+        )
+    }
+    steps = cast("list[dict[str, object]]", jobs()["pypi"]["steps"])
+    (select,) = [s for s in steps if s.get("id") == "select"]
+    (install,) = [
+        line.strip()
+        for line in str(
+            pypi_step("dist_manifest.py /tmp/manifest --classification")["run"]
+        ).splitlines()
+        if line.strip().startswith("python .github/dist_manifest.py")
+    ]
+    install = install.replace("/tmp/manifest", str(tmp_path / "manifest"))
+    with index(served) as url:
+        chosen = subprocess.run(
+            [
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-e",
+                "-o",
+                "pipefail",
+                "-c",
+                str(select["run"]),
+            ],
+            cwd=tmp_path,
+            env={**os.environ, "INDEX": url, "GITHUB_OUTPUT": str(tmp_path / "out")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    assert chosen.returncode == 0, chosen.stderr
+    assert sorted(p.name for p in (tmp_path / "to-publish").iterdir()) == [
+        "pytest_digline-0.4.0-py3-none-any.whl",
+        "pytest_digline-0.4.0.tar.gz",
+    ]
+    done = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", install],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "EXCLUDED": "classified digline-mcp==0.6.2 pytest-digline==0.3.1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    pins = (tmp_path / "manifest" / "pins.txt").read_text(encoding="utf-8")
+    assert pins.splitlines() == ["digline==0.34.0", "pytest-digline==0.4.0"]
+    assert (
+        "kept pytest-digline 0.4.0: the classification excluded the served 0.3.1"
+        in done.stdout
+    )
+    assert "left out digline-mcp 0.6.2" in done.stdout
 
 
 def test_a_conflict_between_the_pins_is_not_told_to_re_run() -> None:
