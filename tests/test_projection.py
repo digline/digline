@@ -353,10 +353,6 @@ def _artifact_path_in_clear(run: Run) -> Run:
     return replace(run, artifacts={ARTIFACT: Artifact(withheld=True)}, pinned=())
 
 
-def _module_in_clear(run: Run) -> Run:
-    return replace(run, modules_unchecked=(MODULE,))
-
-
 @pytest.mark.parametrize(
     ("change", "match"),
     [
@@ -364,7 +360,6 @@ def _module_in_clear(run: Run) -> Run:
         (_verdict_name_in_clear, "name of a verdict"),
         (_run_metadata, "carries metadata"),
         (_artifact_path_in_clear, "artifact path"),
-        (_module_in_clear, "module"),
     ],
 )
 def test_a_projected_run_holding_a_name_is_refused(

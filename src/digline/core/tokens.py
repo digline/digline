@@ -35,6 +35,9 @@ type TokenKind = Literal[
     "judge_config_key",
     "judge_config_value",
     "judge_identity",
+    # An application module a check could not reach (`Run.modules_unchecked`):
+    # a name of the application's, which can carry a customer's. (#712)
+    "module_name",
 ]
 
 #: Look-up-or-mint: the token for a (kind, text), minting one if the owning

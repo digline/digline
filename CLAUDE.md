@@ -110,9 +110,10 @@ correct its structural mistakes and are not negotiable.
    calibration band's check word, artifact paths and reported configuration
    keys and values become **tokens**, resolved only where the store is. Every
    string is classified, and an unclassified string is refused by
-   `tests/test_projection_gate.py`, with three exclusions declared there:
-   numbers (ADR 0034 §4, as corrected 2026-09-28), a verdict's metadata keys
-   (#711) and `Run.modules_unchecked` (#712). *Corrected 2026-10-25 (#710):*
+   `tests/test_projection_gate.py`, with two exclusions declared there:
+   numbers (ADR 0034 §4, as corrected 2026-09-28) and a verdict's metadata
+   keys (#711). `Run.modules_unchecked` was a third until 2026-10-26 (#712):
+   a projection now tokenises its names. *Corrected 2026-10-25 (#710):*
    this said every field was classified and an unclassified one refused, and
    no test held it. ADR 0034 §4 read literally stays wider than what is held.
    The document

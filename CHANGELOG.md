@@ -180,6 +180,22 @@ notes under them are this file, verbatim.
     content blocks. **No response was observed**: nothing called a provider,
     so what a field means rests on the types and the guide, not on a reply.
 
+- **A projection tokenises `Run.modules_unchecked`** (#712). The names of the
+  application modules a check could not reach crossed a projected document in
+  clear, though an application's module name can carry a customer's. `redact()`
+  keeps them because they come from the perimeter the artifact and pinned
+  paths cross from (ADR 0052), and in a projection those paths are tokens. They
+  are now tokens of a kind of their own, `module_name`, resolved where the name
+  table is like every other kind. The projection gate holds the path as a
+  token, so its exclusions are two: numbers, and a verdict's metadata keys
+  (#711). A document already projected with the names in clear is still read:
+  refusing it would change what a valid document is. ADR 0036 §3 said the core
+  knows no list of kinds. It keeps one, and its dated note says so: a new kind
+  is written in the core, and digline-ward, which stores a kind as text, does
+  not change. No `OUTPUT_VERSION` or `SCHEMA_VERSION` moves: the field is
+  still a list of strings. **What a projected document carries changed for a
+  reader of one, and the next version is already a minor.**
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.
