@@ -349,11 +349,10 @@ RECORDED: dict[str, dict[str, str]] = {
             "the release whose `within_noise` changed meaning under "
             "`output_version: 2` (#669); the core the owed floors' calls raise "
             "against, in the table of floors owed at the cut; the release whose "
-            "home recapture moved the start page's count and whose site pull "
-            "request #214 was held; the wheel whose publish time is recorded "
-            "beside 0.32.1's; and the tag `79b38cc` the image job and the home "
-            "check were measured on: history, told as such now that 0.34.0 is "
-            "the tree's version"
+            "home recapture moved the start page's count; the wheel whose "
+            "publish time is recorded beside 0.32.1's; and the tag `79b38cc` "
+            "the image job and the home check were measured on: history, told "
+            "as such now that 0.34.0 is the tree's version"
         ),
         "0.32.1": (
             "the release whose index-race status is recorded (the gate, the "
