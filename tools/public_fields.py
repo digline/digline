@@ -6,13 +6,18 @@ a field added to a class an `__all__` already listed is new surface, and a
 diff of the `__all__`s cannot see it. 0.25.3 is why: `SuiteRuns.unnamed`
 arrived on a class that was public since 0.25.2.
 
+**A property is listed beside the fields**, as `@name`, because it is read
+like a field and is surface the same way. 0.34.0 is why: `Comparison` gained
+`pinned_changed`, `pinned_changed_count` and `pinned_gone` as properties, and
+the delta-pass over it found them only because the changelog entry named them.
+
 Two modes, because the fields of a tag are only known by importing that tag:
 
     uv run python tools/public_fields.py > fields.json
     uv run python tools/public_fields.py --diff THEN.json NOW.json
 
 The first prints the fields of the tree it runs in, as JSON. The second prints
-every class and field added or removed between two such files, one per line,
+every class, field and property added or removed between two such files, one per line,
 and nothing when nothing moved. It exits 0 either way: what it prints is a
 list to read, not a verdict.
 
@@ -25,6 +30,7 @@ a field (#312).
 from __future__ import annotations
 
 import dataclasses
+import functools
 import importlib
 import json
 import sys
@@ -61,8 +67,26 @@ def fields() -> dict[str, list[str]]:
         for name in names:
             value: object = getattr(module, name, None)
             if isinstance(value, type) and dataclasses.is_dataclass(value):
-                found[f"{package}.{name}"] = [f.name for f in dataclasses.fields(value)]
+                found[f"{package}.{name}"] = [
+                    f.name for f in dataclasses.fields(value)
+                ] + [f"@{p}" for p in properties(value)]
     return found
+
+
+def properties(cls: type) -> list[str]:
+    """The properties a class defines or inherits, in name order. A
+    `functools.cached_property` counts: it is read the same way."""
+    names: set[str] = set()
+    for klass in cls.__mro__[:-1]:
+        for name, member in vars(klass).items():
+            if isinstance(member, property | functools.cached_property):
+                names.add(name)
+    return sorted(names)
+
+
+def _kind(name: str) -> tuple[str, str]:
+    """`("property", name)` for an `@name` entry, `("field", name)` otherwise."""
+    return ("property", name[1:]) if name.startswith("@") else ("field", name)
 
 
 def diff(then: dict[str, list[str]], now: dict[str, list[str]]) -> list[str]:
@@ -76,10 +100,14 @@ def diff(then: dict[str, list[str]], now: dict[str, list[str]]) -> list[str]:
         else:
             for name in now[key]:
                 if name not in then[key]:
-                    lines.append(f"field added    {key}.{name}")
+                    kind, bare = _kind(name)
+                    pad = "    " if kind == "field" else " "
+                    lines.append(f"{kind} added{pad}{key}.{bare}")
             for name in then[key]:
                 if name not in now[key]:
-                    lines.append(f"field removed  {key}.{name}")
+                    kind, bare = _kind(name)
+                    pad = "  " if kind == "field" else " "
+                    lines.append(f"{kind} removed{pad}{key}.{bare}")
     return lines
 
 

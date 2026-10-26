@@ -58,3 +58,21 @@ def test_nothing_moved_prints_nothing(tmp_path: Path) -> None:
         check=True,
     )
     assert done.stdout == ""
+
+
+def test_it_reads_the_properties_of_a_listed_dataclass() -> None:
+    """The 0.34.0 case: `Comparison` gained three properties, and no diff the
+    delta-pass ran could see them. They were found because the changelog
+    entry named them."""
+    found = tool().fields()["digline.core.Comparison"]
+    assert {"@pinned_changed", "@pinned_changed_count", "@pinned_gone"} <= set(found)
+    assert "pinned_changed" not in found
+
+
+def test_a_property_is_listed_as_a_property_both_ways() -> None:
+    then = {"a.Kept": ["x", "@gone"]}
+    now = {"a.Kept": ["x", "@new"]}
+    assert tool().diff(then, now) == [
+        "property added a.Kept.new",
+        "property removed a.Kept.gone",
+    ]

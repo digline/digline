@@ -2106,7 +2106,19 @@ is the one a quiet log cannot supply.
     digline-action's default image, which `release-followup` reads as 0.33.0
     on its `main` and `v1` (#716). The releases this minor owes digline-mcp
     and pytest-digline, and their floors in *Owed at the cut*, are still owed.
-    The delta-pass was not run.
+    The delta-pass was not run at the tag.
+  - **The delta-pass, run on 2026-10-26, after the tag**, against `v0.33.0`.
+    - **Four names are declared nowhere**: `digline.host.promotion_notes`,
+      `digline.wire.compare.before_interval_json`, `Noise.asked` with
+      `AssertionDelta.noise_asked`, and the module `digline.core.gate`.
+    - **All four are level 3** of *Choosing the version*, the rest of an
+      `__all__`. No shipped plugin imports any of them or reads them, measured
+      on the five wheels PyPI serves. So no release is owed for them.
+    - **No probe found a path**, and no finding earns a GHSA.
+    - **The rule the pass was run under was short.** After a bump it diffed
+      one table of the JSON contract, which missed three keys. *After the
+      green, before the announcement: the delta-pass* now diffs the derived
+      contract.
 
   **The next tag must show** the pair for every pin again, and whether row one
   comes back. This is the first time it disagreed after the in-build wait
@@ -4267,22 +4279,52 @@ two are not an inconsistency to reconcile.
   the tree being tagged. Do not count them from memory: on 0.25.1 a count
   given from memory said five, and there were four.
 - **The keys of the JSON contract**, which a pipeline parses as surely as a
-  program imports a name. Diff `_ADDED` in `src/digline/wire/contract.py`
-  between the two tags: since #312 every key added without a bump of
-  `OUTPUT_VERSION` is an entry there, with the issue or ADR that added it.
-  **When `OUTPUT_VERSION` moved between the two tags, diff `_BASE` instead.**
-  *Ruled 2026-10-25 (#669).* The bump folds `_ADDED` and `_ADDED_WORDS` into
-  `_BASE` and empties them, so a diff of `_ADDED` would miss every key added
-  in the cycle before the fold. `errored_checks` (#654) is the case that
-  showed it: added in the cycle of 0.34.0 and folded at the bump to 3, it
-  would not appear in the delta-pass over 0.34.0 by a diff of `_ADDED`.
-  Diff `_ADDED_WORDS` beside it: since #402 a word added to a map's closed key
-  vocabulary, such as a cause in `spread_absence`, is an entry there. And
+  program imports a name. Diff **the derived contract**, `_lines(_SHAPES)` in
+  `src/digline/wire/contract.py`, imported in **both** trees, the way the
+  fields are below:
+
+  ```sh
+  uv run python -c 'from digline.wire import contract as c; print("\n".join(c._lines(c._SHAPES)))' > /tmp/now.keys
+  # the same in the worktree at v<last>, into /tmp/then.keys
+  diff /tmp/then.keys /tmp/now.keys
+  ```
+
+  `_SHAPES` is `_BASE` with every `_ADDED` entry and every `_ADDED_WORDS` word
+  applied. It prints one line per key, with its types and a map's closed
+  vocabulary, so a key added, removed or retyped and a word added each show
+  as a line. **The three tables are how the contract is assembled, not the
+  contract.** A bump of `OUTPUT_VERSION` moves keys from one table to another
+  and adds or removes nothing, so a diff of one table alone is noise and a
+  hole: over 0.34.0, a diff of `_BASE` carried 29 keys 0.33.0 had already
+  shipped and missed the 3 added to `_ADDED` after the fold.
   `tests/test_wire_keys.py` refuses a document that carries a key the table
   does not name. For a tag older than the table, the record is the prose above
   `OUTPUT_VERSION`, written by hand. On 0.25.1 that diff names
   `on_record_not_read` and `unread_on_record` (#287). The pass over 0.25.1
   left them out, because the rule then said *names*.
+
+  *Corrected 2026-10-26, by the delta-pass over 0.34.0.* The rule diffed a
+  table, and is corrected in place to diff the contract. It was first written
+  for `_ADDED`. Then #708 amended it for a bump, on #669's ruling, and the
+  amendment kept the shape: one table instead of another. The pass over
+  0.34.0 was the first to meet a bump, and it found the amendment short in
+  both directions:
+  - 29 of the 34 keys the bump folded into `_BASE` were 0.33.0's;
+  - #714 added three keys to `_ADDED` after the fold.
+
+  The pass diffed `_lines(_SHAPES)` instead, which gave 8 keys. The bullet
+  read:
+  - *"Diff `_ADDED` in `src/digline/wire/contract.py` between the two tags:
+    since #312 every key added without a bump of `OUTPUT_VERSION` is an entry
+    there, with the issue or ADR that added it. **When `OUTPUT_VERSION` moved
+    between the two tags, diff `_BASE` instead.**"*
+  - *"*Ruled 2026-10-25 (#669).* The bump folds `_ADDED` and `_ADDED_WORDS`
+    into `_BASE` and empties them, so a diff of `_ADDED` would miss every key
+    added in the cycle before the fold. `errored_checks` (#654) is the case
+    that showed it: added in the cycle of 0.34.0 and folded at the bump to 3,
+    it would not appear in the delta-pass over 0.34.0 by a diff of `_ADDED`.
+    Diff `_ADDED_WORDS` beside it: since #402 a word added to a map's closed
+    key vocabulary, such as a cause in `spread_absence`, is an entry there."*
 - **The fields of every dataclass an `__all__` lists.** A dataclass is its
   fields, so a field added to a class that was already public is new surface,
   and the diff of the `__all__`s cannot see it: the class's name did not move.
@@ -4328,6 +4370,17 @@ them:
   between two tags, and a change of meaning shows in no diff: it is a question
   the author asks while writing the change, and `CONTRIBUTING.md` asks it.
 
+*Added 2026-10-26, by the delta-pass over 0.34.0, the list above kept as
+written.* **A property of a listed dataclass** was a third gap, and the list
+did not name it. A property is read like a field, and none of the three diffs
+saw one: `public_fields.py` read `dataclasses.fields` alone. `Comparison`
+gained three in 0.34.0, `pinned_changed`, `pinned_changed_count` and
+`pinned_gone`, and the pass found them only because the changelog entry named
+them. From today the tool reads them, `functools.cached_property` included.
+Each is listed as `@name` beside the fields, and the diff says `property
+added` or `property removed`. So this one is closed rather than added to the
+list.
+
 **What holds that record, said here because it is weaker than the first.** An
 `__all__` is code, so a new name cannot be exported without appearing in it.
 The record in `contract.py` is prose that whoever adds a key writes by hand,
@@ -4345,13 +4398,19 @@ still surface to pass over.
 longer prose alone. `_BASE` and `_ADDED` in `contract.py` are a table, and
 `tests/test_wire_keys.py` holds every document `wire/` builds to it, key and
 type, at every level, under fixtures that reach every shape and key in it. An
-addition cannot reach `main` without an `_ADDED` entry, so the diff of `_ADDED`
-is the list, and the diff of `wire/` is no longer the control. The count above
-was also short. There were twenty-three builders, the four `run_document`
-helpers among them. `shape_json` and `config_json` were each pinned by one
-test, which the search that counted them did not find. Measured before the
-table: of sixteen changes to keys quoted in no test, fifteen left the suite
-green (#312).
+addition cannot reach `main` without an entry in the table, so the diff of the
+derived contract is the list, and the diff of `wire/` is no longer the
+control. The count above was also short. There were twenty-three builders,
+the four `run_document` helpers among them. `shape_json` and `config_json`
+were each pinned by one test, which the search that counted them did not
+find. Measured before the table: of sixteen changes to keys quoted in no test,
+fifteen left the suite green (#312).
+
+*Corrected 2026-10-26, by the delta-pass over 0.34.0.* The sentence above
+named one table as the list, and is corrected in place. It read *"An addition
+cannot reach `main` without an `_ADDED` entry, so the diff of `_ADDED` is the
+list"*. An addition also reaches `main` as a `_BASE` entry, at a bump, and
+the keys above say why one table is not the list.
 
 Ruled 2026-10-01, the names in the morning, the keys the same day, and the
 fields of a listed dataclass that afternoon, before the tag of 0.25.3.
