@@ -93,3 +93,20 @@ def test_a_name_the_code_does_not_have_is_caught() -> None:
 
 def test_every_name_the_api_doc_lists_is_in_the_code() -> None:
     assert unheld(listed(), exported()) == []
+
+
+def test_the_exit_code_row_for_2_names_every_cause() -> None:
+    """The row for `2` in *The exit code* listed five causes when there were
+    six: `unpaired` (#642) shipped and the row was not told. It now names each
+    by the key `unjudged_causes` carries, read here from `CauseOfTwo` so the
+    two cannot part."""
+    from typing import get_args
+
+    from digline.core import CauseOfTwo
+
+    text = API.read_text(encoding="utf-8")
+    (row,) = [line for line in text.splitlines() if line.startswith("| `2` |")]
+    causes = get_args(CauseOfTwo.__value__)
+    assert causes
+    missing = [cause for cause in causes if f"`{cause}`" not in row]
+    assert missing == []
