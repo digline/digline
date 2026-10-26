@@ -386,6 +386,34 @@ digline **0.34.0**.
 
 ## pytest-digline — unreleased
 
+- **A session ends `1` where a check could not be paired with its reference**
+  (#642). With the core release that carries the cause `unpaired`, a
+  comparison holding a `missing` and a `new` on the same case under the same
+  name exits `2`, and a session whose suite digline does not call green ends
+  `1`, as it does for every other cause. It ended `0`. **The exit status a
+  session ends with changed, so the next version is a minor**, though the
+  plugin's code does not change. The rows do not change: the `missing` side is
+  still a `SKIPPED` row and the `new` side a row of its own, and the suite's
+  sentence in the session's summary says which checks were not compared, with
+  both scores. That core is the minor above 0.34, so this reaches a session
+  only through the release of this plugin whose cap admits it: 0.4.0's `<0.35`
+  does not.
+
+## pytest-digline 0.4.0 — 2026-10-26
+
+Published by its own tag, `pytest-digline-v0.4.0`, after digline 0.34.0 was on
+PyPI. **A minor, because a row that passed is now skipped** (#574): a row's
+outcome is something this package's users rely on, by the rule that holds for
+each package.
+
+- **The dependency is `digline>=0.34.0,<0.35`.** The floor: a check the run
+  has no verdict for asks for a `fact.row_missing` sentence, and
+  `--digline-run` imports `unignored`, `unignored_notes` and
+  `refuse_unreadable_baseline`, all new in 0.34.0; against 0.33.0 the first
+  raises `KeyError` and the imports `ImportError`. The cap stays `<0.35`, the
+  minor above it. 0.3.1 caps the core at `<0.34`, so a project that holds it
+  stays on digline 0.33 and is not told; this release is what lets it take
+  0.34.0.
 - **`--digline-run` refuses before spending when the baseline is at a schema
   this digline cannot read** (#621). The session already ended with `4` in
   that store, refused by the comparison after the run had been paid for; it
@@ -407,16 +435,6 @@ digline **0.34.0**.
   The rows keep their nodeids, so `-k`, `--deselect` and `--lf` still name them,
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
-- **A session ends `1` where a check could not be paired with its reference**
-  (#642). With the core release that carries the cause `unpaired`, a
-  comparison holding a `missing` and a `new` on the same case under the same
-  name exits `2`, and a session whose suite digline does not call green ends
-  `1`, as it does for every other cause. It ended `0`. **The exit status a
-  session ends with changed, so the next version is a minor**, though the
-  plugin's code does not change. The rows do not change: the `missing` side is
-  still a `SKIPPED` row and the `new` side a row of its own, and the suite's
-  sentence in the session's summary says which checks were not compared, with
-  both scores.
 
 ## digline-bedrock — unreleased
 
