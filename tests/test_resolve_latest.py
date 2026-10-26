@@ -178,7 +178,7 @@ def test_a_store_newer_than_the_reader_is_told_to_upgrade(tmp_path: Path) -> Non
     store = _only_run_at(tmp_path, SCHEMA_VERSION + 1)
     with pytest.raises(UsageError) as refused:
         resolve_key(store, SUITE, "latest")
-    message = str(refused.value)
+    message = str(refused.value).lower()
     assert "upgrade digline to read them" in message
     assert "digline migrate" not in message
 
