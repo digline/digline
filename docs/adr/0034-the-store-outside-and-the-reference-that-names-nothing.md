@@ -96,6 +96,9 @@
   exclusions, numbers, a verdict's metadata keys (#711) and
   `Run.modules_unchecked` (#712), so §4 read literally stays wider than what is
   held (#710)
+- Amended: 2026-10-26 — §4 gains a dated note: a projection tokenises
+  `Run.modules_unchecked`'s names, as the `module_name` kind, and the gate holds
+  them, so two exclusions remain (#712)
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no migration — nothing is
   implemented. At implementation §8 is a field in the run document and
@@ -600,6 +603,16 @@ a person's name in it. What the gate does **not** hold, each for its own reason:
   0052 gives about the perimeter, and which does not hold in a projection,
   where the artifact and pinned paths it names as that perimeter are tokens
   (#712).
+
+*Noted 2026-10-26 (#712); §4 and the note above are kept as written.*
+**`Run.modules_unchecked` is no longer an exclusion.** A projection tokenises
+each module name as a kind of its own, `module_name`, so the field sits in
+class (c) like the artifact and pinned paths ADR 0052 named as its perimeter,
+and the gate walks the path as a token. A document already projected with the
+names in clear is still read: `_check_projected` runs whenever a `Run` is
+built, a read included, and refusing one there would change what a valid
+document is, which is `SCHEMA_VERSION`'s to do. Two exclusions remain:
+numbers, and the keys of a verdict's metadata (#711).
 
 *Noted 2026-10-25 (#425, #563); §4 and the note above are kept as written.*
 **`CaseResult.error_kind` is class (a)**: `raised` or `shape`, digline's own

@@ -26,7 +26,7 @@ a person's name in it, and nothing refused it.
   three fields of a recorded answer were outside it, and a new word on a case
   would have been as well.
 
-**What this does not cover, three exclusions with three reasons**, so that
+**What this does not cover, two exclusions with two reasons**, so that
 nobody reads the gate as §4's whole guarantee. §4 read literally stays wider
 than what is held here.
 
@@ -38,10 +38,11 @@ than what is held here.
    digline's vocabulary. An assertion somebody else wrote can key them with
    its data, and they cross in clear. `_check_projected`'s docstring says they
    are in none of the three classes yet. #711.
-3. **`Run.modules_unchecked`.** `redact()` keeps the names in clear because
-   they come from the perimeter artifact and pinned paths cross from (ADR
-   0052). In a projection those paths are tokens and the names are not, so the
-   reason does not hold there, and the field crosses with none. #712.
+
+`Run.modules_unchecked` was a third, until #712: `redact()` keeps the names in
+clear because they come from the perimeter artifact and pinned paths cross from
+(ADR 0052), and in a projection those paths are tokens. Its names are tokens
+there now, of the `module_name` kind, and the walk holds them to that.
 """
 
 from __future__ import annotations
@@ -105,6 +106,7 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.results[].calibration.check": ("c", is_token),
     "$.aggregate[].assertion": ("c", _grouped_token),
     "$.pinned[]": ("c", is_token),
+    "$.modules_unchecked[]": ("c", is_token),
     "$.target_config.values{}": ("c", is_token),
     "$.target_config.withheld[]": ("c", is_token),
     "$.target_config.identities[]": ("c", is_token),
@@ -123,11 +125,10 @@ KEYS: dict[str, tuple[str, Check]] = {
     "$.metadata": ("refused", lambda _: False),
 }
 
-#: Exclusions 2 and 3 of the module docstring: walked past, and pointed at.
+#: Exclusion 2 of the module docstring: walked past, and pointed at.
 EXCLUDED: dict[str, str] = {
     "$.results[].verdicts[].metadata": "#711, the keys of a verdict's metadata",
     "$.aggregate[].metadata": "#711, the keys of a verdict's metadata",
-    "$.modules_unchecked[]": "#712, module names, whose ADR 0052 reason is gone",
 }
 
 #: Every string-typed field of the model, and where it goes in a projection:

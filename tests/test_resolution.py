@@ -120,6 +120,7 @@ def test_a_document_with_no_token_is_read() -> None:
         aggregate=(),
         artifacts={},
         pinned=(),
+        modules_unchecked=None,
         target_config=SystemConfig(),
         judge_config=SystemConfig(),
     )

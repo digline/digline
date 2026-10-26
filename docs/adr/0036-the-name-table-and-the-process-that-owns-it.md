@@ -32,6 +32,9 @@
   Context, §7 and one item of *Not decided here* each carry a dated note
   beside the text, which is kept as written. The approver was ruled out of the
   line on 2026-10-05
+- Amended: 2026-10-26 — §3 gains a dated note: the core keeps the list of
+  kinds, so a new kind is a change to the core and not to the owning process.
+  The sentence it corrects is kept as written (#712)
 - Date: 2026-09-29
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no `LEDGER_VERSION`, no migration.
@@ -298,6 +301,22 @@ places does not tell the software house what it must not have. The Context's
 *"six kinds of string"* and §5's *"all six"* count the same way. Capture adds
 no kind: an elected case's token is of the `case_id` kind (§7, ruled
 2026-10-05).
+
+*Noted 2026-10-26 (#712); the paragraphs above are kept as written.* **The
+core keeps the list of kinds, and a new kind is a change to the core.** The
+sentence this corrects reads: *"It compares two kinds for equality and knows no
+list of them. ADR 0034 §5 names six kinds today and capture may add one (§7).
+The core does not change when that list does."* It is true of the resolver's
+check, which compares the kind a row was minted under with the kind of the
+place its token sits in, and nothing else. It is not true of the core: the
+list is `TokenKind` in `src/digline/core/tokens.py`, the place each kind sits
+in is written once in `rename` in `src/digline/core/projection.py`, and
+`_CONFIG_KINDS` in `src/digline/core/resolution.py` names the five a resolver
+refuses to leave unresolved. So a new kind is written in the core, as
+`module_name` was for #712. The owning process changes nothing: digline-ward's
+table stores a kind as text, `kind TEXT NOT NULL`, mints under whatever kind
+it is handed, and uses `TokenKind` only as an annotation, read at ward
+`de5e3c0b`.
 
 ### 4. Tokens are per (tenant, suite); the run key joins nothing in the table
 

@@ -2610,11 +2610,12 @@ text in two kinds gets two tokens.
 
 **`TokenKind`** names what each token stands for: `case_id`, `group`,
 `verdict_name`, `calibration_check`, `artifact_path`, `target_config_key`,
-`target_config_value`, `judge_config_key`, `judge_config_value` and
-`judge_identity`. The group inside `family[group=…]` is tokenised apart from
-the family, so the name still parses. Configuration keys are tokenised
-wherever they appear, in `values` and in `withheld`. Numbers stay as they
-are: ADR 0034 §4 has not decided them.
+`target_config_value`, `judge_config_key`, `judge_config_value`,
+`judge_identity` and `module_name`, the application modules a check could not
+reach (`Run.modules_unchecked`, #712). The group inside `family[group=…]` is
+tokenised apart from the family, so the name still parses. Configuration keys
+are tokenised wherever they appear, in `values` and in `withheld`. Numbers
+stay as they are: ADR 0034 §4 has not decided them.
 
 **The order is part of what it is.** `project` redacts first, with no
 `Disclosure`, and only then replaces names. The perimeter fields — `base_url`,

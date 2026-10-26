@@ -2220,7 +2220,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         usage=run.usage,
         # Carried in clear, names and all: they come from the perimeter the
         # artifacts and pinned paths already cross from. (ADR 0052, the field on
-        # the run, condition 3)
+        # the run, condition 3) That holds for a redacted document and not for
+        # a projected one, where those paths are tokens: `project` tokenises
+        # these names too, as `module_name`. (#712)
         modules_unchecked=run.modules_unchecked,
     )
 

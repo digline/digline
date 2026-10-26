@@ -186,7 +186,8 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
     - artifact paths, as keys and in `pinned`: `artifact_path`;
     - configuration keys, in `values` and in `withheld`, and string values:
       the key and value kinds of their side;
-    - a judge's `provider/model` label: `judge_identity`.
+    - a judge's `provider/model` label: `judge_identity`;
+    - an application module a check could not reach: `module_name`. (#712)
     """
     return replace(
         run,
@@ -197,6 +198,11 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
             for path, artifact in run.artifacts.items()
         },
         pinned=tuple(name("artifact_path", path) for path in run.pinned),
+        modules_unchecked=(
+            None
+            if run.modules_unchecked is None
+            else tuple(name("module_name", m) for m in run.modules_unchecked)
+        ),
         target_config=_config(
             run.target_config,
             name,

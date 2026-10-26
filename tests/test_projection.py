@@ -54,10 +54,14 @@ LEAKS = "d0891fbb13f6509e"
 PRECISION = "5e1f0c2a9b7d4e36"
 PRECISION_GROUP = "8a3c61f0e2b95d47"
 REASON = "The reply names Mario Rossi and his IBAN IT60X0542811101"
+#: An application module a check could not reach. Its name can carry a
+#: customer's, and in a projection the paths it was said to share a perimeter
+#: with are tokens. (#712)
+MODULE = "rossi_bank.billing"
 
 NAMES = (
     *(CASE, CHECK, FAMILY, GROUP, ARTIFACT, BASE_URL, RESOLVED, FINGERPRINT),
-    *(TARGET_MODEL, JUDGE_MODEL, REASON, "acme-gateway", "anthropic"),
+    *(TARGET_MODEL, JUDGE_MODEL, REASON, "acme-gateway", "anthropic", MODULE),
 )
 
 
@@ -112,6 +116,7 @@ def promoted(**overrides: object) -> Run:
         "metadata": {"customer_balance": 1499.0},
         "artifacts": {ARTIFACT: Artifact(sha="ab" * 32, text="Escalate Rossi")},
         "pinned": (ARTIFACT,),
+        "modules_unchecked": (MODULE,),
         "target_config": SystemConfig(
             values={
                 "provider": "acme-gateway",
@@ -168,6 +173,7 @@ def test_every_name_is_the_token_its_kind_was_minted() -> None:
     assert band.assertion_id == LEAKS
     assert list(projected.artifacts) == [table.token("artifact_path", ARTIFACT)]
     assert projected.pinned == (table.token("artifact_path", ARTIFACT),)
+    assert projected.modules_unchecked == (table.token("module_name", MODULE),)
     assert projected.judge_config.identities == (
         table.token("judge_identity", f"anthropic/{JUDGE_MODEL}"),
     )
