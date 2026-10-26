@@ -6,6 +6,36 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A check the comparison could not pair is a cause of `2`** (#642). `compare`
+  pairs a verdict with its reference on the assertion's identity, and a
+  `Repeated` check's identity holds its `inner`'s threshold and tolerance. So a
+  bar moved inside a `Repeated` turned the check into a `new` and a `missing`,
+  and neither was counted: with the reference at 0.75 passing and the run at
+  0.65 passing under a bar lowered from 0.7 to 0.6, `compare` said *Nothing got
+  worse* and exited `0`. Where the reference and the run hold a `missing` and a
+  `new` on the same case, in the same scope and under the same name, the
+  comparison now exits `2`, and the sentence says so straight after the count it
+  qualifies: each pair, what each side scored and whether it passed, the
+  threshold or tolerance where they differ, and that the two documents cannot
+  say whether the check was changed or replaced. A regression beside it still
+  exits `1`. **An exit code changed, so the next version is a minor.** The same
+  cause holds when a check's definition is edited, a rubric's text or a needle,
+  or replaced by another of the same name, where it used to exit `0` with a
+  `new` and a `missing`.
+  - The headline gains `unpaired`, the number of such pairs, on `compare --json`
+    and over MCP, and `unpaired` joins `unjudged_causes`. An added key:
+    `OUTPUT_VERSION` does not move. The register's `outcome` records it, and a
+    line without it reads as *not declared*, never `0`. `REGISTER_VERSION` does
+    not move.
+  - **`promote` does not refuse on it.** The pair a promotion reads is the run
+    it promotes against the reference it replaces, which after a redefined
+    check is exactly the re-baseline a person makes on purpose.
+  - **The identity of `Repeated` does not change.** Taking the bar out of it
+    would make every stored baseline holding a `Repeated` check stop pairing
+    until re-promoted, the move this project has declined each time it came up.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.

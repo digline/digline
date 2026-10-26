@@ -2156,9 +2156,13 @@ that is not a verdict on the suite.
   measures was judged, `head.nothing_judged` is true and the code is `2`. A
   suite of canaries and calibration cases only is judged by them. The
   headline's `locale` does not change the number
-  ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md)). Which of
-  the five causes of `2` hold is `unjudged_causes` on `compare --json`, in the
-  order this reads them, and there even when a regression makes the code `1`
+  ([ADR 0049](adr/0049-a-run-that-judged-nothing-does-not-pass.md)). A check
+  the comparison could not pair with its reference, a `missing` and a `new`
+  on the same case under the same name, makes `head.unpaired` above `0` and the
+  code `2`: neither side was counted, and the sentence gives both scores
+  (#642). Which of the six causes of `2` hold is `unjudged_causes` on
+  `compare --json`, in the order this reads them, and there even when a
+  regression makes the code `1`
   ([ADR 0053](adr/0053-promote-refuses-a-pin-nobody-named.md)).
 - **`run_exit_code(run)` is the same rule with nothing to compare against.**
   It never returns `1`, because *worse*, a moved canary, a drifted pin and a
