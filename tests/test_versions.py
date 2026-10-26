@@ -345,6 +345,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "3.10.3": (
+            "not a digline version: the last nltk release inside "
+            "GHSA-8mgp-746c-j5xp's range, which both locks held until #691"
+        ),
+        "3.10.4": (
+            "not a digline version: the nltk release both locks moved to on "
+            "2026-10-26 (#691), outside the advisory's range"
+        ),
         "0.35.0": (
             "the core release that carries #629's `Completion.usage: Usage | "
             "None`, which each provider plugin's floor is owed in the table of "
@@ -857,6 +865,14 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "SECURITY.md": {
+        "3.10.3": (
+            "not a digline version: the last nltk release inside "
+            "GHSA-8mgp-746c-j5xp's range, which both locks held until #691"
+        ),
+        "3.10.4": (
+            "not a digline version: the nltk release both locks moved to on "
+            "2026-10-26 (#691), outside the advisory's range"
+        ),
         "0.29.0": (
             "the core release digline-mcp 0.4.5 requires, named in "
             "GHSA-x6w8-q92m-23h3's declared defect as half of what fixes it: "
