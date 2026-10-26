@@ -47,9 +47,10 @@ Subcommands:
     check     plugins_against_core.py check            (in the job, from the
               workspace root with `dist/` in it)
     excluded  plugins_against_core.py excluded         (the same, and only the
-              classification: `name==version` of each plugin excluded by its
-              own cap, installing nothing. Read by the install step before
-              `check`, so it leaves out what `check` will call excluded.)
+              classification, installing nothing: the word `classified`, then
+              `name==version` of each plugin excluded by its own cap. Made on
+              every tag by the step whose output both install checks read, so
+              they leave out what `check` will call excluded.)
     exercise  <python> plugins_against_core.py exercise KIND NAME DIR
               (run by `check` with each plugin's own interpreter)
 
@@ -80,6 +81,12 @@ HERE = pathlib.Path(__file__).resolve().parent
 PYPI = os.environ.get("PYPI", "https://pypi.org").rstrip("/")
 TESTPYPI = os.environ.get("TESTPYPI", "https://test.pypi.org").rstrip("/")
 CORE = "digline"
+
+#: The first word of every classification `excluded` prints, and what
+#: `dist_manifest.py` requires before it reads one. GitHub gives an empty
+#: string for an output no step wrote, so an unmarked "nothing to exclude"
+#: could not be told from a classification nobody made. (#731)
+CLASSIFIED = "classified"
 
 #: Where the debt an exclusion records is ruled.
 OWED = (
@@ -372,6 +379,12 @@ def excluded(dist: pathlib.Path) -> list[str]:
     return found
 
 
+def classification(dist: pathlib.Path) -> str:
+    """What the classifying step writes: `CLASSIFIED`, then `excluded`'s words.
+    The marker alone where nothing is excluded, never an empty string."""
+    return " ".join([CLASSIFIED, *excluded(dist)])
+
+
 def summary(title: str, core: str, outcomes: Sequence[Outcome]) -> str:
     lines = [
         f"### {title}",
@@ -408,19 +421,9 @@ def main_check() -> int:
     if title and path:
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(section + "\n")
-    # The `pypi` job's install check is handed what this step classified as
-    # excluded, rather than deciding again on its own (#717): one reading, in
-    # one place. `name==version`, because what is excluded is the served
-    # version read here, and a newer version of the same plugin that this tag
-    # publishes must not be left out with it. Written even when empty, so an
-    # absent output is a step that did not run, never a step that found none.
-    output = os.environ.get("GITHUB_OUTPUT")
-    if output:
-        excluded = " ".join(
-            f"{o.name}=={o.version}" for o in outcomes if o.word == "excluded"
-        )
-        with open(output, "a", encoding="utf-8") as handle:
-            handle.write(f"excluded={excluded}\n")
+    # What the install checks leave out is not handed over from here: this
+    # step runs on `v*` tags only, and a plugin tag needs the same exclusions.
+    # `excluded`, below, makes the classification on every tag. (#717, #731)
     broken = [o for o in outcomes if o.word == "broken"]
     for o in broken:
         print(
@@ -695,7 +698,7 @@ if __name__ == "__main__":
                 sys.exit(2)
         case ["excluded"]:
             try:
-                print(" ".join(excluded(pathlib.Path("dist"))))
+                print(classification(pathlib.Path("dist")))
             except NotJudged as exc:
                 print(
                     f"::error title=Plugins against the core not judged::{exc}",
