@@ -282,6 +282,31 @@ notes under them are this file, verbatim.
     sentence summarises it; a change to what a report says, touching no name,
     option, exit code or schema, is a patch, with #738 and #740 its instances.
 
+- **nltk moves to 3.10.4 in both locks, two pages say which command printed
+  their output, and the operator example's cycles are made again** (#691,
+  #649, #696).
+  - `uv.lock` and `examples/llamaindex/uv.lock` hold nltk 3.10.4, moved with
+    `--upgrade-package` and by hand: GHSA-8mgp-746c-j5xp names no patched
+    version, so Dependabot does not raise it, and its range reads `<= 3.10.3`.
+    Nothing else moves in either lock. The fix's three commits and three pull
+    requests are in nltk's `v3.10.4` and not in `v3.10.3`; their code was not
+    read. `SECURITY.md` and `RELEASING.md` no longer say there is nothing to
+    move to, and the two accepted rows stay until the weekly audit lists them
+    as no longer found.
+  - `docs/declarative.md`'s refusal of `treshold` and `docs/migrate.md`'s note
+    on a file left out for its name open with the command that prints them,
+    and show what it prints today: the refusal goes to standard error after
+    `digline: `, and the note counts the files it left out.
+    `tests/test_console_blocks.py` holds every `console` block under `docs/` to
+    a `$ ` line, with one declared exception in `docs/log.md`.
+  - `examples/operator`'s two cycles were made again with this tree's digline,
+    with no key: the default path's target and judge are stand-ins, and the
+    judgment layer did not run. Every row of the three alerts now carries how
+    far the baseline's samples spread, and `held-decision.json` came out byte
+    for byte the same.
+
+  Nothing in digline's behaviour moves, so this is a patch.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.

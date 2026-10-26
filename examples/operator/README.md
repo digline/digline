@@ -52,8 +52,8 @@ captured; its second layer is the argument in four lines:
 The last column of that table, cut here, is how far the baseline's own samples
 spread for each check: `before_interval`, which `digline explain --json`
 reports on every row, a flip's included. The cycles committed under `alerts/`
-were made by a digline that does not report it, so every row of theirs says so,
-until they are made again with one that does.
+were made again on 2026-10-26 with a digline that reports it, so every row of
+theirs carries it.
 
 Now the same thing, except it keeps happening:
 
