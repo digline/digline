@@ -854,7 +854,25 @@ def headline(
     # (ADR 0053)
     causes = causes_of_two(run, comparison, declared=declared)
 
-    if regressed == 0:
+    # Read against the suite's declaration, never the run alone: a run that
+    # carries none of its subject cases still judged none of them. (ADR 0049 §3)
+    judged_nothing = "nothing_judged" in causes
+    nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
+
+    # *Nothing got worse.* is about the checks that were compared. It is not said
+    # where no case was judged and no check was compared: a run whose every case
+    # was suspended or errored, where beside *None of the cases … was judged* it
+    # read as a third fact contradicting the first (#576). Two neighbours keep
+    # it. A run-level check compared over such a run makes it true of that
+    # check. And a run that judged a case but compared no check, because each
+    # was redefined, keeps it qualified by the clause after it, which names the
+    # pairs (#642). A regression is always counted.
+    compared = any(
+        d.outcome in ("regressed", "improved", "unchanged") for d in comparison.deltas
+    )
+    if regressed == 0 and judged_nothing and not compared:
+        worse_text = ""
+    elif regressed == 0:
         worse_text = phrase(locale, "fact.worse.none")
     elif regressed == 1:
         worse_text = phrase(locale, "fact.worse.one")
@@ -867,11 +885,6 @@ def headline(
     unpaired_text = _unpaired_text(pairs, locale)
 
     suspended = suspended_cases(run)
-
-    # Read against the suite's declaration, never the run alone: a run that
-    # carries none of its subject cases still judged none of them. (ADR 0049 §3)
-    judged_nothing = "nothing_judged" in causes
-    nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
 
     # Silent at zero, like the artifact clause and for the same reason: a
     # sentence about noise nobody measured is one the reader learns to skip, and
@@ -901,8 +914,18 @@ def headline(
             count=incomparable,
         )
 
-    unjudged_text = unjudged_sentence(
-        len(run.results), unjudged, suspended, locale=locale, key="fact.unjudged"
+    # *Every case could be judged.* means no case ended unjudged, and a run whose
+    # every case was suspended meets that while judging nothing: said beside
+    # *None of the cases … was judged* it reads as its opposite, and the Italian
+    # says *every case was judged*, which is false. So a run that judged nothing
+    # does not say it. Its reason is said by the clause after this one, the
+    # suspensions, or, where cases are unjudged, by this one's count. (#576)
+    unjudged_text = (
+        ""
+        if judged_nothing and unjudged == 0
+        else unjudged_sentence(
+            len(run.results), unjudged, suspended, locale=locale, key="fact.unjudged"
+        )
     )
 
     if suspended == 0:

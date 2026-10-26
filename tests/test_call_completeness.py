@@ -487,6 +487,41 @@ def test_the_terminal_says_nothing_of_a_complete_line() -> None:
     assert "cost not known" not in line
 
 
+def test_the_terminal_says_a_judge_it_cannot_read_is_not_recorded() -> None:
+    """#569, the judge's half. A judge written as a function made its calls,
+    and none of them is on the line: the line is *not recorded*, and saying
+    nothing, or `0.000000 USD`, would read as a judge that cost nothing."""
+    run = execute(suite(rubric(plain_judge)), Answering(), created_at=CREATED)
+    assert usage_of(run).judge.every_call_seen is None
+    target_line, judge_line = usage_lines(run.usage)
+    assert target_line.startswith("target:")
+    assert judge_line == "judge: not recorded"
+
+
+def test_a_judge_that_spends_still_prints_its_cost() -> None:
+    """The control: a `Billable` judge whose every call was seen keeps its
+    bill, and is not called unrecorded."""
+    run = execute(suite(rubric(FlakyJudge())), Answering(), created_at=CREATED)
+    spent = usage_of(run).judge.spent_usd
+    assert spent > 0
+    _, judge_line = usage_lines(run.usage)
+    assert f"{spent:.6f} USD" in judge_line
+    assert "not recorded" not in judge_line
+
+
+def test_a_bill_with_an_unread_judge_beside_it_says_it_is_not_whole() -> None:
+    """A readable judge beside one written as a function: the figure is what
+    the readable one spent, and the line says that it is not the whole."""
+    run = execute(
+        suite(rubric(FlakyJudge()), rubric(plain_judge)),
+        Answering(),
+        created_at=CREATED,
+    )
+    _, judge_line = usage_lines(run.usage)
+    assert "USD" in judge_line
+    assert judge_line.endswith("; not recorded in full")
+
+
 # --------------------------------------------------------------------------- #
 # Schema 21, and the step that writes nothing
 # --------------------------------------------------------------------------- #

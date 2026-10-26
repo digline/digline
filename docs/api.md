@@ -538,9 +538,12 @@ In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line
 nobody recorded claims nothing. `NO_CALLS` is the line of no call at all,
-complete on both. In the run file a marker that is `None` is absent; on the
-wire it is `null`; and the terminal's line adds *not every call seen* or *cost
-not known for every call* only where a marker is `False`.
+complete on both. In the run file a marker that is `None` is absent, and on
+the wire it is `null`. The terminal's line adds *not every call seen* or *cost
+not known for every call* where a marker is `False`. Where a marker is `None`
+the line ends *not recorded in full*, and a line with no call on it reads
+*not recorded*, with no figure: a judge written as a function made its calls,
+and `0.000000 USD` would say it cost nothing (#569).
 
 **`thinking_tokens` is a breakdown, not a fifth quantity.** A model that reasons
 before it answers is billed for tokens nobody reads, and since schema 15 `Usage`
