@@ -196,6 +196,18 @@ costs declared.
    without reaching into state that belongs to the process it runs in, so what
    it can do is say it.
 
+   *Amended 2026-10-26 (#623), the decision kept as written.* **The module
+   that drove the run is left out of the count**, because it is the caller and
+   not something the run called. That is a fact of provenance, like everything
+   else here, and not a judgement about what a module is for. Under pytest, the
+   modules pytest collected as tests are the caller: `pytest-digline` loads its
+   suites after collection, and leaves out of `modules_unchecked` the module of
+   every item pytest had collected by then. A module of the application that a
+   test imported is still counted, because the run called it. Outside pytest
+   the caller is the command line, which is never in a suite's directory, so
+   nothing changes there. The rule lives in the front end that knows its
+   caller, and `load_suite` still counts by provenance alone.
+
 3. **The rule: `modules_unchecked` is read in the comparison's headline too,
    from the run being judged only.** The comparison is where the exit code is
    read, and a verdict built on a measurement with a declared gap cannot be
