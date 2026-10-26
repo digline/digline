@@ -35,7 +35,7 @@ from digline.core import (
     run_to_json,
 )
 from digline.core.aggregate import build_matrix
-from digline.report import headline, render_html, summary_lines
+from digline.report import explain_text, facts, headline, render_html, summary_lines
 from digline.report.text import LOCALES, Locale, phrase
 from digline.run import Case, Response, Suite, Target, execute
 from digline.wire import EXIT_OK, EXIT_WORSE, exit_code, run_exit_code
@@ -882,3 +882,21 @@ def test_a_moved_denominator_that_moved_no_score_does_not_disappear() -> None:
     assert delta.current is not None and delta.baseline is not None
     assert delta.current.score.score == delta.baseline.score.score == 0.5
     assert delta.outcome == "unchanged"
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_the_sentence_counts_the_cases_the_aggregate_counted(locale: Locale) -> None:
+    """The report's row and `explain`'s line said *"measured over 0 cases here
+    and 0 in the reference"*, the matrix's `considered`, of an aggregate that
+    counted two and four. They say the cases it counted."""
+    reference, run, comparison, _delta = _whole("1/2", "parked")
+    counts = {"considered": 2, "reference_considered": 4}
+    scores = {"before": "0.500000", "now": "1.000000"}
+    declared = _suite(threshold="1/2", park="parked").declared()
+    document = render_html(comparison, run, reference, locale=locale, declared=declared)
+    assert phrase(locale, "detail.incomparable", **counts, **scores) in document
+    tail = phrase(
+        locale, "explain.check.incomparable", where="{W}", **counts, **scores
+    ).split("{W}")[1]
+    lines = explain_text(facts(run, comparison), locale=locale)
+    assert any(tail in line for line in lines)
