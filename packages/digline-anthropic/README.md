@@ -62,6 +62,21 @@ faithful = Faithfulness(
 )
 ```
 
+**A model that thinks before it answers needs a larger `max_tokens`.**
+`max_tokens` defaults to 400, enough for the object a judge is asked for. A
+model that thinks before it answers spends its thinking out of the same
+allowance, and when the thinking fills it every judging call is cut before the
+first character. The verdict says so, with the provider's own reason and the
+remedy: *"the judge returned no text: the provider reported 'max_tokens' (600
+of 600 output tokens) … raise max_tokens"*. In the run reported in #599, with
+`claude-opus-5`, every call was cut at 600 and judged normally at 16000. Raise
+it where
+the judge is built, `AnthropicJudge(model="claude-opus-5", max_tokens=16000)`,
+and the same for `AnthropicClaimJudge`. A judge given by coordinates in a TOML
+suite takes the plugin's defaults and cannot be given another `max_tokens`, so a
+TOML suite that judges with such a model moves its judge into a `suite.py`
+(`docs/declarative.md`, *The judge, by coordinates*).
+
 Both put `{` in the model's mouth and prepend it before parsing, and both read a
 reply the model wrapped in a fence or a sentence. What judging cost is counted
 on the judge and never reset:

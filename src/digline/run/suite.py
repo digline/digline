@@ -881,6 +881,17 @@ class CallPlan:
     #: and announced beside it, because each is judged `samples` times and a
     #: judge call is still a call somebody pays for. (ADR 0024 §4.4)
     calibration: int = 0
+    #: The judge calls those cases make, summed over the cases: each case's
+    #: samples, times `judge_samples`, times the multiplier of the check it
+    #: calibrates, a `Repeated` of 3 being 3. One multiplication for every case
+    #: said a number true of none where two cases calibrate different checks.
+    #: `0` on a plan built by hand, which reads the old way. (#565)
+    calibration_calls: int = 0
+    #: Whether a calibrated check calls its judge a number of times digline
+    #: cannot know before the run, a judged check it did not write: then the
+    #: figure above is a floor, and the sentence says so rather than printing a
+    #: figure that may be too low. (#565)
+    calibration_minimum: bool = False
     #: How many times a replay asks each judged check per recorded answer, and
     #: which checks those are, by name. Announced for the reason `repeats` is:
     #: the multiplication is the part that surprises people, and it is only
@@ -932,10 +943,13 @@ class CallPlan:
             if self.retried:
                 text += f"; {_count(self.retried, 'case')} retried after an error"
         if self.calibration:
-            judgements = self.samples * max(self.judge_samples, 1)
+            judgements = self.calibration_calls or self.samples * max(
+                self.judge_samples, 1
+            )
+            floor = "at least " if self.calibration_minimum else ""
             text += (
                 f"; {_count(self.calibration, 'calibration case')} judged "
-                f"{_count(judgements, 'time')}, with no call to the target"
+                f"{floor}{_count(judgements, 'time')}, with no call to the target"
             )
         if self.judge_samples and self.judged:
             answer = "recorded answer" if replayed else "answer"
@@ -982,6 +996,22 @@ def _repeats(assertions: Sequence[Assertion]) -> tuple[tuple[str, int], ...]:
     return tuple(sorted(found))
 
 
+def _judge_calls(check: Assertion) -> tuple[int, bool]:
+    """How many judge calls one evaluation of `check` makes, and whether that is
+    known before the run.
+
+    A `Repeated` multiplies what it wraps by its samples, however deep. Under
+    it, `LlmRubric` and `Faithfulness` call their judge once per evaluation,
+    which is what the core writes. A judged check digline did not write may
+    call it any number of times, so its count is `1` and not known. (#565)
+    """
+    calls, current = 1, check
+    while isinstance(current, Repeated):
+        calls *= current.samples
+        current = current.inner
+    return calls, isinstance(current, LlmRubric | Faithfulness)
+
+
 def planned_calls(
     suite: Suite,
     *,
@@ -1009,6 +1039,14 @@ def planned_calls(
     # A calibration case is judged and not called, so it is announced on its
     # own and kept out of the target's bill. (ADR 0024 §4.4)
     called = [case for case in pending if case.calibration is None]
+    # Each calibration case is billed for the check it calibrates. (#565)
+    calibration_calls, calibration_minimum = 0, False
+    for case in pending:
+        if case.calibration is None:
+            continue
+        per_evaluation, known = _judge_calls(suite.calibrated(case.calibration))
+        calibration_calls += suite.samples * max(judge_samples, 1) * per_evaluation
+        calibration_minimum = calibration_minimum or not known
     return CallPlan(
         cases=len(called),
         samples=suite.samples,
@@ -1017,6 +1055,8 @@ def planned_calls(
         reused=sum(1 for case in suite.cases if case.suspended is None) - len(pending),
         retried=retried,
         calibration=len(pending) - len(called),
+        calibration_calls=calibration_calls,
+        calibration_minimum=calibration_minimum,
         judge_samples=judge_samples,
         judged=tuple(a.name for a in suite.assertions if judged(a))
         if judge_samples

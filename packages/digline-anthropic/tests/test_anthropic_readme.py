@@ -103,3 +103,20 @@ def test_every_relative_link_resolves() -> None:
     """A link on a PyPI page that 404s is worse than no link."""
     for target in re.findall(r"\]\((?!https?://)([^)]+)\)", TEXT):
         assert (PACKAGE / target).exists(), target
+
+
+def test_the_judges_section_declares_what_a_thinking_model_needs() -> None:
+    """#599: a model that thinks before it answers spends its thinking from the
+    same `max_tokens`, and at the default every judging call was cut before
+    the first character. The constraint is declared where a judge is
+    configured, with the default read from the code so the two cannot part,
+    and with the one place it can be raised from a TOML suite: none."""
+    from digline_anthropic.judge import DEFAULT_MAX_TOKENS
+
+    text = README.read_text(encoding="utf-8")
+    judges = text[text.index("## The judges") :]
+    judges = judges[: judges.index("\n## ", 3)] if "\n## " in judges[3:] else judges
+    assert f"`max_tokens` defaults to {DEFAULT_MAX_TOKENS}" in judges
+    assert "thinks before it answers" in judges
+    assert "AnthropicJudge(model=" in judges and "max_tokens=" in judges
+    assert "suite.py" in judges

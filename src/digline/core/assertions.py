@@ -1402,10 +1402,15 @@ class ToolCalledWith(AssertionBase):
         if found is None:
             # Absent is not empty, on `ToolsCalled`'s rule and for its reason: a
             # target that reports no trajectory is not a model that called none.
+            # True, and short of the key: it names it, each call's shape, and how
+            # a function supplies it, as `ToolsCalled`'s refusal does. (#626)
             return self._error(
                 "this target reports no tool calls with their arguments, so "
-                "what the model sent is not knowable: only a target that "
-                "reports its trajectory can be judged on it"
+                "what the model sent is not knowable: the calls are read from a "
+                "list under `tool_calls` in the response's metadata, each "
+                '{"tool": name, "arguments": {...}}, which a provider target fills '
+                "where its provider reports them and a function target fills "
+                'itself, with Response(metadata={"tool_calls": [...]})'
             )
         if isinstance(found, str) or not isinstance(found, list | tuple):
             return self._error(

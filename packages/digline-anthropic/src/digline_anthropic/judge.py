@@ -28,7 +28,9 @@ __all__ = ["AnthropicClaimJudge", "AnthropicJudge"]
 
 #: Enough for the object we ask for, with room for the sentence in it. A small
 #: model is usually the better judge anyway: it is the one you can afford to
-#: call five times per case.
+#: call five times per case. **Not enough for a model that thinks before it
+#: answers**, which spends its thinking out of the same allowance: the README
+#: says so where a judge is configured, and how to raise it. (#599)
 DEFAULT_MAX_TOKENS = 400
 
 #: `"{"` in the assistant's mouth is how you get JSON out of this API — the

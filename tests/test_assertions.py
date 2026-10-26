@@ -1179,6 +1179,16 @@ def wants_4711() -> ToolCalledWith:
     return ToolCalledWith(tool="lookup", arguments={"order_id": "4711"})
 
 
+def test_tool_called_with_names_the_key_a_function_target_fills() -> None:
+    """The twin of #626's message: true, and short of the key. It names
+    `tool_calls`, each call's shape, and how a function supplies it."""
+    v = wants_4711()(trajectory(tools=["lookup"]))
+    assert v.status == "error"
+    assert "`tool_calls`" in v.reason
+    assert '"tool"' in v.reason and '"arguments"' in v.reason
+    assert "Response(metadata=" in v.reason
+
+
 @pytest.mark.parametrize("first", [True, False])
 def test_an_undecodable_call_does_not_hide_the_one_that_matched(first: bool) -> None:
     """`any one matching call is enough`, whichever side of it the garbled call
