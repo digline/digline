@@ -6,7 +6,8 @@
     "stopped_the_loop": false
   },
   "cadence": "0 6 * * 1",
-  "cycle_format": 4,
+  "canaries_declared": 0,
+  "cycle_format": 5,
   "escalate": false,
   "escalation": {
     "dry_run": true,
@@ -32,6 +33,7 @@
     {
       "exit_code": 1,
       "explain": {
+        "baseline_key": "2026-09-09T12-23-35-788080-00-00-4d2ac7a7f606b8de",
         "exit_code": 1,
         "facts": [
           {
@@ -65,17 +67,45 @@
             "state": false
           },
           {
+            "about": "run",
+            "count": 0,
+            "kind": "shape",
+            "shape": {
+              "assertion_id": "e7c3e24524385570",
+              "check": "llm_rubric",
+              "reference": null,
+              "run": {
+                "claims_unrecorded": 0,
+                "extremes": 0,
+                "sample_means": 0,
+                "scores": 9,
+                "single_claim": 0
+              }
+            },
+            "state": null
+          },
+          {
             "about": "check",
             "after": 0.5279,
             "assertion": "llm_rubric",
             "assertion_id": "e7c3e24524385570",
             "before": 0.9104,
+            "before_interval": {
+              "max": 0.9369,
+              "min": 0.8694,
+              "samples": 3
+            },
             "case_id": "is-it-waterproof",
             "delta": -0.3825,
+            "denominator_moved": false,
             "kind": "regressed",
+            "noise_judged": [],
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": 0.7
           },
@@ -85,26 +115,35 @@
             "assertion": "",
             "assertion_id": "",
             "before": null,
+            "before_interval": null,
             "case_id": "refund-status",
             "delta": null,
+            "denominator_moved": false,
             "kind": "suspended",
+            "noise_judged": [],
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": null
           }
         ],
-        "output_version": 1,
+        "note": "",
+        "output_version": 3,
+        "run_key": "2026-10-26T16-57-27-393371-00-00-4d2ac7a7f606b8de",
         "scope": "comparison"
       },
-      "key": "2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de",
+      "key": "2026-10-26T16-57-27-393371-00-00-4d2ac7a7f606b8de",
       "seed": 0,
-      "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
+      "spend": "tenant 'northwind' \u00b7 3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     },
     {
       "exit_code": 0,
       "explain": {
+        "baseline_key": "2026-09-09T12-23-35-788080-00-00-4d2ac7a7f606b8de",
         "exit_code": 0,
         "facts": [
           {
@@ -138,17 +177,45 @@
             "state": false
           },
           {
+            "about": "run",
+            "count": 0,
+            "kind": "shape",
+            "shape": {
+              "assertion_id": "e7c3e24524385570",
+              "check": "llm_rubric",
+              "reference": null,
+              "run": {
+                "claims_unrecorded": 0,
+                "extremes": 0,
+                "sample_means": 0,
+                "scores": 9,
+                "single_claim": 0
+              }
+            },
+            "state": null
+          },
+          {
             "about": "check",
             "after": 0.896067,
             "assertion": "llm_rubric",
             "assertion_id": "e7c3e24524385570",
             "before": 0.8947,
+            "before_interval": {
+              "max": 0.9221,
+              "min": 0.8603,
+              "samples": 3
+            },
             "case_id": "how-do-i-return",
             "delta": 0.001367,
+            "denominator_moved": false,
             "kind": "unchanged",
-            "noise_max": 0.9221,
-            "noise_min": 0.8603,
-            "noise_samples": 3,
+            "noise_judged": [],
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": 0.7
           },
@@ -158,12 +225,22 @@
             "assertion": "llm_rubric",
             "assertion_id": "e7c3e24524385570",
             "before": 0.9104,
+            "before_interval": {
+              "max": 0.9369,
+              "min": 0.8694,
+              "samples": 3
+            },
             "case_id": "is-it-waterproof",
             "delta": -0.0049,
+            "denominator_moved": false,
             "kind": "unchanged",
-            "noise_max": 0.9369,
-            "noise_min": 0.8694,
-            "noise_samples": 3,
+            "noise_judged": [],
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": 0.7
           },
@@ -173,12 +250,22 @@
             "assertion": "llm_rubric",
             "assertion_id": "e7c3e24524385570",
             "before": 0.891267,
+            "before_interval": {
+              "max": 0.9309,
+              "min": 0.87,
+              "samples": 3
+            },
             "case_id": "where-is-my-order",
             "delta": 0.0092,
+            "denominator_moved": false,
             "kind": "unchanged",
-            "noise_max": 0.9309,
-            "noise_min": 0.87,
-            "noise_samples": 3,
+            "noise_judged": [],
+            "noise_max": null,
+            "noise_min": null,
+            "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": 0.7
           },
@@ -188,22 +275,30 @@
             "assertion": "",
             "assertion_id": "",
             "before": null,
+            "before_interval": null,
             "case_id": "refund-status",
             "delta": null,
+            "denominator_moved": false,
             "kind": "suspended",
+            "noise_judged": [],
             "noise_max": null,
             "noise_min": null,
             "noise_samples": 0,
+            "noise_sd": null,
+            "noise_source": "",
+            "noise_width": null,
             "scope": "case",
             "threshold": null
           }
         ],
-        "output_version": 1,
+        "note": "",
+        "output_version": 3,
+        "run_key": "2026-10-26T16-57-27-666602-00-00-4d2ac7a7f606b8de",
         "scope": "comparison"
       },
-      "key": "2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de",
+      "key": "2026-10-26T16-57-27-666602-00-00-4d2ac7a7f606b8de",
       "seed": 1,
-      "spend": "3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
+      "spend": "tenant 'northwind' \u00b7 3 cases \u00d7 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric"
     }
   ],
   "stopping_rule": {

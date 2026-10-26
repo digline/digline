@@ -211,7 +211,13 @@ different question, and the only one in digline that needs a **store** rather
 than a pair of documents: **how much does this suite move when nothing
 changes?**
 
+The block below is the *Run-to-run spread* section of what `digline log`
+prints, cut from the rest of its output. The numbers are an example of the
+shape. No scenario in this repository produces them, so nothing here replays
+this block.
+
 ```console
+$ digline log --suite suite.py
 Run-to-run spread
   Across 10 comparable run(s) in this store, in this window — the latest not among them; excluded: 1 re-judged, 2 not fully judged.
   9 of the 10 run(s) did not identify the answering model.

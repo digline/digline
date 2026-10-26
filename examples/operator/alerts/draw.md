@@ -12,12 +12,12 @@ Machine truth, from `digline explain --json`: the fact list digline renders its 
 
 | run | seed | exit | unjudged | within noise |
 | --- | ---: | ---: | -------: | -----------: |
-| `2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
-| `2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de` | 1 | 0 | 0 | 0 |
+| `2026-10-26T16-57-27-393371-00-00-4d2ac7a7f606b8de` | 0 | 1 | 0 | 0 |
+| `2026-10-26T16-57-27-666602-00-00-4d2ac7a7f606b8de` | 1 | 0 | 0 | 0 |
 
 Exit `0`: nothing got worse. `1`: something did. `2`: the run could not be judged. That is digline's contract, AGENTS.md §6.
 
-Suite `suite.py`, output version 1. The suite itself did not change. Underneath it, nothing differed: not the system under test, not the judge, not a file under test.
+Suite `suite.py`, output version 3. The suite itself did not change. Underneath it, nothing differed: not the system under test, not the judge, not a file under test.
 
 ## 2. The dossier
 
@@ -29,21 +29,21 @@ Before comparing anything, proved the wall: `promote`, called by name on the ope
 
 Ran the suite once and re-ran it 1 time(s). The stopping rule was `max_reruns = 2`, declared in `operator.toml` before anything ran.
 
-Spend: 6 calls to the target across 2 run(s), against a declared cycle budget of 12. Each run: 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
+Spend: 6 calls to the target across 2 run(s), against a declared cycle budget of 12. Each run: tenant 'northwind' · 3 cases × 1 sample = 3 calls to the target; each answer is judged 3 times by llm_rubric.
 
-**Run `2026-09-14T12-08-17-430600-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
-
-| case | check | outcome | before | after | baseline samples spanned |
-| ---- | ----- | ------- | -----: | ----: | -------------- |
-| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | no interval: the digline that made this cycle does not report it |
-
-**Run `2026-09-14T12-08-17-628757-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
+**Run `2026-10-26T16-57-27-393371-00-00-4d2ac7a7f606b8de` (seed 0, exit 1)**
 
 | case | check | outcome | before | after | baseline samples spanned |
 | ---- | ----- | ------- | -----: | ----: | -------------- |
-| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | no interval: the digline that made this cycle does not report it |
-| `is-it-waterproof` | `llm_rubric` | unchanged | 0.9104 | 0.9055 | no interval: the digline that made this cycle does not report it |
-| `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | no interval: the digline that made this cycle does not report it |
+| `is-it-waterproof` | `llm_rubric` | regressed | 0.9104 | 0.5279 | 0.8694–0.9369 across 3 samples |
+
+**Run `2026-10-26T16-57-27-666602-00-00-4d2ac7a7f606b8de` (seed 1, exit 0)**
+
+| case | check | outcome | before | after | baseline samples spanned |
+| ---- | ----- | ------- | -----: | ----: | -------------- |
+| `how-do-i-return` | `llm_rubric` | unchanged | 0.8947 | 0.8961 | 0.8603–0.9221 across 3 samples |
+| `is-it-waterproof` | `llm_rubric` | unchanged | 0.9104 | 0.9055 | 0.8694–0.9369 across 3 samples |
+| `where-is-my-order` | `llm_rubric` | unchanged | 0.8913 | 0.9005 | 0.8700–0.9309 across 3 samples |
 
 No regression was present in every run of this cycle.
 

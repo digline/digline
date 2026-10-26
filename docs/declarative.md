@@ -472,10 +472,12 @@ difference is a real one worth finding.
 
 ## When something is wrong
 
-Every refusal names the file, the entry inside it, and the key:
+Every refusal names the file, the entry inside it, and the key. `digline run`
+refuses before any call, on standard error, and exits `64`:
 
 ```console
-suite.toml, [[assertions]] #2: `contains` has no parameter `treshold`. Did you mean `threshold`?
+$ digline run --suite suite.toml
+digline: suite.toml, [[assertions]] #2: `contains` has no parameter `treshold`. Did you mean `threshold`?
 ```
 
 An unknown key is always an error, never a warning and never ignored. A

@@ -32,10 +32,19 @@ do with the run being asked for.
 **A file whose name is not its run's key is left out first**, before its
 schema is looked at. A run's key is `key_of(created_at, config_hash)`, the name
 digline files it under, and the store answers to that key alone (ADR 0040). A
-file renamed or copied by hand is named in the note with what to do:
+file renamed or copied by hand is named in the note with what to do. Here a
+store holds its baseline's run under its key and a copy of another run renamed
+`rossi-mario.json`:
 
 ```console
-left out for their name: 'rossi-mario' holds a run not among the listed runs: rename it to 2026-10-04T09-36-41-494925-00-00-8a745d27d002e7dd.json
+$ digline list --suite suite.toml
+tenant 'northwind' · support
+  KEY                                                CREATED                            ENV           COMMIT          CASES
+* 2026-09-03T13-12-00-669324-00-00-8a745d27d002e7dd  2026-09-03T13:12:00.669324+00:00   staging       ac89cb4-dirty   4
+
+* = current baseline
+
+left out for their name: 1 file(s) whose name is not their run's key: 'rossi-mario' holds a run not among the listed runs: rename it to 2026-10-04T09-36-41-494925-00-00-8a745d27d002e7dd.json
 ```
 
 A copy says the name is already taken and tells nobody to rename it. Two files

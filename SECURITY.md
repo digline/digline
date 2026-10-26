@@ -224,15 +224,20 @@ from what osv-scanner finds in the locks, and
 `tests/test_accepted_advisories.py` fails when either names an advisory the
 other does not.
 
-- **nltk, [GHSA-8mgp-746c-j5xp](https://osv.dev/GHSA-8mgp-746c-j5xp): open,
-  with no fix upstream, and not shipped.** The advisory covers every nltk
-  release, the latest included, so there is nothing to move to. nltk arrives
+- **nltk, [GHSA-8mgp-746c-j5xp](https://osv.dev/GHSA-8mgp-746c-j5xp): moved
+  out of the advisory's range in both locks, and never shipped.** nltk arrives
   through `llama-index-core`, which the root lock holds for the `dev` group only
   and `examples/llamaindex` holds for its own run. No published package depends
   on it — not `digline`, not a plugin, not `pytest-digline`, not `digline-mcp` —
-  and the Docker image does not contain it. It stays open in both scanners
-  until nltk ships a fix, and Dependabot will go on calling it `runtime`: that
-  label describes the scanner, not the package.
+  and the Docker image does not contain it. **On 2026-10-26 both locks moved
+  from 3.10.3 to 3.10.4** (#691), with `--upgrade-package` and by hand, because
+  the advisory names no patched version and Dependabot does not raise it. Its
+  range reads `<= 3.10.3`. The three commits and the three pull requests it
+  cites are in nltk's `v3.10.4` and not in `v3.10.3`, read from GitHub's
+  compare API; **the code of the fix was not read**, so that 3.10.4 removes the
+  problem is the advisory's range and nltk's history, not something measured
+  here. The two rows of `.github/accepted_advisories.toml` stay until the
+  weekly audit lists them as no longer found, which is how a row goes.
 - **PyJWT, ten advisories published on 2026-09-29: fixed in the lock, and not
   reached by anything digline runs.** PyJWT arrives through `digline-mcp` →
   `mcp` → `pyjwt[crypto]`, and the root lock now holds a fixed release. The

@@ -4994,8 +4994,12 @@ uv lock --upgrade-package <dependency>   # in the root and in each example the a
 ```
 
 Only the named package should move; read the diff before committing. When no
-fixed release exists yet (nltk, GHSA-8mgp-746c-j5xp), or a parent's bound
-refuses it, there is nothing to name — say so on the alert and leave it open.
+fixed release exists yet, or a parent's bound refuses it, there is nothing to
+name — say so on the alert and leave it open. **An advisory with no patched
+version can still have a release outside its range**: nltk's
+GHSA-8mgp-746c-j5xp read `<= 3.10.3` with no `first_patched_version`, so
+Dependabot raised nothing, and both locks were moved to 3.10.4 by hand on
+2026-10-26 (#691).
 *Before the tag: the alert list* is the backstop: an open Dependabot alert
 with a fixed version is judged there, before the tag, if nobody did it sooner.
 
