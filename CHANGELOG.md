@@ -158,6 +158,13 @@ notes under them are this file, verbatim.
   An aggregate that counts a matrix reads as before, in both directions. No
   exit code moves.
 
+  The row in the report and the line in `explain` stated the incomparability in
+  the matrix's `considered`, which is `0` for such an aggregate: *"Measured over
+  0 cases here and 0 in the reference"*. They now state the cases it counted,
+  with or without a label, read by `digline.core.counted_cases`, new beside
+  `considered_cases`. For an aggregate that counts a matrix the two are the same
+  number.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.
