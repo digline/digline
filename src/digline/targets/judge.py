@@ -264,6 +264,11 @@ class JudgeBase(ABC):
         #: is missing from it: left out and unsaid, it is the undercount that
         #: reads as good news by another road. (#563)
         self.raised_calls = 0
+        #: The calls that answered and whose usage the plugin could not read,
+        #: which `calls` includes and `spent_usd` and `tokens` do not. Monotone
+        #: like the rest. Counted so the judge line says its cost is not known,
+        #: rather than the driver assuming it is (#629).
+        self.uncounted_calls = 0
         #: What this judge has consumed, by the same rule as `spent_usd`:
         #: monotone for the life of the object, never reset, and a caller
         #: wanting a per-run figure reads twice and subtracts — which is what
@@ -300,7 +305,11 @@ class JudgeBase(ABC):
         elapsed_ms = (perf_counter() - started) * 1000.0
         self.calls += 1
         self.latency_ms += elapsed_ms
-        self.spent_usd += self.pricing.cost(self.model, reply.usage)
+        if reply.usage is None:
+            # Answered, and its counts not recorded (#629): a call, not a cost.
+            self.uncounted_calls += 1
+        else:
+            self.spent_usd += self.pricing.cost(self.model, reply.usage)
         # Beside the money and under the same rule stated above it: a call that
         # raises reaches none of these lines, because its cost is unknown and
         # counting it at zero is the undercount that reads as good news.
@@ -311,7 +320,12 @@ class JudgeBase(ABC):
         # (ADR 0026 §3). Folding the seed in would report every judge's
         # thinking split as *not reported*. The first reply replaces it; the
         # rest add to it.
-        self.tokens = reply.usage if self.calls == 1 else self.tokens + reply.usage
+        #
+        # Counted calls, not calls: an uncounted first call must not make the
+        # second fold into the seed (#629).
+        counted = self.calls - self.uncounted_calls
+        if reply.usage is not None:
+            self.tokens = reply.usage if counted == 1 else self.tokens + reply.usage
         self.observed.see(reply)
         if not self._said_something(reply.text):
             raise ValueError(_no_text(reply, self.max_tokens))

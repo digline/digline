@@ -532,9 +532,13 @@ The totals cross a boundary; the per-call counts on a recorded response do not
   whose judge is not one `judge_totals` can read, such as a judge written as a
   function, or a `Billable` judge that keeps no `raised_calls`.
 - **`every_cost_known` is `False`** where a call is on the line and its cost is
-  not known: a `Response` whose `cost_usd` is `None`, and a target that
-  returned something that is not a `Response`. Such a call adds nothing to
-  `spent_usd`.
+  not known: a `Response` whose `cost_usd` is `None`, a target that returned
+  something that is not a `Response`, and a provider reply whose usage the
+  plugin could not read, `Completion(usage=None)`, on the target's line or on
+  a judge's, where `JudgeBase` counts it in `uncounted_calls` (#629). Such a
+  call adds nothing to `spent_usd`. It is **`None`** for a `Billable` judge
+  that keeps no `uncounted_calls`: nothing established that it priced every
+  call.
 
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
@@ -783,6 +787,12 @@ mistake rather than a formatting one:
   `"tool": null`, which every reader before schema 13 turns into a tool named
   `"None"`. A plain-function target says the same with `"tool": None` in
   `metadata["tool_calls"]`. (ADR 0018 §1, amended 2026-09-17)
+- **`usage=None` is *not recorded*, never zero.** Where a count the plugin
+  needs is absent from the reply — a field its SDK renamed, or one older than
+  the SDK installed — hand over `usage=None`, not a `Usage` with a `0` in it.
+  The call is still on the line; its tokens and cost are not, and
+  `every_cost_known` says so. A count read and found zero is a measurement and
+  stays a `0`. (#629)
 - **`model` is read out of the reply, never copied from the request.** Echoing
   the requested id back would manufacture the one fact it exists to obtain, and
   would do so identically whether or not the model had rolled underneath. A

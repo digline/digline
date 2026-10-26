@@ -142,6 +142,44 @@ notes under them are this file, verbatim.
   `docs/api.md` now says what both exits do with an empty denominator. It said
   it of `_ratio` alone.
 
+- **A provider's usage that could not be read is *not recorded*, never zero**
+  (#629). A plugin reads its counts off its SDK's reply, and where a field it
+  needs is absent, a rename or a release older than the field, it used to read
+  `0`: a call priced at nothing, the undercount that reads as good news.
+  `Completion.usage` may now be `None`, and that is how a plugin says it.
+  `ProviderTarget` then answers `Response(cost_usd=None, usage=None)`, with no
+  counts in `metadata`, so the target's line counts the call, not its tokens,
+  and says `every_cost_known: false`. `JudgeBase` counts such a call in a new
+  `uncounted_calls`, beside `raised_calls`: in `calls`, not in `spent_usd` or
+  `tokens`. **The judge's line reads that count instead of assuming**: it
+  wrote `every_cost_known: true` for every billable judge, on the claim that a
+  call the judge could not price had raised. A judge that keeps no such count
+  is now *not recorded* there, as it already is for `every_call_seen`. A count
+  present at zero is a measurement and stays zero. No key of the documents
+  changes and `OUTPUT_VERSION` does not move: a call's own usage rides the
+  recorded answer, which `digline.wire` does not carry, and the marker already
+  took `false`. **A record a plugin builds may now carry `None`, so the next
+  version is a minor**, as #738's `_graded` refusal makes it.
+  - **The plugins' half is owed after this core is on PyPI.** Each provider
+    plugin has to read each count through a helper that answers `None` where
+    the field is absent, and hand over `Completion(usage=None)`. Its floor
+    rises to this core. Three rows in RELEASING.md's *Owed at the cut* hold
+    it, one per plugin.
+  - **Bedrock keeps its defaults where the service declares the absence.**
+    botocore's service model for `bedrock-runtime` `Converse` makes
+    `inputTokens`, `outputTokens` and `totalTokens` required in `TokenUsage`,
+    and `cacheReadInputTokens`, `cacheWriteInputTokens` and `cacheDetails`
+    optional (read at botocore 1.43.118). An optional member the service
+    leaves out is a value it declared, nothing to count, so it stays `0`. Only
+    a required one that is absent is *not recorded*.
+  - **What the measurement covers, read on 2026-10-26:** anthropic's major 2
+    (2.3.0), openai's major 3 (3.37.0) and botocore's major 1 (1.43.118). Every
+    path the three plugins read exists there, read by introspecting the SDKs'
+    types and, for anthropic's 2.0.0, its migration guide to API version
+    2026-10-21, which names no change to a response's usage, stop reason or
+    content blocks. **No response was observed**: nothing called a provider,
+    so what a field means rests on the types and the guide, not on a reply.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.

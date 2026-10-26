@@ -104,7 +104,12 @@ class Completion:
     """
 
     text: str
-    usage: Usage
+    #: The counts the provider reported, or `None` where the plugin could not
+    #: read one it needs: a field its SDK does not carry, by a rename or by a
+    #: release older than the field. **Not recorded, never zero** (#629): the
+    #: call is on the line, its tokens and cost are not, and `every_cost_known`
+    #: says so. A count read and found zero is a `Usage` of zeros, a measurement.
+    usage: Usage | None
     #: How the turn ended, in the one vocabulary (`digline.core.Finish`).
     #: `None` where the provider said nothing — the ordinary case on a
     #: compatible endpoint, and the reason every consumer has a fallback.
@@ -287,11 +292,10 @@ def no_text_reason(
     claim — and a caller that cannot name a cap (`max_tokens=None`) does not get
     a sentence about one, because a cap nobody sent is not a cap the reply hit.
     """
-    counted = (
-        f"{reply.usage.output_tokens}"
-        if max_tokens is None
-        else f"{reply.usage.output_tokens} of {max_tokens}"
-    )
+    # A reply whose counts were not recorded (#629) gets no number: a zero
+    # here would be a count nobody read.
+    output = "not recorded" if reply.usage is None else reply.usage.output_tokens
+    counted = f"{output}" if max_tokens is None else f"{output} of {max_tokens}"
     if reply.finish is not None:
         # The provider's own word beside ours: `finish` decides the sentence,
         # `finish_raw` is what an operator will search the provider's docs for.
@@ -305,7 +309,7 @@ def no_text_reason(
             f"{subject} returned no text ({counted} output tokens) and the "
             "provider reported no reason — a non-text reply or a refusal"
         )
-    if reply.usage.output_tokens >= max_tokens:
+    if reply.usage is not None and reply.usage.output_tokens >= max_tokens:
         return (
             f"{subject} returned no text: output hit the max_tokens cap "
             f"({counted}) — likely truncated before the first character"
