@@ -2106,7 +2106,19 @@ is the one a quiet log cannot supply.
     digline-action's default image, which `release-followup` reads as 0.33.0
     on its `main` and `v1` (#716). The releases this minor owes digline-mcp
     and pytest-digline, and their floors in *Owed at the cut*, are still owed.
-    The delta-pass was not run.
+    The delta-pass was not run at the tag.
+  - **The delta-pass, run on 2026-10-26, after the tag**, against `v0.33.0`.
+    - **Four names are declared nowhere**: `digline.host.promotion_notes`,
+      `digline.wire.compare.before_interval_json`, `Noise.asked` with
+      `AssertionDelta.noise_asked`, and the module `digline.core.gate`.
+    - **All four are level 3** of *Choosing the version*, the rest of an
+      `__all__`. No shipped plugin imports any of them or reads them, measured
+      on the five wheels PyPI serves. So no release is owed for them.
+    - **No probe found a path**, and no finding earns a GHSA.
+    - **The rule the pass was run under was short.** After a bump it diffed
+      one table of the JSON contract, which missed three keys. *After the
+      green, before the announcement: the delta-pass* now diffs the derived
+      contract.
 
   **The next tag must show** the pair for every pin again, and whether row one
   comes back. This is the first time it disagreed after the in-build wait
