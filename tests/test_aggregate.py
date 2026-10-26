@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -894,7 +895,9 @@ def test_the_sentence_counts_the_cases_the_aggregate_counted(locale: Locale) -> 
     scores = {"before": "0.500000", "now": "1.000000"}
     declared = _suite(threshold="1/2", park="parked").declared()
     document = render_html(comparison, run, reference, locale=locale, declared=declared)
-    assert phrase(locale, "detail.incomparable", **counts, **scores) in document
+    # As the report writes it: the Italian has an apostrophe, and the document
+    # escapes it.
+    assert escape(phrase(locale, "detail.incomparable", **counts, **scores)) in document
     tail = phrase(
         locale, "explain.check.incomparable", where="{W}", **counts, **scores
     ).split("{W}")[1]
