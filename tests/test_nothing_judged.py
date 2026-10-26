@@ -29,7 +29,7 @@ from digline.core import (
     key_of,
 )
 from digline.host import REFUSALS, entry_for, explained, promote_priced
-from digline.report import headline
+from digline.report import explain_text, facts, headline
 from digline.report.text import LOCALES, Locale, phrase
 from digline.run import Case, Suite
 from digline.store import (
@@ -540,6 +540,43 @@ def test_a_run_that_judged_something_keeps_both_sentences(locale: Locale) -> Non
     )
     assert phrase(locale, "fact.worse.none") in head.sentence
     assert phrase(locale, "fact.unjudged.none") in head.sentence
+
+
+@pytest.mark.parametrize("compared", [True, False], ids=["compared", "alone"])
+@pytest.mark.parametrize("locale", LOCALES)
+def test_explain_does_not_say_every_case_could_be_judged_of_suspensions(
+    locale: Locale, compared: bool
+) -> None:
+    """#576, the same sentence by `explain`'s road. Its tally said *"Every case
+    could be judged."*, and in Italian *"Ogni caso è stato valutato."*, of a run
+    whose every case was suspended, beside *"No check ran."*. Read alone and
+    against a reference alike."""
+    reading = facts(NOTHING, compare(NOTHING, GOOD)) if compared else facts(NOTHING)
+    lines = explain_text(reading, locale=locale)
+    assert phrase(locale, "explain.tally.unjudged.none") not in lines
+    assert phrase(locale, "explain.tally.suspended.many", count=2) in lines
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_explain_of_errors_counts_them_and_never_said_every_case(
+    locale: Locale,
+) -> None:
+    """The control: every case errored, so the tally counts the unjudged cases,
+    and *Every case could be judged.* was never going to be said."""
+    lines = explain_text(facts(ERRORED, compare(ERRORED, GOOD)), locale=locale)
+    assert phrase(locale, "explain.tally.unjudged.none") not in lines
+    counted = phrase(
+        locale, "explain.tally.unjudged.of.many", judged=0, total=2, count=2
+    )
+    assert counted in lines
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_explain_of_a_run_that_judged_something_still_says_it(locale: Locale) -> None:
+    """The other control: one judged case beside a suspension keeps the
+    sentence."""
+    lines = explain_text(facts(SOMETHING, compare(SOMETHING, GOOD)), locale=locale)
+    assert phrase(locale, "explain.tally.unjudged.none") in lines
 
 
 # --------------------------------------------------------------------------- #
