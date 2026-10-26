@@ -77,6 +77,25 @@ notes under them are this file, verbatim.
   - **The identity of `Repeated` does not change.** Taking the bar out of it
     would make every stored baseline holding a `Repeated` check stop pairing
     until re-promoted, the move this project has declined each time it came up.
+- **The headline of a run that judged nothing no longer says that nothing got
+  worse, or that every case could be judged** (#576). A run whose every case
+  was suspended said, one sentence after another, *"None of the cases this
+  suite measures was judged…"*, *"Nothing got worse compared with the
+  reference."* and *"Every case could be judged."*, and in Italian *"Tutti i
+  casi sono stati giudicati."*, which is false. The two are now left out where
+  nothing was judged. What stays is the fact and its reason: the suspensions
+  (*"3 cases are suspended."*), or, where every case errored, the count of
+  cases that could not be judged. A check that got worse is still counted. It
+  is the sentence `compare`, `report` and pytest-digline's summary print. No
+  exit code moves.
+- **The bill on stderr says when a judge's line is not recorded** (#569). A
+  judge written as a function makes its calls where digline cannot count them,
+  and its line, with no call on it, printed nothing at all. It now reads
+  *"judge: not recorded"*, with no figure, because `0.000000 USD` would say
+  the judging cost nothing. A line with calls on it whose markers are not
+  recorded, such as a readable judge beside one written as a function, ends
+  *"not recorded in full"*. A judge that keeps its bill prints it as before.
+  The run file and `--json` do not change.
 
 ## 0.34.0 — 2026-10-26
 
