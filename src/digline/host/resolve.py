@@ -104,10 +104,16 @@ def resolve_key(store: ResultStore, suite: Suite, key: str) -> Resolved:
         # needs a migration. "No readable runs" on an empty store would suggest
         # unreadable ones exist.
         if listing.skipped or listing.unreadable:
+            # In the direction the schema differs, from `Listing.advice()`, as
+            # `list` says it: `digline migrate` for an older document, an
+            # upgrade for a newer one, both where both are there. It said
+            # `migrate` always, which refuses a newer document. An unreadable
+            # file earns no advice: neither would read it. (#670; ADR 0014 §5)
+            advice = "; ".join(listing.advice())
             raise UsageError(
                 f"no readable runs stored for suite {suite.name!r} in tenant "
-                f"{suite.tenant!r} — {listing.note()}. "
-                "Run `digline migrate` to bring them up to date."
+                f"{suite.tenant!r} — {listing.note()}."
+                + (f" {advice[0].upper()}{advice[1:]}." if advice else "")
             )
         if listing.misfiled:
             # Not a migration: a file named otherwise is put right by its
