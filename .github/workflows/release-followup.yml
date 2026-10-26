@@ -1,4 +1,4 @@
-# The five things a machine can ask once the tag is out — and one issue.
+# The six things a machine can ask once the tag is out — and one issue.
 #
 # `RELEASING.md`'s *After the tag* checklist had no gate of any kind, and it was
 # skipped twice without anything noticing: the example locks were regenerated
@@ -22,7 +22,7 @@
 name: release-followup
 
 on:
-  # After a release, which is when the five become due.
+  # After a release, which is when the six become due.
   workflow_run:
     workflows: [publish]
     types: [completed]
@@ -32,7 +32,7 @@ on:
     branches: [main]
   # By hand, optionally about a *previous* release. The version is normally read
   # from `pyproject.toml`, which is the release just cut; naming an older tag
-  # asks the same five questions about it, which is how you re-check a release
+  # asks the same six questions about it, which is how you re-check a release
   # whose follow-up you are not sure of — and how this workflow's own channel
   # was exercised in both directions without committing anything untrue to
   # `main`.
@@ -266,11 +266,19 @@ jobs:
           print(json.dumps(out))
           PY
 
-      - name: Ask the five, each with its control
+      - name: Ask the six, each with its control
         id: ask
         if: steps.version.outputs.released == 'yes'
         continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # Step 5's evidence: the commits on `main` the tag does not reach,
+          # which is what "rendered after the tag" is checked against. The
+          # checkout above is `main` with its whole history and its tags. A
+          # listing that fails is written as the third word, never as an
+          # empty list, which would read as every report predating the tag.
+          git rev-list "v${VERSION}..HEAD" > after-tag.txt || echo unread > after-tag.txt
           # `pipefail`, and it is not a precaution: without it the exit status
           # of this pipeline is `tee`'s, which always succeeds. The first run
           # of this workflow found three steps of the runbook undone, opened
@@ -287,7 +295,8 @@ jobs:
             --publish-run "${{ steps.approvals.outputs.run }}" \
             --attempt "${{ steps.approvals.outputs.attempt }}" \
             --kept kept.json --read-by "${{ github.run_id }}" --keep-out keep.json \
-            --digests digests.json --action action.json --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
+            --digests digests.json --action action.json --after-tag after-tag.txt \
+            --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
 
       # What this run read, kept where a re-run cannot erase it. Written by the
       # script only when it read an approval, so its absence is not a failure.

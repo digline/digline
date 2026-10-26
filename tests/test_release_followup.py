@@ -710,6 +710,8 @@ def test_main_writes_the_report_and_exits_nonzero_on_a_skipped_step(
             str(tmp_path / "digests.json"),
             "--action",
             str(action_file(tmp_path, "0.15.3")),
+            "--after-tag",
+            str(rendered(tmp_path)),
             "--out",
             str(out),
         ]
@@ -746,6 +748,8 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
             str(tmp_path / "digests.json"),
             "--action",
             str(action_file(tmp_path, "0.15.3")),
+            "--after-tag",
+            str(rendered(tmp_path)),
             "--out",
             str(out),
         ]
@@ -940,6 +944,8 @@ def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
         str(tmp_path / "digests.json"),
         "--action",
         str(action_file(tmp_path, "0.15.3")),
+        "--after-tag",
+        str(rendered(tmp_path)),
         "--out",
         str(out),
     ]
@@ -1038,6 +1044,7 @@ def test_main_reads_the_unread_word_from_the_file_the_workflow_writes(
             "--approvals-control", str(tmp_path / "control.json"),
             "--digests", str(digests),
             "--action", str(action_file(tmp_path, "0.22.0")),
+            "--after-tag", str(rendered(tmp_path)),
             "--out", str(out),
         ]
     )  # fmt: skip
@@ -1078,6 +1085,15 @@ def test_the_issue_step_asks_again_before_it_opens_an_issue() -> None:
 #: A commit made after the tag, and one made before it.
 RENDERED = "2" * 40
 STALE = "1" * 40
+
+
+def rendered(root: Path) -> Path:
+    """Two reports rendered after the tag, and the file listing that commit."""
+    for example in ("langgraph", "rag"):
+        report_html(root, example, RENDERED)
+    after = root / "after-tag.txt"
+    after.write_text(f"{RENDERED}\n", encoding="utf-8")
+    return after
 
 
 def report_html(root: Path, example: str, commit: str) -> None:

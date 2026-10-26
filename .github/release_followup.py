@@ -1,4 +1,4 @@
-"""The five things a machine can ask about a release once the tag is out.
+"""The six things a machine can ask about a release once the tag is out.
 
 `RELEASING.md` has a checklist headed *After the tag: what to watch, and what to
 ignore*, and until this file existed **nothing in the repository knew whether
@@ -13,15 +13,18 @@ The shape of the gap is worth naming, because it explains why the answer is a
 separate workflow rather than another test: **before the tag the subject is the
 tree, and a test can read it; after the tag the subject is the world** — an
 index, a registry, a run's approval record — and the gates of this repository do
-not look there. So these five run where the world can be asked, and they are the
-five that have an answer a machine can check:
+not look there. So these six run where the world can be asked, and they are the
+six that have an answer a machine can check:
 
 1. **the example locks** name the version that was released;
 2. the `publish` run's **reviewer gate** recorded an `approved`;
 3. the three **image tags** resolve to one digest;
 4. the **Status block** names the release it is supposed to describe;
 5. **`digline/digline-action`** defaults to the released image on `main`, and
-   `@v1` resolves to a commit that does too.
+   `@v1` resolves to a commit that does too;
+6. the **example reports** inside step 5's perimeter were rendered after the
+   tag. Added after 0.33.0's step 5 was skipped and nothing noticed: its nine
+   reports were last rendered against 0.32.1, and 0.34.0 found them there.
 
 **What is deliberately not here.** The delta-pass, its report in `private/` and
 the GHSA draft have no check and must not get one: a gate on a file's existence
@@ -65,6 +68,9 @@ __all__ = [
     "Finding",
     "approvals_finding",
     "keep_record",
+    "report_commits",
+    "report_perimeter",
+    "reports_finding",
     "digests_finding",
     "lock_versions",
     "locks_finding",
@@ -471,6 +477,138 @@ def digests_finding(
     )
 
 
+#: Left out of step 5 by judgement, not by signature, because `RELEASING.md`
+#: says so and names it: `prompt-first`'s report is a live measurement, and
+#: re-rendering it without a key would replace it with a stand-in's. Its commit
+#: is clean, so the signature below cannot see it. A declared list, as the
+#: runbook says, is less bad than a signature that silently fails to cover a
+#: case.
+HELD_BY_JUDGEMENT = ("prompt-first",)
+
+#: What a committed report records as its code version: the commit the run was
+#: made at, and `-dirty` after it when the tree held uncommitted changes. The
+#: same first-match reading `RELEASING.md`'s step 5 check uses.
+_COMMIT = re.compile(r"\b[0-9a-f]{40}\b")
+
+
+def report_perimeter(root: Path) -> tuple[dict[str, str | None], list[str], list[str]]:
+    """Every committed `examples/*/report.html`, split by step 5's perimeter.
+
+    Returns the reports inside it, each with the commit it records (`None`
+    where no commit can be read), then the curated ones, whose commit ends in
+    `-dirty` (**curated by signature**), then the ones held by judgement. Sorted,
+    so a report reads the same twice. Found by looking, like the locks: a new
+    example joins the question by being committed."""
+    inside: dict[str, str | None] = {}
+    curated: list[str] = []
+    held: list[str] = []
+    for path in sorted(root.glob("examples/*/report.html")):
+        example = path.parent.name
+        text = path.read_text(encoding="utf-8")
+        if "-dirty" in text:
+            curated.append(example)
+            continue
+        if example in HELD_BY_JUDGEMENT:
+            held.append(example)
+            continue
+        match = _COMMIT.search(text)
+        inside[example] = match.group(0) if match else None
+    return inside, curated, held
+
+
+def report_commits(root: Path) -> dict[str, str | None]:
+    """The reports inside step 5's perimeter and the commit each records."""
+    return report_perimeter(root)[0]
+
+
+def reports_finding(
+    root: Path,
+    version: str,
+    after: frozenset[str] | None,
+    *,
+    current: bool = True,
+) -> Finding:
+    """Post-tag step 5: every report inside the perimeter was rendered after the
+    tag.
+
+    **The object** is each committed `report.html`, and the commit it records
+    as the run's code version. **The question** is whether that commit is one
+    made after `v<version>`: `after` is the set of commits on `main` that the
+    tag does not reach, which the workflow lists with `git rev-list` and hands
+    over as a file, because this file reads no repository and no network.
+    **The perimeter** is step 5's own: a report whose commit ends in `-dirty`
+    is curated and left alone, and `prompt-first` is held by judgement
+    (`HELD_BY_JUDGEMENT`). Both are named in what the finding says, so the
+    perimeter is read, not assumed.
+
+    Only about the newest release, like the locks: a report rendered after the
+    newest tag is also after every older one, so asked about a superseded
+    release this would describe the repair, and it answers *not applicable*.
+    `after` of `None` is the third word: the commits after the tag were not
+    read, so nothing is judged.
+    """
+    step = "the example reports"
+    if not current:
+        return Finding(
+            step=step,
+            ok=True,
+            held=True,
+            applicable=False,
+            said=(
+                "not applicable: the reports track the newest release, so when "
+                f"they were rendered is not a fact about {version}"
+            ),
+            control_said="not asked",
+            title="",
+        )
+    inside, curated, held = report_perimeter(root)
+    left_out = [f"{name} (curated, -dirty)" for name in curated] + [
+        f"{name} (held by judgement)" for name in held
+    ]
+    perimeter = f", leaving out {', '.join(left_out)}" if left_out else ""
+    if after is None:
+        return Finding(
+            step=step,
+            ok=False,
+            held=True,
+            answered=False,
+            said=f"not judged: the commits after v{version} were not read",
+            control_said="not asked",
+            title=f"the example reports could not be read against v{version}",
+        )
+    unread = sorted(name for name, commit in inside.items() if commit is None)
+    stale = {
+        name: commit
+        for name, commit in inside.items()
+        if commit is not None and commit not in after
+    }
+    listed = ", ".join(f"{name} ({commit[:7]})" for name, commit in stale.items())
+    return Finding(
+        step=step,
+        ok=not stale,
+        # A perimeter with nothing in it, or a report the commit cannot be read
+        # from, is a question that read nothing: "all 0 reports were rendered
+        # after the tag" is true of every tag there has ever been.
+        held=bool(inside) and not unread,
+        said=(
+            f"all {len(inside)} reports were rendered after v{version}{perimeter}"
+            if not stale and inside
+            else f"no committed report is inside step 5's perimeter{perimeter}, "
+            "so this step read nothing"
+            if not inside
+            else f"{len(stale)} of {len(inside)} were rendered before v{version}: "
+            f"{listed}{perimeter}"
+        ),
+        control_said=(
+            "and every one of them names a commit"
+            if not unread
+            else f"but {', '.join(unread)} names no commit, so this is not "
+            "reading the report"
+        ),
+        title=f"the example reports predate v{version}",
+    )
+
+
 def status_block(releasing: str) -> str:
     """The block post-tag step 4 updates, from its heading to the next one."""
     start = releasing.find(STATUS_HEADING)
@@ -626,7 +764,7 @@ def report(findings: Sequence[Finding], version: str) -> dict[str, object]:
         if finding.applicable and finding.ok and not finding.held
     ]
     lines = [
-        f"The five checks `RELEASING.md` calls *After the tag* ran against "
+        f"The six checks `RELEASING.md` calls *After the tag* ran against "
         f"**v{version}**. Each is asked twice: once for the answer, and once for "
         f"something that must be false — a check that cannot fail has verified "
         f"nothing.",
@@ -731,6 +869,16 @@ def main(argv: list[str]) -> int:
             "stops fetching it fails here instead of passing over step 7"
         ),
     )
+    parser.add_argument(
+        "--after-tag",
+        required=True,
+        help=(
+            "the commits on main after the tag, one per line, as `git rev-list "
+            f"v<version>..HEAD` writes them; `{UNREAD}` where they could not be "
+            "read. Required, so that a workflow which stops writing it fails here "
+            "instead of passing over step 5"
+        ),
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
 
@@ -748,6 +896,8 @@ def main(argv: list[str]) -> int:
         if record is not None:
             Path(args.keep_out).write_text(json.dumps(record), encoding="utf-8")
     current = args.newest is None or args.newest == args.version
+    listed = Path(args.after_tag).read_text(encoding="utf-8").split()
+    after = None if listed == [UNREAD] else frozenset(listed)
     findings = [
         locks_finding(root, args.version, current=current),
         approvals_finding(
@@ -763,6 +913,7 @@ def main(argv: list[str]) -> int:
             current=current,
         ),
         status_finding(Path(args.releasing).read_text(encoding="utf-8"), args.version),
+        reports_finding(root, args.version, after, current=current),
         action_finding(
             action if isinstance(action, dict) else {},
             args.version,
