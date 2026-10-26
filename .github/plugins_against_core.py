@@ -51,6 +51,10 @@ Subcommands:
               `name==version` of each plugin excluded by its own cap. Made on
               every tag by the step whose output both install checks read, so
               they leave out what `check` will call excluded.)
+    owed      plugins_against_core.py owed CORE PACKAGES (JSON, for
+              release-followup's seventh question: each workspace plugin's
+              newest served version, its range, and whether it admits CORE
+              and a core no release carries. Installs nothing. #731)
     exercise  <python> plugins_against_core.py exercise KIND NAME DIR
               (run by `check` with each plugin's own interpreter)
 
@@ -205,6 +209,52 @@ def admits(requires: str, core: str) -> bool:
     from packaging.specifiers import SpecifierSet
 
     return SpecifierSet(requires).contains(core, prereleases=True)
+
+
+#: A core no release carries, which a served range must not admit: the control
+#: release-followup's seventh question reads beside each `admits`. The same
+#: number as its `IMPOSSIBLE`.
+IMPOSSIBLE_CORE = "0.0.0"
+
+
+def workspace_plugins(packages: pathlib.Path) -> list[str]:
+    """The `[project].name` of every package under `packages/`, sorted."""
+    import tomllib
+
+    return sorted(
+        tomllib.loads(path.read_text(encoding="utf-8"))["project"]["name"]
+        for path in packages.glob("*/pyproject.toml")
+    )
+
+
+def owed(core: str, packages: pathlib.Path) -> dict[str, Any]:
+    """What release-followup's seventh question judges (#731): for each plugin
+    in the workspace, the newest version PyPI serves, its range on digline, and
+    whether that range admits `core` and `IMPOSSIBLE_CORE`.
+
+    `None` for a plugin PyPI does not serve, which owes nothing; `"unread"`
+    for one whose read never answered, which is not judged. The same `served`
+    and `admits` `check` and `excluded` read by, so the follow-up and the
+    publish job cannot disagree on a rule.
+    """
+    plugins: dict[str, Any] = {}
+    for name in workspace_plugins(packages):
+        try:
+            plugin = served(name)
+        except NotJudged:
+            plugins[name] = "unread"
+            continue
+        plugins[name] = (
+            None
+            if plugin is None
+            else {
+                "version": plugin.version,
+                "requires": plugin.requires,
+                "admits": admits(plugin.requires, core),
+                "admits_impossible": admits(plugin.requires, IMPOSSIBLE_CORE),
+            }
+        )
+    return {"core": core, "plugins": plugins}
 
 
 def _pip(python: pathlib.Path, *args: str) -> None:
@@ -705,10 +755,12 @@ if __name__ == "__main__":
                     file=sys.stderr,
                 )
                 sys.exit(2)
+        case ["owed", core, packages]:
+            print(json.dumps(owed(core, pathlib.Path(packages)), indent=1))
         case ["exercise", kind, name, app]:
             sys.exit(main_exercise(kind, name, pathlib.Path(app)))
         case _:
             sys.exit(
                 "usage: plugins_against_core.py check | excluded "
-                "| exercise KIND NAME DIR"
+                "| owed CORE PACKAGES | exercise KIND NAME DIR"
             )

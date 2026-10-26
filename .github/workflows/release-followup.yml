@@ -1,4 +1,5 @@
-# The six things a machine can ask once the tag is out — and one issue.
+# The seven things a machine can ask once the tag is out — and one issue per
+# release.
 #
 # `RELEASING.md`'s *After the tag* checklist had no gate of any kind, and it was
 # skipped twice without anything noticing: the example locks were regenerated
@@ -56,9 +57,59 @@ permissions:
   actions: read
 
 jobs:
-  ask:
-    name: Was the runbook followed after the tag?
+  # Which releases this run asks about: the one it was started for, and every
+  # release whose follow-up issue is still open. A follow-up is closed only by a
+  # run that asks about its release, and until #634 a run asked about one
+  # version, the tree's, so once the next bump landed nothing asked about the
+  # previous release again and its issue could only be closed by hand. Asked
+  # again, a superseded release keeps the two questions that do not move, the
+  # approval and the Status block, and its issue closes when they are answered.
+  versions:
+    name: Which releases to ask about
     runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.list.outputs.versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+
+      - name: The version this run was started for, and every open follow-up's
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asked="${{ inputs.version }}"
+          if [ -z "$asked" ]; then
+            asked="$(uv run --quiet python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          fi
+          # A listing that fails asks about the started-for version alone and
+          # says so: the superseded ones are asked by the next run, and this
+          # run is not the place to invent an empty list.
+          if ! gh issue list --label release-followup --state open --limit 50 \
+            --json title > open.json; then
+            echo "::warning::the open release-followup issues could not be listed; asking about v$asked only"
+            echo "[]" > open.json
+          fi
+          versions="$(uv run --quiet python .github/release_followup.py versions "$asked" open.json)"
+          echo "asking about: $versions"
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+
+  ask:
+    name: Was the runbook followed after the tag of v${{ matrix.version }}?
+    needs: versions
+    runs-on: ubuntu-latest
+    strategy:
+      # Each release is its own issue, so one release's red must not stop
+      # another release's issue from being closed.
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,12 +133,8 @@ jobs:
       - name: The version, and whether it is out
         id: version
         run: |
-          version="${{ inputs.version }}"
-          if [ -z "$version" ]; then
-            version="$(uv run --quiet python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
-          else
-            echo "asked by hand about v$version, not about the tree's version"
-          fi
+          version="${{ matrix.version }}"
+          echo "asking about v$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # The newest released version, from the tags rather than from the
           # tree: between a bump and its tag, `pyproject.toml` names a version
@@ -266,7 +313,22 @@ jobs:
           print(json.dumps(out))
           PY
 
-      - name: Ask the six, each with its control
+      # Question 7's evidence: what PyPI serves of each plugin in `packages/`,
+      # and whether its range admits the newest core, read by the same rule the
+      # publish job reads by (#731). A reading that fails writes the third word.
+      - name: The plugins PyPI serves, and the range each puts on the core
+        if: steps.version.outputs.released == 'yes'
+        env:
+          NEWEST: ${{ steps.version.outputs.newest }}
+        run: |
+          if ! uv run --quiet python .github/plugins_against_core.py owed \
+            "$NEWEST" packages > plugins.json; then
+            echo '"unread"' > plugins.json
+            echo "::warning::the plugins PyPI serves could not be read: not judged"
+          fi
+          cat plugins.json
+
+      - name: Ask the seven, each with its control
         id: ask
         if: steps.version.outputs.released == 'yes'
         continue-on-error: true
@@ -296,6 +358,7 @@ jobs:
             --attempt "${{ steps.approvals.outputs.attempt }}" \
             --kept kept.json --read-by "${{ github.run_id }}" --keep-out keep.json \
             --digests digests.json --action action.json --after-tag after-tag.txt \
+            --plugins plugins.json \
             --out report.json | tee -a "$GITHUB_STEP_SUMMARY"
 
       # What this run read, kept where a re-run cannot erase it. Written by the

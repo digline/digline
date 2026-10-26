@@ -714,6 +714,8 @@ def test_main_writes_the_report_and_exits_nonzero_on_a_skipped_step(
             str(action_file(tmp_path, "0.15.3")),
             "--after-tag",
             str(rendered(tmp_path)),
+            "--plugins",
+            str(plugins_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -752,6 +754,8 @@ def test_main_exits_zero_when_the_runbook_was_followed(tmp_path: Path) -> None:
             str(action_file(tmp_path, "0.15.3")),
             "--after-tag",
             str(rendered(tmp_path)),
+            "--plugins",
+            str(plugins_file(tmp_path, "0.15.3")),
             "--out",
             str(out),
         ]
@@ -948,6 +952,8 @@ def test_main_treats_an_older_version_as_superseded(tmp_path: Path) -> None:
         str(action_file(tmp_path, "0.15.3")),
         "--after-tag",
         str(rendered(tmp_path)),
+        "--plugins",
+        str(plugins_file(tmp_path, "0.15.3")),
         "--out",
         str(out),
     ]
@@ -1047,6 +1053,7 @@ def test_main_reads_the_unread_word_from_the_file_the_workflow_writes(
             "--digests", str(digests),
             "--action", str(action_file(tmp_path, "0.22.0")),
             "--after-tag", str(rendered(tmp_path)),
+            "--plugins", str(plugins_file(tmp_path, "0.22.0")),
             "--out", str(out),
         ]
     )  # fmt: skip
@@ -1249,7 +1256,9 @@ def plugins_file(tmp_path: Path, core: str) -> Path:
         json.dumps(
             {
                 "core": core,
-                "plugins": {"digline-mcp": served("0.6.3", ">=0.34,<0.35", admits=True)},
+                "plugins": {
+                    "digline-mcp": served("0.6.3", ">=0.34,<0.35", admits=True)
+                },
             }
         ),
         encoding="utf-8",
@@ -1315,6 +1324,15 @@ def test_an_unread_plugin_is_not_judged(tmp_path: Path) -> None:
         {"core": "0.34.0", "plugins": {"digline-mcp": "unread"}}, root
     )
     assert not found.answered and not found.sound
+
+
+def test_a_reading_that_failed_whole_is_not_judged(tmp_path: Path) -> None:
+    """The workflow writes `"unread"` when the reading itself failed: not
+    judged, and not a reading that skipped every plugin."""
+    found = followup.plugins_finding(
+        followup.UNREAD, workspace(tmp_path, "digline-mcp")
+    )
+    assert not found.answered and found.held
 
 
 def test_the_plugins_control_fails_when_a_range_admits_any_core(
