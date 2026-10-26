@@ -82,11 +82,26 @@ notes under them are this file, verbatim.
   was suspended said, one sentence after another, *"None of the cases this
   suite measures was judged…"*, *"Nothing got worse compared with the
   reference."* and *"Every case could be judged."*, and in Italian *"Tutti i
-  casi sono stati giudicati."*, which is false. The two are now left out where
-  nothing was judged. What stays is the fact and its reason: the suspensions
-  (*"3 cases are suspended."*), or, where every case errored, the count of
-  cases that could not be judged. A check that got worse is still counted. It
-  is the sentence `compare`, `report` and pytest-digline's summary print.
+  casi sono stati giudicati."*, which is false.
+
+  **The rule: each sentence is left out when what it is about was not
+  measured, with one exception.**
+  - *"Every case could be judged."* is about cases, and is left out where no
+    case was judged.
+  - *"Nothing got worse."* is about the checks that were compared, and is
+    left out where no case was judged and no check was compared. A run-level
+    check compared over a run of suspensions keeps it: it is true of that
+    check.
+  - **The exception is #642's.** A run that judged a case but compared no
+    check, because each was redefined, keeps *"Nothing got worse."*, and the
+    clause after it names the pairs that were not compared. There the sentence
+    is qualified instead of left out.
+
+  What stays is the fact and its reason: the suspensions (*"3 cases are
+  suspended."*), or, where every case errored, the count of cases that could
+  not be judged. A check that got worse is always counted. It is the sentence
+  `compare`, `report` and pytest-digline's summary print.
+
   **`explain` said the same thing by a road of its own**, in its tally: *"No
   check ran. Every case could be judged."*, and in Italian *"Ogni caso è stato
   valutato."*. That line is now left out of a reading of a run that judged no
