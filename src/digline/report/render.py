@@ -42,7 +42,7 @@ from digline.core import (
     case_count,
     causes_of_two,
     checked_denominator,
-    considered_cases,
+    counted_cases,
     directions,
     is_token,
     key_of,
@@ -1627,8 +1627,8 @@ def _detail_text(delta: AssertionDelta, locale: Locale) -> str:
             "detail.incomparable",
             before=was,
             now=is_now,
-            considered=considered_cases(now),
-            reference_considered=considered_cases(before),
+            considered=counted_cases(now),
+            reference_considered=counted_cases(before),
         )
 
     if now.status != before.status:

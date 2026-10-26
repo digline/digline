@@ -43,6 +43,7 @@ __all__ = [
     "checked_denominator",
     "compare",
     "considered_cases",
+    "counted_cases",
     "config_deltas",
     "denominator",
     "index_verdicts",
@@ -1106,6 +1107,48 @@ def _denominator_moved(now: Verdict, before: Verdict) -> bool:
     return _seen(now) == _seen(before)
 
 
+def counted_cases(verdict: Verdict) -> int | None:
+    """The cases an aggregate counted, with a label or without one, or `None`
+    where the verdict is not an aggregate.
+
+    Public beside `considered_cases`, for its reason: the report and `explain`
+    print the pair of numbers an incomparability is stated in, and they print
+    this one. `considered` is the matrix's four cells, and an aggregate over raw scores,
+    which needs no label, files every case it counted under
+    `unlabelled_excluded` instead: its `considered` is `0` whatever it counted.
+    For an aggregate that counts a matrix the two are the same number, because
+    `Suite` refuses a case with no label as soon as one does. A count that is
+    not a whole number, or is negative, is read as none, as `denominator`
+    reads one. (ADR 0012 §3, amended 2026-10-26)
+    """
+    considered = considered_cases(verdict)
+    if considered is None:
+        return None
+    unlabelled = verdict.score.metadata.get("unlabelled_excluded", 0)
+    if (
+        isinstance(unlabelled, bool)
+        or not isinstance(unlabelled, int)
+        or unlabelled < 0
+    ):
+        unlabelled = 0
+    return considered + unlabelled
+
+
+def _counted_moved(now: Verdict, before: Verdict) -> bool:
+    """`_denominator_moved`, read on the cases counted with or without a label.
+
+    Asked only of a score that **rose**, never of one that fell: a moved
+    denominator may withdraw a claim of improvement, never a claim of getting
+    worse. For an aggregate that counts a matrix it answers what
+    `_denominator_moved` answers, which is read in both directions as before.
+    (ADR 0012 §3, amended 2026-10-26)
+    """
+    here, there = counted_cases(now), counted_cases(before)
+    if here is None or there is None or here == there:
+        return False
+    return _seen(now) == _seen(before)
+
+
 def _incomparable_clause(now: Verdict, before: Verdict) -> str:
     """The clause a reason earns once `_denominator_moved` is true, appended to
     whatever said what the two scores did.
@@ -1116,8 +1159,8 @@ def _incomparable_clause(now: Verdict, before: Verdict) -> str:
     same shape for the same reason. (the delta-pass over 0.15.2)
     """
     return (
-        f", but it was measured over {considered_cases(now)} cases against "
-        f"{considered_cases(before)} in the reference: the two are not the same "
+        f", but it was measured over {counted_cases(now)} cases against "
+        f"{counted_cases(before)} in the reference: the two are not the same "
         "measurement"
     )
 
@@ -1422,8 +1465,10 @@ def compare(run: Run, baseline: Run) -> Comparison:
             # counted more, because what is unequal is what the two sides
             # measured and inequality has no direction. Only the flip's own
             # direction is asked about, on the line above.
-            flipped_incomparably = before.status == "fail" and _denominator_moved(
-                now, before
+            # A flip up is a rise, so the cases counted without a label are
+            # asked about too. (ADR 0012 §3, amended 2026-10-26)
+            flipped_incomparably = before.status == "fail" and (
+                _denominator_moved(now, before) or _counted_moved(now, before)
             )
             # A flip caused by a moved threshold reads exactly like a flip
             # caused by a worse model. Saying so is the difference between a
@@ -1471,7 +1516,12 @@ def compare(run: Run, baseline: Run) -> Comparison:
         # computed over different numbers of cases are not the same measurement,
         # so there is no movement for a tolerance or an interval to excuse.
         # (ADR 0012 §3, amended 2026-09-18)
-        denominator_moved = _denominator_moved(now, before)
+        # The cases counted without a label are asked about for a rise only:
+        # a moved denominator may withdraw a claim of improvement, never one
+        # of getting worse. (ADR 0012 §3, amended 2026-10-26)
+        denominator_moved = _denominator_moved(now, before) or (
+            delta > 0 and _counted_moved(now, before)
+        )
 
         if denominator_moved:
             # Not a regression and not an improvement: the delta between two

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from html import escape
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,9 @@ import pytest
 from digline.core import (
     F1,
     Accuracy,
+    AssertionDelta,
     CaseOutcome,
+    Comparison,
     Contains,
     Matrix,
     Precision,
@@ -33,9 +36,10 @@ from digline.core import (
     run_to_json,
 )
 from digline.core.aggregate import build_matrix
-from digline.report import headline, render_html, summary_lines
-from digline.run import Case, Response, Suite, execute
-from digline.wire import EXIT_OK, exit_code, run_exit_code
+from digline.report import explain_text, facts, headline, render_html, summary_lines
+from digline.report.text import LOCALES, Locale, phrase
+from digline.run import Case, Response, Suite, Target, execute
+from digline.wire import EXIT_OK, EXIT_WORSE, exit_code, run_exit_code
 
 BASE_AT = "2026-01-01T00:00:00+00:00"
 LATER_AT = "2026-01-02T00:00:00+00:00"
@@ -722,3 +726,180 @@ def test_a_class_set_aside_is_an_error_and_moves_no_exit_code() -> None:
         compare(run, reference), run, reference, locale="en", declared=declared
     )
     assert exit_code(head) == EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
+# A rise over a moved denominator is not an improvement (ADR 0012 §3)
+# --------------------------------------------------------------------------- #
+
+
+def _suite(*, threshold: float | str, park: str | None) -> Suite:
+    """`_mixed`'s shape, with the threshold and the class set aside chosen."""
+    return Suite(
+        tenant="acme",
+        environment="staging",
+        name="mixed",
+        assertions=[Contains(needle="MATCH", name=AGREES)],
+        run_assertions=[
+            MeanScore(over=AGREES, threshold=threshold, tolerance="1/6", by_group=True)
+        ],
+        cases=[
+            Case(
+                id=case_id,
+                group=group,
+                suspended="under review" if park == group else None,
+            )
+            for case_id, group in (
+                ("a1", "kept"),
+                ("a2", "kept"),
+                ("b1", "parked"),
+                ("b2", "parked"),
+            )
+        ],
+    )
+
+
+def _whole(
+    threshold: float | str,
+    park: str | None,
+    answer: Target = _answer,
+) -> tuple[Run, Run, Comparison, AssertionDelta]:
+    """The reference with every case judged, the run with one class set aside,
+    and the delta of the whole-run `mean_score` between them."""
+    reference = execute(
+        _suite(threshold=threshold, park=None), answer, created_at=BASE_AT
+    )
+    run = execute(_suite(threshold=threshold, park=park), answer, created_at=LATER_AT)
+    comparison = compare(run, reference)
+    (delta,) = [d for d in comparison.deltas if d.assertion == "mean_score"]
+    return reference, run, comparison, delta
+
+
+def _sides(delta: AssertionDelta) -> tuple[Verdict, Verdict]:
+    """The two verdicts of a run-level delta, which has both."""
+    assert delta.baseline is not None and delta.current is not None
+    return delta.baseline, delta.current
+
+
+def _section(document: str, locale: Locale, key: str) -> str:
+    """The rows under one section of the report, empty where it is absent."""
+    title = phrase(locale, key)
+    start = document.find(f"<summary>{title} (")
+    if start < 0:
+        return ""
+    return document[start : document.index("</details>", start)]
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_a_rise_over_a_moved_denominator_is_not_an_improvement(locale: Locale) -> None:
+    """The case measured: the class that fails is set aside, and the mean of
+    the whole run rises from `0.5` to `1.0` over fewer cases. It counted the
+    cases it was handed, with no label, so the matrix's `considered` was `0`
+    on both sides and the movement read as an improvement. It is not one:
+    it leaves `What got better` for `What was not compared`, and the exit code
+    is the `0` it was."""
+    reference, run, comparison, delta = _whole("1/2", "parked")
+    before, now = _sides(delta)
+    assert (before.score.score, now.score.score) == (0.5, 1.0)
+    assert delta.denominator_moved
+    assert "measured over 2 cases against 4 in the reference" in delta.reason
+    declared = _suite(threshold="1/2", park="parked").declared()
+    head = headline(comparison, run, reference, locale=locale, declared=declared)
+    assert head.denominator_moved == 1
+    assert exit_code(head) == EXIT_OK
+    document = render_html(comparison, run, reference, locale=locale, declared=declared)
+    assert ">mean_score<" not in _section(document, locale, "section.improvements")
+    assert ">mean_score<" in _section(document, locale, "section.incomparable")
+
+
+def test_a_fall_over_a_moved_denominator_is_still_counted() -> None:
+    """The control that this is the one direction: the class that passes is set
+    aside, and at a threshold of 0 the mean falls from `0.5` to `0.0` with both
+    sides passing. It stays counted, and the run exits 1, as it did."""
+    reference, run, comparison, delta = _whole(0.0, "kept")
+    before, now = _sides(delta)
+    assert (before.status, now.status) == ("pass", "pass")
+    assert delta.outcome == "regressed"
+    assert not delta.denominator_moved
+    declared = _suite(threshold=0.0, park="kept").declared()
+    head = headline(comparison, run, reference, locale="en", declared=declared)
+    assert exit_code(head) == EXIT_WORSE
+
+
+def test_a_flip_down_over_a_moved_denominator_stays_a_regression() -> None:
+    """`pass` to `fail`, by the asymmetry ADR 0012 §3 already declares."""
+    reference, run, comparison, delta = _whole("1/2", "kept")
+    before, now = _sides(delta)
+    assert (before.status, now.status) == ("pass", "fail")
+    assert delta.outcome == "regressed"
+    assert not delta.denominator_moved
+    declared = _suite(threshold="1/2", park="kept").declared()
+    head = headline(comparison, run, reference, locale="en", declared=declared)
+    assert exit_code(head) == EXIT_WORSE
+
+
+def _answer_all(case: Case) -> Response:
+    return Response(output="MATCH")
+
+
+def test_a_rise_over_the_same_cases_is_still_an_improvement() -> None:
+    """The other control: no case set aside, the class answers right this time,
+    and the mean rises over the same four cases. That is a real improvement."""
+    suite = _suite(threshold="1/2", park=None)
+    reference = execute(suite, _answer, created_at=BASE_AT)
+    run = execute(suite, _answer_all, created_at=LATER_AT)
+    comparison = compare(run, reference)
+    (delta,) = [d for d in comparison.deltas if d.assertion == "mean_score"]
+    before, now = _sides(delta)
+    assert (before.score.score, now.score.score) == (0.5, 1.0)
+    assert delta.outcome == "improved"
+    assert not delta.denominator_moved
+
+
+def test_a_moved_denominator_that_moved_no_score_does_not_disappear() -> None:
+    """One case of each class set aside: the mean is `0.5` over four cases and
+    over two. Nothing rose, so nothing is withdrawn, and the row is still in
+    the comparison."""
+    reference = execute(_suite(threshold="1/2", park=None), _answer, created_at=BASE_AT)
+    suite = Suite(
+        tenant="acme",
+        environment="staging",
+        name="mixed",
+        assertions=[Contains(needle="MATCH", name=AGREES)],
+        run_assertions=[
+            MeanScore(over=AGREES, threshold="1/2", tolerance="1/6", by_group=True)
+        ],
+        cases=[
+            Case(id="a1", group="kept"),
+            Case(id="a2", group="kept", suspended="under review"),
+            Case(id="b1", group="parked"),
+            Case(id="b2", group="parked", suspended="under review"),
+        ],
+    )
+    run = execute(suite, _answer, created_at=LATER_AT)
+    (delta,) = [
+        d for d in compare(run, reference).deltas if d.assertion == "mean_score"
+    ]
+    assert delta.current is not None and delta.baseline is not None
+    assert delta.current.score.score == delta.baseline.score.score == 0.5
+    assert delta.outcome == "unchanged"
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_the_sentence_counts_the_cases_the_aggregate_counted(locale: Locale) -> None:
+    """The report's row and `explain`'s line said *"measured over 0 cases here
+    and 0 in the reference"*, the matrix's `considered`, of an aggregate that
+    counted two and four. They say the cases it counted."""
+    reference, run, comparison, _delta = _whole("1/2", "parked")
+    counts = {"considered": 2, "reference_considered": 4}
+    scores = {"before": "0.500000", "now": "1.000000"}
+    declared = _suite(threshold="1/2", park="parked").declared()
+    document = render_html(comparison, run, reference, locale=locale, declared=declared)
+    # As the report writes it: the Italian has an apostrophe, and the document
+    # escapes it.
+    assert escape(phrase(locale, "detail.incomparable", **counts, **scores)) in document
+    tail = phrase(
+        locale, "explain.check.incomparable", where="{W}", **counts, **scores
+    ).split("{W}")[1]
+    lines = explain_text(facts(run, comparison), locale=locale)
+    assert any(tail in line for line in lines)
