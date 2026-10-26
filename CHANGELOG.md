@@ -335,6 +335,15 @@ notes under them are this file, verbatim.
   nothing it prints. Over v0.33.0 and v0.34.0 it prints the eight keys that
   release added and nothing else. `RELEASING.md` names it in place of the
   commands it gave. Nothing in digline's behaviour moves, so this is a patch.
+- **The attributes a plugin reaches for in digline are read by type** (#702).
+  `tools/plugin_calls.py` lists, per plugin, each attribute it reads on an
+  object whose class takes that attribute from digline, read through pyright,
+  beside the names it imports. A reading by name gave 104 pairs and took every
+  `list.append` for `Journal.append`; by type there are 75 pairs, 56 names,
+  and no `append`. A receiver pyright types `Any` is **unresolved**: not
+  measured, never not present, and counted in what the tool prints. Six are,
+  each a reply of the Anthropic SDK. The names are listed, not yet dated.
+  Nothing in digline's behaviour moves, so this is a patch.
 
 ## 0.34.0 — 2026-10-26
 
@@ -696,6 +705,10 @@ in, which is a correction of a sentence and not a change to a tool.
   both scores. That core is the minor above 0.34, so this reaches a session
   only through the release of this plugin whose cap admits it: 0.4.0's `<0.35`
   does not.
+- **`_measure`'s `loaded` is annotated `Loaded`, digline's type, where it
+  read `Any`** (#702). Only the annotation moves, and it is a string at
+  runtime, so nothing the plugin does changes. A type checker now sees that it
+  reads `Loaded.modules_unchecked`.
 
 ## pytest-digline 0.4.0 — 2026-10-26
 
