@@ -327,6 +327,54 @@ def test_only_the_named_check_runs() -> None:
     assert all(v.status != "error" for v in half.verdicts)
 
 
+def test_the_call_plan_sums_each_calibrated_check_s_own_multiplier() -> None:
+    """#565: one multiplication for every calibration case said a number true of
+    neither. Two cases calibrate two checks, one bare and one repeated three
+    times, at two samples: 2 × 1 + 2 × 3 judge calls."""
+    tone = Repeated(
+        inner=LlmRubric(
+            rubric="is it warm?",
+            judge=judge_scoring(0.5),
+            threshold=0.7,
+            tolerance=0.05,
+            name="tone",
+        ),
+        samples=3,
+        min_agreement="3/3",
+    )
+    plan = planned_calls(
+        suite(
+            assertions=[rubric(), tone],
+            cases=[
+                Case(id="one"),
+                Case(id="half", calibration=calibration()),
+                Case(id="half-tone", calibration=calibration(check="tone")),
+            ],
+        )
+    )
+    assert "2 calibration cases judged 8 times, with no call to the target" in (
+        plan.sentence()
+    )
+
+
+def test_a_repeated_calibrated_check_is_billed_for_its_repeats() -> None:
+    """The issue's own case: three samples of a check repeated three times are
+    nine judge calls, not three."""
+    repeated = Repeated(inner=rubric(), samples=3, min_agreement="3/3")
+    plan = planned_calls(suite(assertions=[repeated], samples=3))
+    assert "1 calibration case judged 9 times, with no call to the target" in (
+        plan.sentence()
+    )
+
+
+def test_a_check_whose_calls_are_not_known_is_billed_as_a_minimum() -> None:
+    """A judged check digline did not write may call its judge any number of
+    times per evaluation: the bill says the figure is a floor, rather than
+    printing one that may be too low."""
+    plan = planned_calls(misnamed_suite())
+    assert "1 calibration case judged at least 2 times" in plan.sentence()
+
+
 def test_the_call_plan_bills_the_judge_and_not_the_target() -> None:
     plan = planned_calls(suite())
     assert plan.cases == 1
