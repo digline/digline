@@ -78,7 +78,7 @@ def test_a_classified_plugin_is_left_out_of_all_three_files_and_named(
         "digline==0.34.0",
         "digline-anthropic==0.6.1",
     ]
-    assert read(tmp_path, "names.txt") == ["digline", "digline-anthropic"]
+    assert not (tmp_path / "manifest" / "names.txt").exists()
     assert read(tmp_path, "imports.txt") == ["digline", "digline_anthropic"]
     for name, version in (("digline-mcp", "0.6.2"), ("pytest-digline", "0.3.1")):
         assert f"left out {name} {version}" in done.stdout
@@ -112,3 +112,16 @@ def test_an_exclusion_that_cannot_be_right_is_refused(
     assert done.returncode == 1
     assert said in done.stderr
     assert not (tmp_path / "manifest" / "pins.txt").exists()
+
+
+def test_exclusions_in_one_argument_are_read_one_by_one(tmp_path: Path) -> None:
+    """The job's output is one string; a shell that does not split an unquoted
+    variable, as zsh does not, passes it as one argument. Measured on
+    v0.34.0's dist, before this: both plugins were kept, read as one version
+    with a space in it."""
+    done = run(tmp_path, "--excluding", "digline-mcp==0.6.2 pytest-digline==0.3.1")
+    assert done.returncode == 0, done.stderr
+    assert read(tmp_path, "pins.txt") == [
+        "digline==0.34.0",
+        "digline-anthropic==0.6.1",
+    ]

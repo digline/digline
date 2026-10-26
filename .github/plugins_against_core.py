@@ -46,6 +46,10 @@ Subcommands:
 
     check     plugins_against_core.py check            (in the job, from the
               workspace root with `dist/` in it)
+    excluded  plugins_against_core.py excluded         (the same, and only the
+              classification: `name==version` of each plugin excluded by its
+              own cap, installing nothing. Read by the install step before
+              `check`, so it leaves out what `check` will call excluded.)
     exercise  <python> plugins_against_core.py exercise KIND NAME DIR
               (run by `check` with each plugin's own interpreter)
 
@@ -346,6 +350,26 @@ def check(dist: pathlib.Path, work: pathlib.Path) -> list[Outcome]:
                 Outcome(name, "broken", plugin.version, plugin.requires, str(exc))
             )
     return outcomes
+
+
+def excluded(dist: pathlib.Path) -> list[str]:
+    """`name==version` of every plugin `check` classifies as excluded, asked the
+    same way — `served` and `admits` — and nothing else: nothing is installed.
+
+    For the install step that runs before `check` in the same job (#717). It
+    installed the roster unversioned, and on v0.34.0 pip went down to
+    digline-mcp 0.5.0 without a word, so the step proved this core beside a
+    plugin two minors old. Pinned, the manifest leaves out what this returns,
+    and the two steps cannot disagree on a rule, only on an index that moved
+    between two reads.
+    """
+    core, plugins = roster(dist)
+    found: list[str] = []
+    for name in plugins:
+        plugin = served(name)
+        if plugin is not None and not admits(plugin.requires, core):
+            found.append(f"{name}=={plugin.version}")
+    return found
 
 
 def summary(title: str, core: str, outcomes: Sequence[Outcome]) -> str:
@@ -669,7 +693,19 @@ if __name__ == "__main__":
                     file=sys.stderr,
                 )
                 sys.exit(2)
+        case ["excluded"]:
+            try:
+                print(" ".join(excluded(pathlib.Path("dist"))))
+            except NotJudged as exc:
+                print(
+                    f"::error title=Plugins against the core not judged::{exc}",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
         case ["exercise", kind, name, app]:
             sys.exit(main_exercise(kind, name, pathlib.Path(app)))
         case _:
-            sys.exit("usage: plugins_against_core.py check | exercise KIND NAME DIR")
+            sys.exit(
+                "usage: plugins_against_core.py check | excluded "
+                "| exercise KIND NAME DIR"
+            )

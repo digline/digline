@@ -1,4 +1,4 @@
-"""Who is in `dist/`, in the three shapes the verification steps need.
+"""Who is in `dist/`, in the two shapes the verification steps need.
 
 The publish workflow proves a released wheel installs from the index and
 imports. Two halves of that check used to be **hardcoded lists** — a
@@ -13,19 +13,20 @@ does not pick a new package up on its own. Everything else — discovery,
 glob-driven. So is this now: the wheels in `dist/` are the roster, and the
 roster is what the job was built from a moment earlier.
 
-Writes three files into the directory named by `argv[1]`:
+Writes two files into the directory named by `argv[1]`:
 
-    pins.txt      digline==0.7.2        exact, for the real index
-    names.txt     digline               unversioned, for TestPyPI
+    pins.txt      digline==0.7.2        exact, for both indexes
     imports.txt   digline_mcp           module names, '-' becomes '_'
 
 `pins.txt` holds the versions this tag actually built, which is what stops a
 lagging index quietly resolving the *previous* release and passing anyway.
-`names.txt` is unversioned on purpose: TestPyPI resolves against a different
-set of uploads, and pinning there would fail for a reason that says nothing
-about this release.
+It wrote a third, `names.txt`, unversioned, for the TestPyPI install, on the
+reasoning that a pin there would fail for a reason that says nothing about
+this release. Unversioned failed the other way and in silence: on v0.34.0 pip
+resolved digline-mcp 0.5.0 there, two minors old (#717). Both installs now
+read `pins.txt`.
 
-**`--excluding name==version …` leaves packages out of all three files, and
+**`--excluding name==version …` leaves packages out of both files, and
 says which and why** (#717). It is the `pypi` job's install check that passes
 it, with what `plugins_against_core.py` classified in `testpypi` as excluded by
 its own cap: a plugin PyPI already serves whose range on digline stops below
@@ -70,7 +71,15 @@ def _refuse(sentence: str) -> int:
 
 def main(argv: list[str]) -> int:
     out = pathlib.Path(argv[1] if len(argv) > 1 else "manifest")
-    excluding = argv[3:] if len(argv) > 2 and argv[2] == "--excluding" else []
+    # Split on whitespace whatever the shell did: the job's output is one string
+    # of words, and a shell that does not split an unquoted variable, as zsh
+    # does not, hands it over as a single argument. Read whole, that argument
+    # was a version with spaces in it, and the plugin was kept.
+    excluding = [
+        word
+        for argument in (argv[3:] if len(argv) > 2 and argv[2] == "--excluding" else [])
+        for word in argument.split()
+    ]
 
     found = dict(
         sorted(name_and_version(w) for w in pathlib.Path("dist").glob("*.whl"))
@@ -87,6 +96,7 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
+    built = len(found)
     for exclusion in excluding:
         name, _, version = exclusion.partition("==")
         if not version:
@@ -125,11 +135,10 @@ def main(argv: list[str]) -> int:
     (out / "pins.txt").write_text(
         "".join(f"{n}=={v}\n" for n, v in found.items()), encoding="utf-8"
     )
-    (out / "names.txt").write_text("".join(f"{n}\n" for n in found), encoding="utf-8")
     (out / "imports.txt").write_text(
         "".join(f"{n.replace('-', '_')}\n" for n in found), encoding="utf-8"
     )
-    print(f"{len(found)} package(s) in dist/: {', '.join(found)}")
+    print(f"{len(found)} package(s) to verify, of {built} in dist/: {', '.join(found)}")
     return 0
 
 

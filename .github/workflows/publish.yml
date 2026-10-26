@@ -182,16 +182,27 @@ jobs:
       - name: Install from the index and run the quickstart
         run: |
           # The roster is `dist/`, not a list somebody has to remember to
-          # edit. Unversioned here: TestPyPI resolves against a different set
-          # of uploads, so a pin would fail for a reason that says nothing
-          # about this release.
-          python .github/dist_manifest.py /tmp/manifest
+          # edit. **Pinned, less what the plugins step below will call
+          # excluded** (#717). It was unversioned, on the reasoning that
+          # TestPyPI holds a different set of uploads and a pin would fail for
+          # a reason that says nothing about this release. With PyPI as the
+          # extra index a pin finds a version either index holds, and the
+          # unversioned roster failed the other way, in silence: on v0.34.0
+          # pip went down to digline-mcp 0.5.0, and this step proved the core
+          # beside a plugin two minors old. A plugin whose own cap stops below
+          # this core cannot be installed beside it, so it is left out, and
+          # `dist_manifest.py` names it. Asked of the same script the plugins
+          # step runs, before it, since this step comes first in the job.
+          excluded="$(uv run --no-project --with packaging==26.3 \
+            python .github/plugins_against_core.py excluded)"
+          python .github/dist_manifest.py /tmp/manifest --excluding $excluded
+          echo "TestPyPI, then PyPI, must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in 1 2 3 4 5; do
             /tmp/from-index/bin/pip install --quiet \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              -r /tmp/manifest/names.txt && break
+              -r /tmp/manifest/pins.txt && break
             echo "index not ready yet, retrying in 15s"; sleep 15
           done
           /tmp/from-index/bin/digline --help > /dev/null
