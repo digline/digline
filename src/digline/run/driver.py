@@ -341,13 +341,15 @@ def judge_totals(suite: Suite) -> CallTotals:
         # the thinking split of the judges beside it (ADR 0026 §3).
         total = total + CallTotals(
             calls=judge.calls,
-            counted=judge.calls,
+            counted=judge.calls - (_uncounted(judge) or 0),
             tokens=judge.tokens,
             spent_usd=judge.spent_usd,
             every_call_seen=_saw_every_call(judge),
-            # A judge that can say what it spent priced every call it counted:
-            # a call it could not price raised, and is the marker above.
-            every_cost_known=True,
+            # Read off the judge, not assumed. This was `True` on the claim that
+            # a call the judge could not price had raised; a call whose usage
+            # the plugin could not read answered, and was priced at nothing
+            # (#629).
+            every_cost_known=_knew_every_cost(judge),
         )
     if _judged_unread(suite.assertions, set(seen)):
         total = total + CallTotals()
@@ -364,6 +366,25 @@ def _saw_every_call(judge: Billable) -> bool | None:
     if not isinstance(raised, int) or isinstance(raised, bool):
         return None
     return raised == 0
+
+
+def _uncounted(judge: Billable) -> int | None:
+    """The judge's calls whose usage was not recorded, read off
+    `uncounted_calls`, which `JudgeBase` keeps; `None` where a judge keeps no
+    such count. Read with a default rather than added to `Billable`, as
+    `raised_calls` is. (#629)"""
+    found = getattr(judge, "uncounted_calls", None)
+    if not isinstance(found, int) or isinstance(found, bool):
+        return None
+    return found
+
+
+def _knew_every_cost(judge: Billable) -> bool | None:
+    """Whether the judge priced every call it counts: `None` for a judge that
+    keeps no count of the calls it could not, since nothing established that
+    it priced them all. (#629)"""
+    uncounted = _uncounted(judge)
+    return None if uncounted is None else uncounted == 0
 
 
 def _judged_unread(assertions: Sequence[object], read: set[int]) -> bool:

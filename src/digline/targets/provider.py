@@ -219,10 +219,24 @@ class ProviderTarget(ABC):
         elapsed_ms = (perf_counter() - started) * 1000.0
         usage = reply.usage
         self.observed.see(reply)
+        # A reply whose counts the plugin could not read is priced at nothing
+        # and counted at nothing: `cost_usd=None` and `usage=None`, which the
+        # run's line reads as a call seen and a cost not known (#629). A zero
+        # would be a price nobody stated.
+        counts: dict[str, object] = (
+            {}
+            if usage is None
+            else {
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "cache_read_tokens": usage.cache_read_tokens,
+                "cache_write_tokens": usage.cache_write_tokens,
+            }
+        )
         return Response(
             output=self._parsed(reply),
             input=prompt,
-            cost_usd=self.pricing.cost(self.model, usage),
+            cost_usd=None if usage is None else self.pricing.cost(self.model, usage),
             latency_ms=elapsed_ms,
             # The counts, typed, where the document reads them from. The four
             # copies in `metadata` below stay for assertions that already read
@@ -232,10 +246,7 @@ class ProviderTarget(ABC):
             usage=usage,
             metadata={
                 "model": self.model,
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "cache_read_tokens": usage.cache_read_tokens,
-                "cache_write_tokens": usage.cache_write_tokens,
+                **counts,
                 # Only what the provider actually reported. `Response.metadata`
                 # is not persisted, so this costs nothing in any document: what
                 # reaches a run file is what an assertion measured out of it.

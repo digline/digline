@@ -345,6 +345,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.35.0": (
+            "the core release that carries #629's `Completion.usage: Usage | "
+            "None`, which each provider plugin's floor is owed in the table of "
+            "floors owed at the cut: the minor above 0.34.0, named before it "
+            "exists because the row has to say where the floor goes, and moved "
+            "by the cut if the release gets another number"
+        ),
         "0.33.0": (
             "the release whose `within_noise` changed meaning under "
             "`output_version: 2` (#669); the core the owed floors' calls raise "

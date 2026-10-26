@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from digline.core import Contains, JudgeReply, LlmRubric, RunUsage
-from digline.run import Case, Suite, execute
+from digline.run import Case, Response, Suite, execute
 from digline.run.driver import judge_totals
 from digline.targets import Completion, ProviderTarget
 from digline.targets.completion import no_text_reason
@@ -71,6 +71,16 @@ class ReadingJudge(ScoreJudge):
     def _complete(self, system: str, prompt: str) -> Completion:
         text = json.dumps({"score": 1.0, "reason": "fine"})
         return Completion(text=text, usage=self.usages.pop(0))
+
+
+class Answering:
+    """A target that answers with a recorded usage, so a judge line is alone in
+    what its test varies."""
+
+    config = {"provider": "fake", "model": "m-1"}
+
+    def __call__(self, case: Case) -> Response:
+        return Response(output="yes", cost_usd=0.0, usage=ZERO)
 
 
 def suite(*assertions: object, cases: int = 1) -> Suite:
@@ -174,7 +184,7 @@ def test_the_judge_line_reads_the_judges_count_instead_of_assuming() -> None:
     claim that a call it could not price had raised. A call whose usage was not
     recorded did not raise, so the claim was false."""
     line = usage_of(
-        execute(suite(rubric(ReadingJudge(None))), Reading_target(), created_at=CREATED)
+        execute(suite(rubric(ReadingJudge(None))), Answering(), created_at=CREATED)
     ).judge
     assert (line.calls, line.counted) == (1, 0)
     assert line.every_cost_known is False
@@ -182,7 +192,7 @@ def test_the_judge_line_reads_the_judges_count_instead_of_assuming() -> None:
 
 def test_the_judge_line_at_zero_is_complete() -> None:
     line = usage_of(
-        execute(suite(rubric(ReadingJudge(ZERO))), Reading_target(), created_at=CREATED)
+        execute(suite(rubric(ReadingJudge(ZERO))), Answering(), created_at=CREATED)
     ).judge
     assert (line.calls, line.counted) == (1, 1)
     assert line.every_cost_known is True
@@ -216,18 +226,3 @@ def test_an_empty_reply_with_no_usage_says_the_count_was_not_recorded() -> None:
         Completion(text="", usage=None), max_tokens=16, subject="the judge"
     )
     assert "not recorded" in sentence
-
-
-def Reading_target() -> object:  # noqa: N802
-    """A target that answers with a recorded usage, so a judge line is alone
-    in what this test varies."""
-
-    class Answering:
-        config = {"provider": "fake", "model": "m-1"}
-
-        def __call__(self, case: Case) -> object:
-            from digline.run import Response
-
-            return Response(output="yes", cost_usd=0.0, usage=ZERO)
-
-    return Answering()
