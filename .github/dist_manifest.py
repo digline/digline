@@ -26,11 +26,16 @@ this release. Unversioned failed the other way and in silence: on v0.34.0 pip
 resolved digline-mcp 0.5.0 there, two minors old (#717). Both installs now
 read `pins.txt`.
 
-**`--excluding name==version …` leaves packages out of both files, and
-says which and why** (#717). It is the `pypi` job's install check that passes
-it, with what `plugins_against_core.py` classified in `testpypi` as excluded by
+**`--classification "classified name==version …"` leaves packages out of
+both files, and says which and why** (#717). Both install checks pass it, with
+what `plugins_against_core.py excluded` classified in `testpypi` as excluded by
 its own cap: a plugin PyPI already serves whose range on digline stops below
-this core. Installed beside this core it cannot resolve on any index, and
+this core. **The value must begin with the word `classified`**, and anything
+else stops the check before a manifest is written (#731). GitHub gives an empty
+string for an output no step wrote, so an empty value is not *nothing to
+exclude*: it is also a classification nobody made, and read as the first it
+is a false green. A missed exclusion fails an install; a missed classification
+read as none passes one. Installed beside this core it cannot resolve on any index, and
 before this option every minor that raised the plugins' caps turned the check
 red ten times out of ten. Leaving it out is a reading, not a skip, so each one
 is named in the log with the reason, and three exclusions are refused rather
@@ -49,6 +54,10 @@ manifest and the log says so.
 
 import pathlib
 import sys
+
+#: The first word of every classification, written by `plugins_against_core.py`
+#: and held to the same word there by `tests/test_plugins_against_core.py`.
+CLASSIFIED = "classified"
 
 
 def name_and_version(wheel: pathlib.Path) -> tuple[str, str]:
@@ -75,11 +84,19 @@ def main(argv: list[str]) -> int:
     # of words, and a shell that does not split an unquoted variable, as zsh
     # does not, hands it over as a single argument. Read whole, that argument
     # was a version with spaces in it, and the plugin was kept.
-    excluding = [
-        word
-        for argument in (argv[3:] if len(argv) > 2 and argv[2] == "--excluding" else [])
-        for word in argument.split()
-    ]
+    classified = len(argv) > 2 and argv[2] == "--classification"
+    words = [word for argument in argv[3:] for word in argument.split()]
+    if classified and (not words or words[0] != CLASSIFIED):
+        print(
+            "::error title=The exclusions were never classified::the "
+            f"classification handed to this check does not begin with "
+            f"{CLASSIFIED!r}, so it was never classified: an output no step "
+            "wrote reads as empty, and an empty one is not nothing to exclude. "
+            "Read the testpypi job's classifying step.",
+            file=sys.stderr,
+        )
+        return 1
+    excluding = words[1:] if classified else []
 
     found = dict(
         sorted(name_and_version(w) for w in pathlib.Path("dist").glob("*.whl"))
@@ -113,6 +130,10 @@ def main(argv: list[str]) -> int:
                 f"{exclusion} is not in dist/, so the classification and the "
                 "roster this tag built disagree"
             )
+        # Versions only: a "Re-run all jobs" after the upload classifies again
+        # while PyPI serves this tag's version, and this cannot tell them apart.
+        # Not repaired: what that case leaves out cannot be installed beside
+        # this core anyway, since its own cap excludes it.
         if found[name] != version:
             print(
                 f"kept {name} {found[name]}: the classification excluded the "

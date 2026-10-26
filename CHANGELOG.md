@@ -18,8 +18,18 @@ notes under them are this file, verbatim.
     on v0.34.0 it went red ten times out of ten over digline-mcp 0.6.2 and
     pytest-digline 0.3.1, which `plugins_against_core.py` had already called
     excluded two jobs before. The classification now travels as the TestPyPI
-    job's output, and `dist_manifest.py --excluding` names each package it
-    leaves out and why. A version the tag itself publishes is never left out.
+    job's output, and `dist_manifest.py --classification` names each package
+    it leaves out and why. A version the tag itself publishes is never left out.
+  - **The classification is made on every tag, and one never made stops the
+    check** (#731). It came from the step that runs on `v*` tags only, so on a
+    plugin tag the PyPI job was handed an empty output and installed the whole
+    manifest. On `pytest-digline-v0.4.0` (run 40308536493) that went red with
+    `ResolutionImpossible` over digline-mcp 0.6.2, which the TestPyPI job had
+    left out two jobs before; on `digline-mcp-v0.6.3` it passed only because
+    nothing needed leaving out. A step of its own now makes it on
+    every tag, and it begins with the word `classified`: an output no step
+    wrote is the empty string, and the install check stops on it rather than
+    reading it as nothing to exclude.
   - **A conflict between the pins no longer advises a re-run.** It stops at the
     first `ResolutionImpossible` and says a re-run gives the same red. The
     advice stays where it can work: a version the index does not serve yet.

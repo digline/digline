@@ -143,12 +143,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
-    # What the plugins step below classified as excluded by its own cap, as
-    # `name==version`, for the install check in `pypi` to leave out and name
-    # (#717). Empty when nothing was, and on a plugin tag, where the step
-    # does not run.
+    # What the classifying step below found excluded by its own cap: the word
+    # `classified`, then `name==version` of each, for the install check in
+    # `pypi` to leave out and name (#717). Made on every tag, a plugin tag
+    # included, and never empty: an output no step wrote is the empty string,
+    # and `dist_manifest.py` stops on it rather than read it as nothing to
+    # exclude (#731).
     outputs:
-      excluded: ${{ steps.plugins.outputs.excluded }}
+      excluded: ${{ steps.classified.outputs.excluded }}
     permissions:
       # A job-level `permissions:` **replaces** the top-level block, it does not
       # add to it. `id-token: write` on its own therefore left `contents` at
@@ -179,23 +181,36 @@ jobs:
           packages-dir: to-publish/
           skip-existing: true
 
-      - name: Install from the index and run the quickstart
+      - id: classified
+        name: Which plugins their own cap excludes from this core
+        # The same reading `check` makes, without installing anything, made on
+        # **every** tag: a plugin tag installs the same manifest as a workspace
+        # tag and needs the same exclusions, and `check` runs on `v*` only
+        # (#731). Both install checks read this one output, so they leave out
+        # the same plugins. The assignment, and not a substitution inside
+        # `echo`, is what makes a failed classification fail the step.
         run: |
-          # The roster is `dist/`, not a list somebody has to remember to
-          # edit. **Pinned, less what the plugins step below will call
-          # excluded** (#717). It was unversioned, on the reasoning that
-          # TestPyPI holds a different set of uploads and a pin would fail for
-          # a reason that says nothing about this release. With PyPI as the
-          # extra index a pin finds a version either index holds, and the
-          # unversioned roster failed the other way, in silence: on v0.34.0
-          # pip went down to digline-mcp 0.5.0, and this step proved the core
-          # beside a plugin two minors old. A plugin whose own cap stops below
-          # this core cannot be installed beside it, so it is left out, and
-          # `dist_manifest.py` names it. Asked of the same script the plugins
-          # step runs, before it, since this step comes first in the job.
           excluded="$(uv run --no-project --with packaging==26.3 \
             python .github/plugins_against_core.py excluded)"
-          python .github/dist_manifest.py /tmp/manifest --excluding $excluded
+          echo "classified: $excluded"
+          echo "excluded=$excluded" >> "$GITHUB_OUTPUT"
+
+      - name: Install from the index and run the quickstart
+        env:
+          CLASSIFIED: ${{ steps.classified.outputs.excluded }}
+        run: |
+          # The roster is `dist/`, not a list somebody has to remember to
+          # edit. **Pinned, less what the step above classified as excluded**
+          # (#717). It was unversioned, on the reasoning that TestPyPI holds a
+          # different set of uploads and a pin would fail for a reason that
+          # says nothing about this release. With PyPI as the extra index a
+          # pin finds a version either index holds, and the unversioned roster
+          # failed the other way, in silence: on v0.34.0 pip went down to
+          # digline-mcp 0.5.0, and this step proved the core beside a plugin
+          # two minors old. A plugin whose own cap stops below this core cannot
+          # be installed beside it, so it is left out, and `dist_manifest.py`
+          # names it. Quoted, so an empty value reaches it and is refused.
+          python .github/dist_manifest.py /tmp/manifest --classification "$CLASSIFIED"
           echo "TestPyPI, then PyPI, must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in 1 2 3 4 5; do
@@ -369,9 +384,11 @@ jobs:
           # Same roster as the TestPyPI step, and the same script refuses to
           # write one from an empty `dist/` — a check that can pass by finding
           # nothing is the vacuously green assertion decision 3 refuses.
-          # `$EXCLUDED` unquoted on purpose: it is `name==version` words, one
-          # argument each, and empty is no argument at all.
-          python .github/dist_manifest.py /tmp/manifest --excluding $EXCLUDED
+          # `"$EXCLUDED"` quoted on purpose: it is one string, `classified`
+          # and then `name==version` words, which the script splits itself, and
+          # an empty one has to reach it to be refused rather than vanish from
+          # the command line as no argument at all (#731).
+          python .github/dist_manifest.py /tmp/manifest --classification "$EXCLUDED"
           echo "the index must serve:"; cat /tmp/manifest/pins.txt
           python -m venv /tmp/from-index
           for attempt in $(seq 1 10); do

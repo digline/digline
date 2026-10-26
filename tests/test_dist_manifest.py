@@ -62,17 +62,51 @@ def test_without_exclusions_the_roster_is_dist_whole(tmp_path: Path) -> None:
     ]
 
 
-def test_an_empty_exclusion_is_no_exclusion(tmp_path: Path) -> None:
-    """What the step passes when `testpypi` classified nothing as excluded."""
-    done = run(tmp_path, "--excluding")
+def test_a_classification_that_found_nothing_keeps_the_roster_whole(
+    tmp_path: Path,
+) -> None:
+    """What the step passes when `testpypi` classified and found nothing to
+    exclude: the marker alone."""
+    done = run(tmp_path, "--classification", "classified")
     assert done.returncode == 0, done.stderr
     assert len(read(tmp_path, "pins.txt")) == 4
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
+        pytest.param(("--classification", ""), id="an empty output"),
+        pytest.param(("--classification",), id="no value at all"),
+        pytest.param(
+            ("--classification", "digline-mcp==0.6.2"), id="words with no marker"
+        ),
+    ],
+)
+def test_a_classification_never_made_stops_the_install_check(
+    tmp_path: Path, given: tuple[str, ...]
+) -> None:
+    """GitHub gives an empty string for an output no step wrote, so an empty
+    value cannot mean *nothing to exclude*: it is also *never classified*, and
+    read as the first it is a false green. Only a value that begins with the
+    marker is a classification; anything else stops the check before a
+    manifest is written. A missed exclusion fails an install; a missed
+    classification read as none passes one. (#731)"""
+    done = run(tmp_path, *given)
+    assert done.returncode == 1
+    assert "never classified" in done.stderr
+    assert not (tmp_path / "manifest" / "pins.txt").exists()
 
 
 def test_a_classified_plugin_is_left_out_of_all_three_files_and_named(
     tmp_path: Path,
 ) -> None:
-    done = run(tmp_path, "--excluding", "digline-mcp==0.6.2", "pytest-digline==0.3.1")
+    done = run(
+        tmp_path,
+        "--classification",
+        "classified",
+        "digline-mcp==0.6.2",
+        "pytest-digline==0.3.1",
+    )
     assert done.returncode == 0, done.stderr
     assert read(tmp_path, "pins.txt") == [
         "digline==0.34.0",
@@ -90,7 +124,7 @@ def test_a_version_this_tag_publishes_is_never_left_out(tmp_path: Path) -> None:
     """The classification read the newest version PyPI served before this tag;
     `dist/` holds a newer one, which this tag publishes and nothing has
     verified. It stays in the manifest, and the step says why."""
-    done = run(tmp_path, "--excluding", "digline-mcp==0.6.1")
+    done = run(tmp_path, "--classification", "classified digline-mcp==0.6.1")
     assert done.returncode == 0, done.stderr
     assert "digline-mcp==0.6.2" in read(tmp_path, "pins.txt")
     assert "kept digline-mcp 0.6.2" in done.stdout
@@ -108,7 +142,7 @@ def test_a_version_this_tag_publishes_is_never_left_out(tmp_path: Path) -> None:
 def test_an_exclusion_that_cannot_be_right_is_refused(
     tmp_path: Path, excluded: str, said: str
 ) -> None:
-    done = run(tmp_path, "--excluding", excluded)
+    done = run(tmp_path, "--classification", f"classified {excluded}")
     assert done.returncode == 1
     assert said in done.stderr
     assert not (tmp_path / "manifest" / "pins.txt").exists()
@@ -119,7 +153,11 @@ def test_exclusions_in_one_argument_are_read_one_by_one(tmp_path: Path) -> None:
     variable, as zsh does not, passes it as one argument. Measured on
     v0.34.0's dist, before this: both plugins were kept, read as one version
     with a space in it."""
-    done = run(tmp_path, "--excluding", "digline-mcp==0.6.2 pytest-digline==0.3.1")
+    done = run(
+        tmp_path,
+        "--classification",
+        "classified digline-mcp==0.6.2 pytest-digline==0.3.1",
+    )
     assert done.returncode == 0, done.stderr
     assert read(tmp_path, "pins.txt") == [
         "digline==0.34.0",

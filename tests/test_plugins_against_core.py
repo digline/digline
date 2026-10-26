@@ -19,8 +19,10 @@ first observation.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -344,51 +346,11 @@ def test_the_step_runs_on_workspace_tags_only(tag: str, runs: bool) -> None:
     assert tag.startswith("v") is runs
 
 
-# --- what the `pypi` job is handed: the excluded, as a job output (#717) ---------
-
-
-@pytest.mark.parametrize(
-    ("outcomes", "line"),
-    [
-        (
-            [
-                script.Outcome("digline-anthropic", "works", "0.6.1", ">=0.17.0", "p"),
-                script.Outcome("digline-mcp", "excluded", "0.6.2", "<0.34", "cap"),
-                script.Outcome("pytest-digline", "excluded", "0.3.1", "<0.34", "cap"),
-            ],
-            "excluded=digline-mcp==0.6.2 pytest-digline==0.3.1\n",
-        ),
-        (
-            [script.Outcome("digline-anthropic", "works", "0.6.1", ">=0.17.0", "p")],
-            "excluded=\n",
-        ),
-    ],
-)
-def test_the_excluded_reach_the_jobs_output_by_name_and_version(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    outcomes: list[object],
-    line: str,
-) -> None:
-    """The install check in `pypi` leaves out exactly what this step classified,
-    so it is handed the classification rather than computing its own. Name and
-    version: an exclusion is of the served version this step read, and the
-    manifest keeps a version this tag publishes, which it may not leave out.
-    Written even when empty, so an absent output is a step that did not run."""
-
-    def roster(dist: Path) -> tuple[str, list[str]]:
-        return "0.34.0", ["digline-mcp"]
-
-    def check(dist: Path, work: Path) -> list[object]:
-        return outcomes
-
-    monkeypatch.setattr(script, "roster", roster)
-    monkeypatch.setattr(script, "check", check)
-    output = tmp_path / "output"
-    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
-    monkeypatch.delenv("SUMMARY_TITLE", raising=False)
-    assert script.main_check() == 0
-    assert output.read_text(encoding="utf-8") == line
+# --- what the `pypi` job is handed: the classification, as a job output -------
+#
+# Made by a step of its own on every tag, and marked, so that an empty output
+# cannot pass for "nothing to exclude" (#717, #731). `check` no longer writes it:
+# it runs on `v*` tags only, and on a plugin tag the output it wrote was empty.
 
 
 def jobs() -> dict[str, dict[str, object]]:
@@ -398,12 +360,113 @@ def jobs() -> dict[str, dict[str, object]]:
     return dict(workflow["jobs"])
 
 
-def test_the_testpypi_job_exports_the_classification() -> None:
-    testpypi = jobs()["testpypi"]
-    steps = steps_of_testpypi()
-    check = steps[position(steps, "plugins_against_core.py check")]
-    assert check["id"] == "plugins"
-    assert testpypi["outputs"] == {"excluded": "${{ steps.plugins.outputs.excluded }}"}
+def classifying_step() -> dict[str, object]:
+    """The step whose output the `testpypi` job hands to `pypi`, found through
+    the job's `outputs` rather than by its name."""
+    outputs = cast("dict[str, str]", jobs()["testpypi"]["outputs"])
+    exported = outputs["excluded"]
+    found = re.fullmatch(r"\$\{\{ steps\.([a-z_-]+)\.outputs\.excluded \}\}", exported)
+    assert found, exported
+    (step,) = [s for s in steps_of_testpypi() if s.get("id") == found.group(1)]
+    return step
+
+
+def runs_on(condition: object, tag: str) -> bool:
+    """Whether a step runs on `tag`, for the two conditions this workflow uses
+    on a tag push. Anything else is a condition this test cannot read, which is
+    a failure, not a guess."""
+    if condition is None:
+        return True
+    if condition == "startsWith(github.ref_name, 'v')":
+        return tag.startswith("v")
+    raise AssertionError(f"a condition this test cannot read: {condition!r}")
+
+
+def run_classifying_step(
+    tmp_path: Path, printed: str, status: int
+) -> tuple[subprocess.CompletedProcess[str], str, str]:
+    """The step's own script, run the way Actions runs a `run:` block, with a
+    `uv` on the path that stands for the classification: it records how it was
+    called, prints `printed` and exits with `status`. Returns the step's
+    outcome, what it wrote to `GITHUB_OUTPUT`, and the call."""
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    calls = tmp_path / "calls"
+    uv = bin_ / "uv"
+    uv.write_text(
+        f'#!/bin/sh\necho "$*" > "{calls}"\necho "{printed}"\nexit {status}\n',
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    output = tmp_path / "output"
+    output.write_text("", encoding="utf-8")
+    # `bash -e -o pipefail` is the shell Actions runs a `run:` block in.
+    done = subprocess.run(
+        [
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-e",
+            "-o",
+            "pipefail",
+            "-c",
+            str(classifying_step()["run"]),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            "PATH": f"{bin_}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+        },
+    )
+    return done, output.read_text(encoding="utf-8"), calls.read_text(encoding="utf-8")
+
+
+def test_the_testpypi_job_exports_the_classification(tmp_path: Path) -> None:
+    """The output both install checks read is written, under the name the job
+    exports, with what the classification printed. A test that looked for the
+    word `GITHUB_OUTPUT` in the step passed a write under another key and a
+    write of nothing, and either reaches `pypi` as an output no step wrote.
+    (#731)"""
+    done, written, call = run_classifying_step(
+        tmp_path, "classified digline-mcp==0.6.2", 0
+    )
+    assert done.returncode == 0, done.stderr
+    assert call.split()[-3:] == [
+        "python",
+        ".github/plugins_against_core.py",
+        "excluded",
+    ]
+    assert written == "excluded=classified digline-mcp==0.6.2\n"
+
+
+def test_a_classification_that_fails_fails_its_step_and_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """The assignment, not a substitution inside `echo`, carries the status
+    out: a classification that failed stops the job before either install
+    check, rather than handing on what it printed before failing."""
+    done, written, _ = run_classifying_step(tmp_path, "classified", 1)
+    assert done.returncode != 0
+    assert written == ""
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "v0.34.0",
+        "pytest-digline-v0.4.0",
+        "digline-mcp-v0.6.3",
+        "digline-anthropic-v0.6.2",
+    ],
+)
+def test_the_classification_the_pypi_job_reads_is_made_on_every_tag(tag: str) -> None:
+    """A plugin tag installs the same manifest as a workspace tag, and needs
+    the same exclusions. Made by `check`, it was made on `v*` tags only, and on
+    `pytest-digline-v0.4.0` and `digline-mcp-v0.6.3` the `pypi` job was handed
+    an empty output. (#731)"""
+    assert runs_on(classifying_step().get("if"), tag)
 
 
 def pypi_step(needle: str) -> dict[str, object]:
@@ -414,18 +477,102 @@ def pypi_step(needle: str) -> dict[str, object]:
 def test_the_install_check_leaves_out_what_testpypi_classified() -> None:
     """And only the install check: the wait before it holds the index to
     every file this tag built, the excluded included."""
-    install = pypi_step("dist_manifest.py /tmp/manifest --excluding")
+    install = pypi_step("dist_manifest.py /tmp/manifest --classification")
     assert install["env"] == {"EXCLUDED": "${{ needs.testpypi.outputs.excluded }}"}
-    assert "dist_manifest.py /tmp/manifest --excluding $EXCLUDED" in str(install["run"])
+    # Quoted, so an empty output reaches the script as one empty argument and
+    # is refused there, rather than vanishing from the command line.
+    assert 'dist_manifest.py /tmp/manifest --classification "$EXCLUDED"' in str(
+        install["run"]
+    )
     wait = pypi_step("await_index.py --manifest")
-    assert "--excluding" not in str(wait["run"])
+    assert "--classification" not in str(wait["run"])
+    assert "EXCLUDED" not in str(wait["run"])
+
+
+def test_pypi_keeps_a_version_this_tag_publishes_that_testpypi_saw_excluded(
+    tmp_path: Path,
+) -> None:
+    """`testpypi` classifies against what PyPI served before this tag's upload,
+    so the `pypi` job reads a classification one publication old: its own. The
+    version this tag publishes is told apart from the excluded one by `dist/`,
+    which `pypi` must still hold whole after choosing what to upload. This is
+    `pytest-digline-v0.4.0`'s case: the classification excluded the served
+    0.3.1, and the tag publishes 0.4.0. The `pypi` job's own selection and
+    install lines are run, in order, against an index that serves what PyPI
+    served before the upload."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    for stem in ("digline-0.34.0", "digline_mcp-0.6.2", "pytest_digline-0.4.0"):
+        (dist / f"{stem}-py3-none-any.whl").write_bytes(b"")
+        (dist / f"{stem}.tar.gz").write_bytes(b"")
+    (tmp_path / ".github").symlink_to(ROOT / ".github")
+    served = {
+        f"/pypi/{n}/{v}/json": (200, b"{}")
+        for n, v in (
+            ("digline", "0.34.0"),
+            ("digline-mcp", "0.6.2"),
+            ("pytest-digline", "0.3.1"),
+        )
+    }
+    steps = cast("list[dict[str, object]]", jobs()["pypi"]["steps"])
+    (select,) = [s for s in steps if s.get("id") == "select"]
+    (install,) = [
+        line.strip()
+        for line in str(
+            pypi_step("dist_manifest.py /tmp/manifest --classification")["run"]
+        ).splitlines()
+        if line.strip().startswith("python .github/dist_manifest.py")
+    ]
+    install = install.replace("/tmp/manifest", str(tmp_path / "manifest"))
+    with index(served) as url:
+        chosen = subprocess.run(
+            [
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-e",
+                "-o",
+                "pipefail",
+                "-c",
+                str(select["run"]),
+            ],
+            cwd=tmp_path,
+            env={**os.environ, "INDEX": url, "GITHUB_OUTPUT": str(tmp_path / "out")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    assert chosen.returncode == 0, chosen.stderr
+    assert sorted(p.name for p in (tmp_path / "to-publish").iterdir()) == [
+        "pytest_digline-0.4.0-py3-none-any.whl",
+        "pytest_digline-0.4.0.tar.gz",
+    ]
+    done = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", install],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "EXCLUDED": "classified digline-mcp==0.6.2 pytest-digline==0.3.1",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    pins = (tmp_path / "manifest" / "pins.txt").read_text(encoding="utf-8")
+    assert pins.splitlines() == ["digline==0.34.0", "pytest-digline==0.4.0"]
+    assert (
+        "kept pytest-digline 0.4.0: the classification excluded the served 0.3.1"
+        in done.stdout
+    )
+    assert "left out digline-mcp 0.6.2" in done.stdout
 
 
 def test_a_conflict_between_the_pins_is_not_told_to_re_run() -> None:
     """A conflict between declared requirements is the same on every read, so
     the step stops at the first one and says a re-run gives the same red. The
     advice to re-run stays where it can work: a version not yet served."""
-    run = str(pypi_step("dist_manifest.py /tmp/manifest --excluding")["run"])
+    run = str(pypi_step("dist_manifest.py /tmp/manifest --classification")["run"])
     conflict = run.index("ResolutionImpossible")
     stop = run.index("exit 1", conflict)
     branch = run[conflict:stop]
@@ -468,9 +615,50 @@ def test_the_testpypi_install_is_pinned_and_leaves_out_the_same_exclusion() -> N
     minors old. Now it installs the pins, less what the classification
     excludes, and the manifest script names each one it leaves out."""
     steps = steps_of_testpypi()
-    install = str(steps[position(steps, "gate_summary.py install TestPyPI")]["run"])
-    asked = install.index("plugins_against_core.py excluded")
-    manifest = install.index("dist_manifest.py /tmp/manifest --excluding $excluded")
-    assert asked < manifest
-    assert "-r /tmp/manifest/pins.txt" in install
-    assert "names.txt" not in install
+    at = position(steps, "gate_summary.py install TestPyPI")
+    install = steps[at]
+    run = str(install["run"])
+    # The same classification the `pypi` job is handed, read from the step that
+    # made it, not made again: one reading, in one place.
+    assert install["env"] == {"CLASSIFIED": "${{ steps.classified.outputs.excluded }}"}
+    assert 'dist_manifest.py /tmp/manifest --classification "$CLASSIFIED"' in run
+    assert "plugins_against_core.py" not in run
+    assert steps.index(classifying_step()) < at
+    assert "-r /tmp/manifest/pins.txt" in run
+    assert "names.txt" not in run
+
+
+def test_the_classification_is_marked_so_an_empty_one_is_never_read_as_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`classification` is what the step writes: the marker, then the
+    exclusions. With nothing excluded it is the marker alone, which is not the
+    empty string GitHub gives for an output no step wrote. (#731)"""
+    for wheel in (
+        "digline-0.34.0-py3-none-any.whl",
+        "digline_mcp-0.6.2-py3-none-any.whl",
+        "pytest_digline-0.3.1-py3-none-any.whl",
+    ):
+        (tmp_path / wheel).write_bytes(b"")
+    excluding = {
+        "digline-mcp": script.Served("digline-mcp", "0.6.2", "<0.34,>=0.32.0"),
+        "pytest-digline": script.Served("pytest-digline", "0.3.1", ">=0.32.0"),
+    }
+    monkeypatch.setattr(script, "served", excluding.get)
+    assert script.classification(tmp_path) == "classified digline-mcp==0.6.2"
+
+    def nothing(name: str) -> None:
+        return None
+
+    monkeypatch.setattr(script, "served", nothing)
+    assert script.classification(tmp_path) == "classified"
+
+
+def test_the_producer_and_the_consumer_read_one_marker() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "dist_manifest", ROOT / ".github" / "dist_manifest.py"
+    )
+    assert spec and spec.loader
+    manifest = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(manifest)
+    assert script.CLASSIFIED == manifest.CLASSIFIED == "classified"
