@@ -40,6 +40,7 @@ import pytest
 
 if TYPE_CHECKING:
     from digline.core import AssertionDelta, Comparison, ScaleLost, Verdict
+    from digline.host import Loaded
     from digline.run import Suite
     from digline.store import ResultStore
 
@@ -508,7 +509,7 @@ def _opened(spec: str, root: Path, *, run_first: bool) -> _Opened:
 
 def _measure(
     suite: Suite,
-    loaded: Any,
+    loaded: Loaded,
     spec: str,
     path: Path,
     store: ResultStore,
