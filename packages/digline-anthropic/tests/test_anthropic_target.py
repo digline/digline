@@ -16,8 +16,7 @@ from typing import Any, cast
 
 import pytest
 
-from digline.core import Contains
-from digline.run import Case, Suite, execute
+from digline.run import Case
 from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
 from digline_anthropic.client import GEO_MULTIPLIERS, tool_calls_of, tools_of, usage_of
@@ -334,71 +333,22 @@ def test_a_call_never_inherits_the_last_calls_geography(prompt: Path) -> None:
     assert target(case).cost_usd == pytest.approx(2.00)
 
 
-def test_a_geography_with_no_rate_is_a_cost_not_known(prompt: Path) -> None:
-    """#569: a reply from a geography with no rate was refused after it was
-    answered and paid for, and the case went to `error` for a problem of
-    accounting. It is handed over with its counts and no cost: answered, and
-    priced by nobody."""
+def test_a_geography_with_no_rate_is_refused_rather_than_priced(
+    prompt: Path,
+) -> None:
+    """Anthropic documents two geographies. A third has a rate nobody here has
+    read, and the global one could be under it: refused, by the class and in
+    the shape of the 1-hour write's refusal."""
     target, client = a_target(prompt)
     client.messages.reply = FakeReply(
-        content=[FakeBlock("x")],
-        usage=FakeUsage(input_tokens=12, output_tokens=7, inference_geo="eu"),
+        content=[FakeBlock("x")], usage=FakeUsage(inference_geo="eu")
     )
-    response = target(Case(id="it", vars={"country": "Italy"}))
-    assert response.cost_usd is None
-    assert response.usage is not None
-    assert (response.usage.input_tokens, response.usage.output_tokens) == (12, 7)
-
-
-def test_a_case_answered_in_a_geography_with_no_rate_is_judged(prompt: Path) -> None:
-    """The whole of #569: the case is judged, and the run's line says a cost
-    was not known rather than a call was not seen."""
-    target, client = a_target(prompt)
-    client.messages.reply = FakeReply(
-        content=[FakeBlock("Rome")],
-        usage=FakeUsage(input_tokens=12, output_tokens=7, inference_geo="eu"),
-    )
-    suite = Suite(
-        tenant="acme",
-        environment="test",
-        name="geo",
-        assertions=[Contains(needle="Rome")],
-        cases=[Case(id="it", vars={"country": "Italy"})],
-    )
-    run = execute(suite, target, created_at="2026-01-01T00:00:00+00:00")
-    (verdict,) = run.results[0].verdicts
-    assert verdict.status == "pass"
-    assert run.usage is not None
-    assert run.usage.target.every_call_seen is True
-    assert run.usage.target.every_cost_known is False
-
-
-def test_a_geography_with_a_rate_is_still_priced(prompt: Path) -> None:
-    """The control: a known geography prices as before, `us` at 1.1x."""
-    target, client = a_target(prompt)
-    case = Case(id="it", vars={"country": "Italy"})
-    for geo, cost in (("us", 2.20), ("global", 2.00)):
-        client.messages.reply = FakeReply(
-            content=[FakeBlock("x")],
-            usage=FakeUsage(input_tokens=1_000_000, output_tokens=0, inference_geo=geo),
-        )
-        assert target(case).cost_usd == pytest.approx(cost)
-
-
-def test_a_call_after_one_with_no_rate_is_priced_again(prompt: Path) -> None:
-    """A cost not known never outlives its call, as the multiplier never does."""
-    target, client = a_target(prompt)
-    case = Case(id="it", vars={"country": "Italy"})
-    client.messages.reply = FakeReply(
-        content=[FakeBlock("x")],
-        usage=FakeUsage(input_tokens=1_000_000, output_tokens=0, inference_geo="eu"),
-    )
-    assert target(case).cost_usd is None
-    client.messages.reply = FakeReply(
-        content=[FakeBlock("x")],
-        usage=FakeUsage(input_tokens=1_000_000, output_tokens=0, inference_geo="us"),
-    )
-    assert target(case).cost_usd == pytest.approx(2.20)
+    with pytest.raises(UnknownModelError) as refused:
+        target(Case(id="it", vars={"country": "Italy"}))
+    message = str(refused.value)
+    assert "inference geography 'eu'" in message
+    assert "claude-fake-1-20260101" in message
+    assert "#392" in message
 
 
 def test_the_price_view_declares_exactly_what_the_suite_declared(
