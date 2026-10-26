@@ -43,6 +43,7 @@ __all__ = [
     "checked_denominator",
     "compare",
     "considered_cases",
+    "counted_cases",
     "config_deltas",
     "denominator",
     "index_verdicts",
@@ -1106,11 +1107,13 @@ def _denominator_moved(now: Verdict, before: Verdict) -> bool:
     return _seen(now) == _seen(before)
 
 
-def _counted(verdict: Verdict) -> int | None:
+def counted_cases(verdict: Verdict) -> int | None:
     """The cases an aggregate counted, with a label or without one, or `None`
     where the verdict is not an aggregate.
 
-    `considered` is the matrix's four cells, and an aggregate over raw scores,
+    Public beside `considered_cases`, for its reason: the report and `explain`
+    print the pair of numbers an incomparability is stated in, and they print
+    this one. `considered` is the matrix's four cells, and an aggregate over raw scores,
     which needs no label, files every case it counted under
     `unlabelled_excluded` instead: its `considered` is `0` whatever it counted.
     For an aggregate that counts a matrix the two are the same number, because
@@ -1140,7 +1143,7 @@ def _counted_moved(now: Verdict, before: Verdict) -> bool:
     `_denominator_moved` answers, which is read in both directions as before.
     (ADR 0012 §3, amended 2026-10-26)
     """
-    here, there = _counted(now), _counted(before)
+    here, there = counted_cases(now), counted_cases(before)
     if here is None or there is None or here == there:
         return False
     return _seen(now) == _seen(before)
@@ -1156,8 +1159,8 @@ def _incomparable_clause(now: Verdict, before: Verdict) -> str:
     same shape for the same reason. (the delta-pass over 0.15.2)
     """
     return (
-        f", but it was measured over {_counted(now)} cases against "
-        f"{_counted(before)} in the reference: the two are not the same "
+        f", but it was measured over {counted_cases(now)} cases against "
+        f"{counted_cases(before)} in the reference: the two are not the same "
         "measurement"
     )
 

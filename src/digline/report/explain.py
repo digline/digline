@@ -38,7 +38,7 @@ from digline.core import (
     Verdict,
     case_count,
     checked_denominator,
-    considered_cases,
+    counted_cases,
     misnamed,
     on_the_line,
     scale_lost,
@@ -635,12 +635,10 @@ def _check_fact(delta: AssertionDelta) -> CheckFact:
         # finds a use for, which is how a reading starts saying more than it
         # read. (the delta-pass over 0.15.1)
         considered=(
-            considered_cases(now)
-            if delta.denominator_moved and now is not None
-            else None
+            counted_cases(now) if delta.denominator_moved and now is not None else None
         ),
         reference_considered=(
-            considered_cases(before)
+            counted_cases(before)
             if delta.denominator_moved and before is not None
             else None
         ),
