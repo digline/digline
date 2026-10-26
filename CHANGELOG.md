@@ -202,6 +202,40 @@ notes under them are this file, verbatim.
     2026-10-21, which names no change to a response's usage, stop reason or
     content blocks. **No response was observed**: nothing called a provider,
     so what a field means rests on the types and the guide, not on a reply.
+- **A refused document names its file and whether it is the run or the
+  baseline** (#672). `compare`, `explain`, `register` and `report` printed
+  *"DocumentRefusedError: schema_version 21 is not supported (expected 20)"*,
+  naming neither. The refusal now begins *"the baseline at <path> could not be
+  read:"* or *"the run at <path> …"*, and a schema refusal ends with the advice
+  in its direction: `digline migrate` for an older document, a newer digline
+  for a newer one. `DocumentRefusedError` gains `role`, `"run"` or
+  `"baseline"`, beside `declared_schema`, so a program tells the two apart by a
+  field. A quoted message stays quoted.
+- **`--out` that cannot be written says it is `--out`** (#672): the option,
+  the path and the errno's text, exit `64`, where it printed
+  *"FileNotFoundError: …"*.
+- **A calibration case no longer keeps *Nothing got worse* over a run that
+  judged nothing** (#672). With every case that counts suspended and a
+  calibration case judged, the headline still said it, because the calibration
+  check counted as compared. It places the judge and counts for nothing, as
+  `Comparison.counts` already said.
+- **`compare --run latest` over a store it cannot read advises in the direction
+  the schema differs** (#670). It said *"Run `digline migrate`"* also of
+  documents newer than the reader, which `migrate` refuses. It now says what
+  `list` says, from `Listing.advice()`.
+- **`ToolsCalled` names the key a function target fills** (#626). A target
+  that reported no `tools` was told *"only a provider target on a provider
+  that reports them can be judged on its trajectory"*, which a function
+  target that fills the key, as `examples/langgraph` does, disproves. It now
+  names `tools` in the response's metadata and how a function supplies it.
+- **The README names `64` and `70`, and points `2` at its causes** (#672). It
+  said `2` was *could not be judged*, which is one cause of several, and named
+  no code a setup mistake meets.
+- **Every name `docs/api.md` lists is held to the code** (#702).
+  `tests/test_api_doc_names.py` reads the section *What is imported from
+  where* and requires each name in a public package's `__all__`, or a method of
+  a class it lists, as the four `FileResultStore` methods are. It found nothing
+  missing.
 
 ## 0.34.0 — 2026-10-26
 
