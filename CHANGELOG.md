@@ -141,6 +141,22 @@ notes under them are this file, verbatim.
 
   `docs/api.md` now says what both exits do with an empty denominator. It said
   it of `_ratio` alone.
+- **A check whose score rose because its denominator moved is no longer an
+  improvement; one whose score fell still counts** (ADR 0012 §3, amended
+  2026-10-26). An aggregate over raw scores, which needs no label, counts its
+  cases as unlabelled, so the matrix's `considered` read `0` on both sides and
+  its denominator never moved. Set aside the class that fails, and its mean
+  rose from `0.5` to `1.0` under *What got better*.
+  - **A rise** over a different number of cases now goes under *What was not
+    compared: measured over a different number of cases*, with *"…but it was
+    measured over 2 cases against 4 in the reference: the two are not the same
+    measurement"*, and the headline counts it as not a comparison.
+  - **A fall** stays counted, and the run exits `1` as it did.
+  - **The reason, in one sentence:** a moved denominator may withdraw a claim
+    of improvement, never one of getting worse.
+
+  An aggregate that counts a matrix reads as before, in both directions. No
+  exit code moves.
 
 ## 0.34.0 — 2026-10-26
 
