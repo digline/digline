@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.6.2"
+version = "0.6.3"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -133,11 +133,14 @@ dependencies = [
     # this server calls, so the resolver keeps the core inside the minor this
     # release was run against, and a user stays on a pair that works.
     #
-    # **Owed at the cut: raise to the core release that carries #654's count.**
-    # The `run` tool passes `errored_checks=` to `run_json`, an argument new in
-    # that release; against 0.33.0 the call raises `TypeError`. Raised at this
-    # package's 0.7.0, with #548 and #678, not at the core's cut.
-    "digline>=0.32.0,<0.35",
+    # Raised to 0.34.0 by signature and by name: the `run` tool passes
+    # `errored_checks=` to `run_json` (#654), and imports `unignored` and
+    # `unignored_notes` from `digline.host` (#523), all new in 0.34.0. Against
+    # 0.33.0 the call raises `TypeError` and the import `ImportError`. It was
+    # owed at the cut and raised in this package's own release, after the core
+    # was on PyPI, because a floor may not name a release that does not exist
+    # yet. The cap stays `<0.35`, the minor above it.
+    "digline>=0.34.0,<0.35",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.
