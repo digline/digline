@@ -432,3 +432,45 @@ def test_a_conflict_between_the_pins_is_not_told_to_re_run() -> None:
     assert "re-run gives the same red" in branch
     assert "re-run this job" not in branch
     assert "re-run this job" in run[stop:]
+
+
+# --- the testpypi install: pinned, less the same exclusion, said -----------------
+
+
+def test_excluded_names_the_served_versions_whose_cap_stops_below_the_core(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The same classification the check makes, without installing anything:
+    `served` and `admits`, asked of every plugin in `dist/`. What the install
+    step before the check leaves out, so the two cannot disagree on a rule."""
+    for wheel in (
+        "digline-0.34.0-py3-none-any.whl",
+        "digline_anthropic-0.6.1-py3-none-any.whl",
+        "digline_mcp-0.6.2-py3-none-any.whl",
+        "pytest_digline-0.3.1-py3-none-any.whl",
+    ):
+        (tmp_path / wheel).write_bytes(b"")
+    ranges = {
+        "digline-anthropic": script.Served("digline-anthropic", "0.6.1", ">=0.17.0"),
+        "digline-mcp": script.Served("digline-mcp", "0.6.2", "<0.34,>=0.32.0"),
+        "pytest-digline": script.Served("pytest-digline", "0.3.1", "<0.34,>=0.32.0"),
+    }
+    monkeypatch.setattr(script, "served", ranges.get)
+    assert script.excluded(tmp_path) == [
+        "digline-mcp==0.6.2",
+        "pytest-digline==0.3.1",
+    ]
+
+
+def test_the_testpypi_install_is_pinned_and_leaves_out_the_same_exclusion() -> None:
+    """It installed `names.txt`, unversioned, and on v0.34.0 pip went down to
+    digline-mcp 0.5.0 in silence: the step proved the core beside a plugin two
+    minors old. Now it installs the pins, less what the classification
+    excludes, and the manifest script names each one it leaves out."""
+    steps = steps_of_testpypi()
+    install = str(steps[position(steps, "gate_summary.py install TestPyPI")]["run"])
+    asked = install.index("plugins_against_core.py excluded")
+    manifest = install.index("dist_manifest.py /tmp/manifest --excluding $excluded")
+    assert asked < manifest
+    assert "-r /tmp/manifest/pins.txt" in install
+    assert "names.txt" not in install
