@@ -365,6 +365,10 @@ COMPARE_KEYS = {
     # names of the keys above. A consumer reading `exit_code` sees no new
     # number; one reading this sees a drift beside a regression that exits 1.
     "unjudged_causes",
+    # Joined with #642, same rule: a sixth cause of exit 2, the checks the
+    # comparison could not pair. A consumer reading `exit_code` already sees
+    # it; this says how many.
+    "unpaired",
     # A count from the judged run, or null where it records none. (ADR 0052)
     "modules_unchecked",
     # Joined with ADR 0005, and deliberately without a bump: the rule is that

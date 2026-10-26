@@ -334,12 +334,20 @@ $ digline run --suite support.py
 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 3 checks were not compared, because the reference and this run hold a different check under each name: how-do-i-return · llm_rubric, passing at 1.000000 in the reference and passing at 1.000000 here; is-it-waterproof · llm_rubric, passing at 1.000000 in the reference and passing at 0.866667 here; where-is-my-order · llm_rubric, passing at 1.000000 in the reference and passing at 0.866667 here. Whether each was changed or replaced, the two documents cannot say. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. No case is suspended. The suite changed since the reference, so these numbers compare different rules.
 tenant 'northwind', against baseline 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline promote --suite support.py --run latest --replacing 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 tenant 'northwind' · support baseline set to 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26
 ```
+
+Note the clause after the first sentence, and that `compare` exits `2` here.
+Wrapping a check in `Repeated` changes its identity, so none of the three
+verdicts pairs with the reference's: neither side was compared, and *Nothing
+got worse* is not about them. The clause names each one with both scores, and
+two of them fell, from 1.000000 to 0.866667. Nothing else on the page shows
+that. Read it before you promote: the promotion is what makes the wrapped check
+comparable again, and it is not refused.
 
 Note the last sentence of the headline. Sampling is part of the configuration,
 so the old baseline no longer describes the rules in force and has to be
@@ -1086,9 +1094,17 @@ $ digline run --suite support.py
 2026-08-26T16-09-22-257722-00-00-ec1c0061f461d5e3
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 2 checks were not compared, because the reference and this run hold a different check under each name: how-do-i-return · llm_rubric, passing at 0.920000 in the reference and passing at 0.920000 here, threshold 0.650000 → 0.700000; where-is-my-order · llm_rubric, passing at 0.920000 in the reference and passing at 0.840000 here, threshold 0.650000 → 0.700000. Whether each was changed or replaced, the two documents cannot say. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
 tenant 'northwind', against baseline 2026-08-26T16-08-16-214505-00-00-2ba590fc617bbd5a
 ```
+
+Trigger one is still in this comparison, and the clause after the first
+sentence is where it shows. The threshold moved from 0.65 to 0.70 inside
+`Repeated`, and a `Repeated` check's identity holds its inner bar, so the
+rubric did not pair with the reference: neither side was counted, and `compare`
+exits `2` rather than `0`. The clause gives both scores, and
+`where-is-my-order` fell from 0.92 to 0.84. Under *Nothing got worse* alone,
+that fall would have been invisible.
 
 The suspension is in the headline, with its reason, and it travels into the
 report the customer reads. A suspension is mandatory-reason by construction: a
