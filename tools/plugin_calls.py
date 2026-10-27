@@ -29,7 +29,10 @@ dated by `INTRODUCED`.
     uv run python tools/plugin_calls.py
 
 prints one line per (plugin, kind, name) with how many places, then one line
-per **unresolved** receiver and their count. It exits 0: what it prints is a
+per (plugin, the class that defines the attribute, attribute): the class in
+the receiver's MRO, in its module, which is the key `CALLED` in
+`tests/test_plugin_floors.py` dates. Then one line per **unresolved** receiver
+and their count. It exits 0: what it prints is a
 list to read, not a verdict.
 
 **An unresolved receiver is not measured, never not present.** pyright typed
@@ -101,13 +104,16 @@ def _members(cls: type) -> set[str]:
     return names
 
 
-def _defined_in_digline(cls: type, attr: str) -> bool:
-    """Whether the class in `cls`'s MRO that defines `attr` is digline's."""
+def _definer(cls: type, attr: str) -> type | None:
+    """The class in `cls`'s MRO that defines `attr`, if one does."""
     for klass in cls.__mro__:
         if attr in vars(klass) or attr in getattr(klass, "__annotations__", {}):
-            module = klass.__module__
-            return module == "digline" or module.startswith("digline.")
-    return False
+            return klass
+    return None
+
+
+def _is_digline(module: str) -> bool:
+    return module == "digline" or module.startswith("digline.")
 
 
 def _plugin_sources(plugin: Path) -> list[Path]:
@@ -178,24 +184,26 @@ def _imported_names(source: str) -> Counter[str]:
     return places
 
 
-def _counts(
+def _definers(
     type_text: str, attr: str, classes: dict[str, list[type]], local: dict[str, type]
-) -> bool | None:
-    """Whether `attr` on a receiver of the type pyright printed is digline's,
-    or None when a part of the type is unknown to pyright.
+) -> set[tuple[str, str]] | None:
+    """Where `attr` on a receiver of the type pyright printed is defined in
+    digline, as `(module, class)`, or None when a part of the type is unknown
+    to pyright. An attribute of a `digline` module is `(module, "")`. Empty
+    when digline defines it nowhere the receiver reaches.
 
     A class that is neither digline's nor the plugin's own (an SDK's reply,
     pytest's `TestReport`, `list`) does not count, whatever its attributes are
     called: that is the narrowing this tool exists for."""
-    counted = False
+    defined: set[tuple[str, str]] = set()
     for part in (p.strip() for p in type_text.split(" | ")):
         if part in {"Any", "Unknown"} or part.startswith(("Any", "Unknown")):
             return None
         module = re.fullmatch(r'Module\("(.*)"\)', part)
         if module:
             name = module.group(1)
-            if name == "digline" or name.startswith("digline."):
-                counted |= hasattr(importlib.import_module(name), attr)
+            if _is_digline(name) and hasattr(importlib.import_module(name), attr):
+                defined.add((name, ""))
             continue
         match = re.fullmatch(r"type\[(.*)\]", part)
         if match:
@@ -203,8 +211,10 @@ def _counts(
         part = part.removeprefix("Self@")
         part = re.sub(r"\[.*\]$", "", part)
         for cls in [local[part]] if part in local else classes.get(part, []):
-            counted |= _defined_in_digline(cls, attr)
-    return counted
+            klass = _definer(cls, attr)
+            if klass is not None and _is_digline(klass.__module__):
+                defined.add((klass.__module__, klass.__qualname__))
+    return defined
 
 
 def _module_classes(plugin: Path) -> dict[str, type]:
@@ -224,8 +234,14 @@ def _module_classes(plugin: Path) -> dict[str, type]:
     return found
 
 
-def scan(packages: Path = PACKAGES) -> tuple[Counter[tuple[str, str, str]], list[str]]:
-    """`{(plugin, kind, name): places}` and the receivers left unresolved."""
+def scan(
+    packages: Path = PACKAGES,
+) -> tuple[
+    Counter[tuple[str, str, str]], list[str], Counter[tuple[str, str, str, str]]
+]:
+    """`{(plugin, kind, name): places}`, the receivers left unresolved, and
+    `{(plugin, module, class, attribute): places}`: for each attribute, the
+    class in the receiver's MRO that defines it, which is what is dated."""
     classes = _digline_classes()
     candidates: set[str] = set()
     for group in classes.values():
@@ -234,6 +250,7 @@ def scan(packages: Path = PACKAGES) -> tuple[Counter[tuple[str, str, str]], list
     candidates -= {n for n in candidates if n.startswith("__")}
 
     found: Counter[tuple[str, str, str]] = Counter()
+    defined: Counter[tuple[str, str, str, str]] = Counter()
     unresolved: list[str] = []
     plugins = sorted(p for p in packages.iterdir() if (p / "src").is_dir())
     with tempfile.TemporaryDirectory() as scratch:
@@ -290,21 +307,25 @@ def scan(packages: Path = PACKAGES) -> tuple[Counter[tuple[str, str, str]], list
         if type_text is None:
             unresolved.append(f"{where}: no type read")
             continue
-        counted = _counts(type_text, site.attr, classes, local_by_plugin[site.plugin])
-        if counted is None:
+        owners = _definers(type_text, site.attr, classes, local_by_plugin[site.plugin])
+        if owners is None:
             unresolved.append(f"{where}: {type_text}")
-        elif counted:
+        elif owners:
             found[(site.plugin, "attribute", site.attr)] += 1
-    return found, unresolved
+            for module, qualname in owners:
+                defined[(site.plugin, module, qualname, site.attr)] += 1
+    return found, unresolved, defined
 
 
 def main(argv: list[str]) -> int:
     if argv:
         print("usage: plugin_calls.py", file=sys.stderr)
         return 64
-    found, unresolved = scan()
+    found, unresolved, defined = scan()
     for (plugin, kind, name), places in sorted(found.items()):
         print(f"{plugin}  {kind}  {name}  {places}")
+    for (plugin, module, qualname, attr), places in sorted(defined.items()):
+        print(f"{plugin}  defined  {module}:{qualname}.{attr}  {places}")
     for line in sorted(unresolved):
         print(f"unresolved  {line}")
     print(f"{len(unresolved)} unresolved: not measured, never not present")

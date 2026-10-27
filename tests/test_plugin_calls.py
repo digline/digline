@@ -19,6 +19,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+from tests.test_plugin_floors import CALLED, UNDATED
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,38 +32,62 @@ sys.modules[_spec.name] = tool
 _spec.loader.exec_module(tool)
 
 
+Scanned = tuple[
+    Counter[tuple[str, str, str]], list[str], Counter[tuple[str, str, str, str]]
+]
+
+
 @pytest.fixture(scope="module")
-def scanned() -> tuple[Counter[tuple[str, str, str]], list[str]]:
+def scanned() -> Scanned:
     return tool.scan()
 
 
 def test_the_control_is_found_at_its_import_and_its_call(
-    scanned: tuple[Counter[tuple[str, str, str]], list[str]],
+    scanned: Scanned,
 ) -> None:
-    found, _ = scanned
+    found, _, _ = scanned
     assert found[("pytest-digline", "import", "refuse_unreadable_baseline")] == 2
 
 
 def test_append_is_found_nowhere(
-    scanned: tuple[Counter[tuple[str, str, str]], list[str]],
+    scanned: Scanned,
 ) -> None:
     """Every `.append` in the plugins is on a list. A reading by name counts
     them as `Journal.append`'s."""
-    found, _ = scanned
+    found, _, _ = scanned
     assert [key for key in found if key[2] == "append"] == []
 
 
 def test_the_unresolved_receivers_are_six_replies_of_the_sdk(
-    scanned: tuple[Counter[tuple[str, str, str]], list[str]],
+    scanned: Scanned,
 ) -> None:
     """Six, each a reply of the Anthropic SDK, which pyright types `Any`. A
     seventh was `pytest_digline/plugin.py`'s `loaded`, annotated `Any` where
     digline's `Loaded` is the type: annotated, its `modules_unchecked` is
     counted."""
-    found, unresolved = scanned
+    found, unresolved, _ = scanned
     assert len(unresolved) == 6, "\n".join(unresolved)
     assert all(
         line.startswith("packages/digline-anthropic/src/digline_anthropic/client.py:")
         for line in unresolved
     ), "\n".join(unresolved)
     assert found[("pytest-digline", "attribute", "modules_unchecked")] == 1
+
+
+def test_every_entry_the_scan_finds_is_dated_or_declared_undated(
+    scanned: Scanned,
+) -> None:
+    """Each `(module, class, attribute)` a plugin reads on something digline
+    gives it has a date in `CALLED`, or a reason in `UNDATED`: a level-2 public
+    name the delta-pass cannot place is a name it cannot tell new from old.
+    The six unresolved receivers are not entries: they are replies of an SDK,
+    not names of digline's. (#702)"""
+    _, _, defined = scanned
+    found = {(module, cls, attr) for (_, module, cls, attr) in defined}
+    missing = sorted(found - set(CALLED) - set(UNDATED))
+    assert found, "the scan found no call at all; this would prove nothing"
+    assert not missing, (
+        f"plugins call {missing} and tests/test_plugin_floors.py dates none of "
+        "them. Run `uv run python tools/plugin_call_dates.py` and add each to "
+        "CALLED with the version it prints, or to UNDATED with its reason."
+    )
