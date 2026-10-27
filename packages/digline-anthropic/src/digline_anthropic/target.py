@@ -123,12 +123,14 @@ class AnthropicTarget(ProviderTarget):
             request["system"] = system
 
         raw = self._client().messages.create(**request)
-        # Read before `completion_of`, so a geography with no rate is refused
-        # before anything else is read off the reply; handed over only after
-        # it, so a reply refused for another reason leaves nothing behind.
+        # Handed over last, so a reply refused for another reason leaves
+        # nothing behind, and only for a reply that will be priced: an
+        # unpriced one calls no `cost`, and a factor it left would be taken
+        # by a later reading of the list. (ADR 0004 §8.8)
         geo = geo_multiplier(raw)
         reply = completion_of(raw)
-        self._geo = geo
+        if reply.unpriced is None and geo is not None:
+            self._geo = geo
         if self.prefill is None:
             return reply
         # The reply *is* the prefill plus the completion, and a parser handed

@@ -20,7 +20,6 @@ from digline.targets import (
     Completion,
     Pricing,
     ToolCall,
-    UnknownModelError,
     Usage,
     finish_of,
 )
@@ -36,6 +35,7 @@ __all__ = [
     "text_of",
     "tool_calls_of",
     "tools_of",
+    "unpriced_of",
     "usage_of",
 ]
 
@@ -75,8 +75,9 @@ FINISH: dict[str, Finish] = {
 GEO_MULTIPLIERS: Mapping[str | None, float] = {None: 1.0, "global": 1.0, "us": 1.1}
 
 
-def geo_multiplier(reply: Any) -> float:
-    """The multiplier for where this reply's inference ran.
+def geo_multiplier(reply: Any) -> float | None:
+    """The multiplier for where this reply's inference ran, or `None` where
+    the geography has no rate.
 
     **It reaches the target's own requests**, though the target never sends
     `inference_geo`: a workspace's `default_inference_geo` decides when the
@@ -84,20 +85,44 @@ def geo_multiplier(reply: Any) -> float:
     defaults to `"us"` (Anthropic's data-residency page, read 2026-10-03). So
     the price follows what the reply reports, not what was asked.
 
-    **A geography with no rate is refused, not priced**, the way a 1-hour
-    cache write is (#368). Anthropic documents two, `"us"` and `"global"`, and
-    a third would have a rate nobody here has read.
+    **A geography with no rate is not priced**, the way a 1-hour cache write
+    is not (#368). Anthropic documents two, `"us"` and `"global"`, and a third
+    would have a rate nobody here has read. Until ADR 0004 §8 it was refused,
+    and the case errored over a reply that had answered; it is now an
+    unpriced call, whose sentence `unpriced_of` writes. (#569)
     """
     geo = getattr(getattr(reply, "usage", None), "inference_geo", None)
-    if geo in GEO_MULTIPLIERS:
-        return GEO_MULTIPLIERS[geo]
-    raise UnknownModelError(
-        f"model {str(getattr(reply, 'model', '') or '?')!r} ran in inference "
-        f'geography {geo!r}, and this price list has a rate for "global" and '
-        'for "us" only: pricing it at the global rate could report a run as '
-        "cheaper than it was. Pin the request or the workspace to one of the "
-        "two: this geography has no rate in digline yet (#392)"
-    )
+    return GEO_MULTIPLIERS.get(geo)
+
+
+def unpriced_of(reply: Any) -> str | None:
+    """Why this reply's cost cannot be computed, though its counts were read,
+    or `None` where it can: the sentence the person who ran the command reads.
+
+    Two things this plugin cannot price: a geography with no rate (#392), and
+    a write to the 1-hour cache (#368). Each was a refusal, and the refusal
+    rested on there being no way to say *this cannot be priced*. There is one
+    now, `Completion.unpriced`, and the call is counted with its tokens and
+    without a cost. (ADR 0004 §8.4)
+    """
+    model = str(getattr(reply, "model", "") or "?")
+    if geo_multiplier(reply) is None:
+        geo = getattr(getattr(reply, "usage", None), "inference_geo", None)
+        return (
+            f"model {model!r} ran in inference geography {geo!r}, and this "
+            'price list has a rate for "global" and for "us" only. Pin the '
+            "request or the workspace to one of the two: this geography has no "
+            "rate in digline yet (#392)"
+        )
+    one_hour = _one_hour_writes(getattr(reply, "usage", None))
+    if one_hour:
+        return (
+            f"model {model!r} wrote {one_hour} tokens to the 1-hour cache, which "
+            "costs 2x the input rate, and this price list has one cache-write "
+            "rate, the 5-minute one. Use the 5-minute cache: the 1-hour write "
+            "has no rate in digline yet (#368)"
+        )
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,13 +227,13 @@ def usage_of(reply: Any) -> Usage:
     reported `input_tokens=10`. Reading only `input_tokens` there prices the
     call at a thousandth of what it cost. (friction 25)
 
-    **A 1-hour cache write is refused, not priced.** Anthropic bills it at 2x
-    the input rate, against 1.25x for the 5-minute write, and `Usage` has one
-    write count with one rate behind it. Pricing it at the 5-minute rate
+    **A 1-hour cache write is counted, and not priced.** Anthropic bills it at
+    2x the input rate, against 1.25x for the 5-minute write, and `Usage` has
+    one write count with one rate behind it. Pricing it at the 5-minute rate
     under-counts those tokens by 37.5%, which a `CostBudget` reads as good
-    news. So a reply that reports any is refused, the way a cached read with no
-    rate is refused: *this cannot be priced* is true, and a number would not be.
-    (#368)
+    news. So the counts are read as they are, and `unpriced_of` says the reply
+    cannot be priced: *this cannot be priced* is true, and a number would not
+    be. (#368; ADR 0004 §8.4)
 
     **What this cannot see.** The split lives in `usage.cache_creation`, which
     the SDK the workspace pins carries. A reply without it — an older
@@ -216,15 +241,6 @@ def usage_of(reply: Any) -> Usage:
     the 5-minute rate.
     """
     usage = reply.usage
-    one_hour = _one_hour_writes(usage)
-    if one_hour:
-        raise UnknownModelError(
-            f"model {str(getattr(reply, 'model', '') or '?')!r} wrote {one_hour} "
-            "tokens to the 1-hour cache, which costs 2x the input rate, and this "
-            "price list has one cache-write rate, the 5-minute one: pricing "
-            "them at it would report a run as cheaper than it was. Use the "
-            "5-minute cache: the 1-hour write has no rate in digline yet (#368)"
-        )
     return Usage(
         input_tokens=int(getattr(usage, "input_tokens", 0)),
         output_tokens=int(getattr(usage, "output_tokens", 0)),
@@ -412,4 +428,5 @@ def completion_of(reply: Any) -> Completion:
         tools=tools_of(reply),
         tool_calls=tool_calls_of(reply),
         model=str(reply.model) if getattr(reply, "model", None) else None,
+        unpriced=unpriced_of(reply),
     )
