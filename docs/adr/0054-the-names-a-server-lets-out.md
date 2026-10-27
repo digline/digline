@@ -1,12 +1,19 @@
 # ADR 0054 — The names a server lets out
 
-- Status: proposed 2026-10-26. Implemented 2026-10-27 for digline-mcp 0.7.0,
-  which is not released, **except §8 for the core's refusals**, which a strict
-  `xfail` holds: *Consequences* says what the acceptance measured and what §8
-  reaches. The decisions below were ruled by Alessandro Prandini on
-  2026-10-26, on #548 (where the ruling is a comment) and on the reading of
-  this record's draft, and this record is written before the code
-- Shipped: unreleased
+- Status: accepted 2026-10-27, by Alessandro Prandini, after its code landed
+  and because it ships. Proposed 2026-10-26. Implemented 2026-10-27 for
+  digline-mcp 0.7.0, which is not released, **except §8 for the core's
+  refusals**, which a strict `xfail` holds: *Consequences* says what the
+  acceptance measured and what §8 reaches. The decisions below were ruled by
+  Alessandro Prandini on 2026-10-26, on #548 (where the ruling is a comment)
+  and on the reading of this record's draft, and this record is written before
+  the code
+- Shipped: 0.35.0 — the core's half: `load_name_table`, `NameTable`,
+  `one_table`, `project_check_name`, `project_declared` and `mint=`. Not §8 for
+  the core's refusals, **which is owed**: the core's error classes do not carry
+  the names a refusal quotes in fields, §8's note of 2026-10-27 says so, and
+  `test_the_gate_classifies_the_names_of_a_refusal` holds it as an
+  `xfail(strict=True)`. The server's half ships in digline-mcp 0.7.0
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:
   0.7.0. The order is ruled and is not overtaken: `OUTPUT_VERSION` 4 in the
