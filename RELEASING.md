@@ -2058,6 +2058,61 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v0.35.0 — no race: every pair the capture wrote agreed, and the one wait
+  was at the runner, before any build.** `publish` (`40541751806`) and
+  `docker-publish` (`40541751578`) passed on attempt 1, every job.
+  `tools/tag_names.py "digline 0.35.0"` ran on #761's merge commit, `20df5ddc`,
+  which was `origin/main`, immediately before the tag: one package, named.
+  Every plugin's version was already served, so none rode the tag.
+  - **The gate was a person's click, and this session did not read it.** The
+    approvals endpoint was not read here, by the maintainer's instruction.
+    `release-followup` on `5226f5f2` (`40546946536`) reads *"the publish run
+    records an approved"*.
+  - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
+    digline 0.35.0's wheel and sdist. `plugins_against_core.py` classified
+    digline-mcp 0.6.3 and pytest-digline 0.4.0 as excluded by their own cap,
+    `<0.35`, and both install checks left them out and said so: `imported 4`,
+    digline and the three provider plugins, and the quickstart's 3 calls, after
+    TestPyPI and after PyPI.
+  - **The index**: the `pypi` job's wait saw digline 0.35.0 `after 20s`.
+  - **The signatures and the release.** The `github-release` job ran: 2
+    bundles, one per file, each `OK` from sigstore, and both `.sigstore.json`
+    are on the release.
+  - **The index race, both builds, and the capture's pair for the core's pin
+    (step 6).** The capture ran, the pair was present for every pin, and it
+    had nothing to explain.
+    - **The smoke build waited 180 seconds at the runner.** Six reads from
+      16:31:51.1Z to 16:34:21.4Z saw serial 42751266 with no 0.35.0, and the
+      seventh, at 16:34:51.4Z, saw serial 42827076 with it. Inside the build
+      the wait saw it `after 0s`. The pair agreed: `side=wait` at 16:34:51.4Z
+      and `side=pip` at 16:35:09.9Z both read serial 42827076, etag
+      `19a2DVY9aDA0jFKdmn1LjQ`.
+    - **The multi-arch build, arm64 (`#17`): the pair agreed.** `side=wait` at
+      16:37:51.4Z and `side=pip` at 16:37:58.0Z both read serial 42827076, the
+      same etag, through the same shield (`cache-iad-khef600055-IAD`), with a
+      different last hop (`cache-pao-kpao1770050-PAO` and
+      `cache-sjc1000141-SJC`). That is row three, two servers and one object.
+      The leg installed `digline-0.35.0` beside the three provider plugins.
+    - **The amd64 leg was `CACHED`** in every step after the base, the install
+      included, so its log proves nothing about what that leg installed.
+  - **The image**: `0.35.0`, `0.35` and `latest` were pushed as one index,
+    `sha256:a2d39ec953e4309edba3015e23c900a166dbfc807165ac2d93ec01db8f921239`.
+    `release-followup` reads them as one digest. The `.dist-info` in the layers
+    was not opened.
+  - **The examples**: the `workflow_run` `ci` after `publish` (`40542427415`)
+    ran the legs on the tag's commit. Seven were red, each on `digline==0.34.0`
+    from its lock against a schema-22 baseline, refused with 64: the expected
+    shape of *The example legs*. The four without a lock were green. The seven
+    locks moved to 0.35.0 with `--upgrade-package digline` in #763, locked with
+    uv 0.13.6 so that `revision = 5`, Dependabot's format, holds. The dispatch
+    against `main`, `40546273553`, had eleven legs green, each on digline
+    0.35.0. Its push `ci`, `40546254627`, reads `cancelled`, as step 3 says it
+    will. And the dispatch's own `gates` read `cancelled`: #760 landed on
+    `main` while it ran, and its push `ci` took the same concurrency group.
+  - **The plugin releases owed.** `release-followup` reads digline-mcp 0.6.3
+    and pytest-digline 0.4.0 as capping the core below v0.35.0: the releases
+    they owe are not out. The order of the chain, package by package, is in
+    `private/record-release-chain-0.35.0.md`.
 - **v0.34.0 — the race happened inside the multi-arch build: on arm64 the
   wait read the new page, and pip, eleven seconds later, the old one. Row one
   of the table, per-server luck, confirmed.** `publish` (`40290068678`)
