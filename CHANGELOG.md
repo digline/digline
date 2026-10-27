@@ -350,6 +350,17 @@ notes under them are this file, verbatim.
   two values: `clear`, or `project`, under which the server's responses and
   its refusals carry tokens where they carry names today. Nothing in it is
   implemented, and this entry names no release for it.
+- **A refusal of a corrupted journal names the place, not what the file
+  holds.** Three refusals of a journal's leg, which `digline run` prints on
+  standard error, repeated a value read from it: a verdict's `status`, the
+  line of the bill under `usage`, and a record's `kind`. They now name the line and the field, which is #350's rule:
+  a refusal names the field and never echoes what the file holds. A `status`
+  that is not one of `error`, `fail` and `pass` is refused by name when any
+  document is read, where `Verdict`'s own check used to repeat it, and a line
+  of the bill that is not an object says which JSON type it is. A byte that is
+  not UTF-8 still gets the codec's message: it reaches only the person who ran
+  the command (ADR 0043). ADR 0054's open question about this refusal now says
+  what would make it one: a resume on digline-mcp.
 
 ## 0.34.0 — 2026-10-26
 

@@ -201,9 +201,16 @@ section moves with it.
     never resumes:** its `run` tool calls `measure` with `resume=None`, and no
     tool can make it anything else (ADR 0017 §11, `digline_mcp/server.py`). So
     the sentence reaches the command line, the perimeter of the person who ran
-    it (ADR 0043), and no response of this server. What is not decided is what
-    it would become if a resume were ever added here: carrying its names in
-    fields is then a change to a protocol value, not to a raise.
+    it (ADR 0043), and no response of this server. **What is not decided is
+    written with what would trigger it.** If a resume reached this server,
+    `Pending.refusal` would carry text digline did not write past the
+    perimeter of ADR 0043: a byte of the journal that is not UTF-8 is refused
+    with the codec's own message, and a `str` keeps no record of who wrote
+    it. Its type would then have to change, to a value that does, and that is
+    a change to a protocol value, not to a raise. Measured over eighteen ways
+    of corrupting a leg, in `tests/test_journal.py`; the sentences digline
+    writes there name a line and a field, and do not repeat what the file
+    holds (#350).
 
   What the enumeration does not cover: a refusal raised by a suite or by the
   application it imports, which is ADR 0043's and never reaches the agent with
