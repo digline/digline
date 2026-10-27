@@ -18,10 +18,13 @@ verdict, and which name wins is a decision.
    `tools/contract_diff.py` reads, groups them by their last key, and lists a
    key whose types differ between the shapes that hold it.
 2. **The values pass** builds the fixture of the names gate of digline-mcp
-   (`packages/digline-mcp/tests/test_names_gate.py`: `examples/prompt-first`,
-   widened with an aggregate split by group, two runs and a reference), calls
-   every tool the server registers, in clear, and reads every string of every
-   answer, of the two run files, of the reference and of a journal. A
+   (`packages/digline-mcp/tests/test_names_gate.py`: `examples/prompt-first`
+   as git tracks it, widened with an aggregate split by group, two runs and a
+   reference). The copy leaves out what git ignores beside the example, the
+   runs and journals of a checkout that has run it: they once entered a
+   measurement as the fixture's own. It calls every tool the server
+   registers, in clear, and reads every string of every answer, of the two
+   run files, of the reference and of a journal. A
    finished run leaves no journal, so the store's own writer writes one for
    the second run: its keys are measured, its values are that run's. A value
    held under two or more different keys is listed, with every path it is
@@ -44,6 +47,11 @@ verdict, and which name wins is a decision.
   line at a time it did not see a sentence broken across lines: the first grep
   of this pass missed the note beside `answered` in `wire/log.py`, which is why
   it folds now. A deferral written in other words is not seen.
+
+**Its controls are in `tests/test_name_pass.py`, and the positive one is
+fixed there rather than read from the code**: a positive control that depends
+on the defect falls silent when the defect is repaired, which is when it is
+needed most.
 
 **And one class no pass here can see: two counts of the same thing, one called
 `cases` and the other `count`, with no value they share and no sentence that
@@ -159,7 +167,7 @@ def fixture_strings(work: Path) -> list[Found]:
     """Every string of the names gate's fixture, built under `work`: each tool's
     answer in clear, the two run files, the reference and the journal."""
     gate = _gate()
-    repo, first, second = gate._repository(work)
+    repo, first, second = gate.build_repository(work)
     found = [
         Found(f"mcp:{tool}", path, value)
         for tool, strings in gate.drive(repo, first, second, table=None).items()
@@ -170,12 +178,14 @@ def fixture_strings(work: Path) -> list[Found]:
     store = next((repo / ".digline").iterdir())
     for key in (first, second):
         document = next(store.glob(f"runs/*/{key}.json"))
-        found += _strings("run_document", json.loads(document.read_text("utf-8")))
+        found += document_strings(
+            "run_document", json.loads(document.read_text("utf-8"))
+        )
     for document in sorted(store.glob("baselines/*.json")):
-        found += _strings("baseline", json.loads(document.read_text("utf-8")))
+        found += document_strings("baseline", json.loads(document.read_text("utf-8")))
     for journal in sorted(store.glob("runs/*/.pending/*.jsonl")):
         for line in journal.read_text("utf-8").splitlines():
-            found += _strings("journal", json.loads(line))
+            found += document_strings("journal", json.loads(line))
     return found
 
 
@@ -221,7 +231,8 @@ def _journal(repo: Path, key: str) -> None:
         )
 
 
-def _strings(source: str, document: Any) -> list[Found]:
+def document_strings(source: str, document: Any) -> list[Found]:
+    """Every string of one JSON document, read as from `source`."""
     return [Found(source, path, value) for path, value in _walk(document)]
 
 
