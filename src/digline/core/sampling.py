@@ -26,6 +26,7 @@ from digline.core.types import (
     STORAGE_STEP,
     CheckKind,
     EvaluatorInputs,
+    Origin,
     OutputKind,
     Score,
     Status,
@@ -46,6 +47,7 @@ __all__ = [
     "fold_judgements",
     "judged",
     "on_the_line",
+    "origin",
 ]
 
 #: The one metadata key whose *total* across samples is reported.
@@ -601,6 +603,33 @@ def judged(assertion: Assertion) -> bool:
         declared = getattr(current, "judged", None)
         return declared if isinstance(declared, bool) else False
     return kind == "judged"
+
+
+def origin(assertion: object) -> Origin:
+    """Who writes this check's metadata keys: `builtin` where digline's own code
+    does, `foreign` otherwise. **About who writes the metadata, not who wrote
+    the class.** (ADR 0034 §17.3)
+
+    Followed through `Repeated` to what it wraps, as `judged` is: a wrapper's
+    keys are its inner check's, beside the driver's own, which a projection
+    keeps in clear whatever this says. `builtin` needs both halves:
+    - the class is in `digline`'s own package. A suite's assertion, a
+      plugin's, or a subclass of a digline class written in a suite, is
+      `foreign`;
+    - the class does not declare `FOREIGN_METADATA`. `FromAutoevals` does: its
+      class is digline's and the keys it records are the scorer's.
+
+    Takes a case check or a run-level one alike: the driver stamps both, and
+    neither protocol is needed to read a class.
+    """
+    current: object = assertion
+    while isinstance(current, Repeated):
+        current = current.inner
+    cls = type(current)
+    ours = cls.__module__ == "digline" or cls.__module__.startswith("digline.")
+    if ours and not getattr(cls, "FOREIGN_METADATA", False):
+        return "builtin"
+    return "foreign"
 
 
 def fold_judgements(

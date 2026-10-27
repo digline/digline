@@ -24,6 +24,7 @@ from urllib.parse import urlsplit
 
 from digline.core import SYSTEM_NAME_FIELDS, ConfigValue
 from digline.core.refused import RefusedError
+from digline.core.run import CONTRACT_FIELDS
 
 #: What may appear in a hostname: letters, digits, dot, dash, underscore, and
 #: the `[`, `]`, `:` and `%` an IPv6 literal with a zone id needs. Deliberately
@@ -84,27 +85,9 @@ def endpoint_host(base_url: str | None) -> str | None:
     return f"{hostname}:{port}" if port else hostname
 
 
-#: The keys a configuration may hold: the closed table of ADR 0005 §1.
-#:
-#: Enforced here and nowhere else, because this is the one place the values are
-#: written by somebody outside this repository. A plugin declares what it
-#: actually sends and is reviewed; an application behind HTTP is not, and ADR
-#: 0005 §1 keeps what is outside the contract out of the record — an open
-#: mapping of unknown keys is exactly where an account identifier or a
-#: customer's own tuning would end up, in the box where nobody can check it.
-CONTRACT_FIELDS = SYSTEM_NAME_FIELDS | frozenset(
-    {
-        "max_tokens",
-        "temperature",
-        "top_p",
-        "top_k",
-        "seed",
-        "region",
-        "base_url",
-        "response_format",
-        "json_mode",
-    }
-)
+#: The keys a configuration may hold, defined in the core beside the vocabulary
+#: a projection reads (ADR 0034 §17.2) and re-exported here, where it is
+#: enforced. Its reasons are written beside its definition.
 #: Deliberately **not** `resolved_model` or `fingerprint`. A plugin records them
 #: because it read them out of its own SDK's reply; this table governs the one
 #: boundary where the values arrive over HTTP from an application nobody here

@@ -22,6 +22,7 @@ from digline.core.refused import Quoted, RefusedError
 from digline.core.text import recordable
 from digline.core.tokens import is_token
 from digline.core.types import (
+    DRIVER_METADATA_KEYS,
     NO_USAGE,
     NOTHING_EXTRA,
     REDACTED,
@@ -30,6 +31,7 @@ from digline.core.types import (
     Disclosure,
     ErrorKind,
     Message,
+    Origin,
     Output,
     OutputKind,
     ResultAbsence,
@@ -263,7 +265,7 @@ __all__ = [
 #    absent is *not recorded*, never `null`, because a document before 21
 #    recorded none of the three. Outside `config_hash`: each is something a
 #    run measured, not something the suite declared (ADR 0014 §1).
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 
 class DocumentRefusedError(ValueError):
@@ -375,6 +377,29 @@ PERIMETER_FIELDS = frozenset({"base_url", "fingerprint"})
 #: apart without anybody deciding they should.
 SYSTEM_NAME_FIELDS = frozenset({"provider", "model"})
 
+#: The keys a configuration may hold: the closed table of ADR 0005 §1.
+#:
+#: Enforced in `digline.targets.config` and nowhere else, because that is the
+#: one place the values are written by somebody outside this repository. A
+#: plugin declares what it actually sends and is reviewed; an application
+#: behind HTTP is not, and ADR 0005 §1 keeps what is outside the contract out
+#: of the record — an open
+#: mapping of unknown keys is exactly where an account identifier or a
+#: customer's own tuning would end up, in the box where nobody can check it.
+CONTRACT_FIELDS = SYSTEM_NAME_FIELDS | frozenset(
+    {
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "top_k",
+        "seed",
+        "region",
+        "base_url",
+        "response_format",
+        "json_mode",
+    }
+)
+
 #: Withheld **only where the run went to an endpoint the suite named**, and in
 #: clear otherwise.
 #:
@@ -415,6 +440,25 @@ ENDPOINT_PERIMETER_FIELDS = frozenset({"resolved_model"}) | DECLARED_PRICE_FIELD
 #: reference"*, which is true of a temperature and false of a resolved model id
 #: — nobody sent that, on either side. (ADR 0005 §9)
 OBSERVED_FIELDS = frozenset({"resolved_model", "fingerprint"})
+
+#: **digline's closed vocabulary of configuration keys**: the names digline's
+#: own code gives a configuration's fields, whoever filled them. A key here is
+#: digline's word, and a projection lets it cross in clear where the
+#: configuration recorded it as `named`; its value stays a token, and a
+#: perimeter value stays withheld. A class declared in reviewed code, which is
+#: how a widening of what crosses is made (ADR 0046). `pricing` is the word
+#: `ProviderTarget` writes beside a declared price. (ADR 0034 §17.2; #323)
+#: What a projection writes in place of a foreign verdict's metadata value: the
+#: form an artifact's withheld text already has. (ADR 0034 §17.3)
+WITHHELD_METADATA: Mapping[str, object] = {"withheld": True}
+
+NAMED_CONFIG_KEYS: frozenset[str] = (
+    CONTRACT_FIELDS
+    | OBSERVED_FIELDS
+    | PERIMETER_FIELDS
+    | ENDPOINT_PERIMETER_FIELDS
+    | frozenset({"pricing"})
+)
 
 
 #: What a promotion replaces when the suite has no baseline yet. A word rather
@@ -507,6 +551,14 @@ class SystemConfig:
     #: parser the way `redacted` is handed to a case, and `Run` refuses a
     #: configuration that disagrees with the run it sits in. (ADR 0034 §8)
     projected: bool = False
+    #: The keys of this configuration that are **digline's words**, recorded
+    #: when the run was: those in `NAMED_CONFIG_KEYS`, in `values` or in
+    #: `withheld`. A projection lets them cross in clear and tokenises every
+    #: other key. Recorded rather than recomputed, so that a vocabulary changed
+    #: later does not reinterpret what this run's keys were. `None` is *not
+    #: recorded*: a configuration written before schema 22 or built by hand,
+    #: which a projection never reads as digline's. (ADR 0034 §17.2; #323)
+    named: frozenset[str] | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         # Sorted and de-duplicated here rather than by every caller: it is a
@@ -515,6 +567,22 @@ class SystemConfig:
         object.__setattr__(self, "identities", tuple(sorted(set(self.identities))))
         if any(not label for label in self.identities):
             raise ValueError("SystemConfig.identities must not hold an empty label")
+        if self.named is not None:
+            # Read as `object`: a document is written by whoever holds it.
+            names = cast(object, self.named)
+            if not isinstance(names, frozenset) or not all(
+                isinstance(key, str) for key in cast(frozenset[object], names)
+            ):
+                raise ValueError(
+                    "SystemConfig.named must be a set of the configuration's keys"
+                )
+            absent = sorted(self.named - set(self.values) - self.withheld)
+            if absent:
+                raise ValueError(
+                    f"SystemConfig names {', '.join(absent)} as digline's words "
+                    "and holds no such key: the record would classify a key "
+                    "the configuration does not have"
+                )
         both = sorted(set(self.values) & self.withheld)
         if both:
             raise ValueError(
@@ -623,6 +691,8 @@ class SystemConfig:
             # the instruments a run used are named in a redacted document too.
             identities=self.identities,
             projected=self.projected,
+            # A key moved to `withheld` is the same key, digline's word or not.
+            named=self.named,
         )
 
 
@@ -1696,12 +1766,20 @@ def _check_projected(run: Run) -> None:
     the first field added after the test that holds this function's classes
     (#425, #710).
 
-    **Two things this does not decide, and says so here.** Numbers: ADR 0034
+    **One thing this does not decide, and says so here.** Numbers: ADR 0034
     §4 leaves them the one axis its enumeration does not decide, so a number is
-    let through wherever it sits. And the **keys** of a verdict's metadata:
-    they survive redaction beside the numbers `travels()` keeps, are written by
-    an assertion's code rather than by the data, and are in none of the three
-    classes yet. Their string *values* are checked.
+    let through wherever it sits.
+
+    **The provenance of schema 22 is held where it is recorded.** A
+    configuration key in clear must be one its configuration records as
+    `named` and one of `NAMED_CONFIG_KEYS`. A metadata key in clear on a
+    `foreign` verdict must be one the driver writes, and every other key there
+    is a token whose value is withheld. A verdict that records no origin is
+    held only to the old rule, that no string value crosses: a projected
+    document written before schema 22 carries its metadata keys in clear, and
+    refusing it here, where every read is built, would make it unreadable,
+    which is `SCHEMA_VERSION`'s to decide (#712's reason). (ADR 0034 §17.0,
+    §17.5)
     """
     if not run.redacted:
         # The serializer decides from `redacted` alone whether a reason is
@@ -1783,6 +1861,15 @@ def _check_projected(run: Run) -> None:
                     f"{where} carries the string metadata {key!r}: a string "
                     "crosses a projection only as a token"
                 )
+            if v.origin != "foreign" or key in DRIVER_METADATA_KEYS:
+                continue
+            if not is_token(key) or value != WITHHELD_METADATA:
+                raise ValueError(
+                    f"Run.projected is set but the foreign verdict "
+                    f"{v.assertion_id!r} {where} carries the metadata {key!r} "
+                    "in clear: a foreign verdict's own keys cross a projection "
+                    "as tokens, with their values withheld"
+                )
 
     for case in run.results:
         token("a case id", case.case_id)
@@ -1829,12 +1916,18 @@ def _check_projected(run: Run) -> None:
     for path in run.pinned:
         token("a pinned path", path)
     for side, config in (("target", run.target_config), ("judge", run.judge_config)):
+        # A key in clear is digline's word, recorded as one and known as one
+        # today: either alone would let a recorded or a forged name through.
+        # (ADR 0034 §17.2)
+        clear = (config.named or frozenset()) & NAMED_CONFIG_KEYS
         for key, value in config.values.items():
-            token(f"a {side}_config key", key)
+            if key not in clear:
+                token(f"a {side}_config key", key)
             if isinstance(value, str):
                 token(f"a {side}_config value", value)
         for key in config.withheld:
-            token(f"a withheld {side}_config key", key)
+            if key not in clear:
+                token(f"a withheld {side}_config key", key)
         for label in config.identities:
             token(f"a {side} identity", label)
 
@@ -2007,6 +2100,9 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
         floor_standard_errors=verdict.floor_standard_errors,
         # A fact about the check, never about the case. (ADR 0024 §6.4)
         judged=verdict.judged,
+        # Who wrote the metadata, which the projection after this reads. (ADR
+        # 0034 §17.3)
+        origin=verdict.origin,
     )
 
 
@@ -2298,6 +2394,10 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     # none writes the document it wrote before schema 20. (ADR 0050)
     if verdict.floor_standard_errors is not None:
         payload["floor_standard_errors"] = _num(verdict.floor_standard_errors)
+    # Absent is *not recorded*, the word a verdict written before schema 22
+    # reads as, and a projection never takes for digline's. (ADR 0034 §17.5)
+    if verdict.origin is not None:
+        payload["origin"] = verdict.origin
     return payload
 
 
@@ -2379,6 +2479,22 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         # written before 12, and nothing is guessed from a check's name.
         judged=_optional_flag(raw, "judged", where),
         floor_standard_errors=_declared_width(raw, where),
+        origin=_origin_from(raw, where),
+    )
+
+
+def _origin_from(raw: Mapping[str, Any], where: str) -> Origin | None:
+    """`builtin`, `foreign`, or absent for *not recorded*. Anything else is
+    refused by the field's name, never by what the file holds. (ADR 0034
+    §17.3; #350)"""
+    value = raw.get("origin")
+    if value is None:
+        return None
+    if value == "builtin" or value == "foreign":
+        return value
+    raise ValueError(
+        f"{where}: `origin` is not one of digline's two words for who wrote a "
+        "verdict's metadata, builtin or foreign"
     )
 
 
@@ -2512,6 +2628,11 @@ def config_to_dict(config: SystemConfig) -> dict[str, object]:
         payload["values"] = {key: config.values[key] for key in sorted(config.values)}
     if config.withheld:
         payload["withheld"] = sorted(config.withheld)
+    # Written whenever recorded, empty included: an empty set is *recorded,
+    # and none of the keys is digline's*, and absent is *not recorded*. (ADR
+    # 0034 §17.2)
+    if config.named is not None:
+        payload["named"] = sorted(config.named)
     return payload
 
 
@@ -2535,9 +2656,22 @@ def config_from_dict(
                 str(label) for label in cast(Sequence[Any], raw.get("identities") or ())
             ),
             projected=projected,
+            named=_named_from(raw.get("named"), where),
         )
     except ValueError as exc:
         raise ValueError(f"{where}: {exc}") from exc
+
+
+def _named_from(raw: object, where: str) -> frozenset[str] | None:
+    """`named` as the document wrote it: absent is not recorded, and anything
+    but a list of strings is refused rather than read as some other set."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not all(
+        isinstance(key, str) for key in cast(list[object], raw)
+    ):
+        raise ValueError(f"{where}: `named` must be a list of keys, not {raw!r}")
+    return frozenset(cast(list[str], raw))
 
 
 def _artifact_to_dict(artifact: Artifact) -> dict[str, object]:

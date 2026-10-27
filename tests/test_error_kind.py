@@ -233,7 +233,9 @@ def test_a_projection_refuses_a_kind_that_is_not_diglines_word() -> None:
 
 
 def test_migrating_a_schema_20_case_writes_no_kind() -> None:
-    assert SCHEMA_VERSION == 21
+    # 21 -> 22 writes nothing either: an absent `origin` on a verdict and
+    # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
+    assert SCHEMA_VERSION == 22
     run, _ = measured(suite(), raising)
     current = run_to_dict(run)
     for case in cases_of(current):

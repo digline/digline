@@ -38,6 +38,10 @@ type TokenKind = Literal[
     # An application module a check could not reach (`Run.modules_unchecked`):
     # a name of the application's, which can carry a customer's. (#712)
     "module_name",
+    # A key of a foreign verdict's metadata, which the assertion that wrote it
+    # can build from its data. A builtin verdict's keys, and the keys the
+    # driver writes, cross in clear. (ADR 0034 §17.3; #711)
+    "metadata_key",
 ]
 
 #: Look-up-or-mint: the token for a (kind, text), minting one if the owning

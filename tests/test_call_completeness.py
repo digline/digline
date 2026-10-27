@@ -528,7 +528,9 @@ def test_a_bill_with_an_unread_judge_beside_it_says_it_is_not_whole() -> None:
 
 
 def test_migrating_a_schema_20_line_writes_no_marker() -> None:
-    assert SCHEMA_VERSION == 21
+    # 21 -> 22 writes nothing either: an absent `origin` on a verdict and
+    # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
+    assert SCHEMA_VERSION == 22
     current = run_to_dict(execute(suite(), Answering(), created_at=CREATED))
     for line in lines(current).values():
         line.pop("every_call_seen")

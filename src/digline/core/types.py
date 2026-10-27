@@ -24,6 +24,7 @@ __all__ = [
     "STORAGE_STEP",
     "Cause",
     "CheckKind",
+    "DRIVER_METADATA_KEYS",
     "ErrorKind",
     "ClaimReply",
     "ConfigValue",
@@ -33,6 +34,7 @@ __all__ = [
     "JudgeReply",
     "Message",
     "Output",
+    "Origin",
     "OutputKind",
     "ResultAbsence",
     "Score",
@@ -136,6 +138,45 @@ type Cause = Literal["", "target", "mapper", "assertion"]
 #: raising, and its word is `raised`. A check of the mapper's return added
 #: later decides its own word here, rather than borrowing `shape` in silence.
 type ErrorKind = Literal["raised", "shape"]
+
+#: Who wrote a verdict's metadata keys: `builtin` where digline's own code did,
+#: `foreign` where a suite's or a third party's did. **About who wrote the
+#: metadata, not who wrote the class**: `FromAutoevals` is digline's class and
+#: `foreign`, because the keys it records are the scorer's. A projection reads
+#: it to decide which keys may cross in clear, and on `Verdict.origin` `None`
+#: is *not recorded*, which a projection never reads as digline's. (ADR 0034
+#: §17.3; #711)
+type Origin = Literal["builtin", "foreign"]
+
+#: The metadata keys the driver writes on a verdict, whatever its origin: the
+#: two markers `unmarked` takes off every verdict an assertion returns, and
+#: what `combine_samples` and `fold_judgements` record beside the assertion's
+#: own keys. They cross a projection in clear on every verdict, with their
+#: values: without them, `misnamed`, `unreconciled` and the samples `compare`
+#: reads would go quiet on exactly the foreign verdicts they are about.
+#: **Closed in code**, written here by their text so the module stays at the
+#: bottom of the core, and held equal to what the two folds write by
+#: `tests/test_provenance.py`. (ADR 0034 §17.4)
+DRIVER_METADATA_KEYS: frozenset[str] = frozenset(
+    {
+        # `naming.MISNAMED` and `reconcile.UNRECONCILED`: `DRIVER_MARKERS`.
+        "misnamed",
+        "unreconciled",
+        # `combine_samples`.
+        "samples",
+        "agreement",
+        "spread",
+        "errored_samples",
+        "scores",
+        "total_cost_usd",
+        # `fold_judgements`.
+        "judge_samples",
+        "judge_errored",
+        "judge_min",
+        "judge_max",
+        "judge_answer",
+    }
+)
 
 #: How a model's turn ended, in one vocabulary across every provider.
 #:
@@ -605,6 +646,12 @@ class Verdict:
     #: is declared. **Nothing reads it to decide anything yet**: in phase 1 of
     #: #496 the floor is still the range. (ADR 0050)
     floor_standard_errors: float | None = field(default=None, kw_only=True)
+    #: Who wrote the metadata keys: `builtin`, `foreign`, or `None` for *not
+    #: recorded*, a verdict written before schema 22 or built by hand. Stamped
+    #: by the driver beside `judged`, and like it outside `identity` and
+    #: `config_hash`: a projection reads it, and nothing compares on it. (ADR
+    #: 0034 §17.3)
+    origin: Origin | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.assertion_id:
@@ -615,6 +662,15 @@ class Verdict:
             )
         if (refusal := floor_width_refusal(self.floor_standard_errors)) is not None:
             raise ValueError(refusal)
+        # Read as `object`: a document is written by whoever holds it, and the
+        # annotation is a promise this checks. A third word would be a
+        # provenance nothing classifies, and a projection reads this to decide
+        # what crosses.
+        if cast(object, self.origin) not in (None, "builtin", "foreign"):
+            raise ValueError(
+                "a verdict's origin is builtin or foreign, or not recorded: "
+                "anything else is a provenance nothing classifies"
+            )
         if self.floor_standard_errors is not None:
             object.__setattr__(
                 self, "floor_standard_errors", float(self.floor_standard_errors)

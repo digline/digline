@@ -156,6 +156,7 @@ from digline.core.resolution import (
 from digline.core.run import (
     DECLARED_PRICE_FIELDS,
     MAX_RECORDED_CHARS,
+    NAMED_CONFIG_KEYS,
     NO_BASELINE,
     NO_CALLS,
     OBSERVED_FIELDS,
@@ -203,6 +204,7 @@ from digline.core.sampling import (
     fold_judgements,
     judged,
     on_the_line,
+    origin,
 )
 from digline.core.text import NEVER_LANGUAGE, json_visible
 from digline.core.tokens import (
@@ -216,6 +218,7 @@ from digline.core.tokens import (
 from digline.core.types import (
     ALL_KINDS,
     CONVERSATION_ONLY,
+    DRIVER_METADATA_KEYS,
     NO_USAGE,
     NOTHING_EXTRA,
     REDACTED,
@@ -234,6 +237,7 @@ from digline.core.types import (
     Finish,
     JudgeReply,
     Message,
+    Origin,
     Output,
     OutputKind,
     ResultAbsence,
@@ -265,6 +269,7 @@ __all__ = [
     "IDENTITY_FIELD",
     "ITALIAN_PII",
     "MAX_RECORDED_CHARS",
+    "NAMED_CONFIG_KEYS",
     "OBSERVED_FIELDS",
     "PERIMETER_FIELDS",
     "SYSTEM_NAME_FIELDS",
@@ -296,6 +301,8 @@ __all__ = [
     "CheckKind",
     "Comparison",
     "ErrorKind",
+    "Origin",
+    "DRIVER_METADATA_KEYS",
     "AGREEMENT_FIELD",
     "ConfigDelta",
     "ConfigOutcome",
@@ -387,6 +394,7 @@ __all__ = [
     "canonical",
     "fold_judgements",
     "judged",
+    "origin",
     "scale_lost",
     "nothing_judged",
     "CauseOfTwo",

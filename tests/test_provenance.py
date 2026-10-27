@@ -31,7 +31,6 @@ import pytest
 from digline.core import (
     DRIVER_METADATA_KEYS,
     NAMED_CONFIG_KEYS,
-    SCHEMA_VERSION,
     TEXT_ONLY,
     AssertionBase,
     CaseResult,
@@ -61,6 +60,7 @@ from digline.core import (
 )
 from digline.core.naming import DRIVER_MARKERS, MISNAMED
 from digline.core.reconcile import UNRECONCILED
+from digline.core.run import SCHEMA_VERSION
 from digline.report import shape
 from digline.report.pages import _votes  # pyright: ignore[reportPrivateUsage]
 from digline.report.shape import CLAIMS_KEY
@@ -91,7 +91,7 @@ class Foreign(AssertionBase):
         )
 
 
-def _scorer(**_: Any) -> Any:
+def _scorer(output: Any, expected: Any = None, **_: Any) -> Any:
     class _Result:
         score = 0.9
         metadata: dict[str, Any] = {"autoevals_detail": 1}
@@ -199,7 +199,7 @@ def test_a_configuration_records_the_keys_digline_names() -> None:
     assert declared.named == frozenset(
         {"provider", "model", "temperature", "fingerprint"}
     )
-    assert declared.named <= NAMED_CONFIG_KEYS
+    assert declared.named is not None and declared.named <= NAMED_CONFIG_KEYS
 
 
 def test_named_round_trips_and_absent_is_not_recorded() -> None:
@@ -322,15 +322,18 @@ def test_a_foreign_verdicts_keys_are_tokens_and_its_values_withheld(
 def test_the_driver_metadata_keys_are_the_ones_the_driver_writes() -> None:
     """Closed in code, and held equal to what the folds write, so the set
     cannot fall behind a key added to a fold."""
-    sample = _verdict("x", "c" * 16, {}, None)
-    folded = combine_samples(
-        [replace(sample, score=replace(sample.score, score=s)) for s in (0.2, 0.9)],
-        min_agreement=0.5,
-    )
-    judged = fold_judgements(
-        [[replace(sample, score=replace(sample.score, score=s)) for s in (0.2, 0.9)]],
-        min_agreement=0.5,
-    )
+    samples = [
+        Verdict(
+            score=Score(name="x", score=s),
+            threshold=0.5,
+            status="pass" if s >= 0.5 else "fail",
+            reason="r",
+            assertion_id="c" * 16,
+        )
+        for s in (0.2, 0.9)
+    ]
+    folded = combine_samples(samples, min_agreement=0.5)
+    judged = fold_judgements([samples], min_agreement=0.5)
     written = set(folded.score.metadata) | set(judged.score.metadata)
     assert written | DRIVER_MARKERS == DRIVER_METADATA_KEYS - {"total_cost_usd"}
 
@@ -372,12 +375,27 @@ def test_unreconciled_classifies_a_projected_foreign_verdict() -> None:
     assert len(unreconciled(projected)) == 1
 
 
-def test_a_served_page_shows_the_votes_of_a_foreign_verdict() -> None:
+def test_a_served_foreign_verdict_keeps_the_drivers_readings() -> None:
+    """What a served page reads of the driver's on a foreign verdict, in clear.
+
+    **Not `scores`**, and not because of this schema: `scores` is a list, and
+    `redact()` keeps a metadata value only when `travels()`, a number or a
+    boolean. So a projection, served or committed, has never carried it, on
+    any verdict, and the page's votes column is empty there. Measured
+    2026-10-27 and stated here rather than asserted green."""
     v = _verdict(
-        "foreign_check", "1" * 16, {"scores": [0.2, 0.9], FOREIGN_KEY: 1}, "foreign"
+        "foreign_check",
+        "1" * 16,
+        {"scores": [0.2, 0.9], "samples": 2, "agreement": 1.0, FOREIGN_KEY: 1},
+        "foreign",
     )
     (served,) = project_served(_with(v), Table()).results[0].verdicts
-    assert _votes(served)
+    assert (served.score.metadata["samples"], served.score.metadata["agreement"]) == (
+        2,
+        1.0,
+    )
+    assert "scores" not in served.score.metadata
+    assert not _votes(served)
 
 
 # And the builtin half: what digline's own keys feed stays fed.

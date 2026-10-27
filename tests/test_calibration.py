@@ -802,7 +802,9 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     # `floor_standard_errors` is *declared none* (ADR 0050). 20 -> 21 writes
     # nothing either: absent markers on a line of the bill and an absent
     # `error_kind` are *not recorded* (#563, #425).
-    assert SCHEMA_VERSION == 21
+    # 21 -> 22 writes nothing either: an absent `origin` on a verdict and
+    # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
+    assert SCHEMA_VERSION == 22
     assert upgrade_document(at_eleven) == current
 
 

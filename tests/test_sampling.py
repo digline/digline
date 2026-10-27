@@ -5,6 +5,7 @@ anything to a suite that does not ask for them.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ from digline.core import (
     Verdict,
     combine_samples,
     config_hash,
+    origin,
     run_to_json,
 )
 from digline.run import Case, Response, Suite, default_mapper, execute
@@ -127,7 +129,16 @@ def test_a_suite_at_one_sample_produces_the_bytes_it_produced_before() -> None:
         results=tuple(
             CaseResult(
                 case.id,
-                tuple(a(default_mapper(steady_target(case), case)) for a in assertions),
+                # And who wrote each verdict's metadata, which the driver
+                # stamps on every verdict since schema 22 and an assertion does
+                # not (ADR 0034 §17.3): stamped here as `digline_version` is.
+                tuple(
+                    replace(
+                        a(default_mapper(steady_target(case), case)),
+                        origin=origin(a),
+                    )
+                    for a in assertions
+                ),
             )
             for case in suite.cases
         ),

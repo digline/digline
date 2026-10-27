@@ -26,23 +26,27 @@ a person's name in it, and nothing refused it.
   three fields of a recorded answer were outside it, and a new word on a case
   would have been as well.
 
-**What this does not cover, two exclusions with two reasons**, so that
-nobody reads the gate as §4's whole guarantee. §4 read literally stays wider
-than what is held here.
+**What this does not cover, one exclusion with its reason**, so that nobody
+reads the gate as §4's whole guarantee. §4 read literally stays wider than what
+is held here.
 
 1. **Numbers.** §4's correction of 2026-09-28 says that read literally the rule
    refuses every number, and that numbers are *"the one axis this enumeration
    does not yet decide"*. The walk skips them. Deciding them here, sideways, by
    writing a test would be deciding what §4 left open.
-2. **The keys of a verdict's metadata.** For digline's own assertions they are
-   digline's vocabulary. An assertion somebody else wrote can key them with
-   its data, and they cross in clear. `_check_projected`'s docstring says they
-   are in none of the three classes yet. #711.
 
-`Run.modules_unchecked` was a third, until #712: `redact()` keeps the names in
+`Run.modules_unchecked` was a second, until #712: `redact()` keeps the names in
 clear because they come from the perimeter artifact and pinned paths cross from
 (ADR 0052), and in a projection those paths are tokens. Its names are tokens
 there now, of the `module_name` kind, and the walk holds them to that.
+
+**The keys of a verdict's metadata were a third, until schema 22** (#711). A
+verdict records its `origin`, and the walk classifies a metadata key by the
+origin of the verdict it sits on, which it reads beside it: a builtin
+verdict's keys are written by digline's code, class (a); a foreign or
+unrecorded one's are tokens, except the keys the driver writes. A
+configuration key is a token or a word of digline's vocabulary, which it
+records as `named` (#323). (ADR 0034 §17)
 """
 
 from __future__ import annotations
@@ -54,7 +58,15 @@ import typing
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 
-from digline.core import Run, is_token, project, run_to_json, split_grouped_name
+from digline.core import (
+    DRIVER_METADATA_KEYS,
+    NAMED_CONFIG_KEYS,
+    Run,
+    is_token,
+    project,
+    run_to_json,
+    split_grouped_name,
+)
 from test_projection import Table, promoted
 
 Check = Callable[[str], bool]
@@ -65,6 +77,19 @@ _VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+\S*")
 _RUN_KEY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9-]*Z?)?-[0-9a-f]{16}")
 _STATUS = frozenset({"pass", "fail", "error"})
 _ERROR_KINDS = frozenset({"raised", "shape"})
+_ORIGINS = frozenset({"builtin", "foreign"})
+
+
+def _token_or_named(text: str) -> bool:
+    """A configuration key: a token, or one of digline's words, which the
+    projection lets cross only where the configuration recorded it."""
+    return is_token(text) or text in NAMED_CONFIG_KEYS
+
+
+def _token_or_driver(text: str) -> bool:
+    """A metadata key on a verdict that is not builtin: a token, or a key the
+    driver writes on every verdict."""
+    return is_token(text) or text in DRIVER_METADATA_KEYS
 
 
 def _form(pattern: re.Pattern[str]) -> Check:
@@ -95,6 +120,10 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.results[].verdicts[].status": ("a", _STATUS.__contains__),
     "$.results[].calibration.assertion_id": ("a", _form(_DIGEST)),
     "$.results[].error_kind": ("a", _ERROR_KINDS.__contains__),
+    "$.results[].verdicts[].origin": ("a", _ORIGINS.__contains__),
+    "$.aggregate[].origin": ("a", _ORIGINS.__contains__),
+    "$.target_config.named[]": ("a", NAMED_CONFIG_KEYS.__contains__),
+    "$.judge_config.named[]": ("a", NAMED_CONFIG_KEYS.__contains__),
     "$.aggregate[].assertion_id": ("a", _form(_DIGEST)),
     "$.aggregate[].status": ("a", _STATUS.__contains__),
     "$.tenant": ("b", _anything),
@@ -108,10 +137,10 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.pinned[]": ("c", is_token),
     "$.modules_unchecked[]": ("c", is_token),
     "$.target_config.values{}": ("c", is_token),
-    "$.target_config.withheld[]": ("c", is_token),
+    "$.target_config.withheld[]": ("a|c", _token_or_named),
     "$.target_config.identities[]": ("c", is_token),
     "$.judge_config.values{}": ("c", is_token),
-    "$.judge_config.withheld[]": ("c", is_token),
+    "$.judge_config.withheld[]": ("a|c", _token_or_named),
     "$.judge_config.identities[]": ("c", is_token),
 }
 
@@ -120,16 +149,24 @@ STRINGS: dict[str, tuple[str, Check]] = {
 #: is not checked: a new field shows up as a value at a path `STRINGS` lacks.
 KEYS: dict[str, tuple[str, Check]] = {
     "$.artifacts": ("c", is_token),
-    "$.target_config.values": ("c", is_token),
-    "$.judge_config.values": ("c", is_token),
+    "$.target_config.values": ("a|c", _token_or_named),
+    "$.judge_config.values": ("a|c", _token_or_named),
     "$.metadata": ("refused", lambda _: False),
+    # A verdict's metadata, by the origin of the verdict it sits on, which the
+    # walk writes into the path. A builtin verdict's keys are written by
+    # digline's code, an open vocabulary of its own: class (a), with no form
+    # to check. (ADR 0034 §17.3)
+    "$.results[].verdicts[].metadata<builtin>": ("a", _anything),
+    "$.results[].verdicts[].metadata<foreign>": ("a|c", _token_or_driver),
+    "$.results[].verdicts[].metadata<None>": ("a|c", _token_or_driver),
+    "$.aggregate[].metadata<builtin>": ("a", _anything),
+    "$.aggregate[].metadata<foreign>": ("a|c", _token_or_driver),
+    "$.aggregate[].metadata<None>": ("a|c", _token_or_driver),
 }
 
-#: Exclusion 2 of the module docstring: walked past, and pointed at.
-EXCLUDED: dict[str, str] = {
-    "$.results[].verdicts[].metadata": "#711, the keys of a verdict's metadata",
-    "$.aggregate[].metadata": "#711, the keys of a verdict's metadata",
-}
+#: The objects a verdict sits in: the walk reads its `origin` there and writes
+#: it into the path of its metadata.
+_VERDICTS = frozenset({"$.results[].verdicts[]", "$.aggregate[]"})
 
 #: Every string-typed field of the model, and where it goes in a projection:
 #: a path the walk classifies, or why it never reaches one.
@@ -169,19 +206,50 @@ FIELDS: dict[str, str] = {
     "SystemConfig.values": "$.target_config.values{}",
     "SystemConfig.withheld": "$.target_config.withheld[]",
     "SystemConfig.identities": "$.target_config.identities[]",
+    "SystemConfig.named": "$.target_config.named[]",
     "Verdict.reason": _REDACTED + "; a redacted document omits it",
     "Verdict.assertion_id": "$.results[].verdicts[].assertion_id",
     "Verdict.status": "$.results[].verdicts[].status",
+    "Verdict.origin": "$.results[].verdicts[].origin",
 }
 
 
 def _projected() -> dict[str, object]:
     """The projection of `test_projection`'s fixture, with the optional strings
-    it leaves empty filled in, so their paths are walked too."""
+    it leaves empty filled in, so their paths are walked too, and with each
+    provenance schema 22 records: a foreign verdict with a key of its own, a
+    builtin aggregate, and both configurations' `named`."""
     base = promoted()
+    first = base.results[0]
+    foreign = replace(
+        first.verdicts[0],
+        origin="foreign",
+        score=replace(
+            first.verdicts[0].score,
+            metadata={**first.verdicts[0].score.metadata, "rossi_hits": 3},
+        ),
+    )
+    aggregate = (
+        replace(base.aggregate[0], origin="builtin"),
+        *base.aggregate[1:],
+    )
     run = replace(
         base,
-        results=(replace(base.results[0], error_kind="raised"), *base.results[1:]),
+        results=(
+            replace(first, error_kind="raised", verdicts=(foreign,)),
+            *base.results[1:],
+        ),
+        aggregate=aggregate,
+        # A key the target's author chose, beside digline's words: a token.
+        target_config=replace(
+            base.target_config,
+            values={**base.target_config.values, "rossi_tenant_flag": 1},
+            named=frozenset(base.target_config.values) & NAMED_CONFIG_KEYS,
+        ),
+        judge_config=replace(
+            base.judge_config,
+            named=frozenset(base.judge_config.values) & NAMED_CONFIG_KEYS,
+        ),
         digline_version="0.33.0",
         git_commit="0123456789abcdef0123456789abcdef01234567",
         resumed_at=("2026-09-30T11:00:00+00:00",),
@@ -192,11 +260,14 @@ def _projected() -> dict[str, object]:
 def _strings(value: object, path: str) -> Iterator[tuple[str, str, bool]]:
     """Every string in the document: (path, text, whether it is a map key)."""
     if isinstance(value, dict):
-        data_keys = path in KEYS or path in EXCLUDED
-        for key, inner in typing.cast(dict[str, object], value).items():
+        fields = typing.cast(dict[str, object], value)
+        data_keys = path in KEYS
+        for key, inner in fields.items():
             if data_keys:
                 yield path, key, True
                 yield from _strings(inner, f"{path}{{}}")
+            elif path in _VERDICTS and key == "metadata":
+                yield from _strings(inner, f"{path}.metadata<{fields.get('origin')}>")
             else:
                 yield from _strings(inner, f"{path}.{key}")
     elif isinstance(value, list):
@@ -212,8 +283,6 @@ def test_every_string_a_projection_carries_is_classified() -> None:
     unclassified: set[str] = set()
     malformed: list[str] = []
     for path, text, is_key in _strings(_projected(), "$"):
-        if any(path.startswith(excluded) for excluded in EXCLUDED):
-            continue
         table = KEYS if is_key else STRINGS
         if path not in table:
             unclassified.add(f"{path} ({'key' if is_key else 'value'})")
@@ -273,7 +342,7 @@ def test_every_place_a_field_names_is_classified_or_excluded() -> None:
     """A field placed at a path must be placed somewhere the walk classifies,
     so the two halves cannot drift apart."""
     places = {p for p in FIELDS.values() if p.startswith("$")}
-    known = set(STRINGS) | set(KEYS) | set(EXCLUDED)
+    known = set(STRINGS) | set(KEYS) | {p.split("<")[0] for p in KEYS}
     assert places <= known, sorted(places - known)
 
 
@@ -285,4 +354,21 @@ def test_the_walk_reaches_every_class() -> None:
         for path, _, is_key in _strings(_projected(), "$")
         if not is_key and path in STRINGS
     }
-    assert met == {"a", "b", "c"}, met
+    assert {"a", "b", "c"} <= met <= {"a", "b", "c", "a|c"}, met
+
+
+def test_the_walk_meets_each_provenance_schema_22_classifies() -> None:
+    """The same guard for ADR 0034 §17: a fixture that carried no builtin
+    verdict, no foreign key or no named key would pass the first half without
+    looking at the rule it is for."""
+    keys = [
+        (path, text) for path, text, is_key in _strings(_projected(), "$") if is_key
+    ]
+    by_path = {path for path, _ in keys}
+    assert "$.aggregate[].metadata<builtin>" in by_path
+    foreign = [text for path, text in keys if path.endswith("metadata<foreign>")]
+    assert any(is_token(text) for text in foreign), foreign
+    assert any(text in DRIVER_METADATA_KEYS for text in foreign), foreign
+    configured = [text for path, text in keys if path == "$.target_config.values"]
+    assert "temperature" in configured
+    assert any(is_token(text) for text in configured), configured
