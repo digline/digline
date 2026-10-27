@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -149,3 +150,23 @@ def test_the_values_pass_reads_a_journal(found: list[Any]) -> None:
         and item.value == "levenshtein"
         for item in found
     )
+
+
+def test_the_store_is_the_tenant_directory_whatever_order_the_listing_takes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`.digline` holds `.gitattributes` and `.gitignore` beside the tenant, and
+    a directory listing comes in no order the filesystem promises. The first
+    entry was taken for the store once, and `gates (3.13)` met `.gitignore`
+    first on a queue run where 3.12 and 3.14 did not. Listed files first here."""
+    digline = tmp_path / ".digline"
+    (digline / "bookshop" / "runs").mkdir(parents=True)
+    (digline / ".gitattributes").write_text("", encoding="utf-8")
+    (digline / ".gitignore").write_text("", encoding="utf-8")
+    listed = Path.iterdir
+
+    def files_first(self: Path) -> Iterator[Path]:
+        return iter(sorted(listed(self), key=Path.is_dir))
+
+    monkeypatch.setattr(Path, "iterdir", files_first)
+    assert tool.tenant_store(tmp_path) == digline / "bookshop"

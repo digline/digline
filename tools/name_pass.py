@@ -175,7 +175,7 @@ def fixture_strings(work: Path) -> list[Found]:
         if not path.startswith("!")
     ]
     _journal(repo, second)
-    store = next((repo / ".digline").iterdir())
+    store = tenant_store(repo)
     for key in (first, second):
         document = next(store.glob(f"runs/*/{key}.json"))
         found += document_strings(
@@ -187,6 +187,15 @@ def fixture_strings(work: Path) -> list[Found]:
         for line in journal.read_text("utf-8").splitlines():
             found += document_strings("journal", json.loads(line))
     return found
+
+
+def tenant_store(repo: Path) -> Path:
+    """The tenant's directory under `.digline`, which also holds files of its
+    own, `.gitattributes` and `.gitignore`. A listing comes in no order the
+    filesystem promises, so the directory is chosen, never the first entry."""
+    tenants = [path for path in (repo / ".digline").iterdir() if path.is_dir()]
+    assert len(tenants) == 1, tenants
+    return tenants[0]
 
 
 def _journal(repo: Path, key: str) -> None:
