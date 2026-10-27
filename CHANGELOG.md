@@ -826,7 +826,10 @@ floor RELEASING.md's table names.
   `compare`'s `suite_deltas`, where it was `rule`; and in `log`'s `spread`,
   where it was `name`. `log`'s sightings and spans say `reported` where they
   said `answered`. A client reading an old name has to read the new one. No
-  alias carries both. It rides the minor #548 already makes.
+  alias carries both. And `explain` no longer adds `key` beside its document:
+  the run it read is `run_key`, which it has carried since #448, when `key`
+  was kept until the next bump; this is that bump, and `explain` is now
+  `digline explain --json` as it is. It rides the minor #548 already makes.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,

@@ -482,9 +482,10 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #
 # **What this table does not hold: a key a front end splices beside a
 # document.** It types what the builders in this package emit, and that is
-# not every response `digline-mcp` returns. Its `explain`, `get_run` and
-# `get_baseline` tools return a builder's document with the run's `key` added
-# beside it. That key is pinned elsewhere: by name, in `digline-mcp`'s
+# not every response `digline-mcp` returns. Its `get_run` and `get_baseline`
+# tools return a builder's document with the run's `key` added beside it, and
+# its `explain` did too until `OUTPUT_VERSION = 4` (#678). That key is pinned
+# elsewhere: by name, in `digline-mcp`'s
 # `SPLICE_ALLOWED`, and by its tool tests. Nothing here moves if it does.
 # Measured in the release that shipped this table: renamed in the server, the
 # key left this table's test green and failed four of `digline-mcp`'s.
@@ -524,6 +525,14 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #   on, which went from *covered by the interval the samples spanned* to
 #   *covered by the declared floor* in 0.33.0. A word in a vocabulary is still
 #   outside it, as the next paragraph says.
+#
+# **A name is qualified by its role only where two things of the same kind can
+# stand in one document.** `compare` and `explain` carry `run_key` because a
+# second run can stand beside it, `baseline_key`, and with `explain`'s `scope:
+# "comparison"` it does; `get_run` and `get_baseline` name the one run they are
+# about `key`. So when `explain` carried both `key` and `run_key` for one run,
+# `run_key` was the name to keep and `key`, the splice it replaced (#448), the
+# one to remove, at the bump to 4. Ruled 2026-10-27 (#678).
 #
 # **What this does not catch, stated where the claim is made.** A value from a
 # vocabulary a consumer matches on, such as an outcome or a kind, moving to
@@ -707,8 +716,7 @@ _HEADLINE: Mapping[str, _Key] = {
     # word, and a second call to learn the key can resolve a different run.
     # `explain` also names its reference, where its scope is `"comparison"`.
     # Optional because a builder's caller written before them passes no run;
-    # every front end here passes one. MCP's `explain` already splices `key`
-    # beside its document, so there it carries the run twice until a bump.
+    # every front end here passes one.
     # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: #448.
     "run_key": _k("string", optional=True),
     # A run in which none of the cases that count was judged, read against the
@@ -919,8 +927,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "intervals_disjoint": _BOOL,
     },
     "interval": {"min": _NUM, "max": _NUM, "samples": _INT},
-    # `explain --json`, and the MCP `explain` tool, which adds `key` beside it
-    # (above). (explain.py)
+    # `explain --json`, and the MCP `explain` tool, which returns it as it is.
+    # (explain.py)
     "explain": {
         "output_version": _INT,
         "scope": _STR,
@@ -939,8 +947,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # word, and a second call to learn the key can resolve a different run.
         # `explain` also names its reference, where its scope is `"comparison"`.
         # Optional because a builder's caller written before them passes no run;
-        # every front end here passes one. MCP's `explain` already splices `key`
-        # beside its document, so there it carries the run twice until a bump.
+        # every front end here passes one.
         # Added under `OUTPUT_VERSION = 2`: #448.
         "run_key": _k("string", optional=True),
         # Added under `OUTPUT_VERSION = 2`: #448.

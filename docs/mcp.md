@@ -199,7 +199,7 @@ there is no answer to which one is digline's. What each tool returns today:
 |---|---|---|
 | `compare` | `compare_json`, the full form | `digline compare --json full --locale en`, held equal by a test |
 | `diff` | `diff_json`, the full form, its `sentence` in English | `digline diff --json full --locale en`, held equal by a test |
-| `explain` | `explain_json`, plus `key`, the run it read | `digline explain --json`, which has no `key`; equal otherwise, by a test |
+| `explain` | `explain_json` | `digline explain --json`, held equal by a test |
 | `log` | `log_json` | `digline log --json`, held equal by a test |
 | `run` | `run_json`; `resumed` is always `false`, because the tool has no way to resume | `digline run --json`: a test holds the same keys |
 | `list_runs` | `runs_json` | none: `digline list` has no `--json` |
@@ -239,8 +239,7 @@ carries **`baseline_key`** where its `scope` is `comparison`; `compare` always
 does. Both are derived from the documents read, not copied from your argument,
 so with `latest` they say which run was picked, and with a key they confirm it.
 Quote and recommend the run by `run_key`: a second `get_run(run="latest")` can
-resolve to a run that landed in between. `explain` also keeps the `key` it
-carried before, the same run, until the next `output_version`. (#448)
+resolve to a run that landed in between. (#448)
 
 ## What never crosses
 
