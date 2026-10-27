@@ -10,7 +10,9 @@ so.
 
 from __future__ import annotations
 
+import importlib
 import json
+import pkgutil
 from pathlib import Path
 
 import pytest
@@ -546,3 +548,80 @@ def test_a_budget_in_a_suite_errors_and_the_content_is_still_judged(
     assert budget.status == "error"
     assert f"cost_usd is not computable: {GEO}" in budget.reason
     assert run_exit_code(run, declared=budgeted.declared()) == EXIT_UNJUDGED
+
+
+# --------------------------------------------------------------------------- #
+# The guard: whoever overrides `cost` overrides `why_unpriced` (§8.4)
+# --------------------------------------------------------------------------- #
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _modules_under_src() -> list[str]:
+    """Every module this repository ships: `src/digline` and each plugin's
+    `packages/*/src`. `__main__` modules run a command line on import."""
+    found: list[str] = []
+    roots = [ROOT / "src", *sorted((ROOT / "packages").glob("*/src"))]
+    for root in roots:
+        for package in sorted(
+            p for p in root.iterdir() if (p / "__init__.py").exists()
+        ):
+            found.append(package.name)
+            found.extend(
+                info.name
+                for info in pkgutil.walk_packages([str(package)], f"{package.name}.")
+                if not info.name.endswith(".__main__")
+            )
+    return found
+
+
+def _pricing_subclasses() -> list[type[Pricing]]:
+    for name in _modules_under_src():
+        importlib.import_module(name)
+    stack: list[type[Pricing]] = list(Pricing.__subclasses__())
+    seen: list[type[Pricing]] = []
+    while stack:
+        cls = stack.pop()
+        if cls in seen:
+            continue
+        seen.append(cls)
+        stack.extend(cls.__subclasses__())
+    shipped = {name.split(".")[0] for name in _modules_under_src()}
+    # One per name: a dataclass built with `slots=True` is a second class
+    # object, and the first stays among the subclasses.
+    named = {
+        (cls.__module__, cls.__qualname__): cls
+        for cls in seen
+        if cls.__module__.split(".")[0] in shipped
+    }
+    return list(named.values())
+
+
+def _breaks_the_rule(cls: type[Pricing]) -> bool:
+    """Overrides `cost` and inherits `why_unpriced`: read as unpriced before
+    its own `cost` is asked. Read off each class's own namespace."""
+    return "cost" in vars(cls) and "why_unpriced" not in vars(cls)
+
+
+class _BothOverridden(Pricing):
+    """The rule's example: a list that prices its own way, and says where it
+    cannot."""
+
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        return None
+
+    def cost(self, model: str, usage: Usage) -> float:
+        return Pricing.cost(self, model, usage)
+
+
+def test_the_example_keeps_the_rule() -> None:
+    assert not _breaks_the_rule(_BothOverridden)
+
+
+def test_every_shipped_subclass_that_overrides_cost_overrides_the_predicate() -> None:
+    """Binds this project's repositories, and no third party: nothing can. The
+    scan finds `_WhereServed`, the one shipped subclass, which is its positive
+    control: a scan that found nothing would pass over a broken rule."""
+    shipped = _pricing_subclasses()
+    assert "_WhereServed" in {cls.__name__ for cls in shipped}
+    assert [cls.__qualname__ for cls in shipped if _breaks_the_rule(cls)] == []
