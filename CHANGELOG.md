@@ -414,7 +414,9 @@ notes under them are this file, verbatim.
   **The next version is a minor for this**: an exit code changed. A run whose
   price list has no rate for tokens a reply reports exited `2` where every case
   errored, and is judged now. No `SCHEMA_VERSION`, `OUTPUT_VERSION` or
-  `JOURNAL_VERSION` moves.
+  `JOURNAL_VERSION` moves. ADR 0004 §8 is accepted with this. Its one point
+  still open stays open: where the sentences go under `--json` and in
+  digline-mcp, which print no bill line.
 
 ## 0.34.0 — 2026-10-26
 

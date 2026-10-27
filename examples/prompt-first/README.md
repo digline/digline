@@ -77,7 +77,11 @@ This example is also where the judge is watched rather than only used: under
 on the scale a judge that still has one has to land inside. It costs judge
 calls only — the target is never called for it.
 
-One thing to copy carefully: `Run.usage` reports `judge: 0 calls, $0.0` here,
-which is **wrong rather than absent**. `_live_judge` calls the SDK directly
-instead of going through `digline-anthropic`, so nothing reports what the judge
-spent. Copy the target's shape, not the judge's.
+One thing to copy carefully: the judge here is a function, and nothing
+reports what it spent. `_live_judge` calls the SDK directly instead of going
+through `digline-anthropic`. Measured on the keyless path on 2026-10-27, with
+digline 0.34.0, which this example installs: the run file records the judge's
+line as `calls: 0`, `spent_usd: 0.0` and neither completeness marker, which
+reads *not recorded*, and `digline run` prints no judge line at all. digline
+built from this repository at `bcef1603` prints `judge: not recorded`. Copy the
+target's shape, not the judge's.
