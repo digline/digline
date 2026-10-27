@@ -125,8 +125,8 @@ dependencies = [
     # release that does not exist yet.
     #
     # And a cap, the first on the core: `<0.33`, raised to `<0.34` with the
-    # core's 0.33.0 and to `<0.35` with 0.34.0, the minor its tests now run
-    # against. 0.32.0 made `declared` a
+    # core's 0.33.0, to `<0.35` with 0.34.0 and to `<0.36` with 0.35.0, the
+    # minor its tests now run against. 0.32.0 made `declared` a
     # mandatory argument of `headline`, and 0.5.0, which declared
     # `digline>=0.31.0` and nothing above it, could no longer answer `compare`
     # on it: the tool raised `TypeError`. A core minor may change a signature
@@ -139,14 +139,15 @@ dependencies = [
     # 0.33.0 the call raises `TypeError` and the import `ImportError`. It was
     # owed at the cut and raised in this package's own release, after the core
     # was on PyPI, because a floor may not name a release that does not exist
-    # yet. The cap stays `<0.35`, the minor above it.
+    # yet. The cap was then `<0.35`, the minor above it, and is `<0.36`
+    # since the core's 0.35.0.
     #
     # Owed at the cut: `--names project` imports `load_name_table`,
     # `one_table`, `project_check_name` and `project_declared`, new in the
     # core release that carries #548, and passes `mint=` to `explained`,
     # `history` and `suite_notes`, which first take it there. RELEASING.md's
     # table names the floor and the cap. (ADR 0054)
-    "digline>=0.34.0,<0.35",
+    "digline>=0.34.0,<0.36",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

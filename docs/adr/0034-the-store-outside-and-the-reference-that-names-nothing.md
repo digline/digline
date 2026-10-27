@@ -43,7 +43,8 @@
   verified at construction), and not §9's refusal or regime for a projected
   reference, or §14's delete (#237). §4's classification gate and §16's
   serializer walk shipped in 0.34.0, for strings less the three exclusions
-  §4's note of 2026-10-25 names (#710)
+  §4's note of 2026-10-25 names (#710). §17's provenance ships in 0.35.0,
+  with schema 22, and leaves one exclusion, numbers (#323, #711)
 - Date: 2026-09-27
 - Amended: 2026-09-27 — **two of this record's own readiness claims, corrected
   where they are made and kept above their corrections.** §16's fifth bullet

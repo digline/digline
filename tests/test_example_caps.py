@@ -215,6 +215,9 @@ RELEASED: dict[str, int] = {
     # 21 — `every_call_seen` and `every_cost_known` on a line of the bill
     # (#563), and `error_kind` on a case (#425), additive.
     "0.34.0": 21,
+    # 22 — `origin` on a verdict and `named` on a configuration, additive
+    # (ADR 0034 §17; #323, #711).
+    "0.35.0": 22,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

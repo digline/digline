@@ -6,7 +6,9 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 0.35.0 — unreleased
+
+digline **0.35.0**.
 
 - **The image ships pip 26.2.2, not the base's 25.0.1.** `python:3.12-slim`
   bundles the `pip` its Python came with, and a newer base digest does not
