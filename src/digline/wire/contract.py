@@ -266,15 +266,32 @@ __all__ = [
 #:    into `_BASE`: the 34 keys and the one word added under 2 are in version
 #:    3's base, each beside the provenance its entry carried.
 #:
-#: 4: **the first bump that renames a key.** A verdict's check was `name` in
-#:    the MCP tools `get_run` and `get_baseline`, and in each aggregate row of
-#:    `list_runs`, and `assertion` in the run file and in every other document
-#:    that carries a verdict: `compare`'s `deltas`, `diff`'s `checks` and
-#:    `explain`'s `facts`. Inside one server the same verdict, under the same
-#:    `assertion_id`, had two spellings. It is `assertion` in all of them now.
-#:    No alias carries the old name beside the new one: a document with both
+#: 4: **the first bump that renames keys.** One concept, one name: the
+#:    value a verdict's `score.name` holds is called `assertion` in the run file
+#:    and in `compare`'s `deltas`, `diff`'s `checks` and `explain`'s `facts`,
+#:    and it went by three other names. It is `assertion` in all of them now:
+#:    - `name` on a verdict in the MCP tools `get_run` and `get_baseline` and
+#:      in each aggregate row of `list_runs`, so inside one server the same
+#:      verdict, under the same `assertion_id`, had two spellings;
+#:    - `name` on each entry of `log --json`'s `spread`;
+#:    - `check` on each entry of `shape`, in `compare --json full` and in
+#:      `explain --json`'s shape facts;
+#:    - `rule` on each entry of `suite_deltas`.
+#:    And `answered` is `reported` on `log --json`'s sightings and spans: the
+#:    verb every sentence already used for `resolved_model`, and a rename ADR
+#:    0020 (amended) declared owed to the next bump.
+#:
+#:    No alias carries an old name beside its new one: a document with both
 #:    would keep the two spellings the bump removes, and the bump is the
 #:    transition. (#678)
+#:
+#:    **Two names stay, and are not renames.** `name` on an `explain` setting
+#:    fact holds a rule's name, a configuration key or an artifact's path
+#:    according to `kind`: a vocabulary, not one concept. `check` on a
+#:    calibration band is the name the suite declared, and a verdict's
+#:    `score.name` may differ from it (`CalibrationBand`; ADR 0024 §4.7,
+#:    amended 2026-09-26): calling it `assertion` would claim an identity the
+#:    core denies.
 #:
 #:    The bump folds `_ADDED` into `_BASE`: the five keys added under 3 are in
 #:    version 4's base, each beside the provenance its entry carried. Three of
@@ -818,7 +835,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "before_interval": _k(_Obj("interval"), "null"),
     },
     "shape": {
-        "check": _STR,
+        # `check` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "assertion_id": _STR,
         "run": _k(_Obj("shape.side")),
         "reference": _k(_Obj("shape.side"), "null"),
@@ -838,7 +856,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "withheld": _BOOL,
     },
     "rule_delta": {
-        "rule": _STR,
+        # `rule` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "assertion_id": _STR,
         "scope": _STR,
         "outcome": _STR,
@@ -1024,14 +1043,16 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     "log.sighting": {
         "provider": _STR,
         "sent": _STRINGS,
-        "answered": _STR_OR_NULL,
+        # `answered` until `OUTPUT_VERSION = 4`. (#678; ADR 0020, amended)
+        "reported": _STR_OR_NULL,
         "absence": _STR_OR_NULL,
     },
     "log.span": {
         "side": _STR,
         "provider": _STR,
         "sent": _STRINGS,
-        "answered": _STR_OR_NULL,
+        # `answered` until `OUTPUT_VERSION = 4`. (#678; ADR 0020, amended)
+        "reported": _STR_OR_NULL,
         "absence": _STR_OR_NULL,
         "first_seen": _STR,
         "last_seen": _STR,
@@ -1051,7 +1072,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "unread_on_record": _INT,
     },
     "log.spread": {
-        "name": _STR,
+        # `name` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "latest": _NUM,
         "reference": _NUM_OR_NULL,
         "low": _NUM_OR_NULL,
@@ -1345,5 +1367,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     4,
-    "5b68a671f85c82f6d58510882a0b46e057d427d861846bed896e4a5ccc5608f4",
+    "c31be61cfcc0a8a2b2aadfde16f48fe63e12203ec16242e9aae87456219980fb",
 )

@@ -1,14 +1,15 @@
-"""`OUTPUT_VERSION` 4: a verdict's check is named `assertion` everywhere. (#678)
+"""`OUTPUT_VERSION` 4: one concept, one name. (#678)
 
-Until 4, the MCP tools `get_run` and `get_baseline` named a verdict's check
-`name`, and so did each aggregate row of `list_runs`, while the run file,
-`compare --json`'s `deltas`, `diff --json`'s `checks` and `explain --json`'s
-`facts` named the same field `assertion`. Inside one server the same verdict,
-under the same `assertion_id`, had two spellings.
+Until 4, the value a verdict's `score.name` holds went by four names: `assertion`
+in the run file, `compare`'s `deltas`, `diff`'s `checks` and `explain`'s
+`facts`; `name` in `get_run`, `get_baseline`, `list_runs` and `log`'s
+`spread`; `check` in `shape`; `rule` in `suite_deltas`. And `log` said
+`answered` for what every sentence calls *reported*.
 
 A renamed key breaks a consumer that reads the old one, so it is a bump, and
 there is no alias: a document carrying both would keep the incoherence the
-bump removes. The rename is the only change version 4 makes to the contract.
+bump removes. The renames are the only change version 4 makes to the
+contract's keys.
 """
 
 from __future__ import annotations
@@ -29,9 +30,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "src" / "digline" / "wire" / "contract.py"
 API = ROOT / "docs" / "api.md"
 
-#: The two shapes a verdict is written in by `digline.wire.run`.
-VERDICT_SHAPES = ("run_document.verdict", "runs.verdict")
-
 
 def _folded(path: Path, *, comments: bool = False) -> str:
     """The file's text with line breaks folded, and with the comment markers of
@@ -47,11 +45,41 @@ def test_the_output_version_is_4() -> None:
     assert run_document(loaded_run(), Disclosure())["output_version"] == 4
 
 
-def test_the_contract_names_a_verdicts_check_assertion() -> None:
-    for shape in VERDICT_SHAPES:
+#: Every key version 4 renamed, as `(shape, before, after)`. One concept, one
+#: name: each `assertion` here holds a verdict's `score.name`, the value the run
+#: file and `compare`'s `deltas` call `assertion`. `reported` is the verb every
+#: sentence already used for `resolved_model` (ADR 0020, amended).
+RENAMED = (
+    ("run_document.verdict", "name", "assertion"),
+    ("runs.verdict", "name", "assertion"),
+    ("log.spread", "name", "assertion"),
+    ("shape", "check", "assertion"),
+    ("rule_delta", "rule", "assertion"),
+    ("log.sighting", "answered", "reported"),
+    ("log.span", "answered", "reported"),
+)
+
+#: Kept as they are, on purpose. `fact.setting.name` holds a rule's name, a
+#: configuration key or an artifact's path according to `kind`: a vocabulary,
+#: not a rename. `calibration.check` is the name the suite declared, and a
+#: verdict's `score.name` "is whatever the assertion chose to call its
+#: `Score`, and a third-party one may call it otherwise" (`CalibrationBand`;
+#: ADR 0024 §4.7, amended 2026-09-26): calling it `assertion` would claim an
+#: identity the core denies.
+KEPT = (("fact.setting", "name"), ("calibration", "check"))
+
+
+def test_every_rename_is_in_the_contract() -> None:
+    for shape, before, after in RENAMED:
         keys = _SHAPES[shape]
-        assert "assertion" in keys, shape
-        assert "name" not in keys, shape
+        assert after in keys, (shape, after)
+        assert before not in keys, (shape, before)
+
+
+def test_the_names_that_are_not_renames_are_kept() -> None:
+    for shape, key in KEPT:
+        assert key in _SHAPES[shape], (shape, key)
+        assert "assertion" not in _SHAPES[shape], shape
 
 
 def test_get_run_names_a_verdicts_check_assertion() -> None:
@@ -89,13 +117,14 @@ def test_list_runs_names_an_aggregate_verdicts_check_assertion() -> None:
 
 #: What the record beside the constant says about the bump, in its own voice.
 CONTRACT_SAYS = (
-    "4: **the first bump that renames a key.**",
-    "No alias carries the old name beside the new one",
+    "4: **the first bump that renames keys.** One concept, one name",
+    "No alias carries an old name beside its new one",
+    "**Two names stay, and are not renames.**",
 )
 #: What `docs/api.md` says about it.
 API_SAYS = (
-    "**Version 4 renames a key.**",
-    "No document carries both.",
+    "**Version 4 renames keys, and one concept has one name.**",
+    "No document carries both an old name and its new one",
 )
 
 

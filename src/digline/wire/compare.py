@@ -129,7 +129,8 @@ def shape_json(item: Shape) -> dict[str, object]:
     it wants and nothing rounded here is taken for a measurement. `reference`
     is `null` where the reference records no judged verdict for the check."""
     return {
-        "check": item.check,
+        # `check` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": item.check,
         "assertion_id": item.assertion_id,
         "run": _side_json(item.run),
         "reference": None if item.reference is None else _side_json(item.reference),
@@ -167,7 +168,8 @@ def rule_json(delta: SuiteDelta) -> dict[str, object]:
     must read the empty string as *no verb* rather than as *unchanged*.
     """
     return {
-        "rule": delta.rule,
+        # `rule` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": delta.rule,
         "assertion_id": delta.assertion_id,
         "scope": delta.scope,
         "outcome": delta.outcome,
