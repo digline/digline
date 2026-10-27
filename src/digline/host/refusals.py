@@ -132,6 +132,10 @@ NOT_REFUSALS: Mapping[str, str] = {
         "a judge's declared abstention: the assertion catches it and records the "
         "judge's sentence as the verdict's reason (ADR 0004 §7.4)"
     ),
+    "digline.core.protocols.JudgePriceRaised": (
+        "a judge that answered and whose price raised: the assertion catches it "
+        "and records what failed as the verdict's reason (ADR 0004 §8.6)"
+    ),
     "digline.store.file_store._MalformedLine": (
         "private to the register reader, which re-raises it as "
         "RegisterRefusedError naming the line"

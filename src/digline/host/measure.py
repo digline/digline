@@ -108,6 +108,10 @@ class Measured:
     ref: RunRef
     run: Run
     plan: CallPlan
+    #: Why a call this run made could not be priced, once per distinct
+    #: sentence. Beside the run and never in it: the person who ran the command
+    #: reads it, after the bill. (ADR 0004 §8.3)
+    unpriced: tuple[str, ...] = ()
 
 
 def prepare(
@@ -368,6 +372,7 @@ def measure(
     if prepared.resume is not None:
         seed_observed(suite, target, prepared.resume)
     journal = store.open_journal(prepared.header)
+    unpriced: list[str] = []
     run = execute(
         suite,
         target,
@@ -381,7 +386,8 @@ def measure(
         done=prepared.done,
         spent=prepared.spent,
         on_case=journal.append,
+        on_unpriced=unpriced.append,
     )
     ref = store.write_run(run)
     journal.complete()
-    return Measured(ref=ref, run=run, plan=prepared.plan)
+    return Measured(ref=ref, run=run, plan=prepared.plan, unpriced=tuple(unpriced))

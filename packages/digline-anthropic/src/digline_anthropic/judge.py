@@ -102,10 +102,12 @@ class _AnthropicJudge(JudgeBase):
         }
 
         raw = self._client().messages.create(**request)
-        # As in `AnthropicTarget._complete`: read first, handed over last.
+        # As in `AnthropicTarget._complete`: read first, handed over last,
+        # and only for a reply that will be priced. (ADR 0004 §8.8)
         geo = geo_multiplier(raw)
         reply = completion_of(raw)
-        self._geo = geo
+        if reply.unpriced is None and geo is not None:
+            self._geo = geo
         if self.prefill is None:
             return reply
         # The reply *is* the prefill plus the completion, and a parser handed

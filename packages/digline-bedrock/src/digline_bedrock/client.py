@@ -53,6 +53,7 @@ __all__ = [
     "text_of",
     "tool_calls_of",
     "tools_of",
+    "unpriced_of",
     "usage_of",
 ]
 
@@ -369,7 +370,27 @@ def completion_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Com
         finish_raw=raw,
         tools=tools_of(reply),
         tool_calls=tool_calls_of(reply),
+        unpriced=unpriced_of(reply, model),
     )
+
+
+def unpriced_of(reply: Mapping[str, Any], model: str) -> str | None:
+    """Why this reply's cost cannot be computed, though its counts were read,
+    or `None` where it can: a cache write at a TTL this list cannot price.
+
+    It was a refusal (#368), resting on there being no way to say *this
+    cannot be priced*. There is one now, `Completion.unpriced`, and the call is
+    counted with its tokens and without a cost (ADR 0004 §8.4). **Scrubbed
+    here**, like every refusal this plugin raises: the model is quoted, and an
+    application inference profile is an ARN carrying the customer's account.
+    The sentence reaches the person who ran the command, and a `CostBudget`'s
+    reason in the run file.
+    """
+    raw_usage = reply.get("usage")
+    if not isinstance(raw_usage, Mapping):
+        return None
+    sentence = _unpriced_writes(cast("Mapping[str, Any]", raw_usage), model)
+    return None if sentence is None else scrub(sentence)
 
 
 def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
@@ -389,13 +410,13 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     anyway — which is to say unless you said, with `free()`, that this one is
     billed by the hour rather than by the token.
 
-    **A 1-hour cache write is refused, not priced.** `cacheDetails` splits the
-    writes by TTL, and AWS bills the 1-hour write at 1.6x the 5-minute one.
-    `Usage` has one write count with one rate behind it, so pricing those
-    tokens at the 5-minute rate would report a run as cheaper than it was. A
-    reply that reports any is refused, the way a cached read with no rate is
-    refused, and so is a TTL this plugin has never seen. A reply with no
-    `cacheDetails` is read as before. (#368)
+    **A 1-hour cache write is counted, and not priced.** `cacheDetails`
+    splits the writes by TTL, and AWS bills the 1-hour write at 1.6x the
+    5-minute one. `Usage` has one write count with one rate behind it, so
+    pricing those tokens at the 5-minute rate would report a run as cheaper
+    than it was. The counts are read as they are, and `unpriced_of` says the
+    reply cannot be priced, as it does for a TTL this plugin has never seen. A
+    reply with no `cacheDetails` is read as before. (#368; ADR 0004 §8.4)
     """
     raw_usage = reply.get("usage")
     if not isinstance(raw_usage, Mapping):
@@ -408,7 +429,8 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
             "`pricing=free(...)`"
         )
     usage = cast("Mapping[str, Any]", raw_usage)
-    _refuse_unpriced_writes(usage, model)
+    # Read for its shape: a malformed `cacheDetails` is still refused.
+    _unpriced_writes(usage, model)
     reported_input = _count(usage, "inputTokens")
     cache_read = _count(usage, "cacheReadInputTokens")
     cache_write = _count(usage, "cacheWriteInputTokens")
@@ -425,8 +447,9 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     )
 
 
-def _refuse_unpriced_writes(usage: Mapping[str, Any], model: str) -> None:
-    """Raise when `cacheDetails` reports writes at a TTL this list cannot price."""
+def _unpriced_writes(usage: Mapping[str, Any], model: str) -> str | None:
+    """The sentence for writes `cacheDetails` reports at a TTL this list cannot
+    price, or `None`; a `cacheDetails` of the wrong shape is refused."""
     details: object = usage.get("cacheDetails") or []
     if not isinstance(details, list):
         raise ValueError("usage.cacheDetails is not a list of cache writes")
@@ -438,12 +461,12 @@ def _refuse_unpriced_writes(usage: Mapping[str, Any], model: str) -> None:
         if not tokens or entry.get("ttl") == "5m":
             continue
         ttl = "1h" if entry.get("ttl") == "1h" else "an unknown TTL"
-        raise UnknownModelError(
+        return (
             f"model {model!r} wrote {tokens} tokens to the cache at {ttl}, and "
-            "this price list has one cache-write rate, the 5-minute one: "
-            "pricing them at it would report a run as cheaper than it was. Use "
+            "this price list has one cache-write rate, the 5-minute one. Use "
             "the 5-minute cache: a 1-hour write has no rate in digline yet (#368)"
         )
+    return None
 
 
 def _count(usage: Mapping[str, Any], key: str) -> int:

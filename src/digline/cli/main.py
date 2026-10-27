@@ -372,6 +372,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         # must not land in the shell variable below. (ADR 0025 §9)
         for line in usage_lines(measured.run.usage):
             say(f"digline: {line}", err=True)
+        # Why a cost is not known, after the bill that says it is not: the
+        # sentence the plugin or the price list wrote for the person who ran
+        # the command, once each. It used to reach that person as the reason
+        # of an errored check. (ADR 0004 §8.3)
+        for sentence in measured.unpriced:
+            say(f"digline: cost not computable: {sentence}", err=True)
         # How many checks could not run, said above zero only: `--json`
         # carries the number always, a person needs it only when it is not
         # nothing. (#654)

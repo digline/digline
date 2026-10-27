@@ -21,7 +21,7 @@ import pytest
 from _bedrock_fakes import FakeClient, converse_reply
 
 from digline.run import Case
-from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
+from digline.targets import ModelPrice, Pricing, Usage
 from digline_bedrock import (
     PRICES_READ_ON,
     SEEDED_PRICES,
@@ -32,7 +32,7 @@ from digline_bedrock import (
     free,
     scrub,
 )
-from digline_bedrock.client import resolve_region, text_of, usage_of
+from digline_bedrock.client import resolve_region, text_of, unpriced_of, usage_of
 
 SONNET = "anthropic.claude-sonnet-4-20250514-v1:0"
 EU_SONNET = f"eu.{SONNET}"
@@ -582,8 +582,8 @@ def no_usage() -> dict[str, Any]:
 
 @pytest.mark.parametrize(
     ("reply", "refusal"),
-    [(one_hour_write, UnknownModelError), (no_usage, ValueError)],
-    ids=["one-hour write", "no usage"],
+    [(no_usage, ValueError)],
+    ids=["no usage"],
 )
 def test_a_refusal_of_the_reply_does_not_carry_the_account_to_the_verdicts(
     prompt: Path,
@@ -595,8 +595,9 @@ def test_a_refusal_of_the_reply_does_not_carry_the_account_to_the_verdicts(
     raised, but the refusals of a reply are raised after that, and both quote
     the model, which for an application inference profile is an ARN carrying
     the customer's account. They reached every verdict's reason, and the run
-    file, in clear. The class is kept: a 1-hour write is still refused as
-    `UnknownModelError`, and a missing usage block as `ValueError`."""
+    file, in clear. The class is kept: a missing usage block is still refused
+    as `ValueError`. A 1-hour write is no longer refused, and its sentence is
+    held to the same scrub below (ADR 0004 §8.4)."""
     from digline.core import Contains
     from digline.run import Suite, execute
 
@@ -717,17 +718,65 @@ def test_a_five_minute_write_is_read_and_priced_as_before() -> None:
     ],
     ids=["one hour", "unknown"],
 )
-def test_a_write_this_list_cannot_price_is_refused(
+def test_a_write_this_list_cannot_price_is_counted_and_not_priced(
     details: list[dict[str, Any]], words: str
 ) -> None:
     """Before #368 every write was priced at the 5-minute rate, and AWS bills
-    the 1-hour one at 1.6x it: under on every such token. Refused by the class
-    that refuses a cached read with no rate."""
-    with pytest.raises(UnknownModelError) as refused:
-        usage_of(with_cache_details(*details), SONNET, bedrock_pricing("eu-west-1"))
-    message = str(refused.value)
+    the 1-hour one at 1.6x it: under on every such token. #368 refused the
+    reply; its counts are now read, and the sentence says it cannot be priced.
+    (ADR 0004 §8.4)"""
+    reply = with_cache_details(*details)
+    usage = usage_of(reply, SONNET, bedrock_pricing("eu-west-1"))
+    assert usage.cache_write_tokens == sum(d["inputTokens"] for d in details)
+    message = unpriced_of(reply, SONNET)
+    assert message is not None
     assert words in message
     assert SONNET in message and "#368" in message
+
+
+def test_a_five_minute_write_has_no_sentence() -> None:
+    """The control."""
+    assert (
+        unpriced_of(with_cache_details({"ttl": "5m", "inputTokens": 9}), SONNET) is None
+    )
+
+
+def test_an_unpriced_write_does_not_carry_the_account_to_the_reason(
+    prompt: Path, client: FakeClient
+) -> None:
+    """The sentence of an unpriced write quotes the model, as the refusal did,
+    and reaches a `CostBudget`'s reason in the run file: scrubbed like it."""
+    from digline.core import Contains, CostBudget
+    from digline.run import Suite, execute
+
+    client.reply = one_hour_write()
+    target = BedrockTarget(
+        prompt,
+        PROFILE_ARN,
+        64,
+        client=client,
+        pricing=bedrock_pricing("eu-west-1").override(
+            PROFILE_ARN, ModelPrice(3.0, 15.0, 0.30, 3.75)
+        ),
+    )
+    response = target(a_case())
+    assert response.cost_usd is None
+    assert response.unpriced is not None
+    assert "<arn>" in response.unpriced
+    assert "123456789012" not in response.unpriced
+    suite = Suite(
+        tenant="t",
+        environment="test",
+        name="s",
+        assertions=[Contains("Rome"), CostBudget(max_usd=1.0, tolerance=0.0)],
+        cases=[a_case()],
+    )
+    client.reply = one_hour_write()
+    run = execute(suite, target, created_at="2026-10-02T00:00:00Z")
+    content, budget = run.results[0].verdicts
+    assert content.status == "pass"
+    assert "not computable" in budget.reason
+    assert "arn:aws" not in budget.reason and "123456789012" not in budget.reason
 
 
 def test_a_reply_without_cache_details_is_read_as_before() -> None:

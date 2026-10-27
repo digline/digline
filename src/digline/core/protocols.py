@@ -95,6 +95,21 @@ class JudgeAbstained(Exception):
     """
 
 
+class JudgePriceRaised(Exception):
+    """Raised by a judge that answered, when pricing its reply raised.
+
+    **Not *the judge raised*.** The call answered and its counts are on the
+    judge's line; what failed is the price list, which nobody declared unable
+    to price this reply. So the check is `error` and says what failed, and the
+    line says the call's cost is not known instead of reading as complete
+    (ADR 0004 §8.6, measured on 2026-10-27).
+
+    It lives here for `JudgeAbstained`'s reason: the assertion catches it, and
+    the core may not import the layer above it. The message names the price's
+    exception and quotes it, and the original stays on `__cause__`.
+    """
+
+
 @runtime_checkable
 class Judge(Protocol):
     """The only I/O an assertion can reach, and the core does not supply it.

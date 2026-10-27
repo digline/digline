@@ -223,6 +223,14 @@ class ProviderTarget(ABC):
         # and counted at nothing: `cost_usd=None` and `usage=None`, which the
         # run's line reads as a call seen and a cost not known (#629). A zero
         # would be a price nobody stated.
+        #
+        # A reply whose counts were read and whose cost cannot be computed
+        # keeps its counts and has no cost: the plugin says so, or the price
+        # list does, asked before it prices. The line reads it as a call seen
+        # and counted, its money not known (ADR 0004 §8.5).
+        unpriced = reply.unpriced
+        if unpriced is None and usage is not None:
+            unpriced = self.pricing.why_unpriced(self.model, usage)
         counts: dict[str, object] = (
             {}
             if usage is None
@@ -236,7 +244,11 @@ class ProviderTarget(ABC):
         return Response(
             output=self._parsed(reply),
             input=prompt,
-            cost_usd=None if usage is None else self.pricing.cost(self.model, usage),
+            cost_usd=(
+                None
+                if usage is None or unpriced is not None
+                else self.pricing.cost(self.model, usage)
+            ),
             latency_ms=elapsed_ms,
             # The counts, typed, where the document reads them from. The four
             # copies in `metadata` below stay for assertions that already read
@@ -252,6 +264,7 @@ class ProviderTarget(ABC):
                 # reaches a run file is what an assertion measured out of it.
                 **reply.as_metadata(),
             },
+            unpriced=unpriced,
         )
 
     def _token_cap(self) -> int | None:

@@ -423,6 +423,17 @@ CALLED: dict[tuple[str, str, str], str] = {
 #: at a version: "undated" is a value. None today.
 UNDATED: dict[tuple[str, str, str], str] = {}
 
+#: The entries on `main` and in no release tag, each with what brought it.
+#: `UNDATED` is *the history does not answer*; this is *it is in no tag yet*,
+#: and the cut answers it: each entry moves into `CALLED` with the number of
+#: the release that carries it (RELEASING.md, *Before the tag: moving the
+#: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
+#: so a name the cut forgot to move fails there rather than staying here.
+UNRELEASED: dict[tuple[str, str, str], str] = {
+    ("digline.targets.completion", "Completion", "unpriced"): "#569",
+    ("digline.targets.pricing", "Pricing", "why_unpriced"): "#569",
+}
+
 
 def plugins() -> list[Path]:
     found = sorted(p for p in PACKAGES.iterdir() if (p / "pyproject.toml").is_file())

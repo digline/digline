@@ -536,9 +536,16 @@ The totals cross a boundary; the per-call counts on a recorded response do not
   something that is not a `Response`, and a provider reply whose usage the
   plugin could not read, `Completion(usage=None)`, on the target's line or on
   a judge's, where `JudgeBase` counts it in `uncounted_calls` (#629). Such a
-  call adds nothing to `spent_usd`. It is **`None`** for a `Billable` judge
-  that keeps no `uncounted_calls`: nothing established that it priced every
-  call.
+  call adds nothing to `spent_usd`. **And a call whose counts were read and
+  whose cost cannot be computed**, `Completion(usage=…, unpriced="…")` or a
+  price list with no rate for tokens it reports: it is counted, its tokens are
+  on the line, and `JudgeBase` counts it in `unpriced_calls` (ADR 0004 §8). It
+  is **`None`** for a `Billable` judge that keeps neither count, or keeps one
+  at zero and not the other: `true` is read off two zeros, never assumed.
+- **Why a cost is not known is said once, after the bill.** `digline run`
+  prints each distinct sentence a plugin or a price list gave, on standard
+  error after the bill line, as *cost not computable: …*. `execute()` hands
+  them to `on_unpriced`; they are never in the run document.
 
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
@@ -609,9 +616,19 @@ AnthropicTarget(
 A price list is a fact about a day, and the plugin's carries the date it was
 read. digline does not cut a release because a price moved.
 
-**An unknown model raises**; so does a cached read the list cannot price. A
-model priced at zero passes every `CostBudget` there is, quietly and in the
-direction of good news, which is fixed decision 3.
+**An unknown model raises.** A model priced at zero passes every `CostBudget`
+there is, quietly and in the direction of good news, which is fixed decision 3.
+
+**Tokens of a kind the list has no rate for are not priced, and not zero.**
+`Pricing.why_unpriced(model, usage)` says why, or `None` where the list can
+price the counts, and the reading asks it before `cost`. The call is then
+counted with its tokens and without a cost, and the run prints the sentence
+after the bill (ADR 0004 §8). `cost` itself still raises on those counts, for
+a caller that does not ask first. Every list built from `Pricing` —
+`override`, `free`, `[target.pricing]` — answers for its own rates, so a list
+of yours with no cached-read rate moves without doing anything.
+**A subclass that overrides `cost` overrides `why_unpriced` too**, or it is
+read as unpriced before its own `cost` is asked.
 
 ### `HttpTarget`
 
@@ -793,6 +810,13 @@ mistake rather than a formatting one:
   The call is still on the line; its tokens and cost are not, and
   `every_cost_known` says so. A count read and found zero is a measurement and
   stays a `0`. (#629)
+- **`unpriced` is a cost you cannot compute over counts you read.** Where the
+  counts are known and no rate is — a geography or a cache write your price
+  list has no rate for — hand over the counts and `unpriced="…"`: a sentence
+  saying why, written for the person who ran the command, who reads it after
+  the bill. The case is judged; the call is on the line with its tokens, and
+  its cost is not. It is refused beside `usage=None`, which already says the
+  cost is not known, and refused empty. (ADR 0004 §8.2)
 - **`model` is read out of the reply, never copied from the request.** Echoing
   the requested id back would manufacture the one fact it exists to obtain, and
   would do so identically whether or not the model had rolled underneath. A
@@ -1500,6 +1524,12 @@ the system.
 A judge that raises, that returns a score out of range or that gives no reason
 produces a verdict in **`error`**, not a failure: not having been able to judge
 is a different thing from having judged badly.
+
+A judge that answered and whose **price** raised is not one that blew up.
+`JudgeBase` counts the call, its tokens on the judge's line and its cost not
+known, and raises `JudgePriceRaised`, from `digline.core`: the check is `error`
+with *the judge answered, and pricing its reply raised …*. Before ADR 0004 §8
+the line read as complete over such a call.
 
 ### A judge that cannot answer
 
