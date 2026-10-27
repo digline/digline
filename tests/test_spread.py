@@ -549,7 +549,7 @@ def test_the_wire_carries_every_number_the_sentence_uses() -> None:
     payload = log_json(read(rows, ("kb", a_run("2025-12-01T00:00:00+00:00", 0.76))))
     [row] = cast("list[dict[str, Any]]", payload["spread"])
 
-    assert row["name"] == "accuracy"
+    assert row["assertion"] == "accuracy"
     assert row["low"] == 0.71 and row["high"] == 0.86
     assert row["runs"] == 2
     assert row["excluded"] == {"config_hash": 1}

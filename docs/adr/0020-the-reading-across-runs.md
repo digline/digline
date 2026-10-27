@@ -43,6 +43,9 @@
   it is older than the distinction and renaming it is an `OUTPUT_VERSION` bump
   for a word; the note saying so lives beside the field in `wire/log.py`, where
   somebody would go to correct it
+  *Annotated 2026-10-27, the sentence above kept as written:* the wire key is
+  `reported` since `output_version` 4, which renamed it in the bump that renamed
+  a verdict's check (#678)
 - Amended: 2026-09-16 by [ADR 0024](0024-the-judge-as-an-instrument.md) §7 —
   §4 gains one sentence and loses nothing: a reading may group runs by identity
   and read their aggregates, in a type of its own. Identity decides which runs

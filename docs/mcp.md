@@ -199,7 +199,7 @@ there is no answer to which one is digline's. What each tool returns today:
 |---|---|---|
 | `compare` | `compare_json`, the full form | `digline compare --json full --locale en`, held equal by a test |
 | `diff` | `diff_json`, the full form, its `sentence` in English | `digline diff --json full --locale en`, held equal by a test |
-| `explain` | `explain_json`, plus `key`, the run it read | `digline explain --json`, which has no `key`; equal otherwise, by a test |
+| `explain` | `explain_json` | `digline explain --json`, held equal by a test |
 | `log` | `log_json` | `digline log --json`, held equal by a test |
 | `run` | `run_json`; `resumed` is always `false`, because the tool has no way to resume | `digline run --json`: a test holds the same keys |
 | `list_runs` | `runs_json` | none: `digline list` has no `--json` |
@@ -208,11 +208,13 @@ there is no answer to which one is digline's. What each tool returns today:
 
 The tests are in `packages/digline-mcp/tests/test_tools.py`.
 
-**In `get_run` and `get_baseline` a verdict's check is named by `name`.** The
-run file and every other document that carries a verdict name the same field
-`assertion`: `compare`'s `deltas`, `diff`'s `checks` and `explain`'s `facts`.
-The other fields whose form differs from one document to the next,
-`modules_unchecked`, `runs` and `promoted_at`, are listed in
+**A verdict's check is named `assertion` in every tool**: `get_run`,
+`get_baseline` and each aggregate row of `list_runs`, `compare`'s `deltas`,
+`shape` and `suite_deltas`, `diff`'s `checks`, `explain`'s `facts` and `log`'s
+`spread`, as the run file does. Until `output_version` 4 it went by `name`,
+`check` and `rule` in some of them (#678). The fields
+whose form still differs from one document to the next, `modules_unchecked`,
+`runs` and `promoted_at`, are listed in
 [the API reference](api.md#the-same-fact-in-different-documents).
 
 `compare` carries `exit_code` — `0` proceed, `1` stop and report what got worse,
@@ -237,8 +239,7 @@ carries **`baseline_key`** where its `scope` is `comparison`; `compare` always
 does. Both are derived from the documents read, not copied from your argument,
 so with `latest` they say which run was picked, and with a key they confirm it.
 Quote and recommend the run by `run_key`: a second `get_run(run="latest")` can
-resolve to a run that landed in between. `explain` also keeps the `key` it
-carried before, the same run, until the next `output_version`. (#448)
+resolve to a run that landed in between. (#448)
 
 ## What never crosses
 

@@ -467,6 +467,20 @@ notes under them are this file, verbatim.
     a published caller keeps working, and `runs_json` taking a projected
     listing's counts in place of the listing, which holds file names (#362).
   A patch: nothing that existed moves.
+- **`output_version` is 4: one concept, one name** (#678). A verdict's
+  `score.name` was `assertion` in the run file, `compare --json`'s `deltas`,
+  `diff --json`'s `checks` and `explain --json`'s `facts`, and went by three
+  other names. Each is `assertion` now: `name` on a verdict in the MCP tools
+  `get_run`, `get_baseline` and `list_runs`, `name` in `log --json`'s
+  `spread`, `check` in `shape` (`compare --json full` and `explain --json`),
+  and `rule` in `suite_deltas`. `answered` is `reported` on `log --json`'s
+  sightings and spans, the word every sentence already used. A consumer
+  reading an old name reads the new one. No alias carries both: the bump is
+  the transition. `name` on an `explain` setting fact and `check` on a
+  calibration band stay, because they are not this concept.
+  The contract's table folds the five keys added under 3 into its base: three
+  shipped under 3 in 0.34.0, and `unpaired` on `compare` ships first under 4.
+  A bump of `OUTPUT_VERSION` is a minor, and this release is already one.
 
 ## 0.34.0 — 2026-10-26
 
@@ -812,6 +826,17 @@ floor RELEASING.md's table names.
   guarantee. An `xfail(strict=True)` in the gate holds what is missing, the
   core's error classes carrying those names in fields, and turns red when they
   do.
+- **Breaking: keys renamed at `output_version` 4** (#678), which the core
+  release that carries #678 writes. A verdict's check is `assertion` in
+  `get_run`, `get_baseline` and each aggregate row of `list_runs`, where it was
+  `name`; in `compare`'s and `explain`'s `shape`, where it was `check`; in
+  `compare`'s `suite_deltas`, where it was `rule`; and in `log`'s `spread`,
+  where it was `name`. `log`'s sightings and spans say `reported` where they
+  said `answered`. A client reading an old name has to read the new one. No
+  alias carries both. And `explain` no longer adds `key` beside its document:
+  the run it read is `run_key`, which it has carried since #448, when `key`
+  was kept until the next bump; this is that bump, and `explain` is now
+  `digline explain --json` as it is. It rides the minor #548 already makes.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,

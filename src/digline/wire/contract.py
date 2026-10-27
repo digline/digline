@@ -266,6 +266,43 @@ __all__ = [
 #:    into `_BASE`: the 34 keys and the one word added under 2 are in version
 #:    3's base, each beside the provenance its entry carried.
 #:
+#: 4: **the first bump that renames keys.** One concept, one name: the
+#:    value a verdict's `score.name` holds is called `assertion` in the run file
+#:    and in `compare`'s `deltas`, `diff`'s `checks` and `explain`'s `facts`,
+#:    and it went by three other names. It is `assertion` in all of them now:
+#:    - `name` on a verdict in the MCP tools `get_run` and `get_baseline` and
+#:      in each aggregate row of `list_runs`, so inside one server the same
+#:      verdict, under the same `assertion_id`, had two spellings;
+#:    - `name` on each entry of `log --json`'s `spread`;
+#:    - `check` on each entry of `shape`, in `compare --json full` and in
+#:      `explain --json`'s shape facts;
+#:    - `rule` on each entry of `suite_deltas`.
+#:    And `answered` is `reported` on `log --json`'s sightings and spans: the
+#:    verb every sentence already used for `resolved_model`, and a rename ADR
+#:    0020 (amended) declared owed to the next bump.
+#:
+#:    No alias carries an old name beside its new one: a document with both
+#:    would keep the two spellings the bump removes, and the bump is the
+#:    transition. (#678)
+#:
+#:    **Two names stay, and are not renames.** `name` on an `explain` setting
+#:    fact holds a rule's name, a configuration key or an artifact's path
+#:    according to `kind`: a vocabulary, not one concept. `check` on a
+#:    calibration band is the name the suite declared, and a verdict's
+#:    `score.name` may differ from it (`CalibrationBand`; ADR 0024 §4.7,
+#:    amended 2026-09-26): calling it `assertion` would claim an identity the
+#:    core denies.
+#:
+#:    The bump folds `_ADDED` into `_BASE`: the five keys added under 3 are in
+#:    version 4's base, each beside the provenance its entry carried. Three of
+#:    them, `every_call_seen` and `every_cost_known` on a line of `usage`
+#:    (#563) and `error_kind` on a case (#425), shipped in 0.34.0, the one
+#:    release that wrote version 3, so no release wrote a version-3 `usage`
+#:    line or case without them.
+#:    The other two, `unpaired` on `compare` and `compare.full` (#642), were
+#:    added after that tag and no release wrote them under 3: they ship first
+#:    under 4.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -298,7 +335,7 @@ __all__ = [
 #: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
 #: a key, the record is an entry in `_ADDED` at the end of this module, and a
 #: test refuses the key until it is there. A paragraph here may still say why.
-OUTPUT_VERSION = 3
+OUTPUT_VERSION = 4
 
 EXIT_OK = 0
 EXIT_WORSE = 1
@@ -445,9 +482,10 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #
 # **What this table does not hold: a key a front end splices beside a
 # document.** It types what the builders in this package emit, and that is
-# not every response `digline-mcp` returns. Its `explain`, `get_run` and
-# `get_baseline` tools return a builder's document with the run's `key` added
-# beside it. That key is pinned elsewhere: by name, in `digline-mcp`'s
+# not every response `digline-mcp` returns. Its `get_run` and `get_baseline`
+# tools return a builder's document with the run's `key` added beside it, and
+# its `explain` did too until `OUTPUT_VERSION = 4` (#678). That key is pinned
+# elsewhere: by name, in `digline-mcp`'s
 # `SPLICE_ALLOWED`, and by its tool tests. Nothing here moves if it does.
 # Measured in the release that shipped this table: renamed in the server, the
 # key left this table's test green and failed four of `digline-mcp`'s.
@@ -487,6 +525,14 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #   on, which went from *covered by the interval the samples spanned* to
 #   *covered by the declared floor* in 0.33.0. A word in a vocabulary is still
 #   outside it, as the next paragraph says.
+#
+# **A name is qualified by its role only where two things of the same kind can
+# stand in one document.** `compare` and `explain` carry `run_key` because a
+# second run can stand beside it, `baseline_key`, and with `explain`'s `scope:
+# "comparison"` it does; `get_run` and `get_baseline` name the one run they are
+# about `key`. So when `explain` carried both `key` and `run_key` for one run,
+# `run_key` was the name to keep and `key`, the splice it replaced (#448), the
+# one to remove, at the bump to 4. Ruled 2026-10-27 (#678).
 #
 # **What this does not catch, stated where the claim is made.** A value from a
 # vocabulary a consumer matches on, such as an outcome or a kind, moving to
@@ -594,10 +640,10 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 3`, with
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 4`, with
 #: the issue or ADR that added it. Appended to, never edited, like `_ADDED`. The
 #: word added under 2, `projected` on `log.spread_absence`, is in `_BASE`'s
-#: vocabulary (#669).
+#: vocabulary (#669). None was added under 3.
 _ADDED_WORDS: tuple[_AddedWord, ...] = ()
 
 
@@ -670,8 +716,7 @@ _HEADLINE: Mapping[str, _Key] = {
     # word, and a second call to learn the key can resolve a different run.
     # `explain` also names its reference, where its scope is `"comparison"`.
     # Optional because a builder's caller written before them passes no run;
-    # every front end here passes one. MCP's `explain` already splices `key`
-    # beside its document, so there it carries the run twice until a bump.
+    # every front end here passes one.
     # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: #448.
     "run_key": _k("string", optional=True),
     # A run in which none of the cases that count was judged, read against the
@@ -708,6 +753,14 @@ _HEADLINE: Mapping[str, _Key] = {
     # Moves no number; an added key, no bump. (ADR 0053)
     # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0053.
     "unjudged_causes": _STRINGS,
+    # How many checks the comparison could not pair with their reference: a
+    # `missing` and a `new` on the same case, scope and name. A new cause of exit
+    # 2, named `unpaired` in `unjudged_causes`, which a consumer reading
+    # `exit_code` already honours, by the rule `nothing_judged` arrived under.
+    # What changes is behaviour, a comparison that exited 0 on that case now
+    # exits 2, which no version of the format can say. (#642)
+    # Added under `OUTPUT_VERSION = 3`, on `compare` and `compare.full`: #642.
+    "unpaired": _INT,
 }
 
 _DIFF: Mapping[str, _Key] = {
@@ -723,7 +776,8 @@ _DIFF: Mapping[str, _Key] = {
 }
 
 _VERDICT: Mapping[str, _Key] = {
-    "name": _STR,
+    # `name` until `OUTPUT_VERSION = 4`. (#678)
+    "assertion": _STR,
     "assertion_id": _STR,
     "status": _STR,
     "score": _NUM_OR_NULL,
@@ -731,12 +785,12 @@ _VERDICT: Mapping[str, _Key] = {
     "tolerance": _NUM,
 }
 
-#: The shape of every document under `OUTPUT_VERSION = 3`. Written on
-#: 2026-10-02 as version 2's base, and folded at the bump to 3 (#669): every key
-#: and word added under 2 is in it now, each beside the provenance its entry in
-#: `_ADDED` or `_ADDED_WORDS` carried. **It does not move** under
-#: `OUTPUT_VERSION = 3`: an added key goes in `_ADDED`, and anything else here
-#: is a bump.
+#: The shape of every document under `OUTPUT_VERSION = 4`. Written on
+#: 2026-10-02 as version 2's base, folded at the bump to 3 (#669) and again at
+#: the bump to 4 (#678): every key and word added under 2 and under 3 is in it,
+#: each beside the provenance its entry in `_ADDED` or `_ADDED_WORDS` carried.
+#: **It does not move** under `OUTPUT_VERSION = 4`: an added key goes in
+#: `_ADDED`, and anything else here is a bump.
 _BASE: Mapping[str, Mapping[str, _Key]] = {
     # `compare --json`, and the MCP `compare` tool. (compare.py)
     "compare": _HEADLINE,
@@ -789,7 +843,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "before_interval": _k(_Obj("interval"), "null"),
     },
     "shape": {
-        "check": _STR,
+        # `check` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "assertion_id": _STR,
         "run": _k(_Obj("shape.side")),
         "reference": _k(_Obj("shape.side"), "null"),
@@ -809,7 +864,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "withheld": _BOOL,
     },
     "rule_delta": {
-        "rule": _STR,
+        # `rule` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "assertion_id": _STR,
         "scope": _STR,
         "outcome": _STR,
@@ -871,8 +927,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "intervals_disjoint": _BOOL,
     },
     "interval": {"min": _NUM, "max": _NUM, "samples": _INT},
-    # `explain --json`, and the MCP `explain` tool, which adds `key` beside it
-    # (above). (explain.py)
+    # `explain --json`, and the MCP `explain` tool, which returns it as it is.
+    # (explain.py)
     "explain": {
         "output_version": _INT,
         "scope": _STR,
@@ -891,8 +947,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # word, and a second call to learn the key can resolve a different run.
         # `explain` also names its reference, where its scope is `"comparison"`.
         # Optional because a builder's caller written before them passes no run;
-        # every front end here passes one. MCP's `explain` already splices `key`
-        # beside its document, so there it carries the run twice until a bump.
+        # every front end here passes one.
         # Added under `OUTPUT_VERSION = 2`: #448.
         "run_key": _k("string", optional=True),
         # Added under `OUTPUT_VERSION = 2`: #448.
@@ -995,14 +1050,16 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     "log.sighting": {
         "provider": _STR,
         "sent": _STRINGS,
-        "answered": _STR_OR_NULL,
+        # `answered` until `OUTPUT_VERSION = 4`. (#678; ADR 0020, amended)
+        "reported": _STR_OR_NULL,
         "absence": _STR_OR_NULL,
     },
     "log.span": {
         "side": _STR,
         "provider": _STR,
         "sent": _STRINGS,
-        "answered": _STR_OR_NULL,
+        # `answered` until `OUTPUT_VERSION = 4`. (#678; ADR 0020, amended)
+        "reported": _STR_OR_NULL,
         "absence": _STR_OR_NULL,
         "first_seen": _STR,
         "last_seen": _STR,
@@ -1022,7 +1079,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "unread_on_record": _INT,
     },
     "log.spread": {
-        "name": _STR,
+        # `name` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": _STR,
         "latest": _NUM,
         "reference": _NUM_OR_NULL,
         "low": _NUM_OR_NULL,
@@ -1187,6 +1245,11 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "canary": _BOOL,
         "calibration": _k(_Obj("calibration"), "null"),
         "verdicts": _k(_arr(_Obj("run_document.verdict"))),
+        # Of what kind a case's error was, `raised` or `shape`, or `null` where the
+        # case did not error at the target or the mapper, or the run was written
+        # before schema 21. The reason that says it does not cross. (#425)
+        # Added under `OUTPUT_VERSION = 3`: #425.
+        "error_kind": _k("string", "null"),
     },
     "run_document.verdict": {
         **_VERDICT,
@@ -1223,35 +1286,24 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "cache_write_tokens": _INT,
         "thinking_tokens": _k("integer", "null"),
         "spent_usd": _NUM,
+        # Whether a line of the bill saw every call and knew the cost of each:
+        # `false` where a call raised and is on no line, or was seen and not
+        # priced; `null` where not recorded, a run written before schema 21 or a
+        # judge digline cannot read. A consumer that summed `spent_usd` as the
+        # whole bill can now tell when it is not. (#563)
+        # Added under `OUTPUT_VERSION = 3`: #563.
+        "every_call_seen": _k("boolean", "null"),
+        # Added under `OUTPUT_VERSION = 3`: #563.
+        "every_cost_known": _k("boolean", "null"),
     },
 }
 
-#: Every key added under `OUTPUT_VERSION = 3` since its `_BASE` was pinned, one
+#: Every key added under `OUTPUT_VERSION = 4` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
-#: that is a bump. The keys added under 2 are in `_BASE`, each beside the
-#: provenance its entry carried (#669).
-_ADDED: tuple[_AddedKey, ...] = (
-    # Whether a line of the bill saw every call and knew the cost of each:
-    # `false` where a call raised and is on no line, or was seen and not
-    # priced; `null` where not recorded, a run written before schema 21 or a
-    # judge digline cannot read. A consumer that summed `spent_usd` as the
-    # whole bill can now tell when it is not. (#563)
-    _AddedKey("usage.line", "every_call_seen", _k("boolean", "null"), "#563"),
-    _AddedKey("usage.line", "every_cost_known", _k("boolean", "null"), "#563"),
-    # Of what kind a case's error was, `raised` or `shape`, or `null` where the
-    # case did not error at the target or the mapper, or the run was written
-    # before schema 21. The reason that says it does not cross. (#425)
-    _AddedKey("run_document.case", "error_kind", _k("string", "null"), "#425"),
-    # How many checks the comparison could not pair with their reference: a
-    # `missing` and a `new` on the same case, scope and name. A new cause of exit
-    # 2, named `unpaired` in `unjudged_causes`, which a consumer reading
-    # `exit_code` already honours, by the rule `nothing_judged` arrived under.
-    # What changes is behaviour, a comparison that exited 0 on that case now
-    # exits 2, which no version of the format can say. (#642)
-    _AddedKey("compare", "unpaired", _INT, "#642"),
-    _AddedKey("compare.full", "unpaired", _INT, "#642"),
-)
+#: that is a bump. The keys added under 2 and under 3 are in `_BASE`, each
+#: beside the provenance its entry carried (#669, #678).
+_ADDED: tuple[_AddedKey, ...] = ()
 
 
 def _derive(
@@ -1321,6 +1373,6 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: both: a `_BASE` that moved under the same version is a rename, a removal or
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
-    3,
-    "215eebb4b9299c42e8403a01342f53d402f5a8baf68ded2faf2b88802803050c",
+    4,
+    "c31be61cfcc0a8a2b2aadfde16f48fe63e12203ec16242e9aae87456219980fb",
 )

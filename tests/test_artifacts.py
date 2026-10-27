@@ -1402,7 +1402,7 @@ def test_compare_json_carries_the_three_facts_as_added_keys() -> None:
     comparison, head = judged(after, before)
     payload = compare_json(comparison, head, baseline=before, full=False, run=after)
 
-    assert payload["output_version"] == 3
+    assert payload["output_version"] == 4
     missing = {"pinned_unreferenced", "pinned_withdrawn", "pinned_lost"} - set(payload)
     assert not missing, f"compare --json does not carry {sorted(missing)}"
     assert (

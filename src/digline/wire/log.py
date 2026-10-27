@@ -35,16 +35,16 @@ __all__ = [
 
 
 def sighting_json(found: Sighting) -> dict[str, object]:
-    """One side of one run. `answered` is null exactly when `absence` names why.
+    """One side of one run. `reported` is null exactly when `absence` names why.
 
-    **The key is `answered`, the rendered prose says *reported*, and that is
-    deliberate — do not "fix" it.** The field name is older than the
-    distinction. What it holds is `resolved_model`: an id the provider
-    *reported*, which is why it sits in `OBSERVED_FIELDS`, and which nothing
-    attests. The sentences were amended to say `reported as` because one field
-    was getting two verbs in two renderings; the key was not, because renaming
-    it is an `OUTPUT_VERSION` bump for a word and would break every consumer
-    parsing `answered` to tell them something they already knew.
+    **The key is `reported`, as the rendered prose says, since `OUTPUT_VERSION =
+    4`.** It was `answered`, a name older than the distinction. What it holds is
+    `resolved_model`: an id the provider *reported*, which is why it sits in
+    `OBSERVED_FIELDS`, and which nothing attests. The sentences were amended to
+    say `reported as` because one field was getting two verbs in two
+    renderings; the key waited, because renaming it is an `OUTPUT_VERSION` bump
+    for a word, and it took the bump that renamed a verdict's check. The
+    dataclass field is still `answered`: it is not on the wire. (#678)
 
     A differing id is still more than an echo — no passthrough returns a string
     nobody sent — so ADR 0020 §3's doctrine stands. The verb moved, not the
@@ -53,7 +53,7 @@ def sighting_json(found: Sighting) -> dict[str, object]:
     return {
         "provider": found.provider,
         "sent": list(found.sent),
-        "answered": found.answered,
+        "reported": found.answered,
         "absence": found.absence,
     }
 
@@ -63,7 +63,7 @@ def span_json(span: IdentitySpan) -> dict[str, object]:
         "side": span.side,
         "provider": span.provider,
         "sent": list(span.sent),
-        "answered": span.answered,
+        "reported": span.answered,
         "absence": span.absence,
         "first_seen": span.first_seen,
         "last_seen": span.last_seen,
@@ -109,7 +109,8 @@ def spread_json(item: AggregateSpread) -> dict[str, object]:
     the text refuses to give. (ADR 0024 §7.4, amended 2026-09-22)
     """
     return {
-        "name": item.name,
+        # `name` until `OUTPUT_VERSION = 4`. (#678)
+        "assertion": item.name,
         "latest": item.latest,
         "reference": item.reference,
         "low": item.low,

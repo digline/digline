@@ -105,7 +105,7 @@ def test_explain_carries_it_and_is_still_the_cli(
     answered = call(root, "explain", suite=suite(root), run="latest")
 
     assert says_newer(answered["note"], newer=newer, older=older)
-    assert answered.pop("key") == older
+    assert answered["run_key"] == older
     assert answered == json.loads(done.stdout)
 
 
