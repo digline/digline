@@ -932,3 +932,156 @@ def test_a_header_whose_integer_is_not_one_is_refused_by_name(
     assert f"{field!r} is a JSON " in pending.refusal, pending.refusal
     assert "not an integer" in pending.refusal
     assert path.exists()
+
+
+# -- a refusal names a place, never what the file holds (#350) --------------- #
+
+#: What a corrupted leg holds, and what no refusal of it may repeat.
+HELD = "held-7f3a"
+
+
+def _corrupt(record: dict[str, Any], how: str) -> None:
+    """One way, of twenty, to make a `case` record hold `HELD` where the
+    reader looks. A response is written in where the mutation needs one: this
+    suite's cases record none."""
+    case = record["case"]
+    verdict = case["verdicts"][0]
+    if how == "case_id_object":
+        case["case_id"] = {"x": HELD}
+    elif how == "verdicts_string":
+        case["verdicts"] = HELD
+    elif how == "verdict_status":
+        verdict["status"] = HELD
+    elif how == "verdict_score_string":
+        verdict["score"] = HELD
+    elif how == "verdict_name_object":
+        verdict["assertion"] = {HELD: 1}
+    elif how == "verdict_floor_string":
+        verdict["floor_standard_errors"] = HELD
+    elif how == "verdict_metadata_key":
+        verdict["metadata"] = {HELD: [HELD]}
+    elif how == "responses_string":
+        case["responses"] = [HELD]
+    elif how == "response_kind_string":
+        case["responses"] = [{"output": "x", "kind": HELD}]
+    elif how == "response_cost_string":
+        case["responses"] = [{"output": "x", "cost_usd": HELD}]
+    elif how == "response_latency_array":
+        case["responses"] = [{"output": "x", "latency_ms": [HELD]}]
+    elif how == "response_tool_call_tool":
+        case["responses"] = [{"output": "x", "tool_calls": [{"tool": {HELD: 1}}]}]
+    elif how == "suspended_string":
+        case["suspended"] = HELD
+    elif how == "error_kind_string":
+        case["error_kind"] = HELD
+    elif how == "calibration_string":
+        case["calibration"] = HELD
+    elif how == "usage_string":
+        record["usage"] = HELD
+    elif how == "usage_line_strings":
+        record["usage"] = {field: HELD for field in record["usage"]}
+    elif how == "case_missing":
+        del record["case"]
+        record[HELD] = 1
+    elif how == "kind_string":
+        record["kind"] = HELD
+    else:
+        raise AssertionError(how)
+
+
+def _corrupted_refusal(root: Path, how: str) -> str:
+    key = killed(root, a_suite(), Counting(die_at=4))
+    path = legs(root, key)[0]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    at = next(i for i, line in enumerate(lines) if json.loads(line)["kind"] == "case")
+    record = json.loads(lines[at])
+    _corrupt(record, how)
+    lines[at] = json.dumps(record)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return FileResultStore(root).pending(TENANT, SUITE)[0].refusal
+
+
+@pytest.mark.parametrize(
+    "how",
+    [
+        # Read without a refusal: `str()` makes an object a `case_id` and a
+        # verdict's name, and a verdict's metadata keys are free. For these
+        # three the assertion holds because there is nothing to read.
+        "case_id_object",
+        "verdict_name_object",
+        "verdict_metadata_key",
+        "verdicts_string",
+        "verdict_status",
+        "verdict_score_string",
+        "verdict_floor_string",
+        pytest.param(
+            "responses_string",
+            marks=pytest.mark.xfail(
+                raises=AttributeError,
+                strict=True,
+                reason="a crash, not repaired here: the reader calls .get on a "
+                "response that is a string, and the AttributeError leaves "
+                "`pending` uncaught instead of refusing the leg",
+            ),
+        ),
+        "response_kind_string",
+        "response_cost_string",
+        "response_latency_array",
+        "response_tool_call_tool",
+        "suspended_string",
+        "error_kind_string",
+        "calibration_string",
+        "usage_string",
+        "usage_line_strings",
+        "case_missing",
+        "kind_string",
+    ],
+)
+def test_a_corrupted_leg_is_refused_without_repeating_what_it_holds(
+    tmp_path: Path, how: str
+) -> None:
+    """A refusal names the field and never echoes what the file holds (#350),
+    on every way of corrupting a record measured for it. The twentieth way,
+    a byte that is not UTF-8, is the codec's message and is below."""
+    refusal = _corrupted_refusal(tmp_path, how)
+
+    assert HELD not in refusal, refusal
+
+
+@pytest.mark.parametrize(
+    ("how", "field"),
+    [
+        ("verdict_status", "'status'"),
+        ("usage_string", "'usage'"),
+        ("kind_string", "'kind'"),
+        ("response_kind_string", "'kind'"),
+        ("verdict_floor_string", "'floor_standard_errors'"),
+    ],
+)
+def test_the_refusal_still_names_the_record_and_the_field(
+    tmp_path: Path, how: str, field: str
+) -> None:
+    """The five that repeated a value now name where it is: which line of
+    which leg, and which field. That is what makes a refusal one a person can
+    act on."""
+    refusal = _corrupted_refusal(tmp_path, how)
+
+    assert refusal.startswith("leg 1 of "), refusal
+    assert "at line 3" in refusal, refusal
+    assert field in refusal, refusal
+
+
+def test_a_byte_that_is_not_utf8_keeps_the_codecs_message(tmp_path: Path) -> None:
+    """The codec's message stays: it reaches only the standard error of the
+    person who ran the command, which is their perimeter (ADR 0043), and the
+    store never resumes a journal for anybody else (ADR 0017 §11)."""
+    key = killed(tmp_path, a_suite(), Counting(die_at=4))
+    path = legs(tmp_path, key)[0]
+    data = path.read_bytes()
+    cut = data.index(b'"case_id"') + 3
+    path.write_bytes(data[:cut] + b"\xe9" + data[cut:])
+
+    refusal = FileResultStore(tmp_path).pending(TENANT, SUITE)[0].refusal
+
+    assert refusal.startswith("leg 1 of "), refusal
+    assert "can't decode byte 0xe9" in refusal, refusal
