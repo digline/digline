@@ -2345,7 +2345,7 @@ half of the classification's bookkeeping and stays internal.
 ## What `--json` promises
 
 `digline compare --json` and `digline run --json` print an object whose first
-key is `output_version`, currently `3`. It is bumped when the shape changes and
+key is `output_version`, currently `4`. It is bumped when the shape changes and
 is **not** `SCHEMA_VERSION`: that one versions documents already on disk and
 comes with migrations, because a run file written last month must still be
 readable. This one versions what a pipeline parses on stdout today, where
@@ -2361,6 +2361,17 @@ otherwise go on parsing it and be wrong in silence, with the version unchanged.
 boolean whose meaning moves is a bump as well. The version does not cover a
 word in a vocabulary changing, such as an outcome or a kind a consumer matches
 on: the value is still a string.
+
+**Version 4 renames a key.** A verdict's check was `name` in the MCP tools
+`get_run` and `get_baseline`, and in each aggregate row of `list_runs`, and
+`assertion` in every other document that carries a verdict: the run file,
+`compare --json`'s `deltas`, `diff --json`'s `checks` and `explain --json`'s
+`facts`. It is `assertion` in every document that carries a verdict now. No
+document carries both. A consumer
+that reads `name` on a verdict from those three tools reads `assertion` from
+version 4 on, and nothing else in the contract moved (#678). The keys added under
+version 3 are kept: `every_call_seen`, `every_cost_known` and `error_kind` shipped
+under it in 0.34.0, and `unpaired`, on `compare`, ships first under 4.
 
 **Version 3 is the first bump for a change of meaning, and it leaves version 2
 ambiguous** (#669). In 0.33.0, under `output_version: 2`, `noise_min`,
@@ -2445,7 +2456,7 @@ the target's alone, because nothing checks what a mapper returns.
 
 ### The same fact in different documents
 
-Four facts take a different form depending on the document that carries them.
+Three facts take a different form depending on the document that carries them.
 Each form below is the one the code writes today.
 
 - **`modules_unchecked`**, the modules the run found already loaded rather than
@@ -2474,10 +2485,9 @@ Each form below is the one the code writes today.
   - **a run file:** the key is absent (`digline.core.run`);
   - **the MCP tools `get_run` and `get_baseline`:** `""` (`digline.wire.run`);
   - **`log --json`:** `null` (`digline.wire.log`).
-- **A verdict's check:**
-  - **the run file, `compare --json`'s `deltas`, `diff --json`'s `checks` and
-    `explain --json`'s `facts`:** `assertion`;
-  - **the MCP tools `get_run` and `get_baseline`:** `name`.
+
+A verdict's check was a fourth, until `output_version` 4: it is `assertion` in
+every document that carries a verdict now (#678).
 
 `get_run`, `get_baseline` and `list_runs` have no counterpart among the CLI's
 `--json` outputs. [`mcp.md`](mcp.md#what-the-responses-are) has the table of

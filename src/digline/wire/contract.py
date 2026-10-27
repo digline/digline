@@ -266,6 +266,26 @@ __all__ = [
 #:    into `_BASE`: the 34 keys and the one word added under 2 are in version
 #:    3's base, each beside the provenance its entry carried.
 #:
+#: 4: **the first bump that renames a key.** A verdict's check was `name` in
+#:    the MCP tools `get_run` and `get_baseline`, and in each aggregate row of
+#:    `list_runs`, and `assertion` in the run file and in every other document
+#:    that carries a verdict: `compare`'s `deltas`, `diff`'s `checks` and
+#:    `explain`'s `facts`. Inside one server the same verdict, under the same
+#:    `assertion_id`, had two spellings. It is `assertion` in all of them now.
+#:    No alias carries the old name beside the new one: a document with both
+#:    would keep the two spellings the bump removes, and the bump is the
+#:    transition. (#678)
+#:
+#:    The bump folds `_ADDED` into `_BASE`: the five keys added under 3 are in
+#:    version 4's base, each beside the provenance its entry carried. Three of
+#:    them, `every_call_seen` and `every_cost_known` on a line of `usage`
+#:    (#563) and `error_kind` on a case (#425), shipped in 0.34.0, the one
+#:    release that wrote version 3, so no release wrote a version-3 `usage`
+#:    line or case without them.
+#:    The other two, `unpaired` on `compare` and `compare.full` (#642), were
+#:    added after that tag and no release wrote them under 3: they ship first
+#:    under 4.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -298,7 +318,7 @@ __all__ = [
 #: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
 #: a key, the record is an entry in `_ADDED` at the end of this module, and a
 #: test refuses the key until it is there. A paragraph here may still say why.
-OUTPUT_VERSION = 3
+OUTPUT_VERSION = 4
 
 EXIT_OK = 0
 EXIT_WORSE = 1
@@ -731,7 +751,8 @@ _DIFF: Mapping[str, _Key] = {
 }
 
 _VERDICT: Mapping[str, _Key] = {
-    "name": _STR,
+    # `name` until `OUTPUT_VERSION = 4`. (#678)
+    "assertion": _STR,
     "assertion_id": _STR,
     "status": _STR,
     "score": _NUM_OR_NULL,
@@ -1324,5 +1345,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     4,
-    "2eb5891c7143840fc025ce3737f9262db081882b7c3166045ab625d7869e140e",
+    "5b68a671f85c82f6d58510882a0b46e057d427d861846bed896e4a5ccc5608f4",
 )

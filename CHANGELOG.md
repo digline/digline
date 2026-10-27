@@ -445,6 +445,15 @@ notes under them are this file, verbatim.
   and not a floor, and its header is pinned. The row parser no longer splits
   a cell on an escaped pipe, which had read those three rows as five cells.
   Nothing in digline's behaviour moves, so this is a patch.
+- **`output_version` is 4: a verdict's check is `assertion` in every document
+  that carries a verdict** (#678). The MCP tools `get_run` and `get_baseline`,
+  and each aggregate row of `list_runs`, named it `name`, while the run file,
+  `compare --json`, `diff --json` and `explain --json` named it `assertion`.
+  A consumer reading `name` from those three tools reads `assertion` now. No
+  alias carries the old name beside the new one: the bump is the transition.
+  The contract's table folds the five keys added under 3 into its base: three
+  shipped under 3 in 0.34.0, and `unpaired` on `compare` ships first under 4.
+  A bump of `OUTPUT_VERSION` is a minor, and this release is already one.
 
 ## 0.34.0 — 2026-10-26
 

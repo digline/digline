@@ -64,9 +64,11 @@ def test_get_run_names_a_verdicts_check_assertion() -> None:
     aggregate = cast(list[dict[str, Any]], document["aggregate"])
     verdicts = [v for case in results for v in case["verdicts"]] + aggregate
     assert aggregate, "the control: the aggregate carries a verdict"
-    for verdict in verdicts:
-        assert verdict["assertion"] == "llm_rubric"
-        assert "name" not in verdict
+    expected = [v.score.name for case in run.results for v in case.verdicts] + [
+        v.score.name for v in run.aggregate
+    ]
+    assert [verdict["assertion"] for verdict in verdicts] == expected
+    assert all("name" not in verdict for verdict in verdicts)
 
 
 def test_list_runs_names_an_aggregate_verdicts_check_assertion() -> None:

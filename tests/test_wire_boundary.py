@@ -283,7 +283,7 @@ def test_the_verdict_itself_travels_intact() -> None:
     satisfied by a projection that emitted nothing at all."""
     document = run_document(loaded_run(), Disclosure())
     verdict = rows(document, "results")[0]["verdicts"][0]
-    assert verdict["name"] == "llm_rubric"
+    assert verdict["assertion"] == "llm_rubric"
     assert verdict["score"] == 0.2
     assert verdict["threshold"] == 0.7
     assert verdict["tolerance"] == 0.05
@@ -394,13 +394,14 @@ def test_the_added_keys_did_not_move_the_output_version() -> None:
     consumer, and that is the rule this change is under — unlike the bump to 2,
     which rewrote bytes inside values a consumer already read.
 
-    The version is 3 since #669, and not because of these keys: they were
-    added under 2 and folded into version 3's base. The bump is for numbers and
-    a boolean that changed meaning in 0.33.0 under 2."""
+    The version is 4 since #678, and not because of these keys: they were
+    added under 2 and folded into version 3's base. The bump to 3 is for
+    numbers and a boolean that changed meaning in 0.33.0 under 2, and the bump
+    to 4 for a key renamed, `name` to `assertion` on a verdict."""
     from digline.wire import OUTPUT_VERSION
 
-    assert OUTPUT_VERSION == 3
-    assert run_document(instrumented(), Disclosure())["output_version"] == 3
+    assert OUTPUT_VERSION == 4
+    assert run_document(instrumented(), Disclosure())["output_version"] == 4
 
 
 def test_the_instrument_flags_carry_none_of_the_customers_data() -> None:
