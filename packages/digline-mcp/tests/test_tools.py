@@ -52,14 +52,15 @@ def refusal(root: Path, tool: str, **arguments: Any) -> str:
 
 
 def test_explain_is_the_cli_explain_json(promoted: Path) -> None:
-    """One composition in the host, two front ends. The tool adds the resolved
-    key and nothing else, and it carries the same exit code the process exits
-    with."""
+    """One composition in the host, two front ends, and one document: the tool
+    adds nothing to it since `output_version` 4, which took out the `key` it
+    spliced beside `run_key` (#678). It carries the same exit code the process
+    exits with."""
     key = run_key(promoted)
     shown = cli(promoted, "explain", "--suite", "suite_qa.py", "--run", key, "--json")
     answered = call(promoted, "explain", suite=str(promoted / "suite_qa.py"), run=key)
-    assert answered.pop("key") == key
     assert answered == json.loads(shown.stdout)
+    assert answered["run_key"] == key
     assert answered["exit_code"] == shown.returncode
     assert answered["scope"] == "comparison"
 
