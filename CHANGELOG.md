@@ -814,6 +814,12 @@ floor RELEASING.md's table names.
   guarantee. An `xfail(strict=True)` in the gate holds what is missing, the
   core's error classes carrying those names in fields, and turns red when they
   do.
+- **Breaking: a verdict's check is `assertion`** (#678). `get_run`,
+  `get_baseline` and each aggregate row of `list_runs` named it `name`, while
+  `compare`, `diff` and `explain` named it `assertion`. They answer
+  `assertion` now, at `output_version` 4, which the core release that carries
+  #678 writes; a client reading `name` on a verdict has to read `assertion`.
+  No alias carries both. It rides the minor #548 already makes.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,

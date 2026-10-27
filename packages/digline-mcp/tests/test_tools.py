@@ -378,6 +378,19 @@ def test_get_run_resolves_latest_and_names_the_key(repo: Path) -> None:
     assert document["tenant"] == "acme-bank"
 
 
+def test_get_run_names_a_verdicts_check_assertion(repo: Path) -> None:
+    """Through the tool, as compare, diff and explain name it: `assertion`, and
+    no `name` beside it. `name` until `output_version` 4. (#678)"""
+    run_key(repo)
+    document = call(repo, "get_run", suite=str(repo / "suite_qa.py"))
+    assert document["output_version"] == 4
+    verdicts = [v for case in document["results"] for v in case["verdicts"]]
+    assert verdicts, "the control: the run carries a verdict"
+    for verdict in verdicts:
+        assert verdict["assertion"], verdict
+        assert "name" not in verdict, verdict
+
+
 def test_a_run_that_links_out_of_the_store_never_reaches_the_agent(
     repo: Path,
 ) -> None:

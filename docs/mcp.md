@@ -208,11 +208,12 @@ there is no answer to which one is digline's. What each tool returns today:
 
 The tests are in `packages/digline-mcp/tests/test_tools.py`.
 
-**In `get_run` and `get_baseline` a verdict's check is named by `name`.** The
-run file and every other document that carries a verdict name the same field
-`assertion`: `compare`'s `deltas`, `diff`'s `checks` and `explain`'s `facts`.
-The other fields whose form differs from one document to the next,
-`modules_unchecked`, `runs` and `promoted_at`, are listed in
+**A verdict's check is named `assertion` in every tool that carries a
+verdict**: `get_run`, `get_baseline` and each aggregate row of `list_runs`, as
+`compare`'s `deltas`, `diff`'s `checks` and `explain`'s `facts` and the run file
+do. Until `output_version` 4 the first three named it `name` (#678). The fields
+whose form still differs from one document to the next, `modules_unchecked`,
+`runs` and `promoted_at`, are listed in
 [the API reference](api.md#the-same-fact-in-different-documents).
 
 `compare` carries `exit_code` — `0` proceed, `1` stop and report what got worse,
