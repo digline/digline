@@ -481,6 +481,31 @@ notes under them are this file, verbatim.
   The contract's table folds the five keys added under 3 into its base: three
   shipped under 3 in 0.34.0, and `unpaired` on `compare` ships first under 4.
   A bump of `OUTPUT_VERSION` is a minor, and this release is already one.
+- **Schema 22: a projection reads who wrote what, and lets digline's own words
+  cross in clear** (#323, #711; ADR 0034 §17). A projection receives a
+  document and not a suite, so the document now records two provenances, and
+  neither adds text:
+  - **`SystemConfig.named`**, the keys of a configuration that are digline's
+    words (`NAMED_CONFIG_KEYS`), recorded by the driver. In a projection they
+    cross in clear, in `values` and in `withheld`; every other key and every
+    string value is a token. So `base_url`, `fingerprint`, `resolved_model`
+    and the declared rates are named as what digline withheld, where they
+    were tokens a reader had to ask the data owner to resolve (#323). A key a
+    hand-written target chose stays a token.
+  - **`Verdict.origin`**, `builtin` or `foreign`, stamped by the driver: who
+    wrote the metadata, not who wrote the class, so `FromAutoevals` is
+    foreign. A foreign verdict's own metadata keys become `metadata_key`
+    tokens with their values withheld, where they crossed in clear and could
+    carry the data an assertion read (#711). A builtin verdict's keys and
+    values cross in clear, and so do the keys the driver writes on any
+    verdict, `DRIVER_METADATA_KEYS`, so `compare`, `misnamed()` and
+    `unreconciled()` still read a projected foreign verdict.
+
+  A document written before 22 records neither, and its provenance is never
+  read as digline's: every configuration key and every non-builtin metadata
+  key is a token. The 21 -> 22 step writes nothing. `tests/test_projection_gate.py`
+  holds both, and one exclusion remains there: numbers. A schema that moves
+  is a minor.
 
 ## 0.34.0 — 2026-10-26
 
