@@ -298,11 +298,13 @@ jobs:
     # Eleven tests check a released digline against what this tree writes:
     # ten build that release's reader from `git archive <tag> src` and run it,
     # and one reads `SCHEMA_VERSION` out of every tag `RELEASED` names in
-    # `test_example_caps.py`. The checkout below fetches one commit and no
-    # tags, so in `gates` all eleven skip, and `11 skipped` at the bottom of a
-    # green run is a silence: no old reader was built and no row was read.
+    # `test_example_caps.py`. A twelfth reads the tags for a name a plugin
+    # calls that `UNRELEASED` says no release carries (#569). The checkout
+    # below fetches one commit and no tags, so in `gates` all of them skip, and
+    # a count of skips at the bottom of a green run is a silence: no old reader
+    # was built and no row was read.
     #
-    # So this job fetches the tags and runs the eleven by node id with
+    # So this job fetches the tags and runs them by node id with
     # `DIGLINE_TAGS_REQUIRED` set, where `tests/_tags.py` turns a missing tag
     # into a failure that names it. One tag may be missing, and is warned: the
     # version `pyproject.toml` names, while its release pull request waits for
@@ -341,6 +343,7 @@ jobs:
           tests/test_sample_means.py::test_this_reader_reads_the_fold_0_14_1_wrote_as_not_stamped
           tests/test_sample_means.py::test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway
           tests/test_example_caps.py::test_the_table_agrees_with_the_tags
+          tests/test_plugin_calls.py::test_an_unreleased_entry_is_in_no_release_tag
 
       # The negative half, as `docs` has it: a tag that is certainly missing,
       # because it was just removed, after a fetch that brought the rest. The

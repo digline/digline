@@ -85,11 +85,44 @@ class Pricing:
     def knows(self, model: str) -> bool:
         return model in self.per_model
 
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        """Why this list cannot price these counts, or `None` where it can.
+
+        Asked before `cost`, by the one reading of a reply, and its sentence
+        becomes the call's `unpriced`: a call answered and counted, whose cost
+        is not known (ADR 0004 §8.4). The answer is this list's own: tokens of
+        a kind whose rate is `None`, which is the condition `cost` raises on.
+
+        **A predicate, and not a catch of `cost`'s exception.** That exception
+        is also raised for a model the list does not know, and catching it
+        would turn a typo in a model's name into *cost not known*: two things
+        under one name. So an unknown model is `None` here, and `cost` still
+        refuses it.
+
+        **Whoever overrides `cost` overrides this too.** A subclass that prices
+        what its list has no rate for would otherwise be read as unpriced
+        before its `cost` is called. `tests/test_unpriced.py` holds the rule
+        on this project's subclasses.
+        """
+        price = self.per_model.get(model)
+        if price is None:
+            return None
+        missing = _missing_rate(price, usage)
+        if missing is None:
+            return None
+        count, kind = missing
+        return (
+            f"model {model!r} used {count} {kind} tokens and its price list "
+            f"declares no {kind} rate. Add one with `pricing=` to price them"
+        )
+
     def cost(self, model: str, usage: Usage) -> float:
         """USD for one call.
 
         Raises on a model it does not know, and on cached reads it cannot
         price: undercounting a cost is the failure that reads as good news.
+        It still raises where `why_unpriced` has a sentence, so a caller that
+        does not ask first gets no number nobody stated.
         """
         price = self.per_model.get(model)
         if price is None:
@@ -99,16 +132,14 @@ class Pricing:
                 f"cost, and a cost of zero passes every budget. Known: {known}. "
                 "Pass `pricing=` to the target to add it."
             )
-        for count, rate, kind in (
-            (usage.cache_read_tokens, price.cache_read_per_mtok, "cached-read"),
-            (usage.cache_write_tokens, price.cache_write_per_mtok, "cache-write"),
-        ):
-            if count and rate is None:
-                raise UnknownModelError(
-                    f"model {model!r} used {count} {kind} tokens and its price "
-                    f"list declares no {kind} rate: pricing them at zero would "
-                    "report a run as cheaper than it was"
-                )
+        missing = _missing_rate(price, usage)
+        if missing is not None:
+            count, kind = missing
+            raise UnknownModelError(
+                f"model {model!r} used {count} {kind} tokens and its price "
+                f"list declares no {kind} rate: pricing them at zero would "
+                "report a run as cheaper than it was"
+            )
         total = (
             usage.input_tokens * price.input_per_mtok
             + usage.output_tokens * price.output_per_mtok
@@ -130,6 +161,19 @@ class Pricing:
             per_model={**self.per_model, model: price},
             declared=self.declared | {model},
         )
+
+
+def _missing_rate(price: ModelPrice, usage: Usage) -> tuple[int, str] | None:
+    """The first token kind these counts hold and this price has no rate for,
+    as `(count, kind)`; `None` where every kind is priced. One condition for
+    `why_unpriced` and `cost`, so the two cannot disagree."""
+    for count, rate, kind in (
+        (usage.cache_read_tokens, price.cache_read_per_mtok, "cached-read"),
+        (usage.cache_write_tokens, price.cache_write_per_mtok, "cache-write"),
+    ):
+        if count and rate is None:
+            return count, kind
+    return None
 
 
 def free(*models: str) -> Pricing:

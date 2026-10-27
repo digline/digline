@@ -40,8 +40,9 @@ $6 / $30, with cache writes at $7.50 and reads at $0.60, in US East and US West
 only. A list that is wrong on the high side fails a budget loudly; one wrong
 on the low side passes it silently. So $6 / $30 it is, until the two agree.
 
-**A 1-hour cache write is refused, not priced** — see `usage_of`. Bedrock bills
-it at 1.6x the 5-minute write, and `Usage` has one write rate. (#368)
+**A 1-hour cache write is counted, not priced** — see `unpriced_of`. Bedrock
+bills it at 1.6x the 5-minute write, and `Usage` has one write rate. (#368; it
+was refused until ADR 0004 §8)
 
 **Inference profile ids.** A cross-region profile is billed at the price of the
 region you call, so a geographic profile is keyed by the prefix of the region's

@@ -440,12 +440,19 @@ CALLED: dict[tuple[str, str, str], str] = {
 }
 
 #: The entries the history does not date, each with the reason, never a guess
-#: at a version: "undated" is a value.
-UNDATED: dict[tuple[str, str, str], str] = {
-    ("digline.host.loader", "NameTable", "mint"): (
-        "new with #548, in no release tag yet; INTRODUCED dates the class to "
-        "0.35.0, the number the cut is expected to give it"
-    ),
+#: at a version: "undated" is a value. None today.
+UNDATED: dict[tuple[str, str, str], str] = {}
+
+#: The entries on `main` and in no release tag, each with what brought it.
+#: `UNDATED` is *the history does not answer*; this is *it is in no tag yet*,
+#: and the cut answers it: each entry moves into `CALLED` with the number of
+#: the release that carries it (RELEASING.md, *Before the tag: moving the
+#: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
+#: so a name the cut forgot to move fails there rather than staying here.
+UNRELEASED: dict[tuple[str, str, str], str] = {
+    ("digline.targets.completion", "Completion", "unpriced"): "#569",
+    ("digline.targets.pricing", "Pricing", "why_unpriced"): "#569",
+    ("digline.host.loader", "NameTable", "mint"): "#548",
 }
 
 

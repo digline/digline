@@ -17,7 +17,7 @@ from typing import Any, cast
 import pytest
 
 from digline.run import Case
-from digline.targets import ModelPrice, Pricing, UnknownModelError, Usage
+from digline.targets import ModelPrice, Pricing, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
 from digline_anthropic.client import GEO_MULTIPLIERS, tool_calls_of, tools_of, usage_of
 
@@ -241,11 +241,11 @@ def test_a_five_minute_write_is_priced_at_the_five_minute_rate(prompt: Path) -> 
     assert response.cost_usd == pytest.approx(2.50)  # Sonnet 5, $2.50 per MTok
 
 
-def test_a_one_hour_write_is_refused_rather_than_priced_low(prompt: Path) -> None:
+def test_a_one_hour_write_is_counted_and_not_priced_low(prompt: Path) -> None:
     """Before #368 these tokens were priced at the 5-minute rate, 1.25x the
     input, when Anthropic bills them at 2x: 37.5% under on every one of them,
-    which a `CostBudget` reads as good news. Refused the way a cached read with
-    no rate is refused, by the same class."""
+    which a `CostBudget` reads as good news. #368 refused the reply; it is now
+    an unpriced call, its counts read and its cost not. (ADR 0004 §8.4)"""
     target, client = a_target(prompt)
     client.messages.reply = FakeReply(
         content=[FakeBlock("x")],
@@ -258,9 +258,12 @@ def test_a_one_hour_write_is_refused_rather_than_priced_low(prompt: Path) -> Non
             ),
         ),
     )
-    with pytest.raises(UnknownModelError) as refused:
-        target(Case(id="it", vars={"country": "Italy"}))
-    message = str(refused.value)
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd is None
+    assert response.usage is not None
+    assert response.usage.cache_write_tokens == 1500
+    message = response.unpriced
+    assert message is not None
     assert "wrote 1000 tokens to the 1-hour cache" in message
     assert "claude-fake-1-20260101" in message
     assert "#368" in message
@@ -333,19 +336,22 @@ def test_a_call_never_inherits_the_last_calls_geography(prompt: Path) -> None:
     assert target(case).cost_usd == pytest.approx(2.00)
 
 
-def test_a_geography_with_no_rate_is_refused_rather_than_priced(
+def test_a_geography_with_no_rate_is_counted_and_not_priced(
     prompt: Path,
 ) -> None:
     """Anthropic documents two geographies. A third has a rate nobody here has
-    read, and the global one could be under it: refused, by the class and in
-    the shape of the 1-hour write's refusal."""
+    read, and the global one could be under it: not priced, in the shape of
+    the 1-hour write. It was refused until ADR 0004 §8. (#569)"""
     target, client = a_target(prompt)
     client.messages.reply = FakeReply(
         content=[FakeBlock("x")], usage=FakeUsage(inference_geo="eu")
     )
-    with pytest.raises(UnknownModelError) as refused:
-        target(Case(id="it", vars={"country": "Italy"}))
-    message = str(refused.value)
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd is None
+    assert response.usage is not None
+    assert response.usage.input_tokens == 1200
+    message = response.unpriced
+    assert message is not None
     assert "inference geography 'eu'" in message
     assert "claude-fake-1-20260101" in message
     assert "#392" in message
@@ -813,3 +819,62 @@ def test_the_thinking_is_not_added_to_the_cost() -> None:
     )
 
     assert pricing.cost("m", plain) == pricing.cost("m", split)
+
+
+# --------------------------------------------------------------------------- #
+# The geography of the next call, when this one went unpriced (ADR 0004 §8.8)
+# --------------------------------------------------------------------------- #
+
+#: Sonnet 5 at its listed input and output rates, and no cache rates: the
+#: price list, not the plugin, is what cannot price a cached read.
+NO_CACHE_RATES = ANTHROPIC_PRICING.override(
+    "claude-sonnet-5", ModelPrice(input_per_mtok=2.0, output_per_mtok=10.0)
+)
+
+
+def test_an_unpriced_reply_leaves_no_geography_for_the_price_list(
+    prompt: Path,
+) -> None:
+    """The price list cannot price this US-only reply's cached reads, so no
+    `cost` takes the factor `_complete` set. Asked afterwards, the list answers
+    at the listed rate: the factor was this call's."""
+    target, client = a_target(prompt, pricing=NO_CACHE_RATES)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000,
+            output_tokens=0,
+            cache_read_input_tokens=10,
+            inference_geo="us",
+        ),
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd is None
+    assert response.unpriced is not None
+    assert "declares no cached-read rate" in response.unpriced
+    asked = target.pricing.cost("claude-sonnet-5", Usage(1_000_000, 0))
+    assert asked == pytest.approx(2.00)
+
+
+def test_the_next_call_is_priced_at_its_own_geography(prompt: Path) -> None:
+    """Two calls in sequence: the first unpriced and served in the US, the
+    second served globally, and priced at the global rate."""
+    target, client = a_target(prompt, pricing=NO_CACHE_RATES)
+    case = Case(id="it", vars={"country": "Italy"})
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000,
+            output_tokens=0,
+            cache_read_input_tokens=10,
+            inference_geo="us",
+        ),
+    )
+    assert target(case).cost_usd is None
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000, output_tokens=0, inference_geo="global"
+        ),
+    )
+    assert target(case).cost_usd == pytest.approx(2.00)

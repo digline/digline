@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from digline.core import ClaimJudge, EvaluatorInputs, Faithfulness, Judge, LlmRubric
-from digline.targets import CLAIM_SYSTEM, SCORE_SYSTEM, UnknownModelError
+from digline.targets import CLAIM_SYSTEM, SCORE_SYSTEM
 from digline_anthropic import AnthropicClaimJudge, AnthropicJudge
 
 
@@ -221,17 +221,23 @@ def test_the_judges_price_list_does_not_keep_the_last_calls_geography(
     assert asked == pytest.approx(2.00)
 
 
-def test_a_judging_call_in_an_unpriced_geography_is_refused_and_not_counted(
+def test_a_judging_call_in_an_unpriced_geography_is_counted_and_not_priced(
     client: FakeClient,
 ) -> None:
+    """It was refused, and the judged check errored over a reply that had
+    answered. It is an unpriced call: counted, its tokens on the line, its
+    money not, and the reason kept for the person who ran it. (ADR 0004 §8)"""
     client.messages.reply = FakeReply(
         content=[FakeBlock('"score": 1, "reason": "fine"}')],
         usage=FakeUsage(inference_geo="eu"),
     )
     judge = a_judge(client)
-    with pytest.raises(UnknownModelError, match="#392"):
-        judge("p")
-    assert judge.calls == 0 and judge.spent_usd == 0.0
+    assert judge("p").score == 1.0
+    assert (judge.calls, judge.unpriced_calls, judge.spent_usd) == (1, 1, 0.0)
+    assert judge.tokens.input_tokens == 1_000_000
+    (sentence,) = judge.unpriced_reasons
+    assert "inference geography 'eu'" in sentence
+    assert "#392" in sentence
 
 
 def test_an_unpriced_judge_model_is_refused(client: FakeClient) -> None:

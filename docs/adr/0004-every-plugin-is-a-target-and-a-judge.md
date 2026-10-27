@@ -11,12 +11,12 @@
   may say — and overturns nothing above it, so it is an amendment by the same
   test. **Schema-free**: no field reaches the run document, no version moves,
   no baseline is re-promoted
-- Amended: 2026-10-27, **proposed** — §8, a cost that cannot be computed. It
+- Amended: 2026-10-27, **accepted 2026-10-27** — §8, a cost that cannot be
+  computed, accepted in the pull request that lands its code (#569). It
   widens §6's record by one field and §3's counters by one, and overturns
   nothing above it, so it is an amendment by the same test. **Schema-free**:
   what it adds lives in the process, the run document already carries
-  `every_cost_known`, and no version of a format moves. The record stays
-  accepted and §8 alone is proposed: nothing in it is implemented
+  `every_cost_known`, and no version of a format moves
 - Refines: fixed decision 6 (`CLAUDE.md`), "providers as plugins"
 - Assumes: [ADR 0001](0001-verdict-not-score.md) (the judge returns a reply, the
   core decides the verdict), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
@@ -779,8 +779,8 @@ the deliberate absence in `explain` cannot be closed by accident later.
 
 ### 8. A cost that cannot be computed
 
-*Amendment, 2026-10-27, from #569. **Status: proposed.** Nothing in it is
-implemented. §1–§7 stand. It widens §6's `Completion` by one field and §3's
+*Amendment, 2026-10-27, from #569. **Status: accepted 2026-10-27**, in the
+pull request that lands its code; proposed until then. §1–§7 stand. It widens §6's `Completion` by one field and §3's
 judge by one counter, and it records the seven rulings of 2026-10-27 on what
 the draft left open.*
 
@@ -1057,13 +1057,22 @@ being priced: `_complete` sets the factor, and the next `pricing.cost` takes it
 and resets it. An unpriced reply calls no `pricing.cost`, so the factor it
 would set is left for the next call. **digline-anthropic leaves no factor set
 on an unpriced reply**, whether the sentence is its own or the price list's
-(§8.4). §8.9 holds it.
+(§8.4).
+
+**The requirement is held by asking the price list directly.** After an
+unpriced reply, `target.pricing.cost(...)` is asked with no call between, and
+answers at the listed rate. Leaving the factor set turns it red. A second call
+in a known geography does not: its own `_complete` sets its own factor before
+anything is priced, so it is priced right whether or not the first left one.
+That test is kept beside the first, as what a reader would write first, and it
+is not what holds this.
 
 #### 8.9 What it changes, and how that is held
 
 **The acceptance criterion, in four directions.** Each is tested with an
-injected client, so that it runs with no key, on the target and on the judge.
-The first runs on each row of §8.4.
+injected client, so that it runs with no key. The first three run on the
+target and on the judge, and the first on each row of §8.4. The fourth runs on
+the target alone: `CostBudget` reads the target's cost, and no judge's.
 
 1. **Cost not computable.** The reply reports `inference_geo:
    "not_available"`, a 1-hour cache write, or cached reads with no rate. In a
@@ -1090,14 +1099,20 @@ The first runs on each row of §8.4.
    holds.
 4. **A `CostBudget` over an unpriced cost.** The first direction's reply, in a
    suite with a `CostBudget`:
-   - the budget is `error`, its reason says *not computable* and carries the
-     plugin's sentence, and the run exits `2`;
-   - the content checks of the same case are judged.
+   - the budget is `error`, and its reason says *not computable* and carries
+     the plugin's sentence;
+   - the content checks of the same case are judged;
+   - three exit codes, which are not one: `run_exit_code` gives `2`, for an
+     unjudged check beside judged ones, and so does `compare`; `digline run`
+     exits `0`, because ADR 0049 §3 keeps its `2` for a run that judged
+     nothing.
 
 **Beside the four:**
-- **The geography of the next call.** Two calls in sequence: the first
-  unpriced, the second in a known geography. The second is priced at its own
-  multiplier (§8.8).
+- **The geography of the next call** (§8.8). After an unpriced reply,
+  `target.pricing.cost(...)` answers at the listed rate. Beside it, two calls
+  in sequence, the first unpriced and the second in a known geography, the
+  second priced at its own multiplier; that one does not go red when the
+  factor is left set, for the reason §8.8 gives.
 - **The false line.** The second row of §8.6's table, with a price list that
   raises: `every_cost_known` is `false`, both calls' tokens are on the line,
   and the check's reason does not say *"the judge raised"*. It is red on
@@ -1121,8 +1136,8 @@ The first runs on each row of §8.4.
   the hand-written judge's test red. That judge keeps `uncounted_calls = 0`
   and no `unpriced_calls`, and it must read *not recorded*.
 - **`_WhereServed`'s factor left set on an unpriced reply** makes the
-  geography test red, because the second call is priced at the first call's
-  geography.
+  geography test red: the price list, asked directly after that reply,
+  answers at the first call's geography (§8.8).
 
 **`examples/prompt-first`.** *Ruled 2026-10-27: its documentation, not its
 measurement.* Since #417 (2026-10-03), its live path has errored every case

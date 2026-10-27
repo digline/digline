@@ -106,6 +106,12 @@ class Response:
     #: recorded response are built from this field alone. (ADR 0025 §5)
     usage: Usage | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+    #: Why `cost_usd` is `None` though `usage` was read, as a sentence for the
+    #: person who ran the command: a rate the plugin or the price list does not
+    #: have. `None` is the ordinary case. In the process only, like `metadata`:
+    #: the run prints it and `CostBudget` quotes it, and no document holds it.
+    #: (ADR 0004 §8.3, §8.5)
+    unpriced: str | None = None
 
 
 class TargetShapeError(TypeError):
@@ -379,12 +385,55 @@ def _uncounted(judge: Billable) -> int | None:
     return found
 
 
+def _unpriced(judge: Billable) -> int | None:
+    """The judge's calls whose counts were read and whose cost could not be
+    computed, read off `unpriced_calls`, which `JudgeBase` keeps; `None` where
+    a judge keeps no such count. Read with a default, as `uncounted_calls` is.
+    (ADR 0004 §8.5)"""
+    found = getattr(judge, "unpriced_calls", None)
+    if not isinstance(found, int) or isinstance(found, bool):
+        return None
+    return found
+
+
+def _unpriced_reasons(suite: Suite) -> dict[str, int]:
+    """Why the suite's judges could not price a call, per sentence, with how
+    many calls gave it since each judge was built: read off
+    `unpriced_reasons`, which `JudgeBase` keeps, with a default, and summed
+    over the judges `judge_totals` reads. (ADR 0004 §8.3)"""
+    seen: dict[int, object] = {}
+    for judge in judges(suite.assertions):
+        seen.setdefault(id(judge), judge)
+    found: dict[str, int] = {}
+    for judge in seen.values():
+        reasons = getattr(judge, "unpriced_reasons", None)
+        if not isinstance(reasons, Mapping):
+            continue
+        for sentence, count in cast(Mapping[object, object], reasons).items():
+            if isinstance(sentence, str) and isinstance(count, int):
+                found[sentence] = found.get(sentence, 0) + count
+    return found
+
+
 def _knew_every_cost(judge: Billable) -> bool | None:
-    """Whether the judge priced every call it counts: `None` for a judge that
-    keeps no count of the calls it could not, since nothing established that
-    it priced them all. (#629)"""
-    uncounted = _uncounted(judge)
-    return None if uncounted is None else uncounted == 0
+    """Whether the judge priced every call it answered, read off two counts:
+    the calls whose usage was not recorded (#629) and the calls whose cost
+    could not be computed (ADR 0004 §8.5).
+
+    Each count reads `False` above zero, `True` at zero, and *not recorded*
+    where the judge keeps none, and the two are summed as the line sums:
+    `False` over `None` over `True`. So a judge that keeps one count and not
+    the other is *not recorded* unless the count it keeps is above zero, and
+    `True` is reached only by reading two zeros, never by assuming one."""
+    readings = [
+        None if count is None else count == 0
+        for count in (_uncounted(judge), _unpriced(judge))
+    ]
+    if False in readings:
+        return False
+    if None in readings:
+        return None
+    return True
 
 
 def _judged_unread(assertions: Sequence[object], read: set[int]) -> bool:
@@ -532,6 +581,7 @@ def default_mapper(response: Response, case: Case) -> EvaluatorInputs:
         cost_usd=response.cost_usd,
         latency_ms=response.latency_ms,
         metadata={"case": dict(case.metadata), "response": dict(response.metadata)},
+        unpriced=response.unpriced,
     )
 
 
@@ -682,6 +732,7 @@ def _run_case(
     case: Case,
     judge_samples: int,
     declared: Declared,
+    unpriced: dict[str, None],
 ) -> tuple[CaseResult, Cause, CallTotals]:
     """The case, which layer errored it, and what its calls consumed.
 
@@ -786,6 +837,10 @@ def _run_case(
                 line.plus(tokens=None, spent_usd=None),
             )
         line = line.plus(tokens=response.usage, spent_usd=response.cost_usd)
+        if response.unpriced is not None:
+            # Kept for the person who ran the command, once per sentence, in
+            # the order first met; never on the document. (ADR 0004 §8.3)
+            unpriced[response.unpriced] = None
         if suite.record_responses:
             answers.append(recorded(response))
 
@@ -1147,6 +1202,7 @@ def execute(
     modules_unchecked: Sequence[str] | None = None,
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
+    on_unpriced: Callable[[str], None] | None = None,
     pricing: str | None = None,
     judge_samples: int = 0,
     spent: CallTotals | None = None,
@@ -1182,6 +1238,12 @@ def execute(
     and the failure this one would hide is a recorder that stopped recording
     while the run went on for another six hundred calls, which is the loss the
     journal exists to end.
+
+    `on_unpriced` is called after the last case, once per distinct sentence
+    saying why a call this run made could not be priced: the target's in the
+    order first met, then the judges'. The sentences never reach the `Run`:
+    they are for the person who ran the command, who used to read them as
+    the reason of an errored check. (ADR 0004 §8.3)
 
     `spent` is what the **earlier legs of this same run** consumed, read off
     the journal and carried in so the finished document states the whole run's
@@ -1252,6 +1314,10 @@ def execute(
     # judge fresh starts at zero and the subtraction is a no-op; one that
     # reuses it across runs is the case this exists for. (ADR 0025 §4)
     judging_before = judge_totals(suite)
+    # The same reading, of why the judges could not price a call: this run's
+    # sentences are the ones whose count rose. (ADR 0004 §8.3)
+    reasons_before = _unpriced_reasons(suite)
+    unpriced: dict[str, None] = {}
     # Before the first case, like the reading above: the name a verdict is held
     # to is the one the assertion declared, not one it may have taken since.
     # (ADR 0027 §6, amended 2026-09-28)
@@ -1295,7 +1361,7 @@ def execute(
             results.append(reuse[case.id])
             continue
         result, cause, line = _run_case(
-            suite, target, mapper, case, judge_samples, declared
+            suite, target, mapper, case, judge_samples, declared, unpriced
         )
         results.append(result)
         billed = billed + line
@@ -1344,6 +1410,13 @@ def execute(
         with_noise_interval(run_assertion, _outcomes(suite, results, run_assertion))
         for run_assertion in suite.run_assertions
     )
+    if on_unpriced is not None:
+        reasons_after = _unpriced_reasons(suite)
+        for sentence, count in reasons_after.items():
+            if count > reasons_before.get(sentence, 0):
+                unpriced.setdefault(sentence, None)
+        for sentence in unpriced:
+            on_unpriced(sentence)
     return Run(
         tenant=suite.tenant,
         environment=suite.environment,

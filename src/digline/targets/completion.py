@@ -151,8 +151,30 @@ class Completion:
     #: provider that names its tools and nothing more. (ADR 0018 §6, amended
     #: 2026-09-15)
     tool_calls: tuple[ToolCall, ...] | None = None
+    #: Why this reply's cost cannot be computed though its counts were read,
+    #: as a sentence the person who ran the command can act on: a geography or
+    #: a cache write with no rate. `None` is the ordinary case, and what every
+    #: plugin written before the field returns. **Not `usage=None`**, which is
+    #: counts not recorded: the counts here were read, and they stay on the
+    #: line. (ADR 0004 §8.2)
+    unpriced: str | None = None
 
     def __post_init__(self) -> None:
+        # Counts not read already say the cost is not known: the two together
+        # would say it twice, under two names. An empty sentence says nothing
+        # the operator can act on. (ADR 0004 §8.2)
+        if self.unpriced is not None:
+            if self.usage is None:
+                raise ValueError(
+                    "Completion.unpriced was given with usage=None: a reply "
+                    "whose counts were not read already says its cost is not "
+                    "known. Hand over the counts, or leave unpriced unset"
+                )
+            if not self.unpriced.strip():
+                raise ValueError(
+                    "Completion.unpriced is empty: say why the cost cannot be "
+                    "computed, or leave it unset"
+                )
         # Two readers, one set of calls: `ToolsCalled` reads the names and
         # `ToolCalledWith` the records, and a plugin whose two lists disagreed
         # would have them judge different trajectories of the same reply.
