@@ -3,12 +3,11 @@ tokenise: the gate ADR 0054 §7 asks for, in the shape of
 `tests/test_projection_gate.py`. (#548)
 
 **It fails closed.** Every tool the server registers is driven, under
-`project`, over a copy of `examples/prompt-first` with two runs and its
-committed baseline, and every string in every answer sits at a path in
-`STRINGS` below, or the test is red and names the tool and the path. A tool
-added to the server is red until it is driven here, and a field added to an
-answer is red until it is classified. The tool list is read from the server,
-not written into the test.
+`project`, over a copy of `examples/prompt-first` with two runs and a baseline,
+and every string in every answer sits at a path in `STRINGS` below, or the test
+is red and names the tool and the path. A tool added to the server is red until
+it is driven here, and a field added to an answer is red until it is
+classified. The tool list is read from the server, not written into the test.
 
 **The classes are ADR 0034 §4's**, and one more:
 
@@ -44,8 +43,9 @@ import pytest
 from _names import RecordingTable
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
-from tests._helpers import cli, git
+from tests._helpers import baseline_in, cli, git
 
+from digline.core import split_grouped_name
 from digline_mcp.server import build_server
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -86,6 +86,17 @@ class Gate:
     def token(self, text: str) -> bool:
         """(c): a token this table minted."""
         return text in self.table.rows
+
+    def case(self, text: str) -> bool:
+        """(c): a case's id, or nothing where a line is about the run, as an
+        aggregate's is."""
+        return text == "" or self.token(text)
+
+    def check(self, text: str) -> bool:
+        """(c): a check's name, `family[group=…]` included, each part a token
+        this table minted."""
+        family, group = split_grouped_name(text)
+        return self.token(family) and (group is None or self.token(group))
 
     def prose(self, text: str) -> bool:
         """(p): no text the table minted appears in it."""
@@ -136,11 +147,15 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.runs.left.label": ("a", gate.form(_LABEL_OR_KEY)),
         "$.runs.right.label": ("a", gate.form(_LABEL_OR_KEY)),
         "$.results[].verdicts[].assertion_id": ("a", digest),
+        "$.aggregate[].assertion_id": ("a", digest),
+        "$.runs[].aggregate[].assertion_id": ("a", digest),
         "$.shape[].assertion_id": ("a", digest),
         "$.facts[].assertion_id": ("a", digest),
         "$.facts[].shape.assertion_id": ("a", digest),
         # (a) digline's words
         "$.results[].verdicts[].status": ("a", gate.word()),
+        "$.aggregate[].status": ("a", gate.word()),
+        "$.runs[].aggregate[].status": ("a", gate.word()),
         "$.deltas[].outcome": ("a", gate.word()),
         "$.deltas[].scope": ("a", gate.word()),
         "$.checks[].favours": ("a", gate.word()),
@@ -175,19 +190,21 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.spans[].environments[]": ("b", gate.anything),
         # (c) tokens this table minted
         "$.results[].case_id": ("c", gate.token),
-        "$.results[].verdicts[].name": ("c", gate.token),
+        "$.results[].verdicts[].name": ("c", gate.check),
         "$.results[].calibration.check": ("c", gate.token),
+        "$.aggregate[].name": ("c", gate.check),
+        "$.runs[].aggregate[].name": ("c", gate.check),
         "$.target_config.values{}": ("c", gate.token),
-        "$.deltas[].assertion": ("c", gate.token),
-        "$.deltas[].case_id": ("c", gate.token),
-        "$.shape[].check": ("c", gate.token),
-        "$.checks[].assertion": ("c", gate.token),
-        "$.checks[].case_id": ("c", gate.token),
-        "$.facts[].assertion": ("c", gate.token),
-        "$.facts[].case_id": ("c", gate.token),
-        "$.facts[].name": ("c", gate.token),
+        "$.deltas[].assertion": ("c", gate.check),
+        "$.deltas[].case_id": ("c", gate.case),
+        "$.shape[].check": ("c", gate.check),
+        "$.checks[].assertion": ("c", gate.check),
+        "$.checks[].case_id": ("c", gate.case),
+        "$.facts[].assertion": ("c", gate.check),
+        "$.facts[].case_id": ("c", gate.case),
+        "$.facts[].name": ("c", gate.check),
         "$.facts[].before": ("c", gate.token),
-        "$.facts[].shape.check": ("c", gate.token),
+        "$.facts[].shape.check": ("c", gate.check),
         "$.target_config_deltas[].field": ("c", gate.token),
         "$.target_config_deltas[].before": ("c", gate.token),
         "$.target_config_deltas[].after": ("c", gate.token),
@@ -225,6 +242,28 @@ def walk(value: Any, path: str = "$") -> list[tuple[str, str]]:
     return found
 
 
+#: What the copy adds to the example: an aggregate split by group, so that a
+#: run's aggregate names, `family[group=…]` among them, are in the answers.
+#: Without one, `list_runs` names nothing and a list in clear passed this gate.
+_WIDENED = (
+    (
+        "from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated",
+        "from digline.core import Accuracy, JudgeReply, Levenshtein, LlmRubric, "
+        "Repeated",
+    ),
+    (
+        'Case(id=c["id"], vars=c["vars"], expected=c["expected"])',
+        'Case(id=c["id"], vars=c["vars"], expected=c["expected"], '
+        'label="positive", group="till" if "price" in c["id"] else "shelf")',
+    ),
+    (
+        "    samples=3,\n    min_agreement=",
+        '    run_assertions=[Accuracy(over="levenshtein", threshold=0.5, '
+        "tolerance=0.05, by_group=True)],\n    samples=3,\n    min_agreement=",
+    ),
+)
+
+
 def _repository(tmp: Path) -> tuple[Path, str, str]:
     repo = tmp / "prompt-first"
     shutil.copytree(
@@ -232,6 +271,12 @@ def _repository(tmp: Path) -> tuple[Path, str, str]:
         repo,
         ignore=shutil.ignore_patterns(".venv", "uv.lock", "report.html"),
     )
+    suite = repo / SPEC
+    source = suite.read_text(encoding="utf-8")
+    for before, after in _WIDENED:
+        assert source.count(before) == 1, before
+        source = source.replace(before, after)
+    suite.write_text(source, encoding="utf-8")
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "config", "user.name", "Test")
@@ -242,6 +287,20 @@ def _repository(tmp: Path) -> tuple[Path, str, str]:
         done = cli(repo, "run", "--suite", SPEC)
         assert done.stdout.strip(), done.stderr
         keys.append(done.stdout.strip().splitlines()[-1])
+        if len(keys) == 1:
+            # The widened suite is another configuration than the committed
+            # baseline's, so the first run becomes the reference.
+            promoted = cli(
+                repo,
+                "promote",
+                "--replacing",
+                baseline_in(repo),
+                "--suite",
+                SPEC,
+                "--run",
+                keys[0],
+            )
+            assert promoted.returncode == 0, promoted.stderr
     return repo, keys[0], keys[1]
 
 
