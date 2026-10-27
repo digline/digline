@@ -11,6 +11,12 @@
   may say — and overturns nothing above it, so it is an amendment by the same
   test. **Schema-free**: no field reaches the run document, no version moves,
   no baseline is re-promoted
+- Amended: 2026-10-27, **proposed** — §8, a cost that cannot be computed. It
+  widens §6's record by one field and §3's counters by one, and overturns
+  nothing above it, so it is an amendment by the same test. **Schema-free**:
+  what it adds lives in the process, the run document already carries
+  `every_cost_known`, and no version of a format moves. The record stays
+  accepted and §8 alone is proposed: nothing in it is implemented
 - Refines: fixed decision 6 (`CLAUDE.md`), "providers as plugins"
 - Assumes: [ADR 0001](0001-verdict-not-score.md) (the judge returns a reply, the
   core decides the verdict), [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
@@ -770,6 +776,353 @@ raise once reports both causes with their counts.
 
 **The report prints it and `explain` does not.** Asserted in both directions, so
 the deliberate absence in `explain` cannot be closed by accident later.
+
+### 8. A cost that cannot be computed
+
+*Amendment, 2026-10-27, from #569. **Status: proposed.** Nothing in it is
+implemented. §1–§7 stand. It widens §6's `Completion` by one field and §3's
+judge by one counter, and it records the seven rulings of 2026-10-27 on what
+the draft left open.*
+
+#### 8.0 Not decided here
+
+Three things, each found in the writing and ruled on by none of the seven.
+
+1. **The unknown-model branch of `Pricing.cost`.** §8.4 moves the refusal of
+   a token kind with no rate. The other refusal in the same method, a model
+   the list does not know, is not moved by this section, and the two sides
+   reach it differently:
+   - **The target never reaches it after an answer.** The driver calls the
+     target's `preflight(cases)`, which refuses the model before the first
+     call.
+   - **The judge does.** `JudgeBase.preflight()` is not called by the driver:
+     a plugin's tests call it, and so can a suite. So a judge whose model has
+     no price answers, and its price raises in `_ask`, which is §8.6's false
+     line. §8.6's repair covers it: the line becomes true and the check stays
+     `error`.
+
+   Whether that refusal also becomes an unpriced call, or the driver calls
+   the judge's `preflight()` before the first case, is not decided here.
+2. **Where the sentences go when the bill is not printed.** §8.3 prints them
+   on standard error after the bill line. Two front ends print no bill line
+   there:
+   - `digline run --json`, where the bill rides the document on standard
+     output and standard error carries nothing of it;
+   - `digline-mcp`, which prints no bill line at all.
+
+   On both, the outcome still arrives as `every_cost_known: false`. The
+   sentence does not, and where it should is not decided here.
+3. **The target side of §8.6's repair.** The false line was measured on the
+   judge (§8.6). A target whose price list raises after an answer was not
+   measured, and what its line says is not decided here.
+
+#### 8.1 Two facts, and one of them had no word
+
+A call that answered can leave digline holding three things about its cost:
+
+| | counts | cost | what carries it today |
+|---|---|---|---|
+| **priced** | read | computed | `Completion(text, usage)`; `Response(usage=…, cost_usd=…)` |
+| **counts not recorded** (#629, #739) | not read | not known | `Completion.usage = None` |
+| **cost not computable** | read | not known | nothing: the price raises, and the check or the case errors |
+
+The third is #569. digline-anthropic reads `usage.inference_geo`, knows a rate
+for `None`, `"global"` and `"us"`, and raises `UnknownModelError` on any other
+value, `"not_available"` included. The call was made, answered and paid for,
+and the case is lost to a problem of accounting.
+
+Two ways out are closed:
+- **A plugin overriding `ProviderTarget.__call__`** to hand over
+  `cost_usd=None` itself. `test_every_plugin_inherits_the_reading` refuses it,
+  for the reason its docstring gives: one reading of a reply, not three. It
+  would also have left the judge refusing the same reply. That shortcut was
+  reverted in #744.
+- **`usage=None`.** It already means *counts not recorded*, and this call's
+  counts were read. A `None` meaning both *we could not read the tokens* and
+  *we read them and cannot price them* would lose the tokens, and it would
+  make one value mean two things. `every_call_seen` and `every_cost_known`
+  are two markers, not one, for the same reason.
+
+#### 8.2 `Completion` gains `unpriced`
+
+| field | type | |
+|---|---|---|
+| `unpriced` | `str \| None`, default `None` | why this reply's cost cannot be computed, though its counts were read |
+
+- **`None` is the ordinary case**, and it is what every plugin written before
+  this amendment returns. The pair `(text, usage)` reads as `None` too. So, by
+  the guarantee in §6, *third-party plugins are unaffected, by construction*.
+- **Refused with `usage=None`.** A reply whose counts were not read is the
+  second row of 8.1, and it already says its cost is not known.
+  `Completion(usage=None, unpriced=…)` would say it twice, under two names, so
+  it is refused at construction, and an empty sentence is refused with it. The
+  refusal is the plugin's bug surfacing in the plugin's call.
+- **A sentence, not a flag**, because the refusals it replaces told the
+  operator what to do: *"Pin the request or the workspace to one of the two"*,
+  *"Use the 5-minute cache"*. A flag loses that, and §8.3 says who reads it.
+
+#### 8.3 Who reads the sentence: the person who ran the command
+
+*Ruled 2026-10-27.* **The run prints each distinct sentence on standard error,
+after the bill line.** The reader is the person who ran the command. The
+refusal this replaces was addressed to that person, and standard error is
+that person's perimeter (fixed decision 9, as amended by ADR 0043). Moving a
+case from *errored* to *judged* must not silence what the operator used to be
+told to do. So the field is read, which is the answer §6's rule asks of it: a
+field no assertion reads is a dead field, and this one is read by the run.
+
+The sentences reach the front end beside the run, in the process, and never in
+the run document. One sentence repeated on every call is printed once.
+
+Two ways were refused:
+- **`Response.metadata` for an assertion.** It hides the sentence from the
+  person, and hands it to an assertion nobody wrote.
+- **A `bool`.** It loses the actionable text, which is the one reason the
+  field is a sentence.
+
+#### 8.4 Four refusals move, and the premise is what changed
+
+| where | what it refuses today | after |
+|---|---|---|
+| digline-anthropic, `geo_multiplier` (#392) | an `inference_geo` with no rate | an unpriced call |
+| digline-anthropic, `_one_hour_writes` (#368) | tokens written to the 1-hour cache | an unpriced call |
+| digline-bedrock, `_refuse_unpriced_writes` (#368) | a cache write at a TTL other than `5m` | an unpriced call |
+| core, `Pricing.cost` | cached-read or cache-write tokens with no rate in the list | an unpriced call |
+
+*Ruled 2026-10-27, for #368's two.* **The premise changed, not the
+conclusion.** #368 refused these writes because there was no way to say *this
+cannot be priced* other than refusing. §8.2 is that way, so the premise falls,
+and the refusal falls with it. It is the shape of ADR 0011 §10's amendment of
+2026-10-23: a sentence stops holding because what it rested on stopped
+holding, and what it protected stands. What #368 protected was that a write
+nobody has a rate for is never priced at another rate, and that stands. Left
+refusing, these would be two identical facts treated two ways, the incoherence
+#735 removed between `_graded` and `_ratio`.
+
+*Ruled 2026-10-27, for the core's.* **The core's refusal moves too.** It is
+the same fact, counts read and a rate missing, decided in the core instead of
+a plugin. Left refusing, it would be two behaviours for one fact inside the
+core. The core asks the price list whether it can price the counts before it
+prices them, and the reason the list gives is the call's `unpriced` sentence.
+`Pricing.cost` itself still raises if it is called on counts it cannot price,
+so a caller outside the reading that does not ask first still gets no number
+nobody stated.
+
+In each plugin, `_complete` returns its `Completion` with `unpriced` set to
+the sentence the refusal carried, less the refusal, on the target and on the
+judge.
+
+#### 8.5 The two readings of a reply
+
+**The target.** `ProviderTarget.__call__` stays the only reading, and plugins
+keep inheriting it:
+
+    unpriced = reply.unpriced or (the price list's reason, when usage is read)
+    cost_usd = None if usage is None or unpriced is not None
+               else self.pricing.cost(self.model, usage)
+
+The `Response` it builds carries `usage` (the counts, read), `cost_usd=None`
+and the sentence. **The first two are not a new pair.** `Response` has carried
+them apart since ADR 0025 §5, and the driver's `CallTotals.plus(tokens=…,
+spent_usd=None)` already reads that as one call seen and counted, its tokens
+on the line, its money not, and `every_cost_known` false (#563). The sentence
+is new on `Response` and on `EvaluatorInputs`, both in the process, for §8.3
+and for §8.7.
+
+**The judge gains `unpriced_calls`.** §3's judge accumulates `calls`,
+`spent_usd` and `latency_ms`. ADR 0025 §4 added `tokens`. #563 added
+`raised_calls`, and #629 added `uncounted_calls`. Neither of those two was
+recorded in an ADR, and this records them beside the new one:
+
+| | which calls | in `calls` | in `tokens` | in `spent_usd` |
+|---|---|---|---|---|
+| `raised_calls` (#563) | raised | no | no | no |
+| `uncounted_calls` (#629) | answered, counts not read | yes | no | no |
+| **`unpriced_calls`** | answered, counts read, cost not computable | yes | **yes** | no |
+
+`uncounted_calls` cannot carry the new case. It already means *counts not
+recorded*, and counting an unpriced call there would take its tokens off the
+line, which is the loss 8.1 refuses. In `_ask` the three are exclusive:
+
+    if reply.usage is None:   self.uncounted_calls += 1
+    elif unpriced is not None: self.unpriced_calls += 1
+    else:                     self.spent_usd += self.pricing.cost(...)
+
+The judge keeps the distinct sentences beside the counter, for §8.3. Each
+count is monotone and never reset, like the rest (§3).
+
+**The driver reads both counters, and never assumes `True`.** `judge_totals`
+reads both with a default, as it reads `raised_calls`, so a judge written by
+hand still satisfies `Billable`. The judge's `every_cost_known` is the least
+complete of two readings:
+
+- `uncounted_calls`: `False` where it is above zero, `True` at zero, and *not
+  recorded* where the judge keeps no such count;
+- `unpriced_calls`: the same.
+
+They are summed by the rule the line already sums by: `False` over `None`
+over `True`. **A judge that keeps one count and not the other is *not
+recorded*, unless the count it keeps is above zero.** Nothing established that
+it priced every call it answered. `True` is reached only by reading two
+zeros, never by default. That is the rule #629 restored for
+`uncounted_calls` (*"Read off the judge, not assumed"*), applied to the second
+counter.
+
+`counted` stays `calls - uncounted_calls`. An unpriced call's counts were
+read, so it is counted. The run's share is the difference of two readings, as
+in ADR 0025 §4.
+
+#### 8.6 The false line, measured and repaired here
+
+*Ruled 2026-10-27: repaired by this amendment, which gives it the words, and
+not left to an issue.*
+
+**What it says today**, measured at `80b70b7e` with an injected judge and no
+key. The judge's price list had input and output rates and no cached-read
+rate, and the reply reported 50 cached-read tokens. In `JudgeBase._ask`,
+`pricing.cost` raises **after** `self.calls += 1` and outside the `try` that
+counts `raised_calls`. The check errored, and the line read:
+
+| judge calls | `calls` | `counted` | tokens on the line | `spent_usd` | `every_cost_known` |
+|---|---|---|---|---|---|
+| one, with cached reads | 1 | 1 | 0 in / 0 out | 0.0 | `true` |
+| one priced, then one with cached reads | 2 | 2 | 100 in / 10 out, one call's | 0.00012 | `true` |
+| control: two priced | 2 | 2 | 200 in / 20 out | 0.00024 | `true` |
+
+The second row has the shape of the control. The line says every call counted
+and every cost known, and it carries one call's money and tokens fewer than
+were made.
+
+**After §8.4** that reply is an unpriced call and does not raise. **A price
+that still raises**, from a price list digline did not write, is read by the
+same rule as an unpriced call: the call is counted, its tokens are on the
+line, its money is not, and `every_cost_known` is `false`. The check stays
+`error`, because nobody declared the call unpriced, and its reason stops
+blaming the judge.
+- **Today:** *"the judge raised UnknownModelError: …"*.
+- **After:** the judge answered, and pricing its reply raised. The sentence
+  names the exception, and the call answered.
+
+#### 8.7 A `CostBudget` over an unpriced cost: the error stays, the word moves
+
+*Ruled 2026-10-27.* **A declared ceiling that cannot be verified is not a
+ceiling met**, and `error`, with exit `2`, is the honest answer (fixed
+decision 4). That stays. The word does not. *"cost_usd is missing"* is false
+where the cost was not missing but could not be computed: the distinction
+between absent and zero, applied to a message.
+- **No cost and no sentence:** as today, *"cost_usd is missing: an
+  unverifiable budget is not a budget met"*.
+- **A sentence:** the message says the cost is *not computable*, and carries
+  the plugin's sentence.
+
+The reason of a check is payload under fixed decision 9, and it is where these
+sentences were before §8.4 moved them, as the reason of an errored check.
+Nothing reaches a boundary that did not reach it before.
+
+#### 8.8 `_WhereServed`: a requirement, no longer a detail
+
+*Ruled 2026-10-27.* `_WhereServed`'s docstring guarantees that *"a cost is
+never priced at another call's geography"*. The guarantee rests on every reply
+being priced: `_complete` sets the factor, and the next `pricing.cost` takes it
+and resets it. An unpriced reply calls no `pricing.cost`, so the factor it
+would set is left for the next call. **digline-anthropic leaves no factor set
+on an unpriced reply.** §8.9 holds it.
+
+#### 8.9 What it changes, and how that is held
+
+**The acceptance criterion, in four directions.** Each is tested with an
+injected client, so that it runs with no key, on the target and on the judge.
+The first runs on each row of §8.4.
+
+1. **Cost not computable.** The reply reports `inference_geo:
+   "not_available"`, a 1-hour cache write, or cached reads with no rate. In a
+   suite with no `CostBudget`:
+   - the case is **judged**: its checks are `pass` or `fail`, none is `error`,
+     and no `error_kind` is set;
+   - the line reads `every_cost_known: false`, with `counted` equal to `calls`
+     and the reply's tokens on it;
+   - standard error carries the bill's *cost not known for every call* and,
+     after it, the sentence, once.
+2. **Counts not recorded.** The plugin hands back `usage=None`, as today, and
+   it reads as *not recorded* (#629, #739):
+   - `counted` is below `calls`;
+   - `every_cost_known` is `false`;
+   - the call's tokens and cost are not on the line;
+   - the judge's `unpriced_calls` does not move, and no sentence is printed.
+3. **Cost known.** The reply reports `"global"` or `"us"`, as today, and the
+   figure is on the line at the multiplier `GEO_MULTIPLIERS` gives:
+   - `every_cost_known` is `true`;
+   - standard error says neither *cost not known for every call* nor a
+     sentence.
+
+   This is the control: the sentences above appear only where their fact
+   holds.
+4. **A `CostBudget` over an unpriced cost.** The first direction's reply, in a
+   suite with a `CostBudget`:
+   - the budget is `error`, its reason says *not computable* and carries the
+     plugin's sentence, and the run exits `2`;
+   - the content checks of the same case are judged.
+
+**Beside the four:**
+- **The geography of the next call.** Two calls in sequence: the first
+  unpriced, the second in a known geography. The second is priced at its own
+  multiplier (§8.8).
+- **The false line.** The second row of §8.6's table, with a price list that
+  raises: `every_cost_known` is `false`, both calls' tokens are on the line,
+  and the check's reason does not say *"the judge raised"*. It is red on
+  `80b70b7e`, measured before it is written, and that is how it is believed.
+
+**The four are believed by mutation:**
+- **`ProviderTarget.__call__` ignoring `unpriced`** makes the first red,
+  because the cost is computed.
+- **`_ask` counting an unpriced call in `uncounted_calls`** makes the first
+  red on the judge, because the tokens leave the line.
+- **`_knew_every_cost` defaulting a missing `unpriced_calls` to zero** makes
+  the hand-written judge's test red. That judge keeps `uncounted_calls = 0`
+  and no `unpriced_calls`, and it must read *not recorded*.
+- **`_WhereServed`'s factor left set on an unpriced reply** makes the
+  geography test red, because the second call is priced at the first call's
+  geography.
+
+**`examples/prompt-first`.** *Ruled 2026-10-27: its documentation, not its
+measurement.* Since #417 (2026-10-03), its live path has errored every case
+on a workspace whose replies report `inference_geo: 'not_available'` (#569,
+run of 2026-10-14).
+- **The documentation:** a reader whose workspace reports that geography is
+  told, in the example's documentation, why its costs are not known.
+- **Not the measurement:** a run of the example is not §8.9's measurement,
+  which takes an injected client and no key. So #651's dependence on a key
+  does not enter here.
+
+**What does not move:**
+- `SCHEMA_VERSION`, `OUTPUT_VERSION` and `JOURNAL_VERSION`;
+- any document, and any key of `--json`.
+
+Every field this adds lives in the process, and the document's
+`every_cost_known` already carries the outcome. `every_cost_known` keeps its
+meaning: it already read *false* for a call whose cost digline does not know.
+A third-party plugin behaves as before, because it never sets `unpriced`, and
+a third-party price list behaves as before unless it lacks a rate for tokens
+a reply reports.
+
+**What the versions are**, by *Choosing the version* in `RELEASING.md`, whose
+enumeration names *"an exit code changed"*. #642 is the precedent that moves a
+minor for one input's exit; #735 (#738), whose exit did not move, is a patch.
+- **digline: a minor.** A user whose `pricing=` has no cached-read rate gets
+  an exit that moves, from `2` to a judged case. Through §8.4's last row, that
+  includes every plugin's users and digline-openai's. The cost of this is nil,
+  because digline's next release is already a minor for #642.
+- **digline-anthropic: a minor.** A run over an unpriced geography or a
+  1-hour cache write exits `2` today. After, `digline run` exits `0`, and
+  `digline compare` exits `0` or `1` by its verdict. Its floor rises to the
+  core that carries `unpriced`.
+- **digline-bedrock: a minor**, for the same reason, over a cache write at a
+  TTL other than `5m`. Its floor rises the same way.
+- **digline-openai: no release.** Its code has no path of its own that cannot
+  be priced. It returns no cache-write count while
+  `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS` is `None`. Its one refusal over
+  usage, *"the provider returned no usage"*, is the second row of 8.1 and
+  not this. What moves for its users moves in the core.
 
 ## Not decided here
 
