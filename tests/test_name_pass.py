@@ -57,8 +57,9 @@ def test_the_values_pass_does_not_list_a_name_every_document_shares(
 ) -> None:
     """Held at several paths in several sources, so a reading by the whole path
     would list it; held under one key, so this one does not."""
-    paths = {item.path for item in found if tool.key_of(item.path) == key}
-    sources = {item.source for item in found if tool.key_of(item.path) == key}
+    held = [item for item in found if item.path.endswith(f".{key}")]
+    paths = {item.path for item in held}
+    sources = {item.source for item in held}
     assert len(paths) > 1 and len(sources) > 1, (paths, sources)
     listed = sorted(value for value, keys in shared.items() if key in keys)
     assert not listed, f"{key} is listed for {listed}"
