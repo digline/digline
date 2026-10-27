@@ -8,7 +8,9 @@ same file that runs — the document cannot drift from the code it shows.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
+import io
 import json
 import os
 import re
@@ -16,6 +18,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
 import threading
 import tomllib
 from collections.abc import Generator, Iterator, Sequence
@@ -26,7 +29,7 @@ from types import ModuleType
 from typing import Any, cast
 
 import pytest
-from tests._helpers import baseline_in
+from tests._helpers import baseline_in, copy_tracked
 from tests._site import nav_lists, require_site_config
 
 from digline.cli import EXIT_OK, EXIT_WORSE
@@ -53,7 +56,7 @@ def cli(
 def quickstart(tmp_path: Path) -> Path:
     """Copied out of the repository so running it writes nothing into ours."""
     workdir = tmp_path / "quickstart"
-    shutil.copytree(QUICKSTART, workdir)
+    copy_tracked(QUICKSTART, workdir)
     return workdir
 
 
@@ -414,11 +417,7 @@ STANDALONE_PARAMS = list(STANDALONE)
 def _quickstart_toml(tmp_path: Path, label: str) -> Path:
     """A copy of the one example that needs a service, as the fixture makes it."""
     workdir = tmp_path / label
-    shutil.copytree(
-        ROOT / "examples" / "quickstart-toml",
-        workdir,
-        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
-    )
+    copy_tracked(ROOT / "examples" / "quickstart-toml", workdir)
     return workdir
 
 
@@ -500,7 +499,7 @@ def standalone(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[Path]
     """A copy, without its baseline: the cycle has to work from nothing."""
     name = str(request.param)
     workdir = tmp_path / name
-    shutil.copytree(ROOT / "examples" / name, workdir)
+    copy_tracked(ROOT / "examples" / name, workdir)
     shutil.rmtree(workdir / ".digline", ignore_errors=True)
     with application(workdir, name):
         yield workdir
@@ -557,11 +556,7 @@ def test_an_example_shipped_red_is_red_against_its_committed_baseline(
     every build: a re-promotion that erases the demonstration fails here the
     day it is made."""
     workdir = tmp_path / name
-    shutil.copytree(
-        ROOT / "examples" / name,
-        workdir,
-        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
-    )
+    copy_tracked(ROOT / "examples" / name, workdir)
     with application(workdir, name):
         suite = suite_file(workdir)
         ran = cli(workdir, "run", "--suite", suite)
@@ -602,11 +597,7 @@ def test_an_example_shipped_red_live_is_red_against_its_live_baseline(
     name: str, tmp_path: Path
 ) -> None:
     workdir = tmp_path / name
-    shutil.copytree(
-        ROOT / "examples" / name,
-        workdir,
-        ignore=shutil.ignore_patterns(".venv", "runs", "__pycache__"),
-    )
+    copy_tracked(ROOT / "examples" / name, workdir)
     with application(workdir, name):
         suite = suite_file(workdir)
         ran = cli(workdir, "run", "--suite", suite)
@@ -797,7 +788,7 @@ def test_the_langchain_example_runs_with_no_key_anywhere(tmp_path: Path) -> None
     that would ask for one.
     """
     workdir = tmp_path / "langchain"
-    shutil.copytree(LANGCHAIN, workdir)
+    copy_tracked(LANGCHAIN, workdir)
     env = {
         k: v
         for k, v in os.environ.items()
@@ -837,7 +828,7 @@ def test_the_langgraph_example_runs_with_no_key_anywhere(tmp_path: Path) -> None
     the same class of escape as a provider key happening to be exported.
     """
     workdir = tmp_path / "langgraph"
-    shutil.copytree(LANGGRAPH, workdir)
+    copy_tracked(LANGGRAPH, workdir)
     env = {
         k: v
         for k, v in os.environ.items()
@@ -942,7 +933,7 @@ def test_the_llamaindex_example_runs_with_no_key_anywhere(tmp_path: Path) -> Non
     quietly reached a real endpoint would be the subtler of the two escapes.
     """
     workdir = tmp_path / "llamaindex"
-    shutil.copytree(LLAMAINDEX, workdir)
+    copy_tracked(LLAMAINDEX, workdir)
     env = {
         k: v
         for k, v in os.environ.items()
@@ -1160,8 +1151,7 @@ def operator(tmp_path: Path) -> Path:
     """A copy with its baseline kept: the loop compares against an approved
     reference, and a cycle with nothing to compare against is not a cycle."""
     workdir = tmp_path / "operator"
-    shutil.copytree(OPERATOR, workdir)
-    shutil.rmtree(workdir / ".digline" / "northwind" / "runs", ignore_errors=True)
+    copy_tracked(OPERATOR, workdir)
     return workdir
 
 
@@ -2245,3 +2235,134 @@ def test_a_readme_promote_names_the_baseline_its_example_ships(readme: Path) -> 
             f"{named.group('key')}, and the baseline this example ships is "
             f"{present}: a reader copying it is refused"
         )
+
+
+# -- What a copy of an example inherits ---------------------------------------
+#
+# Every test above works on a copy of an example, and a checkout that has run an
+# example holds runs, journals, caches and environments beside it that git does
+# not track. A copy of the whole directory carried them into the test: on
+# 2026-10-27 the standalone cycle ran `classifier` with an inherited `.wobble`,
+# which moved two of its twenty verdicts, and compared the run with its own
+# promotion, which could not see it. So every site copies what git tracks and
+# nothing else, through `copy_tracked`, and the two tests below hold it.
+
+#: The tests whose outcome on a dirty tree was not compared with a clean one,
+#: each with the reason. Their copy is held below like every other site's; what
+#: is not measured is the end-to-end result.
+NOT_MEASURED_DIRTY: dict[str, str] = {
+    "test_an_example_shipped_red_live_is_red_against_its_live_baseline": (
+        "live: it needs ANTHROPIC_API_KEY and DIGLINE_LIVE=1, and its run against "
+        "a real model costs money, so it was not run on a dirty tree"
+    ),
+}
+
+#: Every example a site above copies.
+COPIED = sorted({*STANDALONE, "quickstart"})
+
+#: What a checkout that has run an example holds beside it: a finished run and
+#: an unfinished one's journal under the store, a lint cache, an environment,
+#: compiled bytecode, and `classifier`'s run counter, which moves its answers.
+_LEFTOVERS = (
+    "{runs}/2026-01-01T00-00-00-000000-00-00-0000000000000000.json",
+    "{runs}/.pending/2026-01-01T00-00-01-000000-00-00-0000000000000000.1.jsonl",
+    ".ruff_cache/CACHEDIR.TAG",
+    ".venv/pyvenv.cfg",
+    "__pycache__/app.cpython-312.pyc",
+    ".wobble",
+)
+
+
+def _tracked_example(name: str, tmp: Path) -> Path:
+    """`examples/<name>` as this commit tracks it, in a repository of its own."""
+    archive = subprocess.run(
+        ["git", "-C", str(ROOT), "archive", "HEAD", f"examples/{name}"],
+        check=True,
+        capture_output=True,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(tmp, filter="data")
+    source = tmp / "examples" / name
+    for args in (
+        ("init", "-q"),
+        ("add", "-A"),
+        ("-c", "user.email=t@e.i", "-c", "user.name=T", "commit", "-qm", "i"),
+    ):
+        subprocess.run(
+            ["git", "-C", str(source), *args], check=True, capture_output=True
+        )
+    return source
+
+
+def _files(root: Path) -> set[str]:
+    return {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(root).parts
+    }
+
+
+@pytest.mark.parametrize("name", COPIED)
+def test_a_copy_takes_what_git_tracks_and_nothing_beside_it(
+    name: str, tmp_path: Path
+) -> None:
+    """The copy made beside leftovers is the copy made without them."""
+    source = _tracked_example(name, tmp_path / "source")
+    clean = tmp_path / "clean"
+    copy_tracked(source, clean)
+    baselines = sorted(source.glob(".digline/*/baselines/*.json"))
+    runs = (
+        f".digline/{baselines[0].parts[-3]}/runs/{baselines[0].stem}"
+        if baselines
+        else ".digline/northwind/runs/support"
+    )
+    for pattern in _LEFTOVERS:
+        leftover = source / pattern.format(runs=runs)
+        leftover.parent.mkdir(parents=True, exist_ok=True)
+        leftover.write_text("11\n", encoding="utf-8")
+        # The control: a leftover is one git does not track there.
+        tracked = subprocess.run(
+            ["git", "-C", str(source), "ls-files", "--", str(leftover)],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert not tracked, tracked
+    dirty = tmp_path / "dirty"
+    copy_tracked(source, dirty)
+    assert _files(dirty) == _files(clean)
+    assert _files(clean), "the copy took nothing"
+
+
+def _whole_copies(source: str) -> list[int]:
+    """The lines of `source` that call `copytree`."""
+    return [
+        node.lineno
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute | ast.Name)
+        and (node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id)
+        == "copytree"
+    ]
+
+
+def test_no_site_copies_an_example_whole() -> None:
+    """Fails closed: a site added with `shutil.copytree` is red here, and names
+    its line, until it goes through `copy_tracked`."""
+    assert _whole_copies("import shutil\nshutil.copytree(a, b)\n") == [2]
+    lines = _whole_copies(Path(__file__).read_text(encoding="utf-8"))
+    assert not lines, f"tests/test_examples.py copies an example whole at {lines}"
+
+
+def test_the_tests_not_measured_dirty_are_exactly_the_live_ones() -> None:
+    """A test this module marks `live` is one whose run costs money, so its
+    outcome on a dirty tree is declared unmeasured above, with its reason; and
+    the table names nothing that is not such a test."""
+    live = {
+        name
+        for name, value in globals().items()
+        if name.startswith("test_")
+        and any(mark.name == "live" for mark in getattr(value, "pytestmark", []))
+    }
+    assert live, "no test here is marked live: the control found nothing"
+    assert live == set(NOT_MEASURED_DIRTY), (live, sorted(NOT_MEASURED_DIRTY))

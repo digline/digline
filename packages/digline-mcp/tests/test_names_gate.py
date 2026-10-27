@@ -34,8 +34,6 @@ holds that as an `xfail(strict=True)`.
 from __future__ import annotations
 
 import re
-import shutil
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -45,7 +43,7 @@ import pytest
 from _names import RecordingTable
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
-from tests._helpers import baseline_in, cli, git
+from tests._helpers import baseline_in, cli, copy_tracked, git
 
 from digline.core import split_grouped_name
 from digline_mcp.server import build_server
@@ -271,27 +269,9 @@ _WIDENED = (
 _NOT_COPIED = frozenset({"uv.lock", "report.html"})
 
 
-def _copy_tracked(example: Path, repo: Path) -> None:
-    """The files git tracks under `example`, and nothing else. A checkout that
-    has run the example holds runs and journals beside it that git ignores,
-    and a copy of the directory would make them the fixture's own."""
-    listed = subprocess.run(
-        ["git", "-C", str(example), "ls-files", "-z"],
-        check=True,
-        capture_output=True,
-    ).stdout.decode("utf-8")
-    for name in filter(None, listed.split("\0")):
-        source = example / name
-        if Path(name).name in _NOT_COPIED or not source.is_file():
-            continue
-        target = repo / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-
-
 def build_repository(tmp: Path, *, example: Path = EXAMPLE) -> tuple[Path, str, str]:
     repo = tmp / "prompt-first"
-    _copy_tracked(example, repo)
+    copy_tracked(example, repo, leave_out=_NOT_COPIED)
     suite = repo / SPEC
     source = suite.read_text(encoding="utf-8")
     for before, after in _WIDENED:
