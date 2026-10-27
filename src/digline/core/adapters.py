@@ -98,6 +98,10 @@ class FromAutoevals(AssertionBase):
     #: that says it does not know. (ADR 0024 §6.4, amended 2026-09-19)
     judged: bool | None = None
     KIND: ClassVar[CheckKind] = "wrapper"
+    #: Its class is digline's and its metadata keys are the scorer's, so its
+    #: verdicts are `foreign`: origin is about who wrote the metadata, not who
+    #: wrote the class. (ADR 0034 §17.3)
+    FOREIGN_METADATA: ClassVar[bool] = True
     #: `judged` joins the two fields that describe **how** a result is judged
     #: rather than **what** is checked, and for their reason. It is a *field*,
     #: unlike `KIND`, so without this line it would enter `identity` and then

@@ -18,6 +18,7 @@ from typing import Protocol, cast, runtime_checkable
 from digline import __version__
 from digline.core import (
     MAX_RECORDED_CHARS,
+    NAMED_CONFIG_KEYS,
     NO_CALLS,
     Artifact,
     Assertion,
@@ -46,6 +47,7 @@ from digline.core import (
     judged,
     misnamed_verdict,
     misnamings,
+    origin,
     reconcile,
     record_output,
     record_trajectory,
@@ -221,7 +223,8 @@ def target_config(target: object) -> SystemConfig:
             "per key. Return a dict of scalars, or remove the attribute."
         )
     try:
-        return SystemConfig(values=dict(cast(Mapping[str, ConfigValue], declared)))
+        values = dict(cast(Mapping[str, ConfigValue], declared))
+        return SystemConfig(values=values, named=_named(values))
     except ValueError as exc:
         # `SystemConfig` states what is wrong with the values. Raised bare, a
         # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
@@ -229,6 +232,14 @@ def target_config(target: object) -> SystemConfig:
         raise TargetShapeError(
             Quoted.of(exc, "the target's `config` is refused: ", named=False)
         ) from exc
+
+
+def _named(values: Mapping[str, object]) -> frozenset[str]:
+    """The keys of `values` that are digline's words, recorded with the
+    configuration so a projection can let them cross in clear. Recorded here,
+    on the day of the run, and never recomputed from a vocabulary that may
+    have changed since. (ADR 0034 §17.1, §17.2)"""
+    return frozenset(values) & NAMED_CONFIG_KEYS
 
 
 def judge_config(suite: Suite) -> SystemConfig:
@@ -265,7 +276,7 @@ def judge_config(suite: Suite) -> SystemConfig:
         sorted({identity_of(str(c["provider"]), str(c["model"])) for c in declared})
     )
     if len(identities) > 1:
-        return SystemConfig(identities=identities)
+        return SystemConfig(identities=identities, named=frozenset())
 
     first, rest = declared[0], declared[1:]
     agreed: dict[str, ConfigValue] = {
@@ -276,7 +287,7 @@ def judge_config(suite: Suite) -> SystemConfig:
     # `provider` and `model` survive the merge by construction: a single
     # identity is what makes them equal across every judge here.
     try:
-        return SystemConfig(values=agreed, identities=identities)
+        return SystemConfig(values=agreed, identities=identities, named=_named(agreed))
     except ValueError as exc:
         # `SystemConfig` says what is wrong with the values. Bare, a
         # `ValueError` is not a refusal (ADR 0041 §4.2), and this one is the
@@ -627,14 +638,21 @@ def _clip(text: str) -> str:
 
 
 def _stamped(assertion: Assertion, verdict: Verdict) -> Verdict:
-    """The verdict, marked when a model placed it on a scale.
+    """The verdict, marked when a model placed it on a scale, and with who
+    wrote its metadata.
 
     Stamped here, where the assertion and its verdict are both in hand, and not
     by the assertion: `KIND` is a declaration about a class, and the one place
     that reads it for the document is the one place every verdict passes.
-    (ADR 0024 §6.4)
+    (ADR 0024 §6.4) `origin` is read here for the same reason, and an
+    assertion cannot claim it: whatever it put on its verdict is replaced.
+    (ADR 0034 §17.3)
     """
-    return replace(verdict, judged=True) if judged(assertion) else verdict
+    return replace(
+        verdict,
+        judged=True if judged(assertion) else verdict.judged,
+        origin=origin(assertion),
+    )
 
 
 def _failed(suite: Suite, reason: str) -> tuple[Verdict, ...]:
@@ -1407,7 +1425,14 @@ def execute(
     # moves. It costs no call to anything: the per-case samples already exist
     # and a `RunAssertion` is a pure function. (ADR 0006 §7)
     aggregate = tuple(
-        with_noise_interval(run_assertion, _outcomes(suite, results, run_assertion))
+        replace(
+            with_noise_interval(
+                run_assertion, _outcomes(suite, results, run_assertion)
+            ),
+            # Who wrote the aggregate's metadata: a run-level check digline
+            # wrote, or one the suite did. (ADR 0034 §17.3)
+            origin=origin(run_assertion),
+        )
         for run_assertion in suite.run_assertions
     )
     if on_unpriced is not None:

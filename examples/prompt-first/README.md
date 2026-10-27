@@ -80,7 +80,7 @@ calls only — the target is never called for it.
 One thing to copy carefully: the judge here is a function, and nothing
 reports what it spent. `_live_judge` calls the SDK directly instead of going
 through `digline-anthropic`. Measured on the keyless path on 2026-10-27, with
-digline 0.34.0, which this example installs: the run file records the judge's
+digline 0.34.0, the release this example installed that day: the run file records the judge's
 line as `calls: 0`, `spent_usd: 0.0` and neither completeness marker, which
 reads *not recorded*, and `digline run` prints no judge line at all. digline
 built from this repository at `bcef1603` prints `judge: not recorded`. Copy the

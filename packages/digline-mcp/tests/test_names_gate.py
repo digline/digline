@@ -47,7 +47,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
 from tests._helpers import baseline_in, cli, git
 
-from digline.core import split_grouped_name
+from digline.core import NAMED_CONFIG_KEYS, split_grouped_name
 from digline_mcp.server import build_server
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -88,6 +88,12 @@ class Gate:
     def token(self, text: str) -> bool:
         """(c): a token this table minted."""
         return text in self.table.rows
+
+    def config_key(self, text: str) -> bool:
+        """(a) or (c): a configuration key is digline's word where the run
+        recorded it as one, and a token this table minted otherwise. (ADR 0034
+        §17.2; #323)"""
+        return text in NAMED_CONFIG_KEYS or self.token(text)
 
     def case(self, text: str) -> bool:
         """(c): a case's id, or nothing where a line is about the run, as an
@@ -196,7 +202,7 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.results[].calibration.check": ("c", gate.token),
         "$.aggregate[].assertion": ("c", gate.check),
         "$.runs[].aggregate[].assertion": ("c", gate.check),
-        "$.target_config.values{}": ("c", gate.token),
+        "$.target_config.values{}": ("a|c", gate.config_key),
         "$.deltas[].assertion": ("c", gate.check),
         "$.deltas[].case_id": ("c", gate.case),
         "$.shape[].assertion": ("c", gate.check),
@@ -207,7 +213,7 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.facts[].name": ("c", gate.check),
         "$.facts[].before": ("c", gate.token),
         "$.facts[].shape.assertion": ("c", gate.check),
-        "$.target_config_deltas[].field": ("c", gate.token),
+        "$.target_config_deltas[].field": ("a|c", gate.config_key),
         "$.target_config_deltas[].before": ("c", gate.token),
         "$.target_config_deltas[].after": ("c", gate.token),
         # (p) prose composed from projected values

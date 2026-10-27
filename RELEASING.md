@@ -357,13 +357,29 @@ and the cut that settles the row deletes it.
 | `digline-anthropic` | it reads `usage.input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `cache_creation.ephemeral_1h_input_tokens` and `inference_geo` through `getattr` with a default, so an absent field is priced at `0`; `Completion(usage=None)` is new in the core release that carries #629; and since #569 its `completion_of` hands over `Completion(unpriced=…)` and `_WhereServed` overrides `Pricing.why_unpriced`, both new in that same core release | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-anthropic |
 | `digline-openai` | it reads `usage.prompt_tokens`, `completion_tokens`, `prompt_tokens_details` and its `cached_tokens` through `getattr` with a default, so an absent field is priced at `0`; `Completion(usage=None)` is new in the core release that carries #629 | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-openai |
 | `digline-bedrock` | `_count` reads `inputTokens` and `outputTokens`, required in `TokenUsage`, with `usage.get(key, 0)`, so an absent one is priced at `0`; the optional cache members keep their `0`, as the service model declares; `Completion(usage=None)` is new in the core release that carries #629; and since #569 its `completion_of` hands over `Completion(unpriced=…)`, new in that same core release | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-bedrock |
-| `digline-mcp` | `--names project` (#548, ADR 0054) imports `load_name_table`, `one_table`, `project_check_name` and `project_declared`, and passes `mint=` to `explained`, `history` and `suite_notes`, all new in the core release that carries #548; against 0.34.0 the imports raise `ImportError`; and since #678 its tools answer with the keys `output_version` 4 renamed only on the core release that carries #678, and with the old ones on 0.34.0 | `0.35.0` | raise the cap to `<0.36` with it, and ship digline-mcp 0.7.0 on that floor after the core is on PyPI |
+| `digline-mcp` | `--names project` (#548, ADR 0054) imports `load_name_table`, `one_table`, `project_check_name` and `project_declared`, and passes `mint=` to `explained`, `history` and `suite_notes`, all new in the core release that carries #548; against 0.34.0 the imports raise `ImportError`; and since #678 its tools answer with the keys `output_version` 4 renamed only on the core release that carries #678, and with the old ones on 0.34.0 | `0.35.0` | ship digline-mcp 0.7.0 on that floor after the core is on PyPI. The cap is already `<0.36`, raised in the bump to 0.35.0; this cut does not tag digline-mcp |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
 row naming it, so the two cannot drift apart in that direction. The other
 direction is this step's job: a row left here after its floor moved is a row
 nobody finished.
+
+**And the records that still say `unreleased`: read `UNRELEASED_RECORDS`.**
+*Added 2026-10-27.* `tests/test_adr.py` declares, each with the reason measured
+for it, every record in `docs/adr/` whose `- Shipped:` line says `unreleased`.
+It fails on a record that says it and is not declared, and on a declared one
+that no longer says it, so an addition cannot arrive in silence. **What it
+cannot see is a record whose code ships in this release while its line still
+says `unreleased`.** That is the same absence as a floor nobody raised, in
+another table: the code moved, and the line that should name the release did
+not. Only the cut can read it, because only the cut knows the tree being
+tagged. So read each entry against that tree. Where what the record names is
+now in it, write this release's version on its `- Shipped:` line, with what is
+not built after a ` — ` if only part of it is, and take the entry out. Where it
+is not, the reason stays, and the entry with it. The step above that says
+which decisions this release ships asks the same question from the records'
+side.
 
 **And the number each package owes: read *Owed to the next version*.** A pull
 request that changes what a package's number must be, a break that moves the
@@ -380,8 +396,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline | #642: a `missing` and a `new` on the same case, scope and name are a cause of exit `2`, `unpaired`, with a clause in the headline; a comparison that exited `0` on a bar moved inside `Repeated`, or on a check redefined under its name, now exits `2` | a minor: an exit code changed (*Choosing the version*) |
-| digline | #569: a reply whose counts were read and whose cost cannot be computed is a call counted with its tokens and its cost not known, where it raised in `Pricing.cost`; a run over a price list with no rate for tokens a reply reports, which exited `2` where every case errored, is judged | a minor: an exit code changed (*Choosing the version*). Already a minor for #642, so this moves no number |
 | digline-mcp | #678: at `output_version` 4, a verdict's check is `assertion` where `get_run`, `get_baseline`, `list_runs` and `log`'s `spread` named it `name`, `shape` named it `check` and `suite_deltas` named it `rule`, and `log` says `reported` where it said `answered`; and `explain` drops the `key` it spliced beside `run_key` (#448); a client reading an old name finds nothing | a minor: a key a client reads was renamed. Already a minor for #548 (ADR 0054 §5), so this moves no number. The core release that carries #678 is a minor too, under *A bump of `OUTPUT_VERSION` is a minor*, already one for #642 |
 | digline-anthropic | #569: a reply in an `inference_geo` with no rate, or with a write to the 1-hour cache, is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |
 | digline-bedrock | #569: a reply with a cache write at a TTL other than `5m` is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |

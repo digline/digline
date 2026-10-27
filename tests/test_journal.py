@@ -767,9 +767,12 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     # `error_kind` on a case (#425), and holds a tenth: the markers ride in the
     # bill line a leg already records and the word in its case record, each
     # absent where not recorded, so a leg written before it reads as not
-    # recorded rather than misread. The journal's version stands by its own
-    # rule, as it did for `pid` and `host`.
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (21, 3)
+    # recorded rather than misread. It moved to 22 for `origin` on a verdict
+    # and `named` on a configuration (ADR 0034 §17), and holds an eleventh:
+    # both ride in the case and configuration records a leg already writes
+    # with the document's own serializer, each absent where not recorded. The
+    # journal's version stands by its own rule, as it did for `pid` and `host`.
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (22, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]

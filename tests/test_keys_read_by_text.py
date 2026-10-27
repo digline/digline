@@ -74,6 +74,33 @@ type Use = tuple[str, str, str]
 #: Every known use, how many times it occurs, and why it holds on a projected
 #: document. Somebody wrote each reason while looking at the check.
 KNOWN: dict[Use, tuple[int, str]] = {
+    # The definition of the vocabulary a projection lets cross in clear, and of
+    # the contract table it is built from: module constants that read no
+    # document, so nothing here can fire or pass on a projected one. Where a
+    # configuration records them as `named`, the keys stay text in a
+    # projection; where it records nothing, they are tokens as before. (ADR
+    # 0034 §17.2; #323)
+    ("digline.core.run", "<module>", "@SYSTEM_NAME_FIELDS"): (
+        1,
+        "`CONTRACT_FIELDS`' definition, moved into the core beside the "
+        "vocabulary (ADR 0034 §17.2)",
+    ),
+    ("digline.core.run", "<module>", "base_url"): (
+        1,
+        "`CONTRACT_FIELDS`' definition, as `@SYSTEM_NAME_FIELDS` beside it",
+    ),
+    ("digline.core.run", "<module>", "@OBSERVED_FIELDS"): (
+        1,
+        "`NAMED_CONFIG_KEYS`' definition (ADR 0034 §17.2)",
+    ),
+    ("digline.core.run", "<module>", "@PERIMETER_FIELDS"): (
+        1,
+        "`NAMED_CONFIG_KEYS`' definition (ADR 0034 §17.2)",
+    ),
+    ("digline.core.run", "<module>", "@ENDPOINT_PERIMETER_FIELDS"): (
+        1,
+        "`NAMED_CONFIG_KEYS`' definition (ADR 0034 §17.2)",
+    ),
     ("digline.core.run", "SystemConfig.__post_init__", "@SYSTEM_NAME_FIELDS"): (
         1,
         "the presence check, skipped when `projected` (#263 check 1, relaxed "

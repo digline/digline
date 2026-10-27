@@ -43,7 +43,8 @@
   verified at construction), and not §9's refusal or regime for a projected
   reference, or §14's delete (#237). §4's classification gate and §16's
   serializer walk shipped in 0.34.0, for strings less the three exclusions
-  §4's note of 2026-10-25 names (#710)
+  §4's note of 2026-10-25 names (#710). §17's provenance ships in 0.35.0,
+  with schema 22, and leaves one exclusion, numbers (#323, #711)
 - Date: 2026-09-27
 - Amended: 2026-09-27 — **two of this record's own readiness claims, corrected
   where they are made and kept above their corrections.** §16's fifth bullet
@@ -99,6 +100,12 @@
 - Amended: 2026-10-26 — §4 gains a dated note: a projection tokenises
   `Run.modules_unchecked`'s names, as the `module_name` kind, and the gate holds
   them, so two exclusions remain (#712)
+- Amended: 2026-10-27 — **§17 is added**, and §4 gains a dated note. A
+  configuration records `named`, the keys of digline's closed vocabulary, which
+  cross a projection in clear; a verdict records `origin`, and a foreign one's
+  metadata keys become tokens with their values withheld, while the keys the
+  driver writes stay in clear on every verdict. Schema 22. One exclusion
+  remains, numbers (#323, #711)
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no migration — nothing is
   implemented. At implementation §8 is a field in the run document and
@@ -613,6 +620,17 @@ names in clear is still read: `_check_projected` runs whenever a `Run` is
 built, a read included, and refusing one there would change what a valid
 document is, which is `SCHEMA_VERSION`'s to do. Two exclusions remain:
 numbers, and the keys of a verdict's metadata (#711).
+
+*Noted 2026-10-27 (#323, #711); §4 and the notes above are kept as written.*
+**The keys of a verdict's metadata are no longer an exclusion, and the
+`withheld` names are class (a) as this section always listed them.** §17 records
+the provenance a projection needs: a configuration's `named` keys, digline's
+vocabulary, cross in clear in `values` and in `withheld`, and every other key
+and every string value is a token. A verdict's `origin` decides its metadata:
+a builtin verdict's keys and values cross in clear, a foreign or unrecorded
+one's keys are tokens and its values are withheld, and the keys the driver
+writes cross in clear on every verdict. The gate holds both. **One exclusion
+remains: numbers.**
 
 *Noted 2026-10-25 (#425, #563); §4 and the note above are kept as written.*
 **`CaseResult.error_kind` is class (a)**: `raised` or `shape`, digline's own
@@ -1213,6 +1231,183 @@ file.
   tree is a bare `ValueError` at the one boundary every stored document
   crosses, which reached an agent as an untranslated tool error precisely
   because the classification test walks the classes digline defines.
+
+### 17. The provenance a projection reads, in schema 22
+
+*Added 2026-10-27. Ruled the same day by Alessandro Prandini (P-865), on two
+proposals that came out of reading the code against his first design (P-851).
+The ruling is recorded in `private/record-323-711-schema-22-ruled.md`, written
+before this section. Closes #323 and #711.*
+
+#### 17.0 Not decided here
+
+Each of these came up while this section was written, and none is settled by
+it:
+
+- **A projected document written before schema 22 is still read, and its
+  metadata keys are not checked.** It carries no `origin`, and its keys are in
+  clear, because no projection tokenised them then. `_check_projected` runs
+  whenever a `Run` is built, a read included, so refusing one there would make
+  every such document unreadable: the reason §4's note of 2026-10-26 gave for
+  `modules_unchecked` (#712). So the check of §17.5 applies where `origin` is
+  recorded. **What that leaves open:** a document that claims `origin` absent
+  escapes it. Nothing digline writes is such a document, because the projection
+  tokenises an unknown origin (§17.4). Whether to refuse it on read is for the
+  record that rules whether a pre-22 projected document is still a valid one.
+- **Neither field reaches the wire.** `--json` and the MCP tools carry neither
+  `named` nor `origin`. `OUTPUT_VERSION` stays 4 (#757), and adding a key there
+  is a decision about that contract, not about this one.
+- **The minter meets a new kind, `metadata_key`.** ADR 0036's note of
+  2026-10-26 read digline-ward's table as storing a kind as text and minting
+  under whatever kind it is handed, at ward `de5e3c0b`. It was not read again
+  for this section. An owning process that refuses a kind it does not know
+  would refuse this one, as it would have refused `module_name`, and whether a
+  table must accept any kind is ADR 0036's to say.
+- **A foreign run-level check's `considered` and cells go quiet in a
+  projection.** `compare` reads them to say how many cases a denominator
+  counted. On a check digline wrote they stay in clear. On one the suite wrote,
+  they follow §17.3 and become tokens, so a comparison of two projected
+  documents says nothing about that denominator. That is the rule applied, not
+  a gap in it, and it is said here so that nobody reads the silence as a
+  denominator that did not move.
+
+#### 17.1 Why a provenance, and why it is recorded
+
+A projection receives a document, not a suite. `project(run, mint)` is handed
+the run alone, and `project_served` is called on runs read from the store with
+no suite near it. So the two questions #323 and #711 ask cannot be answered at
+projection time from the suite:
+- whether a configuration key is a word digline names;
+- whether a verdict's metadata was written by digline.
+
+The answer has to be in the document, and putting it there is a
+`SCHEMA_VERSION`.
+
+**Neither field adds text.** `named` holds keys already present in the
+configuration it sits in, and `origin` is one of two words. Nothing new can
+leave a document through them, because nothing new enters one. That is what
+makes the train safe.
+
+**Recorded rather than recomputed.** A configuration's `named` could be
+recomputed at projection time from the vocabulary in code. It is recorded
+instead, so that the classification made on the day of the run is the one the
+document keeps. A vocabulary that grows later does not reinterpret an old
+document's keys as digline's. A vocabulary that shrinks does not reinterpret
+them either, and §17.2 makes that direction fail closed as well.
+
+#### 17.2 A configuration records `named`
+
+`SystemConfig.named` is the set of its keys that belong to **digline's closed
+vocabulary** of configuration keys: `CONTRACT_FIELDS | OBSERVED_FIELDS |
+PERIMETER_FIELDS | ENDPOINT_PERIMETER_FIELDS`, and `pricing`. That vocabulary is
+a class declared in reviewed code, which is how ADR 0046 says a widening of
+what crosses is made. The driver records it when it records the configuration,
+for the target and for the judge.
+
+In a projection:
+- **a key in `named` crosses in clear**, in `values` and in `withheld`;
+- **every other key becomes a token**, of its side's key kind, as before;
+- **every string value becomes a token** in both cases, as before.
+
+A key crosses in clear only if it is in `named` **and** in the vocabulary as
+the projecting digline knows it. A word the vocabulary has since dropped
+therefore becomes a token, and the recorded set never lets out a key that is
+not digline's word today. Values are untouched by this section: a perimeter
+value stays withheld, and a reported model id stays a token.
+
+`named` is `None` on a configuration written before schema 22 and on one built
+by hand: **not recorded**. A projection treats it as empty, so every key is a
+token, which is what every projection did before this section.
+
+So `base_url`, `fingerprint`, `resolved_model` and the declared rates, the
+perimeter keys #323 found tokenised, cross in clear as the names digline gives
+them, with their values still withheld. A parameter a hand-written target
+names, which #323's comment of 2026-10-26 refused to let out on a rule that
+could not see where a key came from, stays a token.
+
+#### 17.3 A verdict records `origin`, and the rule is who wrote its metadata
+
+`Verdict.origin` is `builtin`, `foreign` or `None`. The driver stamps it in
+`_stamped`, beside `judged`, and on each aggregate as it computes it. Like
+`judged`, it is followed through `Repeated` to the assertion it wraps.
+
+**Origin is about who wrote the metadata, not who wrote the class.** An
+assertion is `builtin` when digline's code writes its metadata keys: a class in
+`digline`'s own package, followed through `Repeated`. **`FromAutoevals` is
+`foreign`.** Its class is digline's, but the keys it records are the third-party
+scorer's. Any other class is `foreign`.
+
+In a projection, a verdict's metadata follows its origin:
+- **`builtin`:** keys and values in clear, as before. `compare` keeps reading
+  `considered` and the cells, the two error classifications keep reading their
+  markers, and a served page keeps showing `scores` and the claims total.
+- **`foreign` or `None`:** each key becomes a token, of the kind
+  `metadata_key`, and each value becomes `{"withheld": true}`, the form
+  `artifacts` already has. The value is withheld rather than tokenised because
+  it may be a number, and a number is not a name. Withholding it is a
+  narrowing, and §8 says a narrowing is declared.
+
+#### 17.4 The driver's keys stay in clear on any verdict
+
+One verdict carries keys from two authors. The driver writes `MISNAMED` and
+`UNRECONCILED`, the `DRIVER_MARKERS` that `unmarked` takes off every verdict an
+assertion returns. `combine_samples` and `fold_judgements` write `samples`,
+`agreement`, `spread`, `errored_samples`, `scores`, `total_cost_usd`,
+`judge_samples`, `judge_errored`, `judge_min`, `judge_max` and `judge_answer`,
+beside the inner assertion's own keys.
+
+**Those keys, and their values, cross in clear on every verdict**, whatever its
+origin. They are a closed set in code, `DRIVER_METADATA_KEYS`, and a test holds
+it equal to what the two folds write. Without this, "foreign tokenises every
+key" would silence three things on exactly the verdicts where they matter:
+- the `misnamed` classification, because `MISNAMED` happens to an assertion
+  that misnames its verdict, which is nearly always a foreign one;
+- the `unreconciled` classification;
+- the `samples` `compare` reads to build a floor.
+
+#### 17.5 An unknown origin is foreign: fail closed
+
+A verdict written before schema 22 has no `origin`, and neither does a
+configuration have `named`. **An unknown origin is not assumed to be
+digline's.** `None` means *not recorded*, and the projection treats it as
+`foreign`, so it tokenises. This is the discipline that `None` is *not
+recorded*, never *false* and never *ours*, applied to a boundary: here it is
+the difference between a safe train and a leak.
+
+`_check_projected` holds the result on every projected document that records
+it:
+- a key in clear in a configuration must be in its `named` and in the
+  vocabulary;
+- a metadata key in clear on a verdict whose `origin` is `foreign` must be one
+  of `DRIVER_METADATA_KEYS`, and every other key there must be a token whose
+  value is withheld.
+
+#### 17.6 A control must be able to fail in the case it proves
+
+The controls that hold §17.4 are run on **foreign** verdicts, on two projected
+documents: `compare` reads `samples`, and the `misnamed` and `unreconciled`
+classifications classify. The mutation that tokenises the driver's keys as
+well turns them red.
+
+**The rule this found is general: a control must be able to fail in the case it
+proves.** The first form of these controls ran on builtin verdicts, where a
+builtin assertion cannot misname its own verdict. That control would have
+passed with the classification broken, because it proved nothing about the case
+it was for.
+
+#### 17.7 Schema 22, and what holds it
+
+- `SCHEMA_VERSION` is 22. Its migration step, `_add_schema_twenty_two`, writes
+  nothing, as schema 21's did: an absent field is read as `None`, which is
+  §17.5's *not recorded*.
+- The journal carries both fields through the document's own serializer.
+  `JOURNAL_VERSION` does not move. A journal is never resumed across digline
+  versions, because each leg asserts its `digline_version` and a leg that
+  differs from the first is refused.
+- `tests/test_projection_gate.py` loses its exclusion of a verdict's metadata
+  keys and classifies them by origin, as §17.3 does. Configuration keys there
+  are a token or a word of the vocabulary. **One exclusion remains: numbers.**
+- Fixed decision 9 in `CLAUDE.md` says so.
 
 ## Consequences
 

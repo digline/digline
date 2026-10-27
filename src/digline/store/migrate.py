@@ -391,6 +391,21 @@ def _add_schema_twenty_one(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty_two(raw: dict[str, Any]) -> dict[str, Any]:
+    """21 -> 22. Two passengers, and the step writes nothing for either: the
+    provenance a projection reads (ADR 0034 §17).
+
+    - `origin` on a verdict: a document before 22 does not say who wrote a
+      verdict's metadata. Absent is *not recorded*, and a projection reads it
+      as not digline's: `builtin` would let a suite's keys cross in clear on a
+      guess. (#711)
+    - `named` on a configuration: a document before 22 does not say which of
+      its keys are digline's words. Absent is *not recorded*, and a projection
+      tokenises every key, which is what every projection did before. (#323)
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one. A version absent from this table
 #: is one whose bump was not additive, and the absence is the whole statement.
 _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -411,6 +426,7 @@ _STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
     18: _add_schema_nineteen,
     19: _add_schema_twenty,
     20: _add_schema_twenty_one,
+    21: _add_schema_twenty_two,
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside

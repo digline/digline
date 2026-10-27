@@ -18,9 +18,16 @@ from typing import cast
 from digline.core.aggregate import grouped_name, split_grouped_name
 from digline.core.declared import Declared
 from digline.core.refused import Quoted
-from digline.core.run import CaseResult, Run, SystemConfig, redact
+from digline.core.run import (
+    NAMED_CONFIG_KEYS,
+    WITHHELD_METADATA,
+    CaseResult,
+    Run,
+    SystemConfig,
+    redact,
+)
 from digline.core.tokens import Minter, TokenKind, is_token
-from digline.core.types import NOTHING_EXTRA, ConfigValue, Verdict
+from digline.core.types import DRIVER_METADATA_KEYS, NOTHING_EXTRA, ConfigValue, Verdict
 
 __all__ = [
     "ProjectionRefusedError",
@@ -156,8 +163,10 @@ def project_served(run: Run, mint: Minter) -> Run:
             "covers: digline records them on the judge side only"
         )
     # First, and for the reason in the docstring: withheld while the keys are
-    # still text.
-    source = redact(run, NOTHING_EXTRA)
+    # still text. Then a foreign verdict's own values, which `rename` cannot
+    # do, because it is the map the resolver reads back too and a withheld
+    # value does not come back. (ADR 0034 §17.3)
+    source = _withhold_foreign(redact(run, NOTHING_EXTRA))
     try:
         return rename(source, _Tokens(mint), projected=True)
     except ValueError as exc:
@@ -192,9 +201,14 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
     - a calibration band's check: `calibration_check`;
     - artifact paths, as keys and in `pinned`: `artifact_path`;
     - configuration keys, in `values` and in `withheld`, and string values:
-      the key and value kinds of their side;
+      the key and value kinds of their side. **Except a key the configuration
+      records as `named`** and the vocabulary still holds, which is digline's
+      word and stays as it is (ADR 0034 §17.2);
     - a judge's `provider/model` label: `judge_identity`;
-    - an application module a check could not reach: `module_name`. (#712)
+    - an application module a check could not reach: `module_name` (#712);
+    - a metadata key on a verdict that is not `builtin`: `metadata_key`.
+      **Except the keys the driver writes**, `DRIVER_METADATA_KEYS`, which stay
+      as they are on every verdict (ADR 0034 §17.3, §17.4).
     """
     return replace(
         run,
@@ -268,8 +282,58 @@ class _Tokens:
         return token
 
 
-def _verdict(verdict: Verdict, name: str) -> Verdict:
-    return replace(verdict, score=replace(verdict.score, name=name))
+def _verdict(verdict: Verdict, renamed: str, name: Rename) -> Verdict:
+    return replace(
+        verdict,
+        score=replace(
+            verdict.score,
+            name=renamed,
+            metadata={
+                _metadata_key(verdict, key, name): value
+                for key, value in verdict.score.metadata.items()
+            },
+        ),
+    )
+
+
+def _metadata_key(verdict: Verdict, key: str, name: Rename) -> str:
+    """A metadata key as a projection writes it: in clear on a builtin verdict
+    and wherever the driver wrote it, a token everywhere else. An unrecorded
+    origin is not digline's. (ADR 0034 §17.3–§17.5)"""
+    if verdict.origin == "builtin" or key in DRIVER_METADATA_KEYS:
+        return key
+    return name("metadata_key", key)
+
+
+def _withhold_foreign(run: Run) -> Run:
+    """`run` with each value a non-builtin verdict wrote itself withheld, in the
+    form an artifact's withheld text has. The driver's own values stay: they
+    are its keys' readings, and they cross with them. (ADR 0034 §17.3)"""
+
+    def held(verdict: Verdict) -> Verdict:
+        if verdict.origin == "builtin":
+            return verdict
+        return replace(
+            verdict,
+            score=replace(
+                verdict.score,
+                metadata={
+                    key: value
+                    if key in DRIVER_METADATA_KEYS
+                    else dict(WITHHELD_METADATA)
+                    for key, value in verdict.score.metadata.items()
+                },
+            ),
+        )
+
+    return replace(
+        run,
+        results=tuple(
+            replace(case, verdicts=tuple(held(v) for v in case.verdicts))
+            for case in run.results
+        ),
+        aggregate=tuple(held(v) for v in run.aggregate),
+    )
 
 
 def _case(case: CaseResult, name: Rename) -> CaseResult:
@@ -277,7 +341,7 @@ def _case(case: CaseResult, name: Rename) -> CaseResult:
         case,
         case_id=name("case_id", case.case_id),
         verdicts=tuple(
-            _verdict(v, name("verdict_name", v.score.name)) for v in case.verdicts
+            _verdict(v, name("verdict_name", v.score.name), name) for v in case.verdicts
         ),
         calibration=(
             None
@@ -291,7 +355,7 @@ def _case(case: CaseResult, name: Rename) -> CaseResult:
 
 
 def _aggregate(verdict: Verdict, name: Rename) -> Verdict:
-    return _verdict(verdict, project_check_name(verdict.score.name, name))
+    return _verdict(verdict, project_check_name(verdict.score.name, name), name)
 
 
 def project_check_name(check: str, mint: Rename) -> str:
@@ -330,9 +394,18 @@ def _config(
     def mapped(v: ConfigValue) -> ConfigValue:
         return name(value, v) if isinstance(v, str) else v
 
+    # digline's words stay as they are, in both directions: recorded as
+    # `named` and still in the vocabulary. Either alone is not enough, so a
+    # forged record or a word since dropped is a token. (ADR 0034 §17.2)
+    clear = None if config.named is None else config.named & NAMED_CONFIG_KEYS
+
+    def keyed(k: str) -> str:
+        return k if clear is not None and k in clear else name(key, k)
+
     return SystemConfig(
-        values={name(key, k): mapped(v) for k, v in config.values.items()},
-        withheld=frozenset(name(key, k) for k in config.withheld),
+        values={keyed(k): mapped(v) for k, v in config.values.items()},
+        withheld=frozenset(keyed(k) for k in config.withheld),
         identities=tuple(name("judge_identity", label) for label in config.identities),
         projected=projected,
+        named=clear,
     )

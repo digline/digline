@@ -2516,12 +2516,21 @@ pair verdicts that were never the same check. An assertion built on
 `AssertionBase` passes its `identity` and never meets it.
 
 `Verdict` and `Score` are frozen dataclasses. Beside the constructor's
-arguments, a **`Verdict`** has one field more:
+arguments, a **`Verdict`** has two fields more:
 
 - `judged`: `True` when a model placed the score on its scale, meaning the
   check's `KIND` is `judged`. The driver stamps it and an assertion never sets
   it. It is a copy of a declaration, not a measurement: no comparison, gate or
   exit code reads it, and it is outside `assertion_id` and `config_hash`.
+- `origin`: who wrote the metadata keys, `"builtin"` or `"foreign"`, or `None`
+  for *not recorded*, a verdict written before schema 22 or built by hand.
+  `origin(assertion)` answers it, and the driver stamps it as it stamps
+  `judged`, on every verdict and every aggregate, followed through `Repeated`.
+  `builtin` means a class in `digline`'s own package that does not declare
+  `FOREIGN_METADATA`. **It is about who wrote the metadata, not who wrote the
+  class**: `FromAutoevals` is digline's class and `foreign`, because the keys
+  it records are the scorer's. A projection reads it
+  ([below](#the-projection)), and nothing compares on it (ADR 0034 §17.3).
 
 A verdict's **`Score`**, `verdict.score`, carries:
 
@@ -2676,11 +2685,38 @@ text in two kinds gets two tokens.
 **`TokenKind`** names what each token stands for: `case_id`, `group`,
 `verdict_name`, `calibration_check`, `artifact_path`, `target_config_key`,
 `target_config_value`, `judge_config_key`, `judge_config_value`,
-`judge_identity` and `module_name`, the application modules a check could not
-reach (`Run.modules_unchecked`, #712). The group inside `family[group=…]` is
-tokenised apart from the family, so the name still parses. Configuration keys
-are tokenised wherever they appear, in `values` and in `withheld`. Numbers
-stay as they are: ADR 0034 §4 has not decided them.
+`judge_identity`, `module_name`, the application modules a check could not
+reach (`Run.modules_unchecked`, #712), and `metadata_key`, a foreign verdict's
+own metadata keys (#711). The group inside `family[group=…]` is tokenised
+apart from the family, so the name still parses. Numbers stay as they are:
+ADR 0034 §4 has not decided them.
+
+**Two provenances decide what else crosses**, both recorded in the document
+since schema 22, because a projection receives a document and not a suite
+(ADR 0034 §17):
+
+- **A configuration key** crosses in clear where the configuration records it
+  in `named` and it is in **`NAMED_CONFIG_KEYS`**, digline's closed vocabulary:
+  `CONTRACT_FIELDS`, `OBSERVED_FIELDS`, `PERIMETER_FIELDS`,
+  `ENDPOINT_PERIMETER_FIELDS` and `pricing`. Every other key is a token, in
+  `values` and in `withheld`, and every string value is a token either way. So
+  `base_url` and `resolved_model` are named in clear as withheld, and a key a
+  hand-written target chose is a token. The driver records `named`; a
+  configuration that records none, written before schema 22, is all tokens.
+- **A verdict's metadata** follows its `origin`. A builtin verdict's keys and
+  values cross in clear. A foreign or unrecorded one's keys become
+  `metadata_key` tokens and its values `{"withheld": true}`. The keys the
+  driver writes, **`DRIVER_METADATA_KEYS`** (the `misnamed` and
+  `unreconciled` markers and what sampling records), cross in clear with their
+  values on every verdict, so `compare`, `misnamed()` and `unreconciled()`
+  read a projected foreign verdict as they read a builtin one. A list value,
+  such as `scores`, never reaches a projection at all: `redact()` keeps a
+  metadata value only when it is a number or a boolean.
+
+**An unrecorded provenance is never read as digline's.** `None` on either
+field tokenises, and `_check_projected` refuses a projected document that
+carries a configuration key in clear outside `named` and the vocabulary, or a
+foreign verdict's own key in clear.
 
 **The order is part of what it is.** `project` redacts first, with no
 `Disclosure`, and only then replaces names. The perimeter fields — `base_url`,

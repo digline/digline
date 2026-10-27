@@ -392,6 +392,7 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.host.listing", "SuiteRuns", "refused"): "0.25.2",
     ("digline.host.listing", "SuiteRuns", "runs"): "0.25.2",
     ("digline.host.loader", "Loaded", "modules_unchecked"): "0.32.0",
+    ("digline.host.loader", "NameTable", "mint"): "0.35.0",
     # In `digline.cli` from 0.5.0; dated to the move, as INTRODUCED dates
     # the host names.
     ("digline.host.loader", "Loaded", "suite"): "0.6.0",
@@ -426,6 +427,7 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.run.suite", "Suite", "tenant"): "0.1.0",
     ("digline.store.protocol", "ResultStore", "write_run"): "0.1.0",
     ("digline.targets.completion", "Completion", "text"): "0.8.0",
+    ("digline.targets.completion", "Completion", "unpriced"): "0.35.0",
     ("digline.targets.completion", "ToolCall", "tool"): "0.13.0",
     ("digline.targets.judge", "JudgeBase", "config"): "0.2.0",
     ("digline.targets.judge", "JudgeBase", "prefill"): "0.6.0",
@@ -436,6 +438,7 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.targets.pricing", "Pricing", "cost"): "0.1.0",
     ("digline.targets.pricing", "Pricing", "declared"): "0.13.0",
     ("digline.targets.pricing", "Pricing", "per_model"): "0.1.0",
+    ("digline.targets.pricing", "Pricing", "why_unpriced"): "0.35.0",
     ("digline.targets.provider", "ProviderTarget", "config"): "0.2.0",
     ("digline.targets.provider", "ProviderTarget", "prefill"): "0.10.0",
 }
@@ -450,11 +453,7 @@ UNDATED: dict[tuple[str, str, str], str] = {}
 #: the release that carries it (RELEASING.md, *Before the tag: moving the
 #: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
 #: so a name the cut forgot to move fails there rather than staying here.
-UNRELEASED: dict[tuple[str, str, str], str] = {
-    ("digline.targets.completion", "Completion", "unpriced"): "#569",
-    ("digline.targets.pricing", "Pricing", "why_unpriced"): "#569",
-    ("digline.host.loader", "NameTable", "mint"): "#548",
-}
+UNRELEASED: dict[tuple[str, str, str], str] = {}
 
 
 def plugins() -> list[Path]:
