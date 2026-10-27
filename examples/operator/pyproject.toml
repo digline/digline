@@ -14,8 +14,10 @@ dependencies = [
     "anthropic>=0.40,<1",
     # The interactive path: `.mcp.json` starts this, and a coding agent opened
     # in this directory gets the six reading tools — and no `promote`, because
-    # there is no such tool to have.
-    "digline-mcp>=0.4,<0.7",
+    # there is no such tool to have. From 0.7.0, because `.mcp.json` and
+    # `loop.py` pass `--names clear`, the declaration 0.7.0 makes required and
+    # no earlier release knows (ADR 0054 §1).
+    "digline-mcp>=0.7,<0.8",
     # The client half of the same protocol, for `loop.py`'s probe: it calls
     # `promote` by name on that server each cycle and expects to be told there
     # is no such tool. Named here rather than reached through `digline-mcp`,

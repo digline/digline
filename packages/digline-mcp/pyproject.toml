@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.6.3"
+version = "0.7.0"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -142,12 +142,15 @@ dependencies = [
     # yet. The cap was then `<0.35`, the minor above it, and is `<0.36`
     # since the core's 0.35.0.
     #
-    # Owed at the cut: `--names project` imports `load_name_table`,
-    # `one_table`, `project_check_name` and `project_declared`, new in the
-    # core release that carries #548, and passes `mint=` to `explained`,
-    # `history` and `suite_notes`, which first take it there. RELEASING.md's
-    # table names the floor and the cap. (ADR 0054)
-    "digline>=0.34.0,<0.36",
+    # Raised to 0.35.0 by name and by signature: `--names project` imports
+    # `load_name_table`, `one_table`, `project_check_name` and
+    # `project_declared`, new in 0.35.0 with #548, calls `NameTable.mint`, and
+    # passes `mint=` to `explained`, `history` and `suite_notes`, which first
+    # take it there; and its tools answer with the keys `output_version` 4
+    # renamed (#678), which 0.35.0 writes. Against 0.34.0 the imports raise
+    # `ImportError`. It was owed at the cut and raised in this package's own
+    # release, after the core was on PyPI. The cap stays `<0.36`. (ADR 0054)
+    "digline>=0.35.0,<0.36",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

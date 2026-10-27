@@ -851,13 +851,24 @@ digline **0.34.0**.
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
 
-## digline-mcp — unreleased
+## digline-mcp 0.7.0 — 2026-10-27
 
-**A minor: digline-mcp 0.7.0** (ADR 0054 §5). A declaration with no default
-stops a configuration that passes `--root` alone from starting, which is a
+Published by its own tag, `digline-mcp-v0.7.0`, after digline 0.35.0 was on
+PyPI. **A minor** (ADR 0054 §5). A declaration with no default stops a
+configuration that passes `--root` alone from starting, which is a
 command-line option changed in meaning, as `--root` becoming required was in
-0.5.0. It ships after the core release that carries #548 is on PyPI, on the
-floor RELEASING.md's table names.
+0.5.0. And the keys its tools answer with were renamed at `output_version` 4.
+
+- **The dependency is `digline>=0.35.0,<0.36`.** The floor: `--names project`
+  imports `load_name_table`, `one_table`, `project_check_name` and
+  `project_declared`, new in 0.35.0, calls `NameTable.mint`, and passes `mint=`
+  to `explained`, `history` and `suite_notes`; against 0.34.0 the imports raise
+  `ImportError`. And its tools answer with the keys 0.35.0 renamed. 0.6.3 caps
+  the core at `<0.35`, so a project that holds it stays on digline 0.34. This
+  release is the one that stands beside 0.35.0.
+- **`examples/operator` requires `digline-mcp>=0.7,<0.8`**, because its
+  `.mcp.json` and `loop.py` pass `--names clear`, which no earlier release
+  knows.
 
 - **Breaking: `--names` is required** (#548, ADR 0054). Declare whether the
   store's names may leave in clear: add `"--names", "clear"` to your MCP
