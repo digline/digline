@@ -594,10 +594,10 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 3`, with
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 4`, with
 #: the issue or ADR that added it. Appended to, never edited, like `_ADDED`. The
 #: word added under 2, `projected` on `log.spread_absence`, is in `_BASE`'s
-#: vocabulary (#669).
+#: vocabulary (#669). None was added under 3.
 _ADDED_WORDS: tuple[_AddedWord, ...] = ()
 
 
@@ -708,6 +708,14 @@ _HEADLINE: Mapping[str, _Key] = {
     # Moves no number; an added key, no bump. (ADR 0053)
     # Added under `OUTPUT_VERSION = 2`, on `compare` and `compare.full`: ADR 0053.
     "unjudged_causes": _STRINGS,
+    # How many checks the comparison could not pair with their reference: a
+    # `missing` and a `new` on the same case, scope and name. A new cause of exit
+    # 2, named `unpaired` in `unjudged_causes`, which a consumer reading
+    # `exit_code` already honours, by the rule `nothing_judged` arrived under.
+    # What changes is behaviour, a comparison that exited 0 on that case now
+    # exits 2, which no version of the format can say. (#642)
+    # Added under `OUTPUT_VERSION = 3`, on `compare` and `compare.full`: #642.
+    "unpaired": _INT,
 }
 
 _DIFF: Mapping[str, _Key] = {
@@ -731,12 +739,12 @@ _VERDICT: Mapping[str, _Key] = {
     "tolerance": _NUM,
 }
 
-#: The shape of every document under `OUTPUT_VERSION = 3`. Written on
-#: 2026-10-02 as version 2's base, and folded at the bump to 3 (#669): every key
-#: and word added under 2 is in it now, each beside the provenance its entry in
-#: `_ADDED` or `_ADDED_WORDS` carried. **It does not move** under
-#: `OUTPUT_VERSION = 3`: an added key goes in `_ADDED`, and anything else here
-#: is a bump.
+#: The shape of every document under `OUTPUT_VERSION = 4`. Written on
+#: 2026-10-02 as version 2's base, folded at the bump to 3 (#669) and again at
+#: the bump to 4 (#678): every key and word added under 2 and under 3 is in it,
+#: each beside the provenance its entry in `_ADDED` or `_ADDED_WORDS` carried.
+#: **It does not move** under `OUTPUT_VERSION = 4`: an added key goes in
+#: `_ADDED`, and anything else here is a bump.
 _BASE: Mapping[str, Mapping[str, _Key]] = {
     # `compare --json`, and the MCP `compare` tool. (compare.py)
     "compare": _HEADLINE,
@@ -1187,6 +1195,11 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "canary": _BOOL,
         "calibration": _k(_Obj("calibration"), "null"),
         "verdicts": _k(_arr(_Obj("run_document.verdict"))),
+        # Of what kind a case's error was, `raised` or `shape`, or `null` where the
+        # case did not error at the target or the mapper, or the run was written
+        # before schema 21. The reason that says it does not cross. (#425)
+        # Added under `OUTPUT_VERSION = 3`: #425.
+        "error_kind": _k("string", "null"),
     },
     "run_document.verdict": {
         **_VERDICT,
@@ -1223,35 +1236,24 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "cache_write_tokens": _INT,
         "thinking_tokens": _k("integer", "null"),
         "spent_usd": _NUM,
+        # Whether a line of the bill saw every call and knew the cost of each:
+        # `false` where a call raised and is on no line, or was seen and not
+        # priced; `null` where not recorded, a run written before schema 21 or a
+        # judge digline cannot read. A consumer that summed `spent_usd` as the
+        # whole bill can now tell when it is not. (#563)
+        # Added under `OUTPUT_VERSION = 3`: #563.
+        "every_call_seen": _k("boolean", "null"),
+        # Added under `OUTPUT_VERSION = 3`: #563.
+        "every_cost_known": _k("boolean", "null"),
     },
 }
 
-#: Every key added under `OUTPUT_VERSION = 3` since its `_BASE` was pinned, one
+#: Every key added under `OUTPUT_VERSION = 4` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
-#: that is a bump. The keys added under 2 are in `_BASE`, each beside the
-#: provenance its entry carried (#669).
-_ADDED: tuple[_AddedKey, ...] = (
-    # Whether a line of the bill saw every call and knew the cost of each:
-    # `false` where a call raised and is on no line, or was seen and not
-    # priced; `null` where not recorded, a run written before schema 21 or a
-    # judge digline cannot read. A consumer that summed `spent_usd` as the
-    # whole bill can now tell when it is not. (#563)
-    _AddedKey("usage.line", "every_call_seen", _k("boolean", "null"), "#563"),
-    _AddedKey("usage.line", "every_cost_known", _k("boolean", "null"), "#563"),
-    # Of what kind a case's error was, `raised` or `shape`, or `null` where the
-    # case did not error at the target or the mapper, or the run was written
-    # before schema 21. The reason that says it does not cross. (#425)
-    _AddedKey("run_document.case", "error_kind", _k("string", "null"), "#425"),
-    # How many checks the comparison could not pair with their reference: a
-    # `missing` and a `new` on the same case, scope and name. A new cause of exit
-    # 2, named `unpaired` in `unjudged_causes`, which a consumer reading
-    # `exit_code` already honours, by the rule `nothing_judged` arrived under.
-    # What changes is behaviour, a comparison that exited 0 on that case now
-    # exits 2, which no version of the format can say. (#642)
-    _AddedKey("compare", "unpaired", _INT, "#642"),
-    _AddedKey("compare.full", "unpaired", _INT, "#642"),
-)
+#: that is a bump. The keys added under 2 and under 3 are in `_BASE`, each
+#: beside the provenance its entry carried (#669, #678).
+_ADDED: tuple[_AddedKey, ...] = ()
 
 
 def _derive(
@@ -1321,6 +1323,6 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: both: a `_BASE` that moved under the same version is a rename, a removal or
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
-    3,
-    "215eebb4b9299c42e8403a01342f53d402f5a8baf68ded2faf2b88802803050c",
+    4,
+    "2eb5891c7143840fc025ce3737f9262db081882b7c3166045ab625d7869e140e",
 )
