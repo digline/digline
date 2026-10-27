@@ -409,20 +409,14 @@ def build_server(
         loaded_suite = loaded(suite)
         resolved = resolve_key(store, loaded_suite, run)
         read = explained(store, loaded_suite, resolved.key, mint=mint)
-        return {
-            **explain_json(
-                read.reading,
-                scope=read.scope,
-                exit_code=read.exit_code,
-                note=resolved.note,
-                run=read.run,
-                baseline=read.baseline,
-            ),
-            # Before `run_key`, which now names the same run from inside the
-            # document. Kept because an agent reads it: removing a key is a
-            # change, not an addition, and waits for a bump. (#448)
-            "key": resolved.key,
-        }
+        return explain_json(
+            read.reading,
+            scope=read.scope,
+            exit_code=read.exit_code,
+            note=resolved.note,
+            run=read.run,
+            baseline=read.baseline,
+        )
 
     @translated
     def log(

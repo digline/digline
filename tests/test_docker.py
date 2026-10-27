@@ -325,6 +325,48 @@ def test_the_image_runs_as_a_user_that_is_not_root() -> None:
     assert text.index("pip install --no-cache-dir") < text.index("USER digline")
 
 
+IMAGE_SCAN = ROOT / ".github" / "workflows" / "image-scan.yml"
+
+
+def test_the_image_upgrades_pip_to_a_version_it_pins_before_it_installs() -> None:
+    """The base ships the `pip` its Python bundles, and a newer base digest does
+    not move it: `python:3.12-slim@sha256:a0f5706…` still carried 25.0.1 on
+    2026-10-27, which the weekly scan reported against six advisories. The
+    image is something others pull and scan, and a derived image installs with
+    this `pip`, so it is upgraded here, to an exact version, before anything is
+    installed with it."""
+    version = pinned("PIP_VERSION")
+    assert version is not None and re.fullmatch(r"\d+(\.\d+)+", version), (
+        f"docker/Dockerfile pins PIP_VERSION={version}: the image would carry "
+        "whichever pip the index served on the day it was built"
+    )
+    upgrade = 'pip install --no-cache-dir --upgrade "pip==${PIP_VERSION}"'
+    text = dockerfile()
+    assert upgrade in text, (
+        "the image never upgrades pip, so it ships the base's own, which the "
+        "image scan reports"
+    )
+    assert text.index(upgrade) < text.index(install_step()), (
+        "pip is upgraded after digline is installed, so the install that "
+        "matters runs with the old one"
+    )
+
+
+def test_the_pip_pin_names_the_job_that_keeps_it() -> None:
+    """Dependabot does not move an `ARG`, so the pin has one keeper: the weekly
+    scan of the published image, which reports `pip` when it ages into an
+    advisory. The comment over the pin says so, and the keeper has to exist."""
+    text = dockerfile()
+    assert "ARG PIP_VERSION=" in text, "docker/Dockerfile does not pin pip"
+    above = text[: text.index("ARG PIP_VERSION=")].rpartition("\n\n")[2]
+    assert "image-scan.yml" in above, (
+        "the comment over ARG PIP_VERSION does not name the job that keeps it"
+    )
+    assert "schedule:" in IMAGE_SCAN.read_text(encoding="utf-8"), (
+        "image-scan.yml no longer runs on a schedule, so the pip pin has no keeper"
+    )
+
+
 def test_the_entrypoint_is_the_cli_in_the_mounted_repository() -> None:
     """`digline` at `/work`: every argument after the image name is the command
     line the reader would have typed locally."""

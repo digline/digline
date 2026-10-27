@@ -145,7 +145,7 @@ def test_the_wire_carries_the_absence_in_row_2s_shape() -> None:
     assert document["reference"]["target"] == {
         "provider": "",
         "sent": [],
-        "answered": None,
+        "reported": None,
         "absence": "projected",
     }
 
@@ -187,9 +187,9 @@ def test_digline_log_reads_the_same_baseline_in_clear(
     target = json.loads(emitted.stdout)["reference"]["target"]
     assert (target["provider"], target["sent"]) == ("openai", ["gpt-5"])
     if clear == "answered":
-        assert (target["answered"], target["absence"]) == ("gpt-5-2026", None)
+        assert (target["reported"], target["absence"]) == ("gpt-5-2026", None)
     else:
-        assert (target["answered"], target["absence"]) == (None, "withheld")
+        assert (target["reported"], target["absence"]) == (None, "withheld")
 
 
 # --------------------------------------------------------------------------- #

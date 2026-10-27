@@ -496,7 +496,7 @@ def test_the_wire_carries_the_rules_under_full_only() -> None:
     payload = compare_json(comparison, head, baseline=before, full=True)
     assert payload["suite_deltas"] == [
         {
-            "rule": "contains",
+            "assertion": "contains",
             "assertion_id": "id-contains",
             "scope": "case",
             "outcome": "changed",

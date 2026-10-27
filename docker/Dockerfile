@@ -55,6 +55,21 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && git config --system --add safe.directory '*'
 
+# The base ships the `pip` its Python bundles, and a newer base digest does not
+# move it: on 2026-10-27 the newest `python:3.12-slim` still carried 25.0.1,
+# which the image scan reported against six advisories. This image is pulled
+# and scanned by people who cannot read our reasons for leaving one in, and a
+# derived image installs its suite's dependencies with this `pip`, so it is
+# upgraded, to an exact version, before anything is installed with it.
+#
+# **Dependabot does not move this**: it reads the `FROM` line, not an `ARG`.
+# Its keeper is `.github/workflows/image-scan.yml`, the weekly scan of the
+# published image: if this version ages into an advisory with a fix, trivy
+# reports it there; if it ages without one, it does not matter. Moving it is
+# by hand, and `tests/test_docker.py` holds it to an exact version.
+ARG PIP_VERSION=26.2.2
+RUN pip install --no-cache-dir --upgrade "pip==${PIP_VERSION}"
+
 # How long to wait, from inside this build, for the index to serve the four
 # pins below. **0 — the default — waits for nothing**, so a local
 # `docker build` behaves exactly as it always did. The release and CI builds

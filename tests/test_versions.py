@@ -1015,6 +1015,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_docker.py",
         "0.6.1": "digline-anthropic's and digline-bedrock's version, each "
         "pinned to its own pyproject by tests/test_docker.py",
+        "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
+        "not a digline version",
+        "26.2.2": "the pip the image upgrades to, held to an exact version by "
+        "tests/test_docker.py and kept by image-scan.yml, not a digline version",
     },
     "src/digline/store/migrate.py": {
         "0.5.0": "'digline-anthropic 0.5.0 or earlier' — the plugin releases "

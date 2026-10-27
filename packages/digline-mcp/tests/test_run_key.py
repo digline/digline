@@ -39,12 +39,18 @@ def test_compare_names_the_run_latest_picked(promoted: Path) -> None:
     assert answered["baseline_key"] == baseline_in(promoted) != newer
 
 
-def test_explain_names_the_run_twice_and_the_reference_once(promoted: Path) -> None:
-    """`key` is the splice an agent already reads, kept until a bump; `run_key`
-    is the same run from inside the document."""
+def test_explain_names_the_run_once_and_the_reference_once(promoted: Path) -> None:
+    """`run_key` is the run, from inside the document. `key`, the splice it
+    replaced, was kept until a bump, and `output_version` 4 is that bump. (#448,
+    #678)
+
+    `run_key` is qualified by its role because a second run stands beside it:
+    with `scope: "comparison"`, `baseline_key`. A name is qualified by its role
+    only where two things of the same kind can stand in one document."""
     newer = run_key(promoted)
     answered = call(promoted, "explain", suite=str(promoted / "suite_qa.py"))
 
     assert answered["scope"] == "comparison"
-    assert answered["key"] == answered["run_key"] == newer
+    assert answered["run_key"] == newer
     assert answered["baseline_key"] == baseline_in(promoted)
+    assert "key" not in answered

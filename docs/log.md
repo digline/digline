@@ -398,7 +398,7 @@ run the baseline or the register names that was not read. Each span and each
 roll carries `unread_on_record`, the same runs counted inside it. `spread_absence` is why `spread` is empty, counted
 by cause — a consumer reading `[]` could not tell a store with no runs from a
 suite with no run-level check from a run whose every check flipped, which is
-the same reason the absences above cross. `answered` is `null` exactly when `absence` names why.
+the same reason the absences above cross. `reported` is `null` exactly when `absence` names why.
 
 **No score crosses beside an identity**, and **no case id crosses at all** — the
 reading is about the system and has no reason to name a case. `spans` and

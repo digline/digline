@@ -193,8 +193,8 @@ produces them, so nothing here replays this block.
       "count": 0,
       "kind": "shape",
       "shape": {
+        "assertion": "llm_rubric",
         "assertion_id": "4e7ba5d3e226025c",
-        "check": "llm_rubric",
         "reference": {
           "claims_unrecorded": 0,
           "extremes": 3,
@@ -288,7 +288,7 @@ produces them, so nothing here replays this block.
     }
   ],
   "note": "",
-  "output_version": 3,
+  "output_version": 4,
   "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60",
   "scope": "comparison"
 }
@@ -382,7 +382,7 @@ never an exit code: the [calibration case](api.md#casecalibration-watching-the-j
 is the gate, and shape is the diagnosis.
 
 In `--json` it is a fact with `"kind": "shape"`, carrying its counts under
-`shape` — `check`, `assertion_id`, and `run` and `reference`, each with
+`shape` — `assertion`, `assertion_id`, and `run` and `reference`, each with
 `extremes`, `scores`, `single_claim` and `claims_unrecorded` (`reference` is
 `null` where there is none). `compare --json full` carries the same list as
 `shape`.

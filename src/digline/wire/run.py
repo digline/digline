@@ -259,7 +259,7 @@ def runs_json(
                     # away — and no `reason`, because none crosses. (ADR 0020 §7)
                     "aggregate": [
                         {
-                            "name": verdict.score.name,
+                            "assertion": verdict.score.name,
                             "assertion_id": verdict.assertion_id,
                             "status": verdict.status,
                             "score": verdict.score.score,
@@ -297,7 +297,9 @@ def _verdict_document(verdict: Verdict, disclosure: Disclosure) -> dict[str, obj
     the output, so the reason *is* the output.
     """
     return {
-        "name": verdict.score.name,
+        # `assertion`, as every other document that carries a verdict names it:
+        # until `OUTPUT_VERSION = 4` this one said `name`. (#678)
+        "assertion": verdict.score.name,
         "assertion_id": verdict.assertion_id,
         "status": verdict.status,
         "score": verdict.score.score,

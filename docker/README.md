@@ -95,6 +95,8 @@ importable from your suite with nothing else to configure.
 - `digline`, and the three provider plugins — `digline-anthropic`,
   `digline-openai`, `digline-bedrock` — installed from PyPI at build time, at
   the versions pinned in the `Dockerfile` beside this file
+- `pip`, upgraded to the exact version the `Dockerfile` pins rather than the
+  one the base bundles, because a derived image installs with it
 - `git`, so that a run records the commit of the mounted repository. Without it
   that field is silently `null`, and "tested under which commit" is half of
   what a report shows a reader
