@@ -315,6 +315,115 @@ SURFACE = (
 )
 
 
+#: When each method or attribute a shipped plugin calls on something digline
+#: gives it became part of digline, keyed by `(module, class, attribute)`: the
+#: class in the receiver's MRO that defines it, in the module that defines it
+#: today. A module's own attribute has the class `""`. (#702)
+#:
+#: **What it is for.** `RELEASING.md` reads a public name in three levels, and
+#: a method or an attribute a shipped plugin calls is the **second**: a release
+#: that removes or renames it breaks the plugin, whether or not `docs/api.md`
+#: lists it. Its date is what lets the delta-pass tell a name a release added
+#: from one a plugin already relied on. `INTRODUCED`, above, dates the names a
+#: plugin imports and is keyed by the bare name; a method is in no `__all__`,
+#: and one name is two entries when two classes define it, so it has a table of
+#: its own.
+#:
+#: **Where the dates come from.** `tools/plugin_call_dates.py`, from git's
+#: release tags: the first `v*` tag from which the class, in today's module,
+#: defines the attribute in its own body at every later tag. It found no gap
+#: and no entry it could not date. A class that moved is dated to the move, the
+#: rule `INTRODUCED` applies: one entry is. The control: `ToolCall.tool`,
+#: `ScaleLost`, `Completion.text` and `CallPlan` come out at the releases
+#: `INTRODUCED` gives their classes, 0.13.0, 0.14.0, 0.8.0 and 0.4.0, and two
+#: dates were read again with `git log -S` and `git describe --contains`:
+#: `Run.usage` at 0.16.0 and `Suite.declared` at 0.32.0. Its limit: presence is
+#: by name, so an attribute that once had the same name and another meaning is
+#: read as the same one.
+#:
+#: **Not in it, and not a gap.** `tools/plugin_calls.py` leaves six receivers
+#: unresolved, each a reply of the Anthropic SDK in `digline_anthropic/
+#: client.py`, which pyright types `Any`. What a plugin reads on an SDK's reply
+#: is not a name of digline's, so it is not dated here.
+CALLED: dict[tuple[str, str, str], str] = {
+    ("digline.core.aggregate", "RunAssertion", "name"): "0.1.0",
+    ("digline.core.calibration", "ScaleLost", "case_id"): "0.14.0",
+    ("digline.core.calibration", "ScaleLost", "check"): "0.14.0",
+    ("digline.core.compare", "AssertionDelta", "assertion"): "0.1.0",
+    ("digline.core.compare", "AssertionDelta", "baseline"): "0.1.0",
+    ("digline.core.compare", "AssertionDelta", "calibration"): "0.14.0",
+    ("digline.core.compare", "AssertionDelta", "canary"): "0.10.0",
+    ("digline.core.compare", "AssertionDelta", "case_id"): "0.1.0",
+    ("digline.core.compare", "AssertionDelta", "current"): "0.1.0",
+    ("digline.core.compare", "AssertionDelta", "denominator_moved"): "0.15.1",
+    ("digline.core.compare", "AssertionDelta", "outcome"): "0.1.0",
+    ("digline.core.compare", "AssertionDelta", "scope"): "0.1.0",
+    ("digline.core.compare", "Comparison", "config_changes"): "0.2.0",
+    ("digline.core.compare", "Comparison", "deltas"): "0.1.0",
+    ("digline.core.protocols", "Assertion", "name"): "0.1.0",
+    ("digline.core.run", "Run", "config_hash"): "0.1.0",
+    ("digline.core.run", "Run", "created_at"): "0.1.0",
+    ("digline.core.run", "Run", "usage"): "0.16.0",
+    ("digline.core.types", "Verdict", "reason"): "0.1.0",
+    ("digline.core.types", "Verdict", "status"): "0.1.0",
+    ("digline.host.listing", "SuiteRuns", "baseline_key"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "baseline_refused"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "listing"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "note"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "refused"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "runs"): "0.25.2",
+    ("digline.host.loader", "Loaded", "modules_unchecked"): "0.32.0",
+    # In `digline.cli` from 0.5.0; dated to the move, as INTRODUCED dates
+    # the host names.
+    ("digline.host.loader", "Loaded", "suite"): "0.6.0",
+    ("digline.host.measure", "Measured", "plan"): "0.11.0",
+    ("digline.host.measure", "Measured", "ref"): "0.11.0",
+    ("digline.host.measure", "Measured", "run"): "0.11.0",
+    ("digline.host.measure", "Prepared", "plan"): "0.11.0",
+    ("digline.host.reading", "Explained", "baseline"): "0.13.0",
+    ("digline.host.reading", "Explained", "exit_code"): "0.13.0",
+    ("digline.host.reading", "Explained", "reading"): "0.13.0",
+    ("digline.host.reading", "Explained", "run"): "0.13.0",
+    ("digline.host.reading", "Explained", "scope"): "0.13.0",
+    ("digline.host.resolve", "Resolved", "key"): "0.6.0",
+    ("digline.host.resolve", "Resolved", "note"): "0.6.0",
+    ("digline.report.diff", "", "sentence"): "0.6.0",
+    ("digline.report.render", "Headline", "reasons_available"): "0.1.0",
+    ("digline.report.render", "Headline", "sentence"): "0.1.0",
+    ("digline.run.suite", "CallPlan", "sentence"): "0.4.0",
+    ("digline.run.suite", "CallPlan", "target_calls"): "0.4.0",
+    ("digline.run.suite", "Case", "group"): "0.6.0",
+    ("digline.run.suite", "Case", "id"): "0.1.0",
+    ("digline.run.suite", "Case", "suspended"): "0.1.0",
+    ("digline.run.suite", "Suite", "assertions"): "0.1.0",
+    ("digline.run.suite", "Suite", "cases"): "0.1.0",
+    ("digline.run.suite", "Suite", "declared"): "0.32.0",
+    ("digline.run.suite", "Suite", "disclosure"): "0.1.0",
+    ("digline.run.suite", "Suite", "environment"): "0.1.0",
+    ("digline.run.suite", "Suite", "name"): "0.1.0",
+    ("digline.run.suite", "Suite", "run_assertions"): "0.1.0",
+    ("digline.run.suite", "Suite", "tenant"): "0.1.0",
+    ("digline.store.protocol", "ResultStore", "write_run"): "0.1.0",
+    ("digline.targets.completion", "Completion", "text"): "0.8.0",
+    ("digline.targets.completion", "ToolCall", "tool"): "0.13.0",
+    ("digline.targets.judge", "JudgeBase", "config"): "0.2.0",
+    ("digline.targets.judge", "JudgeBase", "prefill"): "0.6.0",
+    ("digline.targets.pricing", "ModelPrice", "cache_read_per_mtok"): "0.1.0",
+    ("digline.targets.pricing", "ModelPrice", "cache_write_per_mtok"): "0.1.0",
+    ("digline.targets.pricing", "ModelPrice", "input_per_mtok"): "0.1.0",
+    ("digline.targets.pricing", "ModelPrice", "output_per_mtok"): "0.1.0",
+    ("digline.targets.pricing", "Pricing", "cost"): "0.1.0",
+    ("digline.targets.pricing", "Pricing", "declared"): "0.13.0",
+    ("digline.targets.pricing", "Pricing", "per_model"): "0.1.0",
+    ("digline.targets.provider", "ProviderTarget", "config"): "0.2.0",
+    ("digline.targets.provider", "ProviderTarget", "prefill"): "0.10.0",
+}
+
+#: The entries the history does not date, each with the reason, never a guess
+#: at a version: "undated" is a value. None today.
+UNDATED: dict[tuple[str, str, str], str] = {}
+
+
 def plugins() -> list[Path]:
     found = sorted(p for p in PACKAGES.iterdir() if (p / "pyproject.toml").is_file())
     assert found, "no plugin found; this file would prove nothing"
@@ -453,6 +562,35 @@ def test_every_dated_name_is_in_the_all_of_the_module_it_comes_from(
         f"are in no `__all__` of the module they come from: {missing}. A name a "
         "plugin imports is public surface (RELEASING.md, Choosing the version): "
         "put it back in `__all__`, or move the plugin off it first."
+    )
+
+
+@pytest.mark.parametrize("entry", sorted(CALLED), ids=lambda e: f"{e[0]}:{e[1]}.{e[2]}")
+def test_a_dated_call_is_still_an_attribute_of_its_class(
+    entry: tuple[str, str, str],
+) -> None:
+    """A method or attribute dated in `CALLED` still exists where the table
+    says, so a date is never kept for something a release took away: that
+    removal is the break a plugin meets. Read through the MRO, fields with no
+    default included, since `hasattr` does not see a dataclass field that has
+    none. (#702)"""
+    import importlib
+
+    module_name, class_name, attr = entry
+    module = importlib.import_module(module_name)
+    if not class_name:
+        assert hasattr(module, attr), f"{module_name} no longer has `{attr}`"
+        return
+    cls = getattr(module, class_name, None)
+    assert isinstance(cls, type), f"{module_name} no longer has `{class_name}`"
+    assert any(
+        attr in vars(klass) or attr in getattr(klass, "__annotations__", {})
+        for klass in cls.__mro__
+    ), (
+        f"`{class_name}.{attr}` is dated in CALLED and {module_name}.{class_name} "
+        "no longer has it. A shipped plugin calls it (tools/plugin_calls.py): "
+        "removing it is a break at the second level of RELEASING.md's public "
+        "name, so put it back, or move the plugin off it first."
     )
 
 

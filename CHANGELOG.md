@@ -354,6 +354,19 @@ notes under them are this file, verbatim.
   measured, never not present, and counted in what the tool prints. Six are,
   each a reply of the Anthropic SDK. The names are listed, not yet dated.
   Nothing in digline's behaviour moves, so this is a patch.
+- **Each method and attribute a plugin calls is dated** (#702). The 56 names
+  are 69 entries once each is keyed by the class that defines it:
+  `tools/plugin_calls.py` now prints that class, the one in the receiver's
+  MRO, and `name` on two classes is two entries. `CALLED`, a table of its own
+  in `tests/test_plugin_floors.py` beside `INTRODUCED`, dates every one from
+  git's release tags, through `tools/plugin_call_dates.py`; none is left
+  undated. Two tests hold it: every entry the scan finds is dated or declared
+  undated, and every dated entry is still an attribute of its class. A method
+  a shipped plugin calls is a public name at the second level, and its date is
+  what lets the delta-pass tell a name a release added from one a plugin
+  already relied on. The six unresolved receivers are replies of the Anthropic
+  SDK, not names of digline's, and are not dated. Nothing in digline's
+  behaviour moves, so this is a patch.
 - **Docs: ADR 0054, *The names a server lets out*, proposed** (#548). It
   records a decision about digline-mcp: a declaration, required at start and
   with no default, of whether the names in a store may leave in clear. It has
