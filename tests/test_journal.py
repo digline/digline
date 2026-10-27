@@ -941,7 +941,7 @@ HELD = "held-7f3a"
 
 
 def _corrupt(record: dict[str, Any], how: str) -> None:
-    """One way, of eighteen, to make a `case` record hold `HELD` where the
+    """One way, of twenty, to make a `case` record hold `HELD` where the
     reader looks. A response is written in where the mutation needs one: this
     suite's cases record none."""
     case = record["case"]
@@ -956,10 +956,14 @@ def _corrupt(record: dict[str, Any], how: str) -> None:
         verdict["score"] = HELD
     elif how == "verdict_name_object":
         verdict["assertion"] = {HELD: 1}
+    elif how == "verdict_floor_string":
+        verdict["floor_standard_errors"] = HELD
     elif how == "verdict_metadata_key":
         verdict["metadata"] = {HELD: [HELD]}
     elif how == "responses_string":
         case["responses"] = [HELD]
+    elif how == "response_kind_string":
+        case["responses"] = [{"output": "x", "kind": HELD}]
     elif how == "response_cost_string":
         case["responses"] = [{"output": "x", "cost_usd": HELD}]
     elif how == "response_latency_array":
@@ -1009,15 +1013,18 @@ def _corrupted_refusal(root: Path, how: str) -> str:
         "verdicts_string",
         "verdict_status",
         "verdict_score_string",
+        "verdict_floor_string",
         pytest.param(
             "responses_string",
             marks=pytest.mark.xfail(
                 raises=AttributeError,
                 strict=True,
-                reason="the reader calls .get on a response that is a string, "
-                "and the AttributeError leaves `pending` uncaught",
+                reason="a crash, not repaired here: the reader calls .get on a "
+                "response that is a string, and the AttributeError leaves "
+                "`pending` uncaught instead of refusing the leg",
             ),
         ),
+        "response_kind_string",
         "response_cost_string",
         "response_latency_array",
         "response_tool_call_tool",
@@ -1034,7 +1041,7 @@ def test_a_corrupted_leg_is_refused_without_repeating_what_it_holds(
     tmp_path: Path, how: str
 ) -> None:
     """A refusal names the field and never echoes what the file holds (#350),
-    on every way of corrupting a record measured for it. The eighteenth way,
+    on every way of corrupting a record measured for it. The twentieth way,
     a byte that is not UTF-8, is the codec's message and is below."""
     refusal = _corrupted_refusal(tmp_path, how)
 
@@ -1047,12 +1054,14 @@ def test_a_corrupted_leg_is_refused_without_repeating_what_it_holds(
         ("verdict_status", "'status'"),
         ("usage_string", "'usage'"),
         ("kind_string", "'kind'"),
+        ("response_kind_string", "'kind'"),
+        ("verdict_floor_string", "'floor_standard_errors'"),
     ],
 )
 def test_the_refusal_still_names_the_record_and_the_field(
     tmp_path: Path, how: str, field: str
 ) -> None:
-    """The three that repeated a value now name where it is: which line of
+    """The five that repeated a value now name where it is: which line of
     which leg, and which field. That is what makes a refusal one a person can
     act on."""
     refusal = _corrupted_refusal(tmp_path, how)

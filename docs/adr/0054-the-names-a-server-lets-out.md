@@ -207,7 +207,7 @@ section moves with it.
     perimeter of ADR 0043: a byte of the journal that is not UTF-8 is refused
     with the codec's own message, and a `str` keeps no record of who wrote
     it. Its type would then have to change, to a value that does, and that is
-    a change to a protocol value, not to a raise. Measured over eighteen ways
+    a change to a protocol value, not to a raise. Measured over twenty ways
     of corrupting a leg, in `tests/test_journal.py`; the sentences digline
     writes there name a line and a field, and do not repeat what the file
     holds (#350).

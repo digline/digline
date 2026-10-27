@@ -350,17 +350,23 @@ notes under them are this file, verbatim.
   two values: `clear`, or `project`, under which the server's responses and
   its refusals carry tokens where they carry names today. Nothing in it is
   implemented, and this entry names no release for it.
-- **A refusal of a corrupted journal names the place, not what the file
-  holds.** Three refusals of a journal's leg, which `digline run` prints on
-  standard error, repeated a value read from it: a verdict's `status`, the
-  line of the bill under `usage`, and a record's `kind`. They now name the line and the field, which is #350's rule:
-  a refusal names the field and never echoes what the file holds. A `status`
-  that is not one of `error`, `fail` and `pass` is refused by name when any
-  document is read, where `Verdict`'s own check used to repeat it, and a line
-  of the bill that is not an object says which JSON type it is. A byte that is
-  not UTF-8 still gets the codec's message: it reaches only the person who ran
-  the command (ADR 0043). ADR 0054's open question about this refusal now says
-  what would make it one: a resume on digline-mcp.
+- **A refusal of a corrupted document names the place, not what the file
+  holds.** Five refusals repeated a value read from the file: a verdict's
+  `status` and its `floor_standard_errors`, a recorded response's `kind`, the
+  line of the bill under `usage`, and a journal record's `kind`. They now name
+  the field, and in a journal's leg the line, which is #350's rule: a refusal
+  names the field and never echoes what the file holds.
+  - **The change is wider than the journal.** Four of the five are in the
+    readers every run document goes through, so a run, a baseline and a
+    journal's leg read with a bad `status`, `floor_standard_errors`, response
+    `kind` or line of the bill are refused in new words. A `status` that is not
+    one of `error`, `fail` and `pass` is refused by name, where `Verdict`'s own
+    check used to repeat it, and a line of the bill that is not an object says
+    which JSON type it is. Only the record's `kind` is the journal's alone.
+  - **A byte that is not UTF-8 still gets the codec's message.** In a journal
+    it reaches only the person who ran the command (ADR 0043).
+  - ADR 0054's open question about the journal's refusal now says what would
+    make it one: a resume on digline-mcp.
 
 ## 0.34.0 — 2026-10-26
 

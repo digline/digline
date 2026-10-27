@@ -2409,9 +2409,10 @@ def _declared_width(raw: Mapping[str, Any], where: str) -> float | None:
         return None
     value = raw["floor_standard_errors"]
     if value is None or floor_width_refusal(value) is not None:
+        # Named, never repeated: what the file holds stays out. (#350)
         raise DocumentRefusedError(
             f"{where}: 'floor_standard_errors' is written only as a positive "
-            f"finite number, got {value!r}"
+            "finite number"
         )
     return float(cast(float, value))
 
@@ -2992,8 +2993,9 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
     rule, for the same reason: a document is written by whoever holds it."""
     kind = raw.get("kind")
     if kind is not None and str(kind) not in _OUTPUT_KINDS:
+        # Named, never repeated: what the file holds stays out. (#350)
         raise ValueError(
-            f"recorded response: 'kind' is {str(kind)!r}, which is not one of "
+            "recorded response: 'kind' is not one of "
             f"{', '.join(sorted(_OUTPUT_KINDS))}. The kind says which branch of "
             "Output the text came from, and a replay that guessed would judge a "
             "different thing from the one that was measured"
