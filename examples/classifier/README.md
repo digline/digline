@@ -8,23 +8,24 @@ differently when asked twice, so `samples=5` asks five times and keeps the
 majority. What decides a release is **precision over the whole set**: of the
 reports it sent to a human, how many should have gone.
 
-Thresholds and tolerance are measured, not chosen. Eight runs of an untouched
-classifier gave precision `0.667 … 0.800` (median `0.727`) and accuracy
+Thresholds and tolerance are measured, not chosen. Which run this is, the
+stand-in classifier reads from `CLASSIFIER_SEED`, and eight runs with the seeds
+`1` to `8` gave precision `0.667 … 0.800` (median `0.727`) and accuracy
 `0.800 … 0.900` (median `0.850`) — so the thresholds sit at `3/5` and `7/10`,
 below the worst run seen, and the tolerance is the three cases the aggregate
-moved by. Promote the median run, never the first green one.
+moved by. Promote the median run, never the first green one: here five of the
+eight are the median, and the committed baseline is the one with seed `1`.
 
-`report.html` is a comparison where exactly that happened: `dinner_client`
-changed its mind and **neither run-level figure moved** — precision went 0.727
-to 0.800, inside the declared tolerance. One case is a diagnosis; the aggregate
-is the gate.
+A run with no seed takes `1`, so a run of the committed application reproduces
+the baseline exactly and would render 0.727 with nothing moved. Each seed is a
+run you can repeat, and none depends on what an earlier run left behind.
 
-It is **curated, and deliberately not re-rendered** with the other examples'
-reports: the perturbation that made `dinner_client` change its mind is not in
-this repository, so a run of the committed application reproduces the baseline
-exactly and would render 0.727 with nothing moved — a weaker report than the one
-its own README explains. The commit it records is therefore marked `-dirty` and
-is not meant to be checked out.
+`report.html` compares the run with seed `2` against that baseline, and
+**neither run-level figure moved**: `dinner_client` changed its mind, and
+precision went 0.727 to 0.800, inside the declared tolerance. One case is a
+diagnosis; the aggregate is the gate. To render it again:
+`CLASSIFIER_SEED=2 uv run digline run --suite suite.py`, then `digline report`
+on that run.
 
 ## Two controls, and only one of them was chosen
 
@@ -36,21 +37,21 @@ the interval they spanned, and `compare` treats a movement inside that interval
 as noise rather than as a finding.
 
 Look in `.digline/northwind/baselines/expense-triage.json` — `lunch_team` has
-`"samples": [1.0, 0.0, 1.0, 1.0, 1.0]` beside its score of `0.8`. That case
+`"samples": [1.0, 1.0, 1.0, 1.0, 0.0]` beside its score of `0.8`. That case
 already disagreed with itself once out of five, and now the baseline says so in
 a form a rule can read.
 
 The two are checked in that order and both report `unchanged`, with the reason
-saying which one spoke. Nothing here changed to get it: the numbers in this
-example, its baseline and its `report.html` are the ones it always had, because
-the fold still records the mean.
+saying which one spoke. ADR 0006 changed no number here, because the fold still
+records the mean.
 
 Three things the measured floor does not do, and `hotel_over` is where you can
 see the first:
 
-- **It never rescues a flip.** `0.8 → 0.4` crosses the threshold, so it is
-  reported however wide the votes were — and here they were as wide as votes
-  get. A drop through the bar is a flip, and a flip is never noise.
+- **It never rescues a flip.** Run with `CLASSIFIER_SEED=3` and `hotel_over`
+  goes `1.000 → 0.400`: it crosses the threshold, so it is reported as
+  regressed, however wide the votes were. A drop through the bar is a flip, and
+  a flip is never noise.
 - **It reads the baseline's interval, not this run's.** A run that got noisier
   cannot widen its own excuse.
 - **It has nothing to say about a case decided 5/5.** Zero width is no
@@ -90,12 +91,14 @@ expenses**, it is not much better on tools, and it has never been: those two
 rows are red in every run of this example, at the thresholds it always
 declared. Seventeen cases it gets right were enough to carry three it does not.
 
-**And the noise floor certifies it.** Every other figure in the baseline has an
-interval of some width — the whole-run precision spans `0.667–0.800`,
-`accuracy[group=hotel]` spans `0.667–1.000`. The four failing rows span nothing:
-`0.000–0.000` and `0.500–0.500` and `0.667–0.667`, at five samples each. The
-control whose whole job is to say "that could have been the wobble" has, here,
-nothing to say. These are not unlucky runs. This is what the classifier does.
+**And the noise floor certifies it.** Where the classifier disagrees with
+itself the baseline records an interval of some width — the whole-run precision
+spans `0.667–0.800`, `accuracy[group=taxi]` spans `0.750–1.000`. The four
+failing rows span nothing: `0.000–0.000` and `0.500–0.500` and `0.667–0.667`,
+at five samples each. The control whose whole job is to say "that could have
+been the wobble" has, here, nothing to say. These are not unlucky runs. This is
+what the classifier does. (`hotel` spans nothing too, at `1.000`: it is the
+class the classifier never wavers on.)
 
 Nothing was tuned to produce that. Lowering the bars until the table went green
 was the alternative, and it is the vacuously green assertion shipped as the
@@ -111,12 +114,16 @@ Three things to read in the table, and then in `report.html`:
 - **The class is where a change becomes visible.** In `report.html` one case
   changed its mind. Whole-run precision moved 0.727 → 0.800 and was called
   unchanged, inside the declared tolerance of three cases;
-  `precision[group=meal]` moved 0.800 → 1.000 and was not. Seven cases instead
-  of twenty: the same flip is a fifth of the class.
+  `precision[group=meal]` moved 0.800 → 1.000 and was called unchanged too, but
+  by the measured floor, which in the baseline spans `0.667–1.000` for that
+  class. Run with `CLASSIFIER_SEED=3` for the other side: whole-run accuracy
+  moves 0.850 → 0.800 and is unchanged, while `accuracy[group=hotel]` moves
+  1.000 → 0.667 and is regressed. Three cases instead of twenty: the same flip
+  is a third of the class.
 - **The declared tolerance goes quiet on a small class, and the measured floor
-  does not.** `3/20` was measured over twenty cases. On three it means nothing —
-  one case is a third of the group. Look at `accuracy[group=hotel]` in the
-  baseline: its interval is `0.667–1.000`, against `0.800–0.850` for the whole
+  does not.** `3/20` was measured over twenty cases. On four it means nothing —
+  one case is a quarter of the group. Look at `accuracy[group=taxi]` in the
+  baseline: its interval is `0.750–1.000`, against `0.800–0.900` for the whole
   run. The control that sizes itself to the denominator is the one that was
   sized by measuring — which is also why the zero-width rows above are a
   finding and not an artefact of looking too closely.
@@ -128,7 +135,7 @@ guessed.
 
 ```console
 $ uv sync && uv run digline run --suite suite.py
-$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-08T07-42-54-701842-00-00-5af8d8dd1e55f5c5
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-10-27T17-13-28-796999-00-00-5af8d8dd1e55f5c5
 $ uv run digline compare --suite suite.py --run latest
 ```
 

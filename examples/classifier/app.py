@@ -11,8 +11,8 @@ No API key: the point of the example is the evaluation, not the model.
 from __future__ import annotations
 
 import hashlib
+import os
 from collections import Counter
-from pathlib import Path
 from typing import Any
 
 #: Reports the classifier is sure about, one way or the other.
@@ -24,20 +24,21 @@ _CLEAR_APPROVE = {"taxi_short", "coffee_two", "train_standard", "hotel_capped"}
 #: exist.
 _WOBBLY = {"dinner_client", "taxi_long", "hotel_over", "lunch_team"}
 
-_run_index: int | None = None
 _calls: Counter[str] = Counter()
+
+#: The seed a run takes when none is given: the one the committed baseline was
+#: promoted from, so a run of the untouched classifier reproduces it exactly.
+DEFAULT_SEED = 1
 
 
 def _run_seed() -> int:
-    """Which run this is. Only `digline run` calls the target, so only a run
-    advances it — `compare` and `promote` import the suite and leave it alone."""
-    global _run_index
-    if _run_index is None:
-        counter = Path(".wobble")
-        seen = int(counter.read_text()) if counter.exists() else 0
-        counter.write_text(str(seen + 1))
-        _run_index = seen
-    return _run_index
+    """Which run this is, as the person running it says: `CLASSIFIER_SEED`.
+
+    Given, never kept. A counter in a file the run wrote would make two runs of
+    the same tree differ by what earlier runs left behind, and a committed
+    baseline promoted from such a tree is reproduced by nobody who clones it.
+    """
+    return int(os.environ.get("CLASSIFIER_SEED", DEFAULT_SEED))
 
 
 def _coin(*parts: object) -> float:
