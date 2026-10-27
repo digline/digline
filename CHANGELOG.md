@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 0.35.0 — unreleased
+## 0.35.0 — 2026-10-27
 
 digline **0.35.0**.
 
@@ -508,6 +508,16 @@ digline **0.35.0**.
   key is a token. The 21 -> 22 step writes nothing. `tests/test_projection_gate.py`
   holds both, and one exclusion remains there: numbers. A schema that moves
   is a minor.
+
+### Seen working in a browser — not owed
+
+- **The walkthrough was not owed for 0.35.0, and did not run.** Nothing in the
+  launch key, the hand-over or the promote form changed since 0.34.0, the last
+  release that ran it: `src/digline/cli/view.py`, `src/digline/report/pages.py`
+  and `src/digline/host/promotion.py` have no commit between `v0.34.0` and this
+  tag, measured on 2026-10-27. The strings `report/text.py` gained are
+  `fact.unpaired.*` and `detail.threshold_moved.*`, and none of them is a
+  `view.` key.
 
 ### Why this is a minor and not a patch
 
