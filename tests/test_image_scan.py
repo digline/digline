@@ -15,7 +15,11 @@ part that is ours:
 - **the counts in the summary**: the SARIF carries only what has a fixed
   version (`--ignore-unfixed`), and the job's summary still says everything
   trivy found — the total, by severity, and how many have a fix — read from an
-  unfiltered JSON report of the same digest. No threshold and no red.
+  unfiltered JSON report of the same digest. No threshold and no red;
+- **what the image leaves out**: the one red. A distribution `SECURITY.md`
+  says the image does not contain, listed in that report, is refused, and so
+  is a listing that does not show digline itself installed, or that is of
+  another platform than the one asked for.
 
 The SARIF and the JSON here have the shape trivy 0.76.1 wrote on 2026-10-24
 for `ghcr.io/digline/digline@sha256:555e97f8…` (linux/amd64), cut down to the
@@ -42,7 +46,7 @@ SCRIPT = ROOT / ".github" / "image_scan.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "image-scan.yml"
 
 sys.path.insert(0, str(ROOT / ".github"))
-from image_scan import counts, named, resolved, summary  # noqa: E402
+from image_scan import ABSENT, counts, left_out, named, resolved, summary  # noqa: E402
 
 IMAGE = "ghcr.io/digline/digline"
 DIGEST = "sha256:555e97f892d68c0ddc9ea6b0d3e170e30fb10cebb909895656dd6fb1361a9795"
@@ -282,6 +286,157 @@ def test_the_command_line_refuses_a_tag_it_cannot_resolve(tmp_path: Path) -> Non
     assert done.stdout == ""
 
 
+# --- what the image leaves out ------------------------------------------------
+
+
+def _installed(name: str, version: str = "1.0") -> Any:
+    folder = name.replace("-", "_")
+    return {
+        "Name": name,
+        "Version": version,
+        "FilePath": f"usr/local/lib/python3.12/site-packages/{folder}-{version}"
+        ".dist-info/METADATA",
+    }
+
+
+def _vendored(name: str, version: str = "1.0") -> Any:
+    """A package trivy read from an SBOM in the image: pip's, for what it vendors."""
+    return {
+        "Name": name,
+        "Version": version,
+        "Identifier": {"BOMRef": f"pkg:pypi/{name}@{version}"},
+    }
+
+
+def _listing(*packages: Any, architecture: str = "amd64", digest: str = DIGEST) -> Any:
+    """trivy's JSON report with `--list-all-pkgs`, as 0.76.1 wrote it on 2026-10-27."""
+    return {
+        "SchemaVersion": 2,
+        "Metadata": {
+            "ImageID": "sha256:17e8a500",
+            "RepoDigests": [f"{IMAGE}@{digest}"],
+            "ImageConfig": {"os": "linux", "architecture": architecture},
+        },
+        "Results": [
+            {
+                "Target": "debian",
+                "Class": "os-pkgs",
+                "Type": "debian",
+                "Packages": [{"Name": "nltk-data", "Version": "1"}],
+            },
+            {
+                "Target": "Python",
+                "Class": "lang-pkgs",
+                "Type": "python-pkg",
+                "Packages": list(packages),
+            },
+        ],
+    }
+
+
+CLEAN = (
+    _installed("digline", "0.35.0"),
+    _installed("pip", "26.2.2"),
+    _vendored("idna", "3.18"),
+)
+
+
+def _left_out(report: Any, platform: str = "linux/amd64") -> str:
+    return left_out(report, image=IMAGE, digest=DIGEST, platform=platform)
+
+
+def test_the_names_held_are_the_ones_the_security_page_says_are_left_out() -> None:
+    # Folded, so a sentence re-wrapped on the page is still found.
+    page = " ".join((ROOT / "SECURITY.md").read_text(encoding="utf-8").split())
+    assert set(ABSENT) == {"nltk", "pyjwt", "digline-mcp"}
+    assert "on it — not `digline`, not a plugin" in page
+    assert "and the Docker image does not contain it." in page
+    assert (
+        "The Docker image does not contain `digline-mcp`, and so has no PyJWT" in page
+    )
+
+
+def test_an_image_that_leaves_them_out_says_so_and_names_the_control() -> None:
+    said = _left_out(_listing(*CLEAN))
+    assert f"{IMAGE}@{DIGEST}" in said and "linux/amd64" in said
+    assert "nltk, pyjwt, digline-mcp" in said
+    assert "digline 0.35.0" in said
+
+
+@pytest.mark.parametrize("name", ["nltk", "PyJWT", "digline_mcp", "Digline.MCP"])
+def test_a_name_the_page_says_is_left_out_is_refused_however_it_is_spelled(
+    name: str,
+) -> None:
+    with pytest.raises(ValueError, match="contains"):
+        _left_out(_listing(*CLEAN, _installed(name)))
+
+
+def test_a_name_read_from_an_sbom_in_the_image_is_refused_too() -> None:
+    with pytest.raises(ValueError, match="pyjwt"):
+        _left_out(_listing(*CLEAN, _vendored("pyjwt")))
+
+
+def test_a_listing_without_digline_installed_measured_nothing() -> None:
+    with pytest.raises(ValueError, match="measured nothing"):
+        _left_out(_listing(_installed("pip")))
+    # Named only by an SBOM is not installed.
+    with pytest.raises(ValueError, match="measured nothing"):
+        _left_out(_listing(_vendored("digline", "0.35.0")))
+
+
+def test_a_report_without_the_package_list_measured_nothing() -> None:
+    report = _listing(*CLEAN)
+    for result in report["Results"]:
+        del result["Packages"]
+    with pytest.raises(ValueError, match="measured nothing"):
+        _left_out(report)
+
+
+def test_a_report_of_another_platform_is_refused() -> None:
+    with pytest.raises(ValueError, match="arm64"):
+        _left_out(_listing(*CLEAN, architecture="amd64"), platform="linux/arm64")
+    report = _listing(*CLEAN)
+    del report["Metadata"]["ImageConfig"]
+    with pytest.raises(ValueError, match="platform"):
+        _left_out(report)
+
+
+def test_a_listing_of_another_image_is_refused() -> None:
+    with pytest.raises(ValueError, match="asked for"):
+        _left_out(_listing(*CLEAN, digest=OTHER))
+
+
+def test_the_command_line_says_what_is_left_out_and_turns_red_when_it_is_not(
+    tmp_path: Path,
+) -> None:
+    written = tmp_path / "summary.md"
+    args = ("--image", IMAGE, "--digest", DIGEST, "--platform", "linux/amd64")
+    (tmp_path / "clean.json").write_text(json.dumps(_listing(*CLEAN)), encoding="utf-8")
+    done = _run(
+        "left-out",
+        "--json",
+        "clean.json",
+        *args,
+        cwd=tmp_path,
+        env={"GITHUB_STEP_SUMMARY": str(written)},
+    )
+    assert done.returncode == 0, done.stderr
+    assert "digline 0.35.0" in written.read_text(encoding="utf-8")
+    dirty = _listing(*CLEAN, _installed("nltk", "3.10.4"))
+    (tmp_path / "dirty.json").write_text(json.dumps(dirty), encoding="utf-8")
+    done = _run(
+        "left-out",
+        "--json",
+        "dirty.json",
+        *args,
+        cwd=tmp_path,
+        env={"GITHUB_STEP_SUMMARY": str(written)},
+    )
+    assert done.returncode == 1
+    assert "nltk 3.10.4" in done.stderr
+    assert "SECURITY.md" in done.stderr
+
+
 # --- where it runs: image-scan.yml ------------------------------------------
 
 
@@ -386,3 +541,20 @@ def test_both_platforms_are_scanned_named_and_uploaded_in_that_order() -> None:
         assert platform in steps[upload]["with"]["category"]
         assert platform in steps[upload]["with"]["sarif_file"]
         assert "named" in steps[upload]["with"]["sarif_file"]
+
+
+def test_the_reports_list_every_package_and_what_is_left_out_is_read_last() -> None:
+    steps = _steps()
+    reports, uploads, checks = (
+        _scans("json"),
+        _at("github/codeql-action/upload-sarif@"),
+        _at("image_scan.py left-out"),
+    )
+    assert all("--list-all-pkgs" in steps[i]["run"] for i in reports)
+    assert len(checks) == 2
+    # After both uploads: a red here never keeps a week's SARIF out of Code scanning.
+    assert min(checks) > max(uploads)
+    for platform, check in zip(("amd64", "arm64"), checks, strict=True):
+        run = steps[check]["run"]
+        assert f"trivy-{platform}.json" in run and f"--platform linux/{platform}" in run
+        assert '"$DIGEST"' in run or "${DIGEST}" in run

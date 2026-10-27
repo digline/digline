@@ -18,15 +18,26 @@ unfiltered JSON report of the same digest and says everything trivy found: the
 total, by severity, and how many have a fix. No threshold, and no severity
 makes the job red.
 
+**What makes it red is a false sentence in `SECURITY.md`.** That JSON report
+lists every package (`--list-all-pkgs`), and `left-out` refuses an image that
+lists one of `ABSENT`, the distributions `SECURITY.md` says the image does not
+contain. Its control is digline: a listing without digline installed measured
+nothing, and is refused. The report says which platform trivy read
+(`ImageConfig`), and one of another platform is refused, so linux/arm64 is
+read as published and not through an emulator.
+
     docker buildx imagetools inspect IMAGE:latest --format '{{json .Manifest}}' \\
         | python3 .github/image_scan.py resolve
     python3 .github/image_scan.py name --sarif trivy.sarif --json trivy.json \\
         --out named.sarif --image IMAGE --digest sha256:... --platform linux/amd64
+    python3 .github/image_scan.py left-out --json trivy.json \\
+        --image IMAGE --digest sha256:... --platform linux/amd64
 
 `resolve` prints the digest, or refuses with exit 1. `name` writes the SARIF
 with the image named by digest and platform in every result's message and in
 the run's properties, refuses a SARIF or a JSON report of another image, and
-writes the counts to `$GITHUB_STEP_SUMMARY` when it is set. Standard library
+writes the counts to `$GITHUB_STEP_SUMMARY` when it is set. `left-out` writes
+one line there too, or refuses with exit 1 and names what was found. Standard library
 only: this runs under the runner's bare `python3`.
 """
 
@@ -44,6 +55,15 @@ from pathlib import Path
 from typing import Any
 
 DIGEST = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
+
+#: What `SECURITY.md`, *Advisories against a dependency*, says the published
+#: image does not contain: nltk, and `digline-mcp` "and so ... no PyJWT at all".
+#: Names as PEP 503 normalises them.
+ABSENT = ("nltk", "pyjwt", "digline-mcp")
+
+#: The positive control: an image whose listing does not show digline installed
+#: was not read, and its silence about `ABSENT` says nothing.
+CONTROL = "digline"
 
 #: trivy's severities, in the order the summary says them. Each is said, zero
 #: included, so two weeks' summaries read line against line.
@@ -118,6 +138,78 @@ def summary(found: Counts, sarif: Mapping[str, Any], *, ref: str, platform: str)
     )
 
 
+def _normalised(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def left_out(
+    report: Mapping[str, Any], *, image: str, digest: str, platform: str
+) -> str:
+    """One platform's summary line, or a refusal naming what `SECURITY.md` got wrong.
+
+    Read from trivy's JSON report made with `--list-all-pkgs`. Every Python
+    package it lists counts against `ABSENT`, the ones it read from an SBOM in
+    the image as well as the installed distributions: an image that says it
+    carries a package is not one `SECURITY.md` can say leaves it out. The
+    control counts only an installed distribution, one with a `METADATA` path.
+    """
+    ref = f"{image}@{digest}"
+    metadata = report.get("Metadata") or {}
+    scanned = metadata.get("RepoDigests") or []
+    if ref not in scanned:
+        raise ValueError(f"trivy's report is of {scanned!r}, and {ref} was asked for")
+    config = metadata.get("ImageConfig") or {}
+    read = f"{config.get('os')}/{config.get('architecture')}"
+    if not config or read != platform:
+        raise ValueError(
+            f"trivy's report is of the platform {read}, and {platform} was asked for"
+        )
+    found: dict[str, list[str]] = {}
+    installed: dict[str, str] = {}
+    for result in report.get("Results") or []:
+        if result.get("Type") != "python-pkg":
+            continue
+        for package in result.get("Packages") or []:
+            name = _normalised(str(package.get("Name", "")))
+            version = str(package.get("Version", ""))
+            found.setdefault(name, []).append(version)
+            if str(package.get("FilePath") or "").endswith(".dist-info/METADATA"):
+                installed[name] = version
+    if CONTROL not in installed:
+        raise ValueError(
+            f"{ref} ({platform}): {CONTROL} is not listed as installed, so the "
+            "listing measured nothing; was the report made with --list-all-pkgs?"
+        )
+    present = [f"{n} {v}" for n in ABSENT for v in found.get(n, [])]
+    if present:
+        raise ValueError(
+            f"{ref} ({platform}) contains {', '.join(present)}, which SECURITY.md "
+            "says the image leaves out"
+        )
+    return (
+        f"- `{ref}` ({platform}): none of {', '.join(ABSENT)} among the "
+        f"{sum(map(len, found.values()))} Python packages listed; "
+        f"{CONTROL} {installed[CONTROL]} installed\n"
+    )
+
+
+def _left_out_command(args: argparse.Namespace) -> int:
+    report = json.loads(Path(args.json).read_text(encoding="utf-8"))
+    try:
+        line = left_out(
+            report, image=args.image, digest=args.digest, platform=args.platform
+        )
+    except ValueError as exc:
+        print(f"image_scan: {exc}", file=sys.stderr)
+        return 1
+    print(line, end="")
+    where = os.environ.get("GITHUB_STEP_SUMMARY")
+    if where:
+        with open(where, "a", encoding="utf-8") as handle:
+            handle.write(line)
+    return 0
+
+
 def _resolve_command() -> int:
     try:
         print(resolved(json.loads(sys.stdin.read())))
@@ -158,9 +250,16 @@ def main(argv: list[str]) -> int:
     name.add_argument("--image", required=True)
     name.add_argument("--digest", required=True)
     name.add_argument("--platform", required=True)
+    left = commands.add_parser("left-out")
+    left.add_argument("--json", required=True)
+    left.add_argument("--image", required=True)
+    left.add_argument("--digest", required=True)
+    left.add_argument("--platform", required=True)
     args = parser.parse_args(argv)
     if args.command == "resolve":
         return _resolve_command()
+    if args.command == "left-out":
+        return _left_out_command(args)
     return _name_command(args)
 
 

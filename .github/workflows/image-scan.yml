@@ -22,6 +22,22 @@ name: image-scan
 # fix — so what the filter leaves out is still counted where it can be read.
 # No threshold, and no severity makes this job red.
 #
+# **No CVE turns this job red; a false sentence in SECURITY.md does.** The JSON
+# reports list every package (`--list-all-pkgs`), and the last two steps refuse
+# an image that lists a distribution *Advisories against a dependency* says it
+# leaves out: nltk, `digline-mcp`, PyJWT. Read from trivy's report, not by
+# running the image, so linux/arm64 is read as it was published, without an
+# emulator. Their control is digline itself: a listing that does not show it
+# installed measured nothing, and is refused too. They run after both uploads,
+# so a red never keeps a week's findings out of Code scanning.
+#
+# That red refines the decision behind this job, and does not reverse it:
+# decision 12 of the decisions register, `private/decisions-open-2026-10-22.md`,
+# chose SARIF in Code scanning so that there would be no red to interpret, no
+# severity to judge. A sentence in SECURITY.md is true or false, and there is
+# nothing to interpret. The refinement is recorded there, dated 2026-10-27 and
+# confirmed by the maintainer.
+#
 # The image's package list goes nowhere: trivy downloads its database and
 # matches locally. The pull is of this repository's public image.
 on:
@@ -88,7 +104,7 @@ jobs:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/amd64 \
-            --scanners vuln --pkg-types os,library --format json \
+            --scanners vuln --pkg-types os,library --list-all-pkgs --format json \
             --output trivy-amd64.json "ghcr.io/digline/digline@${DIGEST}"
 
       - name: Scan linux/amd64 for what has a fixed version
@@ -117,7 +133,7 @@ jobs:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/arm64 \
-            --scanners vuln --pkg-types os,library --format json \
+            --scanners vuln --pkg-types os,library --list-all-pkgs --format json \
             --output trivy-arm64.json "ghcr.io/digline/digline@${DIGEST}"
 
       - name: Scan linux/arm64 for what has a fixed version
@@ -140,3 +156,17 @@ jobs:
         with:
           sarif_file: named-arm64.sarif
           category: image-scan/linux/arm64
+
+      - name: Read what linux/amd64 leaves out, against SECURITY.md
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 .github/image_scan.py left-out --json trivy-amd64.json \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/amd64
+
+      - name: Read what linux/arm64 leaves out, against SECURITY.md
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 .github/image_scan.py left-out --json trivy-arm64.json \
+            --image ghcr.io/digline/digline --digest "$DIGEST" --platform linux/arm64
