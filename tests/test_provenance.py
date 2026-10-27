@@ -322,9 +322,11 @@ def test_a_foreign_verdicts_keys_are_tokens_and_its_values_withheld(
 def test_the_driver_metadata_keys_are_the_ones_the_driver_writes() -> None:
     """Closed in code, and held equal to what the folds write, so the set
     cannot fall behind a key added to a fold."""
+    # With a cost on each sample, so `combine_samples` writes its total too:
+    # `cost_usd` itself is the assertion's key, carried through the fold.
     samples = [
         Verdict(
-            score=Score(name="x", score=s),
+            score=Score(name="x", score=s, metadata={"cost_usd": 0.01}),
             threshold=0.5,
             status="pass" if s >= 0.5 else "fail",
             reason="r",
@@ -335,7 +337,7 @@ def test_the_driver_metadata_keys_are_the_ones_the_driver_writes() -> None:
     folded = combine_samples(samples, min_agreement=0.5)
     judged = fold_judgements([samples], min_agreement=0.5)
     written = set(folded.score.metadata) | set(judged.score.metadata)
-    assert written | DRIVER_MARKERS == DRIVER_METADATA_KEYS - {"total_cost_usd"}
+    assert (written - {"cost_usd"}) | DRIVER_MARKERS == DRIVER_METADATA_KEYS
 
 
 # --------------------------------------------------------------------------- #
