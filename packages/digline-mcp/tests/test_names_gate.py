@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -265,13 +266,32 @@ _WIDENED = (
 )
 
 
-def _repository(tmp: Path) -> tuple[Path, str, str]:
+#: Tracked files of the example the fixture leaves out: its lock and its
+#: rendered report, which no tool reads.
+_NOT_COPIED = frozenset({"uv.lock", "report.html"})
+
+
+def _copy_tracked(example: Path, repo: Path) -> None:
+    """The files git tracks under `example`, and nothing else. A checkout that
+    has run the example holds runs and journals beside it that git ignores,
+    and a copy of the directory would make them the fixture's own."""
+    listed = subprocess.run(
+        ["git", "-C", str(example), "ls-files", "-z"],
+        check=True,
+        capture_output=True,
+    ).stdout.decode("utf-8")
+    for name in filter(None, listed.split("\0")):
+        source = example / name
+        if Path(name).name in _NOT_COPIED or not source.is_file():
+            continue
+        target = repo / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def build_repository(tmp: Path, *, example: Path = EXAMPLE) -> tuple[Path, str, str]:
     repo = tmp / "prompt-first"
-    shutil.copytree(
-        EXAMPLE,
-        repo,
-        ignore=shutil.ignore_patterns(".venv", "uv.lock", "report.html"),
-    )
+    _copy_tracked(example, repo)
     suite = repo / SPEC
     source = suite.read_text(encoding="utf-8")
     for before, after in _WIDENED:
@@ -353,7 +373,7 @@ def drive(
 
 @pytest.fixture(scope="module")
 def fixture_repo(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str, str]:
-    return _repository(tmp_path_factory.mktemp("names"))
+    return build_repository(tmp_path_factory.mktemp("names"))
 
 
 @pytest.fixture(scope="module")
