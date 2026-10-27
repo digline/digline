@@ -891,22 +891,50 @@ Two ways were refused:
 
 *Ruled 2026-10-27, for #368's two.* **The premise changed, not the
 conclusion.** #368 refused these writes because there was no way to say *this
-cannot be priced* other than refusing. §8.2 is that way, so the premise falls,
-and the refusal falls with it. It is the shape of ADR 0011 §10's amendment of
-2026-10-23: a sentence stops holding because what it rested on stopped
-holding, and what it protected stands. What #368 protected was that a write
-nobody has a rate for is never priced at another rate, and that stands. Left
-refusing, these would be two identical facts treated two ways, the incoherence
-#735 removed between `_graded` and `_ratio`.
+cannot be priced*, and now there is: §8.2. What #368 protected was that a
+write nobody has a rate for is never priced at another rate, and that stands.
+Left refusing, these would be two identical facts treated two ways, the
+incoherence #735 removed between `_graded` and `_ratio`.
 
 *Ruled 2026-10-27, for the core's.* **The core's refusal moves too.** It is
 the same fact, counts read and a rate missing, decided in the core instead of
 a plugin. Left refusing, it would be two behaviours for one fact inside the
-core. The core asks the price list whether it can price the counts before it
-prices them, and the reason the list gives is the call's `unpriced` sentence.
-`Pricing.cost` itself still raises if it is called on counts it cannot price,
-so a caller outside the reading that does not ask first still gets no number
-nobody stated.
+core.
+
+**How the core tells it apart: a predicate, `Pricing.why_unpriced(model,
+usage) -> str | None`.** `None` says the list can price these counts. A
+sentence says why it cannot. The reading asks it before it calls `cost`, and
+the sentence it returns is the call's `unpriced`. `Pricing.cost` still raises
+when it is called on counts it cannot price, so a caller outside the reading
+that does not ask first still gets no number nobody stated.
+- **Why a predicate, and not a catch.** `UnknownModelError` is raised for a
+  model the list does not know as well as for a rate it lacks. Catching it
+  would turn a typo in a model's name into *cost not known*: two things under
+  one name.
+- **Its default answers for the list's own rates**, under the condition on
+  which `Pricing.cost` raises today: tokens of a kind whose rate is `None`.
+  `Pricing` is a concrete class, and users build their lists from it, never
+  by implementing it: `ANTHROPIC_PRICING.override(…)` (`docs/api.md`), `free(…)`,
+  `[target.pricing]`, or `Pricing(per_model=…)`. Each is an instance of the
+  base class, so each inherits the default. **A user enters by doing
+  nothing**: a list of theirs with no cached-read rate moves exactly as one
+  of ours does.
+- **Not a default that says *I don't know*.** With that default nobody moves,
+  not even digline's own lists, which are instances of the same class. A
+  repair the user has to ask for is not a repair.
+- **The risk, named.** A subclass that overrides `cost` to price what its list
+  has no rate for would inherit the predicate, and be read as unpriced
+  **before** its `cost` is called. For it, that is a regression. None is known
+  today. `_WhereServed` in digline-anthropic overrides `cost`, and only to
+  multiply the base price by the geography, so it prices nothing the list has
+  no rate for.
+- **The obligation: whoever overrides `cost` overrides `why_unpriced` too.**
+  It is held on this project's repositories by a test (§8.9), which also
+  binds `_WhereServed`. There the override has work of its own: it answers
+  with the base's predicate, and where that returns a sentence, `cost` will
+  not be called and `take` will not run, so it takes the factor itself
+  (§8.8). Nothing can bind a third party to the obligation. The test
+  documents the rule with an instance.
 
 In each plugin, `_complete` returns its `Completion` with `unpriced` set to
 the sentence the refusal carried, less the refusal, on the target and on the
@@ -917,7 +945,9 @@ judge.
 **The target.** `ProviderTarget.__call__` stays the only reading, and plugins
 keep inheriting it:
 
-    unpriced = reply.unpriced or (the price list's reason, when usage is read)
+    unpriced = reply.unpriced or (
+        None if usage is None else self.pricing.why_unpriced(self.model, usage)
+    )
     cost_usd = None if usage is None or unpriced is not None
                else self.pricing.cost(self.model, usage)
 
@@ -1026,7 +1056,8 @@ never priced at another call's geography"*. The guarantee rests on every reply
 being priced: `_complete` sets the factor, and the next `pricing.cost` takes it
 and resets it. An unpriced reply calls no `pricing.cost`, so the factor it
 would set is left for the next call. **digline-anthropic leaves no factor set
-on an unpriced reply.** §8.9 holds it.
+on an unpriced reply**, whether the sentence is its own or the price list's
+(§8.4). §8.9 holds it.
 
 #### 8.9 What it changes, and how that is held
 
@@ -1071,6 +1102,15 @@ The first runs on each row of §8.4.
   raises: `every_cost_known` is `false`, both calls' tokens are on the line,
   and the check's reason does not say *"the judge raised"*. It is red on
   `80b70b7e`, measured before it is written, and that is how it is believed.
+- **Whoever overrides `cost` overrides `why_unpriced`** (§8.4). Every subclass
+  of `Pricing` defined under `src/` and `packages/*/src` that overrides `cost`
+  overrides `why_unpriced` too. Today that is `_WhereServed`. The test
+  carries a fake subclass that does both, as the rule's example. **Its
+  mutation:** take the predicate off the fake subclass, and the test goes
+  red. It binds this project's repositories and no third party.
+- **The default predicate, both ways.** A list built with `Pricing(…)` or
+  `override(…)` and no cached-read rate gives an unpriced call with no
+  `error`. A list with the rate gives the figure.
 
 **The four are believed by mutation:**
 - **`ProviderTarget.__call__` ignoring `unpriced`** makes the first red,
@@ -1108,10 +1148,14 @@ a reply reports.
 **What the versions are**, by *Choosing the version* in `RELEASING.md`, whose
 enumeration names *"an exit code changed"*. #642 is the precedent that moves a
 minor for one input's exit; #735 (#738), whose exit did not move, is a patch.
-- **digline: a minor.** A user whose `pricing=` has no cached-read rate gets
-  an exit that moves, from `2` to a judged case. Through §8.4's last row, that
-  includes every plugin's users and digline-openai's. The cost of this is nil,
-  because digline's next release is already a minor for #642.
+- **digline: a minor.** Whoever has a price list with no rate for tokens a
+  reply reports gets an exit that moves, from `2` to a judged case, **without
+  doing anything**. That holds whether the list is one of ours or theirs,
+  because the predicate's default is inherited by every list built from
+  `Pricing` (§8.4). Through §8.4's last row, that includes every plugin's
+  users and digline-openai's. One user who moves is enough for *"an exit code
+  changed"*. The cost of this is nil, because digline's next release is
+  already a minor for #642.
 - **digline-anthropic: a minor.** A run over an unpriced geography or a
   1-hour cache write exits `2` today. After, `digline run` exits `0`, and
   `digline compare` exits `0` or `1` by its verdict. Its floor rises to the
