@@ -813,3 +813,62 @@ def test_the_thinking_is_not_added_to_the_cost() -> None:
     )
 
     assert pricing.cost("m", plain) == pricing.cost("m", split)
+
+
+# --------------------------------------------------------------------------- #
+# The geography of the next call, when this one went unpriced (ADR 0004 §8.8)
+# --------------------------------------------------------------------------- #
+
+#: Sonnet 5 at its listed input and output rates, and no cache rates: the
+#: price list, not the plugin, is what cannot price a cached read.
+NO_CACHE_RATES = ANTHROPIC_PRICING.override(
+    "claude-sonnet-5", ModelPrice(input_per_mtok=2.0, output_per_mtok=10.0)
+)
+
+
+def test_an_unpriced_reply_leaves_no_geography_for_the_price_list(
+    prompt: Path,
+) -> None:
+    """The price list cannot price this US-only reply's cached reads, so no
+    `cost` takes the factor `_complete` set. Asked afterwards, the list answers
+    at the listed rate: the factor was this call's."""
+    target, client = a_target(prompt, pricing=NO_CACHE_RATES)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000,
+            output_tokens=0,
+            cache_read_input_tokens=10,
+            inference_geo="us",
+        ),
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.cost_usd is None
+    assert response.unpriced is not None
+    assert "declares no cached-read rate" in response.unpriced
+    asked = target.pricing.cost("claude-sonnet-5", Usage(1_000_000, 0))
+    assert asked == pytest.approx(2.00)
+
+
+def test_the_next_call_is_priced_at_its_own_geography(prompt: Path) -> None:
+    """Two calls in sequence: the first unpriced and served in the US, the
+    second served globally, and priced at the global rate."""
+    target, client = a_target(prompt, pricing=NO_CACHE_RATES)
+    case = Case(id="it", vars={"country": "Italy"})
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000,
+            output_tokens=0,
+            cache_read_input_tokens=10,
+            inference_geo="us",
+        ),
+    )
+    assert target(case).cost_usd is None
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")],
+        usage=FakeUsage(
+            input_tokens=1_000_000, output_tokens=0, inference_geo="global"
+        ),
+    )
+    assert target(case).cost_usd == pytest.approx(2.00)

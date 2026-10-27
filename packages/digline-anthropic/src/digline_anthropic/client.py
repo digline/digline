@@ -115,9 +115,24 @@ class _WhereServed(Pricing):
     the same call. Nothing in digline calls one target or judge from two
     threads. `take` returns the factor and resets it, so a cost is never
     priced at another call's geography.
+
+    **That guarantee rested on every reply being priced**, and an unpriced
+    reply calls no `cost` (ADR 0004 §8.8). So the factor is consumed on each
+    of the two ways a reply goes unpriced: `_complete` sets none for a reply
+    the plugin declares unpriced, and `why_unpriced` takes the one it set
+    where the price list cannot price the reply.
     """
 
     take: Callable[[], float] = field(default=lambda: 1.0, compare=False, repr=False)
+
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        # Overridden because `cost` is: whoever overrides `cost` overrides
+        # this too (ADR 0004 §8.4). The answer is the list's own; the work of
+        # its own is the factor, which no `cost` will take for this reply.
+        sentence = Pricing.why_unpriced(self, model, usage)
+        if sentence is not None:
+            self.take()
+        return sentence
 
     def cost(self, model: str, usage: Usage) -> float:
         # `Pricing.cost(self, ...)` and not `super()`: the zero-argument form
