@@ -332,6 +332,17 @@ from the code would be a guess. This step is the only thing that sees it. It
 was missed for 0020, 0021, 0022 and 0024, which read `proposed` for over a
 week after 0.13.0 and 0.14.0 shipped them.
 
+**Then move `UNRELEASED` into `CALLED`, in the release commit.** In
+`tests/test_plugin_floors.py`, every entry of `UNRELEASED` is a method or an
+attribute a plugin calls that is on `main` and in no tag yet. The release
+being cut is the one that carries it, so move each entry into `CALLED` with
+this release's number, and leave `UNRELEASED` empty unless the tree being
+tagged lacks one. Do it in the release commit and not after the tag, because
+of what holds it: `test_an_unreleased_entry_is_in_no_release_tag` runs in
+`ci.yml`'s `readers` job, a required check, and fails on an entry a tag
+carries. Forgotten, it turns the first pull request after the tag red, naming
+each entry.
+
 **And one more that no test reddens: raise the floors owed to this release.**
 `tests/test_plugin_floors.py` computes a plugin's floor from the names it
 imports. It cannot see a widened signature: a plugin that passes a new argument

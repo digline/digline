@@ -423,6 +423,11 @@ notes under them are this file, verbatim.
     now on the line, its cost is not known, and the check errors with *the
     judge answered, and pricing its reply raised …*, raised as
     `JudgePriceRaised`, where it said *the judge raised*.
+  - **`UNRELEASED` beside `UNDATED`** in `tests/test_plugin_floors.py`, for a
+    name a plugin calls that is on `main` and in no tag: `Completion.unpriced`
+    and `Pricing.why_unpriced`. A test in `ci.yml`'s `readers` job holds that
+    no tag carries an entry, and RELEASING.md moves them into `CALLED` in the
+    release commit.
 
   **The next version is a minor for this**: an exit code changed. A run whose
   price list has no rate for tokens a reply reports exited `2` where every case
