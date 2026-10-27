@@ -1,9 +1,10 @@
 # ADR 0054 — The names a server lets out
 
-- Status: proposed 2026-10-26. Nothing in it is implemented. The decisions
-  below were ruled by Alessandro Prandini on 2026-10-26, on #548 (where the
-  ruling is a comment) and on the reading of this record's draft, and this
-  record is written before the code
+- Status: proposed 2026-10-26. Implemented 2026-10-27 for digline-mcp 0.7.0,
+  which is not released: *Consequences* says what the acceptance measured. The
+  decisions below were ruled by Alessandro Prandini on 2026-10-26, on #548
+  (where the ruling is a comment) and on the reading of this record's draft,
+  and this record is written before the code
 - Shipped: unreleased
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:
@@ -234,3 +235,21 @@ section moves with it.
 - A test per value, per missing declaration, per unknown value, and for
   `project` with no table. The stdio measurement is repeated in three
   directions on `quickstart-toml` and `prompt-first`.
+
+*Noted 2026-10-27 (#548), what the acceptance measured.* Over stdio, as a real
+client, on `quickstart-toml` and `prompt-first`, each with its committed
+baseline: under `clear`, `get_baseline` returns 32 distinct texts the name
+table was asked to mint (15 and 17), 52 occurrences; under `project`, none of
+them appears in any string of the answer; `project` with no table exits 64 with
+a message that names nothing stored. The *Context* above counted 33. The two
+counts were taken by different scripts at different commits, and the difference
+is not explained here. Both examples ran with no key.
+
+*Noted 2026-10-27 (#548), what §8 reaches in this code.* The refusals this
+server composes name the checks of a plan by their tokens: the sentence is
+composed from the plan's projected fields. A refusal of the core that reaches a
+tool is unchanged: it is a sentence, and the core's classes carry no fields for
+its names. Measured in `tests/test_names_gate.py` over the refusals that
+fixture provokes (an unknown run, a run diffed with itself, an unreadable run,
+a suite outside the root, no baseline), none quotes a name the table minted:
+each quotes the tenant, the suite, a key, a path or the request.

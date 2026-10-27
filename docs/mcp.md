@@ -94,11 +94,14 @@ would name every tenant on the machine in one place.
   "mcpServers": {
     "digline-northwind": {
       "command": "digline-mcp",
-      "args": ["--root", "/Users/you/src/northwind"]
+      "args": ["--root", "/Users/you/src/northwind", "--names", "clear"]
     },
     "digline-acme": {
       "command": "digline-mcp",
-      "args": ["--root", "/Users/you/src/acme"]
+      "args": [
+        "--root", "/Users/you/src/acme",
+        "--names", "project", "--name-table", "acme_names:TABLE"
+      ]
     }
   }
 }
@@ -107,6 +110,30 @@ would name every tenant on the machine in one place.
 `--tenant` and `--env` are accepted and **verify**; they never override. The
 suite decides, as it does everywhere else — a flag that could override one is
 how a run ends up filed under the wrong customer.
+
+### Whether the names may leave: `--names`
+
+**Required, with no default.** Whether a store's names may leave in clear
+depends on whose cases are in it, and nothing in a store says, so the server
+asks whoever starts it ([ADR 0054](adr/0054-the-names-a-server-lets-out.md)):
+
+- **`--names clear`**: the case ids, check names, configuration and paths leave
+  as they are. Your own project, or a store whose cases are yours.
+- **`--names project`**: every answer is projected before it leaves. Those
+  names become **tokens** from the name table, the same tokens a projected
+  reference carries ([ADR 0036](adr/0036-the-name-table-and-the-process-that-owns-it.md)),
+  and the sentences an answer carries are composed from the tokens. `tenant`
+  and `suite` stay in clear, as they do in a projection.
+
+Under `project`, `--name-table module:attribute` names the table, in the
+syntax `--target` and `--suite` take: an object, or a module, with the two
+callables `mint(kind, text)` and `lookup(token)`. The server mints through it
+and reads nothing else of it. `--names project` without a table does not start,
+and its message names what is missing and nothing in the store. A table given
+under `clear` is refused, because the line would say two things.
+
+A configuration that passes `--root` alone, as every one did before the
+declaration, no longer starts: add `--names clear` to keep what it did.
 
 The transport is stdio: the client launches the process, so there is no bound
 port and no listening socket.

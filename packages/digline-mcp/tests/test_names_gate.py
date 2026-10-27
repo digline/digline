@@ -413,3 +413,67 @@ def test_in_clear_the_same_answers_carry_the_names(
     shown = {name for name in table.texts() if any(name in v for v in values)}
     assert {"gift-wrap", "llm_rubric", "anthropic", "claude-haiku-4-5"} <= shown
     assert not any(value in table.rows for value in values)
+
+
+def _refused(repo: Path, tool: str, arguments: dict[str, Any], **server: Any) -> str:
+    async def go() -> str:
+        built = build_server(str(repo), None, None, names="project", **server)
+        try:
+            await built.call_tool(tool, arguments)
+        except ToolError as refused:
+            return str(refused)
+        raise AssertionError(f"{tool} {arguments} answered; a refusal was expected")
+
+    return anyio.run(go)
+
+
+def test_the_refusals_a_tool_meets_here_name_nothing_the_table_minted(
+    fixture_repo: tuple[Path, str, str],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """The refusals this fixture can provoke, under `project`, checked as
+    prose: an unknown run, a run diffed with itself, a corrupted run document,
+    a suite outside the root, and no baseline. Each names what it needs to and
+    nothing the table minted, because what it quotes is the committing party's
+    own (class b), a key, or the request. **A measurement over these, not a
+    rule**: a refusal of the core is a sentence, and ADR 0054 §8's fields are
+    not carried by the core's classes. (ADR 0054 §8)"""
+    repo, first, _ = fixture_repo
+    _, table = projected
+    said: dict[str, str] = {}
+    said["unknown run"] = _refused(
+        repo,
+        "get_run",
+        {"suite": SPEC, "run": "2020-01-01T00-00-00-000000-00-00-0000000000000000"},
+        table=table,
+    )
+    said["itself"] = _refused(
+        repo, "diff", {"suite": SPEC, "run1": first, "run2": first}, table=table
+    )
+    said["outside"] = _refused(
+        repo, "get_run", {"suite": "../elsewhere.py"}, table=table
+    )
+    stored = next((repo / ".digline").glob("*/runs/*/*.json"))
+    kept = stored.read_bytes()
+    try:
+        stored.write_text('{"schema_version": "x"}', encoding="utf-8")
+        said["corrupted"] = _refused(
+            repo, "get_run", {"suite": SPEC, "run": stored.stem}, table=table
+        )
+    finally:
+        stored.write_bytes(kept)
+    baselines = next((repo / ".digline").glob("*/baselines"))
+    moved = baselines.with_name("baselines-away")
+    baselines.rename(moved)
+    try:
+        said["no baseline"] = _refused(
+            repo, "get_baseline", {"suite": SPEC}, table=table
+        )
+    finally:
+        moved.rename(baselines)
+    leaked = {
+        why: sorted(name for name in table.texts() if name in text)
+        for why, text in said.items()
+    }
+    assert not any(leaked.values()), leaked
+    assert all(said.values()), said

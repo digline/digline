@@ -299,6 +299,12 @@ the token was handed out in a document meant for a commit (§4 there,
   either a disclosure or a token that no suite reads. This record does not
   rule which.
 
+*Noted 2026-10-27 (ADR 0054 §3, #548).* digline-mcp is this arrangement's
+second consumer. Under `--names project` it is handed the name table at start,
+as `--name-table module:attribute`, and every answer goes through
+`project_served` with one table per answer, so a run and its reference pair. It
+mints through the table and reads nothing else of it (ADR 0036 §2).
+
 ## Alternatives considered
 
 - **Binding §2 as written (the proposal's option (a)).** Under it, a served
