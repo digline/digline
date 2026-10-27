@@ -2362,16 +2362,27 @@ boolean whose meaning moves is a bump as well. The version does not cover a
 word in a vocabulary changing, such as an outcome or a kind a consumer matches
 on: the value is still a string.
 
-**Version 4 renames a key.** A verdict's check was `name` in the MCP tools
-`get_run` and `get_baseline`, and in each aggregate row of `list_runs`, and
-`assertion` in every other document that carries a verdict: the run file,
-`compare --json`'s `deltas`, `diff --json`'s `checks` and `explain --json`'s
-`facts`. It is `assertion` in every document that carries a verdict now. No
-document carries both. A consumer
-that reads `name` on a verdict from those three tools reads `assertion` from
-version 4 on, and nothing else in the contract moved (#678). The keys added under
-version 3 are kept: `every_call_seen`, `every_cost_known` and `error_kind` shipped
-under it in 0.34.0, and `unpaired`, on `compare`, ships first under 4.
+**Version 4 renames keys, and one concept has one name.** The value a
+verdict's `score.name` holds is `assertion` in the run file, `compare --json`'s
+`deltas`, `diff --json`'s `checks` and `explain --json`'s `facts`, and it went
+by three other names. Each is `assertion` now:
+- `name` on a verdict in the MCP tools `get_run` and `get_baseline`, and in each
+  aggregate row of `list_runs`;
+- `name` on each entry of `log --json`'s `spread`;
+- `check` on each entry of `shape`, in `compare --json full` and in
+  `explain --json`'s shape facts;
+- `rule` on each entry of `compare --json full`'s `suite_deltas`.
+
+And `answered` is `reported` on `log --json`'s sightings and spans, the verb
+every sentence already used for an id the provider reported and nothing
+attests. No document carries both an old name and its new one, and nothing
+else in the contract's keys moved (#678). Two names stay as they are, because
+they are not this concept: `name` on an `explain` setting fact, which holds a
+rule's name, a configuration key or an artifact's path according to `kind`, and
+`check` on a calibration band, which is the name the suite declared and may
+differ from the verdict's `score.name`. The keys added under version 3 are
+kept: `every_call_seen`, `every_cost_known` and `error_kind` shipped under it in
+0.34.0, and `unpaired`, on `compare`, ships first under 4.
 
 **Version 3 is the first bump for a change of meaning, and it leaves version 2
 ambiguous** (#669). In 0.33.0, under `output_version: 2`, `noise_min`,

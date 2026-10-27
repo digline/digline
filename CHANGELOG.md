@@ -460,12 +460,17 @@ notes under them are this file, verbatim.
     a published caller keeps working, and `runs_json` taking a projected
     listing's counts in place of the listing, which holds file names (#362).
   A patch: nothing that existed moves.
-- **`output_version` is 4: a verdict's check is `assertion` in every document
-  that carries a verdict** (#678). The MCP tools `get_run` and `get_baseline`,
-  and each aggregate row of `list_runs`, named it `name`, while the run file,
-  `compare --json`, `diff --json` and `explain --json` named it `assertion`.
-  A consumer reading `name` from those three tools reads `assertion` now. No
-  alias carries the old name beside the new one: the bump is the transition.
+- **`output_version` is 4: one concept, one name** (#678). A verdict's
+  `score.name` was `assertion` in the run file, `compare --json`'s `deltas`,
+  `diff --json`'s `checks` and `explain --json`'s `facts`, and went by three
+  other names. Each is `assertion` now: `name` on a verdict in the MCP tools
+  `get_run`, `get_baseline` and `list_runs`, `name` in `log --json`'s
+  `spread`, `check` in `shape` (`compare --json full` and `explain --json`),
+  and `rule` in `suite_deltas`. `answered` is `reported` on `log --json`'s
+  sightings and spans, the word every sentence already used. A consumer
+  reading an old name reads the new one. No alias carries both: the bump is
+  the transition. `name` on an `explain` setting fact and `check` on a
+  calibration band stay, because they are not this concept.
   The contract's table folds the five keys added under 3 into its base: three
   shipped under 3 in 0.34.0, and `unpaired` on `compare` ships first under 4.
   A bump of `OUTPUT_VERSION` is a minor, and this release is already one.
@@ -814,12 +819,14 @@ floor RELEASING.md's table names.
   guarantee. An `xfail(strict=True)` in the gate holds what is missing, the
   core's error classes carrying those names in fields, and turns red when they
   do.
-- **Breaking: a verdict's check is `assertion`** (#678). `get_run`,
-  `get_baseline` and each aggregate row of `list_runs` named it `name`, while
-  `compare`, `diff` and `explain` named it `assertion`. They answer
-  `assertion` now, at `output_version` 4, which the core release that carries
-  #678 writes; a client reading `name` on a verdict has to read `assertion`.
-  No alias carries both. It rides the minor #548 already makes.
+- **Breaking: keys renamed at `output_version` 4** (#678), which the core
+  release that carries #678 writes. A verdict's check is `assertion` in
+  `get_run`, `get_baseline` and each aggregate row of `list_runs`, where it was
+  `name`; in `compare`'s and `explain`'s `shape`, where it was `check`; in
+  `compare`'s `suite_deltas`, where it was `rule`; and in `log`'s `spread`,
+  where it was `name`. `log`'s sightings and spans say `reported` where they
+  said `answered`. A client reading an old name has to read the new one. No
+  alias carries both. It rides the minor #548 already makes.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,
