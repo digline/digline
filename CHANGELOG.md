@@ -327,6 +327,16 @@ notes under them are this file, verbatim.
 
   Nothing in digline's behaviour moves, so this is a patch.
 
+- **Docs: ADR 0004 §8, *A cost that cannot be computed*, proposed** (#569).
+  It records a decision about a call that answered, whose counts were read
+  and whose cost cannot be computed: a geography or a cache write with no
+  rate, or tokens of a kind the price list has no rate for. Today such a call
+  is refused, and its check or its case errors. §8 makes it a call whose
+  cost is not known, beside the case where the counts were not recorded. It
+  also records, measured, a judge line that reads complete when a price
+  raises after an answer. Nothing in it is implemented, and this entry names
+  no release for it.
+
 - **The delta-pass diffs the whole JSON contract with one command** (#709).
   `tools/contract_diff.py THEN [NOW]` reads, in each reference's tree, the
   contract `_lines(_SHAPES)` derives, and prints each key added, removed or
