@@ -317,3 +317,66 @@ def test_true_is_read_off_two_zeros_and_never_assumed(
     unless the count it keeps is above zero."""
     line = judge_totals(suite(rubric(HandWritten(**counts))))
     assert line.every_cost_known is known
+
+
+# --------------------------------------------------------------------------- #
+# The false line: a price that raises after an answer (§8.6)
+# --------------------------------------------------------------------------- #
+
+
+class Raising(Pricing):
+    """A list digline did not write, whose `cost` raises on these counts and
+    whose predicate does not say so."""
+
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        return None
+
+    def cost(self, model: str, usage: Usage) -> float:
+        if usage.cache_read_tokens:
+            raise UnknownModelError("cached reads are not on this list")
+        return Pricing.cost(self, model, usage)
+
+
+RAISING = Raising(per_model=PRICING.per_model)
+
+
+def test_a_price_that_raises_leaves_a_true_judge_line() -> None:
+    """ADR 0004 §8.6's second row, measured at `80b70b7e`: two calls, the
+    second's price raising, read `calls=2, counted=2`, one call's tokens and
+    money, and `every_cost_known: true`. The line now says what it holds."""
+    judge = ReplyingJudge(
+        Completion(text=VERDICT, usage=COUNTS),
+        Completion(text=VERDICT, usage=CACHED_READS),
+        pricing=RAISING,
+    )
+    run = execute(suite(rubric(judge), cases=2), Answering(), created_at=CREATED)
+    line = usage_of(run).judge
+    assert (line.calls, line.counted) == (2, 2)
+    assert (line.tokens.input_tokens, line.tokens.output_tokens) == (200, 20)
+    assert line.spent_usd == pytest.approx(0.00012)
+    assert line.every_cost_known is False
+
+
+def test_a_price_that_raises_errors_the_check_naming_the_price() -> None:
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=CACHED_READS), pricing=RAISING)
+    run = execute(suite(rubric(judge)), Answering(), created_at=CREATED)
+    (verdict,) = run.results[0].verdicts
+    assert verdict.status == "error"
+    assert "the judge raised" not in verdict.reason
+    assert verdict.reason.startswith(
+        "the judge answered, and pricing its reply raised UnknownModelError"
+    )
+
+
+def test_an_unknown_judge_model_is_the_same_true_line() -> None:
+    """The judge's `preflight()` is not called by the driver, so a model the
+    list does not know answers and its price raises."""
+    judge = ReplyingJudge(
+        Completion(text=VERDICT, usage=COUNTS),
+        pricing=Pricing(per_model={}),
+    )
+    run = execute(suite(rubric(judge)), Answering(), created_at=CREATED)
+    line = usage_of(run).judge
+    assert (line.calls, line.counted, line.every_cost_known) == (1, 1, False)
+    (verdict,) = run.results[0].verdicts
+    assert "pricing its reply raised UnknownModelError: no price" in verdict.reason

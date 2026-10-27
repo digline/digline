@@ -30,6 +30,7 @@ from digline.core import (
     ConfigValue,
     Finish,
     JudgeAbstained,
+    JudgePriceRaised,
     JudgeReply,
     Usage,
 )
@@ -301,6 +302,8 @@ class JudgeBase(ABC):
         A call that raises is *not* counted. Its cost is unknown, and counting
         it at zero would be the undercount that reads as good news. It is
         counted in `raised_calls` instead, so the line can say it is missing.
+        A call that answered and whose **price** raises is counted, with its
+        tokens, as an unpriced call, and raises `JudgePriceRaised`.
         """
         started = perf_counter()
         try:
@@ -329,11 +332,14 @@ class JudgeBase(ABC):
             # go on the line below, its money does not.
             self.unpriced_calls += 1
             self.unpriced_reasons[unpriced] = self.unpriced_reasons.get(unpriced, 0) + 1
-        else:
-            self.spent_usd += self.pricing.cost(self.model, reply.usage)
         # Beside the money and under the same rule stated above it: a call that
         # raises reaches none of these lines, because its cost is unknown and
         # counting it at zero is the undercount that reads as good news.
+        #
+        # **Folded before the price is asked for**, so a price that raises
+        # leaves the call's tokens on the line. Priced first, a raise left the
+        # call in `calls` and out of `tokens`, `spent_usd` and every marker,
+        # and the line read complete (ADR 0004 §8.6, measured 2026-10-27).
         #
         # `self.calls == 1` because the seed is **not** an unreported
         # measurement: `NO_USAGE.thinking_tokens` is `None`, and
@@ -347,6 +353,19 @@ class JudgeBase(ABC):
         counted = self.calls - self.uncounted_calls
         if reply.usage is not None:
             self.tokens = reply.usage if counted == 1 else self.tokens + reply.usage
+        if reply.usage is not None and unpriced is None:
+            try:
+                self.spent_usd += self.pricing.cost(self.model, reply.usage)
+            except Exception as exc:
+                # A price that raises where nobody declared the reply unpriced:
+                # a model the list does not know, or a list digline did not
+                # write. Read as an unpriced call, so the line says its cost is
+                # not known, and the check errors naming the price, not the
+                # judge, which answered. (ADR 0004 §8.6)
+                self.unpriced_calls += 1
+                raise JudgePriceRaised(
+                    f"pricing its reply raised {type(exc).__name__}: {exc}"
+                ) from exc
         self.observed.see(reply)
         if not self._said_something(reply.text):
             raise ValueError(_no_text(reply, self.max_tokens))

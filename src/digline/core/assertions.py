@@ -18,7 +18,13 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from digline.core.pii import ITALIAN_PII, PiiPattern
-from digline.core.protocols import Assertion, ClaimJudge, Judge, JudgeAbstained
+from digline.core.protocols import (
+    Assertion,
+    ClaimJudge,
+    Judge,
+    JudgeAbstained,
+    JudgePriceRaised,
+)
 from digline.core.refused import Quoted, RefusedError
 from digline.core.types import (
     ALL_KINDS,
@@ -997,6 +1003,10 @@ class LlmRubric(AssertionBase):
             # never one sentence, and the judge's own words are the reason.
             # (ADR 0004 §7)
             return self._error(f"the judge declined to score: {declined}")
+        except JudgePriceRaised as priced:
+            # The judge answered; pricing its reply raised. Not the judge's
+            # failure, so not its sentence. (ADR 0004 §8.6)
+            return self._error(f"the judge answered, and {priced}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
@@ -1171,6 +1181,10 @@ class Faithfulness(AssertionBase):
             # sentence below may only claim the judge counted because this line
             # exists. (ADR 0004 §7.6)
             return self._error(f"the judge declined to count the claims: {declined}")
+        except JudgePriceRaised as priced:
+            # The judge answered; pricing its reply raised. Not the judge's
+            # failure, so not its sentence. (ADR 0004 §8.6)
+            return self._error(f"the judge answered, and {priced}")
         except Exception as exc:  # noqa: BLE001 — a judge that blows up is `error`, not `fail`
             return self._error(f"the judge raised {type(exc).__name__}: {exc}")
 
