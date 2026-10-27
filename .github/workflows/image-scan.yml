@@ -88,8 +88,30 @@ jobs:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/amd64 \
-            --scanners vuln --pkg-types os,library --format json \
+            --scanners vuln --pkg-types os,library --list-all-pkgs --format json \
             --output trivy-amd64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      # A measurement, the first commit of this pull request: what the report
+      # lists, read before a check is built on it.
+      - name: Say what the linux/amd64 report lists
+        run: |
+          python3 - trivy-amd64.json <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          print("RepoDigests", report.get("Metadata", {}).get("RepoDigests"))
+          names = {}
+          for result in report.get("Results") or []:
+              packages = result.get("Packages") or []
+              print(f"result target={result.get('Target')!r} class={result.get('Class')!r} "
+                    f"type={result.get('Type')!r} packages={len(packages)}")
+              if result.get("Class") == "lang-pkgs":
+                  for package in packages:
+                      print(f"  {package.get('Name')} {package.get('Version')} "
+                            f"path={package.get('FilePath')!r}")
+                      names[str(package.get("Name")).lower()] = package.get("Version")
+          for name in ("nltk", "pyjwt", "digline-mcp", "mcp", "digline", "pip"):
+              print(f"name {name}:", names.get(name, "absent"))
+          PY
 
       - name: Scan linux/amd64 for what has a fixed version
         env:
@@ -117,8 +139,30 @@ jobs:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           ./trivy image --image-src remote --platform linux/arm64 \
-            --scanners vuln --pkg-types os,library --format json \
+            --scanners vuln --pkg-types os,library --list-all-pkgs --format json \
             --output trivy-arm64.json "ghcr.io/digline/digline@${DIGEST}"
+
+      # A measurement, the first commit of this pull request: what the report
+      # lists, read before a check is built on it.
+      - name: Say what the linux/arm64 report lists
+        run: |
+          python3 - trivy-arm64.json <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          print("RepoDigests", report.get("Metadata", {}).get("RepoDigests"))
+          names = {}
+          for result in report.get("Results") or []:
+              packages = result.get("Packages") or []
+              print(f"result target={result.get('Target')!r} class={result.get('Class')!r} "
+                    f"type={result.get('Type')!r} packages={len(packages)}")
+              if result.get("Class") == "lang-pkgs":
+                  for package in packages:
+                      print(f"  {package.get('Name')} {package.get('Version')} "
+                            f"path={package.get('FilePath')!r}")
+                      names[str(package.get("Name")).lower()] = package.get("Version")
+          for name in ("nltk", "pyjwt", "digline-mcp", "mcp", "digline", "pip"):
+              print(f"name {name}:", names.get(name, "absent"))
+          PY
 
       - name: Scan linux/arm64 for what has a fixed version
         env:
