@@ -35,6 +35,9 @@
 - Amended: 2026-10-26 — §3 gains a dated note: the core keeps the list of
   kinds, so a new kind is a change to the core and not to the owning process.
   The sentence it corrects is kept as written (#712)
+- Amended: 2026-10-27 — §3 gains a dated note: a kind is added to the core's
+  list, `metadata_key`, for the keys of a foreign verdict's metadata
+  (ADR 0034 §17; #711)
 - Date: 2026-09-29
 - Opens: **nothing on landing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `REGISTER_VERSION`, no `JOURNAL_VERSION`, no `LEDGER_VERSION`, no migration.
@@ -317,6 +320,11 @@ refuses to leave unresolved. So a new kind is written in the core, as
 table stores a kind as text, `kind TEXT NOT NULL`, mints under whatever kind
 it is handed, and uses `TokenKind` only as an annotation, read at ward
 `de5e3c0b`.
+
+*Noted 2026-10-27 (#711); the paragraphs above are kept as written.* **The
+core's list gains `metadata_key`**, the kind of a metadata key on a verdict
+whose `origin` is foreign or not recorded (ADR 0034 §17.3). It is written where
+the note above says a kind is written: `TokenKind`, and its place in `rename`.
 
 ### 4. Tokens are per (tenant, suite); the run key joins nothing in the table
 
