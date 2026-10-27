@@ -396,6 +396,25 @@ def _unpriced(judge: Billable) -> int | None:
     return found
 
 
+def _unpriced_reasons(suite: Suite) -> dict[str, int]:
+    """Why the suite's judges could not price a call, per sentence, with how
+    many calls gave it since each judge was built: read off
+    `unpriced_reasons`, which `JudgeBase` keeps, with a default, and summed
+    over the judges `judge_totals` reads. (ADR 0004 §8.3)"""
+    seen: dict[int, object] = {}
+    for judge in judges(suite.assertions):
+        seen.setdefault(id(judge), judge)
+    found: dict[str, int] = {}
+    for judge in seen.values():
+        reasons = getattr(judge, "unpriced_reasons", None)
+        if not isinstance(reasons, Mapping):
+            continue
+        for sentence, count in cast(Mapping[object, object], reasons).items():
+            if isinstance(sentence, str) and isinstance(count, int):
+                found[sentence] = found.get(sentence, 0) + count
+    return found
+
+
 def _knew_every_cost(judge: Billable) -> bool | None:
     """Whether the judge priced every call it answered, read off two counts:
     the calls whose usage was not recorded (#629) and the calls whose cost
@@ -713,6 +732,7 @@ def _run_case(
     case: Case,
     judge_samples: int,
     declared: Declared,
+    unpriced: dict[str, None],
 ) -> tuple[CaseResult, Cause, CallTotals]:
     """The case, which layer errored it, and what its calls consumed.
 
@@ -817,6 +837,10 @@ def _run_case(
                 line.plus(tokens=None, spent_usd=None),
             )
         line = line.plus(tokens=response.usage, spent_usd=response.cost_usd)
+        if response.unpriced is not None:
+            # Kept for the person who ran the command, once per sentence, in
+            # the order first met; never on the document. (ADR 0004 §8.3)
+            unpriced[response.unpriced] = None
         if suite.record_responses:
             answers.append(recorded(response))
 
@@ -1178,6 +1202,7 @@ def execute(
     modules_unchecked: Sequence[str] | None = None,
     done: Mapping[str, CaseResult] | None = None,
     on_case: Callable[[CaseProgress], None] | None = None,
+    on_unpriced: Callable[[str], None] | None = None,
     pricing: str | None = None,
     judge_samples: int = 0,
     spent: CallTotals | None = None,
@@ -1213,6 +1238,12 @@ def execute(
     and the failure this one would hide is a recorder that stopped recording
     while the run went on for another six hundred calls, which is the loss the
     journal exists to end.
+
+    `on_unpriced` is called after the last case, once per distinct sentence
+    saying why a call this run made could not be priced: the target's in the
+    order first met, then the judges'. The sentences never reach the `Run`:
+    they are for the person who ran the command, who used to read them as
+    the reason of an errored check. (ADR 0004 §8.3)
 
     `spent` is what the **earlier legs of this same run** consumed, read off
     the journal and carried in so the finished document states the whole run's
@@ -1283,6 +1314,10 @@ def execute(
     # judge fresh starts at zero and the subtraction is a no-op; one that
     # reuses it across runs is the case this exists for. (ADR 0025 §4)
     judging_before = judge_totals(suite)
+    # The same reading, of why the judges could not price a call: this run's
+    # sentences are the ones whose count rose. (ADR 0004 §8.3)
+    reasons_before = _unpriced_reasons(suite)
+    unpriced: dict[str, None] = {}
     # Before the first case, like the reading above: the name a verdict is held
     # to is the one the assertion declared, not one it may have taken since.
     # (ADR 0027 §6, amended 2026-09-28)
@@ -1326,7 +1361,7 @@ def execute(
             results.append(reuse[case.id])
             continue
         result, cause, line = _run_case(
-            suite, target, mapper, case, judge_samples, declared
+            suite, target, mapper, case, judge_samples, declared, unpriced
         )
         results.append(result)
         billed = billed + line
@@ -1375,6 +1410,13 @@ def execute(
         with_noise_interval(run_assertion, _outcomes(suite, results, run_assertion))
         for run_assertion in suite.run_assertions
     )
+    if on_unpriced is not None:
+        reasons_after = _unpriced_reasons(suite)
+        for sentence, count in reasons_after.items():
+            if count > reasons_before.get(sentence, 0):
+                unpriced.setdefault(sentence, None)
+        for sentence in unpriced:
+            on_unpriced(sentence)
     return Run(
         tenant=suite.tenant,
         environment=suite.environment,

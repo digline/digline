@@ -14,7 +14,9 @@ import json
 from pathlib import Path
 
 import pytest
+from tests._helpers import cli
 
+from digline.cli import EXIT_OK
 from digline.core import Contains, JudgeReply, LlmRubric, Run, RunUsage
 from digline.run import Case, Response, Suite, execute
 from digline.run.driver import default_mapper, judge_totals
@@ -380,3 +382,114 @@ def test_an_unknown_judge_model_is_the_same_true_line() -> None:
     assert (line.calls, line.counted, line.every_cost_known) == (1, 1, False)
     (verdict,) = run.results[0].verdicts
     assert "pricing its reply raised UnknownModelError: no price" in verdict.reason
+
+
+# --------------------------------------------------------------------------- #
+# The sentence, for the person who ran the command (§8.3)
+# --------------------------------------------------------------------------- #
+
+
+def test_each_distinct_sentence_is_handed_over_once_after_the_run(
+    prompt: Path,
+) -> None:
+    replies = [
+        Completion(text="yes", usage=COUNTS, unpriced=GEO),
+        Completion(text="yes", usage=COUNTS, unpriced=GEO),
+        Completion(text="yes", usage=CACHED_READS),
+    ]
+    judge = ReplyingJudge(
+        *(
+            Completion(text=VERDICT, usage=COUNTS, unpriced="judge geo")
+            for _ in range(3)
+        )
+    )
+    said: list[str] = []
+    execute(
+        suite(rubric(judge), cases=3),
+        Replying(prompt, *replies),
+        created_at=CREATED,
+        on_unpriced=said.append,
+    )
+    assert said == [GEO, PRICING.why_unpriced("m-1", CACHED_READS), "judge geo"]
+
+
+def test_a_judges_sentence_from_an_earlier_run_is_not_this_runs(prompt: Path) -> None:
+    judge = ReplyingJudge(
+        Completion(text=VERDICT, usage=COUNTS, unpriced="earlier"),
+        Completion(text=VERDICT, usage=COUNTS),
+    )
+    execute(suite(rubric(judge)), Answering(), created_at=CREATED)
+    said: list[str] = []
+    execute(
+        suite(rubric(judge)), Answering(), created_at=CREATED, on_unpriced=said.append
+    )
+    assert said == []
+
+
+def test_a_priced_run_hands_over_no_sentence(prompt: Path) -> None:
+    """The control."""
+    said: list[str] = []
+    replies = [Completion(text="yes", usage=COUNTS)]
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=COUNTS))
+    execute(
+        suite(rubric(judge)),
+        Replying(prompt, *replies),
+        created_at=CREATED,
+        on_unpriced=said.append,
+    )
+    assert said == []
+
+
+#: A suite whose target's replies report a geography with no rate, written to
+#: disk so the command line runs it. The counts were read; the cost was not.
+CLI_SUITE = """\
+from digline.core import Contains
+from digline.run import Case, Response, Suite
+from digline.targets import Usage
+
+suite = Suite(
+    tenant="acme",
+    environment="staging",
+    name="qa",
+    assertions=[Contains(needle="yes", threshold=1.0)],
+    cases=[Case(id="c1"), Case(id="c2")],
+)
+
+
+def target(case):
+    return Response(
+        output="yes",
+        usage=Usage(input_tokens=100, output_tokens=10),
+        cost_usd=%(cost)s,
+        unpriced=%(unpriced)r,
+    )
+"""
+
+
+def _run_cli(tmp_path: Path, *, cost: str, unpriced: str | None) -> tuple[int, str]:
+    (tmp_path / "suite_qa.py").write_text(
+        CLI_SUITE % {"cost": cost, "unpriced": unpriced}, encoding="utf-8"
+    )
+    done = cli(tmp_path, "run", "--suite", "suite_qa.py")
+    return done.returncode, done.stderr
+
+
+def test_the_run_prints_the_sentence_once_after_the_bill(tmp_path: Path) -> None:
+    code, stderr = _run_cli(tmp_path, cost="None", unpriced=GEO)
+    assert code == EXIT_OK, stderr
+    lines = stderr.splitlines()
+    bill = next(
+        i for i, line in enumerate(lines) if line.startswith("digline: target:")
+    )
+    assert "cost not known for every call" in lines[bill]
+    sentence = f"digline: cost not computable: {GEO}"
+    assert lines.count(sentence) == 1
+    assert lines.index(sentence) > bill
+
+
+def test_a_priced_run_prints_neither(tmp_path: Path) -> None:
+    """The control: the sentences appear only where their fact holds."""
+    code, stderr = _run_cli(tmp_path, cost="0.001", unpriced=None)
+    assert code == EXIT_OK, stderr
+    assert "cost not known for every call" not in stderr
+    assert "cost not computable" not in stderr
