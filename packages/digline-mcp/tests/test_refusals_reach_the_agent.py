@@ -32,7 +32,7 @@ from digline_mcp.server import build_server
 
 def refusal(root: Path, tool: str, **arguments: Any) -> tuple[str, type[BaseException]]:
     async def go() -> tuple[str, type[BaseException]]:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         with pytest.raises(ToolError) as caught:
             await server.call_tool(tool, arguments)
         return str(caught.value), type(caught.value)

@@ -72,7 +72,9 @@ def target(case):
 
 def call(root: Path, tool: str, **arguments: Any) -> dict[str, Any]:
     async def go() -> dict[str, Any]:
-        result = await build_server(str(root), None, None).call_tool(tool, arguments)
+        result = await build_server(
+            str(root), None, None, names="clear", table=None
+        ).call_tool(tool, arguments)
         assert isinstance(result, CallToolResult)
         assert result.structured_content is not None
         return dict(result.structured_content)
@@ -110,3 +112,29 @@ def test_the_description_says_what_notes_are() -> None:
     text = " ".join(DESCRIPTIONS["run"].split())
     assert "`notes` holds what `digline run` says about the suite" in text
     assert "A note stops nothing and is not a verdict" in text
+
+
+def test_under_project_the_notes_name_each_check_by_its_token(repo: Path) -> None:
+    """The same two lines, composed from the tokens the run carries: no check
+    is named in clear, and each is named by the token its verdicts have.
+    (ADR 0054 §7)"""
+    from _names import RecordingTable
+
+    (repo / "suite_noted.py").write_text(NOTED, encoding="utf-8")
+    table = RecordingTable()
+
+    async def go() -> dict[str, Any]:
+        server = build_server(str(repo), None, None, names="project", table=table)
+        result = await server.call_tool(
+            "run", {"suite": str(repo / "suite_noted.py"), "acknowledge_calls": 1}
+        )
+        assert isinstance(result, CallToolResult)
+        assert result.structured_content is not None
+        return dict(result.structured_content)
+
+    notes = anyio.run(go)["notes"]
+    assert len(notes) == 2, notes
+    said = " ".join(notes)
+    for name in ("no_kind", "loose"):
+        assert name not in said, said
+        assert table.mint("verdict_name", name) in said

@@ -136,7 +136,7 @@ def responses(root: Path) -> dict[str, str]:
     ]
 
     async def go() -> dict[str, str]:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         out: dict[str, str] = {}
         for name, arguments in calls:
             try:
@@ -320,7 +320,7 @@ def _refused(root: Path, tool: str, suite: str) -> str:
     first call is refused with the count, and the second types it back."""
 
     async def go() -> str:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         arguments: dict[str, Any] = {"suite": suite}
         for _ in range(2):
             try:

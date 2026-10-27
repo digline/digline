@@ -22,9 +22,18 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal
 
-from digline.core import Run, compare, key_of, redact, withhold_artifacts
+from digline.core import (
+    Minter,
+    Run,
+    compare,
+    key_of,
+    project_declared,
+    project_served,
+    redact,
+    withhold_artifacts,
+)
 from digline.host.errors import UsageError
-from digline.host.listing import suite_runs
+from digline.host.listing import one_table, suite_runs
 from digline.host.resolve import read_run
 from digline.report import (
     Fact,
@@ -65,8 +74,17 @@ class Explained:
     exit_code: int
 
 
-def explained(store: ResultStore, suite: Suite, key: str) -> Explained:
+def explained(
+    store: ResultStore, suite: Suite, key: str, *, mint: Minter | None = None
+) -> Explained:
     """The scope follows the store, never a flag (ADR 0012 §1).
+
+    `mint` projects the reading: the run, the baseline and the cases the suite
+    declares go through one table before anything is composed from them, so
+    every name in the answer is the token its run carries. `None` reads in
+    clear, as every caller before ADR 0054 did. A default here and not
+    mandatory, unlike `suite_runs`', because a published `digline-mcp` calls
+    this without it and a core must not break it. (ADR 0054 §7)
 
     With no baseline, "worse" is a relation with nothing on the other side, so
     only an unjudged case or a lost scale can move the code. With one, the code
@@ -76,6 +94,12 @@ def explained(store: ResultStore, suite: Suite, key: str) -> Explained:
     """
     run = read_run(store, suite, key)
     baseline = store.read_baseline(suite.tenant, suite.name)
+    declared = suite.declared()
+    if mint is not None:
+        table = one_table(mint, where="reading")
+        run = project_served(run, table)
+        baseline = None if baseline is None else project_served(baseline, table)
+        declared = project_declared(declared, table)
     if baseline is None:
         # A lost scale needs no reference either: it compares a score with a
         # declared band, not with a past. (ADR 0024 §4.5)
@@ -84,10 +108,10 @@ def explained(store: ResultStore, suite: Suite, key: str) -> Explained:
             None,
             facts(run),
             "run",
-            run_exit_code(run, declared=suite.declared()),
+            run_exit_code(run, declared=declared),
         )
     comparison = compare(run, baseline)
-    head = headline(comparison, run, baseline, locale="en", declared=suite.declared())
+    head = headline(comparison, run, baseline, locale="en", declared=declared)
     return Explained(
         run, baseline, facts(run, comparison), "comparison", exit_code(head)
     )
@@ -199,7 +223,12 @@ def _reported_single(
 
 
 def history(
-    store: FileResultStore, suite: Suite, *, since: str = "", until: str = ""
+    store: FileResultStore,
+    suite: Suite,
+    *,
+    since: str = "",
+    until: str = "",
+    mint: Minter | None = None,
 ) -> IdentityLog:
     """Every readable run of the suite, folded into the identity reading.
 
@@ -213,17 +242,26 @@ def history(
     the run it names among those not read, and `suite_runs` keeps only the key.
     So it is read again here, bare.
 
+    `mint` projects it: the runs come through `suite_runs` with it and the
+    reference through `project_served`, so the fold reads tokens. The register
+    carries counts and keys, which a projection leaves alone. `None` reads in
+    clear, as `explained`'s does and for its reason. (ADR 0054 §7)
+
     The register rides along (ADR 0021 §8). A register that cannot be read is
     not a reason to refuse the reading of the runs: it is passed on as a flag,
     and the reading says so rather than showing an empty register.
     """
-    listed = suite_runs(store, suite.tenant, suite.name, mint=None)
+    listed = suite_runs(store, suite.tenant, suite.name, mint=mint)
     baseline = store.read_baseline(suite.tenant, suite.name)
     try:
         register = store.read_register(suite.tenant, suite.name)
         register_unreadable = False
     except RegisterRefusedError:
         register, register_unreadable = Register(), True
+    if mint is not None and baseline is not None:
+        # Through the same callable as the runs, so the reference's names are
+        # the tokens its runs carry. (ADR 0054 §7)
+        baseline = project_served(baseline, one_table(mint, where="history"))
     return identity_log(
         listed.runs,
         tenant=suite.tenant,

@@ -2,7 +2,10 @@
   "mcpServers": {
     "digline-northwind": {
       "command": "uv",
-      "args": ["run", "digline-mcp", "--root", ".", "--tenant", "northwind"]
+      "args": [
+        "run", "digline-mcp", "--root", ".", "--tenant", "northwind",
+        "--names", "clear"
+      ]
     }
   }
 }

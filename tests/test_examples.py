@@ -1929,6 +1929,8 @@ def test_the_operator_mcp_config_points_at_this_example() -> None:
     # `uv run` and not the bare script: the server is a dependency of *this*
     # project, so it lives in this directory's environment and not on anybody's
     # PATH. `--tenant` verifies and never overrides — the suite decides.
+    # `--names clear`: the store is this example's own, and the declaration
+    # has no default (ADR 0054 §1).
     assert server["command"] == "uv"
     assert server["args"] == [
         "run",
@@ -1937,6 +1939,8 @@ def test_the_operator_mcp_config_points_at_this_example() -> None:
         ".",
         "--tenant",
         "northwind",
+        "--names",
+        "clear",
     ]
 
 

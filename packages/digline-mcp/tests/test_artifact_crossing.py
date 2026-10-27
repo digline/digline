@@ -54,7 +54,9 @@ def _repository(root: Path, disclosure: str) -> Path:
 
 def _call(root: Path, tool: str, **arguments: Any) -> Any:
     async def go() -> Any:
-        return await build_server(str(root), None, None).call_tool(tool, arguments)
+        return await build_server(
+            str(root), None, None, names="clear", table=None
+        ).call_tool(tool, arguments)
 
     return anyio.run(go)
 

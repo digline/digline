@@ -16,12 +16,19 @@ from dataclasses import replace
 from typing import cast
 
 from digline.core.aggregate import grouped_name, split_grouped_name
+from digline.core.declared import Declared
 from digline.core.refused import Quoted
 from digline.core.run import CaseResult, Run, SystemConfig, redact
 from digline.core.tokens import Minter, TokenKind, is_token
 from digline.core.types import NOTHING_EXTRA, ConfigValue, Verdict
 
-__all__ = ["ProjectionRefusedError", "project", "project_served"]
+__all__ = [
+    "ProjectionRefusedError",
+    "project",
+    "project_check_name",
+    "project_declared",
+    "project_served",
+]
 
 
 class ProjectionRefusedError(ValueError):
@@ -284,11 +291,32 @@ def _case(case: CaseResult, name: Rename) -> CaseResult:
 
 
 def _aggregate(verdict: Verdict, name: Rename) -> Verdict:
-    family, group = split_grouped_name(verdict.score.name)
-    renamed = name("verdict_name", family)
+    return _verdict(verdict, project_check_name(verdict.score.name, name))
+
+
+def project_check_name(check: str, mint: Rename) -> str:
+    """A check's name as a projection writes it: the family as a
+    `verdict_name`, and the group inside `family[group=…]`, where there is one,
+    as a `group`. The rule `project_served` applies to an aggregate's name,
+    exported so that a sentence composed from a suite's declaration names a
+    check by the token its run carries. (ADR 0054 §7)"""
+    family, group = split_grouped_name(check)
+    renamed = mint("verdict_name", family)
     if group is not None:
-        renamed = grouped_name(renamed, name("group", group))
-    return _verdict(verdict, renamed)
+        renamed = grouped_name(renamed, mint("group", group))
+    return renamed
+
+
+def project_declared(declared: Declared, mint: Minter) -> Declared:
+    """`declared` with each case id minted as the projection mints a case's.
+
+    `headline` and the exit code read a run against the cases a suite declares
+    (ADR 0049 §3). Held against a projected run, the ids must be the tokens it
+    carries, or every case reads as undeclared. (ADR 0054 §7)"""
+    return Declared(
+        subject=frozenset(mint("case_id", case) for case in declared.subject),
+        watching=frozenset(mint("case_id", case) for case in declared.watching),
+    )
 
 
 def _config(
