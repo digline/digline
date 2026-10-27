@@ -2366,3 +2366,117 @@ def test_the_tests_not_measured_dirty_are_exactly_the_live_ones() -> None:
     }
     assert live, "no test here is marked live: the control found nothing"
     assert live == set(NOT_MEASURED_DIRTY), (live, sorted(NOT_MEASURED_DIRTY))
+
+
+# -- A fresh copy reproduces the baseline it ships ------------------------------
+#
+# A committed baseline is a claim: this example, run, gives these verdicts. On
+# 2026-10-27 `classifier`'s did not: its baseline had been promoted from a tree
+# whose ignored run counter stood at 9, and a fresh copy differed on
+# `hotel_over`. So every example with a committed baseline is run here from
+# `git archive HEAD`, nothing git ignores beside it, and must reproduce its
+# baseline verdict for verdict.
+
+#: The examples a fresh copy does not reproduce as shipped, each with the
+#: reason. Where a tracked line is the reason, the file, the line as shipped and
+#: the line under which the baseline is reproduced; `None` where no run here can
+#: measure it.
+BASELINE_EXCEPTIONS: dict[str, tuple[str, tuple[str, str, str] | None]] = {
+    "rag": (
+        "shipped red on purpose: the baseline is measured with app.EMBELLISH off "
+        "and the example ships it on, as its README says",
+        ("app.py", "EMBELLISH = True", "EMBELLISH = False"),
+    ),
+    "prompt-first": (
+        "live: its baseline was measured against a real model, and a run here "
+        "would need ANTHROPIC_API_KEY and cost money",
+        None,
+    ),
+}
+
+#: Every example that commits a baseline.
+WITH_BASELINE = sorted(
+    {
+        path.parts[-5]
+        for path in (ROOT / "examples").glob("*/.digline/*/baselines/*.json")
+    }
+)
+
+
+def _verdicts(document: dict[str, Any]) -> dict[tuple[str, str], tuple[Any, Any]]:
+    """Every verdict of a run document, case and aggregate, by where it is."""
+    found = {
+        (str(case["case_id"]), str(verdict["assertion"])): (
+            verdict["status"],
+            verdict["score"],
+        )
+        for case in document["results"]
+        for verdict in case["verdicts"]
+    }
+    for verdict in document.get("aggregate", []):
+        found[("(aggregate)", str(verdict["assertion"]))] = (
+            verdict["status"],
+            verdict["score"],
+        )
+    return found
+
+
+@pytest.mark.parametrize(
+    "name",
+    [n for n in WITH_BASELINE if BASELINE_EXCEPTIONS.get(n, ("", ("", "", "")))[1]],
+)
+def test_a_fresh_copy_reproduces_the_baseline_it_ships(
+    name: str, tmp_path: Path
+) -> None:
+    source = _tracked_example(name, tmp_path)
+    switch = BASELINE_EXCEPTIONS.get(name, ("", None))[1]
+    if switch is not None:
+        file, shipped, measured = switch
+        text = (source / file).read_text(encoding="utf-8")
+        (source / file).write_text(text.replace(shipped, measured), encoding="utf-8")
+    baseline = json.loads(
+        next(source.glob(".digline/*/baselines/*.json")).read_text(encoding="utf-8")
+    )
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.endswith("_API_KEY") and k != "DIGLINE_LIVE"
+    }
+    with application(source, name):
+        ran = cli(source, "run", "--suite", suite_file(source), env=env)
+    key = ran.stdout.strip()
+    assert key, ran.stderr
+    run = json.loads(
+        next(source.glob(f".digline/*/runs/*/{key}.json")).read_text(encoding="utf-8")
+    )
+    fresh, committed = _verdicts(run), _verdicts(baseline)
+    differ = {
+        where: (fresh.get(where), committed.get(where))
+        for where in sorted(fresh.keys() | committed.keys())
+        if fresh.get(where) != committed.get(where)
+    }
+    assert not differ, (
+        f"examples/{name} run fresh does not reproduce its committed baseline "
+        f"(fresh, committed): {differ}"
+    )
+
+
+def test_the_baseline_exceptions_are_declared_and_hold() -> None:
+    """Each exception names an example that commits a baseline. A tracked line
+    named as the reason occurs exactly once in its file, as shipped; an example
+    declared unmeasurable is one whose baseline records a real model."""
+    assert BASELINE_EXCEPTIONS, "the table is empty: the control found nothing"
+    for name, (reason, switch) in BASELINE_EXCEPTIONS.items():
+        assert name in WITH_BASELINE, name
+        assert reason, name
+        if switch is not None:
+            file, shipped, _ = switch
+            text = (ROOT / "examples" / name / file).read_text(encoding="utf-8")
+            assert text.count(shipped) == 1, (name, shipped)
+        else:
+            baseline = json.loads(
+                next(
+                    (ROOT / "examples" / name).glob(".digline/*/baselines/*.json")
+                ).read_text(encoding="utf-8")
+            )
+            assert baseline["target_config"]["values"].get("resolved_model"), name

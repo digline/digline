@@ -4669,11 +4669,11 @@ names.
    report its README explains with a weaker one that agrees with nothing
    written around it.
 
-   `examples/classifier` is the one today, and its README says so in the same
-   words: the perturbation that makes one case change its mind is not in this
-   repository, so a clean run reproduces the baseline exactly and would render
-   a report with nothing moved. The commit it records is marked `-dirty` and is
-   not meant to be checked out.
+   No report carries the signature today. `examples/classifier`'s did until
+   2026-10-27: its stand-in seeded each run from a counter in a file git
+   ignores, so the state behind its report was not in the repository. Its seed
+   is now an input, `CLASSIFIER_SEED`, and its report is the run with seed `2`
+   against its baseline, rendered from a clean tree like the others (below).
 
    **Read the signature, do not keep a list.** `grep -l -- '-dirty' examples/*/
    report.html` is the whole rule, and it is the rule rather than a list of
@@ -4772,7 +4772,10 @@ names.
    back between the check and the run. And some examples need more than a
    suite: `quickstart-toml` and `external-app` answer over HTTP, so their stub
    has to be running or every case fails the same way — the refusal says so,
-   and says how many cases it would take with it.
+   and says how many cases it would take with it. `classifier`'s report is the
+   run with `CLASSIFIER_SEED=2`, so its `digline run` carries that seed, as its
+   README says; without it the run reproduces the baseline and the report shows
+   nothing moved.
 
 6. **The capture's two lines:** in the same `docker-publish` log step 2 opens,
    find the `index-capture` pair for the core's pin — `side=wait` and `side=pip`,
