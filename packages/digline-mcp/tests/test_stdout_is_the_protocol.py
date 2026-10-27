@@ -66,7 +66,15 @@ def test_the_protocol_stream_carries_json_rpc_and_nothing_else(printing: Path) -
         ("list_runs", {"suite": suite}),
     ]
     server = subprocess.Popen(
-        [sys.executable, "-m", "digline_mcp", "--root", str(printing)],
+        [
+            sys.executable,
+            "-m",
+            "digline_mcp",
+            "--root",
+            str(printing),
+            "--names",
+            "clear",
+        ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

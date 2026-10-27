@@ -25,32 +25,43 @@ import functools
 import logging
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 # Aliased so `digline_mcp.server.version` does not read as something this
 # module exports.
 from importlib.metadata import version as _distribution_version
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, Literal, NoReturn, get_args
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
-from digline.core import Run, key_of
+from digline.core import (
+    Minter,
+    Run,
+    key_of,
+    project_check_name,
+    project_declared,
+    project_served,
+)
 from digline.core import compare as compare_runs
 from digline.core import diff as diff_runs
 from digline.core.run import DocumentRefusedError
 from digline.host import (
     Loaded,
+    NameTable,
     Resolved,
+    UsageError,
     explained,
     git_commit,
     history,
     instant,
+    load_name_table,
     load_suite,
     load_target,
     measure,
     need_baseline,
+    one_table,
     prepare,
     read_artifacts,
     read_pinned,
@@ -79,7 +90,14 @@ from digline.wire import (
 from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
 
-__all__ = ["build_server", "main"]
+__all__ = ["Names", "build_server", "main"]
+
+#: Whether the store's names may leave in clear. **No default**: whose cases are
+#: in a store is written nowhere in it, so the operator says. `clear` lets them
+#: leave as they always have; `project` projects every answer, and the names
+#: leave as tokens. *Refuse* is not a value: not starting a server is a state
+#: the operator already has. (ADR 0054 §1, §2)
+type Names = Literal["clear", "project"]
 
 #: Read from the installed distribution rather than written here, for the same
 #: reason `digline.__version__` is: this is the version the server advertises to
@@ -127,8 +145,23 @@ class _Opened:
     path: Path
 
 
-def build_server(root: str, tenant: str | None, environment: str | None) -> MCPServer:
+def build_server(
+    root: str,
+    tenant: str | None,
+    environment: str | None,
+    *,
+    names: Names,
+    table: NameTable | None,
+) -> MCPServer:
     """One server, one repository. The perimeter is the repo. (ADR 0011 §8)
+
+    `names` is the declaration, and `table` the name table it needs under
+    `project`. Both keywords are required, with no default, for the
+    declaration's own reason. Under `project` with no table this raises a
+    `UsageError` that names what is missing and nothing from the store, which
+    has not been opened; under `clear`, a table is refused, because a command
+    line that hands over a table and says not to use it says two things.
+    (ADR 0054 §4)
 
     `tenant` and `environment` **verify** and never override, exactly as the
     CLI's flags do: they are properties of the declared suite, and a command
@@ -136,7 +169,28 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
     customer. As a check they earn their keep — a client config can state what
     it believes it is pointed at and be told when it is wrong.
     """
+    if names not in get_args(Names.__value__):
+        raise UsageError(f"--names takes clear or project, not {names!r}")
+    if names == "project" and table is None:
+        raise UsageError(
+            "--names project needs --name-table: under project every answer "
+            "is projected, and the tokens come from the name table, which was "
+            "not given (ADR 0054 §4)"
+        )
+    if names == "clear" and table is not None:
+        raise UsageError(
+            "--name-table is read only under --names project: under clear the "
+            "names leave as they are, and a table handed over and not used is "
+            "a command line saying two things"
+        )
+    mint = None if table is None else table.mint
     perimeter = Path(root).resolve()
+
+    def answering() -> Minter | None:
+        """The minter for one answer, held to one token per name across every
+        document the answer projects, so two runs held against each other
+        pair. `None` in clear. (ADR 0054 §7)"""
+        return None if mint is None else one_table(mint, where="answer")
 
     def within_root(spec: str) -> tuple[str, Path]:
         """The spec to load, and the file it names — both inside this root.
@@ -238,11 +292,19 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         loaded_suite = loaded(suite)
         # A run the store refuses is left out and counted, rather than failing
         # the tool for every run beside it. (#314)
-        listed = suite_runs(store, loaded_suite.tenant, loaded_suite.name, mint=None)
-        # In clear, so the scan is there. `runs_json` still takes it whole,
-        # as the published `digline-mcp` passes it; both move to the counts
-        # in the step that removes `SuiteRuns.listing`. (#362)
-        assert listed.listing is not None
+        listed = suite_runs(store, loaded_suite.tenant, loaded_suite.name, mint=mint)
+        # In clear the scan is there and `runs_json` reads it whole. Projected
+        # it is withheld, because it holds file names, and the counts stand in
+        # its place. (#362; ADR 0054 §7)
+        counts: dict[str, Any] = (
+            {}
+            if listed.listing is not None
+            else {
+                "skipped": listed.skipped,
+                "unreadable": listed.unreadable_count,
+                "misfiled": listed.misfiled,
+            }
+        )
         return runs_json(
             listed.runs,
             tenant=loaded_suite.tenant,
@@ -252,14 +314,16 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             note=listed.note(),
             refused=len(listed.refused),
             baseline_unreadable=bool(listed.baseline_refused),
+            **counts,
         )
 
     @translated
     def get_run(suite: str, run: str = "latest") -> dict[str, Any]:
         loaded_suite = loaded(suite)
         found, resolved = named(loaded_suite, run)
+        shown = _projected(found, answering())
         return {
-            **run_document(found, loaded_suite.disclosure, note=resolved.note),
+            **run_document(shown, loaded_suite.disclosure, note=resolved.note),
             "key": resolved.key,
         }
 
@@ -268,7 +332,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         loaded_suite = loaded(suite)
         baseline = need_baseline(store, loaded_suite)
         return {
-            **run_document(baseline, loaded_suite.disclosure),
+            **run_document(_projected(baseline, answering()), loaded_suite.disclosure),
             "key": key_of(baseline.created_at, baseline.config_hash),
         }
 
@@ -277,6 +341,15 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         loaded_suite = loaded(suite)
         found, resolved = named(loaded_suite, run)
         baseline = need_baseline(store, loaded_suite)
+        declared = loaded_suite.declared()
+        # Every input through one table before anything is composed from it,
+        # so the headline's sentence names checks and cases by the tokens the
+        # runs carry. (ADR 0054 §7)
+        table_ = answering()
+        if table_ is not None:
+            found = project_served(found, table_)
+            baseline = project_served(baseline, table_)
+            declared = project_declared(declared, table_)
         comparison = compare_runs(found, baseline)
         # `en` and not a parameter: the sentence is a *document* string with a
         # recipient, and an agent is not that recipient. A caller who wants the
@@ -286,7 +359,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             found,
             baseline,
             locale="en",
-            declared=loaded_suite.declared(),
+            declared=declared,
         )
         return compare_json(
             comparison,
@@ -309,6 +382,10 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
                 "with itself has nothing to report, because every line of the "
                 "answer would be a tautology"
             )
+        table_ = answering()
+        if table_ is not None:
+            left = project_served(left, table_)
+            right = project_served(right, table_)
         difference = diff_runs(left, right)
         labels = diff_report.run_labels(
             left.created_at, right.created_at, left_key=left_key, right_key=right_key
@@ -331,7 +408,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # is nothing to localise and nothing to choose. (ADR 0020 §8)
         loaded_suite = loaded(suite)
         resolved = resolve_key(store, loaded_suite, run)
-        read = explained(store, loaded_suite, resolved.key)
+        read = explained(store, loaded_suite, resolved.key, mint=mint)
         return {
             **explain_json(
                 read.reading,
@@ -362,6 +439,7 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
                 loaded_suite,
                 since=instant(since, name="since"),
                 until=instant(until, name="until"),
+                mint=mint,
             )
         )
 
@@ -436,10 +514,14 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             artifacts=artifacts,
             pinned=pinned,
         )
+        # The plan as this answer may name it: its sentence names the checks
+        # it repeats and judges, and under `project` they are the tokens the
+        # run will carry, in the refusal below as in the answer. (ADR 0054 §8)
+        table_ = answering()
         # Still before anything is opened or called, and still the same number:
         # `prepare` plans the calls it is about to make, so the count a caller
         # has to type back is read off the plan rather than computed twice.
-        _acknowledge(prepared.plan, acknowledge_calls)
+        _acknowledge(_plan_named(prepared.plan, table_), acknowledge_calls)
         measured = measure(
             loaded_suite,
             target,
@@ -469,9 +551,9 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
         # §4, ADR 0024 §6.4)
         return run_json(
             measured.ref,
-            measured.plan,
+            _plan_named(measured.plan, table_),
             usage=measured.run.usage,
-            notes=suite_notes(loaded_suite),
+            notes=suite_notes(loaded_suite, mint=table_),
             # The count `digline run --json` carries, from the same function,
             # so the two key sets stay equal. (#654)
             errored_checks=len(errored_verdicts(measured.run)),
@@ -501,6 +583,27 @@ def build_server(root: str, tenant: str | None, environment: str | None) -> MCPS
             annotations=hints,
         )
     return server
+
+
+def _projected(run: Run, mint: Minter | None) -> Run:
+    """`run` as this answer may show it: as read in clear, `project_served`
+    under `project`. (ADR 0054 §7)"""
+    return run if mint is None else project_served(run, mint)
+
+
+def _plan_named(plan: CallPlan, mint: Minter | None) -> CallPlan:
+    """`plan` with the checks it names by their tokens under `project`, so its
+    sentence is composed from them: the fields first, the sentence after.
+    The tenant stays, as a projection leaves it. (ADR 0054 §8, §9)"""
+    if mint is None:
+        return plan
+    return replace(
+        plan,
+        repeats=tuple(
+            (project_check_name(check, mint), count) for check, count in plan.repeats
+        ),
+        judged=tuple(project_check_name(check, mint) for check in plan.judged),
+    )
 
 
 def _flushed(tool: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
@@ -704,6 +807,40 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--tenant", help="verify the suite's tenant; never overrides")
     parser.add_argument("--env", help="verify the suite's environment; never overrides")
+    # Required, with no default: whether a store's names may leave in clear
+    # depends on whose cases are in it, and nothing in a store says. A
+    # configuration that passes `--root` alone no longer starts, as one that
+    # left out `--root` stopped starting when it became required. (ADR
+    # 0054 §1, §5)
+    parser.add_argument(
+        "--names",
+        required=True,
+        choices=get_args(Names.__value__),
+        help="whether the store's names may leave in clear (required)",
+    )
+    parser.add_argument(
+        "--name-table",
+        help="module:attribute holding the name table's mint and lookup; "
+        "required under --names project",
+    )
     args = parser.parse_args(argv)
-    build_server(args.root, args.tenant, args.env).run(transport="stdio")
+    # Before the store is opened, so neither refusal can name anything in it:
+    # what is missing is configuration. (ADR 0054 §4)
+    if args.names == "project" and args.name_table is None:
+        parser.error(
+            "--names project needs --name-table: the tokens come from the name "
+            "table, and none was given"
+        )
+    if args.names == "clear" and args.name_table is not None:
+        parser.error(
+            "--name-table is read only under --names project; under clear the "
+            "names leave as they are"
+        )
+    try:
+        table = None if args.name_table is None else load_name_table(args.name_table)
+    except UsageError as exc:
+        parser.error(str(exc))
+    build_server(args.root, args.tenant, args.env, names=args.names, table=table).run(
+        transport="stdio"
+    )
     return 0

@@ -38,7 +38,7 @@ from digline.store import (
     TenantMismatchError,
 )
 
-__all__ = ["SuiteRuns", "left_out", "left_out_parts", "suite_runs"]
+__all__ = ["SuiteRuns", "left_out", "left_out_parts", "one_table", "suite_runs"]
 
 #: How many refused runs the line names before it counts the rest. The line
 #: sits above or beside a table it qualifies, and every refused run is still
@@ -324,7 +324,7 @@ def suite_runs(
     answers it was given.
     """
     listing = store.scan_runs(tenant, suite)
-    table = None if mint is None else _OneTable(mint)
+    table = None if mint is None else _OneTable(mint, where="list")
 
     runs: list[tuple[str, Run]] = []
     refused: list[tuple[str, str]] = []
@@ -384,6 +384,14 @@ def _why(exc: Exception, *, projected: bool) -> str:
     return type(exc).__name__ if projected else str(exc)
 
 
+def one_table(mint: Minter, *, where: str) -> Minter:
+    """`mint`, held to one answer per (kind, text) for as long as the caller
+    keeps the result: the check `suite_runs` makes across a list, for a caller
+    that projects several documents into one answer. `where` names that answer
+    in the refusal, as `list` names a page's. (ADR 0054 §7)"""
+    return _OneTable(mint, where=where)
+
+
 class _OneTable:
     """`mint`, held to one answer per (kind, text) across the whole list.
 
@@ -398,8 +406,9 @@ class _OneTable:
     a name, and a minter that echoes it back has put a name in its answer.
     """
 
-    def __init__(self, mint: Minter) -> None:
+    def __init__(self, mint: Minter, *, where: str) -> None:
         self._mint = mint
+        self._where = where
         self._by_text: dict[tuple[TokenKind, str], str] = {}
         self._by_token: dict[str, tuple[TokenKind, str]] = {}
         self.faulted = False
@@ -416,14 +425,14 @@ class _OneTable:
         token = answer
         if self._by_text.setdefault((kind, text), token) != token:
             self._fault(
-                f"the minter gave one {kind} two tokens in one list: its rows "
-                "would not pair"
+                f"the minter gave one {kind} two tokens in one {self._where}: "
+                "its rows would not pair"
             )
         owner = self._by_token.setdefault(token, (kind, text))
         if owner != (kind, text):
             self._fault(
                 f"the minter gave a {kind} a token it had already given another "
-                f"{owner[0]} in this list: two names would read as one"
+                f"{owner[0]} in this {self._where}: two names would read as one"
             )
         return token
 

@@ -329,3 +329,42 @@ def test_compare_latest_beside_a_finder_copy_exits_ok(repo: Path) -> None:
 
     assert done.returncode == EXIT_OK, done.stderr
     assert f"already filed as {key_}.json" in done.stderr
+
+
+def test_the_counts_stand_in_for_a_listing_withheld(tmp_path: Path) -> None:
+    """A projected `SuiteRuns` withholds its listing, which holds file names,
+    and keeps the counts: `runs_json` reads those in its place and answers the
+    same keys. One of the two, never both. (#362; ADR 0054 §7)"""
+    store, older, newer = two_runs(tmp_path)
+    rename(store, newer, "rossi-mario")
+    listing = store.scan_runs(SUITE.tenant, SUITE.name)
+    rows = [(key(older), older)]
+    tenant, suite = SUITE.tenant, SUITE.name
+
+    whole = runs_json(
+        rows, tenant=tenant, suite=suite, baseline_key=None, listing=listing
+    )
+    counted = runs_json(
+        rows,
+        tenant=tenant,
+        suite=suite,
+        baseline_key=None,
+        listing=None,
+        note=listing.note(),
+        skipped=listing.skipped,
+        unreadable=len(listing.unreadable),
+        misfiled=len(listing.misfiled),
+    )
+
+    assert counted == whole
+    with pytest.raises(ValueError, match="needs its note"):
+        runs_json(rows, tenant=tenant, suite=suite, baseline_key=None, listing=None)
+    with pytest.raises(ValueError, match="not both"):
+        runs_json(
+            rows,
+            tenant=tenant,
+            suite=suite,
+            baseline_key=None,
+            listing=listing,
+            misfiled=0,
+        )

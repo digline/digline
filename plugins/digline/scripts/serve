@@ -25,4 +25,14 @@ if [ ! -x "$server" ]; then
     exit 1
 fi
 
+# Whether the project's names may leave in clear: `clear`, because the project
+# open in the editor is its user's own, and the agent reading the answers is
+# working for that user. That line is wrong for a repository whose store holds
+# a customer's cases: there, start digline-mcp yourself with `--names project`
+# and a `--name-table`, and do not use this launcher. A digline-mcp from before
+# the declaration refuses the flag, so it is passed only when the server's own
+# usage lists it. (ADR 0054 §1)
+if "$server" --help 2>/dev/null | grep -q -- "--names"; then
+    exec "$server" --root "$project" --names clear
+fi
 exec "$server" --root "$project"

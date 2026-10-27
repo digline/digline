@@ -200,6 +200,37 @@ def test_the_flag_the_launcher_passes_is_one_the_server_takes() -> None:
         check=True,
     ).stdout
     assert "--root" in shown
+    assert "--names {clear,project}" in shown
+
+
+def test_the_launcher_declares_clear_to_a_server_that_takes_it(tmp_path: Path) -> None:
+    """The project open in the editor is its user's own, so its names may leave
+    in clear; the script says so, and when that is wrong. A server whose usage
+    lists `--names` is started with `--names clear`, and one from before the
+    declaration, as the test above starts, without it. (ADR 0054 §1)"""
+    bin_ = tmp_path / ".venv" / "bin"
+    bin_.mkdir(parents=True)
+    fake = bin_ / "digline-mcp"
+    fake.write_text(
+        '#!/bin/sh\nif [ "$1" = --help ]; then echo "--names {clear,project}"; '
+        'exit 0; fi\necho project "$@"\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    done = subprocess.run(
+        [str(SERVE), str(tmp_path)], capture_output=True, text=True, check=True
+    )
+    assert done.stdout.split() == [
+        "project",
+        "--root",
+        str(tmp_path),
+        "--names",
+        "clear",
+    ]
+    script = SERVE.read_text(encoding="utf-8")
+    assert "the project open in the editor is its user's own" in " ".join(
+        script.replace("#", "").split()
+    )
 
 
 @pytest.fixture

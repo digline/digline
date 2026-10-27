@@ -140,6 +140,12 @@ dependencies = [
     # owed at the cut and raised in this package's own release, after the core
     # was on PyPI, because a floor may not name a release that does not exist
     # yet. The cap stays `<0.35`, the minor above it.
+    #
+    # Owed at the cut: `--names project` imports `load_name_table`,
+    # `one_table`, `project_check_name` and `project_declared`, new in the
+    # core release that carries #548, and passes `mint=` to `explained`,
+    # `history` and `suite_notes`, which first take it there. RELEASING.md's
+    # table names the floor and the cap. (ADR 0054)
     "digline>=0.34.0,<0.35",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

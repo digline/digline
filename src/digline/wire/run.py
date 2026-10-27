@@ -19,6 +19,7 @@ from digline.core import (
 )
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
+from digline.store.protocol import skipped_advice
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
@@ -170,10 +171,13 @@ def runs_json(
     tenant: str,
     suite: str,
     baseline_key: str | None,
-    listing: Listing,
+    listing: Listing | None,
     note: str | None = None,
     refused: int = 0,
     baseline_unreadable: bool = False,
+    skipped: Mapping[int, int] | None = None,
+    unreadable: int | None = None,
+    misfiled: int | None = None,
 ) -> dict[str, object]:
     """Every stored run of a suite, newest first, with the baseline marked.
 
@@ -210,7 +214,26 @@ def runs_json(
     `digline-mcp` already published keeps working against this core: a core
     that broke a published caller of its own has had to ship a repair for it
     once already.
+
+    **Or the counts in its place**, `skipped`, `unreadable` and `misfiled`,
+    where the listing is not in clear: a projected `SuiteRuns` withholds its
+    listing, because the listing holds file names, and keeps the counts. Then
+    `note` is required, since the listing's own note is what is missing. One
+    of the two, never both. (#362; ADR 0054 §7)
     """
+    if listing is None:
+        if note is None or skipped is None or unreadable is None or misfiled is None:
+            raise ValueError(
+                "runs_json without a listing needs its note, skipped, "
+                "unreadable and misfiled counts"
+            )
+    elif skipped is not None or unreadable is not None or misfiled is not None:
+        raise ValueError("runs_json takes a listing or its counts, not both")
+    else:
+        skipped = listing.skipped
+        unreadable = len(listing.unreadable)
+        misfiled = len(listing.misfiled)
+        note = listing.note() if note is None else note
     ordered = sorted(rows, key=lambda row: row[1].created_at, reverse=True)
     return neutralised(
         {
@@ -248,21 +271,19 @@ def runs_json(
                 }
                 for key, run in ordered
             ],
-            "note": listing.note() if note is None else note,
+            "note": note,
             # What to do about what was left out, in the direction the versions say
             # — a list, because a store can owe both sentences at once. Beside the
             # note rather than inside it: the note is what happened, this is what
             # follows from it. (ADR 0014 §5)
-            "advice": list(listing.advice()),
-            "skipped": {
-                str(version): n for version, n in sorted(listing.skipped.items())
-            },
-            "unreadable": len(listing.unreadable),
+            "advice": list(skipped_advice(skipped)),
+            "skipped": {str(version): n for version, n in sorted(skipped.items())},
+            "unreadable": unreadable,
             "refused": refused,
             "baseline_unreadable": baseline_unreadable,
             # Files left out because their name is not their run's key: a
             # count, as `unreadable` is, and an added key (ADR 0040 §5).
-            "misfiled": len(listing.misfiled),
+            "misfiled": misfiled,
         }
     )
 

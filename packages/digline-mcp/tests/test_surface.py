@@ -35,7 +35,12 @@ TOOLS = {
 
 def tool_names(root: str) -> set[str]:
     async def go() -> set[str]:
-        return {t.name for t in await build_server(root, None, None).list_tools()}
+        return {
+            t.name
+            for t in await build_server(
+                root, None, None, names="clear", table=None
+            ).list_tools()
+        }
 
     return anyio.run(go)
 
@@ -96,7 +101,12 @@ def test_every_reading_tool_says_it_is_read_only() -> None:
     client that surfaces annotations should show the same shape."""
 
     async def go() -> None:
-        tools = {t.name: t for t in await build_server(".", None, None).list_tools()}
+        tools = {
+            t.name: t
+            for t in await build_server(
+                ".", None, None, names="clear", table=None
+            ).list_tools()
+        }
         assert set(tools) == set(HINTS)
         for name, expected in HINTS.items():
             hints = tools[name].annotations
@@ -117,7 +127,12 @@ def test_the_run_tool_requires_the_count_in_its_schema() -> None:
     rather than discovering it in a refusal."""
 
     async def go() -> None:
-        tools = {t.name: t for t in await build_server(".", None, None).list_tools()}
+        tools = {
+            t.name: t
+            for t in await build_server(
+                ".", None, None, names="clear", table=None
+            ).list_tools()
+        }
         assert "acknowledge_calls" in tools["run"].input_schema["properties"]
 
     anyio.run(go)

@@ -37,7 +37,7 @@ def served(root: Path, calls: list[tuple[str, dict[str, Any]]]) -> list[Any]:
     async def go() -> list[Any]:
         params = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "digline_mcp", "--root", str(root)],
+            args=["-m", "digline_mcp", "--root", str(root), "--names", "clear"],
             env={
                 **os.environ,
                 "PYTHONPATH": os.pathsep.join(

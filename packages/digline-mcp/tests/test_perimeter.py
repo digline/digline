@@ -81,7 +81,7 @@ def outside(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 def call(root: Path, name: str, arguments: dict[str, object]) -> str:
     async def go() -> str:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         try:
             result = await server.call_tool(name, arguments)
         except ToolError as refusal:
@@ -173,7 +173,10 @@ def test_the_root_is_never_implied(
 @pytest.mark.parametrize(
     ("argv", "said"),
     [
-        (["--root", ".", "--no-such-flag"], "unrecognized arguments: --no-such-flag"),
+        (
+            ["--root", ".", "--names", "clear", "--no-such-flag"],
+            "unrecognized arguments: --no-such-flag",
+        ),
         (["--root"], "argument --root: expected one argument"),
     ],
     ids=["unknown flag", "missing value"],
@@ -212,7 +215,7 @@ def options_taking_a_value(capsys: pytest.CaptureFixture[str]) -> list[str]:
     with pytest.raises(SystemExit):
         server.main(["--help"])
     usage = " ".join(capsys.readouterr().out.split("\n\n", 1)[0].split())
-    return re.findall(r"(--[a-z-]+) [A-Z]+", usage)
+    return re.findall(r"(--[a-z-]+) (?:[A-Z]|\{)", usage)
 
 
 def started_with(
@@ -228,11 +231,17 @@ def started_with(
         def run(self, **_kwargs: object) -> None:
             pass
 
-    def recorder(*args: object) -> Stopped:
-        received.append(args)
+    def recorder(*args: object, **kwargs: object) -> Stopped:
+        received.append((*args, *kwargs.values()))
         return Stopped()
 
     monkeypatch.setattr(server, "build_server", recorder)
+
+    # A table named on the line is imported at start; here, a stand-in.
+    def stand_in(spec: str) -> str:
+        return spec
+
+    monkeypatch.setattr(server, "load_name_table", stand_in)
     try:
         server.main(argv)
     except SystemExit as stopped:
@@ -243,7 +252,13 @@ def started_with(
 def test_the_server_has_options_that_take_a_value(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert options_taking_a_value(capsys) == ["--root", "--tenant", "--env"]
+    assert options_taking_a_value(capsys) == [
+        "--root",
+        "--tenant",
+        "--env",
+        "--names",
+        "--name-table",
+    ]
 
 
 # The options are listed by hand here, where the CLI's tests derive them from
@@ -251,28 +266,53 @@ def test_the_server_has_options_that_take_a_value(
 # parser to read. `test_the_server_has_options_that_take_a_value` is what keeps
 # the list in line with the usage line, so the asymmetry is chosen, not
 # forgotten.
-@pytest.mark.parametrize("option", ["--root", "--tenant", "--env"])
+#: Two values each option accepts, and the rest of a line that starts: `--names`
+#: takes one of its two words, and `--name-table` is read under `project`.
+_VALUES: dict[str, tuple[str, str]] = {
+    "--root": ("first", "second"),
+    "--tenant": ("first", "second"),
+    "--env": ("first", "second"),
+    "--names": ("clear", "project"),
+    "--name-table": ("first:table", "second:table"),
+}
+
+
+def _line(option: str, value: str, again: str) -> list[str]:
+    rest = {"--root": ["--root", "r"], "--names": ["--names", "clear"]}
+    if option == "--name-table":
+        rest["--names"] = ["--names", "project"]
+    rest.pop(option, None)
+    return [
+        *(arg for pair in rest.values() for arg in pair),
+        option,
+        value,
+        option,
+        again,
+    ]
+
+
+@pytest.mark.parametrize("option", list(_VALUES))
 def test_an_option_given_two_values_is_refused(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str
 ) -> None:
     """Measured before this: `--root a --root b` started the server on `b`, and
     `--tenant` and `--env` kept their last value the same way."""
-    root = [] if option == "--root" else ["--root", "r"]
-    argv = [*root, option, "first", option, "second"]
+    first, second = _VALUES[option]
+    argv = _line(option, first, second)
     code, err, started = started_with(monkeypatch, capsys, argv)
     assert code == EXIT_USAGE, (
         f"digline-mcp {' '.join(argv)} started with {started}: one of the two "
         "values was dropped without a word (#567)"
     )
-    assert f"argument {option}: given different values ('first', 'second')" in err
+    assert f"argument {option}: given different values ({first!r}, {second!r})" in err
 
 
-@pytest.mark.parametrize("option", ["--root", "--tenant", "--env"])
+@pytest.mark.parametrize("option", list(_VALUES))
 def test_an_option_given_the_same_value_twice_is_accepted(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], option: str
 ) -> None:
-    root = [] if option == "--root" else ["--root", "r"]
-    argv = [*root, option, "same", option, "same"]
+    same = _VALUES[option][0]
+    argv = _line(option, same, same)
     code, err, started = started_with(monkeypatch, capsys, argv)
     assert started is not None, f"refused (exit {code}): {err}"
-    assert "same" in started
+    assert same in started

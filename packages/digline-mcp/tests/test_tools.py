@@ -24,7 +24,7 @@ from digline_mcp.server import build_server
 
 def call(root: Path, tool: str, **arguments: Any) -> dict[str, Any]:
     async def go() -> dict[str, Any]:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         result = await server.call_tool(tool, arguments)
         # `call_tool` can also return `InputRequiredResult` — the SDK's
         # elicitation path, which nothing here uses. Narrowed rather than cast,
@@ -38,7 +38,7 @@ def call(root: Path, tool: str, **arguments: Any) -> dict[str, Any]:
 
 def refusal(root: Path, tool: str, **arguments: Any) -> str:
     async def go() -> str:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         with pytest.raises(ToolError) as caught:
             await server.call_tool(tool, arguments)
         return str(caught.value)
@@ -468,7 +468,9 @@ def test_the_tenant_verifies_and_never_overrides(repo: Path) -> None:
     run_key(repo)
 
     async def go() -> str:
-        server = build_server(str(repo), "somebody-else", None)
+        server = build_server(
+            str(repo), "somebody-else", None, names="clear", table=None
+        )
         with pytest.raises(ToolError) as caught:
             await server.call_tool("get_run", {"suite": str(repo / "suite_qa.py")})
         return str(caught.value)

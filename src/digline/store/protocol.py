@@ -46,6 +46,7 @@ __all__ = [
     "RunRef",
     "SupportsJournal",
     "TenantMismatchError",
+    "skipped_advice",
 ]
 
 #: The journal's own format version, independent of `SCHEMA_VERSION` and
@@ -563,16 +564,22 @@ class Listing:
         nothing can do. `upgrade_document` has always refused in the right words;
         the listing never reached it. (ADR 0014 §5)
         """
-        lines: list[str] = []
-        if any(version < SCHEMA_VERSION for version in self.skipped):
-            lines.append("run `digline migrate` to bring them up to date")
-        if any(version > SCHEMA_VERSION for version in self.skipped):
-            lines.append(
-                "upgrade digline to read them: a newer document cannot be "
-                "rewritten backwards without discarding what the newer schema "
-                "added"
-            )
-        return tuple(lines)
+        return skipped_advice(self.skipped)
+
+
+def skipped_advice(skipped: Mapping[int, int]) -> tuple[str, ...]:
+    """`Listing.advice()`, from the skipped versions alone: what it reads, so a
+    caller holding the counts and not the listing says the same. (#362)"""
+    lines: list[str] = []
+    if any(version < SCHEMA_VERSION for version in skipped):
+        lines.append("run `digline migrate` to bring them up to date")
+    if any(version > SCHEMA_VERSION for version in skipped):
+        lines.append(
+            "upgrade digline to read them: a newer document cannot be "
+            "rewritten backwards without discarding what the newer schema "
+            "added"
+        )
+    return tuple(lines)
 
 
 class ResultStore(Protocol):

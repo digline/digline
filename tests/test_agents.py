@@ -275,7 +275,7 @@ def _accepting_parameters() -> set[str]:
     from digline_mcp.server import build_server
 
     async def tools() -> set[str]:
-        server = build_server(tempfile.mkdtemp(), None, None)
+        server = build_server(tempfile.mkdtemp(), None, None, names="clear", table=None)
         found: set[str] = set()
         for tool in await server.list_tools():
             properties = cast(

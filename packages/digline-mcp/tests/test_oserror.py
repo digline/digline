@@ -63,7 +63,7 @@ without_mode_000 = pytest.mark.skipif(
 
 def refused(root: Path, tool: str, suite: Path) -> str:
     async def go() -> str:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         try:
             await server.call_tool(tool, {"suite": str(suite)})
         except ToolError as refusal:

@@ -75,6 +75,21 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
+    # 0.35.0, the number the cut is expected to give the core release that
+    # carries #548 — not yet a release. digline-mcp's `--names project` loads
+    # its table with `load_name_table`, holds one answer to one table with
+    # `one_table`, and names a suite's checks and cases as a projection does;
+    # its floor is owed at the cut, in RELEASING.md's table. (ADR 0054)
+    "NameTable": "0.35.0",
+    "load_name_table": "0.35.0",
+    "one_table": "0.35.0",
+    "project_check_name": "0.35.0",
+    "project_declared": "0.35.0",
+    # 0.25.0 and 0.25.2 — the minter's type and the served projection, each in
+    # `digline.core.__all__` from that tag (`git show` of each tag's
+    # `core/__init__.py`), imported by digline-mcp under `--names project`.
+    "Minter": "0.25.0",
+    "project_served": "0.25.2",
     # 0.34.0, the number the cut is expected to give the core release that
     # carries #523 — not yet a release. Whether git would commit a tenant's
     # run directory or its name table, and the sentence for each. digline-mcp
@@ -370,6 +385,9 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.host.listing", "SuiteRuns", "baseline_key"): "0.25.2",
     ("digline.host.listing", "SuiteRuns", "baseline_refused"): "0.25.2",
     ("digline.host.listing", "SuiteRuns", "listing"): "0.25.2",
+    ("digline.host.listing", "SuiteRuns", "misfiled"): "0.28.0",
+    ("digline.host.listing", "SuiteRuns", "skipped"): "0.26.0",
+    ("digline.host.listing", "SuiteRuns", "unreadable_count"): "0.26.0",
     ("digline.host.listing", "SuiteRuns", "note"): "0.25.2",
     ("digline.host.listing", "SuiteRuns", "refused"): "0.25.2",
     ("digline.host.listing", "SuiteRuns", "runs"): "0.25.2",
@@ -391,6 +409,8 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.report.diff", "", "sentence"): "0.6.0",
     ("digline.report.render", "Headline", "reasons_available"): "0.1.0",
     ("digline.report.render", "Headline", "sentence"): "0.1.0",
+    ("digline.run.suite", "CallPlan", "judged"): "0.14.0",
+    ("digline.run.suite", "CallPlan", "repeats"): "0.4.0",
     ("digline.run.suite", "CallPlan", "sentence"): "0.4.0",
     ("digline.run.suite", "CallPlan", "target_calls"): "0.4.0",
     ("digline.run.suite", "Case", "group"): "0.6.0",
@@ -433,6 +453,7 @@ UNDATED: dict[tuple[str, str, str], str] = {}
 UNRELEASED: dict[tuple[str, str, str], str] = {
     ("digline.targets.completion", "Completion", "unpriced"): "#569",
     ("digline.targets.pricing", "Pricing", "why_unpriced"): "#569",
+    ("digline.host.loader", "NameTable", "mint"): "#548",
 }
 
 

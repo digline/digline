@@ -35,12 +35,20 @@ from digline.host.environment import (
     utc_now_iso,
 )
 from digline.host.errors import UsageError
-from digline.host.listing import SuiteRuns, left_out, left_out_parts, suite_runs
+from digline.host.listing import (
+    SuiteRuns,
+    left_out,
+    left_out_parts,
+    one_table,
+    suite_runs,
+)
 from digline.host.loader import (
     SUITE_ATTR,
     TARGET_ATTR,
     Loaded,
+    NameTable,
     SourceOnlyLoader,
+    load_name_table,
     load_suite,
     load_target,
     refused_exit,
@@ -93,6 +101,7 @@ __all__ = [
     "SUITE_SUFFIX",
     "TARGET_ATTR",
     "Loaded",
+    "NameTable",
     "Measured",
     "Prepared",
     "SourceOnlyLoader",
@@ -104,7 +113,9 @@ __all__ = [
     "history",
     "left_out",
     "left_out_parts",
+    "one_table",
     "instant",
+    "load_name_table",
     "load_suite",
     "refused_exit",
     "refuse_unreadable_baseline",

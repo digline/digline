@@ -575,10 +575,20 @@ def exercise_mcp(app: pathlib.Path) -> None:
     def text(result: Any) -> str:
         return "".join(getattr(c, "text", "") for c in result.content)
 
+    command = str(pathlib.Path(sys.executable).parent / "digline-mcp")
+    # A server that takes the names declaration requires it, and one released
+    # before it refuses it: read off the server's own usage rather than its
+    # version, so the published one and the one built here are both started
+    # as they take it. `clear`, because the store is this script's. (ADR 0054)
+    usage = subprocess.run(
+        [command, "--help"], capture_output=True, text=True, check=False
+    ).stdout
+    declared = ["--names", "clear"] if "--names" in usage else []
+
     async def go() -> None:
         params = StdioServerParameters(
-            command=str(pathlib.Path(sys.executable).parent / "digline-mcp"),
-            args=["--root", str(app)],
+            command=command,
+            args=["--root", str(app), *declared],
             env=dict(os.environ),
         )
         with anyio.fail_after(120):

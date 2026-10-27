@@ -42,9 +42,9 @@ from importlib.machinery import (
 )
 from pathlib import Path
 from types import CodeType, ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
-from digline.core import Quoted
+from digline.core import Lookup, Minter, Quoted
 from digline.host.authorship import (
     frames_outside,
     raised_inside_digline,
@@ -61,8 +61,10 @@ __all__ = [
     "SUITE_ATTR",
     "TARGET_ATTR",
     "Loaded",
+    "NameTable",
     "SourceOnlyLoader",
     "UsageError",
+    "load_name_table",
     "load_suite",
     "load_target",
     "refused_exit",
@@ -507,6 +509,55 @@ def _pick(module: ModuleType, attr: str, spec: str, kind: str) -> object:
             f"Module defines: {available or '(nothing public)'}"
         )
     return value
+
+
+class NameTable(Protocol):
+    """The name table's two callables, as a process is handed them by name.
+
+    `mint` is ADR 0036 §2's look-up-or-mint and `lookup` its mirror. Read-only
+    attributes or plain functions, so a module satisfies this as an object
+    does, and the owning process imports nothing from digline to do so.
+    digline calls them and never opens what is behind them. (ADR 0054 §6)
+    """
+
+    @property
+    def mint(self) -> Minter: ...
+
+    @property
+    def lookup(self) -> Lookup: ...
+
+
+def load_name_table(spec: str) -> NameTable:
+    """The name table named on a command line, as `module:attribute`.
+
+    **The spelling `--target` and `--suite` already share**, through the same
+    `_split`, so an operator who has written a `--target` has written this:
+    `"pkg.mod:table"` or `"file.py:table"`. The attribute is required: there is
+    no conventional name for a table, and guessing one would hand a process a
+    table nobody named. A process started from a client's configuration can be
+    handed a name and not a function, and this is the name. (ADR 0054 §6)
+
+    Refused, as `UsageError`, when the attribute is missing or holds no
+    callable `mint` and `lookup`. Every message names the spec and nothing
+    else, because nothing has been read from a store yet.
+    """
+    module_part, attr = _split(spec)
+    if attr is None:
+        raise UsageError(
+            f"the name table {spec!r} names no attribute: write it as "
+            "'module:attribute' or 'file.py:attribute'"
+        )
+    value = _pick(_import(module_part, spec), attr, spec, "name table")
+    missing = [
+        part for part in ("mint", "lookup") if not callable(getattr(value, part, None))
+    ]
+    if missing:
+        raise UsageError(
+            f"the name table {spec!r} has no callable {' or '.join(missing)}: a "
+            "name table holds the two callables of ADR 0036 §2, `mint` and "
+            "`lookup`"
+        )
+    return cast(NameTable, value)
 
 
 @dataclass(frozen=True, slots=True)
