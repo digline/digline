@@ -427,7 +427,7 @@ def test_runs_json_carries_the_aggregate_and_nothing_a_verdict_merely_carried() 
     (row,) = cast("list[dict[str, Any]]", document["runs"])
     (aggregate,) = cast("list[dict[str, Any]]", row["aggregate"])
     assert set(aggregate) == {
-        "name",
+        "assertion",
         "assertion_id",
         "status",
         "score",
