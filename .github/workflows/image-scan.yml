@@ -98,7 +98,11 @@ jobs:
           python3 - trivy-amd64.json <<'PY'
           import json, sys
           report = json.load(open(sys.argv[1], encoding="utf-8"))
-          print("RepoDigests", report.get("Metadata", {}).get("RepoDigests"))
+          metadata = report.get("Metadata", {})
+          print("RepoDigests", metadata.get("RepoDigests"))
+          print("ImageID", metadata.get("ImageID"))
+          config = metadata.get("ImageConfig") or {}
+          print("ImageConfig", config.get("os"), config.get("architecture"))
           names = {}
           for result in report.get("Results") or []:
               packages = result.get("Packages") or []
@@ -107,7 +111,9 @@ jobs:
               if result.get("Class") == "lang-pkgs":
                   for package in packages:
                       print(f"  {package.get('Name')} {package.get('Version')} "
-                            f"path={package.get('FilePath')!r}")
+                            f"path={package.get('FilePath')!r} "
+                            f"layer={(package.get('Layer') or {}).get('DiffID')!r} "
+                            f"ref={(package.get('Identifier') or {}).get('BOMRef')!r}")
                       names[str(package.get("Name")).lower()] = package.get("Version")
           for name in ("nltk", "pyjwt", "digline-mcp", "mcp", "digline", "pip"):
               print(f"name {name}:", names.get(name, "absent"))
@@ -149,7 +155,11 @@ jobs:
           python3 - trivy-arm64.json <<'PY'
           import json, sys
           report = json.load(open(sys.argv[1], encoding="utf-8"))
-          print("RepoDigests", report.get("Metadata", {}).get("RepoDigests"))
+          metadata = report.get("Metadata", {})
+          print("RepoDigests", metadata.get("RepoDigests"))
+          print("ImageID", metadata.get("ImageID"))
+          config = metadata.get("ImageConfig") or {}
+          print("ImageConfig", config.get("os"), config.get("architecture"))
           names = {}
           for result in report.get("Results") or []:
               packages = result.get("Packages") or []
@@ -158,7 +168,9 @@ jobs:
               if result.get("Class") == "lang-pkgs":
                   for package in packages:
                       print(f"  {package.get('Name')} {package.get('Version')} "
-                            f"path={package.get('FilePath')!r}")
+                            f"path={package.get('FilePath')!r} "
+                            f"layer={(package.get('Layer') or {}).get('DiffID')!r} "
+                            f"ref={(package.get('Identifier') or {}).get('BOMRef')!r}")
                       names[str(package.get("Name")).lower()] = package.get("Version")
           for name in ("nltk", "pyjwt", "digline-mcp", "mcp", "digline", "pip"):
               print(f"name {name}:", names.get(name, "absent"))
