@@ -13,6 +13,7 @@ from __future__ import annotations
 import http.client
 import json
 import secrets
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -27,6 +28,7 @@ __all__ = [
     "SUITE_SOURCE",
     "cli",
     "configured_repo",
+    "copy_tracked",
     "git",
     "hand_over",
     "printing_repo",
@@ -116,6 +118,31 @@ def baseline_in(root: Path) -> str:
     assert len(found) == 1, f"more than one baseline under {root}: {found}"
     document = json.loads(found[0].read_text(encoding="utf-8"))
     return key_of(document["created_at"], document["config_hash"])
+
+
+def copy_tracked(
+    source: Path, dest: Path, *, leave_out: frozenset[str] = frozenset()
+) -> None:
+    """The files git tracks under `source`, copied to `dest`, and nothing else.
+
+    A checkout that has run an example holds runs, journals, caches and its
+    environment beside it, which git does not track, and a copy of the whole
+    directory makes them the copy's own: a test then measures what it
+    inherited. `leave_out` names tracked files, by name, a caller does not want.
+    """
+    listed = subprocess.run(
+        ["git", "-C", str(source), "ls-files", "-z"],
+        check=True,
+        capture_output=True,
+    ).stdout.decode("utf-8")
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in filter(None, listed.split("\0")):
+        origin = source / name
+        if Path(name).name in leave_out or not origin.is_file():
+            continue
+        target = dest / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(origin, target)
 
 
 def cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
