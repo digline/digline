@@ -106,6 +106,12 @@ class Response:
     #: recorded response are built from this field alone. (ADR 0025 §5)
     usage: Usage | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+    #: Why `cost_usd` is `None` though `usage` was read, as a sentence for the
+    #: person who ran the command: a rate the plugin or the price list does not
+    #: have. `None` is the ordinary case. In the process only, like `metadata`:
+    #: the run prints it and `CostBudget` quotes it, and no document holds it.
+    #: (ADR 0004 §8.3, §8.5)
+    unpriced: str | None = None
 
 
 class TargetShapeError(TypeError):
@@ -532,6 +538,7 @@ def default_mapper(response: Response, case: Case) -> EvaluatorInputs:
         cost_usd=response.cost_usd,
         latency_ms=response.latency_ms,
         metadata={"case": dict(case.metadata), "response": dict(response.metadata)},
+        unpriced=response.unpriced,
     )
 
 

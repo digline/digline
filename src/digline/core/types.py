@@ -903,6 +903,11 @@ class EvaluatorInputs:
     cost_usd: float | None = None
     latency_ms: float | None = None
     metadata: Mapping[str, object] = field(default_factory=dict[str, object])
+    #: Why `cost_usd` is `None` though the call's counts were read: the
+    #: plugin's or the price list's sentence. `None` where nobody said, which
+    #: is also every cost that is simply missing. `CostBudget` reads it, to say
+    #: *not computable* where it would say *missing*. (ADR 0004 §8.7)
+    unpriced: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

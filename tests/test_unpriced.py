@@ -10,9 +10,14 @@ so.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from digline.targets import Completion
+from digline.core import Contains, Run, RunUsage
+from digline.run import Case, Suite, execute
+from digline.run.driver import default_mapper
+from digline.targets import Completion, ProviderTarget
 from digline.targets.pricing import (
     ModelPrice,
     Pricing,
@@ -101,3 +106,98 @@ def test_a_list_the_user_built_inherits_the_default() -> None:
     theirs = Pricing(per_model={}).override("theirs", ModelPrice(1.0, 2.0))
     assert theirs.why_unpriced("theirs", CACHED_READS) is not None
     assert free("hosted").why_unpriced("hosted", CACHED_READS) is None
+
+
+# --------------------------------------------------------------------------- #
+# The target: the one reading of a reply (§8.5)
+# --------------------------------------------------------------------------- #
+
+CREATED = "2026-01-01T00:00:00+00:00"
+PRICING = Pricing(
+    per_model={
+        "m-1": ModelPrice(input_per_mtok=1.0, output_per_mtok=2.0),
+        "j-1": ModelPrice(input_per_mtok=1.0, output_per_mtok=2.0),
+    }
+)
+GEO = "model 'm-1' ran in inference geography 'not_available'"
+
+
+@pytest.fixture
+def prompt(tmp_path: Path) -> Path:
+    path = tmp_path / "prompt.md"
+    path.write_text("Say yes.\n", encoding="utf-8")
+    return path
+
+
+class Replying(ProviderTarget):
+    """A provider target whose plugin hands over each reply as given."""
+
+    provider = "fake"
+
+    def __init__(self, prompt: Path, *replies: Completion) -> None:
+        super().__init__(prompt, "m-1", pricing=PRICING)
+        self.replies = list(replies)
+
+    def _complete(self, prompt: str, system: str | None) -> Completion:
+        return self.replies.pop(0)
+
+
+def suite(*assertions: object, cases: int = 1) -> Suite:
+    return Suite(
+        tenant="acme",
+        environment="staging",
+        name="qa",
+        assertions=list(assertions) or [Contains(needle="yes", threshold=1.0)],  # pyright: ignore[reportArgumentType]
+        cases=[Case(id=f"c{n}") for n in range(1, cases + 1)],
+    )
+
+
+def usage_of(run: Run) -> RunUsage:
+    assert run.usage is not None
+    return run.usage
+
+
+def test_the_plugins_sentence_keeps_the_counts_and_drops_the_cost(
+    prompt: Path,
+) -> None:
+    reply = Completion(text="yes", usage=COUNTS, unpriced=GEO)
+    response = Replying(prompt, reply)(Case(id="c1"))
+    assert (response.usage, response.cost_usd, response.unpriced) == (COUNTS, None, GEO)
+
+
+def test_the_price_lists_sentence_keeps_the_counts_and_drops_the_cost(
+    prompt: Path,
+) -> None:
+    """The core's own refusal moves: no `CostBudget`, no error, no figure."""
+    target = Replying(prompt, Completion(text="yes", usage=CACHED_READS))
+    response = target(Case(id="c1"))
+    assert response.usage == CACHED_READS
+    assert response.cost_usd is None
+    assert response.unpriced == PRICING.why_unpriced("m-1", CACHED_READS)
+
+
+def test_a_priced_reply_has_its_figure_and_no_sentence(prompt: Path) -> None:
+    """The control."""
+    response = Replying(prompt, Completion(text="yes", usage=COUNTS))(Case(id="c1"))
+    assert response.cost_usd == pytest.approx(0.00012)
+    assert response.unpriced is None
+
+
+def test_the_sentence_reaches_the_assertion(prompt: Path) -> None:
+    reply = Completion(text="yes", usage=COUNTS, unpriced=GEO)
+    response = Replying(prompt, reply)(Case(id="c1"))
+    assert default_mapper(response, Case(id="c1")).unpriced == GEO
+
+
+def test_the_target_line_counts_the_call_and_its_tokens_and_not_its_cost(
+    prompt: Path,
+) -> None:
+    reply = Completion(text="yes", usage=COUNTS, unpriced=GEO)
+    run = execute(suite(), Replying(prompt, reply), created_at=CREATED)
+    line = usage_of(run).target
+    assert (line.calls, line.counted, line.spent_usd) == (1, 1, 0.0)
+    assert (line.tokens.input_tokens, line.tokens.output_tokens) == (100, 10)
+    assert line.every_cost_known is False
+    assert line.every_call_seen is True
+    assert [v.status for v in run.results[0].verdicts] == ["pass"]
+    assert run.results[0].error_kind is None
