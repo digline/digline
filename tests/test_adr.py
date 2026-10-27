@@ -188,6 +188,74 @@ def test_every_record_says_whether_it_has_shipped() -> None:
     )
 
 
+#: The records that may say `Shipped: unreleased`, each with why it still does,
+#: measured: the thing it names is in no file of `src/` or `packages/`, at
+#: `v0.34.0` (`2fa83664`) or in the tree that bumped to 0.35.0. **Declared, so
+#: that a record cannot join them in silence**: `test_every_record_says_whether_
+#: it_has_shipped` cannot see a record left `unreleased` after its code ships,
+#: and this list is what the cut reads to ask (RELEASING.md, *Before the tag:
+#: moving the number*). The shape is `UNRELEASED` in `test_plugin_floors.py`:
+#: the same absence, in another table. It does not map a record to its code;
+#: it makes an addition visible. (P-869)
+UNRELEASED_RECORDS: dict[str, str] = {
+    "0023-capture": (
+        "the capture it decides, the `seen.json` a capture writes and its "
+        "`wanted`, `ignored` and `unsure`, is in no file"
+    ),
+    "0035-the-record-of-a-deletion": (
+        "neither deletion ledger exists; the word `ledger` in `src/` is in "
+        "comments saying ADR 0035 proposes one"
+    ),
+    "0037-the-review-interface-and-the-election-recorded-where-the-text-is-not": (
+        "the review interface and the election are in no file: "
+        "`max_per_pattern` exists nowhere, and `unlabelled_excluded` is the "
+        "aggregate denominator's count, not this record's"
+    ),
+    "0039-disclosure-on-request": "no disclosure on request exists",
+    "0046-a-widening-is-a-declared-class": (
+        "it owes its code with a disclosure on request (its Test plan), and none exists"
+    ),
+    "0047-what-a-case-in-clear-contains": (
+        "it owes its code with a disclosure on request (its Test plan), and none exists"
+    ),
+    "0048-the-versions-a-suite-holds-and-the-one-in-force": (
+        "no held version of a suite and no pointer to the one in force exist "
+        "behind `ResultStore`"
+    ),
+}
+
+
+def test_a_record_says_unreleased_only_where_it_is_declared() -> None:
+    """A record that says `unreleased` and is not in `UNRELEASED_RECORDS` is an
+    addition nobody declared; one in the list that no longer says it is a
+    record whose code shipped and whose entry the cut forgot."""
+    unreleased = {
+        name
+        for name in adr_records()
+        if (
+            shipped := _SHIPPED.findall(
+                header(
+                    (ROOT / "docs" / "adr" / f"{name}.md").read_text(encoding="utf-8")
+                )
+            )
+        )
+        and shipped[0] == "unreleased"
+    }
+    assert unreleased, "the control: no record says unreleased, so this reads nothing"
+    undeclared = sorted(unreleased - set(UNRELEASED_RECORDS))
+    assert not undeclared, (
+        f"these records say `Shipped: unreleased` and are not declared in "
+        f"UNRELEASED_RECORDS: {undeclared}. Measure whether what each names is "
+        "in a release tag or in this tree, write the version if it is, and "
+        "declare it here with the reason if it is not"
+    )
+    stale = sorted(set(UNRELEASED_RECORDS) - unreleased)
+    assert not stale, (
+        f"UNRELEASED_RECORDS declares {stale}, which no longer say "
+        "`Shipped: unreleased`: take them out"
+    )
+
+
 _VALID = (
     "# ADR 0099 — T\n\n"
     "- Status: accepted — the text first\n"

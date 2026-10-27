@@ -365,6 +365,22 @@ row naming it, so the two cannot drift apart in that direction. The other
 direction is this step's job: a row left here after its floor moved is a row
 nobody finished.
 
+**And the records that still say `unreleased`: read `UNRELEASED_RECORDS`.**
+*Added 2026-10-27.* `tests/test_adr.py` declares, each with the reason measured
+for it, every record in `docs/adr/` whose `- Shipped:` line says `unreleased`.
+It fails on a record that says it and is not declared, and on a declared one
+that no longer says it, so an addition cannot arrive in silence. **What it
+cannot see is a record whose code ships in this release while its line still
+says `unreleased`.** That is the same absence as a floor nobody raised, in
+another table: the code moved, and the line that should name the release did
+not. Only the cut can read it, because only the cut knows the tree being
+tagged. So read each entry against that tree. Where what the record names is
+now in it, write this release's version on its `- Shipped:` line, with what is
+not built after a ` — ` if only part of it is, and take the entry out. Where it
+is not, the reason stays, and the entry with it. The step above that says
+which decisions this release ships asks the same question from the records'
+side.
+
 **And the number each package owes: read *Owed to the next version*.** A pull
 request that changes what a package's number must be, a break that moves the
 minor or an output a user reads that changed, records it in that package's
