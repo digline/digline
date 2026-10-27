@@ -1328,12 +1328,16 @@ class FileResultStore:
                         # cost twice. Mandatory at journal format 2 — a `case`
                         # line without it is malformed and the leg is refused,
                         # rather than resumed with a leg's money missing.
-                        spent = spent + totals_from_dict(raw["usage"], "journal")
+                        spent = spent + totals_from_dict(
+                            raw["usage"], "journal 'usage'"
+                        )
                     else:
+                        # The place, never the word: what the file holds
+                        # stays out of the refusal. (#350)
                         return refused(
-                            f"leg {leg} of {key} holds a record of kind "
-                            f"{kind!r} at line {index + 1}, which this digline "
-                            "does not know"
+                            f"leg {leg} of {key} holds a record at line "
+                            f"{index + 1} whose 'kind' this digline does not "
+                            "know"
                         )
                 except (KeyError, ValueError, TypeError) as exc:
                     return refused(
