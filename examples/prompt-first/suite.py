@@ -15,9 +15,9 @@ import json
 import os
 from pathlib import Path
 
-from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated
+from digline.core import Judge, JudgeReply, Levenshtein, LlmRubric, Repeated
 from digline.run import Calibration, Case, Suite
-from digline_anthropic import AnthropicTarget
+from digline_anthropic import AnthropicJudge, AnthropicTarget
 
 import fake
 
@@ -26,15 +26,13 @@ LIVE = os.environ.get("DIGLINE_LIVE") == "1"
 MODEL = "claude-haiku-4-5"
 
 
-def judge(prompt: str) -> JudgeReply:
-    """The rubric's judge.
+def _fake_judge(prompt: str) -> JudgeReply:
+    """The rubric's judge on the keyless path.
 
     Faked by default, for the same reason the provider is: an example that needs
     a key is an example nobody runs. Deterministic, and it reads the answer
     rather than pretending to — a fake that always says 1.0 measures nothing.
     """
-    if LIVE:  # pragma: no cover - exercised only with a key present
-        return _live_judge(prompt)
     answer = prompt.split("Output to judge:", 1)[-1].strip()
     one_sentence = answer.count(".") <= 1
     warm = any(word in answer.lower() for word in ("welcome", "we ", "you", "happy"))
@@ -44,27 +42,9 @@ def judge(prompt: str) -> JudgeReply:
     )
 
 
-def _live_judge(prompt: str) -> JudgeReply:  # pragma: no cover - needs a key
-    import anthropic
-
-    reply = anthropic.Anthropic().messages.create(
-        model=MODEL,
-        max_tokens=200,
-        system=(
-            "Score the output against the rubric from 0 to 1. Reply with only "
-            'a JSON object: {"score": <float>, "reason": "<one sentence>"}'
-        ),
-        messages=[
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": "{"},
-        ],
-    )
-    # Only the text blocks: the SDK's `content` is a union, and a thinking or
-    # tool block has no `.text` at all — which a type checker says before a
-    # traceback does.
-    said = "".join(b.text for b in reply.content if b.type == "text")
-    data = json.loads("{" + said)
-    return JudgeReply(score=float(data["score"]), reason=str(data["reason"]))
+#: A plugin is a target *and* a judge (ADR 0004): on the live path the twenty
+#: lines of SDK-and-JSON leave this file, and the run records which model graded.
+JUDGE: Judge = AnthropicJudge(model=MODEL) if LIVE else _fake_judge
 
 
 target = AnthropicTarget(
@@ -164,7 +144,7 @@ suite = Suite(
         Repeated(
             inner=LlmRubric(
                 rubric="One sentence, warm, and invents no price or date.",
-                judge=judge,
+                judge=JUDGE,
                 threshold=0.7,
                 tolerance=0.1,
             ),
