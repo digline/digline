@@ -191,10 +191,10 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.spans[].environments[]": ("b", gate.anything),
         # (c) tokens this table minted
         "$.results[].case_id": ("c", gate.token),
-        "$.results[].verdicts[].name": ("c", gate.check),
+        "$.results[].verdicts[].assertion": ("c", gate.check),
         "$.results[].calibration.check": ("c", gate.token),
-        "$.aggregate[].name": ("c", gate.check),
-        "$.runs[].aggregate[].name": ("c", gate.check),
+        "$.aggregate[].assertion": ("c", gate.check),
+        "$.runs[].aggregate[].assertion": ("c", gate.check),
         "$.target_config.values{}": ("c", gate.token),
         "$.deltas[].assertion": ("c", gate.check),
         "$.deltas[].case_id": ("c", gate.case),
