@@ -350,6 +350,16 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.6.3": (
+            "not a digline version: digline-mcp's, the release PyPI served when "
+            "v0.35.0 was cut, which its own cap excludes from that core, in "
+            "v0.35.0's paragraph of the Status block: history"
+        ),
+        "0.13.6": (
+            "not a digline version: the uv that relocked the examples for "
+            "v0.35.0 and writes `revision = 5`, in v0.35.0's paragraph of the "
+            "Status block: history"
+        ),
         "3.10.3": (
             "not a digline version: the last nltk release inside "
             "GHSA-8mgp-746c-j5xp's range, which both locks held until #691"
