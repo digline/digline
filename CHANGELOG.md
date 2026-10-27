@@ -530,8 +530,8 @@ keeps this from being a major.
 
 This release also carries the core half of ADR 0004 §8: a target can report a
 cost it cannot compute (`Completion.unpriced`, `Pricing.why_unpriced`) instead
-of raising. And the core half of ADR 0054, whose `NameTable.mint` digline-mcp's
-`--names project` calls.
+of raising. It also carries the core half of ADR 0054: `NameTable` and its
+`mint`. The server's half, which calls them, ships in digline-mcp 0.7.0.
 
 ## 0.34.0 — 2026-10-26
 
