@@ -435,6 +435,16 @@ notes under them are this file, verbatim.
   `JOURNAL_VERSION` moves. ADR 0004 §8 is accepted with this. Its one point
   still open stays open: where the sentences go under `--json` and in
   digline-mcp, which print no bill line.
+- **Every floor owed at the cut has a keeper.** A row in RELEASING.md's table
+  owed at the cut now has to name a plugin whose `pyproject.toml` carries the
+  marker, or `tests/test_plugin_floors.py` fails. Without the marker the
+  floor test returned early, and the rows of digline-anthropic,
+  digline-bedrock and digline-openai, from #739 and #569, were held by
+  nothing but RELEASING.md. The three now carry it. The table owed to the
+  next version is declared out of that rule, because its rows name a number
+  and not a floor, and its header is pinned. The row parser no longer splits
+  a cell on an escaped pipe, which had read those three rows as five cells.
+  Nothing in digline's behaviour moves, so this is a patch.
 - **What a front end needs to project its answers** (#548, ADR 0054).
   digline-mcp is the first process to project what it serves with a name table
   it is handed, and these are the parts it needs, each an addition:

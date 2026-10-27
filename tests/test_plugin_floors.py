@@ -56,6 +56,7 @@ evades it.
 from __future__ import annotations
 
 import ast
+import re
 import tomllib
 from pathlib import Path
 
@@ -652,15 +653,33 @@ def owed_section() -> str:
     return text[start:end]
 
 
+def owed_rows() -> list[list[str]]:
+    """The rows of the table owed at the cut, each as its four cells.
+
+    Split on the pipes that end a cell and not on `\\|`, which Markdown reads
+    as a pipe inside one: a row whose *Owed because* says `Usage \\| None`
+    was five cells to a plain split, and `owed_floor` passed over it as no
+    row at all."""
+    rows: list[list[str]] = []
+    for line in owed_section().splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [
+            cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip().strip("|"))
+        ]
+        assert len(cells) == 4, f"a row of the owed table is not four cells: {line}"
+        rows.append(cells)
+    return rows
+
+
 def owed_floor(plugin: Path) -> str | None:
     """The *Raise to* of `plugin`'s row in the table owed at the cut, when its
     pyproject carries the marker, or `None`."""
     pyproject = (plugin / "pyproject.toml").read_text(encoding="utf-8")
     if OWED_MARKER not in pyproject:
         return None
-    for line in owed_section().splitlines():
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) == 4 and cells[0] == f"`{plugin.name}`":
+    for cells in owed_rows():
+        if cells[0] == f"`{plugin.name}`":
             return cells[2].strip("`")
     return None
 
@@ -682,3 +701,71 @@ def test_a_floor_owed_at_the_cut_is_where_the_cut_reads(plugin: Path) -> None:
         "it. Add the row, or the release will ship this package on a floor "
         "that cannot run it."
     )
+
+
+#: The header of the table owed at the cut. Read whole, so a column added,
+#: removed or renamed fails here instead of moving every cell one place.
+OWED_HEADER = ["Package", "Owed because", "Raise to", "Then"]
+
+#: The other table `RELEASING.md` keeps for the next cut, declared out of the
+#: rule below rather than passed over. **Its rows name a number and not a
+#: floor**: what a package's next version must reflect, read by whoever
+#: chooses the number. One of the packages it names is digline itself, which
+#: has no plugin `pyproject.toml` to carry a marker. A floor that a row there
+#: implies is written in the table owed at the cut, which is where the rule
+#: reads it. Its header is pinned, so a floor column added to it fails here
+#: and the scope is decided again.
+OUT_OF_SCOPE = {
+    "**And the number each package owes: read *Owed to the next version*.**": (
+        "| Package | What it carries | What the number must reflect |"
+    ),
+}
+
+
+def test_the_owed_table_has_the_shape_the_rule_reads() -> None:
+    """The control for the rule below: the header is the one it was written
+    for, and every row splits into its four cells."""
+    rows = owed_rows()
+    assert rows[0] == OWED_HEADER, rows[0]
+    assert rows[1] == ["---"] * 4, rows[1]
+
+
+def test_every_floor_owed_at_the_cut_has_a_keeper() -> None:
+    """The other direction from the test above: a row in the table owed at the
+    cut names a plugin whose `pyproject.toml` carries the marker.
+
+    Without it, the test above returns at its first line, `owed_floor` answers
+    `None`, and the row is held by nothing but the file that holds it: a debt
+    no machine reads. Measured 2026-10-27: digline-anthropic, digline-bedrock
+    and digline-openai each had a row, from #739 and #569, and none of them
+    the marker."""
+    names = {plugin.name for plugin in plugins()}
+    unkept: list[str] = []
+    for cells in owed_rows()[2:]:
+        package = cells[0].strip("`")
+        assert package in names, (
+            f"the table owed at the cut names {package!r}, which is not a "
+            f"plugin of this workspace: {sorted(names)}"
+        )
+        pyproject = (PACKAGES / package / "pyproject.toml").read_text(encoding="utf-8")
+        if OWED_MARKER not in pyproject:
+            unkept.append(package)
+    assert not unkept, (
+        f"RELEASING.md owes a floor for {unkept} at the cut, and their "
+        f"pyproject.toml carries no {OWED_MARKER!r}, so nothing here reads the "
+        "row. Write the marker beside the `digline>=` floor, saying what it is "
+        "raised to and why."
+    )
+
+
+def test_the_table_out_of_scope_keeps_its_shape() -> None:
+    """Declared out of the rule above, and pinned so the declaration is
+    decided again if the table starts to name a floor."""
+    text = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
+    for opens, header in OUT_OF_SCOPE.items():
+        start = text.find(opens)
+        assert start >= 0, f"RELEASING.md no longer has {opens!r}"
+        assert header in text[start:], (
+            f"the table after {opens!r} no longer has the header {header!r}: "
+            "decide again whether its rows name a floor"
+        )
