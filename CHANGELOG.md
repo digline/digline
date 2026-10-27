@@ -8,6 +8,13 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **The image ships pip 26.2.2, not the base's 25.0.1.** `python:3.12-slim`
+  bundles the `pip` its Python came with, and a newer base digest does not
+  move it, so the weekly scan of `ghcr.io/digline/digline` reported it
+  against six advisories. The image upgrades it before installing digline, to
+  a version the `Dockerfile` pins. A derived image that runs `pip install`
+  now does so with that version. Nothing in digline's behaviour moves.
+
 - **The release workflow verifies what it says it verifies** (#717). Two
   install checks in `publish.yml` installed something other than what they
   claimed to prove, and one After-the-tag step had no check at all. Nothing in
