@@ -1298,8 +1298,8 @@ them either, and §17.2 makes that direction fail closed as well.
 #### 17.2 A configuration records `named`
 
 `SystemConfig.named` is the set of its keys that belong to **digline's closed
-vocabulary** of configuration keys: `CONTRACT_FIELDS ∪ OBSERVED_FIELDS ∪
-PERIMETER_FIELDS ∪ ENDPOINT_PERIMETER_FIELDS`, and `pricing`. That vocabulary is
+vocabulary** of configuration keys: `CONTRACT_FIELDS | OBSERVED_FIELDS |
+PERIMETER_FIELDS | ENDPOINT_PERIMETER_FIELDS`, and `pricing`. That vocabulary is
 a class declared in reviewed code, which is how ADR 0046 says a widening of
 what crosses is made. The driver records it when it records the configuration,
 for the target and for the judge.
