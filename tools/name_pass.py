@@ -21,7 +21,9 @@ verdict, and which name wins is a decision.
    (`packages/digline-mcp/tests/test_names_gate.py`: `examples/prompt-first`,
    widened with an aggregate split by group, two runs and a reference), calls
    every tool the server registers, in clear, and reads every string of every
-   answer, of the two run files, of the reference and of the journal. A value
+   answer, of the two run files, of the reference and of a journal. A
+   finished run leaves no journal, so the store's own writer writes one for
+   the second run: its keys are measured, its values are that run's. A value
    held under two or more different keys is listed, with every path it is
    held at. The empty string is not a value but an absence, and is skipped.
 3. **The textual pass** reads `src/`, each plugin's sources and `docs/` for a
@@ -164,6 +166,7 @@ def fixture_strings(work: Path) -> list[Found]:
         for path, value in strings
         if not path.startswith("!")
     ]
+    _journal(repo, second)
     store = next((repo / ".digline").iterdir())
     for key in (first, second):
         document = next(store.glob(f"runs/*/{key}.json"))
@@ -174,6 +177,48 @@ def fixture_strings(work: Path) -> list[Found]:
         for line in journal.read_text("utf-8").splitlines():
             found += _strings("journal", json.loads(line))
     return found
+
+
+def _journal(repo: Path, key: str) -> None:
+    """A journal for the run `key`, written by the store's own writer, header
+    and cases, as a run killed before its document would have left it. A
+    finished run leaves no journal, so the fixture has none of its own. What is
+    measured is the writer's keys; the header's values are the run's, and
+    `cases_digest`, which a run does not carry, is written empty."""
+    from digline.core import CaseProgress
+    from digline.store import FileResultStore, JournalHeader, RunRef
+
+    run_file = next((repo / ".digline").glob(f"*/runs/*/{key}.json"))
+    store = FileResultStore(repo)
+    run = store.read_run(
+        RunRef(tenant=run_file.parents[2].name, suite=run_file.parent.name, key=key)
+    )
+    journal = store.open_journal(
+        JournalHeader(
+            tenant=run.tenant,
+            environment=run.environment,
+            suite=run.suite,
+            config_hash=run.config_hash,
+            cases_digest="",
+            created_at=run.created_at,
+            started_at=run.created_at,
+            digline_version=run.digline_version,
+            record_responses=True,
+            git_commit=run.git_commit,
+            artifacts={path: item.sha for path, item in run.artifacts.items()},
+            pinned=run.pinned,
+            target_config=run.target_config,
+            judge_config=run.judge_config,
+        )
+    )
+    for result in run.results:
+        journal.append(
+            CaseProgress(
+                result=result,
+                observed_target=run.target_config,
+                observed_judge=run.judge_config,
+            )
+        )
 
 
 def _strings(source: str, document: Any) -> list[Found]:

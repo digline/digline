@@ -82,3 +82,14 @@ def test_the_textual_pass_finds_a_deferral_across_a_line_break() -> None:
     paths = {path for path, _ in found}
     assert "src/digline/wire/log.py" in paths, sorted(found)
     assert "packages/digline-mcp/src/digline_mcp/server.py" in paths, sorted(found)
+
+
+def test_the_values_pass_reads_a_journal(found: list[Any]) -> None:
+    """A finished run leaves none, so the pass has the store write one: the
+    check is `assertion` there too."""
+    assert any(
+        item.source == "journal"
+        and item.path == "$.case.verdicts[].assertion"
+        and item.value == "levenshtein"
+        for item in found
+    )
