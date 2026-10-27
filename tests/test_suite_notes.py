@@ -131,3 +131,28 @@ def test_an_ordinary_suite_has_no_notes() -> None:
         cases=[Case(id="one")],
     )
     assert suite_notes(suite) == ()
+
+
+def test_projected_the_lines_name_each_check_by_its_token(tmp_path: Path) -> None:
+    """With a minter the lines are composed from the tokens, never from the
+    names: the sentence digline writes, with the checks it names projected as
+    a projection names them. Without one they are the lines above. (ADR 0054
+    §7)"""
+    from digline.core import project_check_name
+    from digline.host import load_suite
+
+    path = tmp_path / "suite_noted.py"
+    path.write_text(SUITE_PY, encoding="utf-8")
+    suite = load_suite(str(path))[0]
+    minted: dict[str, str] = {}
+
+    def mint(kind: str, text: str) -> str:
+        return minted.setdefault(f"{kind}:{text}", f"{len(minted):0>22}")
+
+    projected = suite_notes(suite, mint=mint)
+    said = " ".join(projected)
+    assert len(projected) == len(suite_notes(suite)) == 2
+    for name in ("no_kind", "other_kind", "loose"):
+        assert name not in said, said
+        assert project_check_name(name, mint) in said
+    assert "declare no KIND" in said

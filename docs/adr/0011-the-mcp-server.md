@@ -808,6 +808,14 @@ ours:
     "digline-acme":      { "command": "digline-mcp", "args": ["--root", "~/src/acme"] } } }
 ```
 
+*Noted 2026-10-27 (ADR 0054 §5, #548).* From digline-mcp 0.7.0 a configuration
+also declares whether the store's names may leave in clear: `"--names",
+"clear"` beside `--root`, or `"--names", "project"` with `"--name-table",
+"module:attribute"`. There is no default, so the two lines above, as written,
+no longer start a server. They are kept as written, because this record shows
+what was decided on its date; [`docs/mcp.md`](../mcp.md) has the configuration
+as it now is.
+
 The alternative — one server with a `project` argument, or a registry of known
 roots — is refused, and fixed decision 2 is the reason. A registry is
 machine-global state describing where other people's customers keep their

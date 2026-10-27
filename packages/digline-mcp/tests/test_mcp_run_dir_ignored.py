@@ -19,7 +19,9 @@ from digline_mcp.server import build_server
 
 def call(root: Path, tool: str, **arguments: Any) -> CallToolResult:
     async def go() -> CallToolResult:
-        result = await build_server(str(root), None, None).call_tool(tool, arguments)
+        result = await build_server(
+            str(root), None, None, names="clear", table=None
+        ).call_tool(tool, arguments)
         assert isinstance(result, CallToolResult)
         return result
 

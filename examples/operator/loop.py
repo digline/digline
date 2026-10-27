@@ -367,7 +367,17 @@ class Probe:
 def surface(root: Path) -> tuple[str, ...]:
     """The server `.mcp.json` starts, started the way `digline()` starts the
     CLI: from this interpreter, so it needs nothing on PATH."""
-    return (sys.executable, "-m", "digline_mcp", "--root", str(root))
+    return (
+        sys.executable,
+        "-m",
+        "digline_mcp",
+        "--root",
+        str(root),
+        # The store is this loop's own, so its names may leave in clear. Under
+        # a store whose cases are a customer's, `project` and a name table.
+        "--names",
+        "clear",
+    )
 
 
 def _ask_for_the_absent_tool(server: Sequence[str]) -> Negative:

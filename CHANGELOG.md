@@ -445,6 +445,21 @@ notes under them are this file, verbatim.
   and not a floor, and its header is pinned. The row parser no longer splits
   a cell on an escaped pipe, which had read those three rows as five cells.
   Nothing in digline's behaviour moves, so this is a patch.
+- **What a front end needs to project its answers** (#548, ADR 0054).
+  digline-mcp is the first process to project what it serves with a name table
+  it is handed, and these are the parts it needs, each an addition:
+  - `digline.host.load_name_table`, which loads a table named
+    `module:attribute` through the loader's own `_split`, and `NameTable`, the
+    two callables it must hold, `mint` and `lookup` (ADR 0036 §2);
+  - `digline.host.one_table`, the check `suite_runs` makes across a list,
+    holding a minter to one token per name for one answer;
+  - `digline.core.project_check_name` and `project_declared`, which name a
+    suite's checks and declared cases as a projection names them, so that a
+    sentence composed from a suite says the tokens its runs carry;
+  - `mint=` on `explained`, `history` and `suite_notes`, `None` by default so
+    a published caller keeps working, and `runs_json` taking a projected
+    listing's counts in place of the listing, which holds file names (#362).
+  A patch: nothing that existed moves.
 
 ## 0.34.0 — 2026-10-26
 
@@ -756,6 +771,40 @@ digline **0.34.0**.
 
 ## digline-mcp — unreleased
 
+**A minor: digline-mcp 0.7.0** (ADR 0054 §5). A declaration with no default
+stops a configuration that passes `--root` alone from starting, which is a
+command-line option changed in meaning, as `--root` becoming required was in
+0.5.0. It ships after the core release that carries #548 is on PyPI, on the
+floor RELEASING.md's table names.
+
+- **Breaking: `--names` is required** (#548, ADR 0054). Declare whether the
+  store's names may leave in clear: add `"--names", "clear"` to your MCP
+  client's configuration to keep what it did, for example
+  `"args": ["--root", "/path/to/your/repo", "--names", "clear"]`. A
+  configuration without it has to be updated: the server exits 64 with the
+  usage line and starts nothing. There is no default, because whose cases are
+  in a store is written nowhere in it. The Claude Code plugin's launcher
+  passes `--names clear` to a server that takes it, and says in the script
+  when that is wrong.
+- **`--names project` projects every answer** (#548, ADR 0054 §3, §7). Case
+  ids, check names, group labels, calibration checks, configuration keys and
+  values and artifact paths leave as tokens from the name table, named at
+  start as `--name-table module:attribute`, the syntax `--target` takes. The
+  sentences an answer carries are composed from the tokens. `tenant` and
+  `suite` stay in clear, as in a projection. Without a table it does not
+  start, and says what is missing; a table under `clear` is refused.
+- **A gate holds it**: `tests/test_names_gate.py` drives every tool the
+  server registers under `project` and fails closed on a string at a path it
+  does not classify, so a new tool or a new field is red until it is
+  classified.
+- **ADR 0054 §8 is not complete.** A refusal the core raises reaches a tool as
+  a sentence, not projected, and its names are in no field the gate can
+  classify. The five refusals measured under `project` (an unknown run, a run
+  diffed with itself, a corrupted run document, a suite outside the root, no
+  baseline) quote no name the table minted, and five measurements are not a
+  guarantee. An `xfail(strict=True)` in the gate holds what is missing, the
+  core's error classes carrying those names in fields, and turns red when they
+  do.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,

@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Container, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -24,6 +24,7 @@ from digline.core import (
     Faithfulness,
     Label,
     LlmRubric,
+    Minter,
     Output,
     Repeated,
     RunAssertion,
@@ -31,6 +32,7 @@ from digline.core import (
     config_hash,
     expand_by_group,
     judged,
+    project_check_name,
     tolerance_is_blind,
 )
 from digline.core.aggregate import RUN_ASSERTION_MEMBERS
@@ -751,7 +753,7 @@ def blind_tolerances(suite: Suite) -> tuple[BlindTolerance, ...]:
     )
 
 
-def suite_notes(suite: Suite) -> tuple[str, ...]:
+def suite_notes(suite: Suite, *, mint: Minter | None = None) -> tuple[str, ...]:
     """What every front end that runs `suite` says before the first call: the
     checks `undeclared_kinds` names, in one sentence, then each blind
     tolerance in one sentence of its own. Empty when there is nothing to say.
@@ -764,12 +766,24 @@ def suite_notes(suite: Suite) -> tuple[str, ...]:
     §6.1, §6.4; #386)
 
     Said, never refused: nothing here moves an exit code.
+
+    `mint` names each check by its token, the one its run carries, so the
+    lines carry no name of the suite's: the sentence composed from the
+    projected names, never a sentence with the names taken out. `None` names
+    them in clear, as every caller before ADR 0054 did. (ADR 0054 §7)
     """
+
+    def named(check: str) -> str:
+        return check if mint is None else project_check_name(check, mint)
+
     notes: list[str] = []
     undeclared = undeclared_kinds(suite)
     if undeclared:
-        notes.append(_undeclared_sentence(undeclared))
-    notes.extend(blind.sentence() for blind in blind_tolerances(suite))
+        notes.append(_undeclared_sentence([named(check) for check in undeclared]))
+    notes.extend(
+        replace(blind, name=named(blind.name)).sentence()
+        for blind in blind_tolerances(suite)
+    )
     return tuple(notes)
 
 

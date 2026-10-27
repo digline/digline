@@ -59,7 +59,7 @@ def watched(self, address):
 socket.socket.bind = watched
 
 import digline_mcp.server as server
-server.build_server(".", None, None)
+server.build_server(".", None, None, names="clear", table=None)
 
 from opentelemetry import trace
 provider = type(trace.get_tracer_provider()).__name__

@@ -24,7 +24,9 @@ from digline_mcp.server import build_server
 
 def call(root: Path, tool: str, **arguments: Any) -> dict[str, Any]:
     async def go() -> dict[str, Any]:
-        result = await build_server(str(root), None, None).call_tool(tool, arguments)
+        result = await build_server(
+            str(root), None, None, names="clear", table=None
+        ).call_tool(tool, arguments)
         assert isinstance(result, CallToolResult)
         assert result.structured_content is not None
         return dict(result.structured_content)

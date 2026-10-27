@@ -28,6 +28,18 @@
         },
         {
           "type": "named",
+          "name": "--names",
+          "description": "Whether the store's names may leave in clear: clear, or project, under which every answer carries tokens where it carried names. No default.",
+          "isRequired": true
+        },
+        {
+          "type": "named",
+          "name": "--name-table",
+          "description": "Under --names project, the name table as module:attribute, holding its mint and lookup.",
+          "isRequired": false
+        },
+        {
+          "type": "named",
           "name": "--tenant",
           "description": "Verify the suite's tenant. It never overrides what the suite declares.",
           "isRequired": false

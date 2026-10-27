@@ -115,7 +115,7 @@ def run_tools(root: Path, suites: list[Path], between: Any = None) -> list[str]:
     its text. `between`, if given, is called after the first run."""
 
     async def go() -> list[str]:
-        server = build_server(str(root), None, None)
+        server = build_server(str(root), None, None, names="clear", table=None)
         answers: list[str] = []
         for index, suite in enumerate(suites):
             if index == 1 and between is not None:

@@ -62,3 +62,13 @@ def test_the_root_is_declared_required_as_the_code_requires_it() -> None:
     root = [a for a in package["packageArguments"] if a.get("name") == "--root"]
     assert len(root) == 1
     assert root[0]["isRequired"] is True
+
+
+def test_the_names_declaration_is_required_as_the_code_requires_it() -> None:
+    """`main()` refuses to start without `--names` (test_names_declared.py
+    holds that), and reads `--name-table` only under `project`. The manifest
+    says the same. (ADR 0054 §1, §6)"""
+    (package,) = manifest()["packages"]
+    named = {a["name"]: a for a in package["packageArguments"]}
+    assert named["--names"]["isRequired"] is True
+    assert named["--name-table"]["isRequired"] is False
