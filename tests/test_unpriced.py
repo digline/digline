@@ -625,3 +625,29 @@ def test_every_shipped_subclass_that_overrides_cost_overrides_the_predicate() ->
     shipped = _pricing_subclasses()
     assert "_WhereServed" in {cls.__name__ for cls in shipped}
     assert [cls.__qualname__ for cls in shipped if _breaks_the_rule(cls)] == []
+
+
+# --------------------------------------------------------------------------- #
+# The second direction: counts not recorded, as today (§8.9)
+# --------------------------------------------------------------------------- #
+
+
+def test_counts_not_recorded_read_as_not_recorded_and_say_no_sentence(
+    prompt: Path,
+) -> None:
+    """`usage=None` is the second row of §8.1, and it reads as #629 left it on
+    both lines: neither the tokens nor the cost of that call, and no
+    `unpriced` sentence, because nothing was read to be priced."""
+    said: list[str] = []
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=None))
+    run = execute(
+        suite(rubric(judge)),
+        Replying(prompt, Completion(text="yes", usage=None)),
+        created_at=CREATED,
+        on_unpriced=said.append,
+    )
+    for line in (usage_of(run).target, usage_of(run).judge):
+        assert (line.calls, line.counted, line.spent_usd) == (1, 0, 0.0)
+        assert line.every_cost_known is False
+    assert judge.unpriced_calls == 0
+    assert said == []
