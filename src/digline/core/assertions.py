@@ -1656,6 +1656,15 @@ class CostBudget(AssertionBase):
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         # A budget does not read the output: it has nothing to reject on type.
+        if inputs.cost_usd is None and inputs.unpriced is not None:
+            # Not missing: the counts were read and the cost could not be
+            # computed. Still an error, because a ceiling nobody can verify is
+            # not a ceiling met; the word is the one that is true, and the
+            # sentence says what to do. (ADR 0004 §8.7)
+            return self._error(
+                f"cost_usd is not computable: {inputs.unpriced}. An "
+                "unverifiable budget is not a budget met"
+            )
         if inputs.cost_usd is None:
             return self._error(
                 "cost_usd is missing: an unverifiable budget is not a budget met"

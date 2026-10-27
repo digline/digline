@@ -17,7 +17,15 @@ import pytest
 from tests._helpers import cli
 
 from digline.cli import EXIT_OK
-from digline.core import Contains, JudgeReply, LlmRubric, Run, RunUsage
+from digline.core import (
+    Contains,
+    CostBudget,
+    EvaluatorInputs,
+    JudgeReply,
+    LlmRubric,
+    Run,
+    RunUsage,
+)
 from digline.run import Case, Response, Suite, execute
 from digline.run.driver import default_mapper, judge_totals
 from digline.targets import Completion, ProviderTarget
@@ -29,6 +37,7 @@ from digline.targets.pricing import (
     Usage,
     free,
 )
+from digline.wire import EXIT_UNJUDGED, run_exit_code
 
 COUNTS = Usage(input_tokens=100, output_tokens=10)
 
@@ -493,3 +502,47 @@ def test_a_priced_run_prints_neither(tmp_path: Path) -> None:
     assert code == EXIT_OK, stderr
     assert "cost not known for every call" not in stderr
     assert "cost not computable" not in stderr
+
+
+# --------------------------------------------------------------------------- #
+# A `CostBudget` over an unpriced cost: the error stays, the word moves (§8.7)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_budget_over_an_unpriced_cost_says_not_computable_and_why() -> None:
+    verdict = CostBudget(max_usd=0.1, tolerance=0.0)(
+        EvaluatorInputs(output="yes", cost_usd=None, unpriced=GEO)
+    )
+    assert verdict.status == "error"
+    assert "not computable" in verdict.reason
+    assert GEO in verdict.reason
+    assert "missing" not in verdict.reason
+
+
+def test_a_budget_over_a_missing_cost_still_says_missing() -> None:
+    """The control: no sentence, and the word is the one it was."""
+    verdict = CostBudget(max_usd=0.1, tolerance=0.0)(
+        EvaluatorInputs(output="yes", cost_usd=None)
+    )
+    assert verdict.status == "error"
+    assert verdict.reason == (
+        "cost_usd is missing: an unverifiable budget is not a budget met"
+    )
+
+
+def test_a_budget_in_a_suite_errors_and_the_content_is_still_judged(
+    prompt: Path,
+) -> None:
+    """§8.9's fourth direction. `run_exit_code` is `2`, for an unjudged check
+    beside judged ones; `digline run` itself exits `0` there, and `2` only
+    where nothing was judged (ADR 0049 §3)."""
+    reply = Completion(text="yes", usage=COUNTS, unpriced=GEO)
+    budgeted = suite(
+        Contains(needle="yes", threshold=1.0), CostBudget(max_usd=0.1, tolerance=0.0)
+    )
+    run = execute(budgeted, Replying(prompt, reply), created_at=CREATED)
+    content, budget = run.results[0].verdicts
+    assert content.status == "pass"
+    assert budget.status == "error"
+    assert f"cost_usd is not computable: {GEO}" in budget.reason
+    assert run_exit_code(run, declared=budgeted.declared()) == EXIT_UNJUDGED
