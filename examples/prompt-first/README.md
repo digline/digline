@@ -40,6 +40,14 @@ $ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 baseline is live, so the cycle is too. Promoting a keyless run over it would
 replace a measurement with a stand-in's.
 
+**Where your workspace's replies report no geography Anthropic prices**, such
+as `inference_geo: "not_available"`, the target's cost is not known. The
+cases are still judged, the bill says *cost not known for every call*, and
+the line after it says why and what to pin. That arrives with the
+digline-anthropic release that carries ADR 0004 §8. The releases this example
+admits today, digline-anthropic below 0.7, error every case of such a run
+instead (#569).
+
 `--replacing` names the baseline this promotion replaces: here, the one
 this example ships, whose key `compare` prints under its verdict and
 `digline list` marks with `*`. If the baseline has moved since you

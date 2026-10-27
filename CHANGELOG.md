@@ -360,6 +360,44 @@ notes under them are this file, verbatim.
   two values: `clear`, or `project`, under which the server's responses and
   its refusals carry tokens where they carry names today. Nothing in it is
   implemented, and this entry names no release for it.
+- **A call whose counts were read and whose cost cannot be computed is judged,
+  not errored** (#569, ADR 0004 §8). A price list with no rate for tokens a
+  reply reports, a cached read or a cache write, raised in `Pricing.cost`, and
+  the case or the judged check errored over a call that had answered. Now:
+  - **`Completion.unpriced`** is the word a plugin hands over for such a reply:
+    a sentence saying why, beside the counts it read. It is refused beside
+    `usage=None`, which already says the cost is not known, and refused empty.
+  - **`Pricing.why_unpriced(model, usage)`** answers for the list's own rates,
+    and the reading asks it before `cost`. `cost` still raises on those counts,
+    and still refuses an unknown model, which is not *cost not known*. Every
+    list built from `Pricing` inherits it, so a list of yours with no
+    cached-read rate moves without doing anything. **A subclass that overrides
+    `cost` overrides `why_unpriced` too**, or it is read as unpriced before its
+    own `cost` is asked; a test holds that on this repository's subclasses.
+  - **The call is counted with its tokens, and its cost is not known.** On the
+    target's line through `Response(usage=…, cost_usd=None)`, and on the
+    judge's through `JudgeBase.unpriced_calls`. The driver reads that count
+    beside `uncounted_calls`, and `every_cost_known` is `true` only where it
+    reads two zeros: a judge written by hand that keeps one count and not the
+    other reads *not recorded*.
+  - **`digline run` prints why, once per sentence, after the bill**, on
+    standard error, as *cost not computable: …*. `execute()` hands the
+    sentences to `on_unpriced`, and the host carries them on `Measured`. No
+    document holds them, and no key of `--json` moves.
+  - **A `CostBudget` over such a cost is still `error`**, and says *not
+    computable* with the sentence, where it said *missing*.
+  - **A judge line that read complete over a price that raised is true now.**
+    Measured at `80b70b7e`: a judge whose price raised after an answer, a model
+    its list does not know or a list digline did not write, left the call in
+    `calls` and out of its tokens, its money and every marker. Its tokens are
+    now on the line, its cost is not known, and the check errors with *the
+    judge answered, and pricing its reply raised …*, raised as
+    `JudgePriceRaised`, where it said *the judge raised*.
+
+  **The next version is a minor for this**: an exit code changed. A run whose
+  price list has no rate for tokens a reply reports exited `2` where every case
+  errored, and is judged now. No `SCHEMA_VERSION`, `OUTPUT_VERSION` or
+  `JOURNAL_VERSION` moves.
 
 ## 0.34.0 — 2026-10-26
 
@@ -787,6 +825,20 @@ each package.
 
 ## digline-anthropic — unreleased
 
+- **A reply this plugin cannot price is counted, not refused** (#569, ADR 0004
+  §8). Two were refused, and their case or their judged check errored over a
+  call that had answered: an `inference_geo` with no rate, `"not_available"`
+  included (#392), and a write to the 1-hour cache (#368). Their counts are
+  now read, `Completion.unpriced` says why the reply is not priced and what to
+  pin or use, and the case is judged. `unpriced_of` is new, and
+  `geo_multiplier` answers `None` for a geography with no rate where it
+  raised. A reply that will not be priced leaves no geography factor for the
+  next reading of the price list, which `_WhereServed.why_unpriced` takes
+  where the list itself cannot price the reply. **The next version is a
+  minor**: an exit code changed. **It needs the core release that carries
+  `Completion.unpriced`**, and its floor rises to it (RELEASING.md, *Owed at
+  the cut*).
+
 - **`temperature` is refused, by name and with the reason.** `AnthropicTarget`,
   `AnthropicJudge` and `AnthropicClaimJudge` took it and sent it. The
   `anthropic` SDK has had no such argument since 1.0.0 (0.125.0 is the last
@@ -811,6 +863,17 @@ each package.
   coordinates cannot be given another value, so it moves into a `suite.py`.
 
 ## digline-bedrock — unreleased
+
+- **A cache write at a TTL this list cannot price is counted, not refused**
+  (#569, ADR 0004 §8). A reply whose `cacheDetails` reports a 1-hour write, or
+  a TTL this plugin has never seen, was refused (#368), and its case or its
+  judged check errored over a call that had answered. Its counts are now read,
+  `Completion.unpriced` says why it is not priced, and the case is judged. The
+  sentence quotes the model and is scrubbed like the refusal was: an
+  application inference profile is an ARN carrying the account. `unpriced_of`
+  is new. **The next version is a minor**: an exit code changed. **It needs
+  the core release that carries `Completion.unpriced`**, and its floor rises
+  to it (RELEASING.md, *Owed at the cut*).
 
 - **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It
   told a user to set `AWS_REGION`, which botocore does not read for the region:

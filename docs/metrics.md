@@ -402,6 +402,10 @@ approaches — plus `cost_usd`, `max_usd`, `ratio`.
 40% to 80% of budget is visible long before it breaches. `tolerance` has no
 default because cost is noisy by nature — tokens, retries, a slow provider — and
 an implicit zero would call ordinary noise a regression every run.
+A cost that is not known errors the check, because a ceiling nobody can verify
+is not a ceiling met: *missing* where no cost was given, and *not computable*,
+with the reason, where the counts were read and a rate was not there
+(ADR 0004 §8.7).
 
 ### `LatencyBudget`
 
