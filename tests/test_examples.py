@@ -2480,3 +2480,36 @@ def test_the_baseline_exceptions_are_declared_and_hold() -> None:
                 ).read_text(encoding="utf-8")
             )
             assert baseline["target_config"]["values"].get("resolved_model"), name
+
+
+_DIRTY = re.compile(r"\b[0-9a-f]{40}-dirty\b")
+
+
+def _dirty_reports(root: Path) -> list[str]:
+    """The reports under `root/examples` whose recorded commit says `-dirty`."""
+    return sorted(
+        path.relative_to(root).as_posix()
+        for path in root.glob("examples/*/report.html")
+        if _DIRTY.search(path.read_text(encoding="utf-8"))
+    )
+
+
+def test_no_committed_report_carries_the_dirty_signature(tmp_path: Path) -> None:
+    """`RELEASING.md`, step 5, says no report carries the `-dirty` signature
+    today. This holds that sentence: a report rendered from a tree with changes
+    nobody committed is red here, by name, until it is rendered again from a
+    clean one or the sentence is rewritten."""
+    copy = tmp_path / "examples" / "rag" / "report.html"
+    copy.parent.mkdir(parents=True)
+    text = (ROOT / "examples" / "rag" / "report.html").read_text(encoding="utf-8")
+    recorded = re.search(r"\b[0-9a-f]{40}\b", text)
+    assert recorded, "the control's report records no commit"
+    copy.write_text(
+        text.replace(recorded.group(0), recorded.group(0) + "-dirty"), encoding="utf-8"
+    )
+    assert _dirty_reports(tmp_path) == ["examples/rag/report.html"]
+    dirty = _dirty_reports(ROOT)
+    assert not dirty, (
+        f"these committed reports record a -dirty commit, and RELEASING.md step 5 "
+        f"says none does: {dirty}"
+    )
