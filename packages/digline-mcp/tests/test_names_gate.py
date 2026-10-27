@@ -25,9 +25,10 @@ classified. The tool list is read from the server, not written into the test.
 **What it does not cover.** A path that does not occur in this fixture is not
 seen: the walk is of answers, not of the model behind them, so a field that is
 empty here is unclassified and unchecked. Numbers are not walked, as in the
-projection's gate. And a refusal is checked as prose where the fixture raises
-one, which is `run`'s count; the refusals of the core that reach a tool are
-not driven here.
+projection's gate. And a refusal is checked as prose: `run`'s count, and five
+refusals of the core this fixture provokes. ADR 0054 §8 wants a refusal's
+names in fields, which the core's classes do not carry, and the last test here
+holds that as an `xfail(strict=True)`.
 """
 
 from __future__ import annotations
@@ -415,49 +416,42 @@ def test_in_clear_the_same_answers_carry_the_names(
     assert not any(value in table.rows for value in values)
 
 
-def _refused(repo: Path, tool: str, arguments: dict[str, Any], **server: Any) -> str:
-    async def go() -> str:
+def _refusal(
+    repo: Path, tool: str, arguments: dict[str, Any], **server: Any
+) -> ToolError:
+    async def go() -> ToolError:
         built = build_server(str(repo), None, None, names="project", **server)
         try:
             await built.call_tool(tool, arguments)
         except ToolError as refused:
-            return str(refused)
+            return refused
         raise AssertionError(f"{tool} {arguments} answered; a refusal was expected")
 
     return anyio.run(go)
 
 
-def test_the_refusals_a_tool_meets_here_name_nothing_the_table_minted(
-    fixture_repo: tuple[Path, str, str],
-    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
-) -> None:
-    """The refusals this fixture can provoke, under `project`, checked as
-    prose: an unknown run, a run diffed with itself, a corrupted run document,
-    a suite outside the root, and no baseline. Each names what it needs to and
-    nothing the table minted, because what it quotes is the committing party's
-    own (class b), a key, or the request. **A measurement over these, not a
-    rule**: a refusal of the core is a sentence, and ADR 0054 §8's fields are
-    not carried by the core's classes. (ADR 0054 §8)"""
-    repo, first, _ = fixture_repo
-    _, table = projected
-    said: dict[str, str] = {}
-    said["unknown run"] = _refused(
+def _provoke(repo: Path, first: str, table: RecordingTable) -> dict[str, ToolError]:
+    """The refusals this fixture can provoke under `project`: an unknown run, a
+    run diffed with itself, a suite outside the root, a corrupted run document,
+    and no baseline."""
+    said: dict[str, ToolError] = {}
+    said["unknown run"] = _refusal(
         repo,
         "get_run",
         {"suite": SPEC, "run": "2020-01-01T00-00-00-000000-00-00-0000000000000000"},
         table=table,
     )
-    said["itself"] = _refused(
+    said["itself"] = _refusal(
         repo, "diff", {"suite": SPEC, "run1": first, "run2": first}, table=table
     )
-    said["outside"] = _refused(
+    said["outside"] = _refusal(
         repo, "get_run", {"suite": "../elsewhere.py"}, table=table
     )
     stored = next((repo / ".digline").glob("*/runs/*/*.json"))
     kept = stored.read_bytes()
     try:
         stored.write_text('{"schema_version": "x"}', encoding="utf-8")
-        said["corrupted"] = _refused(
+        said["corrupted"] = _refusal(
             repo, "get_run", {"suite": SPEC, "run": stored.stem}, table=table
         )
     finally:
@@ -466,14 +460,77 @@ def test_the_refusals_a_tool_meets_here_name_nothing_the_table_minted(
     moved = baselines.with_name("baselines-away")
     baselines.rename(moved)
     try:
-        said["no baseline"] = _refused(
+        said["no baseline"] = _refusal(
             repo, "get_baseline", {"suite": SPEC}, table=table
         )
     finally:
         moved.rename(baselines)
+    return said
+
+
+def test_the_refusals_a_tool_meets_here_name_nothing_the_table_minted(
+    fixture_repo: tuple[Path, str, str],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """The refusals this fixture can provoke, under `project`, checked as
+    prose. Each names what it needs to and nothing the table minted, because
+    what it quotes is the committing party's own (class b), a key, or the
+    request. **A measurement over these, not a rule**: a refusal of the core is
+    a sentence, and ADR 0054 §8's fields are not carried by the core's classes.
+    The next test holds what is missing. (ADR 0054 §8)"""
+    repo, first, _ = fixture_repo
+    _, table = projected
+    said = {why: str(refused) for why, refused in _provoke(repo, first, table).items()}
     leaked = {
         why: sorted(name for name in table.texts() if name in text)
         for why, text in said.items()
     }
     assert not any(leaked.values()), leaked
     assert all(said.values()), said
+
+
+def _fields(refused: BaseException) -> list[tuple[str, str]]:
+    """The strings a refusal carries in fields, through every wrap, each at
+    `!refusal.<field>`: what the gate could classify, as against the sentence."""
+    found: list[tuple[str, str]] = []
+    error: BaseException | None = refused
+    while error is not None:
+        for field, value in vars(error).items():
+            found.extend(walk(value, f"!refusal.{field}"))
+        error = error.__cause__ or error.__context__
+    return found
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "ADR 0054 §8 wants the names a refusal quotes carried in fields, and "
+        "this gate classifies fields, not prose. The five refusals measured "
+        "under project (an unknown run, a run diffed with itself, a corrupted "
+        "run document, a suite outside the root, no baseline) quote no name "
+        "the table minted, and five measurements are not a perimeter. What is "
+        "missing is the core's error classes carrying those fields (#548)."
+    ),
+)
+def test_the_gate_classifies_the_names_of_a_refusal(
+    fixture_repo: tuple[Path, str, str],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """Every refusal a tool meets carries its names in fields, and each field
+    sits at a path the gate classifies as something other than prose."""
+    repo, first, _ = fixture_repo
+    _, table = projected
+    classified = strings(Gate(table))
+    bare = sorted(
+        why
+        for why, refused in _provoke(repo, first, table).items()
+        if not _fields(refused)
+    )
+    assert not bare, f"these refusals carry their names in a sentence alone: {bare}"
+    unclassified = sorted(
+        f"{why}: {path}"
+        for why, refused in _provoke(repo, first, table).items()
+        for path, _ in _fields(refused)
+        if classified.get(path, ("p",))[0] == "p"
+    )
+    assert not unclassified, unclassified

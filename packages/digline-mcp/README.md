@@ -59,7 +59,8 @@ suite decides, as it does everywhere else in digline.
 
 `--names` is **required, with no default**: `clear` lets the store's names leave
 as they are, and `project` projects every answer, so the names leave as tokens
-from the name table that `--name-table module:attribute` names. A configuration
+from the name table that `--name-table module:attribute` names; a refusal is
+not projected yet, and is a sentence (ADR 0054 §8). A configuration
 with `--root` alone no longer starts; `--names clear` keeps what it did.
 [ADR 0054](https://digline.dev/product/adr/0054-the-names-a-server-lets-out/)
 has the reasons.

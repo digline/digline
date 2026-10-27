@@ -787,6 +787,14 @@ floor RELEASING.md's table names.
   server registers under `project` and fails closed on a string at a path it
   does not classify, so a new tool or a new field is red until it is
   classified.
+- **ADR 0054 §8 is not complete.** A refusal the core raises reaches a tool as
+  a sentence, not projected, and its names are in no field the gate can
+  classify. The five refusals measured under `project` (an unknown run, a run
+  diffed with itself, a corrupted run document, a suite outside the root, no
+  baseline) quote no name the table minted, and five measurements are not a
+  guarantee. An `xfail(strict=True)` in the gate holds what is missing, the
+  core's error classes carrying those names in fields, and turns red when they
+  do.
 - **`run` refuses an unreadable baseline before it asks for the count, and
   takes `accepting_baseline_schema`** (#707). A baseline at a schema this
   digline cannot read made `run` ask an agent to type back a count of calls,

@@ -123,7 +123,10 @@ asks whoever starts it ([ADR 0054](adr/0054-the-names-a-server-lets-out.md)):
   names become **tokens** from the name table, the same tokens a projected
   reference carries ([ADR 0036](adr/0036-the-name-table-and-the-process-that-owns-it.md)),
   and the sentences an answer carries are composed from the tokens. `tenant`
-  and `suite` stay in clear, as they do in a projection.
+  and `suite` stay in clear, as they do in a projection. **A refusal is not
+  projected yet**: one the core raises is a sentence, and the ones measured
+  quote no name the table minted, which is a measurement and not a guarantee
+  (ADR 0054 §8 is not complete).
 
 Under `project`, `--name-table module:attribute` names the table, in the
 syntax `--target` and `--suite` take: an object, or a module, with the two

@@ -1,10 +1,11 @@
 # ADR 0054 — The names a server lets out
 
 - Status: proposed 2026-10-26. Implemented 2026-10-27 for digline-mcp 0.7.0,
-  which is not released: *Consequences* says what the acceptance measured. The
-  decisions below were ruled by Alessandro Prandini on 2026-10-26, on #548
-  (where the ruling is a comment) and on the reading of this record's draft,
-  and this record is written before the code
+  which is not released, **except §8 for the core's refusals**, which a strict
+  `xfail` holds: *Consequences* says what the acceptance measured and what §8
+  reaches. The decisions below were ruled by Alessandro Prandini on
+  2026-10-26, on #548 (where the ruling is a comment) and on the reading of
+  this record's draft, and this record is written before the code
 - Shipped: unreleased
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:
@@ -36,10 +37,10 @@ read at `v0.31.0` and `digline-mcp-v0.5.0`, lists what its responses carry in
 clear: `case_id`, verdict names, group labels, the names of calibration checks,
 the configuration the application reports, artifact and pinned paths, the
 tenant, and the names a refusal quotes. A measurement on stdio, as a real
-client, on `quickstart-toml` and `prompt-first`, counted **33 texts** that
-`get_baseline` returns in clear and a projection tokenises. It was reported on
-2026-10-26 and was not repeated for this record, and the commit it was taken at
-is not recorded here; the acceptance repeats it (*Consequences*).
+client, on `quickstart-toml` and `prompt-first`, found that `get_baseline`
+returns in clear texts a projection tokenises. It was reported on 2026-10-26
+and was not repeated for this record; the acceptance repeats it
+(*Consequences*).
 
 Whether those names may leave depends on whose cases are in the store, and
 nothing in a store says.
@@ -238,12 +239,11 @@ section moves with it.
 
 *Noted 2026-10-27 (#548), what the acceptance measured.* Over stdio, as a real
 client, on `quickstart-toml` and `prompt-first`, each with its committed
-baseline: under `clear`, `get_baseline` returns 32 distinct texts the name
-table was asked to mint (15 and 17), 52 occurrences; under `project`, none of
-them appears in any string of the answer; `project` with no table exits 64 with
-a message that names nothing stored. The *Context* above counted 33. The two
-counts were taken by different scripts at different commits, and the difference
-is not explained here. Both examples ran with no key.
+baseline, every text the projection mints for `get_baseline`'s answer leaves
+**tokenised** under `project`, appearing in no string of the answer, and **in
+clear** under `clear`, as before; `project` with no table exits 64 with a
+message that names nothing stored. Both examples ran with no key. That is one
+tool over stdio; every tool is held in process by `tests/test_names_gate.py`.
 
 *Noted 2026-10-27 (#548), what §8 reaches in this code.* The refusals this
 server composes name the checks of a plan by their tokens: the sentence is
@@ -252,4 +252,8 @@ tool is unchanged: it is a sentence, and the core's classes carry no fields for
 its names. Measured in `tests/test_names_gate.py` over the refusals that
 fixture provokes (an unknown run, a run diffed with itself, an unreadable run,
 a suite outside the root, no baseline), none quotes a name the table minted:
-each quotes the tenant, the suite, a key, a path or the request.
+each quotes the tenant, the suite, a key, a path or the request. Five
+measurements are not a perimeter, so §8 is **not complete**: what is missing is
+the core's error classes carrying the names in fields, and
+`test_the_gate_classifies_the_names_of_a_refusal` holds it as an
+`xfail(strict=True)` that turns red the day they do.
