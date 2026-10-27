@@ -2369,7 +2369,7 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         ),
         threshold=declared_number(raw, "threshold", where),
         tolerance=declared_number(raw, "tolerance", where),
-        status=cast(Status, str(_required(raw, "status", where))),
+        status=_status_from(raw, where),
         # A redacted document has no `reason` to read; the marker keeps the
         # reconstructed verdict valid without inventing content. One that
         # still carries it is refused above, never silently emptied.
@@ -2380,6 +2380,22 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         judged=_optional_flag(raw, "judged", where),
         floor_standard_errors=_declared_width(raw, where),
     )
+
+
+#: Read off the type, as `_ERROR_KINDS` is.
+_STATUSES: frozenset[str] = frozenset(get_args(Status.__value__))
+
+
+def _status_from(raw: Mapping[str, Any], where: str) -> Status:
+    """One of digline's three words, and anything else refused by name. Left
+    to `Verdict`, a word it does not know was repeated in the refusal, and a
+    refusal names the field, never what the file holds. (#350)"""
+    word = _required(raw, "status", where)
+    if not isinstance(word, str) or word not in _STATUSES:
+        raise DocumentRefusedError(
+            f"{where}: 'status' is not one of {', '.join(sorted(_STATUSES))}"
+        )
+    return cast(Status, word)
 
 
 def _declared_width(raw: Mapping[str, Any], where: str) -> float | None:
@@ -2698,7 +2714,10 @@ def totals_to_dict(totals: CallTotals) -> dict[str, object]:
 
 def totals_from_dict(raw: object, where: str) -> CallTotals:
     if not isinstance(raw, Mapping):
-        raise ValueError(f"{where}: {raw!r} is not a line of the bill")
+        # Its type, never its value: what the file holds stays out. (#350)
+        raise ValueError(
+            f"{where}: the line of the bill is a JSON {_json_type(raw)}, not an object"
+        )
     line = cast(Mapping[str, Any], raw)
     tokens = line.get("tokens")
     return CallTotals(
