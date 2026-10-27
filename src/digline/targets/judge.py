@@ -269,6 +269,16 @@ class JudgeBase(ABC):
         #: like the rest. Counted so the judge line says its cost is not known,
         #: rather than the driver assuming it is (#629).
         self.uncounted_calls = 0
+        #: The calls that answered, whose usage was read and whose cost could
+        #: not be computed: a rate the plugin or the price list does not have.
+        #: `calls` and `tokens` include them, `spent_usd` does not. Monotone
+        #: like the rest. Not `uncounted_calls`, which would take their tokens
+        #: off the line. (ADR 0004 §8.5)
+        self.unpriced_calls = 0
+        #: Why, per distinct sentence, with how many calls gave it. Monotone,
+        #: so a run's share is the sentences whose count rose: the run prints
+        #: them for the person who ran it. (ADR 0004 §8.3)
+        self.unpriced_reasons: dict[str, int] = {}
         #: What this judge has consumed, by the same rule as `spent_usd`:
         #: monotone for the life of the object, never reset, and a caller
         #: wanting a per-run figure reads twice and subtracts — which is what
@@ -305,9 +315,20 @@ class JudgeBase(ABC):
         elapsed_ms = (perf_counter() - started) * 1000.0
         self.calls += 1
         self.latency_ms += elapsed_ms
+        # Three exclusive readings of a call that answered (ADR 0004 §8.5).
+        unpriced = None
+        if reply.usage is not None:
+            unpriced = reply.unpriced
+            if unpriced is None:
+                unpriced = self.pricing.why_unpriced(self.model, reply.usage)
         if reply.usage is None:
             # Answered, and its counts not recorded (#629): a call, not a cost.
             self.uncounted_calls += 1
+        elif unpriced is not None:
+            # Answered and counted, and its cost cannot be computed: its tokens
+            # go on the line below, its money does not.
+            self.unpriced_calls += 1
+            self.unpriced_reasons[unpriced] = self.unpriced_reasons.get(unpriced, 0) + 1
         else:
             self.spent_usd += self.pricing.cost(self.model, reply.usage)
         # Beside the money and under the same rule stated above it: a call that

@@ -10,14 +10,16 @@ so.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from digline.core import Contains, Run, RunUsage
-from digline.run import Case, Suite, execute
-from digline.run.driver import default_mapper
+from digline.core import Contains, JudgeReply, LlmRubric, Run, RunUsage
+from digline.run import Case, Response, Suite, execute
+from digline.run.driver import default_mapper, judge_totals
 from digline.targets import Completion, ProviderTarget
+from digline.targets.judge import ScoreJudge
 from digline.targets.pricing import (
     ModelPrice,
     Pricing,
@@ -201,3 +203,117 @@ def test_the_target_line_counts_the_call_and_its_tokens_and_not_its_cost(
     assert line.every_call_seen is True
     assert [v.status for v in run.results[0].verdicts] == ["pass"]
     assert run.results[0].error_kind is None
+
+
+# --------------------------------------------------------------------------- #
+# The judge: `unpriced_calls`, and the driver reading two counts (§8.5)
+# --------------------------------------------------------------------------- #
+
+VERDICT = json.dumps({"score": 1.0, "reason": "fine"})
+
+
+class ReplyingJudge(ScoreJudge):
+    """A `JudgeBase` whose plugin hands over each reply as given."""
+
+    provider = "fake"
+    system = "unused"
+
+    def __init__(self, *replies: Completion, pricing: Pricing = PRICING) -> None:
+        super().__init__(model="j-1", max_tokens=16, pricing=pricing)
+        self.replies = list(replies)
+
+    def _complete(self, system: str, prompt: str) -> Completion:
+        return self.replies.pop(0)
+
+
+class Answering:
+    """A target that answers, priced at zero, so a judge line is alone in what
+    its test varies."""
+
+    config = {"provider": "fake", "model": "m-1"}
+
+    def __call__(self, case: Case) -> Response:
+        return Response(output="yes", cost_usd=0.0, usage=Usage(0, 0))
+
+
+def rubric(judge: object) -> LlmRubric:
+    return LlmRubric(
+        rubric="Is it polite?",
+        judge=judge,  # pyright: ignore[reportArgumentType]
+        threshold=0.5,
+        tolerance=0.0,
+    )
+
+
+def test_an_unpriced_judge_call_is_counted_with_its_tokens_and_not_its_money() -> None:
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=COUNTS, unpriced=GEO))
+    judge("Output to judge:\nyes")
+    assert (judge.calls, judge.uncounted_calls, judge.unpriced_calls) == (1, 0, 1)
+    assert judge.spent_usd == 0.0
+    assert judge.tokens == COUNTS
+    assert judge.unpriced_reasons == {GEO: 1}
+
+
+def test_the_price_lists_sentence_is_an_unpriced_judge_call() -> None:
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=CACHED_READS))
+    judge("Output to judge:\nyes")
+    assert (judge.calls, judge.unpriced_calls, judge.spent_usd) == (1, 1, 0.0)
+    assert judge.tokens == CACHED_READS
+
+
+def test_a_judge_call_with_no_counts_is_uncounted_and_not_unpriced() -> None:
+    """The second direction: `usage=None` reads as before (#629)."""
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=None))
+    judge("Output to judge:\nyes")
+    assert (judge.calls, judge.uncounted_calls, judge.unpriced_calls) == (1, 1, 0)
+    assert judge.unpriced_reasons == {}
+
+
+def test_the_judge_line_counts_an_unpriced_call_and_not_its_cost() -> None:
+    judge = ReplyingJudge(Completion(text=VERDICT, usage=COUNTS, unpriced=GEO))
+    run = execute(suite(rubric(judge)), Answering(), created_at=CREATED)
+    line = usage_of(run).judge
+    assert (line.calls, line.counted, line.spent_usd) == (1, 1, 0.0)
+    assert (line.tokens.input_tokens, line.tokens.output_tokens) == (100, 10)
+    assert line.every_cost_known is False
+    assert [v.status for v in run.results[0].verdicts] == ["pass"]
+
+
+class HandWritten:
+    """A judge written by hand, keeping the counts it was given, after one
+    call that answered."""
+
+    config = {"provider": "hand", "model": "h-1"}
+
+    def __init__(self, **counts: int) -> None:
+        self.calls = 1
+        self.spent_usd = 0.0
+        self.tokens = Usage(0, 0)
+        self.raised_calls = 0
+        for name, value in counts.items():
+            setattr(self, name, value)
+
+    def __call__(self, prompt: str) -> JudgeReply:
+        self.calls += 1
+        return JudgeReply(score=1.0, reason="fine")
+
+
+@pytest.mark.parametrize(
+    ("counts", "known"),
+    [
+        ({"uncounted_calls": 0, "unpriced_calls": 0}, True),
+        ({"uncounted_calls": 0}, None),
+        ({"unpriced_calls": 0}, None),
+        ({}, None),
+        ({"uncounted_calls": 1}, False),
+        ({"unpriced_calls": 1}, False),
+        ({"uncounted_calls": 0, "unpriced_calls": 1}, False),
+    ],
+)
+def test_true_is_read_off_two_zeros_and_never_assumed(
+    counts: dict[str, int], known: bool | None
+) -> None:
+    """A judge that keeps one count and not the other is *not recorded*,
+    unless the count it keeps is above zero."""
+    line = judge_totals(suite(rubric(HandWritten(**counts))))
+    assert line.every_cost_known is known

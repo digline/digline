@@ -385,12 +385,36 @@ def _uncounted(judge: Billable) -> int | None:
     return found
 
 
+def _unpriced(judge: Billable) -> int | None:
+    """The judge's calls whose counts were read and whose cost could not be
+    computed, read off `unpriced_calls`, which `JudgeBase` keeps; `None` where
+    a judge keeps no such count. Read with a default, as `uncounted_calls` is.
+    (ADR 0004 §8.5)"""
+    found = getattr(judge, "unpriced_calls", None)
+    if not isinstance(found, int) or isinstance(found, bool):
+        return None
+    return found
+
+
 def _knew_every_cost(judge: Billable) -> bool | None:
-    """Whether the judge priced every call it counts: `None` for a judge that
-    keeps no count of the calls it could not, since nothing established that
-    it priced them all. (#629)"""
-    uncounted = _uncounted(judge)
-    return None if uncounted is None else uncounted == 0
+    """Whether the judge priced every call it answered, read off two counts:
+    the calls whose usage was not recorded (#629) and the calls whose cost
+    could not be computed (ADR 0004 §8.5).
+
+    Each count reads `False` above zero, `True` at zero, and *not recorded*
+    where the judge keeps none, and the two are summed as the line sums:
+    `False` over `None` over `True`. So a judge that keeps one count and not
+    the other is *not recorded* unless the count it keeps is above zero, and
+    `True` is reached only by reading two zeros, never by assuming one."""
+    readings = [
+        None if count is None else count == 0
+        for count in (_uncounted(judge), _unpriced(judge))
+    ]
+    if False in readings:
+        return False
+    if None in readings:
+        return None
+    return True
 
 
 def _judged_unread(assertions: Sequence[object], read: set[int]) -> bool:
