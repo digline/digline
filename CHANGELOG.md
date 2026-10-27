@@ -509,6 +509,30 @@ digline **0.35.0**.
   holds both, and one exclusion remains there: numbers. A schema that moves
   is a minor.
 
+### Why this is a minor and not a patch
+
+This release records two things a projection could not read from a document
+before: which of a run's configuration keys belong to digline's own vocabulary
+(`SystemConfig.named`), and who wrote a verdict's metadata (`Verdict.origin`).
+Recording them fixes the day's reading, so a later change to either vocabulary
+cannot reinterpret a document written today.
+
+New public names appear — `SystemConfig.named`, `Verdict.origin`, `origin`,
+`Origin`, `NAMED_CONFIG_KEYS`, `FOREIGN_METADATA`, `DRIVER_METADATA_KEYS` and
+the token kind `metadata_key` — and a verdict whose origin was never recorded
+is treated as foreign, which is a behaviour third-party metadata can observe.
+That is what makes this a minor.
+
+Schema 22 moves nothing on the wire: `OUTPUT_VERSION` is 4 in this release for
+#678's renames, and the two fields add no key to it. The schema step to 22
+writes nothing. No document written by 0.34.0 stops being read, which is what
+keeps this from being a major.
+
+This release also carries the core half of ADR 0004 §8: a target can report a
+cost it cannot compute (`Completion.unpriced`, `Pricing.why_unpriced`) instead
+of raising. And the core half of ADR 0054, whose `NameTable.mint` digline-mcp's
+`--names project` calls.
+
 ## 0.34.0 — 2026-10-26
 
 digline **0.34.0**.
