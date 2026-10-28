@@ -310,26 +310,44 @@ def walk(value: Any, path: str = "$") -> list[tuple[str, str]]:
     return found
 
 
-#: What the copy adds to the example: an aggregate split by group, so that a
-#: run's aggregate names, `family[group=…]` among them, are in the answers.
-#: Without one, `list_runs` names nothing and a list in clear passed this gate.
-_WIDENED = (
-    (
-        "from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated",
-        "from digline.core import Accuracy, JudgeReply, Levenshtein, LlmRubric, "
-        "Repeated",
-    ),
-    (
-        'Case(id=c["id"], vars=c["vars"], expected=c["expected"])',
-        'Case(id=c["id"], vars=c["vars"], expected=c["expected"], '
-        'label="positive", group="till" if "price" in c["id"] else "shelf")',
-    ),
-    (
-        "    samples=5,\n    min_agreement=",
-        '    run_assertions=[Accuracy(over="levenshtein", threshold=0.5, '
-        "tolerance=0.05, by_group=True)],\n    samples=5,\n    min_agreement=",
-    ),
-)
+#: What the copy adds to the example: every case labelled and grouped, and an
+#: aggregate split by group, so that a run's aggregate names, `family[group=…]`
+#: among them, are in the answers. Without one, `list_runs` names nothing and a
+#: list in clear passed this gate.
+#:
+#: **Built from the example's declaration, never from its text.** The copy keeps
+#: the example's `suite.py` as `example_suite.py`, and `SPEC` is this file,
+#: which imports that suite and rebuilds it with `dataclasses.replace`. The
+#: gate used to rewrite the example's source by exact strings, and it broke
+#: whenever the example changed for a reason of its own: #651 raised `samples`
+#: to 5 and the anchor `samples=3,` was gone. What this reads is the
+#: declaration (`cases`, `assertions`, `run_assertions`), the checks by their
+#: name and the cases by their id.
+EXAMPLE_MODULE = "example_suite"
+
+_WIDENED = """\"\"\"prompt-first's suite, widened by the names gate.\"\"\"
+
+from dataclasses import replace
+
+from digline.core import Accuracy
+
+from example_suite import suite as example
+from example_suite import target
+
+CASES = [
+    replace(c, label="positive", group="till" if "price" in c.id else "shelf")
+    for c in example.cases
+]
+AGGREGATES = [
+    Accuracy(over="levenshtein", threshold={threshold}, tolerance=0.05, by_group=True)
+]
+suite = replace(example, cases=CASES, run_assertions=AGGREGATES)
+"""
+
+
+def widened(threshold: float = 0.5) -> str:
+    """The thin suite, its aggregate's threshold given."""
+    return _WIDENED.replace("{threshold}", repr(threshold))
 
 
 #: Tracked files of the example the fixture leaves out: its lock and its
@@ -340,12 +358,8 @@ _NOT_COPIED = frozenset({"uv.lock", "report.html"})
 def build_repository(tmp: Path, *, example: Path = EXAMPLE) -> tuple[Path, str, str]:
     repo = tmp / "prompt-first"
     copy_tracked(example, repo, leave_out=_NOT_COPIED)
-    suite = repo / SPEC
-    source = suite.read_text(encoding="utf-8")
-    for before, after in _WIDENED:
-        assert source.count(before) == 1, before
-        source = source.replace(before, after)
-    suite.write_text(source, encoding="utf-8")
+    (repo / SPEC).rename(repo / f"{EXAMPLE_MODULE}.py")
+    (repo / SPEC).write_text(widened(), encoding="utf-8")
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "config", "user.name", "Test")
@@ -907,15 +921,37 @@ def _baseline(edit: Callable[[dict[str, Any]], object]) -> Provoke:
     return provoke
 
 
-def _suite(*edits: tuple[str, str]) -> Provoke:
-    """`get_run` on a copy of the fixture's suite, beside it, with each edit
-    made once: a suite refused as it loads, which every tool loads first."""
+_BROKEN = """from dataclasses import replace
+
+from digline.core import Accuracy, Levenshtein
+from digline.run import Calibration, Case
+
+from example_suite import suite as example
+from example_suite import target
+from suite import AGGREGATES, CASES
+
+suite = replace(
+    example, cases={cases}, assertions={assertions}, run_assertions={aggregates}
+)
+"""
+
+
+def _suite(
+    *,
+    cases: str = "CASES",
+    assertions: str = "example.assertions",
+    aggregates: str = "AGGREGATES",
+) -> Provoke:
+    """`get_run` on a suite beside the fixture's, rebuilt from the example's
+    declaration with one part changed: a suite refused as it loads, which every
+    tool loads first. Each part is Python, read where the suite is built."""
+    source = (
+        _BROKEN.replace("{cases}", cases)
+        .replace("{assertions}", assertions)
+        .replace("{aggregates}", aggregates)
+    )
 
     def provoke(scene: Scene) -> ToolError:
-        source = (scene.repo / SPEC).read_text(encoding="utf-8")
-        for old, new in edits:
-            assert source.count(old) == 1, old
-            source = source.replace(old, new)
         broken = scene.repo / "broken.py"
         broken.write_text(source, encoding="utf-8")
         try:
@@ -948,27 +984,27 @@ def _toml(*tail: str, target: str | None = None) -> Provoke:
     return provoke
 
 
-#: The fixture's own case list, as the widened suite declares each case.
-_CASE = 'Case(id=c["id"], vars=c["vars"], expected=c["expected"], '
-_GROUP = 'group="till" if "price" in c["id"] else "shelf"'
-_NO_GROUP = (_GROUP, "group=None")
-_TWO_DISTANCES = (
-    "Levenshtein(threshold=0.75, tolerance=0.05),",
-    "Levenshtein(threshold=0.75, tolerance=0.05), "
-    "Levenshtein(threshold=0.7, tolerance=0.05),",
-)
+def _each(**fields: str) -> str:
+    """Every case of the widened suite with `fields` replaced, each a Python
+    expression: the first case refuses as it is rebuilt."""
+    changed = ", ".join(f"{name}={value}" for name, value in fields.items())
+    return f"[replace(c, {changed}) for c in CASES]"
 
 
-def _calibrating(
+def _calibration(
     check: str = "llm_rubric", output: str = "x", question: str | None = ""
-) -> tuple[str, str]:
-    """Every case of the fixture made a calibration case of `check`."""
+) -> str:
+    """A calibration of `check`, inside (0, 1), as a Python expression."""
     asked = "" if question is None else f"input={question!r}, "
-    return (
-        _CASE,
-        _CASE + f"calibration=Calibration(check={check!r}, output={output!r}, "
-        f"{asked}low=0.2, high=0.8), ",
-    )
+    return f"Calibration(check={check!r}, output={output!r}, {asked}low=0.2, high=0.8)"
+
+
+#: The example's checks with a second `levenshtein` beside the first, found by
+#: its name.
+_TWO_DISTANCES = (
+    "[b for a in example.assertions for b in ((a, Levenshtein(threshold=0.7, "
+    'tolerance=0.05)) if a.name == "levenshtein" else (a,))]'
+)
 
 
 _TOML_HEAD = """[suite]
@@ -1131,90 +1167,87 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
     # The refusals of loading a suite. Every tool loads it first, so each
     # crosses the boundary from any of them. (ADR 0054 §8, ruled 2026-10-28)
     "a case suspended with no reason": (
-        _suite((_CASE, _CASE + 'suspended="", ')),
+        _suite(cases=_each(suspended='""')),
         "is suspended without a stated reason: a suspension nobody",
     ),
     "a case with an empty expected": (
-        _suite(('expected=c["expected"], ', 'expected="", ')),
+        _suite(cases=_each(expected='""')),
         "declares an empty expected",
     ),
     "a case with an empty group": (
-        _suite((_GROUP, 'group=""')),
+        _suite(cases=_each(group='""')),
         "declares an empty group",
     ),
     "a canary in a group": (
-        _suite((_CASE, _CASE + "canary=True, ")),
+        _suite(cases=_each(canary="True")),
         "is a canary and declares the group",
     ),
     "a canary that calibrates": (
-        _suite(
-            _NO_GROUP,
-            (_CASE, _CASE + "canary=True, " + _calibrating()[1][len(_CASE) :]),
-        ),
+        _suite(cases=_each(group="None", canary="True", calibration=_calibration())),
         "is both a canary and a calibration case: a canary asks",
     ),
     "a calibration case in a group": (
-        _suite(_calibrating()),
+        _suite(cases=_each(calibration=_calibration())),
         "is a calibration case and declares the group",
     ),
     "a calibration with an empty answer": (
-        _suite(_NO_GROUP, _calibrating(output="")),
+        _suite(cases=_each(group="None", calibration=_calibration(output=""))),
         "declares an empty output",
     ),
     "a calibration of a check nobody declared": (
-        _suite(_NO_GROUP, _calibrating(check="nope")),
+        _suite(cases=_each(group="None", calibration=_calibration(check="nope"))),
         "which no assertion in suite 'replies' is called",
     ),
     "a calibration of a check two share": (
-        _suite(_NO_GROUP, _calibrating(check="levenshtein"), _TWO_DISTANCES),
+        _suite(
+            cases=_each(group="None", calibration=_calibration(check="levenshtein")),
+            assertions=_TWO_DISTANCES,
+        ),
         "which 2 assertions in suite 'replies' share",
     ),
     "a calibration of a check nobody judges": (
-        _suite(_NO_GROUP, _calibrating(check="levenshtein")),
+        _suite(
+            cases=_each(group="None", calibration=_calibration(check="levenshtein"))
+        ),
         "which is not a judged check",
     ),
     "a calibration with no question": (
-        _suite(_NO_GROUP, _calibrating(question=None)),
+        _suite(cases=_each(group="None", calibration=_calibration(question=None))),
         "and declares no input",
     ),
     "a case id declared twice": (
         _suite(
-            (
-                "+ CALIBRATION",
-                '+ CALIBRATION + [Case(id="opening-hours", vars={"question": "x"}, '
-                'expected="y", label="positive")]',
-            )
+            cases="[*CASES, Case(id=CASES[0].id, vars={'question': 'x'}, "
+            "expected='y', label='positive')]"
         ),
         "twice: ids are how a result finds its counterpart",
     ),
     "an aggregate named as an expanded one": (
         _suite(
-            (
-                'Accuracy(over="levenshtein", ',
-                'Accuracy(name="accuracy[group=till]", over="levenshtein", ',
-            )
+            aggregates='[Accuracy(name="accuracy[group=till]", over="levenshtein", '
+            "threshold=0.5, tolerance=0.05, by_group=True)]"
         ),
         "writes '[group=' in its own name",
     ),
     "an aggregate over a check nobody declared": (
-        _suite(('Accuracy(over="levenshtein", ', 'Accuracy(over="nope", ')),
+        _suite(
+            aggregates='[Accuracy(over="nope", threshold=0.5, tolerance=0.05, '
+            "by_group=True)]"
+        ),
         "' aggregates over '",
     ),
     "an aggregate over a check two share": (
-        _suite(_TWO_DISTANCES),
+        _suite(assertions=_TWO_DISTANCES),
         "an aggregate cannot choose between them",
     ),
     "cases with no label under a confusion matrix": (
-        _suite(('label="positive", ', "")),
+        _suite(cases=_each(label="None")),
         "so every case needs a label. Missing on:",
     ),
     "a check with a floor that is not a number": (
         _suite(
-            (
-                "Levenshtein(threshold=0.75, tolerance=0.05),",
-                "Levenshtein(threshold=0.75, tolerance=0.05, "
-                'floor_standard_errors=float("nan")),',
-            )
+            assertions="[replace(a, floor_standard_errors=float('nan')) "
+            'if a.name == "levenshtein" else a for a in example.assertions]'
         ),
         "floor_standard_errors must be a positive finite number",
     ),
@@ -1448,12 +1481,16 @@ COINCIDENCES_COUNT = 4
 def changed_suite(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str, str]:
     """A repository whose last run was made under a suite with one threshold
     moved: two runs `diff` refuses to compare."""
-    repo, _, before = build_repository(tmp_path_factory.mktemp("changed"))
-    suite = repo / SPEC
-    source = suite.read_text(encoding="utf-8")
-    moved = source.replace("threshold=0.5,", "threshold=0.4,")
-    assert moved != source, "the control: the suite has a threshold to move"
-    suite.write_text(moved, encoding="utf-8")
+    return build_changed(tmp_path_factory.mktemp("changed"))
+
+
+def build_changed(tmp: Path) -> tuple[Path, str, str]:
+    """The fixture, and a last run made under the widened suite with its
+    aggregate's threshold moved: the gate's own declaration rebuilt, where it
+    used to replace `threshold=0.5,` in the suite's text and trusted the
+    example not to hold the same string."""
+    repo, _, before = build_repository(tmp)
+    (repo / SPEC).write_text(widened(threshold=0.4), encoding="utf-8")
     git(repo, "commit", "-qam", "move a threshold")
     done = cli(repo, "run", "--suite", SPEC)
     assert done.stdout.strip(), done.stderr
