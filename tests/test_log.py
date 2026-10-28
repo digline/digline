@@ -186,7 +186,7 @@ def test_a_silence_is_never_collapsed_into_its_neighbours() -> None:
         a_run(T2, target=config(), version=""),
         a_run(T3, target=config(resolved="snapshot-a")),
     )
-    assert [span.answered for span in target_spans(log)] == [
+    assert [span.reported for span in target_spans(log)] == [
         "snapshot-a",
         None,
         "snapshot-a",
@@ -258,7 +258,7 @@ def test_every_absence_is_named_for_what_it_is(
     log = read(a_run(T1, version=version, **options))  # type: ignore[arg-type]
     (span,) = [s for s in log.spans if s.side == side]
     assert span.absence == kind
-    assert span.answered is None
+    assert span.reported is None
     text = "\n".join(log_text(log, locale=locale))
     assert phrase(locale, f"log.absence.{kind}") in text
 
@@ -276,7 +276,7 @@ def test_a_recorded_model_is_a_sighting_even_where_the_writer_is_not_named() -> 
     """A file from 0.8 or 0.9 carries the model and not the writer."""
     log = read(a_run(T1, target=config(resolved="snapshot-a"), version=""))
     (span,) = target_spans(log)
-    assert (span.answered, span.absence) == ("snapshot-a", None)
+    assert (span.reported, span.absence) == ("snapshot-a", None)
 
 
 def test_an_undated_run_stays_undated() -> None:
@@ -301,7 +301,7 @@ def test_the_types_have_no_field_a_measurement_could_occupy() -> None:
         "side",
         "provider",
         "sent",
-        "answered",
+        "reported",
         "absence",
         "first_seen",
         "last_seen",
@@ -424,7 +424,7 @@ def test_runs_json_carries_the_aggregate_and_nothing_a_verdict_merely_carried() 
     document = runs_json(
         [("k", run)], tenant="acme", suite="qa", baseline_key=None, listing=Listing(())
     )
-    (row,) = cast("list[dict[str, Any]]", document["runs"])
+    (row,) = cast("list[dict[str, Any]]", document["rows"])
     (aggregate,) = cast("list[dict[str, Any]]", row["aggregate"])
     assert set(aggregate) == {
         "assertion",
@@ -492,7 +492,7 @@ def test_the_dogfood_shape_reads_as_the_record_says() -> None:
     )
     log = read(*rows, baseline=("k-last", baseline))
 
-    assert [(s.sent, s.answered, s.absence, s.runs) for s in target_spans(log)] == [
+    assert [(s.sent, s.reported, s.absence, s.runs) for s in target_spans(log)] == [
         (("claude-haiku-4-5",), None, "not_recorded", 8),
         (("claude-sonnet-5",), None, "not_recorded", 4),
         # All four recorded answering models in the dogfood's store are the

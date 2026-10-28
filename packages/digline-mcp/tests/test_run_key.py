@@ -45,12 +45,12 @@ def test_explain_names_the_run_once_and_the_reference_once(promoted: Path) -> No
     #678)
 
     `run_key` is qualified by its role because a second run stands beside it:
-    with `scope: "comparison"`, `baseline_key`. A name is qualified by its role
+    with `reading: "comparison"`, `baseline_key`. A name is qualified by its role
     only where two things of the same kind can stand in one document."""
     newer = run_key(promoted)
     answered = call(promoted, "explain", suite=str(promoted / "suite_qa.py"))
 
-    assert answered["scope"] == "comparison"
+    assert answered["reading"] == "comparison"
     assert answered["run_key"] == newer
     assert answered["baseline_key"] == baseline_in(promoted)
     assert "key" not in answered

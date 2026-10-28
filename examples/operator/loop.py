@@ -261,7 +261,7 @@ def observe(config: Config, *, seed: int, root: Path) -> Observation:
             f"digline explain gave no verdict (exit {read.returncode}):\n{read.stderr}"
         )
     reading = cast("Mapping[str, Any]", json.loads(read.stdout))
-    if reading["scope"] != "comparison":
+    if reading["reading"] != "comparison":
         # Without a baseline `explain` reads the run alone, and alone it can
         # never exit 1: "worse" is a relation. A loop that went on would
         # report a clean week, every week, about a suite nobody had approved.

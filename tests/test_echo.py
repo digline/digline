@@ -87,7 +87,7 @@ def a_run(created_at: str, target: SystemConfig) -> tuple[str, Run]:
 def test_an_echo_is_literal_string_equality(answered: str, absence: str | None) -> None:
     found = sighting(config(resolved_model=answered), writer="0.13.0")
     assert found.absence == absence
-    assert (found.answered is None) is (absence is not None)
+    assert (found.reported is None) is (absence is not None)
 
 
 def test_behind_a_named_endpoint_the_same_values_read_as_withheld() -> None:
@@ -125,7 +125,7 @@ def test_an_echo_then_a_snapshot_is_first_seen_not_a_roll() -> None:
         suite="qa",
     )
     assert log.rolls == ()
-    assert [(s.absence, s.answered) for s in log.spans if s.side == "target"] == [
+    assert [(s.absence, s.reported) for s in log.spans if s.side == "target"] == [
         ("echoed", None),
         (None, "gpt-5.6-sol-2026-08-01"),
     ]

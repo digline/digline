@@ -540,7 +540,7 @@ def test_the_wire_states_its_scope_rather_than_leaving_it_to_be_inferred() -> No
         explain_json(facts(run, comparison), scope="comparison", exit_code=1),
         explain_json(facts(a_lone()), scope="run", exit_code=0),
     )
-    assert [payload["scope"] for payload in both] == ["comparison", "run"]
+    assert [payload["reading"] for payload in both] == ["comparison", "run"]
     assert all(payload["output_version"] == OUTPUT_VERSION for payload in both)
 
 

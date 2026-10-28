@@ -288,9 +288,9 @@ produces them, so nothing here replays this block.
     }
   ],
   "note": "",
-  "output_version": 4,
-  "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60",
-  "scope": "comparison"
+  "output_version": 5,
+  "reading": "comparison",
+  "run_key": "2026-10-21T07-41-16-853431-00-00-c9092e23876f6e60"
 }
 ```
 
@@ -301,7 +301,7 @@ run was read, and why that may not be the newest one the store remembers.
 `run_key` is the run that was read, and `baseline_key` the reference it was held
 against. Both come from the documents read, not from what you typed, so they
 name the run `latest` picked and confirm a key typed by hand. `baseline_key` is
-there only in the `comparison` scope: in the `run` scope no reference was read.
+there only where `reading` is `comparison`: where it is `run`, no reference was read.
 `compare --json` carries `run_key` beside its `baseline_key` for the same reason.
 
 Three shapes, and you discriminate on `about` first and then on `kind`: two of
@@ -328,7 +328,7 @@ from these two documents. `withheld` is always `false` here: nothing a rule is
 made of can be kept back, which is why this is the one part of the reading that
 is complete at a boundary.
 
-`scope` is `"comparison"` or `"run"` and is stated rather than left to be
+`reading` is `"comparison"` or `"run"` and is stated rather than left to be
 inferred: a run whose comparison found nothing and a run with no reference at
 all produce different readings, and the difference must not be something you
 deduce from an absence.

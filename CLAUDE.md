@@ -100,6 +100,9 @@ correct its structural mistakes and are not negotiable.
    recorded in every run and cross a boundary only under
    `Disclosure(artifacts=True)`: a prompt carries the end company's rules, so
    the prudent default holds here too. (ADR 0003)
+   *Renamed 2026-10-28, the paragraph kept as written (`OUTPUT_VERSION` 5).*
+   The flag is `Disclosure(artifact_text=True)`. It was renamed with its key
+   in the run document, and nothing the paragraph rules moved.
    *Narrowed 2026-10-05 (ADR 0042).* The flag is necessary and no longer
    sufficient. A declared file outside the perimeter is refused at run and never
    recorded; one under `.digline` or `.git` is recorded, and the command that

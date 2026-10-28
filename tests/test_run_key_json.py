@@ -60,7 +60,7 @@ def test_explain_names_both_documents_of_a_comparison(
     done = cli(root, "explain", "--suite", "suite_qa.py", "--run", "latest", "--json")
 
     payload = json.loads(done.stdout)
-    assert payload["scope"] == "comparison"
+    assert payload["reading"] == "comparison"
     assert (payload["run_key"], payload["baseline_key"]) == (newer, older)
 
 
@@ -71,6 +71,6 @@ def test_explain_without_a_reference_names_only_the_run(repo: Path) -> None:
     done = cli(repo, "explain", "--suite", "suite_qa.py", "--run", "latest", "--json")
 
     payload = json.loads(done.stdout)
-    assert payload["scope"] == "run"
+    assert payload["reading"] == "run"
     assert payload["run_key"] == key
     assert "baseline_key" not in payload

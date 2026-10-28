@@ -376,6 +376,12 @@ The reading is two value types, both frozen, both in `digline.report` beside
         first_after:   str                       # the first run that recorded `after`
         silent_between: int                      # runs in between that recorded nothing
 
+*Annotated 2026-10-28, the listing above kept as written:* `IdentitySpan`'s
+field `answered` is `reported` since the change that took `OUTPUT_VERSION` to
+5, and so is `Sighting`'s. It is the name the wire key took at 4 (#678), so the
+field and the key carry one verb. `Roll`'s `sent` is still `sent`; on the wire
+it is `asked` since 5.
+
 No `score`, no `status`, no `outcome`, no canary flag, no aggregate. This is
 ADR 0012 §4's move applied to a different hazard: there the type could not hold
 a reason, so it could not leak one; here it cannot hold a measurement, so no

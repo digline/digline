@@ -685,7 +685,9 @@ def test_no_disclosure_releases_a_base_url() -> None:
     run = a_run(
         target={"provider": "openai", "model": "gpt-5", "base_url": "gw.internal.acme"}
     )
-    kept = redact(run, Disclosure(artifacts=True, run_metadata=frozenset({"base_url"})))
+    kept = redact(
+        run, Disclosure(artifact_text=True, run_metadata=frozenset({"base_url"}))
+    )
     assert "base_url" not in kept.target_config.values
 
 

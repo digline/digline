@@ -138,11 +138,11 @@ def explain_json(
 ) -> dict[str, object]:
     """The whole reading, for a program.
 
-    `scope` says which of the two documents this is — `"comparison"` or
-    `"run"` — rather than leaving a consumer to infer it from which kinds
-    turned up. A run whose comparison found nothing and a run with no reference
-    at all produce different readings, and the difference must not be something
-    you deduce from an absence.
+    `reading` says which of the two documents this is — `"comparison"` or
+    `"run"`, handed in as `scope` — rather than leaving a consumer to infer it
+    from which kinds turned up. A run whose comparison found nothing and a run
+    with no reference at all produce different readings, and the difference
+    must not be something you deduce from an absence.
 
     `note` is what resolving the run stepped over, `Resolved.note`, as on
     `compare --json`. An added key. (#433)
@@ -156,7 +156,7 @@ def explain_json(
     spans = _reference_spans(baseline)
     payload: dict[str, object] = {
         "output_version": OUTPUT_VERSION,
-        "scope": scope,
+        "reading": scope,
         # The same number the process exits with, for the same reason it is on
         # `compare --json`: over MCP there is no process to exit, and the two
         # surfaces must not answer differently. (ADR 0011 §4)

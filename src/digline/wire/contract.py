@@ -303,6 +303,31 @@ __all__ = [
 #:    added after that tag and no release wrote them under 3: they ship first
 #:    under 4.
 #:
+#: 5: **a bump that renames five keys, each a name that carried two things.**
+#:    The name pass of 2026-10-27 found names that hold different concepts in
+#:    different shapes, and these five are the ones whose fix touches no stored
+#:    document (record of the name pass, *Le sei decisioni*):
+#:    - `log.roll.sent` is `asked`: the one model a roll was asked for, where
+#:      `sent` on a sighting and a span is a list;
+#:    - `disclosure.artifacts` is `artifact_text`: the flag, where `artifacts`
+#:      on a run is the map of the files; the Python parameter
+#:      `Disclosure(artifact_text=)` moved with it, never one half without the
+#:      other;
+#:    - `explain.scope` is `reading`: which of the two documents this reading
+#:      is, where `scope` on a delta, a check and a rule is case or run;
+#:    - `runs.runs` is `rows`: the listing's rows, where `runs` on `log` and its
+#:      spans is a count;
+#:    - `diff.runs` is `sides`: the two runs compared, `left` and `right`.
+#:    No alias carries an old name beside its new one, as at 4.
+#:
+#:    **`reported` stays** on `log --json`'s sightings and spans: it is the verb
+#:    ADR 0020 (amended) chose, because nothing attests the model a provider
+#:    names, and 4 put it on the wire. The Python field followed at 5 instead
+#:    (`Sighting.reported`, `IdentitySpan.reported`), which is not on the wire.
+#:
+#:    The bump folds `_ADDED` into `_BASE`: `unpriced` on `run`, added under 4
+#:    after 0.35.0, the release that wrote 4, ships first under 5.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -335,7 +360,7 @@ __all__ = [
 #: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
 #: a key, the record is an entry in `_ADDED` at the end of this module, and a
 #: test refuses the key until it is there. A paragraph here may still say why.
-OUTPUT_VERSION = 4
+OUTPUT_VERSION = 5
 
 EXIT_OK = 0
 EXIT_WORSE = 1
@@ -640,7 +665,7 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 4`, with
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 5`, with
 #: the issue or ADR that added it. Appended to, never edited, like `_ADDED`. The
 #: word added under 2, `projected` on `log.spread_absence`, is in `_BASE`'s
 #: vocabulary (#669). None was added under 3.
@@ -767,7 +792,8 @@ _DIFF: Mapping[str, _Key] = {
     "output_version": _INT,
     "tenant": _STR,
     "suite": _STR,
-    "runs": _k(_Obj("diff.runs")),
+    # `runs` until `OUTPUT_VERSION = 5`.
+    "sides": _k(_Obj("diff.sides")),
     "counts": _k(_Obj("diff.counts")),
     "systems_differ": _BOOL,
     "artifacts_differ": _BOOL,
@@ -785,11 +811,11 @@ _VERDICT: Mapping[str, _Key] = {
     "tolerance": _NUM,
 }
 
-#: The shape of every document under `OUTPUT_VERSION = 4`. Written on
-#: 2026-10-02 as version 2's base, folded at the bump to 3 (#669) and again at
-#: the bump to 4 (#678): every key and word added under 2 and under 3 is in it,
-#: each beside the provenance its entry in `_ADDED` or `_ADDED_WORDS` carried.
-#: **It does not move** under `OUTPUT_VERSION = 4`: an added key goes in
+#: The shape of every document under `OUTPUT_VERSION = 5`. Written on
+#: 2026-10-02 as version 2's base, folded at the bump to 3 (#669), at the bump
+#: to 4 (#678) and at the bump to 5: every key and word added under 2, 3 and 4
+#: is in it, each beside the provenance its entry in `_ADDED` or `_ADDED_WORDS`
+#: carried. **It does not move** under `OUTPUT_VERSION = 5`: an added key goes in
 #: `_ADDED`, and anything else here is a bump.
 _BASE: Mapping[str, Mapping[str, _Key]] = {
     # `compare --json`, and the MCP `compare` tool. (compare.py)
@@ -882,7 +908,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "checks": _k(_arr(_Obj("diff.check"))),
         "target_config_deltas": _k(_arr(_Obj("config_delta"))),
     },
-    "diff.runs": {"left": _k(_Obj("diff.run")), "right": _k(_Obj("diff.run"))},
+    "diff.sides": {"left": _k(_Obj("diff.run")), "right": _k(_Obj("diff.run"))},
     "diff.run": {
         "key": _STR,
         "label": _STR,
@@ -931,7 +957,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     # (explain.py)
     "explain": {
         "output_version": _INT,
-        "scope": _STR,
+        # `scope` until `OUTPUT_VERSION = 5`.
+        "reading": _STR,
         "exit_code": _INT,
         "facts": _k(_arr(_OneOf(("fact.check", "fact.setting", "fact.tally")))),
         # What resolving a run stepped over, `Resolved.note`, which until then only
@@ -1070,7 +1097,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     "log.roll": {
         "side": _STR,
         "provider": _STR,
-        "sent": _STR,
+        # `sent` until `OUTPUT_VERSION = 5`.
+        "asked": _STR,
         "before": _STR,
         "after": _STR,
         "last_before": _STR,
@@ -1167,6 +1195,13 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # the absence. A new number, so an added key and no bump. (#654)
         # Added under `OUTPUT_VERSION = 2`: #654.
         "errored_checks": _INT,
+        # Why a cost is not known, each sentence once: what `digline run` and
+        # `digline rejudge` print on stderr after the bill. Present on both
+        # commands' `--json`, and empty where there was none. Absent from MCP's
+        # `run` until its half is decided, so absent says *not looked*. In this
+        # envelope, never in the stored run document (ADR 0004 §8.3).
+        # Added under `OUTPUT_VERSION = 4`: ADR 0004 §8.0, item 2.
+        "unpriced": _k(_arr("string"), optional=True),
     },
     # The MCP `list_runs` tool. `list` prints no JSON. (run.py)
     "runs": {
@@ -1174,7 +1209,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "tenant": _STR,
         "suite": _STR,
         "baseline_key": _STR_OR_NULL,
-        "runs": _k(_arr(_Obj("runs.row"))),
+        # `runs` until `OUTPUT_VERSION = 5`.
+        "rows": _k(_arr(_Obj("runs.row"))),
         "note": _STR,
         "advice": _STRINGS,
         # Keyed by the schema version a skipped document declared.
@@ -1273,7 +1309,8 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     "disclosure": {
         "run_metadata": _STRINGS,
         "score_metadata": _STRINGS,
-        "artifacts": _BOOL,
+        # `artifacts` until `OUTPUT_VERSION = 5`.
+        "artifact_text": _BOOL,
     },
     "usage": {"target": _k(_Obj("usage.line")), "judge": _k(_Obj("usage.line"))},
     "usage.line": {
@@ -1298,21 +1335,12 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     },
 }
 
-#: Every key added under `OUTPUT_VERSION = 4` since its `_BASE` was pinned, one
+#: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
-#: that is a bump. The keys added under 2 and under 3 are in `_BASE`, each
-#: beside the provenance its entry carried (#669, #678).
-_ADDED: tuple[_AddedKey, ...] = (
-    # Why a cost is not known, each sentence once: what `digline run` and
-    # `digline rejudge` print on stderr after the bill. Present on both
-    # commands' `--json`, and empty where there was none. Absent from MCP's
-    # `run` until its half is decided, so absent says *not looked*. In this
-    # envelope, never in the stored run document (ADR 0004 §8.3).
-    _AddedKey(
-        "run", "unpriced", _k(_arr("string"), optional=True), "ADR 0004 §8.0, item 2"
-    ),
-)
+#: that is a bump. The keys added under 2, 3 and 4 are in `_BASE`, each beside
+#: the provenance its entry carried (#669, #678, and the bump to 5).
+_ADDED: tuple[_AddedKey, ...] = ()
 
 
 def _derive(
@@ -1382,6 +1410,6 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: both: a `_BASE` that moved under the same version is a rename, a removal or
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
-    4,
-    "c31be61cfcc0a8a2b2aadfde16f48fe63e12203ec16242e9aae87456219980fb",
+    5,
+    "9130e64e4593fce6b5ff9f96872474d10895a6bb3563b9ea303677a82fc3801e",
 )

@@ -96,7 +96,7 @@ class Disclosure:
     The default is the empty one, so code that redacts without knowing the
     suite's policy discloses *less*, never more.
 
-    `artifacts` follows that rule rather than making an exception of itself.
+    `artifact_text` follows that rule rather than making an exception of itself.
     The prompt is the software house's own file, which argues for letting it
     travel — but it is written *for* an end company and is where that company's
     rules end up, so no default can tell the two apart by looking. Opting in is
@@ -109,7 +109,7 @@ class Disclosure:
     #: `Disclosure` is a value and enforces nothing about where a file sits:
     #: the perimeter is checked in `host.artifacts.read_artifacts`, and
     #: `.digline` and `.git` in `core.run.barred_from_crossing`. (ADR 0042)
-    artifacts: bool = False
+    artifact_text: bool = False
 
 
 NOTHING_EXTRA = Disclosure()

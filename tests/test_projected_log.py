@@ -82,7 +82,7 @@ def test_a_projected_configuration_is_read_as_projected(
     projected = reference(values, projected=True)
     found = sighting(projected.target_config, writer=projected.digline_version)
     assert found.absence == "projected"
-    assert (found.provider, found.sent, found.answered) == ("", (), None)
+    assert (found.provider, found.sent, found.reported) == ("", (), None)
 
 
 @pytest.mark.parametrize(("values", "clear"), SHAPES)
@@ -93,9 +93,9 @@ def test_the_clear_reading_keeps_its_sighting(values: Values, clear: str) -> Non
     found = sighting(plain.target_config, writer=plain.digline_version)
     assert (found.provider, found.sent) == ("openai", ("gpt-5",))
     if clear == "answered":
-        assert (found.answered, found.absence) == ("gpt-5-2026", None)
+        assert (found.reported, found.absence) == ("gpt-5-2026", None)
     else:
-        assert (found.answered, found.absence) == (None, "withheld")
+        assert (found.reported, found.absence) == (None, "withheld")
 
 
 def test_the_two_rows_that_stay_true_on_a_projection_come_first() -> None:

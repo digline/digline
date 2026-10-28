@@ -121,7 +121,7 @@ def test_diff_carries_one_note_per_side(outrun: tuple[Path, str, str, str]) -> N
         root, "diff", suite=suite(root), run1=oldest, run2="latest"
     )
 
-    sides = answered["runs"]
+    sides = answered["sides"]
     assert sides["left"]["note"] == ""
     assert says_newer(sides["right"]["note"], newer=newer, older=older)
     assert answered == json.loads(done.stdout)

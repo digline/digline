@@ -8,6 +8,26 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`OUTPUT_VERSION` is 5: five keys are renamed, with no alias.** A consumer
+  that parses the old names breaks, so each one says the new name:
+  - `log --json`: each roll's `sent` is `asked`, the one model the roll was
+    asked for. A sighting's and a span's `sent` stay.
+  - a run document's `disclosure`: `artifacts` is `artifact_text`.
+  - `explain --json`: the top-level `scope` is `reading`, `comparison` or
+    `run`. Each fact's `scope` stays.
+  - the MCP tool `list_runs`: `runs` is `rows`.
+  - `diff --json`: `runs` is `sides`, holding `left` and `right`.
+
+  No document carries an old name beside its new one. `unpriced` (below) ships
+  first under 5.
+- **`Disclosure(artifacts=...)` is now `Disclosure(artifact_text=...)`, with no
+  alias.** A public name breaks: a suite that discloses its artifacts says
+  `Disclosure(artifact_text=True)`, and code that reads the flag reads
+  `.artifact_text`. The flag and its key in the document moved together.
+- **`Sighting.answered` and `IdentitySpan.answered` are now `reported`, with no
+  alias.** A public name breaks, for code that reads the reading through
+  `digline.report`. `log --json` already said `reported` since `OUTPUT_VERSION`
+  4; the field now says what the key says.
 - **`digline.core.Quoted` is now `Written`, with no alias.** A public name
   breaks: code that imports or builds it says `Written`, `Written.of(...)` and
   `Written.said(...)`.

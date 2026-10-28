@@ -169,17 +169,17 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.promoted_at": ("a", gate.form(_TIME, empty=True)),
         "$.rejudged_from": ("a", gate.form(_RUN_KEY, empty=True)),
         "$.digline_version": ("a", gate.form(_VERSION)),
-        "$.runs[].digline_version": ("a", gate.form(_VERSION)),
+        "$.rows[].digline_version": ("a", gate.form(_VERSION)),
         "$.key": ("a", runkey),
         "$.baseline_key": ("a", runkey),
         "$.run_key": ("a", runkey),
-        "$.runs[].key": ("a", runkey),
-        "$.runs.left.key": ("a", runkey),
-        "$.runs.right.key": ("a", runkey),
+        "$.rows[].key": ("a", runkey),
+        "$.sides.left.key": ("a", runkey),
+        "$.sides.right.key": ("a", runkey),
         "$.reference.key": ("a", runkey),
-        "$.runs[].created_at": ("a", time),
-        "$.runs.left.created_at": ("a", time),
-        "$.runs.right.created_at": ("a", time),
+        "$.rows[].created_at": ("a", time),
+        "$.sides.left.created_at": ("a", time),
+        "$.sides.right.created_at": ("a", time),
         "$.first": ("a", time),
         "$.last": ("a", time),
         "$.on_record_not_read[]": ("a", time),
@@ -187,18 +187,18 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.reference.promoted_at": ("a", time),
         "$.spans[].first_seen": ("a", time),
         "$.spans[].last_seen": ("a", time),
-        "$.runs.left.label": ("a", gate.label),
-        "$.runs.right.label": ("a", gate.label),
+        "$.sides.left.label": ("a", gate.label),
+        "$.sides.right.label": ("a", gate.label),
         "$.results[].verdicts[].assertion_id": ("a", digest),
         "$.aggregate[].assertion_id": ("a", digest),
-        "$.runs[].aggregate[].assertion_id": ("a", digest),
+        "$.rows[].aggregate[].assertion_id": ("a", digest),
         "$.shape[].assertion_id": ("a", digest),
         "$.facts[].assertion_id": ("a", digest),
         "$.facts[].shape.assertion_id": ("a", digest),
         # (a) digline's words
         "$.results[].verdicts[].status": ("a", gate.word()),
         "$.aggregate[].status": ("a", gate.word()),
-        "$.runs[].aggregate[].status": ("a", gate.word()),
+        "$.rows[].aggregate[].status": ("a", gate.word()),
         "$.deltas[].outcome": ("a", gate.word()),
         "$.deltas[].scope": ("a", gate.word()),
         "$.checks[].favours": ("a", gate.word()),
@@ -210,7 +210,7 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.facts[].noise_source": ("a", gate.word(empty=True)),
         "$.facts[].outcome": ("a", gate.word()),
         "$.facts[].scope": ("a", gate.word()),
-        "$.scope": ("a", gate.word()),
+        "$.reading": ("a", gate.word()),
         "$.spans[].side": ("a", gate.word()),
         "$.spans[].absence": ("a", gate.word()),
         "$.reference.target.absence": ("a", gate.word()),
@@ -226,17 +226,17 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.suite": ("b", gate.anything),
         "$.environment": ("b", gate.anything),
         "$.git_commit": ("b", gate.anything),
-        "$.runs[].environment": ("b", gate.anything),
-        "$.runs[].git_commit": ("b", gate.anything),
-        "$.runs.left.environment": ("b", gate.anything),
-        "$.runs.right.environment": ("b", gate.anything),
+        "$.rows[].environment": ("b", gate.anything),
+        "$.rows[].git_commit": ("b", gate.anything),
+        "$.sides.left.environment": ("b", gate.anything),
+        "$.sides.right.environment": ("b", gate.anything),
         "$.spans[].environments[]": ("b", gate.anything),
         # (c) tokens this table minted
         "$.results[].case_id": ("c", gate.token),
         "$.results[].verdicts[].assertion": ("c", gate.check),
         "$.results[].calibration.check": ("c", gate.token),
         "$.aggregate[].assertion": ("c", gate.check),
-        "$.runs[].aggregate[].assertion": ("c", gate.check),
+        "$.rows[].aggregate[].assertion": ("c", gate.check),
         "$.target_config.values{}": ("a|c", gate.config_key),
         "$.deltas[].assertion": ("c", gate.check),
         "$.deltas[].case_id": ("c", gate.case),
@@ -255,8 +255,8 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.note": ("p", gate.prose),
         "$.sentence": ("p", gate.prose),
         "$.notes[]": ("p", gate.prose),
-        "$.runs.left.note": ("p", gate.prose),
-        "$.runs.right.note": ("p", gate.prose),
+        "$.sides.left.note": ("p", gate.prose),
+        "$.sides.right.note": ("p", gate.prose),
         "!refusal": ("p", gate.prose),
         # A refusal's fields. `role` is digline's word for the document a
         # refusal could not read. (ADR 0054 §8; #742)
@@ -277,7 +277,7 @@ def labels_in(answers: dict[str, list[tuple[str, str]]]) -> frozenset[str]:
     for found in answers.values():
         at = dict(found)
         sides = [
-            f"$.runs.{side}.{field}"
+            f"$.sides.{side}.{field}"
             for side in ("left", "right")
             for field in ("created_at", "key")
         ]
@@ -493,10 +493,10 @@ _KEYS = (
 def _answer(left: str, right: str) -> list[tuple[str, str]]:
     """The strings of a `diff` answer about two runs, as the walk finds them."""
     return [
-        ("$.runs.left.created_at", left),
-        ("$.runs.left.key", _KEYS[0]),
-        ("$.runs.right.created_at", right),
-        ("$.runs.right.key", _KEYS[1]),
+        ("$.sides.left.created_at", left),
+        ("$.sides.left.key", _KEYS[0]),
+        ("$.sides.right.created_at", right),
+        ("$.sides.right.key", _KEYS[1]),
     ]
 
 
@@ -515,7 +515,7 @@ def test_a_label_is_held_to_what_run_labels_gives(left: str, right: str) -> None
     A list of forms written here accepted two of the three, and went red
     whenever the minute turned between the fixture's two runs."""
     labels = labels_in({"diff": _answer(left, right)})
-    check = strings(Gate(RecordingTable(), labels=labels))["$.runs.left.label"][1]
+    check = strings(Gate(RecordingTable(), labels=labels))["$.sides.left.label"][1]
     expected = diff_report.run_labels(
         left, right, left_key=_KEYS[0], right_key=_KEYS[1]
     )

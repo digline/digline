@@ -502,6 +502,7 @@ The rest of the boundary follows the records that already set it:
   it a `SettingFact` about a file carries the path and the outcome `unknown`,
   and **no digest** — a digest travelling beside a withheld prompt defeats the
   withholding it travelled beside.
+  *Annotated 2026-10-28, the text kept as written:* the flag is `Disclosure(artifact_text=True)` since the change that took `OUTPUT_VERSION` to 5, which renamed it with its key in the run document, `artifacts` in `disclosure`. The flag this record names by its old spelling is that one, and nothing it rules moved.
 - **Configuration values travel**, by ADR 0005 §2: a model id and a temperature
   are measurements of the system, and `SystemConfig.redacted()` has already kept
   back the one field that is topology.

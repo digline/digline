@@ -73,7 +73,7 @@ def diff_json(
     there is nothing here for a pipeline to gate on — which is the whole reason
     this command was not built as a flag on `compare`.
 
-    The structure is symmetric: `runs.left` and `runs.right`, `favours_left` and
+    The structure is symmetric: `sides.left` and `sides.right`, `favours_left` and
     `favours_right`, `left_exceeds` and `right_exceeds`. Swapping the two
     arguments exchanges every pair and changes nothing else.
 
@@ -85,7 +85,7 @@ def diff_json(
         "output_version": OUTPUT_VERSION,
         "tenant": difference.tenant,
         "suite": difference.suite,
-        "runs": {
+        "sides": {
             side: {
                 "key": key,
                 "label": label,

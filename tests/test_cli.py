@@ -1806,7 +1806,7 @@ def test_a_reading_emits_the_fact_list_and_no_prose(repo: Path) -> None:
     assert done.returncode == EXIT_OK, done.stderr
     payload = json.loads(done.stdout)
     assert payload["output_version"] == OUTPUT_VERSION
-    assert payload["scope"] == "run"
+    assert payload["reading"] == "run"
     assert payload["exit_code"] == EXIT_OK
     assert payload["facts"], "an empty list would make this test prove nothing"
     assert {fact["about"] for fact in payload["facts"]} <= {"check", "setting", "run"}

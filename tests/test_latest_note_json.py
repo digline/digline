@@ -64,7 +64,7 @@ def test_diff_json_puts_each_note_beside_its_key(
         root, "diff", "--suite", "suite_qa.py", "latest", oldest, "--json", "counts"
     )
 
-    runs = json.loads(done.stdout)["runs"]
+    runs = json.loads(done.stdout)["sides"]
     assert (runs["left"]["key"], runs["left"]["note"]) == (
         older,
         newer_than(older, newer),

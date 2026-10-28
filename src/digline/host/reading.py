@@ -179,7 +179,7 @@ def reported(
         complete_artifacts = comparison.artifact_deltas
         run = redact(run, suite.disclosure)
         comparison = compare(run, baseline)
-        if not suite.disclosure.artifacts:
+        if not suite.disclosure.artifact_text:
             comparison = replace(
                 comparison,
                 artifact_deltas=withhold_artifacts(

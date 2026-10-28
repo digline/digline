@@ -347,7 +347,7 @@ def _pair() -> tuple[Run, Run]:
 
 def _sighting(provider: str) -> Sighting:
     return Sighting(
-        provider=provider, sent=("m-1",), answered=None, absence="not_reported"
+        provider=provider, sent=("m-1",), reported=None, absence="not_reported"
     )
 
 
@@ -404,7 +404,7 @@ def _log() -> IdentityLog:
                 side="target",
                 provider="acme",
                 sent=("m-1",),
-                answered="m-1-0915",
+                reported="m-1-0915",
                 absence=None,
                 first_seen=CREATED,
                 last_seen=LATER,
@@ -591,7 +591,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             Disclosure(
                 score_metadata=frozenset({"judge_min"}),
                 run_metadata=frozenset({"model"}),
-                artifacts=True,
+                artifact_text=True,
             ),
         ),
     )
@@ -793,8 +793,8 @@ def test_an_integer_where_a_boolean_was_fails() -> None:
 
 def test_a_nested_key_fails_where_it_is() -> None:
     document = _runs()
-    rows = [dict(row) for row in document["runs"]]
+    rows = [dict(row) for row in document["rows"]]
     rows[0]["aggregate"] = [dict(rows[0]["aggregate"][0], status=1)]
-    document["runs"] = rows
+    document["rows"] = rows
     [error] = _errors(document, "runs")
-    assert error.startswith("doc.runs[0].aggregate[0].status: a integer")
+    assert error.startswith("doc.rows[0].aggregate[0].status: a integer")

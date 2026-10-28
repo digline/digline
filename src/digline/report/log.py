@@ -100,14 +100,14 @@ UNIDENTIFIED: frozenset[AbsenceKind] = frozenset(
 class Sighting:
     """What one run declares about one side: who was asked, and what answered.
 
-    `answered` is `None` exactly when `absence` is set. `sent` is a tuple because
+    `reported` is `None` exactly when `absence` is set. `sent` is a tuple because
     a judge side may name several instruments, and then there is no single
     model to name — it is empty only where nothing was declared.
     """
 
     provider: str
     sent: tuple[str, ...]
-    answered: str | None
+    reported: str | None
     absence: AbsenceKind | None
 
 
@@ -129,7 +129,7 @@ class IdentitySpan:
     side: Side
     provider: str
     sent: tuple[str, ...]
-    answered: str | None
+    reported: str | None
     absence: AbsenceKind | None
     first_seen: str
     last_seen: str
@@ -433,14 +433,14 @@ def _spans(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[IdentitySpa
         if last is not None and (
             last.provider,
             last.sent,
-            last.answered,
+            last.reported,
             last.absence,
-        ) == (found.provider, found.sent, found.answered, found.absence):
+        ) == (found.provider, found.sent, found.reported, found.absence):
             spans[-1] = IdentitySpan(
                 side=side,
                 provider=last.provider,
                 sent=last.sent,
-                answered=last.answered,
+                reported=last.reported,
                 absence=last.absence,
                 first_seen=last.first_seen,
                 last_seen=run.created_at,
@@ -453,7 +453,7 @@ def _spans(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[IdentitySpa
                 side=side,
                 provider=found.provider,
                 sent=found.sent,
-                answered=found.answered,
+                reported=found.reported,
                 absence=found.absence,
                 first_seen=run.created_at,
                 last_seen=run.created_at,
@@ -476,12 +476,12 @@ def _rolls(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[Roll]:
     last: dict[tuple[str, str], tuple[str, str, int]] = {}
     silent: list[int] = []
     for index, (run, found) in enumerate(seen):
-        if found.answered is None:
+        if found.reported is None:
             silent.append(index)
             continue
         identity = (found.provider, found.sent[0])
         previous = last.get(identity)
-        if previous is not None and previous[0] != found.answered:
+        if previous is not None and previous[0] != found.reported:
             before, last_before, at = previous
             rolls.append(
                 Roll(
@@ -489,13 +489,13 @@ def _rolls(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[Roll]:
                     provider=found.provider,
                     sent=found.sent[0],
                     before=before,
-                    after=found.answered,
+                    after=found.reported,
                     last_before=last_before,
                     first_after=run.created_at,
                     silent_between=sum(1 for i in silent if at < i < index),
                 )
             )
-        last[identity] = (found.answered, run.created_at, index)
+        last[identity] = (found.reported, run.created_at, index)
     return rolls
 
 
@@ -654,7 +654,7 @@ def _spread(
                     for run in counted
                     if sighting(
                         _config(run, "target"), writer=run.digline_version
-                    ).answered
+                    ).reported
                     is None
                 ),
                 commits=len({run.git_commit for run in counted if run.git_commit}),
@@ -815,7 +815,7 @@ def _who(provider: str, sent: tuple[str, ...]) -> str:
 def _sighting_text(found: Sighting, locale: Locale) -> str:
     who = _who(found.provider, found.sent)
     if found.absence is None:
-        return phrase(locale, "log.sighting.answered", who=who, answered=found.answered)
+        return phrase(locale, "log.sighting.answered", who=who, answered=found.reported)
     absence = phrase(locale, f"log.absence.{found.absence}")
     if not who:
         return absence
@@ -828,7 +828,7 @@ def _span_line(span: IdentitySpan, locale: Locale) -> str:
         if span.environments
         else ""
     )
-    found = Sighting(span.provider, span.sent, span.answered, span.absence)
+    found = Sighting(span.provider, span.sent, span.reported, span.absence)
     return phrase(
         locale,
         "log.span",
