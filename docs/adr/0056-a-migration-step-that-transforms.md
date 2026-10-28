@@ -1,8 +1,9 @@
 # ADR 0056 — A migration step that transforms
 
 - Status: proposed 2026-10-28. One of its clauses, §2, was ruled on 2026-10-28
-  by Alessandro Prandini before this record was written, and is stated here as
-  ruled. The rest is proposed with the record
+  by Alessandro Prandini: its rule before this record was written, and its
+  boundary after the record was first proposed. Both are stated here as ruled.
+  The rest is proposed with the record
 - Shipped: unreleased
 - Date: 2026-10-28
 - Opens: **nothing in the schema.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`,
@@ -110,11 +111,44 @@ and the file is left as it was (*Context*). And it agrees with ADR 0014 §1's
 second condition, *a field whose honest migrated value is a guess does not
 ride*.
 
-**What it does not reach.** Five of the seven steps that write a value write a
-fixed one: `false`, `[]` or `{}`. ADR 0014 §1 justifies each from the version
-alone, as a value the old document already means: a case written before
-suspension existed was not suspended. Those are passengers, not
-transformations, and this clause does not amend them.
+**Where a default is a declaration, and where it is a silence.** *Ruled* by
+Alessandro Prandini on 2026-10-28, after this record was first proposed; the
+reason above was wider than `_STEPS`, and this is its boundary:
+
+- **A default is admitted when the old version makes that value true by
+  construction.** Nothing was suspended because nothing could be; no artifact
+  was recorded because artifacts did not exist. It is not an invented value: it
+  is the only value that document could have had. It is the reason `free()`
+  reads a missing usage block as zero (ADR 0004 §8.9, ruled 2026-10-28): a
+  declaration is a value.
+- **A default is forbidden when it stands in for something nobody measured.**
+  There the absence is a silence, and writing a value turns it into data.
+- **For a new case, the criterion is one question: could the old version have
+  produced another value?** If it could, the step refuses. If it could not, the
+  default is a declaration.
+
+**The five steps that write a fixed value are the precedent, and the clause
+does not contradict them**, because each falls on the declarative side of that
+question:
+
+| step | writes | could the old version have produced another value? |
+|---|---|---|
+| `4 -> 5`, `_add_suspended` | `suspended: false` | no: no case could be set aside before the field existed |
+| `5 -> 6`, `_add_aggregate` | `aggregate: []` | no: a run written before aggregates existed declared none |
+| `6 -> 7`, `_add_artifacts` | `artifacts: {}` | no: artifacts did not exist |
+| `7 -> 8`, `_add_configs` | `target_config: {}`, `judge_config: {}` | no: the version recorded no configuration |
+| `17 -> 18`, `_add_schema_eighteen` | `projected: false` | no: nothing before 18 could write a projection |
+
+`7 -> 8` is the one that sits nearest the line, and it holds for a reason of
+its own. The target did have a configuration, and nobody measured it, so a `{}`
+read as *an empty configuration* would be the silence the second bullet
+forbids. It is not read that way: `_add_configs` says, and the comparison does,
+that `{}` from that version is *nothing is known*, so every field compares as
+`unknown` and never as a change. The default declares that nothing was
+recorded. It does not state what the configuration was.
+
+These are passengers, not transformations, and this clause does not amend
+them.
 
 ### 3. Totality
 
@@ -201,6 +235,10 @@ proposes:
   new one, and the step refuses every document with a calibration case. On the
   committed baselines that is one, `examples/prompt-first`'s. This is a
   consequence of §2, not a decision about the calibration case.
+- **What the refusal road costs, for whoever decides that shape.** If the
+  calibration case takes a shape the band does not determine, the only
+  committed baseline refused is `examples/prompt-first`'s, and it is promoted
+  again from a new run.
 - A transforming step costs a refused document a decision by a person, as a
   `_NON_ADDITIVE` row does: re-run and re-promote, or keep the version that
   reads it.
