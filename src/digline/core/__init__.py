@@ -136,7 +136,7 @@ from digline.core.reconcile import (
     unreconciled,
     unreconciled_verdict,
 )
-from digline.core.refused import Quoted, RefusedError
+from digline.core.refused import NameRef, Quoted, RefusedError, Said
 from digline.core.register import (
     DISPOSITIONS,
     Disposition,
@@ -284,8 +284,10 @@ __all__ = [
     "Assertion",
     "AssertionBase",
     "AssertionShapeError",
+    "NameRef",
     "Quoted",
     "RefusedError",
+    "Said",
     "ArtifactDelta",
     "ArtifactOutcome",
     "AssertionDelta",

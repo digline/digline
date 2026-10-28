@@ -18,9 +18,9 @@ from typing import Any, cast, get_args
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
-from digline.core.refused import Quoted, RefusedError
+from digline.core.refused import NameRef, Quoted, RefusedError, Said
 from digline.core.text import recordable
-from digline.core.tokens import is_token
+from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
     DRIVER_METADATA_KEYS,
     NO_USAGE,
@@ -1214,27 +1214,43 @@ class CaseResult:
             raise ValueError("CaseResult.case_id must not be empty")
         if self.canary and self.calibration is not None:
             raise ValueError(
-                f"case {self.case_id!r} is both a canary and a calibration case: "
-                "one asks the target and the other bypasses it"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.case_id),
+                    " is both a canary and a calibration case: "
+                    "one asks the target and the other bypasses it",
+                )
             )
         if self.suspended is None:
             return
         if not self.suspended:
             raise ValueError(
-                f"case {self.case_id!r} is suspended without a stated reason: "
-                "an empty reason is refused for the same cause as an empty "
-                "Verdict.reason — nobody can review it"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.case_id),
+                    " is suspended without a stated reason: "
+                    "an empty reason is refused for the same cause as an empty "
+                    "Verdict.reason — nobody can review it",
+                )
             )
         if self.verdicts:
             raise ValueError(
-                f"case {self.case_id!r} is suspended but carries verdicts: "
-                "suspension means it was not evaluated"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.case_id),
+                    " is suspended but carries verdicts: "
+                    "suspension means it was not evaluated",
+                )
             )
         if self.responses:
             raise ValueError(
-                f"case {self.case_id!r} is suspended but carries recorded "
-                "answers: a suspended case is never called, so there is nothing "
-                "it could have answered"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.case_id),
+                    " is suspended but carries recorded "
+                    "answers: a suspended case is never called, so there is nothing "
+                    "it could have answered",
+                )
             )
 
 
@@ -1791,12 +1807,19 @@ def _check_projected(run: Run) -> None:
             "other would have its reasons written back"
         )
 
-    def token(what: str, text: str) -> None:
+    def token(kind: TokenKind | None, what: str, text: str) -> None:
+        # `kind` is the one the projection mints this text under, so a front
+        # end that projects says the token, never the name (ADR 0054 §8). A
+        # target's identity has none: the projection refuses one.
         if not is_token(text):
             raise ValueError(
-                f"Run.projected is set but {what} is {text!r}, which is not a "
-                "token: a projected document names nothing, and this names "
-                "something"
+                Quoted.said(
+                    f"Run.projected is set but {what} is ",
+                    repr(text) if kind is None else NameRef(kind, text),
+                    ", which is not a "
+                    "token: a projected document names nothing, and this names "
+                    "something",
+                )
             )
 
     def formed(what: str, text: str, shape: str, ok: bool) -> None:
@@ -1851,15 +1874,22 @@ def _check_projected(run: Run) -> None:
             )
         )
         identity(v, where)
-        token(f"the name of a verdict {where}", family)
+        token("verdict_name", f"the name of a verdict {where}", family)
         if group is not None:
-            token(f"the group of a verdict {where}", group)
+            token("group", f"the group of a verdict {where}", group)
         for key, value in v.score.metadata.items():
             if isinstance(value, str):
+                # A builtin verdict's keys, and the driver's, are digline's
+                # words; any other verdict's are its author's, and a
+                # projection mints them. (ADR 0034 §17.3)
+                named = v.origin == "builtin" or key in DRIVER_METADATA_KEYS
                 raise ValueError(
-                    f"Run.projected is set but the verdict {v.assertion_id!r} "
-                    f"{where} carries the string metadata {key!r}: a string "
-                    "crosses a projection only as a token"
+                    Quoted.said(
+                        f"Run.projected is set but the verdict {v.assertion_id!r} "
+                        f"{where} carries the string metadata ",
+                        repr(key) if named else NameRef("metadata_key", key),
+                        ": a string crosses a projection only as a token",
+                    )
                 )
             if v.origin != "foreign" or key in DRIVER_METADATA_KEYS:
                 continue
@@ -1872,7 +1902,7 @@ def _check_projected(run: Run) -> None:
                 )
 
     for case in run.results:
-        token("a case id", case.case_id)
+        token("case_id", "a case id", case.case_id)
         where = f"of a case {case.case_id!r}"
         formed(
             f"the error kind {where}",
@@ -1883,7 +1913,11 @@ def _check_projected(run: Run) -> None:
         for v in case.verdicts:
             verdict(v, where, grouped=False)
         if case.calibration is not None:
-            token(f"the calibration check {where}", case.calibration.check)
+            token(
+                "calibration_check",
+                f"the calibration check {where}",
+                case.calibration.check,
+            )
             formed(
                 f"the calibration band's identity {where}",
                 case.calibration.assertion_id,
@@ -1906,30 +1940,47 @@ def _check_projected(run: Run) -> None:
             f"({', '.join(sorted(run.metadata))}): a projection keeps none"
         )
     for path, artifact in run.artifacts.items():
-        token("an artifact path", path)
+        token("artifact_path", "an artifact path", path)
         if not artifact.withheld:
             raise ValueError(
-                f"Run.projected is set but the artifact {path!r} is not "
-                "withheld: a projection keeps neither an artifact's text nor "
-                "its digest"
+                Quoted.said(
+                    "Run.projected is set but the artifact ",
+                    NameRef("artifact_path", path),
+                    " is not "
+                    "withheld: a projection keeps neither an artifact's text nor "
+                    "its digest",
+                )
             )
     for path in run.pinned:
-        token("a pinned path", path)
+        token("artifact_path", "a pinned path", path)
     for side, config in (("target", run.target_config), ("judge", run.judge_config)):
         # A key in clear is digline's word, recorded as one and known as one
         # today: either alone would let a recorded or a forged name through.
         # (ADR 0034 §17.2)
         clear = (config.named or frozenset()) & NAMED_CONFIG_KEYS
+        keys, values = _CONFIG_KINDS[side]
         for key, value in config.values.items():
             if key not in clear:
-                token(f"a {side}_config key", key)
+                token(keys, f"a {side}_config key", key)
             if isinstance(value, str):
-                token(f"a {side}_config value", value)
+                token(values, f"a {side}_config value", value)
         for key in config.withheld:
             if key not in clear:
-                token(f"a withheld {side}_config key", key)
+                token(keys, f"a withheld {side}_config key", key)
         for label in config.identities:
-            token(f"a {side} identity", label)
+            token(
+                "judge_identity" if side == "judge" else None,
+                f"a {side} identity",
+                label,
+            )
+
+
+#: The kinds a projection mints a configuration's keys and values under, by
+#: side. (ADR 0034 §5)
+_CONFIG_KINDS: Mapping[str, tuple[TokenKind, TokenKind]] = {
+    "target": ("target_config_key", "target_config_value"),
+    "judge": ("judge_config_key", "judge_config_value"),
+}
 
 
 def _check_band_binds(case: CaseResult) -> None:
@@ -1955,10 +2006,15 @@ def _check_band_binds(case: CaseResult) -> None:
     if any(v.assertion_id == band.assertion_id for v in case.verdicts):
         return
     raise ValueError(
-        f"case {case.case_id!r} carries the calibration band of "
-        f"{band.check!r}, and none of its verdicts is that check's "
-        f"(assertion_id {band.assertion_id!r}). A band that binds no verdict "
-        "checks nothing, and would read as a band that held"
+        Quoted.said(
+            "case ",
+            NameRef("case_id", case.case_id),
+            " carries the calibration band of ",
+            NameRef("calibration_check", band.check),
+            ", and none of its verdicts is that check's "
+            f"(assertion_id {band.assertion_id!r}). A band that binds no verdict "
+            "checks nothing, and would read as a band that held",
+        )
     )
 
 
@@ -2693,12 +2749,12 @@ def _artifact_to_dict(artifact: Artifact) -> dict[str, object]:
 
 
 def _artifact_from_dict(raw: Mapping[str, Any], path: str) -> Artifact:
-    where = f"artifact {path!r}"
+    where = ("artifact ", NameRef("artifact_path", path))
     text = raw.get("text")
     withheld = _optional_flag(raw, "withheld", where)
     sha = raw.get("sha")
     if sha is None and not withheld:
-        raise ValueError(f"{where} is missing 'sha'")
+        raise ValueError(_at_where(where, " is missing 'sha'"))
     return Artifact(
         sha="" if sha is None else str(sha),
         text=None if text is None else str(text),
@@ -3271,14 +3327,20 @@ def run_from_dict(raw: object) -> Run:
         # walks the exception *classes* digline defines, so a refusal raised
         # as a class digline did not define was invisible to it by
         # construction. Named here, at the one boundary every stored document
-        # crosses, rather than at each raise site. A typed refusal already
-        # carries its name and passes through unchanged.
+        # crosses, rather than at each raise site.
         #
         # Since ADR 0041 §4.2 a bare `ValueError` that reaches a front end
         # exits 70, so this conversion is also what keeps a document's fault a
         # refusal. The cost is the one §4.2 states: a bug in this reader is
         # converted the same way, and still reads as a refused document.
-        if type(exc) is not ValueError:
+        #
+        # **A typed refusal is converted too, since ADR 0054 §8.** It used to
+        # pass through unchanged, and so a band's refusal
+        # (`CalibrationBand.bounds`) and a verdict's
+        # (`UnidentifiedVerdictError`) reached a person without the document's
+        # path and an agent without `role`: the store adds both to a
+        # `DocumentRefusedError` only. Quoted, its names are still names.
+        if isinstance(exc, DocumentRefusedError):
             raise
         raise DocumentRefusedError(Quoted.of(exc, "", named=False)) from exc
 
@@ -3359,7 +3421,7 @@ def _optional_number(raw: Mapping[str, Any], field: str, where: str) -> float | 
     return None if field not in raw else declared_number(raw, field, where)
 
 
-def _optional_flag(raw: Mapping[str, Any], field: str, where: str) -> bool:
+def _optional_flag(raw: Mapping[str, Any], field: str, where: Said) -> bool:
     """`False` when the document does not carry `field`, which is how a flag
     written only when true says false; otherwise `declared_boolean`'s rule.
     (#379)"""
@@ -3383,7 +3445,7 @@ def _declared_samples(raw: Mapping[str, Any], where: str) -> tuple[float, ...]:
     )
 
 
-def declared_boolean(raw: Mapping[str, Any], field: str, where: str) -> bool:
+def declared_boolean(raw: Mapping[str, Any], field: str, where: Said) -> bool:
     """The flag a document declares under `field`, which it must carry.
 
     **Only a JSON boolean counts.** This replaced `bool()`, under which every
@@ -3398,13 +3460,23 @@ def declared_boolean(raw: Mapping[str, Any], field: str, where: str) -> bool:
     value, for `declared_integer`'s reason. Not in `__all__`.
     """
     if field not in raw:
-        raise DocumentRefusedError(f"{where} is missing the mandatory field {field!r}")
+        raise DocumentRefusedError(
+            _at_where(where, f" is missing the mandatory field {field!r}")
+        )
     value = raw[field]
     if not isinstance(value, bool):
         raise DocumentRefusedError(
-            f"{where}: {field!r} is a JSON {_json_type(value)}, not a boolean"
+            _at_where(
+                where, f": {field!r} is a JSON {_json_type(value)}, not a boolean"
+            )
         )
     return value
+
+
+def _at_where(where: Said, rest: str) -> Quoted:
+    """A sentence that begins with `where`, which may quote a name, as an
+    artifact's path does. (ADR 0054 §8)"""
+    return Quoted.said(*((where,) if isinstance(where, str) else where), rest)
 
 
 def declared_version(raw: Mapping[str, Any]) -> int:

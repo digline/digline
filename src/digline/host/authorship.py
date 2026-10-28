@@ -143,7 +143,11 @@ def written_by_digline(exc: BaseException) -> bool:
     if _the_system_s(exc) and system_said(exc) is None:
         return False
     quoted = quoted_in(exc)
-    return quoted is None or (not quoted.builtin and written_by_digline(quoted.cause))
+    # A sentence that quotes no exception is the refusal's own: its frame,
+    # read above, decides. (ADR 0054 §8)
+    if quoted is None or quoted.cause is None:
+        return True
+    return not quoted.builtin and written_by_digline(quoted.cause)
 
 
 def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Quoted | None:

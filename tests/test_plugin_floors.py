@@ -90,6 +90,10 @@ INTRODUCED: dict[str, str] = {
     # `core/__init__.py`), imported by digline-mcp under `--names project`.
     "Minter": "0.25.0",
     "project_served": "0.25.2",
+    # 0.25.0 — in `digline.core.__all__` from that tag and not in 0.24.0's.
+    # digline-mcp catches it where a table answers a name wrongly while a
+    # refusal is rendered for an agent. (ADR 0054 §8)
+    "ProjectionRefusedError": "0.25.0",
     # 0.34.0, the number the cut is expected to give the core release that
     # carries #523 — not yet a release. Whether git would commit a tenant's
     # run directory or its name table, and the sentence for each. digline-mcp

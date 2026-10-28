@@ -13,6 +13,8 @@ from collections.abc import Set as AbstractSet
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Literal, cast
 
+from digline.core.refused import NameRef, Quoted
+
 __all__ = [
     "ALL_KINDS",
     "CONVERSATION_ONLY",
@@ -656,9 +658,13 @@ class Verdict:
     def __post_init__(self) -> None:
         if not self.assertion_id:
             raise UnidentifiedVerdictError(
-                f"the verdict {self.score.name!r} carries no assertion_id: "
-                "compare() pairs on it, and one derived from the name would "
-                "pair verdicts that were never the same check (ADR 0001 §2)"
+                Quoted.said(
+                    "the verdict ",
+                    NameRef("verdict_name", self.score.name),
+                    " carries no assertion_id: "
+                    "compare() pairs on it, and one derived from the name would "
+                    "pair verdicts that were never the same check (ADR 0001 §2)",
+                )
             )
         if (refusal := floor_width_refusal(self.floor_standard_errors)) is not None:
             raise ValueError(refusal)

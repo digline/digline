@@ -19,6 +19,7 @@ import pytest
 
 from digline.core import (
     AssertionBase,
+    DocumentRefusedError,
     EvaluatorInputs,
     Score,
     UnidentifiedVerdictError,
@@ -54,15 +55,19 @@ def _emptied(document: str) -> str:
 
 
 def test_a_document_carrying_an_empty_identity_is_refused() -> None:
-    """Was: read, with the check's name as its identity."""
-    with pytest.raises(UnidentifiedVerdictError):
+    """Was: read, with the check's name as its identity. Refused as a document
+    since ADR 0054 §8, so the store's reader adds the path and the `role`;
+    the verdict's own refusal is what it quotes."""
+    with pytest.raises(DocumentRefusedError) as refused:
         run_from_json(_emptied(run_to_json(promoted())))
+    assert isinstance(refused.value.__cause__, UnidentifiedVerdictError)
 
 
 def test_a_projected_document_carrying_an_empty_identity_is_refused() -> None:
     """Was: read green, with a verdict name's token in `assertion_id`."""
-    with pytest.raises(UnidentifiedVerdictError):
+    with pytest.raises(DocumentRefusedError) as refused:
         run_from_json(_emptied(run_to_json(project(promoted(), Table()))))
+    assert isinstance(refused.value.__cause__, UnidentifiedVerdictError)
 
 
 @dataclass(frozen=True, slots=True)
