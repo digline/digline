@@ -2,7 +2,8 @@
 
 - Status: accepted 2026-10-27, by Alessandro Prandini, after its code landed
   and because it ships. Proposed 2026-10-26. Implemented 2026-10-27 for
-  digline-mcp 0.7.0, which is not released, **except §8 for the core's
+  digline-mcp 0.7.0, released on 2026-10-27 (the tag on `9b3cde9d`; it said
+  *which is not released* until 2026-10-28), **except §8 for the core's
   refusals**, which is **not complete**. Since 2026-10-28 it is held by the
   names gate's walk of the refusals, in `tests/test_names_gate.py`, and no
   longer by an `xfail`: of the refusals that gate drives, **none** names what
